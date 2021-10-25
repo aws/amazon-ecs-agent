@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"

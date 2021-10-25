@@ -17,9 +17,11 @@ import (
 	"fmt"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 )
@@ -41,11 +43,11 @@ func (cnferror ContainerNotFound) Error() string {
 // DockerContainerChangeEvent is a type for container change events
 type DockerContainerChangeEvent struct {
 	// Status represents the container's status in the event
-	Status apicontainerstatus.ContainerStatus
+	Status containerstatus.ContainerStatus
 	// DockerContainerMetadata is the metadata of the container in the event
 	DockerContainerMetadata
 	// Type is the event type received from docker events
-	Type apicontainer.DockerEventType
+	Type containerresource.DockerEventType
 }
 
 // DockerContainerMetadata is a type for metadata about Docker containers
@@ -55,7 +57,7 @@ type DockerContainerMetadata struct {
 	// ExitCode contains container's exit code if it has stopped
 	ExitCode *int
 	// PortBindings is the list of port binding information of the container
-	PortBindings []apicontainer.PortBinding
+	PortBindings []containerresource.PortBinding
 	// Error wraps various container transition errors and is set if engine
 	// is unable to perform any of the required container transitions
 	Error apierrors.NamedError
@@ -70,7 +72,7 @@ type DockerContainerMetadata struct {
 	// FinishedAt is the timestamp of container stop
 	FinishedAt time.Time
 	// Health contains the result of a container health check
-	Health apicontainer.HealthStatus
+	Health containerresource.HealthStatus
 	// NetworkMode denotes the network mode in which the container is started
 	NetworkMode string
 	// NetworksUnsafe denotes the Docker Network Settings in the container

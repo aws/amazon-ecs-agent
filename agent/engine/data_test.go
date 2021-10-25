@@ -20,8 +20,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -49,7 +50,7 @@ var (
 	testPulledContainer = &apicontainer.Container{
 		Name:              testContainerName + "-pulled",
 		TaskARNUnsafe:     testTaskARN,
-		KnownStatusUnsafe: apicontainerstatus.ContainerPulled,
+		KnownStatusUnsafe: containerstatus.ContainerPulled,
 	}
 	testDockerContainer = &apicontainer.DockerContainer{
 		DockerID:  testDockerID,
@@ -106,7 +107,7 @@ func TestLoadState(t *testing.T) {
 		dataClient: dataClient,
 	}
 	require.NoError(t, dataClient.SaveTask(testTaskWithPulledContainer))
-	testDockerContainer.Container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testDockerContainer.Container.SetKnownStatus(containerstatus.ContainerRunning)
 	require.NoError(t, dataClient.SaveDockerContainer(testDockerContainer))
 	require.NoError(t, dataClient.SaveDockerContainer(testPulledDockerContainer))
 	require.NoError(t, dataClient.SaveENIAttachment(testENIAttachment))
@@ -119,8 +120,8 @@ func TestLoadState(t *testing.T) {
 	assert.True(t, ok)
 	assert.Len(t, pulledContainers, 1)
 	// Also check that the container in the task has the updated status from container table.
-	assert.Equal(t, apicontainerstatus.ContainerRunning, task.Containers[0].GetKnownStatus())
-	assert.Equal(t, apicontainerstatus.ContainerPulled, task.Containers[1].GetKnownStatus())
+	assert.Equal(t, containerstatus.ContainerRunning, task.Containers[0].GetKnownStatus())
+	assert.Equal(t, containerstatus.ContainerPulled, task.Containers[1].GetKnownStatus())
 	_, ok = engine.state.ContainerByID(testDockerID)
 	assert.True(t, ok)
 	assert.Len(t, engine.state.AllImageStates(), 1)

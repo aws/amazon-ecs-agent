@@ -25,8 +25,9 @@ import (
 	"sync"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -388,10 +389,10 @@ func (cgroup *CgroupResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (cgroup *CgroupResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (cgroup *CgroupResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

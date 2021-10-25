@@ -20,7 +20,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
@@ -47,7 +48,7 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *containerresource.RegistryAuthenticationData) (types.AuthConfig, error) {
 	// Ignore 'tag', not used in auth determination
 	repository, _ := utils.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap

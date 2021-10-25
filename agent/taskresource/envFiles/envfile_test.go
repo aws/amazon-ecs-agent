@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
@@ -69,7 +69,7 @@ func setup(t *testing.T) (oswrapper.File, *mock_ioutilwrapper.MockIOUtil,
 	return mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, ctrl.Finish
 }
 
-func newMockEnvfileResource(envfileLocations []container.EnvironmentFile, mockCredentialsManager *mock_credentials.MockManager,
+func newMockEnvfileResource(envfileLocations []containerresource.EnvironmentFile, mockCredentialsManager *mock_credentials.MockManager,
 	mockS3ClientCreator *mock_factory.MockS3ClientCreator,
 	mockIOUtil *mock_ioutilwrapper.MockIOUtil) *EnvironmentFileResource {
 	return &EnvironmentFileResource{
@@ -85,8 +85,8 @@ func newMockEnvfileResource(envfileLocations []container.EnvironmentFile, mockCr
 	}
 }
 
-func sampleEnvironmentFile(value, envfileType string) container.EnvironmentFile {
-	return container.EnvironmentFile{
+func sampleEnvironmentFile(value, envfileType string) containerresource.EnvironmentFile {
+	return containerresource.EnvironmentFile{
 		Value: value,
 		Type:  envfileType,
 	}
@@ -95,7 +95,7 @@ func sampleEnvironmentFile(value, envfileType string) container.EnvironmentFile 
 func TestInitializeFileEnvResource(t *testing.T) {
 	_, _, mockCredentialsManager, _, _, done := setup(t)
 	defer done()
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -116,7 +116,7 @@ func TestInitializeFileEnvResource(t *testing.T) {
 func TestCreateWithEnvVarFile(t *testing.T) {
 	mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -153,7 +153,7 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 func TestCreateWithInvalidS3ARN(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
 	defer done()
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s", s3File), "s3"),
 	}
 
@@ -177,7 +177,7 @@ func TestCreateUnableToRetrieveDataFromS3(t *testing.T) {
 	mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -205,7 +205,7 @@ func TestCreateUnableToRetrieveDataFromS3(t *testing.T) {
 func TestCreateUnableToCreateTmpFile(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -233,7 +233,7 @@ func TestCreateRenameFileError(t *testing.T) {
 	mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -269,7 +269,7 @@ func TestEnvFileCleanupSuccess(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
 	defer done()
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -282,7 +282,7 @@ func TestEnvFileCleanupResourceDirRemoveFail(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
 	defer done()
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -306,7 +306,7 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	mockBufio := mock_bufio.NewMockBufio(ctrl)
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -349,7 +349,7 @@ func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {
 	mockBufio := mock_bufio.NewMockBufio(ctrl)
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -387,7 +387,7 @@ func TestReadEnvVarsInvalidFromEnvfiles(t *testing.T) {
 	mockBufio := mock_bufio.NewMockBufio(ctrl)
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
@@ -421,7 +421,7 @@ func TestReadEnvVarsUnableToReadEnvfile(t *testing.T) {
 	_, mockIOUtil, _, _, _, done := setup(t)
 	defer done()
 
-	envfiles := []container.EnvironmentFile{
+	envfiles := []containerresource.EnvironmentFile{
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 

@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -60,7 +60,7 @@ var secretKeyEast1 = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regi
 var secretKeyParams = fmt.Sprintf("%s%s%s", valueFromParams, secretCacheJoinChar, regionKeyWest)
 
 func TestCreateWithMultipleASMCall(t *testing.T) {
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 		secretKeyEast1: sampleSecret(secretName2, valueFrom1, region2),
 	}
@@ -107,7 +107,7 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 
 func TestCreateReturnMultipleErrors(t *testing.T) {
 
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 		secretKeyEast1: sampleSecret(secretName2, valueFrom1, region2),
 	}
@@ -148,7 +148,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 }
 
 func TestCreateReturnError(t *testing.T) {
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 	}
 
@@ -186,7 +186,7 @@ func TestCreateReturnError(t *testing.T) {
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 	}
 
@@ -249,7 +249,7 @@ func TestClearASMSecretValue(t *testing.T) {
 }
 
 func TestCreateWithASMParametersWrongFormat(t *testing.T) {
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyWest1: sampleSecret(secretName1, valueFromWrongFormat, region1),
 	}
 
@@ -282,7 +282,7 @@ func TestCreateWithASMParametersWrongFormat(t *testing.T) {
 }
 
 func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
-	requiredSecretData := map[string]apicontainer.Secret{
+	requiredSecretData := map[string]containerresource.Secret{
 		secretKeyParams: sampleSecret(secretName1, valueFromParams, region1),
 	}
 
@@ -321,8 +321,8 @@ func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
 	assert.Equal(t, secretValue, value)
 }
 
-func sampleSecret(secretName string, valueFrom string, region string) apicontainer.Secret {
-	return apicontainer.Secret{
+func sampleSecret(secretName string, valueFrom string, region string) containerresource.Secret {
+	return containerresource.Secret{
 		Name:      secretName,
 		ValueFrom: valueFrom,
 		Region:    region,

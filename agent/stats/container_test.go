@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
@@ -144,7 +145,7 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	mockContainer := &apicontainer.DockerContainer{
 		DockerID: dockerID,
 		Container: &apicontainer.Container{
-			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+			KnownStatusUnsafe: containerstatus.ContainerRunning,
 		},
 	}
 	gomock.InOrder(
@@ -186,7 +187,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	mockContainer := &apicontainer.DockerContainer{
 		DockerID: dockerID,
 		Container: &apicontainer.Container{
-			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+			KnownStatusUnsafe: containerstatus.ContainerStopped,
 		},
 	}
 	gomock.InOrder(

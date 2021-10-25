@@ -18,8 +18,9 @@ import (
 	"sync"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
@@ -54,7 +55,7 @@ type ASMAuthResource struct {
 	executionCredentialsID             string
 
 	// required for asm private registry auth
-	requiredASMResources []*apicontainer.ASMAuthData
+	requiredASMResources []*containerresource.ASMAuthData
 	dockerAuthData       map[string]types.AuthConfig
 	// asmClientCreator is a factory interface that creates new ASM clients. This is
 	// needed mostly for testing as we're creating an asm client per every item in
@@ -75,7 +76,7 @@ type ASMAuthResource struct {
 
 // NewASMAuthResource creates a new ASMAuthResource object
 func NewASMAuthResource(taskARN string,
-	asmRequirements []*apicontainer.ASMAuthData,
+	asmRequirements []*containerresource.ASMAuthData,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	asmClientCreator factory.ClientCreator) *ASMAuthResource {
@@ -263,7 +264,7 @@ func (auth *ASMAuthResource) Create() error {
 	return nil
 }
 
-func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer.ASMAuthData) error {
+func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *containerresource.ASMAuthData) error {
 	secretID := asmAuthData.CredentialsParameter
 	if _, ok := auth.GetASMDockerAuthConfig(secretID); ok {
 		// resource for this secretID already retrieved
@@ -294,7 +295,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 
 // GetRequiredASMResources returns the list of ASMAuthData that has to be
 // retrieved from AWS Secrets Manager
-func (auth *ASMAuthResource) GetRequiredASMResources() []*apicontainer.ASMAuthData {
+func (auth *ASMAuthResource) GetRequiredASMResources() []*containerresource.ASMAuthData {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -351,12 +352,12 @@ func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFie
 }
 
 type asmAuthResourceJSON struct {
-	TaskARN                string                      `json:"taskARN"`
-	CreatedAt              *time.Time                  `json:"createdAt,omitempty"`
-	DesiredStatus          *ASMAuthStatus              `json:"desiredStatus"`
-	KnownStatus            *ASMAuthStatus              `json:"knownStatus"`
-	RequiredASMResources   []*apicontainer.ASMAuthData `json:"asmResources"`
-	ExecutionCredentialsID string                      `json:"executionCredentialsID"`
+	TaskARN                string                           `json:"taskARN"`
+	CreatedAt              *time.Time                       `json:"createdAt,omitempty"`
+	DesiredStatus          *ASMAuthStatus                   `json:"desiredStatus"`
+	KnownStatus            *ASMAuthStatus                   `json:"knownStatus"`
+	RequiredASMResources   []*containerresource.ASMAuthData `json:"asmResources"`
+	ExecutionCredentialsID string                           `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serialises the ASMAuthResource struct to JSON
@@ -421,10 +422,10 @@ func (auth *ASMAuthResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (auth *ASMAuthResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (auth *ASMAuthResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (auth *ASMAuthResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (auth *ASMAuthResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

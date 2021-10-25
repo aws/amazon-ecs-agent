@@ -11,12 +11,12 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package container
+package containerresource
 
 import (
 	"strconv"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/docker/go-connections/nat"
 )
 

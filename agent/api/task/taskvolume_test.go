@@ -21,8 +21,10 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -253,7 +255,7 @@ func TestInitializeLocalDockerVolume(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -287,7 +289,7 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -407,7 +409,7 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -444,7 +446,7 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -490,7 +492,7 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -537,7 +539,7 @@ func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -575,7 +577,7 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -615,7 +617,7 @@ func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -649,7 +651,7 @@ func TestInitializeTaskVolume(t *testing.T) {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{

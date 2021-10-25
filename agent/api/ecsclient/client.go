@@ -20,9 +20,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -477,14 +478,14 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	}
 	status := change.Status
 
-	if status != apicontainerstatus.ContainerStopped && status != apicontainerstatus.ContainerRunning {
+	if status != containerstatus.ContainerStopped && status != containerstatus.ContainerRunning {
 		seelog.Warnf("Not submitting unsupported upstream container state %s for container %s in task %s",
 			status.String(), change.ContainerName, change.TaskArn)
 		return nil
 	}
 	stat := change.Status.String()
 	if stat == "DEAD" {
-		stat = apicontainerstatus.ContainerStopped.String()
+		stat = containerstatus.ContainerStopped.String()
 	}
 	statechange.Status = aws.String(stat)
 

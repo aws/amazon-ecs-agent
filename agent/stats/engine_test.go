@@ -23,8 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -289,10 +291,10 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
 		Container: &apicontainer.Container{
-			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+			KnownStatusUnsafe: containerstatus.ContainerRunning,
 			HealthCheckType:   "docker",
-			Health: apicontainer.HealthStatus{
-				Status: apicontainerstatus.ContainerHealthy,
+			Health: containerresource.HealthStatus{
+				Status: containerstatus.ContainerHealthy,
 				Since:  aws.Time(time.Now()),
 			},
 		},
@@ -333,10 +335,10 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
 		Container: &apicontainer.Container{
-			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+			KnownStatusUnsafe: containerstatus.ContainerStopped,
 			HealthCheckType:   "docker",
-			Health: apicontainer.HealthStatus{
-				Status: apicontainerstatus.ContainerHealthy,
+			Health: containerresource.HealthStatus{
+				Status: containerstatus.ContainerHealthy,
 				Since:  aws.Time(time.Now()),
 			},
 		},
@@ -537,9 +539,9 @@ func TestGetTaskHealthMetricsFirelensV2StoppedContainer(t *testing.T) {
 		DockerID: containerID,
 		Container: &apicontainer.Container{
 			Name:              "firelens_v2_container",
-			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+			KnownStatusUnsafe: containerstatus.ContainerStopped,
 			HealthCheckType:   "docker",
-			FirelensConfig: &apicontainer.FirelensConfig{
+			FirelensConfig: &containerresource.FirelensConfig{
 				Version: "v2",
 			},
 		},

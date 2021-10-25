@@ -18,8 +18,9 @@ package fsxwindowsfileserver
 import (
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -173,10 +174,10 @@ func (fv *FSxWindowsFileServerResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (fv *FSxWindowsFileServerResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (fv *FSxWindowsFileServerResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (fv *FSxWindowsFileServerResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (fv *FSxWindowsFileServerResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

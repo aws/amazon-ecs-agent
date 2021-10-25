@@ -18,9 +18,11 @@ package task
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -119,7 +121,7 @@ func getEFSTask() *Task {
 						ContainerPath: "/ecs",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{

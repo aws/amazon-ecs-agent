@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -50,7 +52,7 @@ func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
 
 func TestShouldContainerEventBeSent(t *testing.T) {
 	event := newSendableContainerEvent(api.ContainerStateChange{
-		Status: apicontainerstatus.ContainerStopped,
+		Status: containerstatus.ContainerStopped,
 	})
 	assert.Equal(t, true, event.containerShouldBeSent())
 	assert.Equal(t, false, event.taskShouldBeSent())
@@ -110,14 +112,14 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				Containers: []api.ContainerStateChange{
 					{
 						Container: &apicontainer.Container{
-							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
-							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+							SentStatusUnsafe:  containerstatus.ContainerRunning,
+							KnownStatusUnsafe: containerstatus.ContainerRunning,
 						},
 					},
 					{
 						Container: &apicontainer.Container{
-							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
-							KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+							SentStatusUnsafe:  containerstatus.ContainerRunning,
+							KnownStatusUnsafe: containerstatus.ContainerStopped,
 						},
 					},
 				},
@@ -135,8 +137,8 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				Containers: []api.ContainerStateChange{
 					{
 						Container: &apicontainer.Container{
-							SentStatusUnsafe:  apicontainerstatus.ContainerStatusNone,
-							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+							SentStatusUnsafe:  containerstatus.ContainerStatusNone,
+							KnownStatusUnsafe: containerstatus.ContainerRunning,
 						},
 					},
 				},
@@ -243,14 +245,14 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 				Containers: []api.ContainerStateChange{
 					{
 						Container: &apicontainer.Container{
-							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
-							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+							SentStatusUnsafe:  containerstatus.ContainerRunning,
+							KnownStatusUnsafe: containerstatus.ContainerRunning,
 						},
 					},
 					{
 						Container: &apicontainer.Container{
-							SentStatusUnsafe:  apicontainerstatus.ContainerStopped,
-							KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+							SentStatusUnsafe:  containerstatus.ContainerStopped,
+							KnownStatusUnsafe: containerstatus.ContainerStopped,
 						},
 					},
 				},
@@ -364,7 +366,7 @@ func TestSetTaskSentStatus(t *testing.T) {
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    apicontainerstatus.ContainerRunning,
+				Status:    containerstatus.ContainerRunning,
 				Container: testContainer,
 			},
 		},
@@ -382,7 +384,7 @@ func TestSetTaskSentStatus(t *testing.T) {
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    apicontainerstatus.ContainerStopped,
+				Status:    containerstatus.ContainerStopped,
 				Container: testContainer,
 			},
 		},
@@ -398,14 +400,14 @@ func TestSetTaskSentStatus(t *testing.T) {
 
 	setTaskChangeSent(taskStoppedStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), containerstatus.ContainerStopped)
 
 	updatedManagedAgent, _ := testContainer.GetManagedAgentByName("dummyAgent")
 	assert.Equal(t, apicontainerstatus.ManagedAgentStopped, updatedManagedAgent.SentStatus)
 
 	setTaskChangeSent(taskRunningStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), containerstatus.ContainerStopped)
 
 	updatedManagedAgent, _ = testContainer.GetManagedAgentByName("dummyAgent")
 	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, updatedManagedAgent.SentStatus)
@@ -418,7 +420,7 @@ func TestSetTaskSentStatus(t *testing.T) {
 	containers, err := dataClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
+	assert.Equal(t, containerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
 	updatedManagedAgent, _ = containers[0].Container.GetManagedAgentByName("dummyAgent")
 	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, updatedManagedAgent.SentStatus)
 }
@@ -433,23 +435,23 @@ func TestSetContainerSentStatus(t *testing.T) {
 	}
 
 	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    apicontainerstatus.ContainerRunning,
+		Status:    containerstatus.ContainerRunning,
 		Container: testContainer,
 	})
 	containerStoppedStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    apicontainerstatus.ContainerStopped,
+		Status:    containerstatus.ContainerStopped,
 		Container: testContainer,
 	})
 
 	setContainerChangeSent(containerStoppedStateChange, dataClient)
-	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), containerstatus.ContainerStopped)
 	setContainerChangeSent(containerRunningStateChange, dataClient)
-	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), containerstatus.ContainerStopped)
 
 	containers, err := dataClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
+	assert.Equal(t, containerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
 }
 
 func TestSetAttachmentSentStatus(t *testing.T) {

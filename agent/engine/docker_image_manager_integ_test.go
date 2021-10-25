@@ -26,8 +26,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -564,7 +565,7 @@ func createImageCleanupHappyTestTask(taskName string) *apitask.Task {
 				Name:                "test1",
 				Image:               test1Image1Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},
@@ -572,7 +573,7 @@ func createImageCleanupHappyTestTask(taskName string) *apitask.Task {
 				Name:                "test2",
 				Image:               test1Image2Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},
@@ -580,7 +581,7 @@ func createImageCleanupHappyTestTask(taskName string) *apitask.Task {
 				Name:                "test3",
 				Image:               test1Image3Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},
@@ -599,7 +600,7 @@ func createImageCleanupThresholdTestTask(taskName string) *apitask.Task {
 				Name:                "test1",
 				Image:               test2Image1Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},
@@ -607,7 +608,7 @@ func createImageCleanupThresholdTestTask(taskName string) *apitask.Task {
 				Name:                "test2",
 				Image:               test2Image2Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},
@@ -615,7 +616,7 @@ func createImageCleanupThresholdTestTask(taskName string) *apitask.Task {
 				Name:                "test3",
 				Image:               test2Image3Name,
 				Essential:           false,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
 				CPU:                 512,
 				Memory:              256,
 			},

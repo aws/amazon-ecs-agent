@@ -24,12 +24,12 @@ import (
 	reflect "reflect"
 	time "time"
 
-	container "github.com/aws/amazon-ecs-agent/agent/api/container"
-	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	containerresource "github.com/aws/amazon-ecs-agent/agent/containerresource"
+	containerstatus "github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	types "github.com/docker/docker/api/types"
-	container0 "github.com/docker/docker/api/types/container"
+	container "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -88,7 +88,7 @@ func (mr *MockDockerClientMockRecorder) ContainerEvents(arg0 interface{}) *gomoc
 }
 
 // CreateContainer mocks base method
-func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *container0.Config, arg2 *container0.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
@@ -131,10 +131,10 @@ func (mr *MockDockerClientMockRecorder) CreateVolume(arg0, arg1, arg2, arg3, arg
 }
 
 // DescribeContainer mocks base method
-func (m *MockDockerClient) DescribeContainer(arg0 context.Context, arg1 string) (status.ContainerStatus, dockerapi.DockerContainerMetadata) {
+func (m *MockDockerClient) DescribeContainer(arg0 context.Context, arg1 string) (containerstatus.ContainerStatus, dockerapi.DockerContainerMetadata) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeContainer", arg0, arg1)
-	ret0, _ := ret[0].(status.ContainerStatus)
+	ret0, _ := ret[0].(containerstatus.ContainerStatus)
 	ret1, _ := ret[1].(dockerapi.DockerContainerMetadata)
 	return ret0, ret1
 }
@@ -305,7 +305,7 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) 
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 context.Context, arg1 string, arg2 *container.RegistryAuthenticationData, arg3 time.Duration) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) PullImage(arg0 context.Context, arg1 string, arg2 *containerresource.RegistryAuthenticationData, arg3 time.Duration) dockerapi.DockerContainerMetadata {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PullImage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
@@ -446,14 +446,14 @@ func (mr *MockDockerClientMockRecorder) SystemPing(arg0, arg1 interface{}) *gomo
 }
 
 // TopContainer mocks base method
-func (m *MockDockerClient) TopContainer(arg0 context.Context, arg1 string, arg2 time.Duration, arg3 ...string) (*container0.ContainerTopOKBody, error) {
+func (m *MockDockerClient) TopContainer(arg0 context.Context, arg1 string, arg2 time.Duration, arg3 ...string) (*container.ContainerTopOKBody, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "TopContainer", varargs...)
-	ret0, _ := ret[0].(*container0.ContainerTopOKBody)
+	ret0, _ := ret[0].(*container.ContainerTopOKBody)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

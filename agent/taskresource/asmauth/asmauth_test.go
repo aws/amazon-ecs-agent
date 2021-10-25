@@ -20,7 +20,8 @@ import (
 	"testing"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
@@ -47,7 +48,7 @@ const (
 
 var (
 	asmAuthDataVal       string
-	requiredASMResources []*apicontainer.ASMAuthData
+	requiredASMResources []*containerresource.ASMAuthData
 )
 
 func init() {
@@ -56,7 +57,7 @@ func init() {
 		Password: aws.String(password),
 	})
 	asmAuthDataVal = string(asmAuthDataBytes)
-	requiredASMResources = []*apicontainer.ASMAuthData{
+	requiredASMResources = []*containerresource.ASMAuthData{
 		{
 			CredentialsParameter: secretID,
 			Region:               region,

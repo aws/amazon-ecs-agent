@@ -15,8 +15,8 @@ package engine
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -74,7 +74,7 @@ func (engine *DockerTaskEngine) loadContainers() error {
 			return errors.Errorf("did not find the task of container %s: %s", container.Container.Name,
 				container.Container.GetTaskARN())
 		}
-		if container.Container.GetKnownStatus() == apicontainerstatus.ContainerPulled {
+		if container.Container.GetKnownStatus() == containerstatus.ContainerPulled {
 			engine.state.AddPulledContainer(container, task)
 		} else {
 			engine.state.AddContainer(container, task)

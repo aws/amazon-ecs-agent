@@ -26,9 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -160,17 +161,17 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ := client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	assert.Equal(t, containerstatus.ContainerCreated, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	assert.Equal(t, containerstatus.ContainerRunning, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	assert.Equal(t, containerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -185,7 +186,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
 	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	assert.Equal(t, containerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -369,8 +370,8 @@ func TestEngineSynchronize(t *testing.T) {
 	// Task and Container restored from state file
 	containerSaved := &apicontainer.Container{
 		Name:                containerBeforeSync.Container.Name,
-		SentStatusUnsafe:    apicontainerstatus.ContainerRunning,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		SentStatusUnsafe:    containerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
 	}
 	task := &apitask.Task{
 		Arn: taskArn,

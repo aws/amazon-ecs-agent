@@ -24,11 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
@@ -83,7 +84,7 @@ type FirelensResource struct {
 	taskDefinition         string
 	ec2InstanceID          string
 	resourceDir            string
-	firelensConfig         *apicontainer.FirelensConfig
+	firelensConfig         *containerresource.FirelensConfig
 	region                 string
 	ecsMetadataEnabled     bool
 	containerToLogOptions  map[string]map[string]string
@@ -108,7 +109,7 @@ type FirelensResource struct {
 
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, region, networkMode string,
-	firelensConfig *apicontainer.FirelensConfig, containerToLogOptions map[string]map[string]string,
+	firelensConfig *containerresource.FirelensConfig, containerToLogOptions map[string]map[string]string,
 	credentialsManager credentials.Manager, executionCredentialsID string) (*FirelensResource, error) {
 
 	fields := strings.Split(taskARN, "/")
@@ -607,10 +608,10 @@ func (firelens *FirelensResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (firelens *FirelensResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (firelens *FirelensResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

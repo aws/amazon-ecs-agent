@@ -17,8 +17,9 @@ import (
 	"encoding/json"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
@@ -68,9 +69,9 @@ type TaskResource interface {
 	// DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
 	DependOnTaskNetwork() bool
 	// GetContainerDependencies returns dependent containers for a status
-	GetContainerDependencies(resourcestatus.ResourceStatus) []apicontainer.ContainerDependency
+	GetContainerDependencies(resourcestatus.ResourceStatus) []containerresource.ContainerDependency
 	// BuildContainerDependency adds a new dependency container and its satisfied status
-	BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 		dependent resourcestatus.ResourceStatus)
 	// Initialize will initialze the resource fields of the resource
 	Initialize(res *ResourceFields,
@@ -89,5 +90,5 @@ type TransitionDependenciesMap map[resourcestatus.ResourceStatus]TransitionDepen
 type TransitionDependencySet struct {
 	// ContainerDependencies is the set of containers on which a transition is
 	// dependent.
-	ContainerDependencies []apicontainer.ContainerDependency `json:"ContainerDependencies"`
+	ContainerDependencies []containerresource.ContainerDependency `json:"ContainerDependencies"`
 }

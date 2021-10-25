@@ -30,12 +30,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -73,8 +75,8 @@ var (
 //
 // The getValidPortBinding function and the ECS_EXCLUDE_IPV6_PORTBINDING environment variable should be removed once
 // the IPv6 issue is resolved by Docker and is fully supported by ECS.
-func getValidPortBinding(portBindings []apicontainer.PortBinding) []apicontainer.PortBinding {
-	validPortBindings := []apicontainer.PortBinding{}
+func getValidPortBinding(portBindings []containerresource.PortBinding) []containerresource.PortBinding {
+	validPortBindings := []containerresource.PortBinding{}
 	for _, binding := range portBindings {
 		if binding.BindIP == "::" {
 			seelog.Debugf("Exclude IPv6 port binding %v", binding)
@@ -119,36 +121,36 @@ func createNamespaceSharingTask(arn, pidMode, ipcMode, testImage string, theComm
 			&apicontainer.Container{
 				Name:                      "container0",
 				Image:                     testImage,
-				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe:       containerstatus.ContainerRunning,
 				CPU:                       100,
 				Memory:                    80,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			&apicontainer.Container{
 				Name:                      "container1",
 				Image:                     testBusyboxImage,
 				Command:                   theCommand,
-				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe:       containerstatus.ContainerRunning,
 				CPU:                       100,
 				Memory:                    80,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			&apicontainer.Container{
 				Name:                      "container2",
 				Image:                     testBusyboxImage,
 				Command:                   theCommand,
-				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe:       containerstatus.ContainerRunning,
 				CPU:                       100,
 				Memory:                    80,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}
 
 	// Setting a container dependency so the executable can be started or resource can be created
 	// before read is attempted by other containers
-	testTask.Containers[1].BuildContainerDependency(testTask.Containers[0].Name, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated)
-	testTask.Containers[2].BuildContainerDependency(testTask.Containers[0].Name, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated)
+	testTask.Containers[1].BuildContainerDependency(testTask.Containers[0].Name, containerstatus.ContainerRunning, containerstatus.ContainerCreated)
+	testTask.Containers[2].BuildContainerDependency(testTask.Containers[0].Name, containerstatus.ContainerRunning, containerstatus.ContainerCreated)
 	return testTask
 }
 
@@ -186,7 +188,7 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	}
 
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{
 		{
 			SourceVolume:  volume,
@@ -275,7 +277,7 @@ func TestPortForward(t *testing.T) {
 	testTask = createTestTask(testArn)
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port2), "-serve", serverContent}
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port2, HostPort: port2}}
+	testTask.Containers[0].Ports = []containerresource.PortBinding{{ContainerPort: port2, HostPort: port2}}
 
 	taskEngine.AddTask(testTask)
 
@@ -330,12 +332,12 @@ func TestMultiplePortForwards(t *testing.T) {
 	port1 := getUnassignedPort()
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "1"}
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port1}}
+	testTask.Containers[0].Ports = []containerresource.PortBinding{{ContainerPort: port1, HostPort: port1}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "2"}
-	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port2}}
+	testTask.Containers[1].Ports = []containerresource.PortBinding{{ContainerPort: port1, HostPort: port2}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -385,12 +387,12 @@ func TestDynamicPortForward(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port}}
+	testTask.Containers[0].Ports = []containerresource.PortBinding{{ContainerPort: port}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
+	require.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 	// See comments on the getValidPortBinding() function for why ports need to be filtered.
@@ -440,12 +442,12 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port}, {ContainerPort: port, HostPort: 0}}
+	testTask.Containers[0].Ports = []containerresource.PortBinding{{ContainerPort: port}, {ContainerPort: port, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
+	require.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 	// See comments on the getValidPortBinding() function for why ports need to be filtered.
@@ -518,7 +520,7 @@ func TestLinking(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", port), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: port, HostPort: port}}
+	testTask.Containers[1].Ports = []containerresource.PortBinding{{ContainerPort: port, HostPort: port}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -644,7 +646,7 @@ func TestInitOOMEvent(t *testing.T) {
 	verifyTaskRunningStateChange(t, taskEngine)
 
 	event := <-stateChangeEvents
-	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
+	require.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
@@ -958,7 +960,7 @@ func TestFluentdTag(t *testing.T) {
 	testTaskFleuntdDriver.Containers[0].Image = testFluentdImage
 	testTaskFleuntdDriver.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/fluentd/log",
 		SourceVolume: "logs"}}
-	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
+	testTaskFleuntdDriver.Containers[0].Ports = []containerresource.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
 	go taskEngine.AddTask(testTaskFleuntdDriver)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)

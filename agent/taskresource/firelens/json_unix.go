@@ -19,9 +19,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/pkg/errors"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
@@ -31,7 +32,7 @@ type firelensResourceJSON struct {
 	TaskDefinition         string
 	EC2InstanceID          string
 	ResourceDir            string
-	FirelensConfig         *container.FirelensConfig
+	FirelensConfig         *containerresource.FirelensConfig
 	Region                 string
 	ECSMetadataEnabled     bool
 	ContainersToLogOptions map[string]map[string]string

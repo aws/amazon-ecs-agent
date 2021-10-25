@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/docker/docker/api/types"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -154,7 +156,7 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 
 // check whether image pull from ECR
 func (imageManager *dockerImageManager) isImagePullFromECR(container *apicontainer.Container) bool {
-	return container.RegistryAuthentication != nil && container.RegistryAuthentication.ECRAuthData != nil && container.RegistryAuthentication.Type == apicontainer.AuthTypeECR
+	return container.RegistryAuthentication != nil && container.RegistryAuthentication.ECRAuthData != nil && container.RegistryAuthentication.Type == containerresource.AuthTypeECR
 }
 
 // The helper function to fetch the RepoImageDigest when inspect the image

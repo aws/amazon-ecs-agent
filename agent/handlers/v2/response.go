@@ -22,6 +22,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
@@ -53,27 +54,27 @@ type TaskResponse struct {
 // ContainerResponse defines the schema for the container response
 // JSON object
 type ContainerResponse struct {
-	ID            string                      `json:"DockerId"`
-	Name          string                      `json:"Name"`
-	DockerName    string                      `json:"DockerName"`
-	Image         string                      `json:"Image"`
-	ImageID       string                      `json:"ImageID"`
-	Ports         []v1.PortResponse           `json:"Ports,omitempty"`
-	Labels        map[string]string           `json:"Labels,omitempty"`
-	DesiredStatus string                      `json:"DesiredStatus"`
-	KnownStatus   string                      `json:"KnownStatus"`
-	ExitCode      *int                        `json:"ExitCode,omitempty"`
-	Limits        LimitsResponse              `json:"Limits"`
-	CreatedAt     *time.Time                  `json:"CreatedAt,omitempty"`
-	StartedAt     *time.Time                  `json:"StartedAt,omitempty"`
-	FinishedAt    *time.Time                  `json:"FinishedAt,omitempty"`
-	Type          string                      `json:"Type"`
-	Networks      []containermetadata.Network `json:"Networks,omitempty"`
-	Health        *apicontainer.HealthStatus  `json:"Health,omitempty"`
-	Volumes       []v1.VolumeResponse         `json:"Volumes,omitempty"`
-	LogDriver     string                      `json:"LogDriver,omitempty"`
-	LogOptions    map[string]string           `json:"LogOptions,omitempty"`
-	ContainerARN  string                      `json:"ContainerARN,omitempty"`
+	ID            string                          `json:"DockerId"`
+	Name          string                          `json:"Name"`
+	DockerName    string                          `json:"DockerName"`
+	Image         string                          `json:"Image"`
+	ImageID       string                          `json:"ImageID"`
+	Ports         []v1.PortResponse               `json:"Ports,omitempty"`
+	Labels        map[string]string               `json:"Labels,omitempty"`
+	DesiredStatus string                          `json:"DesiredStatus"`
+	KnownStatus   string                          `json:"KnownStatus"`
+	ExitCode      *int                            `json:"ExitCode,omitempty"`
+	Limits        LimitsResponse                  `json:"Limits"`
+	CreatedAt     *time.Time                      `json:"CreatedAt,omitempty"`
+	StartedAt     *time.Time                      `json:"StartedAt,omitempty"`
+	FinishedAt    *time.Time                      `json:"FinishedAt,omitempty"`
+	Type          string                          `json:"Type"`
+	Networks      []containermetadata.Network     `json:"Networks,omitempty"`
+	Health        *containerresource.HealthStatus `json:"Health,omitempty"`
+	Volumes       []v1.VolumeResponse             `json:"Volumes,omitempty"`
+	LogDriver     string                          `json:"LogDriver,omitempty"`
+	LogOptions    map[string]string               `json:"LogOptions,omitempty"`
+	ContainerARN  string                          `json:"ContainerARN,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response

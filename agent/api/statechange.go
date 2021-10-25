@@ -18,6 +18,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -39,7 +43,7 @@ type ContainerStateChange struct {
 	// ContainerName is the name of the container
 	ContainerName string
 	// Status is the status to send
-	Status apicontainerstatus.ContainerStatus
+	Status containerstatus.ContainerStatus
 	// ImageDigest is the sha-256 digest of the container image as pulled from the repository
 	ImageDigest string
 	// Reason may contain details of why the container stopped
@@ -48,7 +52,7 @@ type ContainerStateChange struct {
 	ExitCode *int
 	// PortBindings are the details of the host ports picked for the specified
 	// container ports
-	PortBindings []apicontainer.PortBinding
+	PortBindings []containerresource.PortBinding
 	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
 	// storing what status was sent.  This is used to ensure the same event is handled only once.
 	Container *apicontainer.Container

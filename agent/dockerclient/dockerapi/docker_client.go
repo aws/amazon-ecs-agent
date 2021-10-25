@@ -28,9 +28,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -119,7 +120,7 @@ type DockerClient interface {
 	ContainerEvents(context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
-	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
+	PullImage(context.Context, string, *containerresource.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
 
 	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
@@ -135,7 +136,7 @@ type DockerClient interface {
 
 	// DescribeContainer returns status information about the specified container. A context should be provided
 	// for the request
-	DescribeContainer(context.Context, string) (apicontainerstatus.ContainerStatus, DockerContainerMetadata)
+	DescribeContainer(context.Context, string) (containerstatus.ContainerStatus, DockerContainerMetadata)
 
 	// RemoveContainer removes a container (typically the rootfs, logs, and associated metadata) identified by the name.
 	// A timeout value and a context should be provided for the request.
@@ -328,7 +329,7 @@ func (dg *dockerGoClient) time() ttime.Time {
 }
 
 func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
-	authData *apicontainer.RegistryAuthenticationData, timeout time.Duration) DockerContainerMetadata {
+	authData *containerresource.RegistryAuthenticationData, timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
@@ -374,7 +375,7 @@ func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
 }
 
 func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
-	authData *apicontainer.RegistryAuthenticationData) apierrors.NamedError {
+	authData *containerresource.RegistryAuthenticationData) apierrors.NamedError {
 	seelog.Debugf("DockerGoClient: pulling image: %s", image)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
@@ -512,14 +513,14 @@ func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error
 	return &imageData, err
 }
 
-func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+func (dg *dockerGoClient) getAuthdata(image string, authData *containerresource.RegistryAuthenticationData) (types.AuthConfig, error) {
 
 	if authData == nil {
 		return dg.auth.GetAuthconfig(image, nil)
 	}
 
 	switch authData.Type {
-	case apicontainer.AuthTypeECR:
+	case containerresource.AuthTypeECR:
 		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
 		authConfig, err := provider.GetAuthconfig(image, authData)
 		if err != nil {
@@ -527,7 +528,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 		}
 		return authConfig, nil
 
-	case apicontainer.AuthTypeASM:
+	case containerresource.AuthTypeASM:
 		return authData.ASMAuthData.GetDockerAuthConfig(), nil
 
 	default:
@@ -622,28 +623,28 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 }
 
 // DockerStateToState converts the container status from docker to status recognized by the agent
-func DockerStateToState(state *types.ContainerState) apicontainerstatus.ContainerStatus {
+func DockerStateToState(state *types.ContainerState) containerstatus.ContainerStatus {
 	if state.Running {
-		return apicontainerstatus.ContainerRunning
+		return containerstatus.ContainerRunning
 	}
 
 	if state.Dead {
-		return apicontainerstatus.ContainerStopped
+		return containerstatus.ContainerStopped
 	}
 
 	// StartAt field in ContainerState is a string and need to convert to compare to zero time instant
 	startTime, _ := time.Parse(time.RFC3339, state.StartedAt)
 	if startTime.IsZero() && state.Error == "" {
-		return apicontainerstatus.ContainerCreated
+		return containerstatus.ContainerCreated
 	}
 
-	return apicontainerstatus.ContainerStopped
+	return containerstatus.ContainerStopped
 }
 
-func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (apicontainerstatus.ContainerStatus, DockerContainerMetadata) {
+func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (containerstatus.ContainerStatus, DockerContainerMetadata) {
 	dockerContainer, err := dg.InspectContainer(ctx, dockerID, dockerclient.InspectContainerTimeout)
 	if err != nil {
-		return apicontainerstatus.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
+		return containerstatus.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
 	return DockerStateToState(dockerContainer.ContainerJSONBase.State), MetadataFromContainer(dockerContainer)
 }
@@ -820,11 +821,11 @@ func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) Dock
 
 // MetadataFromContainer translates dockerContainer into DockerContainerMetadata
 func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainerMetadata {
-	var bindings []apicontainer.PortBinding
+	var bindings []containerresource.PortBinding
 	var err apierrors.NamedError
 	if dockerContainer.NetworkSettings != nil {
 		// Convert port bindings into the format our container expects
-		bindings, err = apicontainer.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
+		bindings, err = containerresource.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 		if err != nil {
 			seelog.Criticalf("DockerGoClient: Docker had network bindings we couldn't understand: %v", err)
 			return DockerContainerMetadata{Error: apierrors.NamedError(err)}
@@ -883,8 +884,8 @@ func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainer
 	return metadata
 }
 
-func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) apicontainer.HealthStatus {
-	health := apicontainer.HealthStatus{}
+func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) containerresource.HealthStatus {
+	health := containerresource.HealthStatus{}
 	if dockerContainer.State == nil || dockerContainer.State.Health == nil {
 		return health
 	}
@@ -901,9 +902,9 @@ func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) apicontainer.H
 	}
 	switch dockerContainer.State.Health.Status {
 	case healthCheckHealthy:
-		health.Status = apicontainerstatus.ContainerHealthy
+		health.Status = containerstatus.ContainerHealthy
 	case healthCheckUnhealthy:
-		health.Status = apicontainerstatus.ContainerUnhealthy
+		health.Status = containerstatus.ContainerUnhealthy
 		if logLength == 0 {
 			seelog.Warn("DockerGoClient: no container healthcheck data returned by Docker")
 			break
@@ -977,11 +978,11 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		containerID := event.ID
 		seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
 
-		var status apicontainerstatus.ContainerStatus
-		eventType := apicontainer.ContainerStatusEvent
+		var status containerstatus.ContainerStatus
+		eventType := containerresource.ContainerStatusEvent
 		switch event.Status {
 		case "create":
-			status = apicontainerstatus.ContainerCreated
+			status = containerstatus.ContainerCreated
 			changedContainers <- DockerContainerChangeEvent{
 				Status: status,
 				Type:   eventType,
@@ -991,11 +992,11 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 			}
 			continue
 		case "start":
-			status = apicontainerstatus.ContainerRunning
+			status = containerstatus.ContainerRunning
 		case "stop":
 			fallthrough
 		case "die":
-			status = apicontainerstatus.ContainerStopped
+			status = containerstatus.ContainerStopped
 		case "oom":
 			containerInfo := event.ID
 			// events only contain the container's name in newer Docker API
@@ -1012,7 +1013,7 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		case "health_status: healthy":
 			fallthrough
 		case "health_status: unhealthy":
-			eventType = apicontainer.ContainerHealthEvent
+			eventType = containerresource.ContainerHealthEvent
 		default:
 			// Because docker emits new events even when you use an old event api
 			// version, it's not that big a deal

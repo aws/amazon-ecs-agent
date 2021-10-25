@@ -25,8 +25,8 @@ import (
 	"sync"
 	"testing"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"

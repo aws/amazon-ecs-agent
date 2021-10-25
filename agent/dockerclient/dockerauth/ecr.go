@@ -19,7 +19,8 @@ import (
 	"strings"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
@@ -66,7 +67,7 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
-	registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+	registryAuthData *containerresource.RegistryAuthenticationData) (types.AuthConfig, error) {
 
 	if registryAuthData == nil {
 		return types.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
@@ -133,7 +134,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *types
 }
 
 // getAuthConfigFromECR calls the ECR API to get docker auth config
-func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (types.AuthConfig, error) {
+func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *containerresource.ECRAuthData) (types.AuthConfig, error) {
 	// Create ECR client to get the token
 	client, err := authProvider.factory.GetClient(authData)
 	if err != nil {

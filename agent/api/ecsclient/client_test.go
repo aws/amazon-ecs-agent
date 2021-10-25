@@ -23,13 +23,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -202,8 +204,8 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		RuntimeID:     "runtime id",
-		Status:        apicontainerstatus.ContainerRunning,
-		PortBindings: []apicontainer.PortBinding{
+		Status:        containerstatus.ContainerRunning,
+		PortBindings: []containerresource.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
 				ContainerPort: 1,
@@ -213,7 +215,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 				BindIP:        "2.2.3.4",
 				ContainerPort: 3,
 				HostPort:      4,
-				Protocol:      apicontainer.TransportProtocolUDP,
+				Protocol:      containerresource.TransportProtocolUDP,
 			},
 		},
 	})
@@ -252,10 +254,10 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		TaskArn:       "arn",
 		ContainerName: "cont",
 		RuntimeID:     "runtime id",
-		Status:        apicontainerstatus.ContainerStopped,
+		Status:        containerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
-		PortBindings: []apicontainer.PortBinding{
+		PortBindings: []containerresource.PortBinding{
 			{},
 		},
 	})
@@ -285,7 +287,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainerstatus.ContainerStopped,
+		Status:        containerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -316,7 +318,7 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainerstatus.ContainerStopped,
+		Status:        containerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -1040,7 +1042,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 				TaskArn:       "arn",
 				ContainerName: "container",
 				RuntimeID:     "runtimeid",
-				Status:        apicontainerstatus.ContainerRunning,
+				Status:        containerstatus.ContainerRunning,
 			},
 		},
 	}

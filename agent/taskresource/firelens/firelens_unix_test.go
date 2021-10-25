@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
@@ -102,8 +102,8 @@ func mockMkdirAllError() func() {
 	}
 }
 
-func testFirelensV1Config() *container.FirelensConfig {
-	return &container.FirelensConfig{
+func testFirelensV1Config() *containerresource.FirelensConfig {
+	return &containerresource.FirelensConfig{
 		Version:                    "v1",
 		Type:                       FirelensConfigTypeFluentd,
 		CollectStdoutLogs:          false,
@@ -111,8 +111,8 @@ func testFirelensV1Config() *container.FirelensConfig {
 	}
 }
 
-func testFirelensV2Config() *container.FirelensConfig {
-	return &container.FirelensConfig{
+func testFirelensV2Config() *containerresource.FirelensConfig {
+	return &containerresource.FirelensConfig{
 		Version:                    "v2",
 		Type:                       FirelensConfigTypeAWSOtelCollector,
 		CollectStdoutLogs:          true,
@@ -120,7 +120,7 @@ func testFirelensV2Config() *container.FirelensConfig {
 	}
 }
 
-func newMockFirelensResource(firelensConfig *container.FirelensConfig, networkMode string, lopOptions map[string]string,
+func newMockFirelensResource(firelensConfig *containerresource.FirelensConfig, networkMode string, lopOptions map[string]string,
 	mockIOUtil *mock_ioutilwrapper.MockIOUtil, mockCredentialsManager *mock_credentials.MockManager,
 	mockS3ClientCreator *mock_factory.MockS3ClientCreator) *FirelensResource {
 

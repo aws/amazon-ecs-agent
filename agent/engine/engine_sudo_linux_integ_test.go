@@ -32,6 +32,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/cihub/seelog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -113,7 +116,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 	testTask := createTestTask(taskArn)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	for _, container := range testTask.Containers {
-		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	}
 	control := cgroup.New()
 
@@ -182,7 +185,7 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	testTask.Containers[0].Command = []string{`echo -n "empty-data-volume" > /host/tmp/hello-from-container;`}
 	return testTask
 }
@@ -224,11 +227,11 @@ func TestFirelensFluentbit(t *testing.T) {
 	testEvents := InitEventCollection(taskEngine)
 
 	//Verify logsender container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
+	err = VerifyContainerStatus(containerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
 	assert.NoError(t, err, "Verify logsender container is running")
 
 	//Verify firelens container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
+	err = VerifyContainerStatus(containerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
 	assert.NoError(t, err, "Verify firelens container is running")
 
 	//Verify task is in running state
@@ -236,11 +239,11 @@ func TestFirelensFluentbit(t *testing.T) {
 	assert.NoError(t, err, "Not verified task running")
 
 	//Verify logsender container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
+	err = VerifyContainerStatus(containerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
 	assert.NoError(t, err)
 
 	//Verify firelens container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
+	err = VerifyContainerStatus(containerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
 	assert.NoError(t, err)
 
 	//Verify the task itself has stopped
@@ -357,7 +360,7 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 			Name:      "firelens",
 			Image:     testFluentbitImage,
 			Essential: true,
-			FirelensConfig: &apicontainer.FirelensConfig{
+			FirelensConfig: &containerresource.FirelensConfig{
 				Type: firelens.FirelensConfigTypeFluentbit,
 				Options: map[string]string{
 					"enable-ecs-log-metadata": "true",
@@ -367,7 +370,7 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 				"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
 				"FLB_LOG_LEVEL":     "debug",
 			},
-			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 		},
 	}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)

@@ -21,10 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -86,7 +88,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}
@@ -121,14 +123,14 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			{
 				Name: proxyName,
 				DockerConfig: apicontainer.DockerConfig{
 					Config: &serializedConfig,
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}
@@ -167,14 +169,14 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			{
 				Name: proxyName,
 				DockerConfig: apicontainer.DockerConfig{
 					Config: &serializedConfig,
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}
@@ -203,11 +205,11 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) 
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			{
 				Name:                      proxyName,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}
@@ -497,7 +499,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -525,7 +527,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -546,7 +548,7 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 			{
 				Name:                      "C1",
 				Memory:                    uint(2048), // container memory > task memory
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -565,7 +567,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
@@ -597,7 +599,7 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	resources := task.GetResources()
 	assert.Len(t, resources, 2)
 	assert.Len(t, task.Containers[1].TransitionDependenciesMap, 1)
-	assert.Len(t, task.Containers[1].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies, 2)
+	assert.Len(t, task.Containers[1].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies, 2)
 	var firelensResource *firelens.FirelensResource
 	var secretResource *ssmsecret.SSMSecretResource
 	for _, resource := range resources {
@@ -648,7 +650,7 @@ func TestPostUnmarshalWithFirelensContainerError(t *testing.T) {
 func TestGetFirelensContainers(t *testing.T) {
 	firelensContainer := &apicontainer.Container{
 		Name: "c",
-		FirelensConfig: &apicontainer.FirelensConfig{
+		FirelensConfig: &containerresource.FirelensConfig{
 			Type: firelens.FirelensConfigTypeFluentd,
 		},
 	}
@@ -1119,7 +1121,7 @@ func TestFirelensDependsOnSecretResource(t *testing.T) {
 			provider: apicontainer.SecretProviderSSM,
 			task: func() *Task {
 				task := getFirelensTask(t)
-				task.Containers[0].Secrets = []apicontainer.Secret{}
+				task.Containers[0].Secrets = []containerresource.Secret{}
 				return task
 			}(),
 			res: false,
@@ -1151,7 +1153,7 @@ func TestCollectLogDriverSecretData(t *testing.T) {
 	asmRes := &asmsecret.ASMSecretResource{}
 	asmRes.SetCachedSecretValue("secret-value-from-asm_us-west-2", "secret-val-asm")
 
-	secrets := []apicontainer.Secret{
+	secrets := []containerresource.Secret{
 		{
 			Name:      "secret-name",
 			Provider:  apicontainer.SecretProviderSSM,
@@ -1203,7 +1205,7 @@ func getFirelensTask(t *testing.T) *Task {
 				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
-				Secrets: []apicontainer.Secret{
+				Secrets: []containerresource.Secret{
 					{
 						Name:      "secret-name",
 						ValueFrom: "secret-value-from",
@@ -1214,11 +1216,11 @@ func getFirelensTask(t *testing.T) *Task {
 					},
 				},
 				NetworkModeUnsafe:         BridgeNetworkMode,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 			{
 				Name: "firelenscontainer",
-				FirelensConfig: &apicontainer.FirelensConfig{
+				FirelensConfig: &containerresource.FirelensConfig{
 					Type: firelens.FirelensConfigTypeFluentd,
 					Options: map[string]string{
 						"enable-ecs-log-metadata": "true",
@@ -1228,7 +1230,7 @@ func getFirelensTask(t *testing.T) *Task {
 					"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
 				},
 				NetworkModeUnsafe:         BridgeNetworkMode,
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}

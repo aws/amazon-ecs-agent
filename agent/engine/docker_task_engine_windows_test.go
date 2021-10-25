@@ -23,9 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -294,11 +296,11 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildContainerDependency("pause", apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
+	sleepContainer.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
+	sleepContainer.BuildContainerDependency("pause", containerstatus.ContainerResourcesProvisioned, containerstatus.ContainerPulled)
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(containerstatus.ContainerResourcesProvisioned)
 	pauseContainer.Name = "pause"
 	pauseContainer.Image = "pause"
 	pauseContainer.CPU = 10
@@ -341,7 +343,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				assert.True(t, strings.Contains(containerName, pauseContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+					eventStream <- createDockerEvent(containerstatus.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
@@ -350,7 +352,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+					eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
@@ -383,7 +385,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				assert.Equal(t, "container:"+containerID+":"+pauseContainer.Name, string(hostConfig.NetworkMode))
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+					eventStream <- createDockerEvent(containerstatus.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -392,7 +394,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+					eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -432,7 +434,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
+		Status: containerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID + ":" + sleepContainer.Name,
 			ExitCode: aws.Int(exitCode),
@@ -453,9 +455,9 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
 	sleepContainer1 := sleepTask.Containers[0]
-	sleepContainer1.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer1.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	sleepContainer2 := sleepTask.Containers[1]
-	sleepContainer2.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer2.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.AddTaskENI(mockENI)
@@ -594,7 +596,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
+		Status: containerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: sleepContainerID1,
 			ExitCode: aws.Int(exitCode),
