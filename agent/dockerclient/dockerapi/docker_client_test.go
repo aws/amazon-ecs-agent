@@ -1336,6 +1336,12 @@ func TestStatsNormalExit(t *testing.T) {
 
 	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
 	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
+
+	// stop container stats
+	cancel()
+	// verify stats chan was closed to avoid goroutine leaks
+	_, ok := <-stats
+	assert.False(t, ok, "stats channel was not properly closed")
 }
 
 func TestStatsErrorReading(t *testing.T) {
@@ -1349,9 +1355,12 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 
 	assert.Error(t, <-errC)
+	// verify stats chan was closed to avoid goroutine leaks
+	_, ok := <-statsC
+	assert.False(t, ok, "stats channel was not properly closed")
 }
 
 func TestStatsErrorDecoding(t *testing.T) {
@@ -1365,8 +1374,11 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.Error(t, <-errC)
+	// verify stats chan was closed to avoid goroutine leaks
+	_, ok := <-statsC
+	assert.False(t, ok, "stats channel was not properly closed")
 }
 
 func TestStatsClientError(t *testing.T) {
