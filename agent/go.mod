@@ -8,7 +8,7 @@ require (
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
-	github.com/containerd/containerd v1.3.2 // indirect
+	github.com/containerd/containerd v1.4.11 // indirect
 	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.6
