@@ -75,12 +75,13 @@ github.com/containerd/cgroups
 github.com/containerd/containerd/errdefs
 # github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8
 github.com/containerd/continuity/pathdriver
-# github.com/containernetworking/cni v0.7.1
+# github.com/containernetworking/cni v0.8.1
 github.com/containernetworking/cni/libcni
 github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/types
 github.com/containernetworking/cni/pkg/types/020
 github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
 # github.com/containernetworking/plugins v0.8.6 => github.com/containernetworking/plugins v0.8.6
 github.com/containernetworking/plugins/pkg/ns

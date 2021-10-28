@@ -10,7 +10,7 @@ require (
 	github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
 	github.com/containerd/containerd v1.4.11 // indirect
 	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
-	github.com/containernetworking/cni v0.7.1
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.8.6
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
 	github.com/didip/tollbooth v3.0.2+incompatible
