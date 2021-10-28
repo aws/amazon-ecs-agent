@@ -1319,6 +1319,18 @@ func TestUnavailableVersionError(t *testing.T) {
 	}
 }
 
+func waitForStatsChanClose(statsChan <-chan *types.StatsJSON) (closed bool) {
+	i := 0
+	for range statsChan {
+		if i == 10 {
+			return false
+		}
+		i++
+		time.Sleep(time.Millisecond * 10)
+	}
+	return true
+}
+
 func TestStatsNormalExit(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
@@ -1340,8 +1352,8 @@ func TestStatsNormalExit(t *testing.T) {
 	// stop container stats
 	cancel()
 	// verify stats chan was closed to avoid goroutine leaks
-	_, ok := <-stats
-	assert.False(t, ok, "stats channel was not properly closed")
+	closed := waitForStatsChanClose(stats)
+	assert.True(t, closed, "stats channel was not properly closed")
 }
 
 func TestStatsErrorReading(t *testing.T) {
@@ -1359,8 +1371,8 @@ func TestStatsErrorReading(t *testing.T) {
 
 	assert.Error(t, <-errC)
 	// verify stats chan was closed to avoid goroutine leaks
-	_, ok := <-statsC
-	assert.False(t, ok, "stats channel was not properly closed")
+	closed := waitForStatsChanClose(statsC)
+	assert.True(t, closed, "stats channel was not properly closed")
 }
 
 func TestStatsErrorDecoding(t *testing.T) {
@@ -1377,8 +1389,8 @@ func TestStatsErrorDecoding(t *testing.T) {
 	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.Error(t, <-errC)
 	// verify stats chan was closed to avoid goroutine leaks
-	_, ok := <-statsC
-	assert.False(t, ok, "stats channel was not properly closed")
+	closed := waitForStatsChanClose(statsC)
+	assert.True(t, closed, "stats channel was not properly closed")
 }
 
 func TestStatsClientError(t *testing.T) {
@@ -1394,9 +1406,9 @@ func TestStatsClientError(t *testing.T) {
 	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	// should get an error from the channel
 	err := <-errC
-	// stats channel should be closed (ok=false)
-	_, ok := <-statsC
-	assert.False(t, ok)
+	// stats channel should be closed
+	closed := waitForStatsChanClose(statsC)
+	assert.True(t, closed, "stats channel was not properly closed")
 	assert.Error(t, err)
 }
 
