@@ -35,6 +35,7 @@ if ($Platform -like "windows2016") {
   exit 1
 }
 
+$ProgramFiles="C:\Program Files\Amazon\ECS"
 $env:BASE_IMAGE_NAME=$BaseImageName
 $env:BASE_IMAGE_NAME_WITH_DIGEST=$BaseImageNameWithDigest
 
@@ -44,6 +45,9 @@ if (-Not ($dockerImages -like "*$BaseImageName*")) {
   Invoke-Expression "docker pull $BaseImageName"
 }
 Invoke-Expression "docker tag $BaseImageName amazon-ecs-ftest-windows-base:make"
+
+# Ensure that "C:/Program Files/Amazon/ECS" is empty before preparing dependencies.
+Remove-Item -Path "$ProgramFiles\*" -Recurse -Force -ErrorAction:SilentlyContinue
 
 # Prepare dependencies
 Invoke-Expression "${PSScriptRoot}\..\misc\volumes-test\build.ps1"
