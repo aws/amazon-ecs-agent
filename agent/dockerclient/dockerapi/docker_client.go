@@ -569,6 +569,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 	config *dockercontainer.Config,
 	hostConfig *dockercontainer.HostConfig,
 	name string) DockerContainerMetadata {
+
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
@@ -610,8 +611,8 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
-
 	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{})
+
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
 		metadata.Error = CannotStartContainerError{err}
@@ -1441,7 +1442,7 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
-	errC := make(chan error)
+	errC := make(chan error, 1)
 	statsC := make(chan *types.StatsJSON)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
@@ -1487,7 +1488,12 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 					return
 				}
 
-				statsC <- data
+				select {
+				case <-ctx.Done():
+					return
+				case statsC <- data:
+				}
+
 				data = new(types.StatsJSON)
 			}
 		}()
@@ -1504,8 +1510,11 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				errC <- err
 				return
 			}
-			statsC <- stats
-
+			select {
+			case <-ctx.Done():
+				return
+			case statsC <- stats:
+			}
 			// sleeping here jitters the time at which the ticker is created, so that
 			// containers do not synchronize on calling the docker stats api.
 			// the max sleep is 80% of the polling interval so that we have a chance to
@@ -1519,7 +1528,11 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 					errC <- err
 					return
 				}
-				statsC <- stats
+				select {
+				case <-ctx.Done():
+					return
+				case statsC <- stats:
+				}
 			}
 		}()
 	}

@@ -1,4 +1,4 @@
-// +build !linux,!windows
+//go:build !linux && !windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -25,6 +25,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
+)
+
+const (
+	capabilityDepsRootDir = ""
+)
+
+var (
+	capabilityExecRequiredBinaries = []string{}
+	dependencies                   = map[string][]string{}
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
@@ -103,6 +112,10 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*e
 	return capabilities
 }
 
+func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
@@ -134,4 +147,8 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 // getTaskENIPluginVersionAttribute for unsupported platform would return an error
 func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
 	return nil, errors.New("unsupported platform")
+}
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return false, nil
 }

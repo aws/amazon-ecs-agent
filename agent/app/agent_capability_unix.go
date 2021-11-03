@@ -1,4 +1,4 @@
-// +build linux
+//go:build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,6 +16,7 @@
 package app
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -30,11 +31,31 @@ import (
 )
 
 const (
-	AVX         = "avx"
-	AVX2        = "avx2"
-	SSE41       = "sse4_1"
-	SSE42       = "sse4_2"
-	CpuInfoPath = "/proc/cpuinfo"
+	AVX                   = "avx"
+	AVX2                  = "avx2"
+	SSE41                 = "sse4_1"
+	SSE42                 = "sse4_2"
+	CpuInfoPath           = "/proc/cpuinfo"
+	capabilityDepsRootDir = "/managed-agents"
+)
+
+var (
+	certsDir                    = filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
+	capabilityExecRequiredCerts = []string{
+		"tls-ca-bundle.pem",
+	}
+	capabilityExecRequiredBinaries = []string{
+		"amazon-ssm-agent",
+		"ssm-agent-worker",
+		"ssm-session-worker",
+	}
+
+	// top-level folders, /bin, /config, /certs
+	dependencies = map[string][]string{
+		binDir:    []string{},
+		configDir: []string{},
+		certsDir:  capabilityExecRequiredCerts,
+	}
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
@@ -169,6 +190,10 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*e
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }
 
+func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
+}
+
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
@@ -213,4 +238,8 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 		Value: aws.String(version),
 	}, nil
+}
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return true, nil
 }

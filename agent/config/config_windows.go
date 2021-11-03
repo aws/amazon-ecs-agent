@@ -1,4 +1,5 @@
-// +build windows
+//go:build windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -69,6 +70,17 @@ const (
 	adminSid = "S-1-5-32-544"
 	// default directory name of CNI Plugins
 	defaultCNIPluginDirName = "cni"
+)
+
+var (
+	envProgramFiles = utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
+	envProgramData  = utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
+
+	AmazonProgramFiles = filepath.Join(envProgramFiles, "Amazon")
+	AmazonProgramData  = filepath.Join(envProgramData, "Amazon")
+
+	AmazonECSProgramFiles = filepath.Join(envProgramFiles, "Amazon", "ECS")
+	AmazonECSProgramData  = filepath.Join(AmazonProgramData, "ECS")
 )
 
 // DefaultConfig returns the default configuration for Windows

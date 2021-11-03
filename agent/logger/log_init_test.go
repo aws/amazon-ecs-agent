@@ -1,4 +1,4 @@
-// +build unit integration
+//go:build unit || integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
