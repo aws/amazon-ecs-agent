@@ -240,6 +240,8 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		dockerClient:       dockerClient,
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -284,6 +286,8 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -305,11 +309,16 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
+	terminationHandlerChan := make(chan bool)
+	terminationHandlerInvoked := false
 	agent := &ecsAgent{
 		ctx:               ctx,
 		cfg:               &cfg,
 		dockerClient:      dockerClient,
 		ec2MetadataClient: mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+			terminationHandlerChan <- true
+		},
 	}
 
 	err := errors.New("error")
@@ -317,7 +326,14 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client, execCmdMgr)
+
+	select {
+	case terminationHandlerInvoked = <-terminationHandlerChan:
+	case <-time.After(10 * time.Second):
+	}
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
+	// verify that termination handler had been started before pollling
+	assert.True(t, terminationHandlerInvoked)
 }
 
 func TestDoStartHappyPath(t *testing.T) {
@@ -1258,6 +1274,8 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),

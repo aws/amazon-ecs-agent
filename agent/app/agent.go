@@ -292,6 +292,17 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
+	// Create the task engine
+	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
+		credentialsManager, state, imageManager, execCmdMgr)
+	if err != nil {
+		seelog.Criticalf("Unable to initialize new task engine: %v", err)
+		return exitcodes.ExitTerminal
+	}
+
+	// Start termination handler in goroutine
+	go agent.terminationHandler(state, agent.dataClient, taskEngine, agent.cancel)
+
 	// If part of ASG, wait until instance is being set up to go in service before registering with cluster
 	if agent.cfg.WarmPoolsSupport.Enabled() {
 		err := agent.waitUntilInstanceInService(asgLifecyclePollWait, asgLifecyclePollMax, targetLifecycleMaxRetryCount)
@@ -301,13 +312,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
-	// Create the task engine
-	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
-		credentialsManager, state, imageManager, execCmdMgr)
-	if err != nil {
-		seelog.Criticalf("Unable to initialize new task engine: %v", err)
-		return exitcodes.ExitTerminal
-	}
 	agent.initMetricsEngine()
 
 	loadPauseErr := agent.loadPauseContainer()
@@ -740,8 +744,6 @@ func (agent *ecsAgent) startAsyncRoutines(
 	if agent.cfg.SpotInstanceDrainingEnabled.Enabled() {
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
-
-	go agent.terminationHandler(state, agent.dataClient, taskEngine, agent.cancel)
 
 	// Agent introspection api
 	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
