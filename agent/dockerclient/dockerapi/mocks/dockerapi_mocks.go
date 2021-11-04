@@ -445,26 +445,6 @@ func (mr *MockDockerClientMockRecorder) SystemPing(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemPing", reflect.TypeOf((*MockDockerClient)(nil).SystemPing), arg0, arg1)
 }
 
-// TopContainer mocks base method
-func (m *MockDockerClient) TopContainer(arg0 context.Context, arg1 string, arg2 time.Duration, arg3 ...string) (*container0.ContainerTopOKBody, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "TopContainer", varargs...)
-	ret0, _ := ret[0].(*container0.ContainerTopOKBody)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// TopContainer indicates an expected call of TopContainer
-func (mr *MockDockerClientMockRecorder) TopContainer(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TopContainer", reflect.TypeOf((*MockDockerClient)(nil).TopContainer), varargs...)
-}
-
 // Version mocks base method
 func (m *MockDockerClient) Version(arg0 context.Context, arg1 time.Duration) (string, error) {
 	m.ctrl.T.Helper()

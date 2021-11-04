@@ -35,8 +35,6 @@ const (
 	ListContainersTimeout = 10 * time.Minute
 	// InspectContainerTimeout is the timeout for the InspectContainer API.
 	InspectContainerTimeout = 30 * time.Second
-	// TopContainerTimeout is the timeout for the TopContainer API.
-	TopContainerTimeout = 30 * time.Second
 	// ContainerExecCreateTimeout is the timeout for the ContainerExecCreate API.
 	ContainerExecCreateTimeout = 1 * time.Minute
 	// ContainerExecStartTimeout is the timeout for the ContainerExecStart API.
