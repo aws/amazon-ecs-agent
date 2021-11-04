@@ -3468,12 +3468,9 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	execAgentPID := "1234"
-	resp := &dockercontainer.ContainerTopOKBody{
-		Processes: [][]string{{"root", execAgentPID}},
-	}
 	testTask := &apitask.Task{
 		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
 		Containers: []*apicontainer.Container{
@@ -3492,11 +3489,6 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
 	topCtx, topCancel := context.WithTimeout(context.Background(), time.Second)
 	defer topCancel()
-	client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, execAgentPID).DoAndReturn(
-		func(ctx context.Context, containerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
-			defer topCancel()
-			return resp, nil
-		}).AnyTimes()
 	go taskEngine.(*DockerTaskEngine).startPeriodicExecAgentsMonitoring(ctx)
 	<-topCtx.Done()
 	time.Sleep(5 * time.Millisecond)
