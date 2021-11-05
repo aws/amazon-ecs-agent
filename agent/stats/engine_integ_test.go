@@ -1,4 +1,4 @@
-//+build integration
+//go:build integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

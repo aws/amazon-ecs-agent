@@ -1,4 +1,4 @@
-// +build integration,!windows
+//go:build integration && !windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

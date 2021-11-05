@@ -17,6 +17,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -29,12 +30,11 @@ type heartbeatHandler struct {
 	ctx                       context.Context
 	cancel                    context.CancelFunc
 	acsClient                 wsclient.ClientServer
+	doctor                    *doctor.Doctor
 }
 
 // newHeartbeatHandler returns an instance of the heartbeatHandler struct
-func newHeartbeatHandler(ctx context.Context,
-	acsClient wsclient.ClientServer) heartbeatHandler {
-
+func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, heartbeatDoctor *doctor.Doctor) heartbeatHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return heartbeatHandler{
@@ -43,6 +43,7 @@ func newHeartbeatHandler(ctx context.Context,
 		ctx:                       derivedContext,
 		cancel:                    cancel,
 		acsClient:                 acsClient,
+		doctor:                    heartbeatDoctor,
 	}
 }
 
@@ -73,7 +74,15 @@ func (heartbeatHandler *heartbeatHandler) handleHeartbeatMessage() {
 }
 
 func (heartbeatHandler *heartbeatHandler) handleSingleHeartbeatMessage(message *ecsacs.HeartbeatMessage) error {
-	// Agent currently has no other action hooked to heartbeat messages, except simple ack
+	// TestHandlerDoesntLeakGoroutines unit test is failing because of this section
+
+	// Agent will run healthchecks triggered by ACS heartbeat
+	// healthcheck results will be sent on to TACS, but for now just to debug logs.
+	go func() {
+		heartbeatHandler.doctor.RunHealthchecks()
+	}()
+
+	// Agent will send simple ack to the heartbeatAckMessageBuffer
 	go func() {
 		response := &ecsacs.HeartbeatAckRequest{
 			MessageId: message.MessageId,

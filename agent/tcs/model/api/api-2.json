@@ -42,7 +42,36 @@
         },
         {
           "shape":"ServerException",
+          "exception":true,
+          "fault":true
+        }
+      ]
+    },
+    "PublishInstanceStatus":{
+      "name":"PublishInstanceStatus",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PublishInstanceStatusRequest"},
+      "output":{"shape":"AckPublishInstanceStatus"},
+      "errors":[
+        {
+          "shape":"BadRequestException",
           "exception":true
+        },
+        {
+          "shape":"ResourceValidationException",
+          "exception":true
+        },
+        {
+          "shape":"InvalidParameterException",
+          "exception":true
+        },
+        {
+          "shape":"ServerException",
+          "exception":true,
+          "fault":true
         }
       ]
     },
@@ -69,7 +98,8 @@
         },
         {
           "shape":"ServerException",
-          "exception":true
+          "exception":true,
+          "fault":true
         }
       ]
     },
@@ -92,13 +122,20 @@
         },
         {
           "shape":"ServerException",
-          "exception":true
+          "exception":true,
+          "fault":true
         }
       ]
     }
   },
   "shapes":{
     "AckPublishHealth":{
+      "type":"structure",
+      "members":{
+        "message":{"shape":"String"}
+      }
+    },
+    "AckPublishInstanceStatus":{
       "type":"structure",
       "members":{
         "message":{"shape":"String"}
@@ -179,6 +216,36 @@
         "healthy":{"shape":"Boolean"}
       }
     },
+    "InstanceHealthcheckStatus":{
+      "type":"string",
+      "enum":[
+        "OK",
+        "IMPAIRED",
+        "INSUFFICIENT_DATA",
+        "INITIALIZING"
+      ]
+    },
+    "InstanceStatus":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"String"},
+        "status":{"shape":"InstanceHealthcheckStatus"},
+        "lastUpdated":{"shape":"Timestamp"},
+        "lastStatusChange":{"shape":"Timestamp"}
+      }
+    },
+    "InstanceStatusMetadata":{
+      "type":"structure",
+      "members":{
+        "cluster":{"shape":"String"},
+        "containerInstance":{"shape":"String"},
+        "requestId":{"shape":"String"}
+      }
+    },
+    "InstanceStatuses":{
+      "type":"list",
+      "member":{"shape":"InstanceStatus"}
+    },
     "InvalidParameterException":{
       "type":"structure",
       "members":{
@@ -219,6 +286,14 @@
         "timestamp":{"shape":"Timestamp"}
       }
     },
+    "PublishInstanceStatusRequest":{
+      "type":"structure",
+      "members":{
+        "metadata":{"shape":"InstanceStatusMetadata"},
+        "statuses":{"shape":"InstanceStatuses"},
+        "timestamp":{"shape":"Timestamp"}
+      }
+    },
     "PublishMetricsRequest":{
       "type":"structure",
       "members":{
@@ -239,7 +314,8 @@
       "members":{
         "message":{"shape":"String"}
       },
-      "exception":true
+      "exception":true,
+      "fault":true
     },
     "StartTelemetrySessionRequest":{
       "type":"structure",
@@ -266,6 +342,7 @@
       "type":"structure",
       "members":{
         "taskArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
         "taskDefinitionFamily":{"shape":"String"},
         "taskDefinitionVersion":{"shape":"String"},
         "containers":{"shape":"ContainerHealths"}
@@ -279,6 +356,7 @@
       "type":"structure",
       "members":{
         "taskArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
         "taskDefinitionFamily":{"shape":"String"},
         "taskDefinitionVersion":{"shape":"String"},
         "containerMetrics":{"shape":"ContainerMetrics"}

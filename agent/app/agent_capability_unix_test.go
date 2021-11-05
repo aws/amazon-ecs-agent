@@ -1,4 +1,4 @@
-// +build linux,unit
+//go:build linux && unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -779,6 +779,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityEFS,
 		attributePrefix + capabilityEFSAuth,
 		capabilityPrefix + capabilityFirelensLoggingDriver,
+		attributePrefix + capabilityFirelensLoggingDriver + capabilityFireLensLoggingDriverConfigBufferLimitSuffix,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabilityTelemetryFluentbit,
 		attributePrefix + capabilityTelemetryOpentelemetry,

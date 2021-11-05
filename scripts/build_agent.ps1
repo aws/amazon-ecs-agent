@@ -13,11 +13,14 @@
 #
 # Standalone Amazon ECS Container Agent for Windows may be built by using this script
 
+$cwd = (pwd).Path
+
 $pauseImageName = "amazon/amazon-ecs-pause"
 $pauseImageTag = "0.1.0"
 
 $build_exe = "../amazon-ecs-agent.exe"
 $ldflag = "-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$pauseImageTag -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$pauseImageName"
 
-
-go build -ldflags "$ldflag" -o $build_exe ../agent/
+cd ../agent/
+go build -ldflags "$ldflag" -o $build_exe .
+cd "$cwd"

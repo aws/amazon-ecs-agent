@@ -1,4 +1,4 @@
-// +build unit
+//go:build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -879,6 +879,7 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 		getSubDirectories        func(path string) ([]string, error)
 		invalidSsmVersions       map[string]struct{}
 		shouldHaveExecCapability bool
+		osPlatformNotSupported   bool
 	}{
 		{
 			name:                     "execute-command capability should not be added if any required file is not found",
@@ -918,6 +919,13 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0", "3.1.23.0"}, nil },
 			shouldHaveExecCapability: true,
 		},
+		{
+			name:                     "execute-command capability should not be added if os platform is not supported",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			osPlatformNotSupported:   true,
+			shouldHaveExecCapability: false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -925,10 +933,12 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			getSubDirectories = tc.getSubDirectories
 			oCapabilityExecInvalidSsmVersions := capabilityExecInvalidSsmVersions
 			capabilityExecInvalidSsmVersions = tc.invalidSsmVersions
+			isPlatformExecSupported = func() (bool, error) { return !tc.osPlatformNotSupported, nil }
 			defer func() {
 				mockPathExists(false)
 				getSubDirectories = defaultGetSubDirectories
 				capabilityExecInvalidSsmVersions = oCapabilityExecInvalidSsmVersions
+				isPlatformExecSupported = defaultIsPlatformExecSupported
 			}()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
