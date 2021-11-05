@@ -402,9 +402,10 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 // waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in
 // service. This is to avoid instances going to a warm pool being registered as container instances with the cluster
 func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int, maxRetries int) error {
+	seelog.Info("Waiting for instance to go InService")
 	var err error
 	var targetState string
-	// Poll until a target lifecycle state is obtained from IMDS, or an unexpected error occuurs
+	// Poll until a target lifecycle state is obtained from IMDS, or an unexpected error occurs
 	targetState, err = agent.pollUntilTargetLifecyclePresent(pollWaitDuration, pollMaxTimes, maxRetries)
 	if err != nil {
 		return err
@@ -458,7 +459,7 @@ func (agent *ecsAgent) getTargetLifecycle(maxRetries int) (string, error) {
 			time.Sleep(backoff.Duration())
 		}
 	}
-	seelog.Infof("Target lifecycle state of instance: %v", targetState)
+	seelog.Debugf("Target lifecycle state of instance: %v", targetState)
 	return targetState, err
 }
 
