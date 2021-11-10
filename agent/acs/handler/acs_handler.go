@@ -399,7 +399,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 			if err == nil || err == io.EOF {
 				seelog.Info("ACS Websocket connection closed for a valid reason")
 			} else {
-				seelog.Errorf("Error: lost websocket connection with Agent Communication Service (ACS): %v", err)
+				seelog.Infof("Agent Communication Service (ACS) connection closed: %v", err)
 			}
 			return err
 		}
