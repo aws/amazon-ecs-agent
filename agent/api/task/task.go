@@ -26,7 +26,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
-
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -307,6 +306,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
+		container.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 		container.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	}
 
@@ -830,10 +830,15 @@ func (task *Task) requiresASMDockerAuthData() bool {
 func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getAllASMAuthDataRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+		task.ExecutionCredentialsID, false, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource(asmauth.ResourceName, asmAuthResource)
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
+			if container.ExecutionCredentialsID != "" {
+				asmAuthResource := asmauth.NewASMAuthResource(task.Arn, container.GetASMAuthDataRequirements(),
+					container.ExecutionCredentialsID, true, credentialsManager, resourceFields.ASMClientCreator)
+				container.AddResource(asmauth.ResourceName, asmAuthResource)
+			}
 			container.BuildResourceDependency(asmAuthResource.GetName(),
 				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
 				containerstatus.ContainerPulled)
@@ -845,7 +850,9 @@ func (task *Task) getAllASMAuthDataRequirements() []*containerresource.ASMAuthDa
 	var reqs []*containerresource.ASMAuthData
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
-			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+			if container.ExecutionCredentialsID == "" {
+				reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+			}
 		}
 	}
 	return reqs
@@ -866,12 +873,17 @@ func (task *Task) requiresSSMSecret() bool {
 func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
+		task.ExecutionCredentialsID, false, credentialsManager, resourceFields.SSMClientCreator)
 	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
 
 	// for every container that needs ssm secret vending as env, it needs to wait all secrets got retrieved
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithSSMSecret() {
+			if container.ExecutionCredentialsID != "" {
+				ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, container.GetSSMSecretRequirements(),
+					container.ExecutionCredentialsID, true, credentialsManager, resourceFields.SSMClientCreator)
+				container.AddResource(ssmsecret.ResourceName, ssmSecretResource)
+			}
 			container.BuildResourceDependency(ssmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
 				containerstatus.ContainerCreated)
@@ -906,13 +918,11 @@ func (task *Task) getAllSSMSecretRequirements() map[string][]containerresource.S
 	reqs := make(map[string][]containerresource.Secret)
 
 	for _, container := range task.Containers {
-		for _, secret := range container.Secrets {
-			if secret.Provider == apicontainer.SecretProviderSSM {
-				if _, ok := reqs[secret.Region]; !ok {
-					reqs[secret.Region] = []containerresource.Secret{}
+		if container.ExecutionCredentialsID == "" {
+			for _, secret := range container.Secrets {
+				if secret.Provider == apicontainer.SecretProviderSSM {
+					reqs[secret.Region] = append(reqs[secret.Region], secret)
 				}
-
-				reqs[secret.Region] = append(reqs[secret.Region], secret)
 			}
 		}
 	}
@@ -934,12 +944,17 @@ func (task *Task) requiresASMSecret() bool {
 func (task *Task) initializeASMSecretResource(credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	asmSecretResource := asmsecret.NewASMSecretResource(task.Arn, task.getAllASMSecretRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+		task.ExecutionCredentialsID, false, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource(asmsecret.ResourceName, asmSecretResource)
 
 	// for every container that needs asm secret vending as envvar, it needs to wait all secrets got retrieved
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithASMSecret() {
+			if container.ExecutionCredentialsID != "" {
+				asmSecretResource = asmsecret.NewASMSecretResource(task.Arn, container.GetASMSecretRequirements(),
+					container.ExecutionCredentialsID, true, credentialsManager, resourceFields.ASMClientCreator)
+				container.AddResource(asmsecret.ResourceName, asmSecretResource)
+			}
 			container.BuildResourceDependency(asmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
 				containerstatus.ContainerCreated)
@@ -959,11 +974,13 @@ func (task *Task) getAllASMSecretRequirements() map[string]containerresource.Sec
 	reqs := make(map[string]containerresource.Secret)
 
 	for _, container := range task.Containers {
-		for _, secret := range container.Secrets {
-			if secret.Provider == apicontainer.SecretProviderASM {
-				secretKey := secret.GetSecretResourceCacheKey()
-				if _, ok := reqs[secretKey]; !ok {
-					reqs[secretKey] = secret
+		if container.ExecutionCredentialsID == "" {
+			for _, secret := range container.Secrets {
+				if secret.Provider == apicontainer.SecretProviderASM {
+					secretKey := secret.GetSecretResourceCacheKey()
+					if _, ok := reqs[secretKey]; !ok {
+						reqs[secretKey] = secret
+					}
 				}
 			}
 		}
@@ -2370,7 +2387,13 @@ func (task *Task) GetTerminalReason() string {
 // PopulateASMAuthData sets docker auth credentials for a container
 func (task *Task) PopulateASMAuthData(container *apicontainer.Container) error {
 	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
-	resource, ok := task.getASMAuthResource()
+	var resource []taskresource.TaskResource
+	var ok bool
+	if container.ExecutionCredentialsID != "" {
+		resource, ok = container.GetASMAuthResource()
+	} else {
+		resource, ok = task.getASMAuthResource()
+	}
 	if !ok {
 		return errors.New("task auth data: unable to fetch ASM resource")
 	}
@@ -2410,6 +2433,9 @@ func (task *Task) PopulateSecrets(hostConfig *dockercontainer.HostConfig, contai
 
 	if container.ShouldCreateWithSSMSecret() {
 		resource, ok := task.getSSMSecretsResource()
+		if container.ExecutionCredentialsID != "" {
+			resource, ok = container.GetSSMSecretsResource()
+		}
 		if !ok {
 			return &apierrors.DockerClientConfigError{Msg: "task secret data: unable to fetch SSM Secrets resource"}
 		}
@@ -2418,6 +2444,9 @@ func (task *Task) PopulateSecrets(hostConfig *dockercontainer.HostConfig, contai
 
 	if container.ShouldCreateWithASMSecret() {
 		resource, ok := task.getASMSecretsResource()
+		if container.ExecutionCredentialsID != "" {
+			resource, ok = container.GetASMSecretsResource()
+		}
 		if !ok {
 			return &apierrors.DockerClientConfigError{Msg: "task secret data: unable to fetch ASM Secrets resource"}
 		}
@@ -2491,11 +2520,17 @@ func (task *Task) PopulateSecretLogOptionsToFirelensContainer(firelensContainer 
 	var asmRes *asmsecret.ASMSecretResource
 
 	resource, ok := task.getSSMSecretsResource()
+	if firelensContainer.ExecutionCredentialsID != "" {
+		resource, ok = firelensContainer.GetSSMSecretsResource()
+	}
 	if ok {
 		ssmRes = resource[0].(*ssmsecret.SSMSecretResource)
 	}
 
 	resource, ok = task.getASMSecretsResource()
+	if firelensContainer.ExecutionCredentialsID != "" {
+		resource, ok = firelensContainer.GetASMSecretsResource()
+	}
 	if ok {
 		asmRes = resource[0].(*asmsecret.ASMSecretResource)
 	}

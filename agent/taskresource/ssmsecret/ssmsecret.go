@@ -56,6 +56,7 @@ type SSMSecretResource struct {
 	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
 	credentialsManager                 credentials.Manager
 	executionCredentialsID             string
+	isContainerCredentials             bool
 
 	// required for store ssm secrets value, key is region of secret
 	requiredSecrets map[string][]containerresource.Secret
@@ -79,6 +80,7 @@ type SSMSecretResource struct {
 func NewSSMSecretResource(taskARN string,
 	ssmSecrets map[string][]containerresource.Secret,
 	executionCredentialsID string,
+	isContainerCredentials bool,
 	credentialsManager credentials.Manager,
 	ssmClientCreator factory.SSMClientCreator) *SSMSecretResource {
 
@@ -87,6 +89,7 @@ func NewSSMSecretResource(taskARN string,
 		requiredSecrets:        ssmSecrets,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
+		isContainerCredentials: isContainerCredentials,
 		ssmClientCreator:       ssmClientCreator,
 	}
 
@@ -251,17 +254,14 @@ func (secret *SSMSecretResource) GetCreatedAt() time.Time {
 // Create fetches secret value from SSM in batches. It spins up multiple goroutines in order to
 // retrieve values in parallel.
 func (secret *SSMSecretResource) Create() error {
-
 	// To fail fast, check execution role first
-	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
+	iamCredentials, ok, credentialType := secret.getIAMCredentials()
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		err := errors.New("ssm secret resource: unable to find execution role credentials")
+		err := errors.Errorf("ssm secret resource: unable to find %s execution role credentials", credentialType)
 		secret.setTerminalReason(err.Error())
 		return err
 	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
-
 	var wg sync.WaitGroup
 
 	// Get the maximum number of errors can be returned, which will be one error per goroutine
@@ -286,6 +286,16 @@ func (secret *SSMSecretResource) Create() error {
 		return err
 	default:
 		return nil
+	}
+}
+
+func (secret *SSMSecretResource) getIAMCredentials() (credentials.IAMRoleCredentials, bool, string) {
+	if secret.isContainerCredentials {
+		executionCredentials, ok := secret.credentialsManager.GetContainerCredentials(secret.getExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "container"
+	} else {
+		executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "task"
 	}
 }
 

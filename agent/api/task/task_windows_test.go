@@ -101,6 +101,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 						SourceVolume:  "sourceVolume",
 					},
 				},
+				ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
 				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},

@@ -20,13 +20,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/containerresource"
-	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
-
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -161,6 +165,8 @@ type Container struct {
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link
 	Links []string
+	// ResourcesMapUnsafe is the map of resource type to corresponding resources
+	ResourcesMapUnsafe resourcetype.ResourcesMap `json:"resources"`
 	// FirelensConfig contains configuration for a Firelens container
 	FirelensConfig *containerresource.FirelensConfig `json:"firelensConfiguration"`
 	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
@@ -779,6 +785,89 @@ func (c *Container) BuildContainerDependency(contName string,
 	deps := c.TransitionDependenciesMap[dependentStatus]
 	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
 	c.TransitionDependenciesMap[dependentStatus] = deps
+}
+
+// GetResources returns the list of container resources from ResourcesMap
+func (c *Container) GetResources() []taskresource.TaskResource {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.getResourcesUnsafe()
+}
+
+// getResourcesUnsafe returns the list of task resources from ResourcesMap
+func (c *Container) getResourcesUnsafe() []taskresource.TaskResource {
+	var resourceList []taskresource.TaskResource
+	for _, resources := range c.ResourcesMapUnsafe {
+		resourceList = append(resourceList, resources...)
+	}
+	return resourceList
+}
+
+// AddResource adds a resource to ResourcesMap
+func (c *Container) AddResource(resourceType string, resource taskresource.TaskResource) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ResourcesMapUnsafe[resourceType] = append(c.ResourcesMapUnsafe[resourceType], resource)
+}
+
+// GetASMAuthResource retrieves asmauth resource from resource map
+func (c *Container) GetASMAuthResource() ([]taskresource.TaskResource, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	res, ok := c.ResourcesMapUnsafe[asmauth.ResourceName]
+	return res, ok
+}
+
+// GetSSMSecretsResource retrieves ssmsecret resource from resource map
+func (c *Container) GetSSMSecretsResource() ([]taskresource.TaskResource, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	res, ok := c.ResourcesMapUnsafe[ssmsecret.ResourceName]
+	return res, ok
+}
+
+// GetASMSecretsResource retrieves ssmsecret resource from resource map
+func (c *Container) GetASMSecretsResource() ([]taskresource.TaskResource, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	res, ok := c.ResourcesMapUnsafe[asmsecret.ResourceName]
+	return res, ok
+}
+
+// GetSSMSecretRequirements retrieves ASMauth data requirements of the container
+func (c *Container) GetASMAuthDataRequirements() []*containerresource.ASMAuthData {
+	var reqs []*containerresource.ASMAuthData
+	reqs = append(reqs, c.RegistryAuthentication.ASMAuthData)
+	return reqs
+}
+
+// GetSSMSecretRequirements retrieves container secrets in a map whose key is region and value is all
+// secrets in that region
+func (c *Container) GetSSMSecretRequirements() map[string][]containerresource.Secret {
+	reqs := make(map[string][]containerresource.Secret)
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderSSM {
+			reqs[secret.Region] = append(reqs[secret.Region], secret)
+		}
+	}
+	return reqs
+}
+
+// GetASMSecretRequirements retrieves container secrets  in a map
+func (c *Container) GetASMSecretRequirements() map[string]containerresource.Secret {
+	reqs := make(map[string]containerresource.Secret)
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderASM {
+			secretKey := secret.GetSecretResourceCacheKey()
+			if _, ok := reqs[secretKey]; !ok {
+				reqs[secretKey] = secret
+			}
+		}
+	}
+	return reqs
 }
 
 // BuildResourceDependency adds a new resource dependency by taking in the required status
