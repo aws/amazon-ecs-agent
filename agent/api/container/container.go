@@ -20,8 +20,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
@@ -35,7 +38,7 @@ const (
 	// defaultContainerSteadyStateStatus defines the container status at
 	// which the container is assumed to be in steady state. It is set
 	// to 'ContainerRunning' unless overridden
-	defaultContainerSteadyStateStatus = apicontainerstatus.ContainerRunning
+	defaultContainerSteadyStateStatus = containerstatus.ContainerRunning
 
 	// awslogsAuthExecutionRole is the string value passed in the task payload
 	// that specifies that the log driver should be authenticated using the
@@ -44,12 +47,6 @@ const (
 
 	// DockerHealthCheckType is the type of container health check provided by docker
 	DockerHealthCheckType = "docker"
-
-	// AuthTypeECR is to use image pull auth over ECR
-	AuthTypeECR = "ecr"
-
-	// AuthTypeASM is to use image pull auth over AWS Secrets Manager
-	AuthTypeASM = "asm"
 
 	// MetadataURIEnvironmentVariableName defines the name of the environment
 	// variable in containers' config, which can be used by the containers to access the
@@ -96,18 +93,6 @@ type DockerConfig struct {
 	HostConfig *string `json:"hostConfig"`
 	// Version specifies the docker client API version to use
 	Version *string `json:"version"`
-}
-
-// HealthStatus contains the health check result returned by docker
-type HealthStatus struct {
-	// Status is the container health status
-	Status apicontainerstatus.ContainerHealthStatus `json:"status,omitempty"`
-	// Since is the timestamp when container health status changed
-	Since *time.Time `json:"statusSince,omitempty"`
-	// ExitCode is the exitcode of health check if failed
-	ExitCode int `json:"exitCode,omitempty"`
-	// Output is the output of health check
-	Output string `json:"output,omitempty"`
 }
 
 type ManagedAgentState struct {
@@ -177,15 +162,15 @@ type Container struct {
 	// Links contains a list of containers to link, corresponding to docker option: --link
 	Links []string
 	// FirelensConfig contains configuration for a Firelens container
-	FirelensConfig *FirelensConfig `json:"firelensConfiguration"`
+	FirelensConfig *containerresource.FirelensConfig `json:"firelensConfiguration"`
 	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
 	VolumesFrom []VolumeFrom `json:"volumesFrom"`
 	// MountPoints contains a list of volume mount paths
 	MountPoints []MountPoint `json:"mountPoints"`
 	// Ports contains a list of ports binding configuration
-	Ports []PortBinding `json:"portMappings"`
+	Ports []containerresource.PortBinding `json:"portMappings"`
 	// Secrets contains a list of secret
-	Secrets []Secret `json:"secrets"`
+	Secrets []containerresource.Secret `json:"secrets"`
 	// Essential denotes whether the container is essential or not
 	Essential bool
 	// EntryPoint is entrypoint of the container, corresponding to docker option: --entrypoint
@@ -193,18 +178,18 @@ type Container struct {
 	// Environment is the environment variable set in the container
 	Environment map[string]string `json:"environment"`
 	// EnvironmentFiles is the list of environmentFile used to populate environment variables
-	EnvironmentFiles []EnvironmentFile `json:"environmentFiles"`
+	EnvironmentFiles []containerresource.EnvironmentFile `json:"environmentFiles"`
 	// Overrides contains the configuration to override of a container
 	Overrides ContainerOverrides `json:"overrides"`
 	// DockerConfig is the configuration used to create the container
 	DockerConfig DockerConfig `json:"dockerConfig"`
 	// RegistryAuthentication is the auth data used to pull image
-	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
+	RegistryAuthentication *containerresource.RegistryAuthenticationData `json:"registryAuthentication"`
 	// HealthCheckType is the mechanism to use for the container health check
 	// currently it only supports 'DOCKER'
 	HealthCheckType string `json:"healthCheckType,omitempty"`
 	// Health contains the health check information of container health check
-	Health HealthStatus `json:"-"`
+	Health containerresource.HealthStatus `json:"-"`
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
@@ -229,7 +214,7 @@ type Container struct {
 	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatusUnsafe apicontainerstatus.ContainerStatus `json:"desiredStatus"`
+	DesiredStatusUnsafe containerstatus.ContainerStatus `json:"desiredStatus"`
 
 	// KnownStatusUnsafe represents the state where the container is.
 	// NOTE: Do not access `KnownStatusUnsafe` directly.  Instead, use `GetKnownStatus`
@@ -237,11 +222,11 @@ type Container struct {
 	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatusUnsafe apicontainerstatus.ContainerStatus `json:"KnownStatus"`
+	KnownStatusUnsafe containerstatus.ContainerStatus `json:"KnownStatus"`
 
 	// TransitionDependenciesMap is a map of the dependent container status to other
 	// dependencies that must be satisfied in order for this container to transition.
-	TransitionDependenciesMap TransitionDependenciesMap `json:"TransitionDependencySet"`
+	TransitionDependenciesMap containerresource.TransitionDependenciesMap `json:"TransitionDependencySet"`
 
 	// SteadyStateDependencies is a list of containers that must be in "steady state" before
 	// this one is created
@@ -263,7 +248,7 @@ type Container struct {
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
 	// No need to save it in the state file, as agent will synchronize the container status
 	// on restart and for some operation eg: pull, it has to be recalled again.
-	AppliedStatus apicontainerstatus.ContainerStatus `json:"-"`
+	AppliedStatus containerstatus.ContainerStatus `json:"-"`
 	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
@@ -274,7 +259,7 @@ type Container struct {
 	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON is
 	// handled properly so that the state storage continues to work.
-	SentStatusUnsafe apicontainerstatus.ContainerStatus `json:"SentStatus"`
+	SentStatusUnsafe containerstatus.ContainerStatus `json:"SentStatus"`
 
 	// MetadataFileUpdated is set to true when we have completed updating the
 	// metadata file
@@ -288,7 +273,7 @@ type Container struct {
 	KnownExitCodeUnsafe *int `json:"KnownExitCode"`
 
 	// KnownPortBindingsUnsafe is an array of port bindings for the container.
-	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
+	KnownPortBindingsUnsafe []containerresource.PortBinding `json:"KnownPortBindings"`
 
 	// VolumesUnsafe is an array of volume mounts in the container.
 	VolumesUnsafe []types.MountPoint `json:"-"`
@@ -304,7 +289,7 @@ type Container struct {
 	// it's not only supposed to be set when the container is being created, it's
 	// exposed outside of the package so that it's marshalled/unmarshalled in the
 	// the JSON body while saving the state
-	SteadyStateStatusUnsafe *apicontainerstatus.ContainerStatus `json:"SteadyStateStatus,omitempty"`
+	SteadyStateStatusUnsafe *containerstatus.ContainerStatus `json:"SteadyStateStatus,omitempty"`
 
 	// ContainerArn is the Arn of this container.
 	ContainerArn string `json:"ContainerArn,omitempty"`
@@ -336,11 +321,6 @@ type DockerContainer struct {
 	Container *Container
 }
 
-type EnvironmentFile struct {
-	Value string `json:"value"`
-	Type  string `json:"type"`
-}
-
 // MountPoint describes the in-container location of a Volume and references
 // that Volume by name.
 type MountPoint struct {
@@ -349,36 +329,10 @@ type MountPoint struct {
 	ReadOnly      bool   `json:"readOnly"`
 }
 
-// FirelensConfig describes the type and options of a Firelens container.
-type FirelensConfig struct {
-	Type                       string            `json:"type"`
-	Version                    string            `json:"version"`
-	CollectStdoutLogs          bool              `json:"collectStdoutLogs,omitempty"`
-	StatusMessageReportingPath string            `json:"statusMessageReportingPath,omitempty"`
-	Options                    map[string]string `json:"options"`
-}
-
 // VolumeFrom is a volume which references another container as its source.
 type VolumeFrom struct {
 	SourceContainer string `json:"sourceContainer"`
 	ReadOnly        bool   `json:"readOnly"`
-}
-
-// Secret contains all essential attributes needed for ECS secrets vending as environment variables/tmpfs files
-type Secret struct {
-	Name          string `json:"name"`
-	ValueFrom     string `json:"valueFrom"`
-	Region        string `json:"region"`
-	ContainerPath string `json:"containerPath"`
-	Type          string `json:"type"`
-	Provider      string `json:"provider"`
-	Target        string `json:"target"`
-}
-
-// GetSecretResourceCacheKey returns the key required to access the secret
-// from the ssmsecret resource
-func (s *Secret) GetSecretResourceCacheKey() string {
-	return s.ValueFrom + "_" + s.Region
 }
 
 // String returns a human readable string representation of DockerContainer
@@ -392,7 +346,7 @@ func (dc *DockerContainer) String() string {
 // NewContainerWithSteadyState creates a new Container object with the specified
 // steady state. Containers that need the non default steady state set will
 // use this method instead of setting it directly
-func NewContainerWithSteadyState(steadyState apicontainerstatus.ContainerStatus) *Container {
+func NewContainerWithSteadyState(steadyState containerstatus.ContainerStatus) *Container {
 	steadyStateStatus := steadyState
 	return &Container{
 		SteadyStateStatusUnsafe: &steadyStateStatus,
@@ -410,7 +364,7 @@ func (c *Container) DesiredTerminal() bool {
 }
 
 // GetKnownStatus returns the known status of the container
-func (c *Container) GetKnownStatus() apicontainerstatus.ContainerStatus {
+func (c *Container) GetKnownStatus() containerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -419,7 +373,7 @@ func (c *Container) GetKnownStatus() apicontainerstatus.ContainerStatus {
 
 // SetKnownStatus sets the known status of the container and update the container
 // applied status
-func (c *Container) SetKnownStatus(status apicontainerstatus.ContainerStatus) {
+func (c *Container) SetKnownStatus(status containerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -428,7 +382,7 @@ func (c *Container) SetKnownStatus(status apicontainerstatus.ContainerStatus) {
 }
 
 // GetDesiredStatus gets the desired status of the container
-func (c *Container) GetDesiredStatus() apicontainerstatus.ContainerStatus {
+func (c *Container) GetDesiredStatus() containerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -436,7 +390,7 @@ func (c *Container) GetDesiredStatus() apicontainerstatus.ContainerStatus {
 }
 
 // SetDesiredStatus sets the desired status of the container
-func (c *Container) SetDesiredStatus(status apicontainerstatus.ContainerStatus) {
+func (c *Container) SetDesiredStatus(status containerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -444,7 +398,7 @@ func (c *Container) SetDesiredStatus(status apicontainerstatus.ContainerStatus) 
 }
 
 // GetSentStatus safely returns the SentStatusUnsafe of the container
-func (c *Container) GetSentStatus() apicontainerstatus.ContainerStatus {
+func (c *Container) GetSentStatus() containerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -452,7 +406,7 @@ func (c *Container) GetSentStatus() apicontainerstatus.ContainerStatus {
 }
 
 // SetSentStatus safely sets the SentStatusUnsafe of the container
-func (c *Container) SetSentStatus(status apicontainerstatus.ContainerStatus) {
+func (c *Container) SetSentStatus(status containerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -489,7 +443,7 @@ func (c *Container) ShouldPullWithExecutionRole() bool {
 	defer c.lock.RUnlock()
 
 	return c.RegistryAuthentication != nil &&
-		c.RegistryAuthentication.Type == AuthTypeECR &&
+		c.RegistryAuthentication.Type == containerresource.AuthTypeECR &&
 		c.RegistryAuthentication.ECRAuthData != nil &&
 		c.RegistryAuthentication.ECRAuthData.UseExecutionRole
 }
@@ -511,7 +465,7 @@ func (c *Container) String() string {
 // 'pause' container can reach its teady state once networking resources
 // have been provisioned for it, which is done in the `ContainerResourcesProvisioned`
 // state
-func (c *Container) GetSteadyStateStatus() apicontainerstatus.ContainerStatus {
+func (c *Container) GetSteadyStateStatus() containerstatus.ContainerStatus {
 	if c.SteadyStateStatusUnsafe == nil {
 		return defaultContainerSteadyStateStatus
 	}
@@ -542,9 +496,9 @@ func (c *Container) IsKnownSteadyState() bool {
 // c. if the steady state of the container is defined as `ContainerCreated`,
 // the progression is:
 // Container: None -> Pulled -> Created* -> Stopped -> Zombie
-func (c *Container) GetNextKnownStateProgression() apicontainerstatus.ContainerStatus {
+func (c *Container) GetNextKnownStateProgression() containerstatus.ContainerStatus {
 	if c.IsKnownSteadyState() {
-		return apicontainerstatus.ContainerStopped
+		return containerstatus.ContainerStopped
 	}
 
 	return c.GetKnownStatus() + 1
@@ -700,7 +654,7 @@ func (c *Container) GetLabels() map[string]string {
 }
 
 // SetKnownPortBindings sets the ports for a container
-func (c *Container) SetKnownPortBindings(ports []PortBinding) {
+func (c *Container) SetKnownPortBindings(ports []containerresource.PortBinding) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -708,7 +662,7 @@ func (c *Container) SetKnownPortBindings(ports []PortBinding) {
 }
 
 // GetKnownPortBindings gets the ports for a container
-func (c *Container) GetKnownPortBindings() []PortBinding {
+func (c *Container) GetKnownPortBindings() []containerresource.PortBinding {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -777,7 +731,7 @@ func (c *Container) HealthStatusShouldBeReported() bool {
 }
 
 // SetHealthStatus sets the container health status
-func (c *Container) SetHealthStatus(health HealthStatus) {
+func (c *Container) SetHealthStatus(health containerresource.HealthStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -790,13 +744,13 @@ func (c *Container) SetHealthStatus(health HealthStatus) {
 	c.Health.Output = health.Output
 
 	// Set the health exit code if the health check failed
-	if c.Health.Status == apicontainerstatus.ContainerUnhealthy {
+	if c.Health.Status == containerstatus.ContainerUnhealthy {
 		c.Health.ExitCode = health.ExitCode
 	}
 }
 
 // GetHealthStatus returns the container health information
-func (c *Container) GetHealthStatus() HealthStatus {
+func (c *Container) GetHealthStatus() containerresource.HealthStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -813,14 +767,14 @@ func (c *Container) GetHealthStatus() HealthStatus {
 // BuildContainerDependency adds a new dependency container and satisfied status
 // to the dependent container
 func (c *Container) BuildContainerDependency(contName string,
-	satisfiedStatus apicontainerstatus.ContainerStatus,
-	dependentStatus apicontainerstatus.ContainerStatus) {
-	contDep := ContainerDependency{
+	satisfiedStatus containerstatus.ContainerStatus,
+	dependentStatus containerstatus.ContainerStatus) {
+	contDep := containerresource.ContainerDependency{
 		ContainerName:   contName,
 		SatisfiedStatus: satisfiedStatus,
 	}
 	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
-		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+		c.TransitionDependenciesMap[dependentStatus] = containerresource.TransitionDependencySet{}
 	}
 	deps := c.TransitionDependenciesMap[dependentStatus]
 	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
@@ -834,14 +788,14 @@ func (c *Container) BuildContainerDependency(contName string,
 // CREATED status, then RequiredStatus=VolumeCreated and dependentStatus=ContainerPulled
 func (c *Container) BuildResourceDependency(resourceName string,
 	requiredStatus resourcestatus.ResourceStatus,
-	dependentStatus apicontainerstatus.ContainerStatus) {
+	dependentStatus containerstatus.ContainerStatus) {
 
-	resourceDep := ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           resourceName,
 		RequiredStatus: requiredStatus,
 	}
 	if _, ok := c.TransitionDependenciesMap[dependentStatus]; !ok {
-		c.TransitionDependenciesMap[dependentStatus] = TransitionDependencySet{}
+		c.TransitionDependenciesMap[dependentStatus] = containerresource.TransitionDependencySet{}
 	}
 	deps := c.TransitionDependenciesMap[dependentStatus]
 	deps.ResourceDependencies = append(deps.ResourceDependencies, resourceDep)
@@ -849,24 +803,24 @@ func (c *Container) BuildResourceDependency(resourceName string,
 }
 
 // updateAppliedStatusUnsafe updates the container transitioning status
-func (c *Container) updateAppliedStatusUnsafe(knownStatus apicontainerstatus.ContainerStatus) {
-	if c.AppliedStatus == apicontainerstatus.ContainerStatusNone {
+func (c *Container) updateAppliedStatusUnsafe(knownStatus containerstatus.ContainerStatus) {
+	if c.AppliedStatus == containerstatus.ContainerStatusNone {
 		return
 	}
 
 	// Check if the container transition has already finished
 	if c.AppliedStatus <= knownStatus {
-		c.AppliedStatus = apicontainerstatus.ContainerStatusNone
+		c.AppliedStatus = containerstatus.ContainerStatusNone
 	}
 }
 
 // SetAppliedStatus sets the applied status of container and returns whether
 // the container is already in a transition
-func (c *Container) SetAppliedStatus(status apicontainerstatus.ContainerStatus) bool {
+func (c *Container) SetAppliedStatus(status containerstatus.ContainerStatus) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.AppliedStatus != apicontainerstatus.ContainerStatusNone {
+	if c.AppliedStatus != containerstatus.ContainerStatusNone {
 		// return false to indicate the set operation failed
 		return false
 	}
@@ -876,7 +830,7 @@ func (c *Container) SetAppliedStatus(status apicontainerstatus.ContainerStatus) 
 }
 
 // GetAppliedStatus returns the transitioning status of container
-func (c *Container) GetAppliedStatus() apicontainerstatus.ContainerStatus {
+func (c *Container) GetAppliedStatus() containerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -890,7 +844,7 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 	defer c.lock.RUnlock()
 
 	return c.RegistryAuthentication != nil &&
-		c.RegistryAuthentication.Type == AuthTypeASM &&
+		c.RegistryAuthentication.Type == containerresource.AuthTypeASM &&
 		c.RegistryAuthentication.ASMAuthData != nil
 }
 
@@ -1039,7 +993,7 @@ func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []map[stri
 }
 
 // HasSecret returns whether a container has secret based on a certain condition.
-func (c *Container) HasSecret(f func(s Secret) bool) bool {
+func (c *Container) HasSecret(f func(s containerresource.Secret) bool) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -1185,7 +1139,7 @@ func (c *Container) GetHostConfig() *string {
 }
 
 // GetFirelensConfig returns the container's firelens config.
-func (c *Container) GetFirelensConfig() *FirelensConfig {
+func (c *Container) GetFirelensConfig() *containerresource.FirelensConfig {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -1204,7 +1158,7 @@ func (c *Container) GetFirelensVersion() string {
 }
 
 // GetEnvironmentFiles returns the container's environment files.
-func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
+func (c *Container) GetEnvironmentFiles() []containerresource.EnvironmentFile {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -1277,9 +1231,9 @@ func (c *Container) HasNotAndWillNotStart() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.KnownStatusUnsafe < apicontainerstatus.ContainerRunning &&
+	return c.KnownStatusUnsafe < containerstatus.ContainerRunning &&
 		c.DesiredStatusUnsafe.Terminal() &&
-		c.AppliedStatus == apicontainerstatus.ContainerStatusNone
+		c.AppliedStatus == containerstatus.ContainerStatusNone
 }
 
 // GetManagedAgentByName retrieves the managed agent with the name specified and a boolean indicating whether an agent

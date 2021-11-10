@@ -17,7 +17,7 @@ package data
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 
 	"testing"
 
@@ -46,12 +46,12 @@ func TestManageContainers(t *testing.T) {
 		},
 	}
 	require.NoError(t, testClient.SaveDockerContainer(testDockerContainer))
-	testDockerContainer.Container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testDockerContainer.Container.SetKnownStatus(containerstatus.ContainerRunning)
 	require.NoError(t, testClient.SaveContainer(testDockerContainer.Container))
 	res, err := testClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, res, 1)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, res[0].Container.GetKnownStatus())
+	assert.Equal(t, containerstatus.ContainerRunning, res[0].Container.GetKnownStatus())
 	assert.Equal(t, testDockerID, res[0].DockerID)
 	assert.Equal(t, testDockerName, res[0].DockerName)
 

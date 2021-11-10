@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/docker/docker/api/types"
 )
 
@@ -105,7 +106,7 @@ type DockerContainerMetadata struct {
 	dockerContainerName string
 	imageID             string
 	imageName           string
-	ports               []apicontainer.PortBinding
+	ports               []containerresource.PortBinding
 	networkInfo         NetworkMetadata
 }
 
@@ -136,22 +137,22 @@ type Metadata struct {
 // metadataSerializer is an intermediate struct that converts the information
 // in Metadata into information to encode into JSON
 type metadataSerializer struct {
-	Cluster                string                     `json:"Cluster,omitempty"`
-	ContainerInstanceARN   string                     `json:"ContainerInstanceARN,omitempty"`
-	TaskARN                string                     `json:"TaskARN,omitempty"`
-	TaskDefinitionFamily   string                     `json:"TaskDefinitionFamily,omitempty"`
-	TaskDefinitionRevision string                     `json:"TaskDefinitionRevision,omitempty"`
-	ContainerID            string                     `json:"ContainerID,omitempty"`
-	ContainerName          string                     `json:"ContainerName,omitempty"`
-	DockerContainerName    string                     `json:"DockerContainerName,omitempty"`
-	ImageID                string                     `json:"ImageID,omitempty"`
-	ImageName              string                     `json:"ImageName,omitempty"`
-	Ports                  []apicontainer.PortBinding `json:"PortMappings,omitempty"`
-	Networks               []Network                  `json:"Networks,omitempty"`
-	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
-	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
-	HostPrivateIPv4Address string                     `json:"HostPrivateIPv4Address,omitempty"`
-	HostPublicIPv4Address  string                     `json:"HostPublicIPv4Address,omitempty"`
+	Cluster                string                          `json:"Cluster,omitempty"`
+	ContainerInstanceARN   string                          `json:"ContainerInstanceARN,omitempty"`
+	TaskARN                string                          `json:"TaskARN,omitempty"`
+	TaskDefinitionFamily   string                          `json:"TaskDefinitionFamily,omitempty"`
+	TaskDefinitionRevision string                          `json:"TaskDefinitionRevision,omitempty"`
+	ContainerID            string                          `json:"ContainerID,omitempty"`
+	ContainerName          string                          `json:"ContainerName,omitempty"`
+	DockerContainerName    string                          `json:"DockerContainerName,omitempty"`
+	ImageID                string                          `json:"ImageID,omitempty"`
+	ImageName              string                          `json:"ImageName,omitempty"`
+	Ports                  []containerresource.PortBinding `json:"PortMappings,omitempty"`
+	Networks               []Network                       `json:"Networks,omitempty"`
+	MetadataFileStatus     MetadataStatus                  `json:"MetadataFileStatus,omitempty"`
+	AvailabilityZone       string                          `json:"AvailabilityZone,omitempty"`
+	HostPrivateIPv4Address string                          `json:"HostPrivateIPv4Address,omitempty"`
+	HostPublicIPv4Address  string                          `json:"HostPublicIPv4Address,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {

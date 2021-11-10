@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -423,11 +425,11 @@ var testTasks = []*apitask.Task{
 		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				Ports: []apicontainer.PortBinding{
+				Ports: []containerresource.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      apicontainer.TransportProtocolTCP,
+						Protocol:      containerresource.TransportProtocolTCP,
 					},
 				},
 			},
@@ -442,11 +444,11 @@ var testTasks = []*apitask.Task{
 		Containers: []*apicontainer.Container{
 			{
 				Name: "awsvpc",
-				KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+				KnownPortBindingsUnsafe: []containerresource.PortBinding{
 					{
 						ContainerPort: 80,
 						HostPort:      80,
-						Protocol:      apicontainer.TransportProtocolTCP,
+						Protocol:      containerresource.TransportProtocolTCP,
 					},
 				},
 			},

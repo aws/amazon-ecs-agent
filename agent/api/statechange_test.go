@@ -20,6 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -90,12 +94,12 @@ func TestSetTaskTimestamps(t *testing.T) {
 
 func TestSetContainerRuntimeID(t *testing.T) {
 	task := &apitask.Task{}
-	steadyStateStatus := apicontainerstatus.ContainerRunning
+	steadyStateStatus := containerstatus.ContainerRunning
 	Containers := []*apicontainer.Container{
 		{
 			RuntimeID:               "222",
-			KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
-			SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
+			KnownStatusUnsafe:       containerstatus.ContainerRunning,
+			SentStatusUnsafe:        containerstatus.ContainerStatusNone,
 			Type:                    apicontainer.ContainerNormal,
 			SteadyStateStatusUnsafe: &steadyStateStatus,
 		},
@@ -110,12 +114,12 @@ func TestSetContainerRuntimeID(t *testing.T) {
 
 func TestSetImageDigest(t *testing.T) {
 	task := &apitask.Task{}
-	steadyStateStatus := apicontainerstatus.ContainerRunning
+	steadyStateStatus := containerstatus.ContainerRunning
 	Containers := []*apicontainer.Container{
 		{
 			ImageDigest:             "sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
-			KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
-			SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
+			KnownStatusUnsafe:       containerstatus.ContainerRunning,
+			SentStatusUnsafe:        containerstatus.ContainerStatusNone,
 			Type:                    apicontainer.ContainerNormal,
 			SteadyStateStatusUnsafe: &steadyStateStatus,
 		},
@@ -142,7 +146,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 			containerType: apicontainer.ContainerNormal,
 		},
 	}
-	steadyStateStatus := apicontainerstatus.ContainerRunning
+	steadyStateStatus := containerstatus.ContainerRunning
 	exitCode := 1
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -152,12 +156,12 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 					{
 						Name:                    "c1",
 						RuntimeID:               "222",
-						KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
-						SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
+						KnownStatusUnsafe:       containerstatus.ContainerRunning,
+						SentStatusUnsafe:        containerstatus.ContainerStatusNone,
 						Type:                    tc.containerType,
 						SteadyStateStatusUnsafe: &steadyStateStatus,
 						KnownExitCodeUnsafe:     &exitCode,
-						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
+						KnownPortBindingsUnsafe: []containerresource.PortBinding{{
 							ContainerPort: 1,
 							HostPort:      2,
 							BindIP:        "1.2.3.4",
@@ -171,9 +175,9 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 				TaskArn:       "arn:123",
 				ContainerName: "c1",
 				RuntimeID:     "222",
-				Status:        apicontainerstatus.ContainerRunning,
+				Status:        containerstatus.ContainerRunning,
 				ExitCode:      &exitCode,
-				PortBindings: []apicontainer.PortBinding{{
+				PortBindings: []containerresource.PortBinding{{
 					ContainerPort: 1,
 					HostPort:      2,
 					BindIP:        "1.2.3.4",

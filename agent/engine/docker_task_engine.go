@@ -25,15 +25,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -162,7 +164,7 @@ type DockerTaskEngine struct {
 	_time                               ttime.Time
 	_timeOnce                           sync.Once
 	imageManager                        ImageManager
-	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
+	containerStatusToTransitionFunction map[containerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
@@ -234,12 +236,12 @@ func NewDockerTaskEngine(cfg *config.Config,
 }
 
 func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
-	containerStatusToTransitionFunction := map[apicontainerstatus.ContainerStatus]transitionApplyFunc{
-		apicontainerstatus.ContainerPulled:               engine.pullContainer,
-		apicontainerstatus.ContainerCreated:              engine.createContainer,
-		apicontainerstatus.ContainerRunning:              engine.startContainer,
-		apicontainerstatus.ContainerResourcesProvisioned: engine.provisionContainerResources,
-		apicontainerstatus.ContainerStopped:              engine.stopContainer,
+	containerStatusToTransitionFunction := map[containerstatus.ContainerStatus]transitionApplyFunc{
+		containerstatus.ContainerPulled:               engine.pullContainer,
+		containerstatus.ContainerCreated:              engine.createContainer,
+		containerstatus.ContainerRunning:              engine.startContainer,
+		containerstatus.ContainerResourcesProvisioned: engine.provisionContainerResources,
+		containerstatus.ContainerStopped:              engine.stopContainer,
 	}
 	engine.containerStatusToTransitionFunction = containerStatusToTransitionFunction
 }
@@ -541,7 +543,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 
 	currentState, metadata := engine.client.DescribeContainer(engine.ctx, container.DockerID)
 	if metadata.Error != nil {
-		currentState = apicontainerstatus.ContainerStopped
+		currentState = containerstatus.ContainerStopped
 		// If this is a Docker API error
 		if metadata.Error.ErrorName() == dockerapi.CannotDescribeContainerErrorName {
 			seelog.Warnf("Task engine [%s]: could not describe previously known container [id=%s; name=%s]; assuming dead: %v",
@@ -766,7 +768,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 
 	// Container health status change does not affect the container status
 	// no need to process this in task manager
-	if event.Type == apicontainer.ContainerHealthEvent {
+	if event.Type == containerresource.ContainerHealthEvent {
 		if cont.Container.HealthStatusShouldBeReported() {
 			seelog.Debugf("Task engine: updating container [%s(%s)] health status: %v",
 				cont.Container.Name, cont.DockerID, event.DockerContainerMetadata.Health)
@@ -948,7 +950,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	if task.GetDesiredStatus() == apitaskstatus.TaskStopped {
 		seelog.Infof("Task engine [%s]: task's desired status is stopped, skipping pulling image %s for container %s",
 			task.Arn, container.Image, container.Name)
-		container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+		container.SetDesiredStatus(containerstatus.ContainerStopped)
 		return dockerapi.DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
 	}
 
@@ -1152,7 +1154,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
-	hasSecretAsEnvOrLogDriver := func(s apicontainer.Secret) bool {
+	hasSecretAsEnvOrLogDriver := func(s containerresource.Secret) bool {
 		return s.Type == apicontainer.SecretTypeEnv || s.Target == apicontainer.SecretTargetLogDriver
 	}
 	if container.HasSecret(hasSecretAsEnvOrLogDriver) {
@@ -1704,7 +1706,7 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *api
 // transitionContainer calls applyContainerState, and then notifies the managed
 // task of the change. transitionContainer is called by progressTask and
 // by handleStoppedToRunningContainerTransition.
-func (engine *DockerTaskEngine) transitionContainer(task *apitask.Task, container *apicontainer.Container, to apicontainerstatus.ContainerStatus) {
+func (engine *DockerTaskEngine) transitionContainer(task *apitask.Task, container *apicontainer.Container, to containerstatus.ContainerStatus) {
 	// Let docker events operate async so that we can continue to handle ACS / other requests
 	// This is safe because 'applyContainerState' will not mutate the task
 	metadata := engine.applyContainerState(task, container, to)
@@ -1725,7 +1727,7 @@ func (engine *DockerTaskEngine) transitionContainer(task *apitask.Task, containe
 
 // applyContainerState moves the container to the given state by calling the
 // function defined in the transitionFunctionMap for the state
-func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, container *apicontainer.Container, nextState apicontainerstatus.ContainerStatus) dockerapi.DockerContainerMetadata {
+func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, container *apicontainer.Container, nextState containerstatus.ContainerStatus) dockerapi.DockerContainerMetadata {
 	transitionFunction, ok := engine.transitionFunctionMap()[nextState]
 	if !ok {
 		seelog.Criticalf("Task engine [%s]: unsupported desired state transition for container [%s]: %s",
@@ -1746,7 +1748,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 // transitionFunctionMap provides the logic for the simple state machine of the
 // DockerTaskEngine. Each desired state maps to a function that can be called
 // to try and move the task to that desired state.
-func (engine *DockerTaskEngine) transitionFunctionMap() map[apicontainerstatus.ContainerStatus]transitionApplyFunc {
+func (engine *DockerTaskEngine) transitionFunctionMap() map[containerstatus.ContainerStatus]transitionApplyFunc {
 	return engine.containerStatusToTransitionFunction
 }
 

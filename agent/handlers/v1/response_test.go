@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -97,10 +99,10 @@ func TestTaskResponse(t *testing.T) {
 
 	container := &apicontainer.Container{
 		Name: containerName,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -161,10 +163,10 @@ func TestContainerResponse(t *testing.T) {
 
 	container := &apicontainer.Container{
 		Name: containerName,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -205,11 +207,11 @@ func TestContainerResponse(t *testing.T) {
 func TestPortBindingsResponse(t *testing.T) {
 	container := &apicontainer.Container{
 		Name: containerName,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
 				HostPort:      80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 	}

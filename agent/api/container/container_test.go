@@ -21,6 +21,9 @@ import (
 	"testing"
 	"time"
 
+	containerresource "github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
@@ -65,7 +68,7 @@ func (pair configPair) Equal() bool {
 
 func TestGetSteadyStateStatusReturnsRunningByDefault(t *testing.T) {
 	container := &Container{}
-	assert.Equal(t, container.GetSteadyStateStatus(), apicontainerstatus.ContainerRunning)
+	assert.Equal(t, container.GetSteadyStateStatus(), containerstatus.ContainerRunning)
 }
 
 func TestIsKnownSteadyState(t *testing.T) {
@@ -73,22 +76,22 @@ func TestIsKnownSteadyState(t *testing.T) {
 	container := &Container{}
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to PULLED, still not in steady state
-	container.SetKnownStatus(apicontainerstatus.ContainerPulled)
+	container.SetKnownStatus(containerstatus.ContainerPulled)
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to CREATED, still not in steady state
-	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
+	container.SetKnownStatus(containerstatus.ContainerCreated)
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RUNNING, now we're in steady state
-	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	container.SetKnownStatus(containerstatus.ContainerRunning)
 	assert.True(t, container.IsKnownSteadyState())
 	// Now, set steady state to RESOURCES_PROVISIONED
-	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
+	resourcesProvisioned := containerstatus.ContainerResourcesProvisioned
 	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Container is not in steady state anymore
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RESOURCES_PROVISIONED, we're in
 	// steady state again
-	container.SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	container.SetKnownStatus(containerstatus.ContainerResourcesProvisioned)
 	assert.True(t, container.IsKnownSteadyState())
 }
 
@@ -96,24 +99,24 @@ func TestGetNextStateProgression(t *testing.T) {
 	// This creates a container with `iota` ContainerStatus (NONE)
 	container := &Container{}
 	// NONE should transition to PULLED
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerPulled)
-	container.SetKnownStatus(apicontainerstatus.ContainerPulled)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerPulled)
+	container.SetKnownStatus(containerstatus.ContainerPulled)
 	// PULLED should transition to CREATED
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerCreated)
-	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerCreated)
+	container.SetKnownStatus(containerstatus.ContainerCreated)
 	// CREATED should transition to RUNNING
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerRunning)
-	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerRunning)
+	container.SetKnownStatus(containerstatus.ContainerRunning)
 	// RUNNING should transition to STOPPED
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerStopped)
 
-	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
+	resourcesProvisioned := containerstatus.ContainerResourcesProvisioned
 	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Set steady state to RESOURCES_PROVISIONED
 	// RUNNING should transition to RESOURCES_PROVISIONED based on steady state
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerResourcesProvisioned)
-	container.SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
-	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerResourcesProvisioned)
+	container.SetKnownStatus(containerstatus.ContainerResourcesProvisioned)
+	assert.Equal(t, container.GetNextKnownStateProgression(), containerstatus.ContainerStopped)
 }
 
 func TestIsInternal(t *testing.T) {
@@ -147,22 +150,22 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 		{&Container{}, false, "the container does not use ECR, so it should not require credentials"},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{Type: "non-ecr"},
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{Type: "non-ecr"},
 			},
 			false,
 			"the container does not use ECR, so it should not require credentials",
 		},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{Type: "ecr"},
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{Type: "ecr"},
 			},
 			false, "the container uses ECR, but it does not require execution role credentials",
 		},
 		{
 			&Container{
-				RegistryAuthentication: &RegistryAuthenticationData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &ECRAuthData{
+					ECRAuthData: &containerresource.ECRAuthData{
 						UseExecutionRole: true,
 					},
 				},
@@ -183,25 +186,25 @@ func TestSetHealthStatus(t *testing.T) {
 	container := Container{}
 
 	// set the container status to be healthy
-	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerHealthy, Output: "test"})
+	container.SetHealthStatus(containerresource.HealthStatus{Status: containerstatus.ContainerHealthy, Output: "test"})
 	health := container.GetHealthStatus()
-	assert.Equal(t, health.Status, apicontainerstatus.ContainerHealthy)
+	assert.Equal(t, health.Status, containerstatus.ContainerHealthy)
 	assert.Equal(t, health.Output, "test")
 	assert.NotEmpty(t, health.Since)
 
 	// set the health status again shouldn't update the timestamp
-	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerHealthy})
+	container.SetHealthStatus(containerresource.HealthStatus{Status: containerstatus.ContainerHealthy})
 	health2 := container.GetHealthStatus()
-	assert.Equal(t, health2.Status, apicontainerstatus.ContainerHealthy)
+	assert.Equal(t, health2.Status, containerstatus.ContainerHealthy)
 	assert.Equal(t, health2.Since, health.Since)
 
 	// the sleep is to ensure the different of the two timestamp returned by time.Now()
 	// is big enough to pass asser.NotEqual
 	time.Sleep(10 * time.Millisecond)
 	// change the container health status
-	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerUnhealthy, ExitCode: 1})
+	container.SetHealthStatus(containerresource.HealthStatus{Status: containerstatus.ContainerUnhealthy, ExitCode: 1})
 	health3 := container.GetHealthStatus()
-	assert.Equal(t, health3.Status, apicontainerstatus.ContainerUnhealthy)
+	assert.Equal(t, health3.Status, containerstatus.ContainerUnhealthy)
 	assert.Equal(t, health3.ExitCode, 1)
 	assert.NotEqual(t, health3.Since, health2.Since)
 }
@@ -216,25 +219,25 @@ func TestHealthStatusShouldBeReported(t *testing.T) {
 }
 
 func TestBuildContainerDependency(t *testing.T) {
-	container := Container{TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]TransitionDependencySet)}
+	container := Container{TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)}
 	depContName := "dep"
-	container.BuildContainerDependency(depContName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	container.BuildContainerDependency(depContName, containerstatus.ContainerRunning, containerstatus.ContainerRunning)
 	assert.NotNil(t, container.TransitionDependenciesMap)
-	contDep := container.TransitionDependenciesMap[apicontainerstatus.ContainerRunning].ContainerDependencies
+	contDep := container.TransitionDependenciesMap[containerstatus.ContainerRunning].ContainerDependencies
 	assert.Len(t, container.TransitionDependenciesMap, 1)
 	assert.Len(t, contDep, 1)
 	assert.Equal(t, contDep[0].ContainerName, depContName)
-	assert.Equal(t, contDep[0].SatisfiedStatus, apicontainerstatus.ContainerRunning)
+	assert.Equal(t, contDep[0].SatisfiedStatus, containerstatus.ContainerRunning)
 }
 
 func TestBuildResourceDependency(t *testing.T) {
-	container := Container{TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]TransitionDependencySet)}
+	container := Container{TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)}
 	depResourceName := "cgroup"
 
-	container.BuildResourceDependency(depResourceName, resourcestatus.ResourceStatus(1), apicontainerstatus.ContainerRunning)
+	container.BuildResourceDependency(depResourceName, resourcestatus.ResourceStatus(1), containerstatus.ContainerRunning)
 
 	assert.NotNil(t, container.TransitionDependenciesMap)
-	resourceDep := container.TransitionDependenciesMap[apicontainerstatus.ContainerRunning].ResourceDependencies
+	resourceDep := container.TransitionDependenciesMap[containerstatus.ContainerRunning].ResourceDependencies
 	assert.Len(t, container.TransitionDependenciesMap, 1)
 	assert.Len(t, resourceDep, 1)
 	assert.Equal(t, depResourceName, resourceDep[0].Name)
@@ -245,9 +248,9 @@ func TestShouldPullWithASMAuth(t *testing.T) {
 	container := Container{
 		Name:  "myName",
 		Image: "image:tag",
-		RegistryAuthentication: &RegistryAuthenticationData{
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 			Type: "asm",
-			ASMAuthData: &ASMAuthData{
+			ASMAuthData: &containerresource.ASMAuthData{
 				CredentialsParameter: "secret-id",
 				Region:               "region",
 			},
@@ -288,8 +291,8 @@ func TestShouldCreateWithSSMSecret(t *testing.T) {
 		{Container{
 			Name:  "myName",
 			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			Secrets: []containerresource.Secret{
+				containerresource.Secret{
 					Provider:  "ssm",
 					Name:      "secret",
 					ValueFrom: "/test/secretName",
@@ -303,8 +306,8 @@ func TestShouldCreateWithSSMSecret(t *testing.T) {
 		{Container{
 			Name:  "myName",
 			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			Secrets: []containerresource.Secret{
+				containerresource.Secret{
 					Provider:  "asm",
 					Name:      "secret",
 					ValueFrom: "/test/secretName",
@@ -396,8 +399,8 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 		{Container{
 			Name:  "myName",
 			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			Secrets: []containerresource.Secret{
+				containerresource.Secret{
 					Provider:  "asm",
 					Name:      "secret",
 					ValueFrom: "/test/secretName",
@@ -411,8 +414,8 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 		{Container{
 			Name:  "myName",
 			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			Secrets: []containerresource.Secret{
+				containerresource.Secret{
 					Provider:  "ssm",
 					Name:      "secret",
 					ValueFrom: "/test/secretName",
@@ -427,23 +430,23 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 }
 
 func TestHasSecret(t *testing.T) {
-	isEnvOrLogDriverSecret := func(s Secret) bool {
+	isEnvOrLogDriverSecret := func(s containerresource.Secret) bool {
 		return s.Type == SecretTypeEnv || s.Target == SecretTargetLogDriver
 	}
-	isSSMLogDriverSecret := func(s Secret) bool {
+	isSSMLogDriverSecret := func(s containerresource.Secret) bool {
 		return s.Provider == SecretProviderSSM && s.Target == SecretTargetLogDriver
 	}
 
 	testCases := []struct {
 		name    string
-		f       func(s Secret) bool
-		secrets []Secret
+		f       func(s containerresource.Secret) bool
+		secrets []containerresource.Secret
 		res     bool
 	}{
 		{
 			name: "test env secret",
 			f:    isEnvOrLogDriverSecret,
-			secrets: []Secret{
+			secrets: []containerresource.Secret{
 				{
 					Provider:  "asm",
 					Name:      "secret",
@@ -459,7 +462,7 @@ func TestHasSecret(t *testing.T) {
 		{
 			name: "test mount point secret",
 			f:    isEnvOrLogDriverSecret,
-			secrets: []Secret{
+			secrets: []containerresource.Secret{
 				{
 					Provider:  "asm",
 					Name:      "secret",
@@ -471,7 +474,7 @@ func TestHasSecret(t *testing.T) {
 		{
 			name: "test log driver secret",
 			f:    isEnvOrLogDriverSecret,
-			secrets: []Secret{
+			secrets: []containerresource.Secret{
 				{
 					Provider:  "asm",
 					Name:      "splunk-token",
@@ -483,7 +486,7 @@ func TestHasSecret(t *testing.T) {
 		{
 			name: "test secret provider ssm",
 			f:    isSSMLogDriverSecret,
-			secrets: []Secret{
+			secrets: []containerresource.Secret{
 				{
 					Name:     "secret",
 					Provider: SecretProviderSSM,
@@ -495,7 +498,7 @@ func TestHasSecret(t *testing.T) {
 		{
 			name: "test wrong secret provider",
 			f:    isSSMLogDriverSecret,
-			secrets: []Secret{
+			secrets: []containerresource.Secret{
 				{
 					Name:     "secret",
 					Provider: "dummy",
@@ -713,8 +716,8 @@ func TestShouldCreateWithEnvfiles(t *testing.T) {
 			Container{
 				Name:  "containerName",
 				Image: "image:tag",
-				EnvironmentFiles: []EnvironmentFile{
-					EnvironmentFile{
+				EnvironmentFiles: []containerresource.EnvironmentFile{
+					containerresource.EnvironmentFile{
 						Value: "s3://bucket/envfile",
 						Type:  "s3",
 					},
@@ -798,34 +801,34 @@ func TestRequireNeuronRuntime(t *testing.T) {
 func TestHasNotAndWillNotStart(t *testing.T) {
 	testCases := []struct {
 		name          string
-		knownStatus   apicontainerstatus.ContainerStatus
-		desiredStatus apicontainerstatus.ContainerStatus
-		appliedStatus apicontainerstatus.ContainerStatus
+		knownStatus   containerstatus.ContainerStatus
+		desiredStatus containerstatus.ContainerStatus
+		appliedStatus containerstatus.ContainerStatus
 		expected      bool
 	}{
 		{
 			name:          "container has started",
-			knownStatus:   apicontainerstatus.ContainerRunning,
-			desiredStatus: apicontainerstatus.ContainerRunning,
-			appliedStatus: apicontainerstatus.ContainerStatusNone,
+			knownStatus:   containerstatus.ContainerRunning,
+			desiredStatus: containerstatus.ContainerRunning,
+			appliedStatus: containerstatus.ContainerStatusNone,
 		},
 		{
 			name:          "container wants to start",
-			knownStatus:   apicontainerstatus.ContainerCreated,
-			desiredStatus: apicontainerstatus.ContainerRunning,
-			appliedStatus: apicontainerstatus.ContainerStatusNone,
+			knownStatus:   containerstatus.ContainerCreated,
+			desiredStatus: containerstatus.ContainerRunning,
+			appliedStatus: containerstatus.ContainerStatusNone,
 		},
 		{
 			name:          "container in the middle of transition",
-			knownStatus:   apicontainerstatus.ContainerCreated,
-			desiredStatus: apicontainerstatus.ContainerStopped,
-			appliedStatus: apicontainerstatus.ContainerRunning,
+			knownStatus:   containerstatus.ContainerCreated,
+			desiredStatus: containerstatus.ContainerStopped,
+			appliedStatus: containerstatus.ContainerRunning,
 		},
 		{
 			name:          "container has not and will not start",
-			knownStatus:   apicontainerstatus.ContainerPulled,
-			desiredStatus: apicontainerstatus.ContainerStopped,
-			appliedStatus: apicontainerstatus.ContainerStatusNone,
+			knownStatus:   containerstatus.ContainerPulled,
+			desiredStatus: containerstatus.ContainerStopped,
+			appliedStatus: containerstatus.ContainerStatusNone,
 			expected:      true,
 		},
 	}

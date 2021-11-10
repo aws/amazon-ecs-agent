@@ -21,8 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -88,15 +90,15 @@ func TestTaskResponse(t *testing.T) {
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -184,15 +186,15 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -262,20 +264,20 @@ func TestContainerResponse(t *testing.T) {
 				Name:                containerName,
 				Image:               imageName,
 				ImageID:             imageID,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-				KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
+				KnownStatusUnsafe:   containerstatus.ContainerRunning,
 				CPU:                 cpu,
 				Memory:              memory,
 				Type:                apicontainer.ContainerNormal,
 				HealthCheckType:     tc.healthCheckType,
-				Health: apicontainer.HealthStatus{
-					Status: apicontainerstatus.ContainerHealthy,
+				Health: containerresource.HealthStatus{
+					Status: containerstatus.ContainerHealthy,
 					Since:  aws.Time(time.Now()),
 				},
-				Ports: []apicontainer.PortBinding{
+				Ports: []containerresource.PortBinding{
 					{
 						ContainerPort: 80,
-						Protocol:      apicontainer.TransportProtocolTCP,
+						Protocol:      containerresource.TransportProtocolTCP,
 					},
 				},
 				VolumesUnsafe: []types.MountPoint{
@@ -400,10 +402,10 @@ func TestTaskResponseMarshal(t *testing.T) {
 		V3EndpointID: "",
 		Image:        imageName,
 		ImageID:      imageID,
-		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 	}
@@ -510,20 +512,20 @@ func TestContainerResponseMarshal(t *testing.T) {
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
 		HealthCheckType:     "docker",
-		Health: apicontainer.HealthStatus{
-			Status: apicontainerstatus.ContainerHealthy,
+		Health: containerresource.HealthStatus{
+			Status: containerstatus.ContainerHealthy,
 			Since:  aws.Time(timeRFC3339),
 		},
-		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 	}
@@ -597,15 +599,15 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
+		Ports: []containerresource.PortBinding{
 			{
 				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{

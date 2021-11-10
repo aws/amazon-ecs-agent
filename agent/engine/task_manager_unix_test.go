@@ -24,8 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
@@ -293,8 +294,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 		resCurrentStatus             resourcestatus.ResourceStatus
 		resDesiredStatus             resourcestatus.ResourceStatus
 		resDependentStatus           resourcestatus.ResourceStatus
-		dependencyCurrentStatus      apicontainerstatus.ContainerStatus
-		dependencySatisfiedStatus    apicontainerstatus.ContainerStatus
+		dependencyCurrentStatus      containerstatus.ContainerStatus
+		dependencySatisfiedStatus    containerstatus.ContainerStatus
 		expectedResourceStatus       resourcestatus.ResourceStatus
 		expectedTransitionActionable bool
 		reason                       error
@@ -305,8 +306,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			resCurrentStatus:             resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			resDesiredStatus:             resourcestatus.ResourceStatus(volume.VolumeCreated),
 			resDependentStatus:           resourcestatus.ResourceStatus(volume.VolumeCreated),
-			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
-			dependencySatisfiedStatus:    apicontainerstatus.ContainerResourcesProvisioned,
+			dependencyCurrentStatus:      containerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    containerstatus.ContainerResourcesProvisioned,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			expectedTransitionActionable: false,
 			reason:                       dependencygraph.ErrContainerDependencyNotResolvedForResource,
@@ -317,8 +318,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			resCurrentStatus:             resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			resDesiredStatus:             resourcestatus.ResourceStatus(volume.VolumeCreated),
 			resDependentStatus:           resourcestatus.ResourceStatus(volume.VolumeCreated),
-			dependencyCurrentStatus:      apicontainerstatus.ContainerResourcesProvisioned,
-			dependencySatisfiedStatus:    apicontainerstatus.ContainerResourcesProvisioned,
+			dependencyCurrentStatus:      containerstatus.ContainerResourcesProvisioned,
+			dependencySatisfiedStatus:    containerstatus.ContainerResourcesProvisioned,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeCreated),
 			expectedTransitionActionable: true,
 		},
@@ -328,8 +329,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			resCurrentStatus:             resourcestatus.ResourceStatus(volume.VolumeCreated),
 			resDesiredStatus:             resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			resDependentStatus:           resourcestatus.ResourceStatus(volume.VolumeRemoved),
-			dependencyCurrentStatus:      apicontainerstatus.ContainerStopped,
-			dependencySatisfiedStatus:    apicontainerstatus.ContainerStopped,
+			dependencyCurrentStatus:      containerstatus.ContainerStopped,
+			dependencySatisfiedStatus:    containerstatus.ContainerStopped,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			expectedTransitionActionable: false,
 		},
@@ -339,8 +340,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			resCurrentStatus:             resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			resDesiredStatus:             resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			resDependentStatus:           resourcestatus.ResourceStatus(volume.VolumeCreated),
-			dependencyCurrentStatus:      apicontainerstatus.ContainerCreated,
-			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			dependencyCurrentStatus:      containerstatus.ContainerCreated,
+			dependencySatisfiedStatus:    containerstatus.ContainerCreated,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			expectedTransitionActionable: false,
 		},
@@ -350,8 +351,8 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			resCurrentStatus:             resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			resDesiredStatus:             resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			resDependentStatus:           resourcestatus.ResourceStatus(volume.VolumeCreated),
-			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
-			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			dependencyCurrentStatus:      containerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    containerstatus.ContainerCreated,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			expectedTransitionActionable: false,
 			reason:                       dependencygraph.ErrContainerDependencyNotResolvedForResource,

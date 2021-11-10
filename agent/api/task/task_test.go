@@ -23,9 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
@@ -106,7 +108,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
+				Ports: []containerresource.PortBinding{{10, 10, "", containerresource.TransportProtocolTCP}, {20, 20, "", containerresource.TransportProtocolUDP}},
 			},
 		},
 	}
@@ -208,7 +210,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
+				Ports: []containerresource.PortBinding{{10, 10, "", containerresource.TransportProtocolTCP}, {20, 20, "", containerresource.TransportProtocolUDP}},
 			},
 		},
 	}
@@ -1180,11 +1182,11 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 			Containers: []*apicontainer.Container{
 				{
 					Name:                      "c1",
-					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+					TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 				},
 				{
 					Name:                      "c2",
-					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+					TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 				},
 			},
 		}
@@ -1204,8 +1206,8 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 					continue
 				}
 				found := false
-				for _, contDep := range cont.TransitionDependenciesMap[apicontainerstatus.ContainerPulled].ContainerDependencies {
-					if contDep.ContainerName == NamespacePauseContainerName && contDep.SatisfiedStatus == apicontainerstatus.ContainerRunning {
+				for _, contDep := range cont.TransitionDependenciesMap[containerstatus.ContainerPulled].ContainerDependencies {
+					if contDep.ContainerName == NamespacePauseContainerName && contDep.SatisfiedStatus == containerstatus.ContainerRunning {
 						found = true
 					}
 				}
@@ -1351,11 +1353,11 @@ func TestTaskFromACS(t *testing.T) {
 				Overrides: apicontainer.ContainerOverrides{
 					Command: &[]string{"a", "b", "c"},
 				},
-				Ports: []apicontainer.PortBinding{
+				Ports: []containerresource.PortBinding{
 					{
 						HostPort:      800,
 						ContainerPort: 900,
-						Protocol:      apicontainer.TransportProtocolUDP,
+						Protocol:      containerresource.TransportProtocolUDP,
 					},
 				},
 				VolumesFrom: []apicontainer.VolumeFrom{
@@ -1369,7 +1371,7 @@ func TestTaskFromACS(t *testing.T) {
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
-				Secrets: []apicontainer.Secret{
+				Secrets: []containerresource.Secret{
 					{
 						Name:      "secret",
 						ValueFrom: "/test/secret",
@@ -1377,13 +1379,13 @@ func TestTaskFromACS(t *testing.T) {
 						Region:    "us-west-2",
 					},
 				},
-				EnvironmentFiles: []apicontainer.EnvironmentFile{
+				EnvironmentFiles: []containerresource.EnvironmentFile{
 					{
 						Value: "s3://bucketName/envFile",
 						Type:  "s3",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -1437,14 +1439,14 @@ func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+				KnownStatusUnsafe: containerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 		},
 	}
@@ -1461,15 +1463,15 @@ func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t 
 		KnownStatusUnsafe: apitaskstatus.TaskCreated,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+				KnownStatusUnsafe: containerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 		},
 	}
@@ -1486,15 +1488,15 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+				KnownStatusUnsafe: containerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 			},
 		},
 	}
@@ -1508,20 +1510,20 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 // tests when there is one essential container is stopped while other container status are prior to
 // ResourcesProvisioned, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
+	resourcesProvisioned := containerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+				KnownStatusUnsafe: containerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe:       apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe:       containerstatus.ContainerCreated,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -1560,10 +1562,10 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 		},
 	}
@@ -1573,23 +1575,23 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
 	// Ensure that both containers are RUNNING, which means that the earliest known status
 	// for the task based on its container statuses must be `apitaskstatus.TaskRunning`
-	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(containerstatus.ContainerRunning)
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
+	resourcesProvisioned := containerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 			{
-				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe:       containerstatus.ContainerRunning,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
@@ -1598,7 +1600,7 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 	// Since a container is still in CREATED state, the earliest known status
 	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
-	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(containerstatus.ContainerRunning)
 	// Even if all containers transition to RUNNING, the earliest known status
 	// for the task based on its container statuses would still be `apitaskstatus.TaskCreated`
 	// as one of the containers has RESOURCES_PROVISIONED as its steady state
@@ -1606,7 +1608,7 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 	// All of the containers in the task have reached their steady state. Ensure
 	// that the earliest known status for the task based on its container states
 	// is now `apitaskstatus.TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	testTask.Containers[2].SetKnownStatus(containerstatus.ContainerResourcesProvisioned)
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
@@ -1615,13 +1617,13 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 		},
 	}
@@ -1634,27 +1636,27 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 
 	// All of the containers are in RUNNING state, expect task to be updated
 	// to apitaskstatus.TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(containerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
+	resourcesProvisioned := containerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
+				KnownStatusUnsafe: containerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe:       containerstatus.ContainerRunning,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -1670,14 +1672,14 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 	// All of the containers are in RUNNING state, but one of the containers
 	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
 	// updated to apitaskstatus.TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	testTask.Containers[0].SetKnownStatus(containerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers have reached their steady states, expect the task
 	// to be updated to `apitaskstatus.TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	testTask.Containers[2].SetKnownStatus(containerstatus.ContainerResourcesProvisioned)
 	newStatus = testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
 	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
@@ -2167,25 +2169,25 @@ func TestContainerHealthConfig(t *testing.T) {
 func TestRecordExecutionStoppedAt(t *testing.T) {
 	testCases := []struct {
 		essential             bool
-		status                apicontainerstatus.ContainerStatus
+		status                containerstatus.ContainerStatus
 		executionStoppedAtSet bool
 		msg                   string
 	}{
 		{
 			essential:             true,
-			status:                apicontainerstatus.ContainerStopped,
+			status:                containerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
 			msg:                   "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
-			status:                apicontainerstatus.ContainerStopped,
+			status:                containerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
 			msg:                   "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
-			status:                apicontainerstatus.ContainerRunning,
+			status:                containerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
 			msg:                   "essential non-stop status change should not cause executionStoppedAt set",
 		},
@@ -2216,9 +2218,9 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 			{
 				Name:  "myName",
 				Image: "image:tag",
-				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 					Type: "asm",
-					ASMAuthData: &apicontainer.ASMAuthData{
+					ASMAuthData: &containerresource.ASMAuthData{
 						CredentialsParameter: expectedCredentialsParameter,
 						Region:               expectedRegion,
 					},
@@ -2313,9 +2315,9 @@ func TestPopulateASMAuthData(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:  "myName",
 		Image: "image:tag",
-		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 			Type: "asm",
-			ASMAuthData: &apicontainer.ASMAuthData{
+			ASMAuthData: &containerresource.ASMAuthData{
 				CredentialsParameter: credentialsParameter,
 				Region:               region,
 			},
@@ -2386,9 +2388,9 @@ func TestPopulateASMAuthDataNoASMResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:  "myName",
 		Image: "image:tag",
-		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 			Type: "asm",
-			ASMAuthData: &apicontainer.ASMAuthData{
+			ASMAuthData: &containerresource.ASMAuthData{
 				CredentialsParameter: credentialsParameter,
 				Region:               region,
 			},
@@ -2415,9 +2417,9 @@ func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:  "myName",
 		Image: "image:tag",
-		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 			Type: "asm",
-			ASMAuthData: &apicontainer.ASMAuthData{
+			ASMAuthData: &containerresource.ASMAuthData{
 				CredentialsParameter: credentialsParameter,
 				Region:               region,
 			},
@@ -2459,14 +2461,14 @@ func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:  "myName",
 		Image: "image:tag",
-		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 			Type: "asm",
-			ASMAuthData: &apicontainer.ASMAuthData{
+			ASMAuthData: &containerresource.ASMAuthData{
 				CredentialsParameter: credentialsParameter,
 				Region:               region,
 			},
 		},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2494,7 +2496,7 @@ func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
 }
 
 func TestPostUnmarshalTaskSecret(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2504,8 +2506,8 @@ func TestPostUnmarshalTaskSecret(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2533,7 +2535,7 @@ func TestPostUnmarshalTaskSecret(t *testing.T) {
 }
 
 func TestPostUnmarshalTaskASMSecret(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2543,8 +2545,8 @@ func TestPostUnmarshalTaskASMSecret(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2567,7 +2569,7 @@ func TestPostUnmarshalTaskASMSecret(t *testing.T) {
 		},
 	}
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           asmsecret.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
 	}
@@ -2576,28 +2578,28 @@ func TestPostUnmarshalTaskASMSecret(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 1, len(task.ResourcesMapUnsafe))
-	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 }
 
 func TestGetAllSSMSecretRequirements(t *testing.T) {
 	regionWest := "us-west-2"
 	regionEast := "us-east-1"
 
-	secret1 := apicontainer.Secret{
+	secret1 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret1",
 		Region:    regionWest,
 		ValueFrom: "/test/secretName1",
 	}
 
-	secret2 := apicontainer.Secret{
+	secret2 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret2",
 		Region:    regionWest,
 		ValueFrom: "/test/secretName2",
 	}
 
-	secret3 := apicontainer.Secret{
+	secret3 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret3",
 		Region:    regionEast,
@@ -2607,8 +2609,8 @@ func TestGetAllSSMSecretRequirements(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret1, secret2, secret3},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2623,7 +2625,7 @@ func TestGetAllSSMSecretRequirements(t *testing.T) {
 }
 
 func TestInitializeAndGetSSMSecretResource(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2633,15 +2635,15 @@ func TestInitializeAndGetSSMSecretResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2665,12 +2667,12 @@ func TestInitializeAndGetSSMSecretResource(t *testing.T) {
 
 	task.initializeSSMSecretResource(credentialsManager, resFields)
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           ssmsecret.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
 	}
 
-	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
 
 	_, ok := task.getSSMSecretsResource()
@@ -2678,7 +2680,7 @@ func TestInitializeAndGetSSMSecretResource(t *testing.T) {
 }
 
 func TestRequiresSSMSecret(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2688,15 +2690,15 @@ func TestRequiresSSMSecret(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2713,14 +2715,14 @@ func TestRequiresSSMSecretNoSecret(t *testing.T) {
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2733,7 +2735,7 @@ func TestRequiresSSMSecretNoSecret(t *testing.T) {
 }
 
 func TestRequiresASMSecret(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2743,15 +2745,15 @@ func TestRequiresASMSecret(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2768,14 +2770,14 @@ func TestRequiresASMSecretNoSecret(t *testing.T) {
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2791,28 +2793,28 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 	regionWest := "us-west-2"
 	regionEast := "us-east-1"
 
-	secret1 := apicontainer.Secret{
+	secret1 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret1",
 		Region:    regionWest,
 		ValueFrom: "/test/secretName1",
 	}
 
-	secret2 := apicontainer.Secret{
+	secret2 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret2",
 		Region:    regionWest,
 		ValueFrom: "/test/secretName2",
 	}
 
-	secret3 := apicontainer.Secret{
+	secret3 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret3",
 		Region:    regionEast,
 		ValueFrom: "/test/secretName3",
 	}
 
-	secret4 := apicontainer.Secret{
+	secret4 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret4",
 		Region:    regionWest,
@@ -2822,8 +2824,8 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3, secret4},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret1, secret2, secret3, secret4},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2839,7 +2841,7 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 }
 
 func TestInitializeAndGetASMSecretResource(t *testing.T) {
-	secret := apicontainer.Secret{
+	secret := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret",
 		Region:    "us-west-2",
@@ -2849,15 +2851,15 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	container1 := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
 		Secrets:                   nil,
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2881,12 +2883,12 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 
 	task.initializeASMSecretResource(credentialsManager, resFields)
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           asmsecret.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
 	}
 
-	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
 
 	_, ok := task.getASMSecretsResource()
@@ -2894,7 +2896,7 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 }
 
 func TestPopulateSecrets(t *testing.T) {
-	secret1 := apicontainer.Secret{
+	secret1 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret1",
 		Region:    "us-west-2",
@@ -2902,7 +2904,7 @@ func TestPopulateSecrets(t *testing.T) {
 		ValueFrom: "/test/secretName",
 	}
 
-	secret2 := apicontainer.Secret{
+	secret2 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret2",
 		Region:    "us-west-2",
@@ -2910,7 +2912,7 @@ func TestPopulateSecrets(t *testing.T) {
 		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
 	}
 
-	secret3 := apicontainer.Secret{
+	secret3 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "splunk-token",
 		Region:    "us-west-1",
@@ -2921,8 +2923,8 @@ func TestPopulateSecrets(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret1, secret2, secret3},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2959,7 +2961,7 @@ func TestPopulateSecrets(t *testing.T) {
 }
 
 func TestPopulateSecretsNoConfigInHostConfig(t *testing.T) {
-	secret1 := apicontainer.Secret{
+	secret1 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "splunk-token",
 		Region:    "us-west-1",
@@ -2970,8 +2972,8 @@ func TestPopulateSecretsNoConfigInHostConfig(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret1},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -2992,7 +2994,7 @@ func TestPopulateSecretsNoConfigInHostConfig(t *testing.T) {
 }
 
 func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
-	secret1 := apicontainer.Secret{
+	secret1 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret1",
 		Region:    "us-west-2",
@@ -3000,7 +3002,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
 	}
 
-	secret2 := apicontainer.Secret{
+	secret2 := containerresource.Secret{
 		Provider:  "asm",
 		Name:      "secret2",
 		Region:    "us-west-1",
@@ -3008,7 +3010,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 		Target:    "LOG_DRIVER",
 	}
 
-	secret3 := apicontainer.Secret{
+	secret3 := containerresource.Secret{
 		Provider:  "ssm",
 		Name:      "secret3",
 		Region:    "us-west-2",
@@ -3019,8 +3021,8 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		Secrets:                   []containerresource.Secret{secret1, secret2, secret3},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -3484,7 +3486,7 @@ func TestGetContainerIndex(t *testing.T) {
 }
 
 func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
-	envfile := apicontainer.EnvironmentFile{
+	envfile := containerresource.EnvironmentFile{
 		Value: "s3://bucket/envfile",
 		Type:  "s3",
 	}
@@ -3492,8 +3494,8 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "containerName",
 		Image:                     "image:tag",
-		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		EnvironmentFiles:          []containerresource.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -3513,7 +3515,7 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 		},
 	}
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           envFiles.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
 	}
@@ -3523,11 +3525,11 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 
 	assert.Equal(t, 1, len(task.ResourcesMapUnsafe))
 	assert.Equal(t, resourceDep,
-		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+		task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 }
 
 func TestInitializeAndGetEnvfilesResource(t *testing.T) {
-	envfile := apicontainer.EnvironmentFile{
+	envfile := containerresource.EnvironmentFile{
 		Value: "s3://bucket/envfile",
 		Type:  "s3",
 	}
@@ -3535,8 +3537,8 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "containerName",
 		Image:                     "image:tag",
-		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		EnvironmentFiles:          []containerresource.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{
@@ -3555,20 +3557,20 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 
 	task.initializeEnvfilesResource(cfg, credentialsManager)
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           envFiles.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
 	}
 
 	assert.Equal(t, resourceDep,
-		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+		task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 
 	_, ok := task.getEnvfilesResource("containerName")
 	assert.True(t, ok)
 }
 
 func TestRequiresEnvfiles(t *testing.T) {
-	envfile := apicontainer.EnvironmentFile{
+	envfile := containerresource.EnvironmentFile{
 		Value: "s3://bucket/envfile",
 		Type:  "s3",
 	}
@@ -3576,8 +3578,8 @@ func TestRequiresEnvfiles(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "containerName",
 		Image:                     "image:tag",
-		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		EnvironmentFiles:          []containerresource.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
 	task := &Task{

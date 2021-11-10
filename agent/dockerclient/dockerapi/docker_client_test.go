@@ -29,9 +29,10 @@ import (
 	"testing"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -258,9 +259,9 @@ func TestPullImageECRSuccess(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -320,9 +321,9 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	registryID := "123456789012"
 	region := "eu-west-1"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -811,7 +812,7 @@ func TestContainerEvents(t *testing.T) {
 
 	event := <-dockerEvents
 	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+	assert.Equal(t, event.Status, containerstatus.ContainerCreated, "Wrong status")
 
 	container := types.ContainerJSON{
 		ContainerJSONBase: &types.ContainerJSONBase{
@@ -837,7 +838,7 @@ func TestContainerEvents(t *testing.T) {
 	}()
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainerstatus.ContainerRunning, "Wrong status")
+	assert.Equal(t, event.Status, containerstatus.ContainerRunning, "Wrong status")
 	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
 	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
 	assert.Equal(t, event.Volumes[0].Source, "/host/path", "Incorrect volume mapping")
@@ -863,7 +864,7 @@ func TestContainerEvents(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
 		assert.True(t, anEvent.DockerID == "cid30" || anEvent.DockerID == "cid31", "Wrong container id: "+anEvent.DockerID)
-		assert.Equal(t, anEvent.Status, apicontainerstatus.ContainerStopped, "Should be stopped")
+		assert.Equal(t, anEvent.Status, containerstatus.ContainerStopped, "Should be stopped")
 		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
@@ -896,8 +897,8 @@ func TestContainerEvents(t *testing.T) {
 	}()
 
 	anEvent := <-dockerEvents
-	assert.Equal(t, anEvent.Type, apicontainer.ContainerHealthEvent, "unexpected docker events type received")
-	assert.Equal(t, anEvent.Health.Status, apicontainerstatus.ContainerHealthy)
+	assert.Equal(t, anEvent.Type, containerresource.ContainerHealthEvent, "unexpected docker events type received")
+	assert.Equal(t, anEvent.Health.Status, containerstatus.ContainerHealthy)
 	assert.Equal(t, anEvent.Health.Output, "health output")
 
 	// Verify the following events do not translate into our event stream
@@ -990,7 +991,7 @@ func TestContainerEventsError(t *testing.T) {
 
 			event := <-dockerEvents
 			assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-			assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+			assert.Equal(t, event.Status, containerstatus.ContainerCreated, "Wrong status")
 		})
 	}
 }
@@ -1596,9 +1597,9 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 	region := "eu-west-1"
 	registryID := "1234567890"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1652,9 +1653,9 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	region := "eu-west-1"
 	registryID := "1234567890"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1710,9 +1711,9 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	imageEndpoint := "registry.endpoint"
 	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1763,9 +1764,9 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	region := "eu-west-1"
 	registryID := "1234567890"
 	endpointOverride := "my.endpoint"
-	authData := &apicontainer.RegistryAuthenticationData{
+	authData := &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			RegistryID:       registryID,
 			Region:           region,
 			EndpointOverride: endpointOverride,
@@ -1896,7 +1897,7 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 	}
 
 	metadata := MetadataFromContainer(dockerContainer)
-	assert.Equal(t, apicontainerstatus.ContainerUnhealthy, metadata.Health.Status)
+	assert.Equal(t, containerstatus.ContainerUnhealthy, metadata.Health.Status)
 }
 
 func TestCreateVolumeTimeout(t *testing.T) {

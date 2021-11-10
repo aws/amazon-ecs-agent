@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -190,7 +192,7 @@ func validateContainerRunWorkflow(t *testing.T,
 			createdContainerName <- containerName
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+				eventStream <- createDockerEvent(containerstatus.ContainerCreated)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -199,7 +201,7 @@ func validateContainerRunWorkflow(t *testing.T,
 		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+				eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -261,7 +263,7 @@ func addTaskToEngine(t *testing.T,
 	createStartEventsReported.Wait()
 }
 
-func createDockerEvent(status apicontainerstatus.ContainerStatus) dockerapi.DockerContainerChangeEvent {
+func createDockerEvent(status containerstatus.ContainerStatus) dockerapi.DockerContainerChangeEvent {
 	meta := dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}
@@ -272,7 +274,7 @@ func createDockerEvent(status apicontainerstatus.ContainerStatus) dockerapi.Dock
 // and the task
 func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Event) {
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 
 	event = <-stateChangeEvents
@@ -297,7 +299,7 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 	}
 
 	event := <-stateChangeEvents
-	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
+	if cont := event.(api.ContainerStateChange); cont.Status != containerstatus.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		if verifyExitCode {
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")

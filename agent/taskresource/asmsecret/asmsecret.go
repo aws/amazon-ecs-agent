@@ -20,11 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
@@ -61,7 +62,7 @@ type ASMSecretResource struct {
 	executionCredentialsID             string
 
 	// map to store all asm deduped secrets in the task, key is a combination of valueFrom and region
-	requiredSecrets map[string]apicontainer.Secret
+	requiredSecrets map[string]containerresource.Secret
 	// map to store secret values, key is a combination of valueFrom and region
 	secretData map[string]string
 
@@ -80,7 +81,7 @@ type ASMSecretResource struct {
 
 // NewASMSecretResource creates a new ASMSecretResource object
 func NewASMSecretResource(taskARN string,
-	asmSecrets map[string]apicontainer.Secret,
+	asmSecrets map[string]containerresource.Secret,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	asmClientCreator factory.ClientCreator) *ASMSecretResource {
@@ -296,7 +297,7 @@ func (secret *ASMSecretResource) Create() error {
 
 // retrieveASMSecretValue reads secret value from cache first, if not exists, call GetSecretFromASM to retrieve value
 // AWS secrets Manager
-func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret containerresource.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
 	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
@@ -387,7 +388,7 @@ func reconstructASMARN(arnARN arn.ARN) string {
 }
 
 // getRequiredSecrets returns the requiredSecrets field of asmsecret task resource
-func (secret *ASMSecretResource) getRequiredSecrets() map[string]apicontainer.Secret {
+func (secret *ASMSecretResource) getRequiredSecrets() map[string]containerresource.Secret {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
@@ -457,12 +458,12 @@ func (secret *ASMSecretResource) Initialize(resourceFields *taskresource.Resourc
 }
 
 type ASMSecretResourceJSON struct {
-	TaskARN                string                         `json:"taskARN"`
-	CreatedAt              *time.Time                     `json:"createdAt,omitempty"`
-	DesiredStatus          *ASMSecretStatus               `json:"desiredStatus"`
-	KnownStatus            *ASMSecretStatus               `json:"knownStatus"`
-	RequiredSecrets        map[string]apicontainer.Secret `json:"secretResources"`
-	ExecutionCredentialsID string                         `json:"executionCredentialsID"`
+	TaskARN                string                              `json:"taskARN"`
+	CreatedAt              *time.Time                          `json:"createdAt,omitempty"`
+	DesiredStatus          *ASMSecretStatus                    `json:"desiredStatus"`
+	KnownStatus            *ASMSecretStatus                    `json:"knownStatus"`
+	RequiredSecrets        map[string]containerresource.Secret `json:"secretResources"`
+	ExecutionCredentialsID string                              `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serialises the ASMSecretResource struct to JSON
@@ -527,10 +528,10 @@ func (secret *ASMSecretResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (secret *ASMSecretResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (secret *ASMSecretResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (secret *ASMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (secret *ASMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

@@ -22,8 +22,9 @@ import (
 	"sync"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
@@ -66,7 +67,7 @@ type EnvironmentFileResource struct {
 	containerName string
 
 	// env file related attributes
-	environmentFilesSource []apicontainer.EnvironmentFile // list of env file objects
+	environmentFilesSource []containerresource.EnvironmentFile // list of env file objects
 
 	executionCredentialsID string
 	credentialsManager     credentials.Manager
@@ -86,7 +87,7 @@ type EnvironmentFileResource struct {
 }
 
 // NewEnvironmentFileResource creates a new EnvironmentFileResource object
-func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName string, envfiles []apicontainer.EnvironmentFile,
+func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName string, envfiles []containerresource.EnvironmentFile,
 	credentialsManager credentials.Manager, executionCredentialsID string) (*EnvironmentFileResource, error) {
 	envfileResource := &EnvironmentFileResource{
 		cluster:                cluster,
@@ -435,13 +436,13 @@ func (envfile *EnvironmentFileResource) Cleanup() error {
 }
 
 type environmentFileResourceJSON struct {
-	TaskARN                string                         `json:"taskARN"`
-	ContainerName          string                         `json:"containerName"`
-	CreatedAt              *time.Time                     `json:"createdAt,omitempty"`
-	DesiredStatus          *EnvironmentFileStatus         `json:"desiredStatus"`
-	KnownStatus            *EnvironmentFileStatus         `json:"knownStatus"`
-	EnvironmentFilesSource []apicontainer.EnvironmentFile `json:"environmentFilesSource"`
-	ExecutionCredentialsID string                         `json:"executionCredentialsID"`
+	TaskARN                string                              `json:"taskARN"`
+	ContainerName          string                              `json:"containerName"`
+	CreatedAt              *time.Time                          `json:"createdAt,omitempty"`
+	DesiredStatus          *EnvironmentFileStatus              `json:"desiredStatus"`
+	KnownStatus            *EnvironmentFileStatus              `json:"knownStatus"`
+	EnvironmentFilesSource []containerresource.EnvironmentFile `json:"environmentFilesSource"`
+	ExecutionCredentialsID string                              `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serializes the EnvironmentFileResource struct to JSON
@@ -601,11 +602,11 @@ func (envfile *EnvironmentFileResource) DependOnTaskNetwork() bool {
 }
 
 // BuildContainerDependency adds a new dependency container and its satisfied status
-func (envfile *EnvironmentFileResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (envfile *EnvironmentFileResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
 // GetContainerDependencies returns dependent containers for a status
-func (envfile *EnvironmentFileResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (envfile *EnvironmentFileResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -357,9 +359,9 @@ func TestFetchRepoDigest(t *testing.T) {
 				Name:        "testContainer6",
 				Image:       "123456781234.dkr.ecr.us-west-2.amazonaws.com/test-rci@sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
 				ImageDigest: "sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
-				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &apicontainer.ECRAuthData{
+					ECRAuthData: &containerresource.ECRAuthData{
 						RegistryID: "123456781234",
 					},
 				},
@@ -373,9 +375,9 @@ func TestFetchRepoDigest(t *testing.T) {
 				Name:        "testContainer7",
 				Image:       "123456781234.dkr.ecr.us-west-2.amazonaws.com/ubuntu:trusty",
 				ImageDigest: "sha256:2feffff9eeca4e736f9f8e57813a97fe930554f474f7795ffa5a9261adeaaf44",
-				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
 					Type: "ecr",
-					ECRAuthData: &apicontainer.ECRAuthData{
+					ECRAuthData: &containerresource.ECRAuthData{
 						RegistryID: "123456781234",
 					},
 				},

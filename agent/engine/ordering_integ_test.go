@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
@@ -452,21 +453,21 @@ func TestShutdownOrder(t *testing.T) {
 
 		// The shutdown order will now proceed. Parent will exit first since it has an explicit exit command.
 		event := <-stateChangeEvents
-		assert.Equal(t, event.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerStopped)
 		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "parent")
 
 		// The dependency chain is A -> B -> C. We expect the inverse order to be followed for shutdown:
 		// A shuts down, then B, then C
 		expectedC := <-stateChangeEvents
-		assert.Equal(t, expectedC.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedC.(api.ContainerStateChange).Status, containerstatus.ContainerStopped)
 		assert.Equal(t, expectedC.(api.ContainerStateChange).ContainerName, "A")
 
 		expectedB := <-stateChangeEvents
-		assert.Equal(t, expectedB.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedB.(api.ContainerStateChange).Status, containerstatus.ContainerStopped)
 		assert.Equal(t, expectedB.(api.ContainerStateChange).ContainerName, "B")
 
 		expectedA := <-stateChangeEvents
-		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, containerstatus.ContainerStopped)
 		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "C")
 
 		verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -538,7 +539,7 @@ func TestMultipleContainerDependency(t *testing.T) {
 
 		// Exit container should stop with exit code 1
 		event := <-stateChangeEvents
-		assert.Equal(t, event.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerStopped)
 		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "exit")
 
 		// The task should be now stopped as dependencies of A and B are not resolved

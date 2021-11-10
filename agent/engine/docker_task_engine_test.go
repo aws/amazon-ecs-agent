@@ -28,14 +28,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
@@ -288,7 +291,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).AnyTimes()
 			// Simulate a container stop event from docker
 			eventStream <- dockerapi.DockerContainerChangeEvent{
-				Status: apicontainerstatus.ContainerStopped,
+				Status: containerstatus.ContainerStopped,
 				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 					DockerID: containerID,
 					ExitCode: aws.Int(exitCode),
@@ -303,8 +306,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			// This ensures that managedTask.waitForStopReported makes progress
 			sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
-			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
-			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(containerstatus.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(containerstatus.ContainerStopped) }()
 
 			sleepTaskStop := testdata.LoadTask("sleep5")
 
@@ -325,7 +328,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			metadataManager.EXPECT().Clean(gomock.Any()).Return(tc.metadataCleanError)
 			// trigger cleanup
 			cleanup <- time.Now()
-			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(containerstatus.ContainerStopped) }()
 			// Wait for the task to actually be dead; if we just fallthrough immediately,
 			// the remove might not have happened (expectation failure)
 			for {
@@ -376,7 +379,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
+		Status: containerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 			ExitCode: aws.Int(exitCode),
@@ -396,8 +399,8 @@ func TestRemoveEvents(t *testing.T) {
 			// Emit a couple of events for the task before cleanup finishes. This forces
 			// discardEventsUntil to be invoked and should test the code path that
 			// caused the deadlock, which was fixed with #320
-			eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped)
-			eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped)
+			eventStream <- createDockerEvent(containerstatus.ContainerStopped)
+			eventStream <- createDockerEvent(containerstatus.ContainerStopped)
 		}).Return(nil)
 
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
@@ -437,7 +440,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, x, y, z, timeout interface{}) {
-				go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated) }()
+				go func() { eventStream <- createDockerEvent(containerstatus.ContainerCreated) }()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 
 		client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Return(dockerapi.DockerContainerMetadata{
@@ -458,10 +461,10 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 
 	// Now surprise surprise, it actually did start!
-	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+	eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 	// However, if it starts again, we should not see it be killed; no additional expect
-	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
-	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+	eventStream <- createDockerEvent(containerstatus.ContainerRunning)
+	eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 
 	select {
 	case <-stateChangeEvents:
@@ -501,14 +504,14 @@ func TestSteadyStatePoll(t *testing.T) {
 	wg.Add(1)
 
 	client.EXPECT().DescribeContainer(gomock.Any(), containerID).Return(
-		apicontainerstatus.ContainerStopped,
+		containerstatus.ContainerStopped,
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).Do(func(ctx interface{}, x interface{}) {
 		wg.Done()
 	})
 	client.EXPECT().DescribeContainer(gomock.Any(), containerID).Return(
-		apicontainerstatus.ContainerStopped,
+		containerstatus.ContainerStopped,
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).AnyTimes()
@@ -775,14 +778,14 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, x, y, z, timeout interface{}) {
-				go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated) }()
+				go func() { eventStream <- createDockerEvent(containerstatus.ContainerCreated) }()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 
 		gomock.InOrder(
 			client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Do(
 				func(ctx interface{}, id string, timeout time.Duration) {
 					go func() {
-						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
 
@@ -840,7 +843,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 				func(ctx interface{}, x, y, z, timeout interface{}) {
 					containerEventsWG.Add(1)
 					go func() {
-						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						eventStream <- createDockerEvent(containerstatus.ContainerCreated)
 						containerEventsWG.Done()
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
@@ -849,7 +852,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 				func(ctx interface{}, id string, timeout time.Duration) {
 					containerEventsWG.Add(1)
 					go func() {
-						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						eventStream <- createDockerEvent(containerstatus.ContainerRunning)
 						containerEventsWG.Done()
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
@@ -1068,7 +1071,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",
 		Type:                apicontainer.ContainerCNIPause,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		DesiredStatusUnsafe: containerstatus.ContainerStopped,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
@@ -1133,7 +1136,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",
 		Type:                apicontainer.ContainerCNIPause,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		DesiredStatusUnsafe: containerstatus.ContainerStopped,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
@@ -1185,7 +1188,7 @@ func TestCheckTearDownPauseContainer(t *testing.T) {
 	pauseContainer := &apicontainer.Container{
 		Name:                "pausecontainer",
 		Type:                apicontainer.ContainerCNIPause,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		DesiredStatusUnsafe: containerstatus.ContainerStopped,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
@@ -1460,9 +1463,9 @@ func TestPullAndUpdateContainerReferenceUseProperCredentials(t *testing.T) {
 				Image:                  "image",
 				Essential:              true,
 				ExecutionCredentialsID: executionCredentialsId,
-				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
-					Type: apicontainer.AuthTypeECR,
-					ECRAuthData: &apicontainer.ECRAuthData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
+					Type: containerresource.AuthTypeECR,
+					ECRAuthData: &containerresource.ECRAuthData{
 						UseExecutionRole: true,
 					},
 				},
@@ -1476,9 +1479,9 @@ func TestPullAndUpdateContainerReferenceUseProperCredentials(t *testing.T) {
 				Type:      apicontainer.ContainerNormal,
 				Image:     "image",
 				Essential: true,
-				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
-					Type: apicontainer.AuthTypeECR,
-					ECRAuthData: &apicontainer.ECRAuthData{
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
+					Type: containerresource.AuthTypeECR,
+					ECRAuthData: &containerresource.ECRAuthData{
 						UseExecutionRole: true,
 					},
 				},
@@ -1694,7 +1697,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	task := testdata.LoadTask("sleep5")
 	container, _ := task.ContainerByName("sleep5")
 	assert.False(t, container.MetadataFileUpdated)
-	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	container.SetKnownStatus(containerstatus.ContainerRunning)
 	dockerContainer := &apicontainer.DockerContainer{DockerID: containerID, Container: container}
 	expectedTaskARN := task.Arn
 	expectedDockerID := dockerContainer.DockerID
@@ -1744,9 +1747,9 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	// Configure the task and container to use execution role
 	testTask.SetExecutionRoleCredentialsID(credentialsID)
-	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
+	testTask.Containers[0].RegistryAuthentication = &containerresource.RegistryAuthenticationData{
 		Type: "ecr",
-		ECRAuthData: &apicontainer.ECRAuthData{
+		ECRAuthData: &containerresource.ECRAuthData{
 			UseExecutionRole: true,
 		},
 	}
@@ -1758,7 +1761,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 		IAMRoleCredentials: executionRoleCredentials,
 	}, true)
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, image string, auth *apicontainer.RegistryAuthenticationData, timeout interface{}) {
+		func(ctx interface{}, image string, auth *containerresource.RegistryAuthenticationData, timeout interface{}) {
 			assert.Equal(t, container.Image, image)
 			assert.Equal(t, auth.ECRAuthData.GetPullCredentials(), executionRoleCredentials)
 		}).Return(dockerapi.DockerContainerMetadata{})
@@ -1790,15 +1793,15 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	// Configure the task and container to use execution role
 	testTask.SetExecutionRoleCredentialsID(credentialsID)
-	asmAuthData := &apicontainer.ASMAuthData{
+	asmAuthData := &containerresource.ASMAuthData{
 		CredentialsParameter: secretID,
 		Region:               region,
 	}
-	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
+	testTask.Containers[0].RegistryAuthentication = &containerresource.RegistryAuthenticationData{
 		Type:        "asm",
 		ASMAuthData: asmAuthData,
 	}
-	requiredASMResources := []*apicontainer.ASMAuthData{asmAuthData}
+	requiredASMResources := []*containerresource.ASMAuthData{asmAuthData}
 	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
 		credentialsID, credentialsManager, asmClientCreator)
@@ -1829,7 +1832,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 
 	mockTime.EXPECT().Now().AnyTimes()
 	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, image string, auth *apicontainer.RegistryAuthenticationData, timeout interface{}) {
+		func(ctx interface{}, image string, auth *containerresource.RegistryAuthenticationData, timeout interface{}) {
 			assert.Equal(t, container.Image, image)
 			dac := auth.ASMAuthData.GetDockerAuthConfig()
 			assert.Equal(t, username, dac.Username)
@@ -1854,11 +1857,11 @@ func TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource(t *testing.T)
 	testTask := testdata.LoadTask("sleep5")
 	// Configure the task and container to use execution role
 	testTask.SetExecutionRoleCredentialsID(credentialsID)
-	asmAuthData := &apicontainer.ASMAuthData{
+	asmAuthData := &containerresource.ASMAuthData{
 		CredentialsParameter: secretID,
 		Region:               region,
 	}
-	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
+	testTask.Containers[0].RegistryAuthentication = &containerresource.RegistryAuthenticationData{
 		Type:        "asm",
 		ASMAuthData: asmAuthData,
 	}
@@ -1954,7 +1957,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	}, taskEssentialContainerStopped)
 
 	// these are performed in synchronizeState on restart
-	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).Return(apicontainerstatus.ContainerRunning, dockerapi.DockerContainerMetadata{
+	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).Return(containerstatus.ContainerRunning, dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}).Times(3)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
@@ -2100,7 +2103,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	}
 	created := time.Now()
 	gomock.InOrder(
-		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainerstatus.ContainerRunning,
+		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(containerstatus.ContainerRunning,
 			dockerapi.DockerContainerMetadata{
 				Labels:    labels,
 				DockerID:  dockerID,
@@ -2135,16 +2138,16 @@ func TestHandleDockerHealthEvent(t *testing.T) {
 	}, testTask)
 
 	taskEngine.(*DockerTaskEngine).handleDockerEvent(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerRunning,
-		Type:   apicontainer.ContainerHealthEvent,
+		Status: containerstatus.ContainerRunning,
+		Type:   containerresource.ContainerHealthEvent,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: "id",
-			Health: apicontainer.HealthStatus{
-				Status: apicontainerstatus.ContainerHealthy,
+			Health: containerresource.HealthStatus{
+				Status: containerstatus.ContainerHealthy,
 			},
 		},
 	})
-	assert.Equal(t, testContainer.Health.Status, apicontainerstatus.ContainerHealthy)
+	assert.Equal(t, testContainer.Health.Status, containerstatus.ContainerHealthy)
 }
 
 func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
@@ -2154,29 +2157,29 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 	}
 	testCases := []struct {
 		stage        string
-		status       apicontainerstatus.ContainerStatus
+		status       containerstatus.ContainerStatus
 		created      time.Time
 		started      time.Time
 		finished     time.Time
-		portBindings []apicontainer.PortBinding
+		portBindings []containerresource.PortBinding
 		exitCode     *int
 		err          dockerapi.DockerStateError
 	}{
 		{
 			stage:   "created",
-			status:  apicontainerstatus.ContainerCreated,
+			status:  containerstatus.ContainerCreated,
 			created: time.Now(),
 		},
 		{
 			stage:   "started",
-			status:  apicontainerstatus.ContainerRunning,
+			status:  containerstatus.ContainerRunning,
 			started: time.Now(),
-			portBindings: []apicontainer.PortBinding{
+			portBindings: []containerresource.PortBinding{
 				{
 					ContainerPort: 80,
 					HostPort:      80,
 					BindIP:        "0.0.0.0/0",
-					Protocol:      apicontainer.TransportProtocolTCP,
+					Protocol:      containerresource.TransportProtocolTCP,
 				},
 			},
 		},
@@ -2187,7 +2190,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 		},
 		{
 			stage:    "failed",
-			status:   apicontainerstatus.ContainerStopped,
+			status:   containerstatus.ContainerStopped,
 			err:      dockerapi.NewDockerStateError("error"),
 			exitCode: aws.Int(1),
 		},
@@ -2320,7 +2323,7 @@ func TestContainerProgressParallize(t *testing.T) {
 					Container:  testTask.Containers[0],
 				}, testTask)
 				go func() {
-					event := createDockerEvent(apicontainerstatus.ContainerCreated)
+					event := createDockerEvent(containerstatus.ContainerCreated)
 					event.DockerID = slowContainerDockerID
 					eventStream <- event
 				}()
@@ -2333,7 +2336,7 @@ func TestContainerProgressParallize(t *testing.T) {
 					Container:  testTask.Containers[1],
 				}, testTask)
 				go func() {
-					event := createDockerEvent(apicontainerstatus.ContainerCreated)
+					event := createDockerEvent(containerstatus.ContainerCreated)
 					event.DockerID = fastContainerDockerID
 					eventStream <- event
 				}()
@@ -2344,7 +2347,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().StartContainer(gomock.Any(), fastContainerDockerID, gomock.Any()).Do(
 		func(ctx interface{}, id string, duration interface{}) {
 			go func() {
-				event := createDockerEvent(apicontainerstatus.ContainerRunning)
+				event := createDockerEvent(containerstatus.ContainerRunning)
 				event.DockerID = fastContainerDockerID
 				eventStream <- event
 			}()
@@ -2352,7 +2355,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().StartContainer(gomock.Any(), slowContainerDockerID, gomock.Any()).Do(
 		func(ctx interface{}, id string, duration interface{}) {
 			go func() {
-				event := createDockerEvent(apicontainerstatus.ContainerRunning)
+				event := createDockerEvent(containerstatus.ContainerRunning)
 				event.DockerID = slowContainerDockerID
 				eventStream <- event
 			}()
@@ -2365,7 +2368,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	fastPullContainerRunning := false
 	for event := range stateChangeEvents {
 		containerEvent, ok := event.(api.ContainerStateChange)
-		if ok && containerEvent.Status == apicontainerstatus.ContainerRunning {
+		if ok && containerEvent.Status == containerstatus.ContainerRunning {
 			if containerEvent.ContainerName == fastPullImage {
 				fastPullContainerRunning = true
 				// The second container should start processing now
@@ -2393,7 +2396,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).Times(2)
 
-	containerStoppedEvent := createDockerEvent(apicontainerstatus.ContainerStopped)
+	containerStoppedEvent := createDockerEvent(containerstatus.ContainerStopped)
 	containerStoppedEvent.DockerID = slowContainerDockerID
 	eventStream <- containerStoppedEvent
 
@@ -2541,14 +2544,14 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		secrets     []apicontainer.Secret
-		ssmSecret   apicontainer.Secret
-		asmSecret   apicontainer.Secret
+		secrets     []containerresource.Secret
+		ssmSecret   containerresource.Secret
+		asmSecret   containerresource.Secret
 		expectedEnv []string
 	}{
 		{
 			name: "ASMSecretAsEnv",
-			secrets: []apicontainer.Secret{
+			secrets: []containerresource.Secret{
 				{
 					Name:      ssmSecretName,
 					ValueFrom: ssmSecretValueFrom,
@@ -2564,14 +2567,14 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 					Provider:  "asm",
 				},
 			},
-			ssmSecret: apicontainer.Secret{
+			ssmSecret: containerresource.Secret{
 				Name:      ssmSecretName,
 				ValueFrom: ssmSecretValueFrom,
 				Region:    ssmSecretRegion,
 				Target:    "LOG_DRIVER",
 				Provider:  "ssm",
 			},
-			asmSecret: apicontainer.Secret{
+			asmSecret: containerresource.Secret{
 				Name:      asmSecretName,
 				ValueFrom: asmSecretValueFrom,
 				Region:    asmSecretRegion,
@@ -2582,7 +2585,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 		},
 		{
 			name: "SSMSecretAsEnv",
-			secrets: []apicontainer.Secret{
+			secrets: []containerresource.Secret{
 				{
 					Name:      ssmSecretName,
 					ValueFrom: ssmSecretValueFrom,
@@ -2598,14 +2601,14 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 					Provider:  "asm",
 				},
 			},
-			ssmSecret: apicontainer.Secret{
+			ssmSecret: containerresource.Secret{
 				Name:      ssmSecretName,
 				ValueFrom: ssmSecretValueFrom,
 				Region:    ssmSecretRegion,
 				Type:      "ENVIRONMENT_VARIABLE",
 				Provider:  "ssm",
 			},
-			asmSecret: apicontainer.Secret{
+			asmSecret: containerresource.Secret{
 				Name:      asmSecretName,
 				ValueFrom: asmSecretValueFrom,
 				Region:    asmSecretRegion,
@@ -2670,8 +2673,8 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 			mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
 
-			ssmRequirements := map[string][]apicontainer.Secret{
-				ssmSecretRegion: []apicontainer.Secret{
+			ssmRequirements := map[string][]containerresource.Secret{
+				ssmSecretRegion: []containerresource.Secret{
 					tc.ssmSecret,
 				},
 			}
@@ -2687,7 +2690,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 			mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
 
-			asmRequirements := map[string]apicontainer.Secret{
+			asmRequirements := map[string]containerresource.Secret{
 				asmSecretKey: tc.asmSecret,
 			}
 
@@ -2797,7 +2800,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 				},
 				{
 					Name: "test-container",
-					FirelensConfig: &apicontainer.FirelensConfig{
+					FirelensConfig: &containerresource.FirelensConfig{
 						Type:    "fluentd",
 						Version: firelensVersion,
 					},
@@ -2849,7 +2852,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 				},
 				{
 					Name: "test-container",
-					FirelensConfig: &apicontainer.FirelensConfig{
+					FirelensConfig: &containerresource.FirelensConfig{
 						Type: "fluentd",
 					},
 					NetworkModeUnsafe: networkMode,
@@ -2964,7 +2967,7 @@ func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-container",
-				FirelensConfig: &apicontainer.FirelensConfig{
+				FirelensConfig: &containerresource.FirelensConfig{
 					Type: "fluentd",
 				},
 			},
@@ -3116,7 +3119,7 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 			},
 			{
 				Name: "test-container",
-				FirelensConfig: &apicontainer.FirelensConfig{
+				FirelensConfig: &containerresource.FirelensConfig{
 					Type: "fluentd",
 				},
 				NetworkModeUnsafe: apitask.BridgeNetworkMode,
@@ -3201,7 +3204,7 @@ func TestStartExecAgent(t *testing.T) {
 				{
 					Name:              "test-container",
 					RuntimeID:         testContainerId,
-					KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+					KnownStatusUnsafe: containerstatus.ContainerStopped,
 				},
 			},
 		}
@@ -3277,7 +3280,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		testContainerId = "123"
 	)
 	testCases := []struct {
-		containerStatus                apicontainerstatus.ContainerStatus
+		containerStatus                containerstatus.ContainerStatus
 		execCommandAgentState          apicontainer.ManagedAgentState
 		execAgentStatus                apicontainerstatus.ManagedAgentStatus
 		restartStatus                  execcmd.RestartStatus
@@ -3286,26 +3289,26 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		expectContainerEvent           bool
 	}{
 		{
-			containerStatus:      apicontainerstatus.ContainerStopped,
+			containerStatus:      containerstatus.ContainerStopped,
 			execAgentStatus:      apicontainerstatus.ManagedAgentStopped,
 			restartStatus:        execcmd.NotRestarted,
 			expectContainerEvent: false,
 		},
 		{
-			containerStatus:        apicontainerstatus.ContainerRunning,
+			containerStatus:        containerstatus.ContainerRunning,
 			simulateBadContainerId: true,
 			execAgentStatus:        apicontainerstatus.ManagedAgentStopped,
 			restartStatus:          execcmd.NotRestarted,
 			expectContainerEvent:   false,
 		},
 		{
-			containerStatus:      apicontainerstatus.ContainerRunning,
+			containerStatus:      containerstatus.ContainerRunning,
 			execAgentStatus:      apicontainerstatus.ManagedAgentRunning,
 			restartStatus:        execcmd.NotRestarted,
 			expectContainerEvent: false,
 		},
 		{
-			containerStatus:      apicontainerstatus.ContainerRunning,
+			containerStatus:      containerstatus.ContainerRunning,
 			execAgentStatus:      apicontainerstatus.ManagedAgentRunning,
 			restartStatus:        execcmd.Restarted,
 			expectContainerEvent: true,
@@ -3342,7 +3345,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		if tc.simulateBadContainerId {
 			testTask.Containers[0].RuntimeID = ""
 		}
-		if tc.containerStatus == apicontainerstatus.ContainerRunning && !tc.simulateBadContainerId {
+		if tc.containerStatus == containerstatus.ContainerRunning && !tc.simulateBadContainerId {
 			execCmdMgr.EXPECT().RestartAgentIfStopped(dockerTaskEngine.ctx, dockerTaskEngine.client, testTask,
 				testTask.Containers[0], testContainerId).
 				Return(tc.restartStatus, nil).
@@ -3407,7 +3410,7 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 				{
 					Name:              "test-container",
 					RuntimeID:         "runtime-ID",
-					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+					KnownStatusUnsafe: containerstatus.ContainerRunning,
 				},
 			},
 			KnownStatusUnsafe: apitaskstatus.TaskRunning,
@@ -3495,7 +3498,7 @@ func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
 				{
 					Name:              "test-container",
 					RuntimeID:         "runtime-ID",
-					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+					KnownStatusUnsafe: containerstatus.ContainerRunning,
 				},
 			},
 			KnownStatusUnsafe: test.taskStatus,
@@ -3527,12 +3530,12 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 			{
 				Name:              "test-container1",
 				RuntimeID:         "runtime-ID1",
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 			{
 				Name:              "test-container2",
 				RuntimeID:         "runtime-ID2",
-				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe: containerstatus.ContainerRunning,
 			},
 		},
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,

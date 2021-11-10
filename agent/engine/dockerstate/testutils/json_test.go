@@ -21,8 +21,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -34,7 +35,7 @@ func createTestContainer(num int) *apicontainer.Container {
 		Name:                "busybox-" + strconv.Itoa(num),
 		Image:               "busybox:1.32.0",
 		Essential:           true,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
 	}
 }
 

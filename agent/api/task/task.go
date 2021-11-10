@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -35,10 +38,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -305,7 +307,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
-		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	}
 
 	//initialize resources map for task
@@ -514,7 +516,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 				localVolume.HostPath = task.volumeName(mountPoint.SourceVolume)
 				container.BuildResourceDependency(mountPoint.SourceVolume,
 					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
-					apicontainerstatus.ContainerPulled)
+					containerstatus.ContainerPulled)
 				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -732,7 +734,7 @@ func (task *Task) updateContainerVolumeDependency(name string) {
 			if mountpoint.SourceVolume == name {
 				container.BuildResourceDependency(name,
 					resourcestatus.ResourceCreated,
-					apicontainerstatus.ContainerPulled)
+					containerstatus.ContainerPulled)
 			}
 		}
 	}
@@ -834,13 +836,13 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 		if container.ShouldPullWithASMAuth() {
 			container.BuildResourceDependency(asmAuthResource.GetName(),
 				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
-				apicontainerstatus.ContainerPulled)
+				containerstatus.ContainerPulled)
 		}
 	}
 }
 
-func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
-	var reqs []*apicontainer.ASMAuthData
+func (task *Task) getAllASMAuthDataRequirements() []*containerresource.ASMAuthData {
+	var reqs []*containerresource.ASMAuthData
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
@@ -872,14 +874,14 @@ func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Man
 		if container.ShouldCreateWithSSMSecret() {
 			container.BuildResourceDependency(ssmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 		}
 
 		// Firelens container needs to depends on secret if other containers use secret log options.
 		if container.GetFirelensConfig() != nil && task.firelensDependsOnSecretResource(apicontainer.SecretProviderSSM) {
 			container.BuildResourceDependency(ssmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 		}
 	}
 }
@@ -887,7 +889,7 @@ func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Man
 // firelensDependsOnSecret checks whether the firelens container needs to depends on a secret resource of
 // a certain provider type.
 func (task *Task) firelensDependsOnSecretResource(secretProvider string) bool {
-	isLogDriverSecretWithGivenProvider := func(s apicontainer.Secret) bool {
+	isLogDriverSecretWithGivenProvider := func(s containerresource.Secret) bool {
 		return s.Provider == secretProvider && s.Target == apicontainer.SecretTargetLogDriver
 	}
 	for _, container := range task.Containers {
@@ -900,14 +902,14 @@ func (task *Task) firelensDependsOnSecretResource(secretProvider string) bool {
 
 // getAllSSMSecretRequirements stores all secrets in a map whose key is region and value is all
 // secrets in that region
-func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret {
-	reqs := make(map[string][]apicontainer.Secret)
+func (task *Task) getAllSSMSecretRequirements() map[string][]containerresource.Secret {
+	reqs := make(map[string][]containerresource.Secret)
 
 	for _, container := range task.Containers {
 		for _, secret := range container.Secrets {
 			if secret.Provider == apicontainer.SecretProviderSSM {
 				if _, ok := reqs[secret.Region]; !ok {
-					reqs[secret.Region] = []apicontainer.Secret{}
+					reqs[secret.Region] = []containerresource.Secret{}
 				}
 
 				reqs[secret.Region] = append(reqs[secret.Region], secret)
@@ -940,21 +942,21 @@ func (task *Task) initializeASMSecretResource(credentialsManager credentials.Man
 		if container.ShouldCreateWithASMSecret() {
 			container.BuildResourceDependency(asmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 		}
 
 		// Firelens container needs to depends on secret if other containers use secret log options.
 		if container.GetFirelensConfig() != nil && task.firelensDependsOnSecretResource(apicontainer.SecretProviderASM) {
 			container.BuildResourceDependency(asmSecretResource.GetName(),
 				resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 		}
 	}
 }
 
 // getAllASMSecretRequirements stores secrets in a task in a map
-func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
-	reqs := make(map[string]apicontainer.Secret)
+func (task *Task) getAllASMSecretRequirements() map[string]containerresource.Secret {
+	reqs := make(map[string]containerresource.Secret)
 
 	for _, container := range task.Containers {
 		for _, secret := range container.Secrets {
@@ -1026,7 +1028,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			}
 			task.AddResource(firelens.ResourceName, firelensResource)
 			container.BuildResourceDependency(firelensResource.GetName(), resourcestatus.ResourceCreated,
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 			return nil
 		}
 	}
@@ -1153,7 +1155,7 @@ func (task *Task) collectFirelensLogEnvOptions(containerToLogOptions map[string]
 
 // AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
 // container's host config.
-func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+func (task *Task) AddFirelensContainerBindMounts(firelensConfig *containerresource.FirelensConfig, hostConfig *dockercontainer.HostConfig,
 	config *config.Config, containerName string) *apierrors.HostConfigError {
 	taskID, err := task.GetID()
 	if err != nil {
@@ -1209,8 +1211,8 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 	if !task.IsNetworkModeAWSVPC() {
 		return nil
 	}
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
-	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(containerstatus.ContainerResourcesProvisioned)
+	pauseContainer.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	pauseContainer.Name = NetworkPauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
@@ -1261,14 +1263,14 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
-		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+		container.BuildContainerDependency(NetworkPauseContainerName, containerstatus.ContainerResourcesProvisioned, containerstatus.ContainerPulled)
+		pauseContainer.BuildContainerDependency(container.Name, containerstatus.ContainerStopped, containerstatus.ContainerStopped)
 	}
 
 	for _, resource := range task.GetResources() {
 		if resource.DependOnTaskNetwork() {
 			seelog.Debugf("Task [%s]: adding network pause container dependency to resource [%s]", task.Arn, resource.GetName())
-			resource.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
+			resource.BuildContainerDependency(NetworkPauseContainerName, containerstatus.ContainerResourcesProvisioned, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
 		}
 	}
 	return nil
@@ -1279,8 +1281,8 @@ func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) 
 	if task.getIPCMode() != ipcModeTask && task.getPIDMode() != pidModeTask {
 		return
 	}
-	namespacePauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerRunning)
-	namespacePauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	namespacePauseContainer := apicontainer.NewContainerWithSteadyState(containerstatus.ContainerRunning)
+	namespacePauseContainer.TransitionDependenciesMap = make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet)
 	namespacePauseContainer.Name = NamespacePauseContainerName
 	namespacePauseContainer.Image = fmt.Sprintf("%s:%s", config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag)
 	namespacePauseContainer.Essential = true
@@ -1291,8 +1293,8 @@ func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) 
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled)
-		namespacePauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+		container.BuildContainerDependency(NamespacePauseContainerName, containerstatus.ContainerRunning, containerstatus.ContainerPulled)
+		namespacePauseContainer.BuildContainerDependency(container.Name, containerstatus.ContainerStopped, containerstatus.ContainerStopped)
 	}
 }
 
@@ -1345,12 +1347,12 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	seelog.Debugf("api/task: Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
-	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
+	containerEarliestKnownStatus := containerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
 	essentialContainerStopped := false
 	for _, container := range task.Containers {
 		containerKnownStatus := container.GetKnownStatus()
-		if containerKnownStatus == apicontainerstatus.ContainerStopped && container.Essential {
+		if containerKnownStatus == containerstatus.ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
 		if containerKnownStatus < containerEarliestKnownStatus {
@@ -2306,7 +2308,7 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	if !container.Essential {
 		return
 	}
-	if container.GetKnownStatus() != apicontainerstatus.ContainerStopped {
+	if container.GetKnownStatus() != containerstatus.ContainerStopped {
 		return
 	}
 	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
@@ -2527,7 +2529,7 @@ func (task *Task) PopulateSecretLogOptionsToFirelensContainer(firelensContainer 
 }
 
 // collectLogDriverSecretData collects all the secret values for log driver secrets.
-func collectLogDriverSecretData(secrets []apicontainer.Secret, ssmRes *ssmsecret.SSMSecretResource,
+func collectLogDriverSecretData(secrets []containerresource.Secret, ssmRes *ssmsecret.SSMSecretResource,
 	asmRes *asmsecret.ASMSecretResource) (map[string]string, error) {
 	secretData := make(map[string]string)
 	for _, secret := range secrets {
@@ -2662,7 +2664,7 @@ func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsM
 				return errors.Wrapf(err, "unable to initialize envfiles resource for container %s", container.Name)
 			}
 			task.AddResource(envFiles.ResourceName, envfileResource)
-			container.BuildResourceDependency(envfileResource.GetName(), resourcestatus.ResourceCreated, apicontainerstatus.ContainerCreated)
+			container.BuildResourceDependency(envfileResource.GetName(), resourcestatus.ResourceCreated, containerstatus.ContainerCreated)
 		}
 	}
 

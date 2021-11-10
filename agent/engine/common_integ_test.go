@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -104,14 +106,14 @@ func loggerConfigIntegrationTest(logfile string) string {
 func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 }
 
 func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
 		"Expected container runtimeID should not empty")
@@ -134,14 +136,14 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerStopped,
 		"Expected container to be STOPPED")
 }
 
 func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerstatus.ContainerStopped,
 		"Expected container to be STOPPED")
 	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
 		"Expected container runtimeID should not empty")
@@ -190,7 +192,7 @@ func createTestContainerWithImageAndName(image string, name string) *apicontaine
 		Image:               image,
 		Command:             []string{},
 		Essential:           true,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
 		CPU:                 1024,
 		Memory:              128,
 	}
@@ -260,7 +262,7 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
+func VerifyContainerStatus(status containerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
 			return nil

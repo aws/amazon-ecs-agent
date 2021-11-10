@@ -14,7 +14,7 @@
 package retry
 
 import (
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"golang.org/x/net/context"
 )

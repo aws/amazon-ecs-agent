@@ -20,7 +20,8 @@ import (
 	"testing"
 	"time"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -71,9 +72,9 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 
 	require.NotNil(t, deadTask)
 	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, containerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, containerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, containerstatus.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)
@@ -116,9 +117,9 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 	}
 	require.NotNil(t, deadTask)
 	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, containerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, containerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, containerstatus.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)

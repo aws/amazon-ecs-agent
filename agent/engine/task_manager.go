@@ -22,14 +22,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -84,7 +86,7 @@ type acsTransition struct {
 
 // containerTransition defines the struct for a container to transition
 type containerTransition struct {
-	nextState      apicontainerstatus.ContainerStatus
+	nextState      containerstatus.ContainerStatus
 	actionRequired bool
 	blockedOn      *apicontainer.DependsOn
 	reason         error
@@ -474,7 +476,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		})
 
 		// Only update container metadata when status stays RUNNING
-		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
+		if event.Status == containerKnownStatus && event.Status == containerstatus.ContainerRunning {
 			updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
 		}
 		return
@@ -495,7 +497,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
-	if execcmd.IsExecEnabledContainer(container) && container.GetKnownStatus() == apicontainerstatus.ContainerStopped {
+	if execcmd.IsExecEnabledContainer(container) && container.GetKnownStatus() == containerstatus.ContainerStopped {
 		// if this is an execute-command-enabled container STOPPED event, we should emit a corresponding managedAgent event
 		mtask.handleManagedAgentStoppedTransition(container, execcmd.ExecuteCommandAgentName)
 	}
@@ -782,14 +784,14 @@ func (mtask *managedTask) releaseIPInIPAM() {
 // handleStoppedToRunningContainerTransition detects a "backwards" container
 // transition where a known-stopped container is found to be running again and
 // handles it.
-func (mtask *managedTask) handleStoppedToRunningContainerTransition(status apicontainerstatus.ContainerStatus, container *apicontainer.Container) {
+func (mtask *managedTask) handleStoppedToRunningContainerTransition(status containerstatus.ContainerStatus, container *apicontainer.Container) {
 	containerKnownStatus := container.GetKnownStatus()
 	if status > containerKnownStatus {
 		// Event status is greater than container's known status.
 		// This is not a backward transition, return
 		return
 	}
-	if containerKnownStatus != apicontainerstatus.ContainerStopped {
+	if containerKnownStatus != containerstatus.ContainerStopped {
 		// Container's known status is not STOPPED. Nothing to do here.
 		return
 	}
@@ -806,7 +808,7 @@ func (mtask *managedTask) handleStoppedToRunningContainerTransition(status apico
 			field.TaskARN:   mtask.Arn,
 			field.Container: container.Name,
 		})
-		go mtask.engine.transitionContainer(mtask.Task, container, apicontainerstatus.ContainerStopped)
+		go mtask.engine.transitionContainer(mtask.Task, container, containerstatus.ContainerStopped)
 		// This will not proceed afterwards because status <= knownstatus below
 	})
 }
@@ -837,7 +839,7 @@ func (mtask *managedTask) handleManagedAgentStoppedTransition(container *apicont
 
 // handleEventError handles a container change event error and decides whether
 // we should proceed to transition the container
-func (mtask *managedTask) handleEventError(containerChange dockerContainerChange, currentKnownStatus apicontainerstatus.ContainerStatus) bool {
+func (mtask *managedTask) handleEventError(containerChange dockerContainerChange, currentKnownStatus containerstatus.ContainerStatus) bool {
 	container := containerChange.container
 	event := containerChange.event
 	if container.ApplyingError == nil {
@@ -846,7 +848,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	switch event.Status {
 	// event.Status is the desired container transition from container's known status
 	// (* -> event.Status)
-	case apicontainerstatus.ContainerPulled:
+	case containerstatus.ContainerPulled:
 		// If the agent pull behavior is always or once, we receive the error because
 		// the image pull fails, the task should fail. If we don't fail task here,
 		// then the cached image will probably be used for creating container, and we
@@ -877,12 +879,12 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 		})
 		// proceed anyway
 		return true
-	case apicontainerstatus.ContainerStopped:
+	case containerstatus.ContainerStopped:
 		// Container's desired transition was to 'STOPPED'
 		return mtask.handleContainerStoppedTransitionError(event, container, currentKnownStatus)
-	case apicontainerstatus.ContainerStatusNone:
+	case containerstatus.ContainerStatusNone:
 		fallthrough
-	case apicontainerstatus.ContainerCreated:
+	case containerstatus.ContainerCreated:
 		// No need to explicitly stop containers if this is a * -> NONE/CREATED transition
 		logger.Warn("Error creating container; marking its desired status as STOPPED", logger.Fields{
 			field.TaskARN:   mtask.Arn,
@@ -890,7 +892,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 			field.Error:     event.Error,
 		})
 		container.SetKnownStatus(currentKnownStatus)
-		container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+		container.SetDesiredStatus(containerstatus.ContainerStopped)
 		return false
 	default:
 		// If this is a * -> RUNNING / RESOURCES_PROVISIONED transition, we need to stop
@@ -902,7 +904,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 			field.Error:     event.Error,
 		})
 		container.SetKnownStatus(currentKnownStatus)
-		container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+		container.SetDesiredStatus(containerstatus.ContainerStopped)
 		errorName := event.Error.ErrorName()
 		errorStr := event.Error.Error()
 		shouldForceStop := false
@@ -923,7 +925,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 				field.Container: container.Name,
 				field.RuntimeID: container.GetRuntimeID(),
 			})
-			go mtask.engine.transitionContainer(mtask.Task, container, apicontainerstatus.ContainerStopped)
+			go mtask.engine.transitionContainer(mtask.Task, container, containerstatus.ContainerStopped)
 		}
 		// Container known status not changed, no need for further processing
 		return false
@@ -935,7 +937,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 // state
 func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.DockerContainerChangeEvent,
 	container *apicontainer.Container,
-	currentKnownStatus apicontainerstatus.ContainerStatus) bool {
+	currentKnownStatus containerstatus.ContainerStatus) bool {
 
 	pr := mtask.dockerClient.SystemPing(mtask.ctx, systemPingTimeout)
 	if pr.Error != nil {
@@ -964,8 +966,8 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.
 		"ErrorName":     event.Error.ErrorName(),
 		field.Error:     event.Error.Error(),
 	})
-	container.SetKnownStatus(apicontainerstatus.ContainerStopped)
-	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+	container.SetKnownStatus(containerstatus.ContainerStopped)
+	container.SetDesiredStatus(containerstatus.ContainerStopped)
 	return true
 }
 
@@ -999,7 +1001,7 @@ func (mtask *managedTask) progressTask() {
 		})
 
 	anyContainerTransition, blockedDependencies, contTransitions, reasons := mtask.startContainerTransitions(
-		func(container *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+		func(container *apicontainer.Container, nextStatus containerstatus.ContainerStatus) {
 			mtask.engine.transitionContainer(mtask.Task, container, nextStatus)
 			transitionChange <- struct{}{}
 			transitionChangeEntity <- container.Name
@@ -1086,11 +1088,11 @@ func (mtask *managedTask) isWaitingForACSExecutionCredentials(reasons []error) b
 
 // startContainerTransitions steps through each container in the task and calls
 // the passed transition function when a transition should occur.
-func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]apicontainer.DependsOn, map[string]apicontainerstatus.ContainerStatus, []error) {
+func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]apicontainer.DependsOn, map[string]containerstatus.ContainerStatus, []error) {
 	anyCanTransition := false
 	var reasons []error
 	blocked := make(map[string]apicontainer.DependsOn)
-	transitions := make(map[string]apicontainerstatus.ContainerStatus)
+	transitions := make(map[string]containerstatus.ContainerStatus)
 	for _, cont := range mtask.Containers {
 		transition := mtask.containerNextState(cont)
 		if transition.reason != nil {
@@ -1117,7 +1119,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 			// a goroutine so that it won't block here before the waitForContainerTransition
 			// was called after this function. And all the events sent to mtask.dockerMessages
 			// will be handled by handleContainerChange.
-			go func(cont *apicontainer.Container, status apicontainerstatus.ContainerStatus) {
+			go func(cont *apicontainer.Container, status containerstatus.ContainerStatus) {
 				mtask.dockerMessages <- dockerContainerChange{
 					container: cont,
 					event: dockerapi.DockerContainerChangeEvent{
@@ -1216,7 +1218,7 @@ func (mtask *managedTask) applyResourceState(resource taskresource.TaskResource,
 	return nil
 }
 
-type containerTransitionFunc func(container *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus)
+type containerTransitionFunc func(container *apicontainer.Container, nextStatus containerstatus.ContainerStatus)
 
 type resourceTransitionFunc func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus)
 
@@ -1245,7 +1247,7 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			field.DesiredStatus: containerDesiredStatus.String(),
 		})
 		return &containerTransition{
-			nextState:      apicontainerstatus.ContainerStatusNone,
+			nextState:      containerstatus.ContainerStatusNone,
 			actionRequired: false,
 			reason:         dependencygraph.ContainerPastDesiredStatusErr,
 		}
@@ -1260,7 +1262,7 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			field.DesiredStatus: containerDesiredStatus.String(),
 		})
 		return &containerTransition{
-			nextState:      apicontainerstatus.ContainerStatusNone,
+			nextState:      containerstatus.ContainerStatusNone,
 			actionRequired: false,
 			reason:         dependencygraph.ContainerPastDesiredStatusErr,
 		}
@@ -1274,16 +1276,16 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			field.Error:     err,
 		})
 		return &containerTransition{
-			nextState:      apicontainerstatus.ContainerStatusNone,
+			nextState:      containerstatus.ContainerStatusNone,
 			actionRequired: false,
 			reason:         err,
 			blockedOn:      blocked,
 		}
 	}
 
-	var nextState apicontainerstatus.ContainerStatus
+	var nextState containerstatus.ContainerStatus
 	if container.DesiredTerminal() {
-		nextState = apicontainerstatus.ContainerStopped
+		nextState = containerstatus.ContainerStopped
 		// It's not enough to just check if container is in steady state here
 		// we should really check if >= RUNNING <= STOPPED
 		if !container.IsRunning() {
@@ -1297,8 +1299,8 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			// Agent.
 			// 2. The task has already been cleaned up, in this case any stopped container
 			// will not be stopped by Agent when they come back.
-			if container.GetAppliedStatus() == apicontainerstatus.ContainerRunning {
-				nextState = apicontainerstatus.ContainerStatusNone
+			if container.GetAppliedStatus() == containerstatus.ContainerRunning {
+				nextState = containerstatus.ContainerStatusNone
 			}
 
 			return &containerTransition{

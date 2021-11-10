@@ -20,8 +20,9 @@ import (
 	"sync"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -441,14 +442,14 @@ func (vol *VolumeResource) DependOnTaskNetwork() bool {
 }
 
 // BuildContainerDependency sets the container dependencies of the resource.
-func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 	// No op for non-EFS volume type
 	if vol.VolumeType != EFSVolumeType {
 		return
 	}
 
-	contDep := apicontainer.ContainerDependency{
+	contDep := containerresource.ContainerDependency{
 		ContainerName:   containerName,
 		SatisfiedStatus: satisfied,
 	}
@@ -461,7 +462,7 @@ func (vol *VolumeResource) BuildContainerDependency(containerName string, satisf
 }
 
 // GetContainerDependencies returns the container dependencies of the resource.
-func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	// No op for non-EFS volume type
 	if vol.VolumeType != EFSVolumeType {
 		return nil

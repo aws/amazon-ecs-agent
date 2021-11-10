@@ -14,8 +14,8 @@
 package engine
 
 import (
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 )
 
 type cannotStopContainerError interface {
@@ -26,7 +26,7 @@ type cannotStopContainerError interface {
 // impossibleTransitionError is an error that occurs when an event causes a
 // container to try and transition to a state that it cannot be moved to
 type impossibleTransitionError struct {
-	state apicontainerstatus.ContainerStatus
+	state containerstatus.ContainerStatus
 }
 
 func (err *impossibleTransitionError) Error() string {

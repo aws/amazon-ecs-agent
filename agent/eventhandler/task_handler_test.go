@@ -23,14 +23,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -189,9 +191,9 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
 		assert.Equal(t, 2, len(change.Containers))
 		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
-		assert.Equal(t, apicontainerstatus.ContainerRunning, change.Containers[0].Status)
+		assert.Equal(t, containerstatus.ContainerRunning, change.Containers[0].Status)
 		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
-		assert.Equal(t, apicontainerstatus.ContainerStopped, change.Containers[1].Status)
+		assert.Equal(t, containerstatus.ContainerStopped, change.Containers[1].Status)
 		wg.Done()
 	})
 
@@ -271,7 +273,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	task1 := taskEvent(taskARNA)
 	task1.(api.TaskStateChange).Task.SetSentStatus(apitaskstatus.TaskRunning)
 	cont1 := containerEvent(taskARNA)
-	cont1.(api.ContainerStateChange).Container.SetSentStatus(apicontainerstatus.ContainerRunning)
+	cont1.(api.ContainerStateChange).Container.SetSentStatus(containerstatus.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
 	handler.AddStateChangeEvent(task1, client)
@@ -279,7 +281,7 @@ func TestSendsEventsDedupe(t *testing.T) {
 	task2 := taskEvent(taskARNB)
 	task2.(api.TaskStateChange).Task.SetSentStatus(apitaskstatus.TaskStatusNone)
 	cont2 := containerEvent(taskARNB)
-	cont2.(api.ContainerStateChange).Container.SetSentStatus(apicontainerstatus.ContainerRunning)
+	cont2.(api.ContainerStateChange).Container.SetSentStatus(containerstatus.ContainerRunning)
 
 	// Expect to send a task status but not a container status
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
@@ -346,7 +348,7 @@ func getTasksToEventsLen(handler *TaskHandler) int {
 }
 
 func containerEvent(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerRunning, Container: &apicontainer.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: containerstatus.ContainerRunning, Container: &apicontainer.Container{}}
 }
 
 func managedAgentEvent(arn string) statechange.Event {
@@ -354,7 +356,7 @@ func managedAgentEvent(arn string) statechange.Event {
 }
 
 func containerEventStopped(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerStopped, Container: &apicontainer.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: containerstatus.ContainerStopped, Container: &apicontainer.Container{}}
 }
 
 func taskEvent(arn string) statechange.Event {

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -241,7 +243,7 @@ func updataTaskSentStatus(task *apitask.Task, status apitaskstatus.TaskStatus, d
 	}
 }
 
-func updateContainerSentStatus(container *apicontainer.Container, status apicontainerstatus.ContainerStatus, dataClient data.Client) {
+func updateContainerSentStatus(container *apicontainer.Container, status containerstatus.ContainerStatus, dataClient data.Client) {
 	if container.GetSentStatus() < status {
 		container.SetSentStatus(status)
 		if err := dataClient.SaveContainer(container); err != nil {

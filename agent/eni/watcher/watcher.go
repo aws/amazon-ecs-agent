@@ -26,7 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 )
 

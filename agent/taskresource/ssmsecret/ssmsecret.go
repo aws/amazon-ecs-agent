@@ -19,11 +19,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -57,7 +58,7 @@ type SSMSecretResource struct {
 	executionCredentialsID             string
 
 	// required for store ssm secrets value, key is region of secret
-	requiredSecrets map[string][]apicontainer.Secret
+	requiredSecrets map[string][]containerresource.Secret
 	// map to store secret values, key is a combination of valueFrom and region
 	secretData map[string]string
 
@@ -76,7 +77,7 @@ type SSMSecretResource struct {
 
 // NewSSMSecretResource creates a new SSMSecretResource object
 func NewSSMSecretResource(taskARN string,
-	ssmSecrets map[string][]apicontainer.Secret,
+	ssmSecrets map[string][]containerresource.Secret,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator factory.SSMClientCreator) *SSMSecretResource {
@@ -301,7 +302,7 @@ func (secret *SSMSecretResource) getGoRoutineMaxNum() int {
 
 // retrieveSSMSecretValuesByRegion reads secret values from cache first, if not exists, batches secrets based on field
 // valueFrom and call retrieveSSMSecretValues to retrieve values from SSM
-func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, secrets []apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, secrets []containerresource.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	seelog.Infof("ssm secret resource: retrieving secrets for region %s in task: [%s]", region, secret.taskARN)
 	defer wg.Done()
 
@@ -353,7 +354,7 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 }
 
 // getRequiredSecrets returns the requiredSecrets field of ssmsecret task resource
-func (secret *SSMSecretResource) getRequiredSecrets() map[string][]apicontainer.Secret {
+func (secret *SSMSecretResource) getRequiredSecrets() map[string][]containerresource.Secret {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
@@ -423,12 +424,12 @@ func (secret *SSMSecretResource) Initialize(resourceFields *taskresource.Resourc
 }
 
 type SSMSecretResourceJSON struct {
-	TaskARN                string                           `json:"taskARN"`
-	CreatedAt              *time.Time                       `json:"createdAt,omitempty"`
-	DesiredStatus          *SSMSecretStatus                 `json:"desiredStatus"`
-	KnownStatus            *SSMSecretStatus                 `json:"knownStatus"`
-	RequiredSecrets        map[string][]apicontainer.Secret `json:"secretResources"`
-	ExecutionCredentialsID string                           `json:"executionCredentialsID"`
+	TaskARN                string                                `json:"taskARN"`
+	CreatedAt              *time.Time                            `json:"createdAt,omitempty"`
+	DesiredStatus          *SSMSecretStatus                      `json:"desiredStatus"`
+	KnownStatus            *SSMSecretStatus                      `json:"knownStatus"`
+	RequiredSecrets        map[string][]containerresource.Secret `json:"secretResources"`
+	ExecutionCredentialsID string                                `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serialises the SSMSecretResource struct to JSON
@@ -493,10 +494,10 @@ func (secret *SSMSecretResource) DependOnTaskNetwork() bool {
 	return false
 }
 
-func (secret *SSMSecretResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+func (secret *SSMSecretResource) BuildContainerDependency(containerName string, satisfied containerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 }
 
-func (secret *SSMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+func (secret *SSMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []containerresource.ContainerDependency {
 	return nil
 }

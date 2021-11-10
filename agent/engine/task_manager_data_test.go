@@ -19,8 +19,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -101,8 +102,8 @@ func TestHandleDesiredStatusChangeSaveData(t *testing.T) {
 func TestHandleContainerStateChangeSaveData(t *testing.T) {
 	testCases := []struct {
 		name                string
-		knownState          apicontainerstatus.ContainerStatus
-		nextState           apicontainerstatus.ContainerStatus
+		knownState          containerstatus.ContainerStatus
+		nextState           containerstatus.ContainerStatus
 		taskKnownState      apitaskstatus.TaskStatus
 		taskDesiredState    apitaskstatus.TaskStatus
 		err                 error
@@ -110,16 +111,16 @@ func TestHandleContainerStateChangeSaveData(t *testing.T) {
 	}{
 		{
 			name:                "non-redundant container state change is saved",
-			knownState:          apicontainerstatus.ContainerCreated,
-			nextState:           apicontainerstatus.ContainerRunning,
+			knownState:          containerstatus.ContainerCreated,
+			nextState:           containerstatus.ContainerRunning,
 			taskKnownState:      apitaskstatus.TaskCreated,
 			taskDesiredState:    apitaskstatus.TaskRunning,
 			shouldSaveContainer: true,
 		},
 		{
 			name:                "non-redundant container state change with error is saved",
-			knownState:          apicontainerstatus.ContainerPulled,
-			nextState:           apicontainerstatus.ContainerCreated,
+			knownState:          containerstatus.ContainerPulled,
+			nextState:           containerstatus.ContainerCreated,
 			taskKnownState:      apitaskstatus.TaskPulled,
 			taskDesiredState:    apitaskstatus.TaskCreated,
 			err:                 testErr,
@@ -127,8 +128,8 @@ func TestHandleContainerStateChangeSaveData(t *testing.T) {
 		},
 		{
 			name:             "redundant container state change is not saved",
-			knownState:       apicontainerstatus.ContainerCreated,
-			nextState:        apicontainerstatus.ContainerCreated,
+			knownState:       containerstatus.ContainerCreated,
+			nextState:        containerstatus.ContainerCreated,
 			taskKnownState:   apitaskstatus.TaskCreated,
 			taskDesiredState: apitaskstatus.TaskCreated,
 		},
@@ -206,8 +207,8 @@ func TestHandleContainerChangeWithTaskStateChangeSaveData(t *testing.T) {
 			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 			KnownStatusUnsafe:   apitaskstatus.TaskCreated,
 			Containers: []*apicontainer.Container{
-				newTestContainer(dataTestContainerName1, apicontainerstatus.ContainerCreated,
-					apicontainerstatus.ContainerRunning),
+				newTestContainer(dataTestContainerName1, containerstatus.ContainerCreated,
+					containerstatus.ContainerRunning),
 			},
 		},
 		engine: &DockerTaskEngine{
@@ -222,7 +223,7 @@ func TestHandleContainerChangeWithTaskStateChangeSaveData(t *testing.T) {
 	containerChange := dockerContainerChange{
 		container: mTask.Containers[0],
 		event: dockerapi.DockerContainerChangeEvent{
-			Status:                  apicontainerstatus.ContainerRunning,
+			Status:                  containerstatus.ContainerRunning,
 			DockerContainerMetadata: dockerapi.DockerContainerMetadata{},
 		},
 	}
@@ -296,7 +297,7 @@ func TestHandleResourceStateChangeSaveData(t *testing.T) {
 	}
 }
 
-func newTestContainer(name string, knownStatus, desiredStatus apicontainerstatus.ContainerStatus) *apicontainer.Container {
+func newTestContainer(name string, knownStatus, desiredStatus containerstatus.ContainerStatus) *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                name,
 		TaskARNUnsafe:       testTaskARN,

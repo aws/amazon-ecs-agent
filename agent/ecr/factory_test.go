@@ -18,12 +18,13 @@ package ecr
 import (
 	"testing"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetClientConfigEndpointOverride(t *testing.T) {
-	testAuthData := &apicontainer.ECRAuthData{
+	testAuthData := &containerresource.ECRAuthData{
 		EndpointOverride: "api.ecr.us-west-2.amazonaws.com",
 		Region:           "us-west-2",
 		UseExecutionRole: false,

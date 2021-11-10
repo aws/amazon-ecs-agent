@@ -26,8 +26,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -175,16 +178,16 @@ var (
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
 		ContainerArn:        "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
-		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []containerresource.PortBinding{
 			{
 				ContainerPort: containerPort,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 	}
@@ -192,8 +195,8 @@ var (
 		Name:                pulledContainerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerPulled,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerPulled,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
@@ -296,15 +299,15 @@ var (
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: containerstatus.ContainerRunning,
+		KnownStatusUnsafe:   containerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []containerresource.PortBinding{
 			{
 				ContainerPort: containerPort,
-				Protocol:      apicontainer.TransportProtocolTCP,
+				Protocol:      containerresource.TransportProtocolTCP,
 			},
 		},
 		NetworkModeUnsafe: bridgeMode,

@@ -21,9 +21,11 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -99,7 +101,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 						SourceVolume:  "sourceVolume",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -465,7 +467,7 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
 	container := &apicontainer.Container{
 		Name:                      "myName",
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 	container.DockerConfig.HostConfig = &hostConfig
 
@@ -496,12 +498,12 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 
 	task.initializeCredentialSpecResource(cfg, credentialsManager, resFields)
 
-	resourceDep := apicontainer.ResourceDependency{
+	resourceDep := containerresource.ResourceDependency{
 		Name:           credentialspec.ResourceName,
 		RequiredStatus: resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
 	}
 
-	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
 
 	_, ok := task.GetCredentialSpecResource()
 	assert.True(t, ok)
@@ -595,7 +597,7 @@ func TestInitializeAndAddFSxWindowsFileServerResource(t *testing.T) {
 						ReadOnly:      false,
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
 	}

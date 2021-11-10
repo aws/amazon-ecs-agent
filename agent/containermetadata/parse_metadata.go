@@ -16,8 +16,8 @@ package containermetadata
 import (
 	"fmt"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
@@ -102,8 +102,8 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 	}
 
 	// Get Port bindings from NetworkSettings
-	var ports []apicontainer.PortBinding
-	ports, err = apicontainer.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
+	var ports []containerresource.PortBinding
+	ports, err = containerresource.PortBindingFromDockerPortBinding(dockerContainer.NetworkSettings.Ports)
 	if err != nil {
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 	}

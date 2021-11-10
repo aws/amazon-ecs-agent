@@ -22,7 +22,8 @@ import (
 	"testing"
 	"time"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -289,12 +290,12 @@ func TestEFSVolumeBuildContainerDependency(t *testing.T) {
 	testRes, _ := NewVolumeResource(nil, "volume", "efs", "dockerVolume",
 		"", false, "", nil, nil, nil)
 
-	testRes.BuildContainerDependency("PauseContainer", apicontainerstatus.ContainerCreated, resourcestatus.ResourceStatus(VolumeCreated))
+	testRes.BuildContainerDependency("PauseContainer", containerstatus.ContainerCreated, resourcestatus.ResourceStatus(VolumeCreated))
 	contDep := testRes.GetContainerDependencies(resourcestatus.ResourceStatus(VolumeCreated))
 	assert.NotNil(t, contDep)
 
 	assert.Equal(t, "PauseContainer", contDep[0].ContainerName)
-	assert.Equal(t, apicontainerstatus.ContainerCreated, contDep[0].SatisfiedStatus)
+	assert.Equal(t, containerstatus.ContainerCreated, contDep[0].SatisfiedStatus)
 
 }
 

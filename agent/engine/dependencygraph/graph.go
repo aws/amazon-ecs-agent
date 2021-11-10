@@ -18,8 +18,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -204,9 +205,9 @@ func verifyContainerDependenciesResolvedForResource(target taskresource.TaskReso
 }
 
 func executionCredentialsResolved(target *apicontainer.Container, id string, manager credentials.Manager) bool {
-	if target.GetKnownStatus() >= apicontainerstatus.ContainerPulled ||
+	if target.GetKnownStatus() >= containerstatus.ContainerPulled ||
 		!target.ShouldPullWithExecutionRole() ||
-		target.GetDesiredStatus() >= apicontainerstatus.ContainerStopped {
+		target.GetDesiredStatus() >= containerstatus.ContainerStopped {
 		return true
 	}
 
@@ -221,7 +222,7 @@ func executionCredentialsResolved(target *apicontainer.Container, id string, man
 func verifyStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
 	dependencies []string, resolves func(*apicontainer.Container, *apicontainer.Container) bool) bool {
 	targetGoal := target.GetDesiredStatus()
-	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
+	if targetGoal != target.GetSteadyStateStatus() && targetGoal != containerstatus.ContainerCreated {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
 		return true
@@ -248,7 +249,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 
 	targetGoal := target.GetDesiredStatus()
 	targetKnown := target.GetKnownStatus()
-	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
+	if targetGoal != target.GetSteadyStateStatus() && targetGoal != containerstatus.ContainerCreated {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
 		return nil, nil
@@ -266,7 +267,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		// We want to check whether the dependency container has timed out only if target has not been created yet.
 		// If the target is already created, then everything is normal and dependency can be and is resolved.
 		// However, if dependency container has already stopped, then it cannot time out.
-		if targetKnown < apicontainerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != apicontainerstatus.ContainerStopped {
+		if targetKnown < containerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != containerstatus.ContainerStopped {
 			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
 				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
 			}
@@ -274,7 +275,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 
 		// We want to fail fast if the dependency container has stopped but did not exit successfully because target container
 		// can then never progress to its desired state when the dependency condition is 'SUCCESS'
-		if dependency.Condition == successCondition && dependencyContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+		if dependency.Condition == successCondition && dependencyContainer.GetKnownStatus() == containerstatus.ContainerStopped &&
 			!hasDependencyStoppedSuccessfully(dependencyContainer) {
 			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 		}
@@ -351,11 +352,11 @@ func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 		return verifyContainerOrderingStatus(dependsOnContainer)
 
 	case startCondition:
-		if targetDesiredStatus == apicontainerstatus.ContainerCreated {
+		if targetDesiredStatus == containerstatus.ContainerCreated {
 			// The 'target' container desires to be moved to 'Created' state.
 			// Allow this only if the desired status of the dependency container is
 			// 'Created' or if the linked container is in 'steady state'
-			return dependsOnContainerDesiredStatus == apicontainerstatus.ContainerCreated ||
+			return dependsOnContainerDesiredStatus == containerstatus.ContainerCreated ||
 				dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
 
 		} else if targetDesiredStatus == target.GetSteadyStateStatus() {
@@ -369,7 +370,7 @@ func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 		var dependencyStoppedSuccessfully bool
 
 		if dependsOnContainer.GetKnownExitCode() != nil {
-			dependencyStoppedSuccessfully = dependsOnContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+			dependencyStoppedSuccessfully = dependsOnContainer.GetKnownStatus() == containerstatus.ContainerStopped &&
 				*dependsOnContainer.GetKnownExitCode() == successExitCode
 		}
 		return verifyContainerOrderingStatus(dependsOnContainer) || dependencyStoppedSuccessfully
@@ -397,7 +398,7 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 	// Allow this only if the environment variable ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT is enabled and
 	// known status of the `target` container state has not reached to 'Pulled' state;
-	if cfg.DependentContainersPullUpfront.Enabled() && targetContainerKnownStatus < apicontainerstatus.ContainerPulled {
+	if cfg.DependentContainersPullUpfront.Enabled() && targetContainerKnownStatus < containerstatus.ContainerPulled {
 		return true
 	}
 
@@ -406,14 +407,14 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 		// Allow this only if the known status of the dependency container state is already started
 		// i.e it's state is any of 'Created', 'steady state' or 'Stopped'
-		return dependsOnContainerKnownStatus >= apicontainerstatus.ContainerCreated
+		return dependsOnContainerKnownStatus >= containerstatus.ContainerCreated
 
 	case startCondition:
-		if targetDesiredStatus == apicontainerstatus.ContainerCreated {
+		if targetDesiredStatus == containerstatus.ContainerCreated {
 			// The 'target' container desires to be moved to 'Created' state.
 			// Allow this only if the known status of the linked container is
 			// 'Created' or if the dependency container is in 'steady state'
-			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerCreated || dependsOnContainer.IsKnownSteadyState()
+			return dependsOnContainerKnownStatus == containerstatus.ContainerCreated || dependsOnContainer.IsKnownSteadyState()
 		} else if targetDesiredStatus == target.GetSteadyStateStatus() {
 			// The 'target' container desires to be moved to its 'steady' state.
 			// Allow this only if the dependency container is in 'steady state' as well
@@ -425,7 +426,7 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 		// Allow this only if the known status of the dependency container state is stopped with an exit code of 0
 		if dependsOnContainer.GetKnownExitCode() != nil {
-			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerStopped &&
+			return dependsOnContainerKnownStatus == containerstatus.ContainerStopped &&
 				*dependsOnContainer.GetKnownExitCode() == successExitCode
 		}
 		return false
@@ -433,11 +434,11 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 	case completeCondition:
 		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 		// Allow this only if the known status of the dependency container state is stopped with any exit code
-		return dependsOnContainerKnownStatus == apicontainerstatus.ContainerStopped && dependsOnContainer.GetKnownExitCode() != nil
+		return dependsOnContainerKnownStatus == containerstatus.ContainerStopped && dependsOnContainer.GetKnownExitCode() != nil
 
 	case healthyCondition:
 		return dependsOnContainer.HealthStatusShouldBeReported() &&
-			dependsOnContainer.GetHealthStatus().Status == apicontainerstatus.ContainerHealthy
+			dependsOnContainer.GetHealthStatus().Status == containerstatus.ContainerHealthy
 
 	default:
 		return false
@@ -466,8 +467,8 @@ func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) b
 	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 	// Allow this only if the dependency container also desires to be started
 	// i.e it's status is any of 'Created', 'steady state' or 'Stopped'
-	return dependsOnContainerDesiredStatus == apicontainerstatus.ContainerCreated ||
-		dependsOnContainerDesiredStatus == apicontainerstatus.ContainerStopped ||
+	return dependsOnContainerDesiredStatus == containerstatus.ContainerCreated ||
+		dependsOnContainerDesiredStatus == containerstatus.ContainerStopped ||
 		dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
 }
 
@@ -498,13 +499,13 @@ func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[
 }
 
 func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.Container) bool {
-	return target.GetDesiredStatus() >= apicontainerstatus.ContainerCreated &&
+	return target.GetDesiredStatus() >= containerstatus.ContainerCreated &&
 		run.GetDesiredStatus() >= run.GetSteadyStateStatus()
 }
 
 // onSteadyStateIsResolved defines a relationship where a target cannot be
 // created until 'dependency' has reached the steady state. Transitions include pulling.
 func onSteadyStateIsResolved(target *apicontainer.Container, run *apicontainer.Container) bool {
-	return target.GetDesiredStatus() >= apicontainerstatus.ContainerCreated &&
+	return target.GetDesiredStatus() >= containerstatus.ContainerCreated &&
 		run.GetKnownStatus() >= run.GetSteadyStateStatus()
 }

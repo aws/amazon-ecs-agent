@@ -19,11 +19,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
+
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/containernetworking/cni/libcni"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -153,7 +154,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 		if container.RequiresCredentialSpec() {
 			container.BuildResourceDependency(credentialspecResource.GetName(),
 				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
-				apicontainerstatus.ContainerCreated)
+				containerstatus.ContainerCreated)
 		}
 	}
 

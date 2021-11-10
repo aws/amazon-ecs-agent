@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
@@ -53,8 +53,8 @@ const (
 )
 
 func TestCreateAndGetWithOneCall(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -123,8 +123,8 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 }
 
 func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -132,7 +132,7 @@ func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 			Provider:  "ssm",
 		},
 	}
-	secretsInRegion2 := []apicontainer.Secret{
+	secretsInRegion2 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -192,11 +192,11 @@ func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 }
 
 func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	var secrets []apicontainer.Secret
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	var secrets []containerresource.Secret
 	for i := 1; i <= 12; i++ {
 		num := strconv.Itoa(i)
-		secret := apicontainer.Secret{
+		secret := containerresource.Secret{
 			Name:      "db_username_" + num,
 			ValueFrom: "secret-name-" + num,
 			Region:    region1,
@@ -286,8 +286,8 @@ func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
 }
 
 func TestCreateReturnMultipleErrors(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -295,7 +295,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 			Provider:  "ssm",
 		},
 	}
-	secretsInRegion2 := []apicontainer.Secret{
+	secretsInRegion2 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -345,8 +345,8 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 }
 
 func TestCreateReturnError(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -394,8 +394,8 @@ func TestCreateReturnError(t *testing.T) {
 }
 
 func TestGetGoRoutineMaxNumTwoRegions(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -403,7 +403,7 @@ func TestGetGoRoutineMaxNumTwoRegions(t *testing.T) {
 			Provider:  "ssm",
 		},
 	}
-	secretsInRegion2 := []apicontainer.Secret{
+	secretsInRegion2 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -423,8 +423,8 @@ func TestGetGoRoutineMaxNumTwoRegions(t *testing.T) {
 }
 
 func TestGetGoRoutineMaxNumOneRegion(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
@@ -450,8 +450,8 @@ func TestGetGoRoutineMaxNumOneRegion(t *testing.T) {
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
-	requiredSecretData := make(map[string][]apicontainer.Secret)
-	secretsInRegion1 := []apicontainer.Secret{
+	requiredSecretData := make(map[string][]containerresource.Secret)
+	secretsInRegion1 := []containerresource.Secret{
 		{
 			Name:      secretName1,
 			ValueFrom: valueFrom1,
