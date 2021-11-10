@@ -1385,6 +1385,7 @@ func TestTaskFromACS(t *testing.T) {
 						Type:  "s3",
 					},
 				},
+				ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
 				TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 			},
 		},
@@ -2240,6 +2241,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 		task.Arn,
 		task.getAllASMAuthDataRequirements(),
 		expectedExecutionCredentialsID,
+		false,
 		credentialsManager,
 		asmClientCreator)
 	res.SetKnownStatus(resourcestatus.ResourceRemoved)
@@ -2352,6 +2354,7 @@ func TestPopulateASMAuthData(t *testing.T) {
 		task.Arn,
 		task.getAllASMAuthDataRequirements(),
 		credentialsID,
+		false,
 		credentialsManager,
 		asmClientCreator)
 
@@ -2443,6 +2446,7 @@ func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
 		task.Arn,
 		task.getAllASMAuthDataRequirements(),
 		credentialsID,
+		false,
 		credentialsManager,
 		asmClientCreator)
 
@@ -2452,6 +2456,96 @@ func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
 	// asm resource does not return docker auth config, call returns error
 	err := task.PopulateASMAuthData(container)
 	assert.Error(t, err)
+}
+
+func TestPopulateASMAuthDataContainerCredentials(t *testing.T) {
+	expectedUsername := "username"
+	expectedPassword := "password"
+
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	credentialsID := "execution role"
+	accessKeyID := "akid"
+	secretAccessKey := "sakid"
+	sessionToken := "token"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID:   credentialsID,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
+
+	container := &apicontainer.Container{
+		Name:                   "myName",
+		Image:                  "image:tag",
+		ExecutionCredentialsID: credentialsID,
+		ResourcesMapUnsafe:     make(map[string][]taskresource.TaskResource),
+		RegistryAuthentication: &containerresource.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &containerresource.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	// returned asm data
+	asmAuthDataBytes, _ := json.Marshal(&asm.AuthDataValue{
+		Username: aws.String(expectedUsername),
+		Password: aws.String(expectedPassword),
+	})
+	asmAuthDataVal := string(asmAuthDataBytes)
+	asmSecretValue := &secretsmanager.GetSecretValueOutput{
+		SecretString: aws.String(asmAuthDataVal),
+	}
+
+	// create asm auth resource
+	asmRes := asmauth.NewASMAuthResource(
+		task.Arn,
+		container.GetASMAuthDataRequirements(),
+		credentialsID,
+		true,
+		credentialsManager,
+		asmClientCreator)
+
+	// add asm auth resource to task
+	container.AddResource(asmauth.ResourceName, asmRes)
+
+	gomock.InOrder(
+		credentialsManager.EXPECT().GetContainerCredentials(credentialsID).Return(
+			credentials.ContainerIAMRoleCredentials{
+				ARN:                "",
+				IAMRoleCredentials: executionRoleCredentials,
+			}, true),
+		//credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(credentials.TaskIAMRoleCredentials{}, true),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+	)
+
+	// create resource
+	err := asmRes.Create()
+	require.NoError(t, err)
+
+	err = task.PopulateASMAuthData(container)
+	assert.NoError(t, err)
+
+	dac := container.RegistryAuthentication.ASMAuthData.GetDockerAuthConfig()
+	assert.Equal(t, expectedUsername, dac.Username)
+	assert.Equal(t, expectedPassword, dac.Password)
 }
 
 func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
@@ -2584,6 +2678,7 @@ func TestPostUnmarshalTaskASMSecret(t *testing.T) {
 func TestGetAllSSMSecretRequirements(t *testing.T) {
 	regionWest := "us-west-2"
 	regionEast := "us-east-1"
+	regionWest1 := "us-west-1"
 
 	secret1 := containerresource.Secret{
 		Provider:  "ssm",
@@ -2606,6 +2701,13 @@ func TestGetAllSSMSecretRequirements(t *testing.T) {
 		ValueFrom: "/test/secretName3",
 	}
 
+	secret4 := containerresource.Secret{
+		Provider:  "ssm",
+		Name:      "secret4",
+		Region:    regionWest1,
+		ValueFrom: "/test/secretName4",
+	}
+
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
@@ -2613,13 +2715,22 @@ func TestGetAllSSMSecretRequirements(t *testing.T) {
 		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
+	container1 := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		ExecutionCredentialsID:    "execution credentials",
+		Secrets:                   []containerresource.Secret{secret4},
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
 	task := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{container},
+		Containers:         []*apicontainer.Container{container, container1},
 	}
 
 	reqs := task.getAllSSMSecretRequirements()
+	assert.Equal(t, 2, len(reqs))
 	assert.Equal(t, secret1, reqs[regionWest][0])
 	assert.Equal(t, 1, len(reqs[regionWest]))
 }
@@ -2676,6 +2787,63 @@ func TestInitializeAndGetSSMSecretResource(t *testing.T) {
 	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
 
 	_, ok := task.getSSMSecretsResource()
+	assert.True(t, ok)
+}
+
+func TestInitializeAndGetContainerSSMSecretResource(t *testing.T) {
+	secret := containerresource.Secret{
+		Provider:  "ssm",
+		Name:      "secret",
+		Region:    "us-west-2",
+		ValueFrom: "/test/secretName",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []containerresource.Secret{secret},
+		ExecutionCredentialsID:    "credential id",
+		ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
+	container1 := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   nil,
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container, container1},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	task.initializeSSMSecretResource(credentialsManager, resFields)
+
+	resourceDep := containerresource.ResourceDependency{
+		Name:           ssmsecret.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
+	}
+
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
+
+	_, ok := container.GetSSMSecretsResource()
 	assert.True(t, ok)
 }
 
@@ -2792,6 +2960,7 @@ func TestRequiresASMSecretNoSecret(t *testing.T) {
 func TestGetAllASMSecretRequirements(t *testing.T) {
 	regionWest := "us-west-2"
 	regionEast := "us-east-1"
+	regionWest1 := "us-west-1"
 
 	secret1 := containerresource.Secret{
 		Provider:  "asm",
@@ -2820,6 +2989,12 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 		Region:    regionWest,
 		ValueFrom: "/test/secretName1",
 	}
+	secret5 := containerresource.Secret{
+		Provider:  "asm",
+		Name:      "secret5",
+		Region:    regionWest1,
+		ValueFrom: "/test/secretName5",
+	}
 
 	container := &apicontainer.Container{
 		Name:                      "myName",
@@ -2828,10 +3003,18 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
 	}
 
+	container1 := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []containerresource.Secret{secret5},
+		ExecutionCredentialsID:    "credentials id",
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
 	task := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{container},
+		Containers:         []*apicontainer.Container{container, container1},
 	}
 
 	reqs := task.getAllASMSecretRequirements()
@@ -2892,6 +3075,63 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
 
 	_, ok := task.getASMSecretsResource()
+	assert.True(t, ok)
+}
+
+func TestInitializeAndGetContainerASMSecretResource(t *testing.T) {
+	secret := containerresource.Secret{
+		Provider:  "asm",
+		Name:      "secret",
+		Region:    "us-west-2",
+		ValueFrom: "/test/secretName",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []containerresource.Secret{secret},
+		ExecutionCredentialsID:    "execution credentials ID",
+		ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
+	container1 := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   nil,
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container, container1},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			ASMClientCreator:   asmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	task.initializeASMSecretResource(credentialsManager, resFields)
+
+	resourceDep := containerresource.ResourceDependency{
+		Name:           asmsecret.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
+	}
+
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[containerstatus.ContainerCreated].ResourceDependencies[0])
+	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
+
+	_, ok := container.GetASMSecretsResource()
 	assert.True(t, ok)
 }
 
@@ -3047,6 +3287,73 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 
 	assert.Equal(t, "secretValue3", container.Environment["secret3"])
 	assert.Equal(t, 1, len(container.Environment))
+}
+
+func TestPopulateSecretsContainerExecutionCredentials(t *testing.T) {
+	secret1 := containerresource.Secret{
+		Provider:  "ssm",
+		Name:      "secret1",
+		Region:    "us-west-2",
+		Type:      "ENVIRONMENT_VARIABLE",
+		ValueFrom: "/test/secretName",
+	}
+
+	secret2 := containerresource.Secret{
+		Provider:  "asm",
+		Name:      "secret2",
+		Region:    "us-west-2",
+		Type:      "ENVIRONMENT_VARIABLE",
+		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
+	}
+
+	secret3 := containerresource.Secret{
+		Provider:  "ssm",
+		Name:      "splunk-token",
+		Region:    "us-west-1",
+		Target:    "LOG_DRIVER",
+		ValueFrom: "/test/secretName1",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []containerresource.Secret{secret1, secret2, secret3},
+		ExecutionCredentialsID:    "execution credentials id",
+		ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	logDriverName := "splunk"
+	hostConfig.LogConfig.Type = logDriverName
+	configMap := map[string]string{
+		"splunk-option": "option",
+	}
+	hostConfig.LogConfig.Config = configMap
+
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
+
+	asmRes := &asmsecret.ASMSecretResource{}
+	asmRes.SetCachedSecretValue(asmSecretKeyWest1, "secretValue2")
+
+	ssmRes.SetCachedSecretValue(secKeyLogDriver, "secretValue3")
+
+	container.AddResource(ssmsecret.ResourceName, ssmRes)
+	container.AddResource(asmsecret.ResourceName, asmRes)
+
+	task.PopulateSecrets(hostConfig, container)
+	assert.Equal(t, "secretValue1", container.Environment["secret1"])
+	assert.Equal(t, "secretValue2", container.Environment["secret2"])
+	assert.Equal(t, "", container.Environment["secret3"])
+	assert.Equal(t, "secretValue3", hostConfig.LogConfig.Config["splunk-token"])
+	assert.Equal(t, "option", hostConfig.LogConfig.Config["splunk-option"])
 }
 
 func TestAddGPUResource(t *testing.T) {

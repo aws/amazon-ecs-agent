@@ -53,6 +53,7 @@ type ASMAuthResource struct {
 	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
 	credentialsManager                 credentials.Manager
 	executionCredentialsID             string
+	isContainerCredentials             bool
 
 	// required for asm private registry auth
 	requiredASMResources []*containerresource.ASMAuthData
@@ -78,12 +79,14 @@ type ASMAuthResource struct {
 func NewASMAuthResource(taskARN string,
 	asmRequirements []*containerresource.ASMAuthData,
 	executionCredentialsID string,
+	isContainerExecutionCredentials bool,
 	credentialsManager credentials.Manager,
 	asmClientCreator factory.ClientCreator) *ASMAuthResource {
 
 	c := &ASMAuthResource{
 		taskARN:                taskARN,
 		requiredASMResources:   asmRequirements,
+		isContainerCredentials: isContainerExecutionCredentials,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
 		asmClientCreator:       asmClientCreator,
@@ -271,12 +274,11 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *containerres
 		return nil
 	}
 
-	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.GetExecutionCredentialsID())
+	iamCredentials, ok, credentialType := auth.getIAMCredentials()
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		return errors.New("asm resource: unable to find execution role credentials")
+		return errors.Errorf("asm resource: unable to find %s execution role credentials", credentialType)
 	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
 	seelog.Debugf("ASM Auth: Retrieving resource with ID [%s] in task: [%s]", secretID, auth.taskARN)
 	dac, err := asm.GetDockerAuthFromASM(secretID, asmClient)
@@ -291,6 +293,16 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *containerres
 	auth.dockerAuthData[secretID] = dac
 
 	return nil
+}
+
+func (auth *ASMAuthResource) getIAMCredentials() (credentials.IAMRoleCredentials, bool, string) {
+	if auth.isContainerCredentials {
+		executionCredentials, ok := auth.credentialsManager.GetContainerCredentials(auth.GetExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "container"
+	} else {
+		executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.GetExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "task"
+	}
 }
 
 // GetRequiredASMResources returns the list of ASMAuthData that has to be

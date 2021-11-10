@@ -1804,7 +1804,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	requiredASMResources := []*containerresource.ASMAuthData{asmAuthData}
 	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
-		credentialsID, credentialsManager, asmClientCreator)
+		credentialsID, false, credentialsManager, asmClientCreator)
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
 		asmauth.ResourceName: {asmAuthRes},
 	}
@@ -2683,6 +2683,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				testTask.Arn,
 				ssmRequirements,
 				credentialsID,
+				false,
 				credentialsManager,
 				ssmClientCreator)
 
@@ -2698,6 +2699,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				testTask.Arn,
 				asmRequirements,
 				credentialsID,
+				false,
 				credentialsManager,
 				asmClientCreator)
 

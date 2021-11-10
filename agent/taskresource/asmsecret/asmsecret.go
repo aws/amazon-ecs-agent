@@ -60,6 +60,7 @@ type ASMSecretResource struct {
 	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
 	credentialsManager                 credentials.Manager
 	executionCredentialsID             string
+	isContainerCredentials             bool
 
 	// map to store all asm deduped secrets in the task, key is a combination of valueFrom and region
 	requiredSecrets map[string]containerresource.Secret
@@ -83,6 +84,7 @@ type ASMSecretResource struct {
 func NewASMSecretResource(taskARN string,
 	asmSecrets map[string]containerresource.Secret,
 	executionCredentialsID string,
+	isContainerCredentials bool,
 	credentialsManager credentials.Manager,
 	asmClientCreator factory.ClientCreator) *ASMSecretResource {
 
@@ -91,6 +93,7 @@ func NewASMSecretResource(taskARN string,
 		requiredSecrets:        asmSecrets,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
+		isContainerCredentials: isContainerCredentials,
 		asmClientCreator:       asmClientCreator,
 	}
 
@@ -254,16 +257,14 @@ func (secret *ASMSecretResource) GetCreatedAt() time.Time {
 
 // It spins up multiple goroutines in order to retrieve values in parallel.
 func (secret *ASMSecretResource) Create() error {
-
 	// To fail fast, check execution role first
-	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
+	iamCredentials, ok, credentialType := secret.getIAMCredentials()
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		err := errors.New("ASM secret resource: unable to find execution role credentials")
+		err := errors.Errorf("ASM secret resource: unable to find %s execution role credentials", credentialType)
 		secret.setTerminalReason(err.Error())
 		return err
 	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
 	var wg sync.WaitGroup
 
@@ -293,6 +294,16 @@ func (secret *ASMSecretResource) Create() error {
 		return errors.New(errorString)
 	}
 	return nil
+}
+
+func (secret *ASMSecretResource) getIAMCredentials() (credentials.IAMRoleCredentials, bool, string) {
+	if secret.isContainerCredentials {
+		executionCredentials, ok := secret.credentialsManager.GetContainerCredentials(secret.getExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "container"
+	} else {
+		executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "task"
+	}
 }
 
 // retrieveASMSecretValue reads secret value from cache first, if not exists, call GetSecretFromASM to retrieve value

@@ -1146,6 +1146,19 @@ func TestPopulateSecretLogOptionsToFirelensContainer(t *testing.T) {
 	assert.Equal(t, "secret-val", task.Containers[1].Environment["secret-name_0"])
 }
 
+func TestPopulateSecretLogOptionsToFirelensContainerWithContainerCredentials(t *testing.T) {
+	task := getFirelensTask(t)
+	task.Containers[1].ExecutionCredentialsID = "credentials id"
+	task.Containers[1].ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
+	task.Containers[1].AddResource(ssmsecret.ResourceName, ssmRes)
+
+	assert.Nil(t, task.PopulateSecretLogOptionsToFirelensContainer(task.Containers[1]))
+	assert.Len(t, task.Containers[1].Environment, 2)
+	assert.Equal(t, "secret-val", task.Containers[1].Environment["secret-name_0"])
+}
+
 func TestCollectLogDriverSecretData(t *testing.T) {
 	ssmRes := &ssmsecret.SSMSecretResource{}
 	ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
