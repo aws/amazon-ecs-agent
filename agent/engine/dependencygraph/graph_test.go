@@ -20,6 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+
 	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 
@@ -129,7 +133,7 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 		},
 	}
 	cfg := config.Config{}
-	_, err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil, &cfg)
+	_, err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
@@ -146,28 +150,28 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 		},
 	}
 
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Shouldn't be resolved; db isn't running")
 
-	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Shouldn't be resolved; dbdatavolume isn't created")
 
-	_, err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "data volume with no deps should resolve")
 
 	dbdata.SetKnownStatus(containerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Php shouldn't run, db is not created")
 
 	db.SetKnownStatus(containerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Php shouldn't run, db is not running")
 
-	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "db should be resolved, dbdata volume is Created")
 	db.SetKnownStatus(containerstatus.ContainerRunning)
 
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -184,19 +188,19 @@ func TestRunDependencies(t *testing.T) {
 	}
 	task := &apitask.Task{Containers: []*apicontainer.Container{c1, c2}}
 	cfg := config.Config{}
-	_, err := DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
+	_, err := DependenciesAreResolved(c2, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Dependencies should not be resolved")
 
 	task.Containers[1].SetDesiredStatus(containerstatus.ContainerRunning)
-	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, nil, &cfg)
 	assert.Error(t, err, "Dependencies should not be resolved")
 
 	task.Containers[0].SetKnownStatus(containerstatus.ContainerRunning)
-	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "Dependencies should be resolved")
 
 	task.Containers[1].SetDesiredStatus(containerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(c1, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(c1, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "Dependencies should be resolved")
 }
 
@@ -225,11 +229,11 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 			continue
 		}
 		container.SteadyStateDependencies = []string{"pause"}
-		_, err := DependenciesAreResolved(container, task.Containers, "", nil, nil, &cfg)
+		_, err := DependenciesAreResolved(container, task.Containers, "", nil, nil, nil, &cfg)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 
-	_, err := DependenciesAreResolved(pause, task.Containers, "", nil, nil, &cfg)
+	_, err := DependenciesAreResolved(pause, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "Pause container's dependencies should be resolved")
 
 	// Transition pause container to RUNNING
@@ -243,13 +247,13 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 		}
 		// Assert that dependencies remain unresolved until the pause container reaches
 		// RESOURCES_PROVISIONED
-		_, err = DependenciesAreResolved(container, task.Containers, "", nil, nil, &cfg)
+		_, err = DependenciesAreResolved(container, task.Containers, "", nil, nil, nil, &cfg)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 	pause.KnownStatusUnsafe = containerstatus.ContainerResourcesProvisioned
-	// Dependecies should be resolved now that the 'pause' container has
+	// Dependencies should be resolved now that the 'pause' container has
 	// transitioned into RESOURCES_PROVISIONED
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, nil, &cfg)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -444,12 +448,11 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 
 func TestVerifyResourceDependenciesResolved(t *testing.T) {
 	testcases := []struct {
-		Name            string
-		TargetKnown     containerstatus.ContainerStatus
-		TargetDep       containerstatus.ContainerStatus
-		DependencyKnown resourcestatus.ResourceStatus
-		RequiredStatus  resourcestatus.ResourceStatus
-
+		Name             string
+		TargetKnown      containerstatus.ContainerStatus
+		TargetDep        containerstatus.ContainerStatus
+		DependencyKnown  resourcestatus.ResourceStatus
+		RequiredStatus   resourcestatus.ResourceStatus
 		ExpectedResolved bool
 	}{
 		{
@@ -1396,4 +1399,59 @@ func TestVerifyContainerOrderingStatusResolvableFailOnDependencyWontStart(t *tes
 	}
 	_, err := verifyContainerOrderingStatusResolvable(target, contMap, &config.Config{}, dummyResolves)
 	assert.Error(t, err)
+}
+
+func TestVerifyExecutionCredentialsResolve(t *testing.T) {
+	testcases := []struct {
+		TestName                             string
+		ExpectedGetContainerCredentialsTimes int
+		ExpectedGetTaskCredentialsTimes      int
+		ContainerExecutionCredential         string
+	}{
+		{
+			TestName:                             "HaveContainerExecutionCredential",
+			ExpectedGetContainerCredentialsTimes: 1,
+			ExpectedGetTaskCredentialsTimes:      0,
+			ContainerExecutionCredential:         "id",
+		},
+		{
+			TestName:                             "NotHaveContainerExecutionCredential",
+			ExpectedGetContainerCredentialsTimes: 0,
+			ExpectedGetTaskCredentialsTimes:      1,
+			ContainerExecutionCredential:         "",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.TestName, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			targetName := "target"
+			target := &apicontainer.Container{
+				Name:                targetName,
+				KnownStatusUnsafe:   containerstatus.ContainerStatusNone,
+				DesiredStatusUnsafe: containerstatus.ContainerRunning,
+				RegistryAuthentication: &containerresource.RegistryAuthenticationData{
+					Type: containerresource.AuthTypeECR,
+					ECRAuthData: &containerresource.ECRAuthData{
+						EndpointOverride: "",
+						Region:           "",
+						RegistryID:       "",
+						UseExecutionRole: true,
+					},
+					ASMAuthData: nil,
+				},
+				ExecutionCredentialsID: tc.ContainerExecutionCredential,
+			}
+
+			manager := mock_credentials.NewMockManager(ctrl)
+			manager.EXPECT().GetContainerCredentials("id").Return(credentials.ContainerIAMRoleCredentials{}, true).Times(tc.ExpectedGetContainerCredentialsTimes)
+			manager.EXPECT().GetTaskCredentials("id").Return(credentials.TaskIAMRoleCredentials{}, true).Times(tc.ExpectedGetTaskCredentialsTimes)
+
+			resolve := executionCredentialsResolved(target, "id", manager)
+			assert.True(t, resolve)
+		})
+	}
 }

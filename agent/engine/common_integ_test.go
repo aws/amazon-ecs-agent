@@ -23,6 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/containerresource"
+
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+
 	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 
 	"github.com/stretchr/testify/require"
@@ -188,13 +192,15 @@ func skipIntegTestIfApplicable(t *testing.T) {
 
 func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
 	return &apicontainer.Container{
-		Name:                name,
-		Image:               image,
-		Command:             []string{},
-		Essential:           true,
-		DesiredStatusUnsafe: containerstatus.ContainerRunning,
-		CPU:                 1024,
-		Memory:              128,
+		Name:                      name,
+		Image:                     image,
+		Command:                   []string{},
+		Essential:                 true,
+		DesiredStatusUnsafe:       containerstatus.ContainerRunning,
+		TransitionDependenciesMap: make(map[containerstatus.ContainerStatus]containerresource.TransitionDependencySet),
+		ResourcesMapUnsafe:        make(map[string][]taskresource.TaskResource),
+		CPU:                       1024,
+		Memory:                    128,
 	}
 }
 
