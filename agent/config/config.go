@@ -92,7 +92,7 @@ const (
 
 	// minimumTaskCleanupWaitDuration specifies the minimum duration to wait before cleaning up
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
-	minimumTaskCleanupWaitDuration = 1 * time.Minute
+	minimumTaskCleanupWaitDuration = time.Second
 
 	// minimumImagePullInactivityTimeout specifies the minimum amount of time for that an image can be
 	// 'stuck' in the pull / unpack step. Very small values are unsafe and lead to high failure rate.
