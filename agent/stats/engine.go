@@ -281,7 +281,7 @@ func (engine *DockerStatsEngine) addToStatsTaskMapUnsafe(task *apitask.Task, doc
 			}
 			containerpid := strconv.Itoa(containerInspect.State.Pid)
 			statsTaskContainer, err = newStatsTaskContainer(task.Arn, containerpid, numberOfContainers,
-				engine.resolver, engine.config.PollingMetricsWaitDuration)
+				engine.resolver, engine.config.PollingMetricsWaitDuration, task.ENIs)
 			if err != nil {
 				return
 			}
