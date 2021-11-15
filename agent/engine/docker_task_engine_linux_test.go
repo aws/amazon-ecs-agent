@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+
 	"github.com/aws/amazon-ecs-agent/agent/containerresource"
 	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 
@@ -155,6 +157,7 @@ func TestDeleteTask(t *testing.T) {
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
+	asmSecretResource := asmsecret.NewASMSecretResource("", nil, "executionId", true, nil, nil)
 	task := &apitask.Task{
 		Arn: testTaskARN,
 		ENIs: []*apieni.ENI{
@@ -162,9 +165,14 @@ func TestDeleteTask(t *testing.T) {
 				MacAddress: mac,
 			},
 		},
+		Containers: []*apicontainer.Container{},
 	}
+	task.Containers = append(task.Containers, &apicontainer.Container{})
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	task.Containers[0].ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	task.AddResource("cgroup", cgroupResource)
+	asmSecretResource.SetCachedSecretValue("CachedKey", "CachedValue")
+	task.Containers[0].AddResource("asmsecret", asmSecretResource)
 	require.NoError(t, dataClient.SaveTask(task))
 
 	cfg := defaultConfig
@@ -198,6 +206,8 @@ func TestDeleteTask(t *testing.T) {
 	assert.Len(t, attachments, 1)
 
 	taskEngine.deleteTask(task)
+	_, resourceValueExists := asmSecretResource.GetCachedSecretValue("CachedValue")
+	assert.False(t, resourceValueExists)
 	tasks, err := dataClient.GetTasks()
 	require.NoError(t, err)
 	assert.Len(t, tasks, 0)
