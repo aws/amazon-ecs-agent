@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -18,26 +18,24 @@ package stats
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
+
+	dockerstats "github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
 // Dummy StatsTasks
 type StatsTask struct {
-	// AWSVPC network stats only supported on linux
-	TaskMetadata *TaskMetadata
-	StatsQueue   *Queue
+	// AWSVPC network stats only supported on linux and Windows
+	*statsTaskCommon
 }
 
 func newStatsTaskContainer(taskARN string, containerPID string, numberOfContainers int,
-	resolver resolver.ContainerMetadataResolver, publishInterval time.Duration) (*StatsTask, error) {
+	resolver resolver.ContainerMetadataResolver, publishInterval time.Duration, _ task.TaskENIs) (*StatsTask, error) {
 	return nil, errors.New("Unsupported platform")
 }
 
-func (task *StatsTask) StartStatsCollection() {
-	// AWSVPC network stats only supported on linux
-}
-
-func (task *StatsTask) StopStatsCollection() {
-	// AWSVPC network stats only supported on linux
+func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.NetworkStats, error) {
+	return nil, errors.New("Unsupported platform")
 }

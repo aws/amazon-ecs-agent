@@ -45,18 +45,20 @@ func TestTaskStatsCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	numberOfContainers := 2
 	taskStats := &StatsTask{
-		TaskMetadata: &TaskMetadata{
-			TaskArn:          taskId,
-			ContainerPID:     containerPID,
-			DeviceName:       []string{"device1", "device2"},
-			NumberContainers: numberOfContainers,
+		statsTaskCommon: &statsTaskCommon{
+			TaskMetadata: &TaskMetadata{
+				TaskArn:          taskId,
+				ContainerPID:     containerPID,
+				DeviceName:       []string{"device1", "device2"},
+				NumberContainers: numberOfContainers,
+			},
+			Ctx:                   ctx,
+			Cancel:                cancel,
+			Resolver:              resolver,
+			metricPublishInterval: time.Second,
 		},
-		Ctx:                   ctx,
-		Cancel:                cancel,
-		Resolver:              resolver,
-		netlinkinterface:      mockNetLink,
-		nswrapperinterface:    mockNS,
-		metricPublishInterval: time.Second,
+		netlinkinterface:   mockNetLink,
+		nswrapperinterface: mockNS,
 	}
 
 	testTask := &apitask.Task{
@@ -105,18 +107,20 @@ func TestTaskStatsCollectionError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	taskStats := &StatsTask{
-		TaskMetadata: &TaskMetadata{
-			TaskArn:          taskId,
-			ContainerPID:     containerPID,
-			DeviceName:       []string{"device1", "device2"},
-			NumberContainers: 2,
+		statsTaskCommon: &statsTaskCommon{
+			TaskMetadata: &TaskMetadata{
+				TaskArn:          taskId,
+				ContainerPID:     containerPID,
+				DeviceName:       []string{"device1", "device2"},
+				NumberContainers: 2,
+			},
+			Ctx:                   ctx,
+			Cancel:                cancel,
+			Resolver:              resolver,
+			metricPublishInterval: time.Second,
 		},
-		Ctx:                   ctx,
-		Cancel:                cancel,
-		Resolver:              resolver,
-		netlinkinterface:      mockNetLink,
-		nswrapperinterface:    mockNS,
-		metricPublishInterval: time.Second,
+		netlinkinterface:   mockNetLink,
+		nswrapperinterface: mockNS,
 	}
 
 	testTask := &apitask.Task{
