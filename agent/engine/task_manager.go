@@ -22,10 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
-
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -33,10 +29,12 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/apierrors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
@@ -984,9 +982,12 @@ func (mtask *managedTask) progressTask() {
 	// max number of transitions length to ensure writes will never block on
 	// these and if we exit early transitions can exit the goroutine and it'll
 	// get GC'd eventually
-	resources := mtask.GetResources()
-	transitionChange := make(chan struct{}, len(mtask.Containers)+len(resources))
-	transitionChangeEntity := make(chan string, len(mtask.Containers)+len(resources))
+	resourceLen := len(mtask.GetResources())
+	for _, container := range mtask.Containers {
+		resourceLen += len(container.GetResources())
+	}
+	transitionChange := make(chan struct{}, len(mtask.Containers)+resourceLen)
+	transitionChangeEntity := make(chan string, len(mtask.Containers)+resourceLen)
 
 	// startResourceTransitions should always be called before startContainerTransitions,
 	// else it might result in a state where none of the containers can transition and
@@ -1141,7 +1142,23 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransitionFunc) (bool, map[string]string) {
 	anyCanTransition := false
 	transitions := make(map[string]string)
-	for _, res := range mtask.GetResources() {
+
+	resources := mtask.GetResources()
+	anyCanTransition = mtask.resourceTransitions(resources, transitionFunc, "",
+		anyCanTransition, transitions)
+
+	for _, cont := range mtask.Containers {
+		containerResources := cont.GetResources()
+		anyCanTransition = mtask.resourceTransitions(containerResources,
+			transitionFunc, "-"+cont.Name, anyCanTransition, transitions)
+	}
+
+	return anyCanTransition, transitions
+}
+
+func (mtask *managedTask) resourceTransitions(resources []taskresource.TaskResource, transitionFunc resourceTransitionFunc,
+	containerName string, anyCanTransition bool, transitions map[string]string) bool {
+	for _, res := range resources {
 		knownStatus := res.GetKnownStatus()
 		desiredStatus := res.GetDesiredStatus()
 		if knownStatus >= desiredStatus {
@@ -1172,10 +1189,10 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 			continue
 		}
 		// At least one resource is able to be move forwards, so we're not deadlocked
-		transitions[res.GetName()] = transition.status
+		transitions[res.GetName()+containerName] = transition.status
 		go transitionFunc(res, transition.nextState)
 	}
-	return anyCanTransition, transitions
+	return anyCanTransition
 }
 
 // transitionResource calls applyResourceState, and then notifies the managed

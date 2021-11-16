@@ -34,6 +34,7 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -386,6 +387,68 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 				res.StatusString(tc.expectedResourceStatus), res.StatusString(transition.nextState))
 			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "transition actionable")
 			assert.Equal(t, tc.reason, transition.reason, "transition possible")
+		})
+	}
+}
+
+func TestContainerStartResourceTransitionsHappyPath(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		TransitionStatus resourcestatus.ResourceStatus
+		StatusString     string
+		CanTransition    bool
+		TransitionsLen   int
+	}{
+		{
+			Name:             "none to created",
+			ResKnownStatus:   resourcestatus.ResourceStatus(asmsecret.ASMSecretStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
+			TransitionStatus: resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
+			StatusString:     "CREATED",
+			CanTransition:    true,
+			TransitionsLen:   2,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := &asmsecret.ASMSecretResource{}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+
+			taskResource := &asmsecret.ASMSecretResource{}
+			taskResource.SetKnownStatus(tc.ResKnownStatus)
+			taskResource.SetDesiredStatus(tc.ResDesiredStatus)
+
+			task := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+					Containers: []*apicontainer.Container{
+						{
+							Name:                   "test_container",
+							ExecutionCredentialsID: "credentials id",
+							ResourcesMapUnsafe:     make(map[string][]taskresource.TaskResource),
+						},
+					},
+				},
+			}
+			task.AddResource("asmsecret", taskResource)
+			task.Containers[0].AddResource("asmsecret", res)
+			wg := sync.WaitGroup{}
+			wg.Add(2)
+			canTransition, transitions := task.startResourceTransitions(
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
+					assert.Equal(t, nextStatus, tc.TransitionStatus)
+					wg.Done()
+				})
+			wg.Wait()
+			assert.Equal(t, tc.CanTransition, canTransition)
+			assert.Len(t, transitions, tc.TransitionsLen)
+			resTransition, ok := transitions["asmsecret-test_container"]
+			assert.True(t, ok)
+			assert.Equal(t, resTransition, tc.StatusString)
 		})
 	}
 }
