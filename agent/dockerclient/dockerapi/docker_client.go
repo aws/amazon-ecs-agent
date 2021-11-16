@@ -146,11 +146,6 @@ type DockerClient interface {
 	// provided for the request.
 	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 
-	// TopContainer returns information about the top processes running in the specified container.  A timeout value and a context
-	// should be provided for the request. The last argument is an optional parameter for passing in 'ps' arguments
-	// as part of the top command.
-	TopContainer(context.Context, string, time.Duration, ...string) (*dockercontainer.ContainerTopOKBody, error)
-
 	// CreateContainerExec creates a new exec configuration to run an exec process with the provided Config. A timeout value
 	// and a context should be provided for the request.
 	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
@@ -686,45 +681,6 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 	}
 	containerData, err := client.ContainerInspect(ctx, dockerID)
 	return &containerData, err
-}
-
-func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
-	type topResponse struct {
-		top *dockercontainer.ContainerTopOKBody
-		err error
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	defer metrics.MetricsEngineGlobal.RecordDockerMetric("TOP_CONTAINER")()
-	// Buffered channel so in the case of timeout it takes one write, never gets
-	// read, and can still be GC'd
-	response := make(chan topResponse, 1)
-	go func() {
-		top, err := dg.topContainer(ctx, dockerID, psArgs...)
-		response <- topResponse{top, err}
-	}()
-
-	// Wait until we get a response or for the 'done' context channel
-	select {
-	case resp := <-response:
-		return resp.top, resp.err
-	case <-ctx.Done():
-		err := ctx.Err()
-		if err == context.DeadlineExceeded {
-			return nil, &DockerTimeoutError{timeout, "listing top"}
-		}
-
-		return nil, &CannotGetContainerTopError{err}
-	}
-}
-
-func (dg *dockerGoClient) topContainer(ctx context.Context, dockerID string, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
-	client, err := dg.sdkDockerClient()
-	if err != nil {
-		return nil, err
-	}
-	topResponse, err := client.ContainerTop(ctx, dockerID, psArgs)
-	return &topResponse, err
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
