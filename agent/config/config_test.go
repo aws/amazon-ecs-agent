@@ -493,7 +493,7 @@ func TestValidFormatParseEnvVariableDuration(t *testing.T) {
 
 func TestInvalidTaskCleanupTimeoutOverridesToThreeHours(t *testing.T) {
 	defer setTestRegion()()
-	setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "1s")
+	setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "1ms")
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 

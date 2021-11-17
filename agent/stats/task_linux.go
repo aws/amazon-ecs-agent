@@ -79,15 +79,15 @@ func newStatsTaskContainer(taskARN string, containerPID string, numberOfContaine
 	}, nil
 }
 
-func (task *StatsTask) StartStatsCollection() {
+func (taskStat *StatsTask) StartStatsCollection() {
 	queueSize := int(config.DefaultContainerMetricsPublishInterval.Seconds() * 4)
-	task.StatsQueue = NewQueue(queueSize)
-	task.StatsQueue.Reset()
-	go task.collect()
+	taskStat.StatsQueue = NewQueue(queueSize)
+	taskStat.StatsQueue.Reset()
+	go taskStat.collect()
 }
 
-func (task *StatsTask) StopStatsCollection() {
-	task.Cancel()
+func (taskStat *StatsTask) StopStatsCollection() {
+	taskStat.Cancel()
 }
 
 func (taskStat *StatsTask) collect() {
@@ -204,7 +204,7 @@ func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics, numberOfCon
 
 func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *types.StatsJSON, <-chan error) {
 
-	errC := make(chan error)
+	errC := make(chan error, 1)
 	statsC := make(chan *dockerstats.StatsJSON)
 	if taskStat.TaskMetadata.NumberContainers > 0 {
 		go func() {
@@ -248,7 +248,11 @@ func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *types.StatsJSON, <-c
 						Read: time.Now(),
 					},
 				}
-				statsC <- dockerStats
+				select {
+				case <-taskStat.Ctx.Done():
+					return
+				case statsC <- dockerStats:
+				}
 			}
 		}()
 	}
