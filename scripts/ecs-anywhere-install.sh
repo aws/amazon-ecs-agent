@@ -230,6 +230,8 @@ elif echo "$ID" | grep centos; then
     DISTRO="centos"
 elif echo "$ID" | grep rhel; then
     DISTRO="rhel"
+elif [[ "$ID" == "amzn" && "$VERSION_ID" == "2" ]]; then
+    DISTRO="al2"
 fi
 
 if [ "$DISTRO" == "rhel" ]; then
@@ -260,7 +262,9 @@ if [ -x "$(command -v dnf)" ]; then
     dnf install -y jq
 elif [ -x "$(command -v yum)" ]; then
     PKG_MANAGER="yum"
-    yum install epel-release -y
+    if [ "$DISTRO" != "al2" ]; then
+        yum install epel-release -y
+    fi
     yum install -y jq
 elif [ -x "$(command -v apt)" ]; then
     PKG_MANAGER="apt"
