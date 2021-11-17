@@ -124,7 +124,8 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	by []*apicontainer.Container,
 	id string,
 	manager credentials.Manager,
-	resources []taskresource.TaskResource,
+	containerResources []taskresource.TaskResource,
+	taskResources []taskresource.TaskResource,
 	cfg *config.Config) (*apicontainer.DependsOn, error) {
 	if !executionCredentialsResolved(target, id, manager) {
 		return nil, CredentialsNotResolvedErr
@@ -140,7 +141,13 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	}
 
 	resourcesMap := make(map[string]taskresource.TaskResource)
-	for _, resource := range resources {
+	for _, resource := range taskResources {
+		resourcesMap[resource.GetName()] = resource
+	}
+
+	// Override existing resources map with container resources because when container specific resources are specified,
+	// we want to avoid using task resources.
+	for _, resource := range containerResources {
 		resourcesMap[resource.GetName()] = resource
 	}
 
@@ -211,8 +218,13 @@ func executionCredentialsResolved(target *apicontainer.Container, id string, man
 		return true
 	}
 
-	_, ok := manager.GetTaskCredentials(id)
-	return ok
+	if target.ExecutionCredentialsID != "" {
+		_, ok := manager.GetContainerCredentials(id)
+		return ok
+	} else {
+		_, ok := manager.GetTaskCredentials(id)
+		return ok
+	}
 }
 
 // verifyStatusResolvable validates that `target` can be resolved given that

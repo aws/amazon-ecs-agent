@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+
 	"github.com/aws/amazon-ecs-agent/agent/containerresource/containerstatus"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -373,6 +376,92 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 		verifyContainerStoppedStateChange(t, taskEngine)
 
 		// task should transition to stopped
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
+}
+
+// TestContainerPullDependsOnContainerSpecificResource
+func TestContainerPullDependsOnContainerSpecificResource(t *testing.T) {
+	// Skip these tests on WS 2016 until the failures are root-caused.
+	isWindows2016, err := config.IsWindows2016()
+	if err == nil && isWindows2016 == true {
+		t.Skip()
+	}
+
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testContainerPullDependsOnContainerSpecificResource"
+	testTask := createTestTask(taskArn)
+
+	container := createTestContainerWithImageAndName(baseImageForOS, "container")
+
+	container.EntryPoint = &entryPointForOS
+	container.Command = []string{"exit 0"}
+	containerResource := &asmsecret.ASMSecretResource{}
+	containerResource.SetDesiredStatus(resourcestatus.ResourceCreated)
+	containerResource.SetKnownStatus(resourcestatus.ResourceCreated)
+	container.AddResource("testContainerSpecificResource", containerResource) //ASMSecret used here is only to have a concrete type of resource
+	container.BuildResourceDependency(asmsecret.ResourceName, resourcestatus.ResourceCreated, containerstatus.ContainerPulled)
+
+	testTask.Containers = []*apicontainer.Container{
+		container,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
+}
+
+// TestContainerPullDependsOnContainerSpecificResourceThatIsNotReady
+func TestContainerPullDependsOnContainerSpecificResourceThatIsNotReady(t *testing.T) {
+	// Skip these tests on WS 2016 until the failures are root-caused.
+	isWindows2016, err := config.IsWindows2016()
+	if err == nil && isWindows2016 == true {
+		t.Skip()
+	}
+
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testContainerPullDependsOnContainerSpecificResource"
+	testTask := createTestTask(taskArn)
+
+	container := createTestContainerWithImageAndName(baseImageForOS, "container")
+
+	container.EntryPoint = &entryPointForOS
+	container.Command = []string{"exit 0"}
+	containerResource := &asmsecret.ASMSecretResource{}
+	containerResource.SetDesiredStatus(resourcestatus.ResourceStatusNone)
+	containerResource.SetKnownStatus(resourcestatus.ResourceStatusNone)
+	container.AddResource("testContainerSpecificResource", containerResource) //ASMSecret used here is only to have a concrete type of resource
+	container.BuildResourceDependency(asmsecret.ResourceName, resourcestatus.ResourceCreated, containerstatus.ContainerPulled)
+
+	testTask.Containers = []*apicontainer.Container{
+		container,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
 		verifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
