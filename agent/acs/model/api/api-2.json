@@ -532,6 +532,7 @@
       "members":{
         "type":{"shape":"FirelensConfigurationType"},
         "options":{"shape":"FirelensConfigurationOptionsMap"},
+        "firelensConfigurationMode": {"shape":"FirelensConfigurationMode"},
         "version": {"shape":"String"},
         "collectStdoutLogs":{"shape":"Boolean"},
         "statusMessageReportingPath":{"shape":"String"}
@@ -548,6 +549,13 @@
       "type":"map",
       "key":{"shape":"String"},
       "value":{"shape":"String"}
+    },
+    "FirelensConfigurationMode": {
+      "type":"string",
+      "enum":[
+        "telemetry",
+        "security"
+      ]
     },
     "Long":{"type":"long"},
     "MountPoint":{

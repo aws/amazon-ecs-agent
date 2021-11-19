@@ -3701,3 +3701,60 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestGetFirelensEnvironmentVariables(t *testing.T) {
+	hostValue := "127.0.0.1"
+	testcases := []struct {
+		name            string
+		firelensType    string
+		firelensVersion string
+		expectedEnvVars map[string]string
+	}{
+		{
+			name:            "firelens v1",
+			firelensType:    "fluentd",
+			firelensVersion: "v1",
+			expectedEnvVars: map[string]string{
+				"FLUENT_HOST": hostValue,
+			},
+		},
+		{
+			name:            "firelens v2",
+			firelensType:    "fluentbit",
+			firelensVersion: "v2",
+			expectedEnvVars: map[string]string{
+				"FLUENT_HOST": hostValue,
+			},
+		},
+		{
+			name:            "firelens v2",
+			firelensType:    "opentelemetry",
+			firelensVersion: "v2",
+			expectedEnvVars: map[string]string{
+				"OPEN_TELEMETRY_HOST": hostValue,
+			},
+		},
+	}
+
+	getContainer := func(firelensVersion, firelensType string) apicontainer.Container {
+		return apicontainer.Container{
+			Name: "test-container",
+			FirelensConfig: &containerresource.FirelensConfig{
+				Type:    firelensType,
+				Version: firelensVersion,
+			},
+		}
+	}
+
+	for _, tc := range testcases {
+		envVars := make(map[string]string)
+		container := getContainer(tc.firelensVersion, tc.firelensType)
+		task := &apitask.Task{
+			Containers: []*apicontainer.Container{&container},
+		}
+
+		setFirelensEnvironmentVariables(task, &container, tc.firelensVersion, envVars, hostValue)
+		assert.Equal(t, tc.expectedEnvVars, envVars)
+
+	}
+}

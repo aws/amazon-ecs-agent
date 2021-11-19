@@ -34,6 +34,7 @@ type FirelensConfig struct {
 	Version                    string            `json:"version"`
 	CollectStdoutLogs          bool              `json:"collectStdoutLogs,omitempty"`
 	StatusMessageReportingPath string            `json:"statusMessageReportingPath,omitempty"`
+	FirelensConfigurationMode  string            `json:"firelensConfigurationMode,omitempty"`
 	Options                    map[string]string `json:"options"`
 }
 
