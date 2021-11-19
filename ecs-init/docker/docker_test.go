@@ -47,7 +47,7 @@ func TestIsAgentImageLoadedListFailure(t *testing.T) {
 
 	mockDocker.EXPECT().ListImages(godocker.ListImagesOptions{All: true}).Return(nil, errors.New("test error"))
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
@@ -66,7 +66,7 @@ func TestIsAgentImageLoadedNoMatches(t *testing.T) {
 			RepoTags: append(make([]string, 0), ""),
 		}), nil)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
@@ -85,7 +85,7 @@ func TestIsImageLoadedMatches(t *testing.T) {
 			RepoTags: append(make([]string, 0), config.AgentImageName),
 		}), nil)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
@@ -101,7 +101,7 @@ func TestLoadImage(t *testing.T) {
 
 	mockDocker.EXPECT().LoadImage(godocker.LoadImageOptions{})
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	err := client.LoadImage(nil)
@@ -121,7 +121,7 @@ func TestRemoveExistingAgentContainerListContainersFailure(t *testing.T) {
 		},
 	}).Return(nil, errors.New("test error"))
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	err := client.RemoveExistingAgentContainer()
@@ -143,7 +143,7 @@ func TestRemoveExistingAgentContainerNoneFound(t *testing.T) {
 		},
 	})
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	err := client.RemoveExistingAgentContainer()
@@ -174,7 +174,7 @@ func TestRemoveExistingAgentContainer(t *testing.T) {
 		Force: true,
 	})
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 	}
 	err := client.RemoveExistingAgentContainer()
@@ -208,7 +208,7 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockDocker.EXPECT().StartContainer(containerID, nil)
 	mockDocker.EXPECT().WaitContainer(containerID)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 		fs:     mockFS,
 	}
@@ -354,7 +354,7 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockDocker.EXPECT().StartContainer(containerID, nil)
 	mockDocker.EXPECT().WaitContainer(containerID)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 		fs:     mockFS,
 	}
@@ -414,7 +414,7 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 	mockDocker.EXPECT().StartContainer(containerID, nil)
 	mockDocker.EXPECT().WaitContainer(containerID)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 		fs:     mockFS,
 	}
@@ -463,7 +463,7 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 	mockDocker.EXPECT().StartContainer(containerID, nil)
 	mockDocker.EXPECT().WaitContainer(containerID)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 		fs:     mockFS,
 	}
@@ -483,7 +483,7 @@ func TestGetContainerConfigWithFileOverrides(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
 
-	client := &Client{
+	client := &client{
 		fs: mockFS,
 	}
 	envVarsFromFiles := client.LoadEnvVars()
@@ -505,7 +505,7 @@ func TestGetContainerConfigExternal(t *testing.T) {
 	os.Setenv(config.ExternalEnvVar, "true")
 	defer os.Unsetenv(config.ExternalEnvVar)
 
-	client := &Client{}
+	client := &client{}
 	cfg := client.getContainerConfig(map[string]string{})
 	assert.Contains(t, cfg.Env, "ECS_ENABLE_TASK_ENI=false")
 }
@@ -528,7 +528,7 @@ func TestGetInstanceConfig(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil)
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found"))
 
-	client := &Client{
+	client := &client{
 		fs: mockFS,
 	}
 	envVarsFromFiles := client.LoadEnvVars()
@@ -559,7 +559,7 @@ func TestGetNonGPUInstanceConfig(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil)
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found"))
 
-	client := &Client{
+	client := &client{
 		fs: mockFS,
 	}
 	envVarsFromFiles := client.LoadEnvVars()
@@ -586,7 +586,7 @@ func TestGetConfigOverrides(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(instanceEnvFile), nil)
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(userEnvFile), nil)
 
-	client := &Client{
+	client := &client{
 		fs: mockFS,
 	}
 	envVarsFromFiles := client.LoadEnvVars()
@@ -635,7 +635,7 @@ func TestStopAgent(t *testing.T) {
 			defer mockCtrl.Finish()
 
 			mockDocker := NewMockdockerclient(mockCtrl)
-			client := &Client{
+			client := &client{
 				docker: mockDocker,
 			}
 
@@ -803,7 +803,7 @@ func TestGetHostConfigExternal(t *testing.T) {
 
 	credsBind := "/root/.aws:/rotatingcreds:ro"
 
-	client := &Client{
+	client := &client{
 		fs: mockFS,
 	}
 	hostConfig := client.getHostConfig(map[string]string{})
@@ -868,7 +868,7 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 	mockDocker.EXPECT().StartContainer(containerID, nil)
 	mockDocker.EXPECT().WaitContainer(containerID)
 
-	client := &Client{
+	client := &client{
 		docker: mockDocker,
 		fs:     mockFS,
 	}

@@ -46,10 +46,18 @@ const (
 	failedContainerLogWindowSize  = "200"         // as string for log config
 )
 
+// Injection point for testing purposes
+var getDockerClient = func() (dockerClient, error) {
+	return docker.Client()
+}
+
+func dockerError(err error) error {
+	return engineError("could not create docker client", err)
+}
+
 // Engine contains methods invoked when ecs-init is run
 type Engine struct {
 	downloader               downloader
-	docker                   dockerClient
 	loopbackRouting          loopbackRouting
 	credentialsProxyRoute    credentialsProxyRoute
 	ipv6RouterAdvertisements ipv6RouterAdvertisements
@@ -71,10 +79,7 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	docker, err := docker.NewClient()
-	if err != nil {
-		return nil, err
-	}
+
 	cmdExec := exec.NewExec()
 	loopbackRouting, err := sysctl.NewIpv4RouteLocalNet(cmdExec)
 	if err != nil {
@@ -90,7 +95,6 @@ func New() (*Engine, error) {
 	}
 	return &Engine{
 		downloader:               downloader,
-		docker:                   docker,
 		loopbackRouting:          loopbackRouting,
 		credentialsProxyRoute:    credentialsProxyRoute,
 		ipv6RouterAdvertisements: ipv6RouterAdvertisements,
@@ -123,7 +127,11 @@ func (e *Engine) PreStart() error {
 		return engineError("could not create route to the credentials proxy", err)
 	}
 
-	imageLoaded, err := e.docker.IsAgentImageLoaded()
+	docker, err := getDockerClient()
+	if err != nil {
+		return dockerError(err)
+	}
+	imageLoaded, err := docker.IsAgentImageLoaded()
 	if err != nil {
 		return engineError("could not check Docker for Agent image presence", err)
 	}
@@ -131,19 +139,19 @@ func (e *Engine) PreStart() error {
 	switch e.downloader.AgentCacheStatus() {
 	// Uncached, go get the Agent.
 	case cache.StatusUncached:
-		return e.downloadAndLoadCache()
+		return e.downloadAndLoadCache(docker)
 
 	// The Agent is cached, and mandates a reload regardless of the
 	// already loaded image.
 	case cache.StatusReloadNeeded:
-		return e.load(e.downloader.LoadCachedAgent())
+		return e.load(docker, e.downloader.LoadCachedAgent)
 
 	// Agent is cached, respect the already loaded Agent.
 	case cache.StatusCached:
 		if imageLoaded {
 			return nil
 		}
-		return e.load(e.downloader.LoadCachedAgent())
+		return e.load(docker, e.downloader.LoadCachedAgent)
 
 	// There shouldn't be unhandled cache states.
 	default:
@@ -153,7 +161,11 @@ func (e *Engine) PreStart() error {
 
 // PreStartGPU sets up the nvidia gpu manager if it's enabled.
 func (e *Engine) PreStartGPU() error {
-	envVariables := e.docker.LoadEnvVars()
+	docker, err := getDockerClient()
+	if err != nil {
+		return dockerError(err)
+	}
+	envVariables := docker.LoadEnvVars()
 	if val, ok := envVariables[config.GPUSupportEnvVar]; ok {
 		if val == "true" {
 			err := e.nvidiaGPUManager.Setup()
@@ -168,21 +180,25 @@ func (e *Engine) PreStartGPU() error {
 
 // ReloadCache reloads the cached image of the ECS Agent into Docker
 func (e *Engine) ReloadCache() error {
+	docker, err := getDockerClient()
+	if err != nil {
+		return dockerError(err)
+	}
 	cached := e.downloader.IsAgentCached()
 	if !cached {
-		return e.downloadAndLoadCache()
+		return e.downloadAndLoadCache(docker)
 	}
-	return e.load(e.downloader.LoadCachedAgent())
+	return e.load(docker, e.downloader.LoadCachedAgent)
 }
 
-func (e *Engine) downloadAndLoadCache() error {
+func (e *Engine) downloadAndLoadCache(docker dockerClient) error {
 	err := e.downloadAgent()
 	if err != nil {
 		return err
 	}
 
 	log.Info("Loading Amazon Elastic Container Service Agent into Docker")
-	return e.load(e.downloader.LoadCachedAgent())
+	return e.load(docker, e.downloader.LoadCachedAgent)
 }
 
 func (e *Engine) downloadAgent() error {
@@ -194,12 +210,13 @@ func (e *Engine) downloadAgent() error {
 	return nil
 }
 
-func (e *Engine) load(image io.ReadCloser, err error) error {
+func (e *Engine) load(docker dockerClient, agentLoader func() (io.ReadCloser, error)) error {
+	image, err := agentLoader()
 	if err != nil {
 		return engineError("could not load Amazon Elastic Container Service Agent from cache", err)
 	}
 	defer image.Close()
-	err = e.docker.LoadImage(image)
+	err = docker.LoadImage(image)
 	if err != nil {
 		return engineError("could not load Amazon Elastic Container Service Agent into Docker", err)
 	}
@@ -208,17 +225,21 @@ func (e *Engine) load(image io.ReadCloser, err error) error {
 
 // StartSupervised starts the ECS Agent and ensures it stays running, except for terminal errors (indicated by an agent exit code of 5)
 func (e *Engine) StartSupervised() error {
+	docker, err := getDockerClient()
+	if err != nil {
+		return dockerError(err)
+	}
 	agentExitCode := -1
 	retryBackoff := backoff.NewBackoff(serviceStartMinRetryTime, serviceStartMaxRetryTime,
 		serviceStartRetryJitter, serviceStartRetryMultiplier, serviceStartMaxRetries)
 	for {
-		err := e.docker.RemoveExistingAgentContainer()
+		err := docker.RemoveExistingAgentContainer()
 		if err != nil {
 			return engineError("could not remove existing Agent container", err)
 		}
 
 		log.Info("Starting Amazon Elastic Container Service Agent")
-		agentExitCode, err = e.docker.StartAgent()
+		agentExitCode, err = docker.StartAgent()
 		if err != nil {
 			return engineError("could not start Agent", err)
 		}
@@ -226,7 +247,7 @@ func (e *Engine) StartSupervised() error {
 
 		switch agentExitCode {
 		case upgradeAgentExitCode:
-			err = e.upgradeAgent()
+			err = e.upgradeAgent(docker)
 			if err != nil {
 				log.Error("could not upgrade agent", err)
 			} else {
@@ -236,7 +257,7 @@ func (e *Engine) StartSupervised() error {
 		case containerFailureAgentExitCode:
 			// capture the tail of the failed agent container
 			log.Infof("Captured the last %s lines of the agent container logs====>\n", failedContainerLogWindowSize)
-			log.Info(e.docker.GetContainerLogTail(failedContainerLogWindowSize))
+			log.Info(docker.GetContainerLogTail(failedContainerLogWindowSize))
 			log.Infof("<====end %s lines of the failed agent container logs\n", failedContainerLogWindowSize)
 		case TerminalFailureAgentExitCode:
 			return &TerminalError{
@@ -252,15 +273,19 @@ func (e *Engine) StartSupervised() error {
 	}
 }
 
-func (e *Engine) upgradeAgent() error {
+func (e *Engine) upgradeAgent(docker dockerClient) error {
 	log.Info("Loading new desired Amazon Elastic Container Service Agent into Docker")
-	return e.load(e.downloader.LoadDesiredAgent())
+	return e.load(docker, e.downloader.LoadDesiredAgent)
 }
 
 // PreStop sends commands to Docker to stop the ECS Agent
 func (e *Engine) PreStop() error {
+	docker, err := getDockerClient()
+	if err != nil {
+		return dockerError(err)
+	}
 	log.Info("Stopping Amazon Elastic Container Service Agent")
-	err := e.docker.StopAgent()
+	err = docker.StopAgent()
 	if err != nil {
 		return engineError("could not stop Amazon Elastic Container Service Agent", err)
 	}

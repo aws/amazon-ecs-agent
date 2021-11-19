@@ -26,11 +26,25 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
+// getDockerClientMock backs up getDockerClient package-level function and replaces it with the mock passed as
+// parameter. The backup can be restored by executing the returned function in a deferred manner.
+// (e.g. defer getDockerClientMock(mock)() )
+func getDockerClientMock(mockDocker dockerClient) func() {
+	getDockerClientBkp := getDockerClient
+	getDockerClient = func() (dockerClient, error) {
+		return mockDocker, nil
+	}
+	return func() {
+		getDockerClient = getDockerClientBkp
+	}
+}
+
 func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	mockDocker.EXPECT().LoadEnvVars().Return(nil)
@@ -47,7 +61,6 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
@@ -66,6 +79,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	mockDocker.EXPECT().LoadEnvVars().Return(nil)
@@ -85,7 +99,6 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
@@ -105,6 +118,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 
@@ -120,7 +134,6 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
@@ -139,6 +152,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	mockDocker.EXPECT().LoadEnvVars().Return(nil)
@@ -157,7 +171,6 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
@@ -174,6 +187,7 @@ func TestPreStartGPUSetupSuccessful(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
@@ -194,7 +208,6 @@ func TestPreStartGPUSetupSuccessful(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
@@ -212,6 +225,7 @@ func TestPreStartGPUSetupError(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
 	mockDocker.EXPECT().LoadEnvVars().Return(map[string]string{
@@ -219,7 +233,6 @@ func TestPreStartGPUSetupError(t *testing.T) {
 	})
 	mockGPUManager.EXPECT().Setup().Return(errors.New("gpu setup failed"))
 	engine := &Engine{
-		docker:           mockDocker,
 		nvidiaGPUManager: mockGPUManager,
 	}
 	err := engine.PreStart()
@@ -233,13 +246,11 @@ func TestStartSupervisedCannotStart(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
-
+	defer getDockerClientMock(mockDocker)()
 	mockDocker.EXPECT().RemoveExistingAgentContainer()
 	mockDocker.EXPECT().StartAgent().Return(0, errors.New("test error"))
 
-	engine := &Engine{
-		docker: mockDocker,
-	}
+	engine := &Engine{}
 	err := engine.StartSupervised()
 	if err == nil {
 		t.Error("Expected error to be returned but was nil")
@@ -251,6 +262,7 @@ func TestStartSupervisedExitsWhenTerminalFailure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 
 	gomock.InOrder(
 		mockDocker.EXPECT().RemoveExistingAgentContainer(),
@@ -263,9 +275,7 @@ func TestStartSupervisedExitsWhenTerminalFailure(t *testing.T) {
 		mockDocker.EXPECT().StartAgent().Return(TerminalFailureAgentExitCode, nil),
 	)
 
-	engine := &Engine{
-		docker: mockDocker,
-	}
+	engine := &Engine{}
 	err := engine.StartSupervised()
 
 	if err == nil {
@@ -283,16 +293,14 @@ func TestLogContainerFailureAgentExitCodeFailure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
-
+	defer getDockerClientMock(mockDocker)()
 	mockDocker.EXPECT().RemoveExistingAgentContainer()
 	mockDocker.EXPECT().StartAgent().Return(2, nil)
 	mockDocker.EXPECT().GetContainerLogTail(gomock.Any())
 	mockDocker.EXPECT().RemoveExistingAgentContainer()
 	mockDocker.EXPECT().StartAgent().Return(0, errors.New("test error"))
 
-	engine := &Engine{
-		docker: mockDocker,
-	}
+	engine := &Engine{}
 	err := engine.StartSupervised()
 	if err == nil {
 		t.Error("Expected error to be returned but was nil")
@@ -304,7 +312,7 @@ func TestStartSupervisedExitsWhenTerminalSuccess(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
-
+	defer getDockerClientMock(mockDocker)()
 	gomock.InOrder(
 		mockDocker.EXPECT().RemoveExistingAgentContainer(),
 		mockDocker.EXPECT().StartAgent().Return(1, nil),
@@ -316,9 +324,7 @@ func TestStartSupervisedExitsWhenTerminalSuccess(t *testing.T) {
 		mockDocker.EXPECT().StartAgent().Return(terminalSuccessAgentExitCode, nil),
 	)
 
-	engine := &Engine{
-		docker: mockDocker,
-	}
+	engine := &Engine{}
 	err := engine.StartSupervised()
 	if err != nil {
 		t.Error("Expected error to be nil but was returned")
@@ -330,6 +336,7 @@ func TestStartSupervisedUpgradeOpenFailure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	gomock.InOrder(
@@ -342,7 +349,6 @@ func TestStartSupervisedUpgradeOpenFailure(t *testing.T) {
 
 	engine := &Engine{
 		downloader: mockDownloader,
-		docker:     mockDocker,
 	}
 	err := engine.StartSupervised()
 	if err != nil {
@@ -355,6 +361,7 @@ func TestStartSupervisedUpgradeLoadFailure(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	gomock.InOrder(
@@ -368,7 +375,6 @@ func TestStartSupervisedUpgradeLoadFailure(t *testing.T) {
 
 	engine := &Engine{
 		downloader: mockDownloader,
-		docker:     mockDocker,
 	}
 	err := engine.StartSupervised()
 	if err != nil {
@@ -381,6 +387,7 @@ func TestStartSupervisedUpgrade(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	gomock.InOrder(
@@ -395,7 +402,6 @@ func TestStartSupervisedUpgrade(t *testing.T) {
 
 	engine := &Engine{
 		downloader: mockDownloader,
-		docker:     mockDocker,
 	}
 	err := engine.StartSupervised()
 	if err != nil {
@@ -408,12 +414,10 @@ func TestPreStop(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
-
+	defer getDockerClientMock(mockDocker)()
 	mockDocker.EXPECT().StopAgent()
 
-	engine := &Engine{
-		docker: mockDocker,
-	}
+	engine := &Engine{}
 	err := engine.PreStop()
 	if err != nil {
 		t.Errorf("engine pre-stop error: %v", err)
@@ -427,6 +431,7 @@ func TestReloadCacheNotCached(t *testing.T) {
 	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	mockDownloader.EXPECT().IsAgentCached().Return(false)
@@ -436,7 +441,6 @@ func TestReloadCacheNotCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
 	err := engine.ReloadCache()
@@ -452,6 +456,7 @@ func TestReloadCacheCached(t *testing.T) {
 	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 
 	mockDownloader.EXPECT().IsAgentCached().Return(true)
@@ -460,7 +465,6 @@ func TestReloadCacheCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		docker:     mockDocker,
 		downloader: mockDownloader,
 	}
 	err := engine.ReloadCache()
@@ -474,6 +478,7 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 
@@ -482,7 +487,6 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 
 	engine := &Engine{
-		docker:                mockDocker,
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
@@ -498,6 +502,7 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
@@ -509,7 +514,6 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
 
 	engine := &Engine{
-		docker:                   mockDocker,
 		downloader:               mockDownloader,
 		loopbackRouting:          mockLoopbackRouting,
 		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,

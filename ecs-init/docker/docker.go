@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
@@ -129,33 +130,42 @@ var pluginDirs = []string{
 	pluginSpecFilesUsrDir,
 }
 
-var isPathValid = defaultIsPathValid
+var (
+	dockerOnce      sync.Once
+	dockerClient    *client
+	dockerClientErr error
+	isPathValid     = defaultIsPathValid
+)
 
-// Client enables business logic for running the Agent inside Docker
-type Client struct {
+// client enables business logic for running the Agent inside Docker
+type client struct {
 	docker dockerclient
 	fs     fileSystem
 }
 
-// NewClient reutrns a new Client
-func NewClient() (*Client, error) {
-	// Create a backoff for pinging the docker socker. This should result in 17-19
-	// seconds of delay in the worst-case between different actions that depend on
-	// docker
-	pingBackoff := backoff.NewBackoff(minBackoffDuration, maxBackoffDuration, backoffJitterMultiple,
-		backoffMultiple, maxRetries)
-	client, err := newDockerClient(godockerClientFactory{}, pingBackoff)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{
-		docker: client,
-		fs:     standardFS,
-	}, nil
+// Client returns the global docker client.
+func Client() (*client, error) {
+	dockerOnce.Do(func() {
+		// Create a backoff for pinging the docker socket. This should result in 17-19
+		// seconds of delay in the worst-case between different actions that depend on
+		// docker
+		pingBackoff := backoff.NewBackoff(minBackoffDuration, maxBackoffDuration, backoffJitterMultiple,
+			backoffMultiple, maxRetries)
+		cl, err := newDockerClient(godockerClientFactory{}, pingBackoff)
+		if err != nil {
+			dockerClientErr = err
+			return
+		}
+		dockerClient = &client{
+			docker: cl,
+			fs:     standardFS,
+		}
+	})
+	return dockerClient, dockerClientErr
 }
 
 // IsAgentImageLoaded returns true if the Agent image is loaded in Docker
-func (c *Client) IsAgentImageLoaded() (bool, error) {
+func (c *client) IsAgentImageLoaded() (bool, error) {
 	images, err := c.docker.ListImages(godocker.ListImagesOptions{
 		All: true,
 	})
@@ -173,13 +183,13 @@ func (c *Client) IsAgentImageLoaded() (bool, error) {
 }
 
 // LoadImage loads an io.Reader into Docker
-func (c *Client) LoadImage(image io.Reader) error {
+func (c *client) LoadImage(image io.Reader) error {
 	return c.docker.LoadImage(godocker.LoadImageOptions{InputStream: image})
 }
 
 // RemoveExistingAgentContainer remvoes any existing container named
 // "ecs-agent" or returns without error if none is found
-func (c *Client) RemoveExistingAgentContainer() error {
+func (c *client) RemoveExistingAgentContainer() error {
 	containerToRemove, err := c.findAgentContainer()
 	if err != nil {
 		return err
@@ -196,7 +206,7 @@ func (c *Client) RemoveExistingAgentContainer() error {
 	return err
 }
 
-func (c *Client) findAgentContainer() (string, error) {
+func (c *client) findAgentContainer() (string, error) {
 	// TODO pagination
 	containers, err := c.docker.ListContainers(godocker.ListContainersOptions{
 		All: true,
@@ -220,7 +230,7 @@ func (c *Client) findAgentContainer() (string, error) {
 }
 
 // StartAgent starts the Agent in Docker and returns the exit code from the container
-func (c *Client) StartAgent() (int, error) {
+func (c *client) StartAgent() (int, error) {
 	envVarsFromFiles := c.LoadEnvVars()
 
 	hostConfig := c.getHostConfig(envVarsFromFiles)
@@ -242,7 +252,7 @@ func (c *Client) StartAgent() (int, error) {
 
 // GetContainerLogTail will return the last logWindowSize lines of logs for
 // the Agent Container.
-func (c *Client) GetContainerLogTail(logWindowSize string) string {
+func (c *client) GetContainerLogTail(logWindowSize string) string {
 	containerToLog, _ := c.findAgentContainer()
 	if containerToLog == "" {
 		log.Info("No existing container to take logs from.")
@@ -265,7 +275,7 @@ func (c *Client) GetContainerLogTail(logWindowSize string) string {
 	return containerLogBuf.String()
 }
 
-func (c *Client) getContainerConfig(envVarsFromFiles map[string]string) *godocker.Config {
+func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocker.Config {
 	// default environment variables
 	envVariables := map[string]string{
 		"ECS_LOGFILE":                           logDir + "/" + config.AgentLogFile,
@@ -326,7 +336,7 @@ func setLabels(cfg *godocker.Config, labelsStringRaw string) {
 	}
 }
 
-func (c *Client) LoadEnvVars() map[string]string {
+func (c *client) LoadEnvVars() map[string]string {
 	envVariables := make(map[string]string)
 	// merge in instance-specific environment variables
 	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
@@ -349,16 +359,16 @@ func (c *Client) LoadEnvVars() map[string]string {
 }
 
 // loadUsrEnvVars gets user-supplied environment variables
-func (c *Client) loadUsrEnvVars() map[string]string {
+func (c *client) loadUsrEnvVars() map[string]string {
 	return c.getEnvVars(config.AgentConfigFile())
 }
 
 // loadCustomInstanceEnvVars gets custom config set in the instance by Amazon
-func (c *Client) loadCustomInstanceEnvVars() map[string]string {
+func (c *client) loadCustomInstanceEnvVars() map[string]string {
 	return c.getEnvVars(config.InstanceConfigFile())
 }
 
-func (c *Client) getEnvVars(filename string) map[string]string {
+func (c *client) getEnvVars(filename string) map[string]string {
 	envVariables := make(map[string]string)
 
 	file, err := c.fs.ReadFile(filename)
@@ -384,7 +394,7 @@ func generateLabelMap(jsonBlock string) (map[string]string, error) {
 	return out, err
 }
 
-func (c *Client) getHostConfig(envVarsFromFiles map[string]string) *godocker.HostConfig {
+func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.HostConfig {
 	dockerSocketBind := getDockerSocketBind(envVarsFromFiles)
 
 	binds := []string{
@@ -518,7 +528,7 @@ func FilePatternMatchForGPU(pattern string) ([]string, error) {
 }
 
 // StopAgent stops the Agent in docker if one is running
-func (c *Client) StopAgent() error {
+func (c *client) StopAgent() error {
 	id, err := c.findAgentContainer()
 	if err != nil {
 		return err
