@@ -711,6 +711,8 @@ type FirelensConfiguration struct {
 
 	CollectStdoutLogs *bool `locationName:"collectStdoutLogs" type:"boolean"`
 
+	FirelensConfigurationMode *string `locationName:"firelensConfigurationMode" type:"string" enum:"FirelensConfigurationMode"`
+
 	Options map[string]*string `locationName:"options" type:"map"`
 
 	StatusMessageReportingPath *string `locationName:"statusMessageReportingPath" type:"string"`

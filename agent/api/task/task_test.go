@@ -3967,3 +3967,52 @@ func TestPostUnmarshalTaskWithOptions(t *testing.T) {
 	task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil, opt, opt)
 	assert.Equal(t, 2, numCalls)
 }
+
+func TestTask_HasFirelensv2FluentBitCollector(t *testing.T) {
+	container := &apicontainer.Container{
+		Name: "containerName",
+		FirelensConfig: &containerresource.FirelensConfig{
+			Version: "v2",
+			Type:    "opentelemetry",
+		},
+	}
+	container1 := &apicontainer.Container{
+		Name: "containerName",
+		FirelensConfig: &containerresource.FirelensConfig{
+			Version: "v2",
+			Type:    "fluentbit",
+		},
+	}
+
+	task := &Task{
+		Arn:        "testArn",
+		Containers: []*apicontainer.Container{container, container1},
+	}
+
+	assert.True(t, task.HasFirelensv2FluentBitCollector())
+}
+
+func TestTask_HasFirelensv2OpenTelemetryCollector(t *testing.T) {
+	container := &apicontainer.Container{
+		Name: "containerName",
+		FirelensConfig: &containerresource.FirelensConfig{
+			Version: "v2",
+			Type:    "fluentbit",
+		},
+	}
+
+	container1 := &apicontainer.Container{
+		Name: "containerName",
+		FirelensConfig: &containerresource.FirelensConfig{
+			Version: "v2",
+			Type:    "opentelemetry",
+		},
+	}
+
+	task := &Task{
+		Arn:        "testArn",
+		Containers: []*apicontainer.Container{container, container1},
+	}
+
+	assert.True(t, task.HasFirelensv2OpenTelemetryCollector())
+}

@@ -999,6 +999,26 @@ func (task *Task) GetFirelensContainers() []*apicontainer.Container {
 	return firelensContainers
 }
 
+func (task *Task) HasFirelensv2FluentBitCollector() bool {
+	for _, container := range task.Containers {
+		if container.FirelensConfig != nil && container.FirelensConfig.Version == "v2" &&
+			container.FirelensConfig.Type == firelens.FirelensConfigTypeAWSFluentbitCollector {
+			return true
+		}
+	}
+	return false
+}
+
+func (task *Task) HasFirelensv2OpenTelemetryCollector() bool {
+	for _, container := range task.Containers {
+		if container.FirelensConfig != nil && container.FirelensConfig.Version == "v2" &&
+			container.FirelensConfig.Type == firelens.FirelensConfigTypeAWSOtelCollector {
+			return true
+		}
+	}
+	return false
+}
+
 // initializeFirelensResource initializes the firelens task resource and adds it as a dependency of the
 // firelens container.
 func (task *Task) initializeFirelensResource(config *config.Config, resourceFields *taskresource.ResourceFields,

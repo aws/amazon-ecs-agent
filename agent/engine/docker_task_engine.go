@@ -103,10 +103,11 @@ const (
 	fluentTagDockerFirelensV2Format = "%s.%s"
 
 	// Environment variables are needed for firelens
-	fluentNetworkHost      = "FLUENT_HOST"
-	fluentNetworkPort      = "FLUENT_PORT"
-	FluentNetworkPortValue = "24224"
-	FluentAWSVPCHostValue  = "127.0.0.1"
+	fluentNetworkHost        = "FLUENT_HOST"
+	fluentNetworkPort        = "FLUENT_PORT"
+	FluentNetworkPortValue   = "24224"
+	AWSVPCHostValue          = "127.0.0.1"
+	opentelemetryNetworkHost = "OPEN_TELEMETRY_HOST"
 
 	defaultMonitorExecAgentsInterval = 15 * time.Minute
 
@@ -1129,28 +1130,25 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
 	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
 		firelensContainers := task.GetFirelensContainers()
-		firelensVersion := firelensContainers[0].FirelensConfig.Version
+		firelensVersion := firelensContainers[0].GetFirelensVersion()
 		hostConfig.LogConfig = getFirelensLogConfig(task, container, firelensVersion, hostConfig, engine.cfg)
 
-		if firelensVersion != "v2" {
-			if task.IsNetworkModeAWSVPC() {
-				container.MergeEnvironmentVariables(map[string]string{
-					fluentNetworkHost: FluentAWSVPCHostValue,
-					fluentNetworkPort: FluentNetworkPortValue,
-				})
-			} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
-				ipAddress, ok := getContainerHostIP(firelensContainers[0].GetNetworkSettings())
-				if !ok {
-					err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
-					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
-				}
-				container.MergeEnvironmentVariables(map[string]string{
-					fluentNetworkHost: ipAddress,
-					fluentNetworkPort: FluentNetworkPortValue,
-				})
+		envVars := make(map[string]string)
+		if task.IsNetworkModeAWSVPC() {
+			setFirelensEnvironmentVariables(task, container, firelensVersion, envVars, AWSVPCHostValue)
+		} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
+			ipAddress, ok := getContainerHostIP(firelensContainers[0].GetNetworkSettings())
+			if !ok {
+				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
 			}
+			setFirelensEnvironmentVariables(task, container, firelensVersion, envVars, ipAddress)
 		}
-		// TODO: for firelens v2, configure COLLECTOR_HOST after the design is finalized for control plane
+		// inject port value for firelens v1 only, port is defined by customer for firelens v2
+		if firelensVersion != "v2" {
+			envVars[fluentNetworkPort] = FluentNetworkPortValue
+		}
+		container.MergeEnvironmentVariables(envVars)
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
@@ -1327,6 +1325,36 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	}
 	seelog.Debugf("Applying firelens log config for container %s: %v", container.Name, logConfig)
 	return logConfig
+}
+
+// setFirelensEnvironmentVariables sets env variables needed for app containers that use awsfirelens
+// for task using firelens v1, inject FLUENT_HOST to container
+// if task contains firelens v2 FluentBit collector, inject FLUENT_HOST to container if not already configured by customer
+// if task contains firelens v2 OpenTelemetry collector, inject OPEN_TELEMETRY_HOST to container if not already configured by customer
+func setFirelensEnvironmentVariables(task *apitask.Task, container *apicontainer.Container,
+	firelensVersion string, envVars map[string]string, hostValue string) {
+	if firelensVersion != "v2" {
+		envVars[fluentNetworkHost] = hostValue
+	} else {
+		if task.HasFirelensv2FluentBitCollector() {
+			if container.Environment != nil {
+				// skip injecting FLUENT_HOST env var if already configured by customer
+				if _, ok := container.Environment[fluentNetworkHost]; ok {
+					return
+				}
+			}
+			envVars[fluentNetworkHost] = hostValue
+		}
+		if task.HasFirelensv2OpenTelemetryCollector() {
+			if container.Environment != nil {
+				// skip injecting OPEN_TELEMETRY_HOST env var if already configured by customer
+				if _, ok := container.Environment[opentelemetryNetworkHost]; ok {
+					return
+				}
+			}
+			envVars[opentelemetryNetworkHost] = hostValue
+		}
+	}
 }
 
 func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
