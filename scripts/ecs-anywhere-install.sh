@@ -306,7 +306,6 @@ register-ssm-agent() {
         else
             echo "Skip starting ssm agent because --no-start is specified."
         fi
-        systemctl start "$SSM_SERVICE_NAME"
         echo "SSM agent has been registered."
     else
         echo "SSM agent is already registered. Managed instance ID: $SSM_MANAGED_INSTANCE_ID"
