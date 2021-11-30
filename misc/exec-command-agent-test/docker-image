@@ -12,6 +12,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+GO_VERSION=$(cat ../../GO_VERSION)
+
 if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-exec-command-agent-test:make" > /dev/null ; then
-	docker build -t "amazon/amazon-ecs-exec-command-agent-test:make" -f "linux.dockerfile" .
+	docker build --build-arg GO_VERSION=$GO_VERSION -t "amazon/amazon-ecs-exec-command-agent-test:make" -f "linux.dockerfile" .
 fi

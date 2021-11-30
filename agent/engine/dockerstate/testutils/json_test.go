@@ -32,7 +32,7 @@ import (
 func createTestContainer(num int) *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "busybox-" + strconv.Itoa(num),
-		Image:               "busybox:1.32.0",
+		Image:               "public.ecr.aws/docker/library/busybox:1.34.1",
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 	}
