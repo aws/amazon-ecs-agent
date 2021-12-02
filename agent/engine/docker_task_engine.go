@@ -649,6 +649,19 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
+	for _, container := range task.Containers {
+		for _, resource := range container.GetResources() {
+			err := resource.Cleanup()
+			if err != nil {
+				seelog.Warnf("Task engine [%s]/[%s]: unable to cleanup resource %s: %v",
+					task.Arn, container.Name, resource.GetName(), err)
+			} else {
+				seelog.Infof("Task engine [%s]/[%s]: resource %s cleanup complete",
+					task.Arn, container.Name, resource.GetName())
+			}
+		}
+	}
+
 	if execcmd.IsExecEnabledTask(task) {
 		// cleanup host exec agent log dirs
 		if tID, err := task.GetID(); err != nil {
