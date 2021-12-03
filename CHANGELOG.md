@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.57.1-1
+* Cache Agent version 1.57.1
+* Enable AL2 support for ECS-A
+* Initialize docker client lazily
+
 ## 1.57.0-1
 * Cache Agent version 1.57.0
 
