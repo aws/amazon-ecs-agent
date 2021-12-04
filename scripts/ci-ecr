@@ -3,5 +3,4 @@ GO_VERSION=$(cat "$dir/../GO_VERSION")
 GO_VERSION_WINDOWS=$(cat "$dir/../GO_VERSION_WINDOWS")
 
 IMAGES="gcc:7.3.0
-debian:stable-20210816
-fluent/fluentd:v1.11.5-1.0"
+debian:stable-20210816"
