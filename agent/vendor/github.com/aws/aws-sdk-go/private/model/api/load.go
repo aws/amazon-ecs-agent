@@ -1,3 +1,4 @@
+//go:build codegen
 // +build codegen
 
 package api
@@ -199,6 +200,9 @@ func (a *API) AttachString(str string) error {
 
 // Setup initializes the API.
 func (a *API) Setup() error {
+	if err := a.validateNoDocumentShapes(); err != nil {
+		return err
+	}
 	a.setServiceAliaseName()
 	a.setMetadataEndpointsKey()
 	a.writeShapeNames()
@@ -215,6 +219,7 @@ func (a *API) Setup() error {
 	}
 	a.renameExportable()
 	a.applyShapeNameAliases()
+	a.renameIOSuffixedShapeNames()
 	a.createInputOutputShapes()
 	a.writeInputOutputLocationName()
 	a.renameAPIPayloadShapes()

@@ -1,3 +1,4 @@
+//go:build codegen
 // +build codegen
 
 // Package api represents API abstractions for rendering service generated files.
@@ -23,7 +24,7 @@ type API struct {
 	Operations    map[string]*Operation
 	Shapes        map[string]*Shape
 	Waiters       []Waiter
-	Documentation string
+	Documentation string `json:"-"`
 	Examples      Examples
 	SmokeTests    SmokeTestSuite
 
@@ -566,11 +567,11 @@ func New(p client.ConfigProvider, cfgs ...*aws.Config) *{{ .StructName }} {
 			c.SigningName = "{{ .Metadata.SigningName }}"
 		}
 	{{- end }}
-	return newClient(*c.Config, c.Handlers, c.PartitionID, c.Endpoint, c.SigningRegion, c.SigningName)
+	return newClient(*c.Config, c.Handlers, c.PartitionID, c.Endpoint, c.SigningRegion, c.SigningName, c.ResolvedRegion)
 }
 
 // newClient creates, initializes and returns a new service client instance.
-func newClient(cfg aws.Config, handlers request.Handlers, partitionID, endpoint, signingRegion, signingName string) *{{ .StructName }} {
+func newClient(cfg aws.Config, handlers request.Handlers, partitionID, endpoint, signingRegion, signingName, resolvedRegion string) *{{ .StructName }} {
     svc := &{{ .StructName }}{
     	Client: client.New(
     		cfg,
@@ -582,6 +583,7 @@ func newClient(cfg aws.Config, handlers request.Handlers, partitionID, endpoint,
 			PartitionID: partitionID,
 			Endpoint:     endpoint,
 			APIVersion:   "{{ .Metadata.APIVersion }}",
+            ResolvedRegion: resolvedRegion,
 			{{ if and (.Metadata.JSONVersion) (eq .Metadata.Protocol "json") -}}
 				JSONVersion:  "{{ .Metadata.JSONVersion }}",
 			{{- end }}
@@ -1017,6 +1019,24 @@ func (a *API) addHeaderMapDocumentation() {
 			}
 		}
 	}
+}
+
+func (a *API) validateNoDocumentShapes() error {
+	var shapes []string
+	for name, shape := range a.Shapes {
+		if shape.Type != "structure" {
+			continue
+		}
+		if shape.Document {
+			shapes = append(shapes, name)
+		}
+	}
+
+	if len(shapes) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("model contains document shapes: %s", strings.Join(shapes, ", "))
 }
 
 func getDeprecatedMessage(msg string, name string) string {
