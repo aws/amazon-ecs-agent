@@ -1,4 +1,11 @@
 # Changelog
+## 1.57.1
+* Enhancement - Remove unused TopContainer API [#3079](https://github.com/aws/amazon-ecs-agent/pull/3079)
+* Enhancement - Add support for metrics when using awsvpc network mode on Windows [#3087](https://github.com/aws/amazon-ecs-agent/pull/3087)
+* Enhancement - Update Agent build golang version to 1.17.3 [#3097](https://github.com/aws/amazon-ecs-agent/pull/3097)
+* Enhancement - Lower task cleanup duration [#3088](https://github.com/aws/amazon-ecs-agent/pull/3088)
+* Bug - Fix memory leak in task stats collector [#3082](https://github.com/aws/amazon-ecs-agent/pull/3082) 
+
 ## 1.57.0
 * Feature - Add instance health status feature. [#3071](https://github.com/aws/amazon-ecs-agent/pull/3071)
 * Enhancement - Bumps github.com/containerd/containerd from 1.3.2 to 1.4.11. [#3073](https://github.com/aws/amazon-ecs-agent/pull/3073)
