@@ -1,4 +1,4 @@
-FROM debian:stable-20210816
+FROM public.ecr.aws/docker/library/debian:stable-20211201-slim
 
 RUN apt-get update &&  \
     apt-get install -y ca-certificates && \
