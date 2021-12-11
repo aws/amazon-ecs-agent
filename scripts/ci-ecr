@@ -1,6 +1,3 @@
 dir=$(dirname "${BASH_SOURCE[0]}")
-GO_VERSION=$(cat "$dir/../GO_VERSION")
-GO_VERSION_WINDOWS=$(cat "$dir/../GO_VERSION_WINDOWS")
 
-IMAGES="gcc:7.3.0
-debian:stable-20210816"
+IMAGES="gcc:7.3.0"
