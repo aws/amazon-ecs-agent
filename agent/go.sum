@@ -24,8 +24,8 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568 h1:rBkGdqk6go6dea4ckU92hpJeHBD3n6wXJLANgiS90eo=
 github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568/go.mod h1:X9rLEHIqSf/wfK8NsPqxJmeZgW4pcfzdXITDrUSJ6uI=
-github.com/containerd/containerd v1.4.11 h1:QCGOUN+i70jEEL/A6JVIbhy4f4fanzAzSR4kNG7SlcE=
-github.com/containerd/containerd v1.4.11/go.mod h1:bC6axHOhabU15QhwfG7w5PipXdVtMXFTttgp+kVtyUA=
+github.com/containerd/containerd v1.4.12 h1:V+SHzYmhng/iju6M5nFrpTTusrhidoxKTwdwLw+u4c4=
+github.com/containerd/containerd v1.4.12/go.mod h1:bC6axHOhabU15QhwfG7w5PipXdVtMXFTttgp+kVtyUA=
 github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 h1:lJeDcldQnYskl7krc3lTppg8NKomoQkmQg1AzOXtQbA=
 github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8/go.mod h1:GL3xCUCBDV3CZiTSEKksMWbLE66hEyuu9qyDOOqM47Y=
 github.com/containernetworking/cni v0.7.1 h1:fE3r16wpSEyaqY4Z4oFrLMmIGfBYIKpPrHK31EJ9FzE=
@@ -103,8 +103,8 @@ github.com/onsi/gomega v0.0.0-20151007035656-2152b45fa28a h1:KfNOeFvoAssuZLT7Int
 github.com/onsi/gomega v0.0.0-20151007035656-2152b45fa28a/go.mod h1:C1qb7wdrVGGVU+Z6iS04AVkA3Q65CEZX59MT0QO5uiA=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
-github.com/opencontainers/image-spec v1.0.1 h1:JMemWkRwHx4Zj+fVxWoMCFm/8sYGGrUVojFA6h/TRcI=
-github.com/opencontainers/image-spec v1.0.1/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
+github.com/opencontainers/image-spec v1.0.2 h1:9yCKha/T5XdGtO0q9Q9a6T5NUCsTn/DrBg0D7ufOcFM=
+github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
 github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0 h1:SggLMhCQwg4mVOVBrl6klF2lsB7jaqJjYe4VV/t5Ogw=
 github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=
