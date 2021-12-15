@@ -226,7 +226,6 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 
 .PHONY: codebuild
 codebuild: .out-stamp
-	./scripts/ci-ecr-pull "us-west-2" 508403128001
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
 	$(MAKE) docker-release TARGET_OS="windows"
