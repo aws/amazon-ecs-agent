@@ -65,6 +65,8 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	muxRouter.HandleFunc(v1.CredentialsPath,
 		v1.CredentialsHandler(credentialsManager, auditLogger))
 
+	muxRouter.HandleFunc(v1.ExternalInstanceCredentialsPath, v1.ExternalInstanceCredentialsHandler())
+
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
 
 	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)

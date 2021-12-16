@@ -1083,6 +1083,13 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
+	} else if engine.cfg.External.Enabled() {
+		// For external instances
+		if hostConfig.LogConfig.Config == nil {
+			hostConfig.LogConfig.Config = map[string]string{}
+		}
+		// TODO - don't hard-code strings here
+		hostConfig.LogConfig.Config["awslogs-credentials-endpoint"] = "/v1/external-instance-creds/"
 	}
 
 	firelensConfig := container.GetFirelensConfig()
