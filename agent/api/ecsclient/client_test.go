@@ -838,23 +838,23 @@ func TestDiscoverPollEndpointCacheHit(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
-	pollEndpoinCache := mock_async.NewMockCache(mockCtrl)
+	pollEndpointCache := mock_async.NewMockTTLCache(mockCtrl)
 	client := &APIECSClient{
 		credentialProvider: credentials.AnonymousCredentials,
 		config: &config.Config{
 			Cluster:   configuredCluster,
 			AWSRegion: "us-east-1",
 		},
-		standardClient:   mockSDK,
-		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
-		pollEndpoinCache: pollEndpoinCache,
+		standardClient:    mockSDK,
+		ec2metadata:       ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpointCache: pollEndpointCache,
 	}
 
 	pollEndpoint := "http://127.0.0.1"
-	pollEndpoinCache.EXPECT().Get("containerInstance").Return(
+	pollEndpointCache.EXPECT().Get("containerInstance").Return(
 		&ecs.DiscoverPollEndpointOutput{
 			Endpoint: aws.String(pollEndpoint),
-		}, true)
+		}, false, true)
 	output, err := client.discoverPollEndpoint("containerInstance")
 	if err != nil {
 		t.Fatalf("Error in discoverPollEndpoint: %v", err)
@@ -869,16 +869,16 @@ func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
-	pollEndpoinCache := mock_async.NewMockCache(mockCtrl)
+	pollEndpointCache := mock_async.NewMockTTLCache(mockCtrl)
 	client := &APIECSClient{
 		credentialProvider: credentials.AnonymousCredentials,
 		config: &config.Config{
 			Cluster:   configuredCluster,
 			AWSRegion: "us-east-1",
 		},
-		standardClient:   mockSDK,
-		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
-		pollEndpoinCache: pollEndpoinCache,
+		standardClient:    mockSDK,
+		ec2metadata:       ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpointCache: pollEndpointCache,
 	}
 	pollEndpoint := "http://127.0.0.1"
 	pollEndpointOutput := &ecs.DiscoverPollEndpointOutput{
@@ -886,9 +886,44 @@ func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		pollEndpoinCache.EXPECT().Get("containerInstance").Return(nil, false),
+		pollEndpointCache.EXPECT().Get("containerInstance").Return(nil, false, false),
 		mockSDK.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(pollEndpointOutput, nil),
-		pollEndpoinCache.EXPECT().Set("containerInstance", pollEndpointOutput),
+		pollEndpointCache.EXPECT().Set("containerInstance", pollEndpointOutput),
+	)
+
+	output, err := client.discoverPollEndpoint("containerInstance")
+	if err != nil {
+		t.Fatalf("Error in discoverPollEndpoint: %v", err)
+	}
+	if aws.StringValue(output.Endpoint) != pollEndpoint {
+		t.Errorf("Mismatch in poll endpoint: %s != %s", aws.StringValue(output.Endpoint), pollEndpoint)
+	}
+}
+
+func TestDiscoverPollEndpointExpiredButDPEFailed(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
+	pollEndpointCache := mock_async.NewMockTTLCache(mockCtrl)
+	client := &APIECSClient{
+		credentialProvider: credentials.AnonymousCredentials,
+		config: &config.Config{
+			Cluster:   configuredCluster,
+			AWSRegion: "us-east-1",
+		},
+		standardClient:    mockSDK,
+		ec2metadata:       ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpointCache: pollEndpointCache,
+	}
+	pollEndpoint := "http://127.0.0.1"
+	pollEndpointOutput := &ecs.DiscoverPollEndpointOutput{
+		Endpoint: &pollEndpoint,
+	}
+
+	gomock.InOrder(
+		pollEndpointCache.EXPECT().Get("containerInstance").Return(pollEndpointOutput, true, false),
+		mockSDK.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("error!")),
 	)
 
 	output, err := client.discoverPollEndpoint("containerInstance")
@@ -905,16 +940,16 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
-	pollEndpoinCache := async.NewLRUCache(1, 10*time.Minute)
+	pollEndpointCache := async.NewTTLCache(10 * time.Minute)
 	client := &APIECSClient{
 		credentialProvider: credentials.AnonymousCredentials,
 		config: &config.Config{
 			Cluster:   configuredCluster,
 			AWSRegion: "us-east-1",
 		},
-		standardClient:   mockSDK,
-		ec2metadata:      ec2.NewBlackholeEC2MetadataClient(),
-		pollEndpoinCache: pollEndpoinCache,
+		standardClient:    mockSDK,
+		ec2metadata:       ec2.NewBlackholeEC2MetadataClient(),
+		pollEndpointCache: pollEndpointCache,
 	}
 
 	pollEndpoint := "http://127.0.0.1"

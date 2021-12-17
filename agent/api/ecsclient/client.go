@@ -40,8 +40,7 @@ const (
 	ecsMaxImageDigestLength = 255
 	ecsMaxReasonLength      = 255
 	ecsMaxRuntimeIDLength   = 255
-	pollEndpointCacheSize   = 1
-	pollEndpointCacheTTL    = 20 * time.Minute
+	pollEndpointCacheTTL    = 12 * time.Hour
 	roundtripTimeout        = 5 * time.Second
 	azAttrName              = "ecs.availability-zone"
 	cpuArchAttrName         = "ecs.cpu-architecture"
@@ -56,7 +55,7 @@ type APIECSClient struct {
 	standardClient          api.ECSSDK
 	submitStateChangeClient api.ECSSubmitStateSDK
 	ec2metadata             ec2.EC2MetadataClient
-	pollEndpoinCache        async.Cache
+	pollEndpointCache       async.TTLCache
 }
 
 // NewECSClient creates a new ECSClient interface object
@@ -74,14 +73,13 @@ func NewECSClient(
 	}
 	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
-	pollEndpoinCache := async.NewLRUCache(pollEndpointCacheSize, pollEndpointCacheTTL)
 	return &APIECSClient{
 		credentialProvider:      credentialProvider,
 		config:                  config,
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,
-		pollEndpoinCache:        pollEndpoinCache,
+		pollEndpointCache:       async.NewTTLCache(pollEndpointCacheTTL),
 	}
 }
 
@@ -585,26 +583,37 @@ func (client *APIECSClient) DiscoverTelemetryEndpoint(containerInstanceArn strin
 
 func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*ecs.DiscoverPollEndpointOutput, error) {
 	// Try getting an entry from the cache
-	cachedEndpoint, found := client.pollEndpoinCache.Get(containerInstanceArn)
-	if found {
-		// Cache hit. Return the output.
+	cachedEndpoint, expired, found := client.pollEndpointCache.Get(containerInstanceArn)
+	if !expired && found {
+		// Cache hit and not expired. Return the output.
 		if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
+			seelog.Infof("Using cached DiscoverPollEndpoint. endpoint=%s telemetryEndpoint=%s containerInstanceARN=%s",
+				aws.StringValue(output.Endpoint), aws.StringValue(output.TelemetryEndpoint), containerInstanceArn)
 			return output, nil
 		}
 	}
 
-	// Cache miss, invoke the ECS DiscoverPollEndpoint API.
+	// Cache miss or expired, invoke the ECS DiscoverPollEndpoint API.
 	seelog.Debugf("Invoking DiscoverPollEndpoint for '%s'", containerInstanceArn)
 	output, err := client.standardClient.DiscoverPollEndpoint(&ecs.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           &client.config.Cluster,
 	})
 	if err != nil {
+		// if we got an error calling the API, fallback to an expired cached endpoint if
+		// we have it.
+		if expired {
+			if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
+				seelog.Infof("Error calling DiscoverPollEndpoint. Using cached but expired endpoint as a fallback. error=%s endpoint=%s telemetryEndpoint=%s containerInstanceARN=%s",
+					err, aws.StringValue(output.Endpoint), aws.StringValue(output.TelemetryEndpoint), containerInstanceArn)
+				return output, nil
+			}
+		}
 		return nil, err
 	}
 
 	// Cache the response from ECS.
-	client.pollEndpoinCache.Set(containerInstanceArn, output)
+	client.pollEndpointCache.Set(containerInstanceArn, output)
 	return output, nil
 }
 
