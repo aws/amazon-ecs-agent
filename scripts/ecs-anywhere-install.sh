@@ -550,10 +550,6 @@ ecs-init-signature-verify() {
         echo "WARNING: gpg command not available on this server, not able to verify amazon-ecs-init package signature."
         ok
         return
-    elif ! command -v dirmngr; then
-        echo "WARNING: dirmngr not installed on this server, not able to verify amazon-ecs-init package signature."
-        ok
-        return
     fi
 
     curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ecs-agent.gpg"
