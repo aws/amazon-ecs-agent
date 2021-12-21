@@ -54,6 +54,7 @@ const (
 	volDestination       = "/volume"
 	availabilityZone     = "us-west-2b"
 	containerInstanceArn = "containerInstance-test"
+	hostIp               = "0.0.0.0"
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -462,6 +463,19 @@ func TestTaskResponseMarshal(t *testing.T) {
 }
 
 func TestContainerResponseMarshal(t *testing.T) {
+	testCases := []struct {
+		description       string
+		includeV4Metadata bool
+	}{
+		{
+			"task container response without v4 metadata",
+			false,
+		},
+		{
+			"task container response with v4 metadata",
+			true,
+		},
+	}
 	timeRFC3339, _ := time.Parse(time.RFC3339, "2014-11-12T11:45:26Z")
 
 	expectedContainerResponseMap := map[string]interface{}{
@@ -549,20 +563,28 @@ func TestContainerResponseMarshal(t *testing.T) {
 			},
 		},
 	}
-	gomock.InOrder(
-		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
-		state.EXPECT().TaskByID(containerID).Return(task, true),
-	)
 
-	containerResponse, err := NewContainerResponseFromState(containerID, state, false)
-	assert.NoError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			gomock.InOrder(
+				state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+				state.EXPECT().TaskByID(containerID).Return(task, true),
+			)
+			if tc.includeV4Metadata {
+				container.KnownPortBindingsUnsafe[0].BindIP = hostIp
+				expectedContainerResponseMap["Ports"].([]interface{})[0].(map[string]interface{})["HostIp"] = hostIp
+			}
+			containerResponse, err := NewContainerResponseFromState(containerID, state, tc.includeV4Metadata)
+			assert.NoError(t, err)
 
-	containerResponseJSON, err := json.Marshal(containerResponse)
-	assert.NoError(t, err)
+			containerResponseJSON, err := json.Marshal(containerResponse)
+			assert.NoError(t, err)
 
-	containerResponseMap := make(map[string]interface{})
-	json.Unmarshal(containerResponseJSON, &containerResponseMap)
-	assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
+			containerResponseMap := make(map[string]interface{})
+			json.Unmarshal(containerResponseJSON, &containerResponseMap)
+			assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
+		})
+	}
 }
 
 func TestTaskResponseWithV4TagsError(t *testing.T) {
