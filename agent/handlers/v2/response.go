@@ -281,6 +281,9 @@ func NewContainerResponse(
 		} else {
 			port.HostPort = port.ContainerPort
 		}
+		if includeV4Metadata {
+			port.HostIp = binding.BindIP
+		}
 
 		resp.Ports = append(resp.Ports, port)
 	}
