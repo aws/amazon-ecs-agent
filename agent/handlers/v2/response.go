@@ -275,6 +275,7 @@ func NewContainerResponse(
 		port := v1.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
+			HostIp:        binding.BindIP,
 		}
 		if eni == nil {
 			port.HostPort = binding.HostPort
