@@ -571,7 +571,7 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 		if strings.Contains(line, envVariableDelimiter) {
 			variables := strings.SplitN(line, envVariableDelimiter, 2)
 			// verify that there is at least a character on each side
-			if len(variables[0]) > 0 && len(variables[1]) > 0 {
+			if len(variables[0]) > 0 {
 				envVars[variables[0]] = variables[1]
 			} else {
 				seelog.Infof("Not applying line %d of environment file %s, key or value is empty.", lineNum, envfilePath)
