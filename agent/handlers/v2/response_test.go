@@ -346,7 +346,6 @@ func TestTaskResponseMarshal(t *testing.T) {
 						"HostPort":      float64(80),
 						"ContainerPort": float64(80),
 						"Protocol":      "tcp",
-						"HostIp":        "0.0.0.0",
 					},
 				},
 				"DesiredStatus": "NONE",
@@ -405,7 +404,6 @@ func TestTaskResponseMarshal(t *testing.T) {
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
-				BindIP:        "0.0.0.0",
 			},
 		},
 	}
@@ -477,7 +475,6 @@ func TestContainerResponseMarshal(t *testing.T) {
 				"ContainerPort": float64(80),
 				"Protocol":      "tcp",
 				"HostPort":      float64(80),
-				"HostIp":        "0.0.0.0",
 			},
 		},
 		"Labels": map[string]interface{}{
@@ -527,7 +524,6 @@ func TestContainerResponseMarshal(t *testing.T) {
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
-				BindIP:        "0.0.0.0",
 			},
 		},
 	}
