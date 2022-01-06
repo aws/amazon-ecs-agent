@@ -35,6 +35,8 @@ usage() {
         (optional) Version of the ECS agent rpm/deb package to use. If not specified, default to latest.
   --skip-registration
         (optional) if this is enabled, SSM agent install and instance registration with SSM is skipped.
+  --certs-file
+        (optional) TLS certs for execute command feature. Defaults to searching for certs in known possible locations.
   --no-start
         (optional) if this flag is provided, SSM agent, docker and ECS agent will not be started by the script despite being installed."
 }
@@ -51,6 +53,7 @@ ECS_VERSION=""
 DEB_URL=""
 RPM_URL=""
 ECS_ENDPOINT=""
+CERTS_FILE=""
 # Whether to check signature for the downloaded amazon-ecs-init package. true unless --skip-gpg-check
 # specified. --skip-gpg-check is mostly for testing purpose (so that we can test a custom build of ecs init package
 # without having to sign it).
@@ -105,6 +108,11 @@ while :; do
     --ecs-endpoint)
         check-option-value "$1" "$2"
         ECS_ENDPOINT="$2"
+        shift 2
+        ;;
+    --certs-file)
+        check-option-value "$1" "$2"
+        CERTS_FILE="$2"
         shift 2
         ;;
     --skip-registration)
@@ -206,12 +214,14 @@ S3_URL_SUFFIX=""
 if grep -q "^cn-" <<< "$REGION"; then
     S3_URL_SUFFIX=".cn"
 fi
+S3_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}"
+SSM_S3_BUCKET="amazon-ssm-$REGION"
 
 if [ -z "$RPM_URL" ]; then
-    RPM_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}/${S3_BUCKET}/$RPM_PKG_NAME"
+    RPM_URL="${S3_URL}/${S3_BUCKET}/$RPM_PKG_NAME"
 fi
 if [ -z "$DEB_URL" ]; then
-    DEB_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}/${S3_BUCKET}/$DEB_PKG_NAME"
+    DEB_URL="${S3_URL}/${S3_BUCKET}/$DEB_PKG_NAME"
 fi
 
 # source /etc/os-release to get the VERSION_ID and ID fields
@@ -320,8 +330,8 @@ install-ssm-agent() {
     else
         local dir
         dir="$(mktemp -d)"
-        local SSM_DEB_URL="https://s3.$REGION.amazonaws.com${S3_URL_SUFFIX}/amazon-ssm-$REGION/latest/debian_$ARCH_ALT/amazon-ssm-agent.deb"
-        local SSM_RPM_URL="https://s3.$REGION.amazonaws.com${S3_URL_SUFFIX}/amazon-ssm-$REGION/latest/linux_$ARCH_ALT/amazon-ssm-agent.rpm"
+        local SSM_DEB_URL="${S3_URL}/${SSM_S3_BUCKET}/latest/debian_$ARCH_ALT/amazon-ssm-agent.deb"
+        local SSM_RPM_URL="${S3_URL}/${SSM_S3_BUCKET}/latest/linux_$ARCH_ALT/amazon-ssm-agent.rpm"
         local SSM_DEB_PKG_NAME="ssm-agent.deb"
         local SSM_RPM_PKG_NAME="ssm-agent.rpm"
 
@@ -591,6 +601,76 @@ wait-agent-start() {
     fail
 }
 
+exec-setup() {
+    find-copy-certs-exec
+    download-ssm-binaries-exec
+}
+
+find-copy-certs-exec() {
+    # Reference for locations: https://golang.org/src/crypto/x509/root_linux.go
+    CERTS_FILES_LOCATIONS=("/etc/ssl/certs/ca-certificates.crt"
+      "/etc/pki/tls/certs/ca-bundle.crt"
+      "/etc/ssl/ca-bundle.pem"
+      "/etc/pki/tls/cacert.pem"
+      "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+      "/etc/ssl/cert.pem"
+    )
+    CERTS_PATH="/var/lib/ecs/deps/execute-command/certs"
+
+    echo "Copying certs for exec feature"
+
+    # Determine certs file
+    certs=""
+    if [ -n "$CERTS_FILE" ] && [ -f "$CERTS_FILE" ]; then
+        certs=$CERTS_FILE
+    else
+        if [ -n "$CERTS_FILE" ]; then
+            echo "Provided certs file does not exist, looking for certs in known possible locations"
+        fi
+        for f in "${CERTS_FILES_LOCATIONS[@]}"
+        do
+            if  [ -f "$f" ]; then
+                certs=$f
+                break
+            fi
+        done
+    fi
+
+    # Copy certs to exec directory
+    if [ -z "$certs" ]; then
+        echo "Could not find certificates. Please rerun with --certs-file and provide a valid path"
+        fail
+    else
+        echo "Using $certs"
+        openssl verify -x509_strict "$certs"
+        mkdir -p $CERTS_PATH
+        cp "$certs" $CERTS_PATH/tls-ca-bundle.pem
+        chmod 400 $CERTS_PATH/tls-ca-bundle.pem
+    fi
+    ok
+}
+
+download-ssm-binaries-exec() {
+    BINARY_VERSION="3.1.501.0"
+    BINARY_PATH="/var/lib/ecs/deps/execute-command/bin/${BINARY_VERSION}"
+    BINARY_DOWNLOAD_PATH="ssm-binaries"
+
+    # Download SSM binaries from S3
+    echo "Downloading SSM binaries for exec feature"
+
+    mkdir -p $BINARY_DOWNLOAD_PATH
+    curl "${S3_URL}/${SSM_S3_BUCKET}/${BINARY_VERSION}/linux_$ARCH_ALT/amazon-ssm-agent-binaries.tar.gz" -o ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent.tar.gz
+    tar -xvf ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent.tar.gz -C ${BINARY_DOWNLOAD_PATH}/
+
+    # Copy binaries to exec directory
+    mkdir -p ${BINARY_PATH}
+    cp ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent ${BINARY_PATH}/amazon-ssm-agent
+    cp ${BINARY_DOWNLOAD_PATH}/ssm-agent-worker ${BINARY_PATH}/ssm-agent-worker
+    cp ${BINARY_DOWNLOAD_PATH}/ssm-session-worker ${BINARY_PATH}/ssm-session-worker
+    rm -rf ${BINARY_DOWNLOAD_PATH}
+    ok
+}
+
 show-license() {
     echo ""
     echo "##########################"
@@ -607,6 +687,7 @@ if ! $SKIP_REGISTRATION; then
     install-ssm-agent
 fi
 install-docker "$DOCKER_SOURCE"
+exec-setup
 install-ecs-agent
 wait-agent-start
 show-license
