@@ -651,7 +651,7 @@ find-copy-certs-exec() {
 }
 
 download-ssm-binaries-exec() {
-    BINARY_VERSION="3.1.501.0"
+    BINARY_VERSION="3.1.90.0"
     BINARY_PATH="/var/lib/ecs/deps/execute-command/bin/${BINARY_VERSION}"
     BINARY_DOWNLOAD_PATH="ssm-binaries"
 
