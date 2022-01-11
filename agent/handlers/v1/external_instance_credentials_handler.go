@@ -3,22 +3,23 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"net/http"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 )
 
 const (
-	ExternalInstanceCredentialsPath =  "/v1/external-instance-creds/"
+	ExternalInstanceCredentialsPath  = "/v1/external-instance-creds/"
 	requestTypeExternalInstanceCreds = "external instance credentials"
 )
 
 type credentialsOutput struct {
-	AccessKeyID     string `json:"AccessKeyId"`
-	SecretAccessKey string `json:"SecretAccessKey"`
-	SessionToken    string `json:"Token"`
-	Expiration time.Time `json:"Expiration"`
+	AccessKeyID     string    `json:"AccessKeyId"`
+	SecretAccessKey string    `json:"SecretAccessKey"`
+	SessionToken    string    `json:"Token"`
+	Expiration      time.Time `json:"Expiration"`
 }
 
 func ExternalInstanceCredentialsHandler() func(http.ResponseWriter, *http.Request) {
@@ -54,7 +55,7 @@ func getCredentials() (credentialsOutput, error) {
 }
 
 func writeErrorResponse(w http.ResponseWriter, err error, errMessage string) {
-	errResponseJSON, err := json.Marshal(fmt.Sprintf(errMessage + ": %v", err.Error()))
+	errResponseJSON, err := json.Marshal(fmt.Sprintf(errMessage+": %v", err.Error()))
 	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 		return
 	}
