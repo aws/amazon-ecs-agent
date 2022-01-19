@@ -1,3 +1,10 @@
+amazon-ecs-init (1.58.0-2) stable; urgency=medium
+
+  * Cache Agent version 1.58.0
+  * Add exec prerequisites to ecs-anywhere installation script
+
+ -- Utsa Bhattacharjya <utsa@amazon.com>  Fri, 14 Jan 2022 18:00:00 +0000
+
 amazon-ecs-init (1.57.1-1) stable; urgency=medium
 
   * Cache Agent version 1.57.1
