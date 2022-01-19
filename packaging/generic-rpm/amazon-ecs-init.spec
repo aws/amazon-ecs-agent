@@ -16,7 +16,6 @@
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
 %global no_exec_perm 644
-%global debug_package %{nil}
 
 %ifarch x86_64
 %global agent_image %{SOURCE3}
@@ -39,8 +38,6 @@ Source2:        ecs.service
 Source3:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
 # aarch64 Container agent docker image
 Source4:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v%{bundled_agent_version}.tar
-Source5:        amazon-ecs-volume-plugin.service
-Source6:        amazon-ecs-volume-plugin.socket
 
 BuildRequires:  golang >= 1.7
 BuildRequires:  systemd
@@ -61,7 +58,6 @@ required routes among its preparation steps.
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
-install -D amazon-ecs-volume-plugin %{buildroot}%{_libexecdir}/amazon-ecs-volume-plugin
 install -m %{no_exec_perm} -D scripts/amazon-ecs-init.1 %{buildroot}%{_mandir}/man1/amazon-ecs-init.1
 
 mkdir -p %{buildroot}%{_sysconfdir}/ecs
@@ -77,13 +73,10 @@ install -m %{no_exec_perm} %{agent_image} %{buildroot}%{_cachedir}/ecs/
 mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 
 install -m %{no_exec_perm} -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
-install -m %{no_exec_perm} -D %{SOURCE5} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.service
-install -m %{no_exec_perm} -D %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.socket
 
 %files
 %{_libexecdir}/amazon-ecs-init
 %{_mandir}/man1/amazon-ecs-init.1*
-%{_libexecdir}/amazon-ecs-volume-plugin
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
 %ghost %{_cachedir}/ecs/ecs-agent.tar
@@ -91,18 +84,14 @@ install -m %{no_exec_perm} -D %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-
 %{_cachedir}/ecs/state
 %dir %{_sharedstatedir}/ecs/data
 %{_unitdir}/ecs.service
-%{_unitdir}/amazon-ecs-volume-plugin.service
-%{_unitdir}/amazon-ecs-volume-plugin.socket
 
 %post
 # Symlink the bundled ECS Agent at loadable path.
 ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %systemd_post ecs
-%systemd_post amazon-ecs-volume-plugin.service
 
 %postun
-%systemd_postun ecs.service
-%systemd_postun_with_restart amazon-ecs-volume-plugin
+%systemd_postun
 
 %changelog
 * Fri Dec 03 2021 Mythri Garaga Mannjunatha <mythr@amazon.com> - 1.57.1-1
