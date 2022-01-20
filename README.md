@@ -50,6 +50,23 @@ If you think you’ve found a potential security issue, please do not post it in
 
 ## Development
 
+#### Building the RPM for test
+
+On your local machine, you can use the docker target to generate an rpm:
+
+```
+make rpm-in-docker
+```
+
+This rpm can then be installed in an amazon linux ami:
+
+```
+# send rpm either through s3 or scp
+rpm -i rpm-that-you-built.rpm
+sudo systemctl enable ecs
+sudo systemctl start ecs
+```
+
 #### Dev dependencies
 
 Run `make get-deps` to get dependencies for running tests and generating mocks.

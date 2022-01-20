@@ -13,7 +13,7 @@
 # limitations under the License.
 VERSION = $(shell cat ecs-init/ECSVERSION)
 
-.PHONY: dev generate lint static test build-mock-images sources rpm srpm govet
+.PHONY: dev generate lint static test build-mock-images sources rpm srpm govet rpm-in-docker
 
 dev:
 	./scripts/gobuild.sh dev
@@ -114,14 +114,24 @@ rpm: .rpm-done
 
 ARCH:=$(shell uname -m)
 ifeq (${ARCH},x86_64)
-	AGENT_URL=https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v${VERSION}.tar
+	AGENT_FILENAME=ecs-agent-v${VERSION}.tar
 else ifeq (${ARCH},aarch64)
-	AGENT_URL=https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v${VERSION}.tar
+	AGENT_FILENAME=ecs-agent-arm64-v${VERSION}.tar
+# osx M1 instances
+else ifeq (${ARCH},arm64)
+	AGENT_FILENAME=ecs-agent-arm64-v${VERSION}.tar
 endif
 
 BUILDROOT/ecs-agent.tar:
 	mkdir -p BUILDROOT
-	curl -o BUILDROOT/ecs-agent.tar ${AGENT_URL}
+	curl -o BUILDROOT/ecs-agent.tar https://s3.amazonaws.com/amazon-ecs-agent/${AGENT_FILENAME}
+
+${AGENT_FILENAME}: BUILDROOT/ecs-agent.tar
+	cp BUILDROOT/ecs-agent.tar ${AGENT_FILENAME}
+
+rpm-in-docker: ${AGENT_FILENAME}
+	docker build -t "amazon/amazon-ecs-init:build" -f "scripts/dockerfiles/build.dockerfile" .
+	docker run -u "$(shell id -u)" --tmpfs /.cache -v "$(shell pwd):/workspace/amazon-ecs-init" "amazon/amazon-ecs-init:build"
 
 .generic-rpm-done:
 	./scripts/update-version.sh
