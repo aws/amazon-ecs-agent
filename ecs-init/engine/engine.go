@@ -112,16 +112,19 @@ func (e *Engine) PreStart() error {
 		return err
 	}
 	// Enable use of loopback addresses for local routing purposes
+	log.Info("pre-start: enabling loopback routing")
 	err = e.loopbackRouting.Enable()
 	if err != nil {
 		return engineError("could not enable loopback routing", err)
 	}
 	// Disable ipv6 router advertisements
+	log.Info("pre-start: disabling ipv6 router advertisements")
 	err = e.ipv6RouterAdvertisements.Disable()
 	if err != nil {
 		return engineError("could not disable ipv6 router advertisements", err)
 	}
 	// Add the rerouting netfilter rule for credentials endpoint
+	log.Info("pre-start: creating credentials proxy route")
 	err = e.credentialsProxyRoute.Create()
 	if err != nil {
 		return engineError("could not create route to the credentials proxy", err)
@@ -131,19 +134,23 @@ func (e *Engine) PreStart() error {
 	if err != nil {
 		return dockerError(err)
 	}
+	log.Info("pre-start: checking ecs agent container image loaded presence")
 	imageLoaded, err := docker.IsAgentImageLoaded()
 	if err != nil {
 		return engineError("could not check Docker for Agent image presence", err)
 	}
+	log.Infof("pre-start: ecs agent container image loaded presence: %s", imageLoaded)
 
 	switch e.downloader.AgentCacheStatus() {
 	// Uncached, go get the Agent.
 	case cache.StatusUncached:
+		log.Info("pre-start: downloading agent")
 		return e.downloadAndLoadCache(docker)
 
 	// The Agent is cached, and mandates a reload regardless of the
 	// already loaded image.
 	case cache.StatusReloadNeeded:
+		log.Info("pre-start: reloading agent")
 		return e.load(docker, e.downloader.LoadCachedAgent)
 
 	// Agent is cached, respect the already loaded Agent.
@@ -151,6 +158,7 @@ func (e *Engine) PreStart() error {
 		if imageLoaded {
 			return nil
 		}
+		log.Info("pre-start: loading cached agent")
 		return e.load(docker, e.downloader.LoadCachedAgent)
 
 	// There shouldn't be unhandled cache states.
@@ -168,6 +176,8 @@ func (e *Engine) PreStartGPU() error {
 	envVariables := docker.LoadEnvVars()
 	if val, ok := envVariables[config.GPUSupportEnvVar]; ok {
 		if val == "true" {
+			log.Info("pre-start: setting up GPUs")
+			defer log.Info("pre-start: done setting up GPUs")
 			err := e.nvidiaGPUManager.Setup()
 			if err != nil {
 				log.Errorf("Nvidia GPU Manager: %v", err)
