@@ -32,8 +32,8 @@
 %endif
 
 Name:           ecs-init
-Version:        1.58.0
-Release:        2%{?dist}
+Version:        1.59.0
+Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -278,6 +278,10 @@ fi
 %endif
 
 %changelog
+* Fri Feb 04 2022 Yash Kulshrestha <kulshres@amazon.com> - 1.59.0-1
+- Cache Agent version 1.59.0
+- Log what pre-start is doing
+
 * Fri Jan 14 2022 Utsa Bhattacharjya <utsa@amazon.com> - 1.58.0-2
 - Cache Agent version 1.58.0
 - Add exec prerequisites to ecs-anywhere installation script
