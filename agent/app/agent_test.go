@@ -24,6 +24,7 @@ import (
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -50,7 +51,6 @@ import (
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -60,14 +60,19 @@ import (
 )
 
 const (
-	clusterName            = "some-cluster"
-	containerInstanceARN   = "container-instance1"
-	availabilityZone       = "us-west-2b"
-	hostPrivateIPv4Address = "127.0.0.1"
-	hostPublicIPv4Address  = "127.0.0.1"
-	instanceID             = "i-123"
+	clusterName                      = "some-cluster"
+	containerInstanceARN             = "container-instance1"
+	availabilityZone                 = "us-west-2b"
+	hostPrivateIPv4Address           = "127.0.0.1"
+	hostPublicIPv4Address            = "127.0.0.1"
+	instanceID                       = "i-123"
+	warmedState                      = "Warmed:Running"
+	testTargetLifecycleMaxRetryCount = 1
 )
 
+var notFoundErr = awserr.NewRequestFailure(awserr.Error(awserr.New("NotFound", "", errors.New(""))), 404, "")
+var badReqErr = awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, "")
+var serverErr = awserr.NewRequestFailure(awserr.Error(awserr.New("InternalServerError", "", errors.New(""))), 500, "")
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.Version_1_21,
 	dockerclient.Version_1_22,
@@ -235,6 +240,8 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		dockerClient:       dockerClient,
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -279,6 +286,8 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -286,7 +295,60 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	assert.Equal(t, exitcodes.ExitError, exitCode)
 }
 
+func TestDoStartWarmPoolsError(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _, execCmdMgr := setup(t)
+	defer ctrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	gomock.InOrder(
+		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+	)
+
+	cfg := getTestConfig()
+	cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	terminationHandlerChan := make(chan bool)
+	terminationHandlerInvoked := false
+	agent := &ecsAgent{
+		ctx:               ctx,
+		cfg:               &cfg,
+		dockerClient:      dockerClient,
+		ec2MetadataClient: mockEC2Metadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+			terminationHandlerChan <- true
+		},
+	}
+
+	err := errors.New("error")
+	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(targetLifecycleMaxRetryCount)
+
+	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client, execCmdMgr)
+
+	select {
+	case terminationHandlerInvoked = <-terminationHandlerChan:
+	case <-time.After(10 * time.Second):
+	}
+	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
+	// verify that termination handler had been started before pollling
+	assert.True(t, terminationHandlerInvoked)
+}
+
 func TestDoStartHappyPath(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, false, false)
+}
+
+func TestDoStartWarmPoolsEnabled(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, false, true)
+}
+
+func TestDoStartWarmPoolsBlackholed(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, true, true)
+}
+
+func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPoolsEnv bool) {
 	ctrl, credentialsManager, _, imageManager, client,
 		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
 	defer ctrl.Finish()
@@ -299,7 +361,19 @@ func TestDoStartHappyPath(t *testing.T) {
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
-	ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
+
+	if blackholed {
+		if warmPoolsEnv {
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed")).Times(targetLifecycleMaxRetryCount)
+		}
+		ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
+	} else {
+		if warmPoolsEnv {
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("error"))
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return(inServiceState, nil)
+		}
+		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
+	}
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -347,6 +421,9 @@ func TestDoStartHappyPath(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	if warmPoolsEnv {
+		cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	}
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 
@@ -386,7 +463,9 @@ func TestDoStartHappyPath(t *testing.T) {
 	assertMetadata(t, data.AvailabilityZoneKey, availabilityZone, dataClient)
 	assertMetadata(t, data.ClusterNameKey, clusterName, dataClient)
 	assertMetadata(t, data.ContainerInstanceARNKey, containerInstanceARN, dataClient)
-	assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
+	if !blackholed {
+		assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
+	}
 }
 
 func assertMetadata(t *testing.T, key, expectedVal string, dataClient data.Client) {
@@ -1195,6 +1274,8 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -1472,4 +1553,46 @@ func newTestDataClient(t *testing.T) (data.Client, func()) {
 		require.NoError(t, os.RemoveAll(testDir))
 	}
 	return testClient, cleanup
+}
+
+type targetLifecycleFuncDetail struct {
+	val         string
+	err         error
+	returnTimes int
+}
+
+func TestWaitUntilInstanceInServicePolling(t *testing.T) {
+	warmedResult := targetLifecycleFuncDetail{warmedState, nil, 1}
+	inServiceResult := targetLifecycleFuncDetail{inServiceState, nil, 1}
+	notFoundErrResult := targetLifecycleFuncDetail{"", notFoundErr, testTargetLifecycleMaxRetryCount}
+	unexpectedErrResult := targetLifecycleFuncDetail{"", badReqErr, testTargetLifecycleMaxRetryCount}
+	serverErrResult := targetLifecycleFuncDetail{"", serverErr, testTargetLifecycleMaxRetryCount}
+	testCases := []struct {
+		name            string
+		funcTestDetails []targetLifecycleFuncDetail
+		result          error
+		maxPolls        int
+	}{
+		{"TestWaitUntilInServicePollWarmed", []targetLifecycleFuncDetail{warmedResult, warmedResult, inServiceResult}, nil, asgLifecyclePollMax},
+		{"TestWaitUntilInServicePollMissing", []targetLifecycleFuncDetail{notFoundErrResult, inServiceResult}, nil, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceErrPollMaxReached", []targetLifecycleFuncDetail{notFoundErrResult}, notFoundErr, 1},
+		{"TestWaitUntilInServiceNoStateUnexpectedErr", []targetLifecycleFuncDetail{unexpectedErrResult}, badReqErr, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceUnexpectedErr", []targetLifecycleFuncDetail{warmedResult, unexpectedErrResult}, badReqErr, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceServerErrContinue", []targetLifecycleFuncDetail{warmedResult, serverErrResult, inServiceResult}, nil, asgLifecyclePollMax},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			cfg := getTestConfig()
+			cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient, cfg: &cfg}
+			for _, detail := range tc.funcTestDetails {
+				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err).Times(detail.returnTimes)
+			}
+			assert.Equal(t, tc.result, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls, testTargetLifecycleMaxRetryCount))
+		})
+	}
 }

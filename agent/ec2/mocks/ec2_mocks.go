@@ -261,6 +261,21 @@ func (mr *MockEC2MetadataClientMockRecorder) SubnetID(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetID", reflect.TypeOf((*MockEC2MetadataClient)(nil).SubnetID), arg0)
 }
 
+// TargetLifecycleState mocks base method
+func (m *MockEC2MetadataClient) TargetLifecycleState() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TargetLifecycleState")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TargetLifecycleState indicates an expected call of TargetLifecycleState
+func (mr *MockEC2MetadataClientMockRecorder) TargetLifecycleState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetLifecycleState", reflect.TypeOf((*MockEC2MetadataClient)(nil).TargetLifecycleState))
+}
+
 // VPCID mocks base method
 func (m *MockEC2MetadataClient) VPCID(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
