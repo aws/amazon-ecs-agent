@@ -1,3 +1,19 @@
+/*
+   Copyright The containerd Authors.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package cgroups
 
 import (
@@ -10,7 +26,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func NewCputset(root string) *cpusetController {
+func NewCpuset(root string) *cpusetController {
 	return &cpusetController{
 		root: filepath.Join(root, string(Cpuset)),
 	}
@@ -41,21 +57,21 @@ func (c *cpusetController) Create(path string, resources *specs.LinuxResources) 
 	if resources.CPU != nil {
 		for _, t := range []struct {
 			name  string
-			value *string
+			value string
 		}{
 			{
 				name:  "cpus",
-				value: &resources.CPU.Cpus,
+				value: resources.CPU.Cpus,
 			},
 			{
 				name:  "mems",
-				value: &resources.CPU.Mems,
+				value: resources.CPU.Mems,
 			},
 		} {
-			if t.value != nil {
-				if err := ioutil.WriteFile(
-					filepath.Join(c.Path(path), fmt.Sprintf("cpuset.%s", t.name)),
-					[]byte(*t.value),
+			if t.value != "" {
+				if err := retryingWriteFile(
+					filepath.Join(c.Path(path), "cpuset."+t.name),
+					[]byte(t.value),
 					defaultFilePerm,
 				); err != nil {
 					return err
@@ -64,6 +80,10 @@ func (c *cpusetController) Create(path string, resources *specs.LinuxResources) 
 		}
 	}
 	return nil
+}
+
+func (c *cpusetController) Update(path string, resources *specs.LinuxResources) error {
+	return c.Create(path, resources)
 }
 
 func (c *cpusetController) getValues(path string) (cpus []byte, mems []byte, err error) {
@@ -84,15 +104,14 @@ func (c *cpusetController) ensureParent(current, root string) error {
 	if _, err := filepath.Rel(root, parent); err != nil {
 		return nil
 	}
-	if cleanPath(parent) == root {
-		return nil
-	}
 	// Avoid infinite recursion.
 	if parent == current {
 		return fmt.Errorf("cpuset: cgroup parent path outside cgroup root")
 	}
-	if err := c.ensureParent(parent, root); err != nil {
-		return err
+	if cleanPath(parent) != root {
+		if err := c.ensureParent(parent, root); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(current, defaultDirPerm); err != nil {
 		return err
@@ -115,7 +134,7 @@ func (c *cpusetController) copyIfNeeded(current, parent string) error {
 		return err
 	}
 	if isEmpty(currentCpus) {
-		if err := ioutil.WriteFile(
+		if err := retryingWriteFile(
 			filepath.Join(current, "cpuset.cpus"),
 			parentCpus,
 			defaultFilePerm,
@@ -124,7 +143,7 @@ func (c *cpusetController) copyIfNeeded(current, parent string) error {
 		}
 	}
 	if isEmpty(currentMems) {
-		if err := ioutil.WriteFile(
+		if err := retryingWriteFile(
 			filepath.Join(current, "cpuset.mems"),
 			parentMems,
 			defaultFilePerm,

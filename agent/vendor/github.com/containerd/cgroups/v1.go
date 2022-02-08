@@ -1,3 +1,19 @@
+/*
+   Copyright The containerd Authors.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package cgroups
 
 import (
@@ -38,28 +54,20 @@ func v1MountPoint() (string, error) {
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return "", err
-		}
 		var (
-			text   = scanner.Text()
-			fields = strings.Split(text, " ")
-			// safe as mountinfo encodes mountpoints with spaces as \040.
-			index               = strings.Index(text, " - ")
-			postSeparatorFields = strings.Fields(text[index+3:])
-			numPostFields       = len(postSeparatorFields)
+			text      = scanner.Text()
+			fields    = strings.Split(text, " ")
+			numFields = len(fields)
 		)
-		// this is an error as we can't detect if the mount is for "cgroup"
-		if numPostFields == 0 {
-			return "", fmt.Errorf("Found no fields post '-' in %q", text)
+		if numFields < 10 {
+			return "", fmt.Errorf("mountinfo: bad entry %q", text)
 		}
-		if postSeparatorFields[0] == "cgroup" {
-			// check that the mount is properly formated.
-			if numPostFields < 3 {
-				return "", fmt.Errorf("Error found less than 3 fields post '-' in %q", text)
-			}
+		if fields[numFields-3] == "cgroup" {
 			return filepath.Dir(fields[4]), nil
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
 	}
 	return "", ErrMountPointNotExist
 }
