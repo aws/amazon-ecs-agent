@@ -39,9 +39,8 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 }
 
 func validateDockerStats(dockerStats *types.StatsJSON) error {
-	// The length of PercpuUsage represents the number of cores in an instance.
-	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 || numCores == uint64(0) {
-		return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
+	if numCores == uint64(0) {
+		return fmt.Errorf("invalid number of cores returned from runtime.NumCPU, numCores=0")
 	}
 	return nil
 }
