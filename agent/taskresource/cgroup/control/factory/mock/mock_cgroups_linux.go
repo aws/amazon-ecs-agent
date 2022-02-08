@@ -22,6 +22,7 @@ import (
 	reflect "reflect"
 
 	cgroups "github.com/containerd/cgroups"
+	v1 "github.com/containerd/cgroups/stats/v1"
 	gomock "github.com/golang/mock/gomock"
 	specs_go "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -50,17 +51,60 @@ func (m *MockCgroup) EXPECT() *MockCgroupMockRecorder {
 }
 
 // Add mocks base method
-func (m *MockCgroup) Add(arg0 cgroups.Process) error {
+func (m *MockCgroup) Add(arg0 cgroups.Process, arg1 ...cgroups.Name) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", arg0)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Add", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Add indicates an expected call of Add
-func (mr *MockCgroupMockRecorder) Add(arg0 interface{}) *gomock.Call {
+func (mr *MockCgroupMockRecorder) Add(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockCgroup)(nil).Add), arg0)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockCgroup)(nil).Add), varargs...)
+}
+
+// AddProc mocks base method
+func (m *MockCgroup) AddProc(arg0 uint64, arg1 ...cgroups.Name) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddProc", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddProc indicates an expected call of AddProc
+func (mr *MockCgroupMockRecorder) AddProc(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProc", reflect.TypeOf((*MockCgroup)(nil).AddProc), varargs...)
+}
+
+// AddTask mocks base method
+func (m *MockCgroup) AddTask(arg0 cgroups.Process, arg1 ...cgroups.Name) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddTask", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddTask indicates an expected call of AddTask
+func (mr *MockCgroupMockRecorder) AddTask(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTask", reflect.TypeOf((*MockCgroup)(nil).AddTask), varargs...)
 }
 
 // Delete mocks base method
@@ -150,15 +194,30 @@ func (mr *MockCgroupMockRecorder) Processes(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Processes", reflect.TypeOf((*MockCgroup)(nil).Processes), arg0, arg1)
 }
 
+// RegisterMemoryEvent mocks base method
+func (m *MockCgroup) RegisterMemoryEvent(arg0 cgroups.MemoryEvent) (uintptr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterMemoryEvent", arg0)
+	ret0, _ := ret[0].(uintptr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RegisterMemoryEvent indicates an expected call of RegisterMemoryEvent
+func (mr *MockCgroupMockRecorder) RegisterMemoryEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterMemoryEvent", reflect.TypeOf((*MockCgroup)(nil).RegisterMemoryEvent), arg0)
+}
+
 // Stat mocks base method
-func (m *MockCgroup) Stat(arg0 ...cgroups.ErrorHandler) (*cgroups.Stats, error) {
+func (m *MockCgroup) Stat(arg0 ...cgroups.ErrorHandler) (*v1.Metrics, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Stat", varargs...)
-	ret0, _ := ret[0].(*cgroups.Stats)
+	ret0, _ := ret[0].(*v1.Metrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -195,6 +254,21 @@ func (m *MockCgroup) Subsystems() []cgroups.Subsystem {
 func (mr *MockCgroupMockRecorder) Subsystems() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subsystems", reflect.TypeOf((*MockCgroup)(nil).Subsystems))
+}
+
+// Tasks mocks base method
+func (m *MockCgroup) Tasks(arg0 cgroups.Name, arg1 bool) ([]cgroups.Process, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tasks", arg0, arg1)
+	ret0, _ := ret[0].([]cgroups.Process)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Tasks indicates an expected call of Tasks
+func (mr *MockCgroupMockRecorder) Tasks(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tasks", reflect.TypeOf((*MockCgroup)(nil).Tasks), arg0, arg1)
 }
 
 // Thaw mocks base method
