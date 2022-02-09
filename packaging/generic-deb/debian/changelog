@@ -1,3 +1,10 @@
+amazon-ecs-init (1.59.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.59.0
+  * Log what pre-start is doing
+
+ -- Yash Kulshrestha <kulshres@amazon.com>  Fri, 04 Feb 2022 19:00:00 +0000
+
 amazon-ecs-init (1.58.0-2) stable; urgency=medium
 
   * Cache Agent version 1.58.0

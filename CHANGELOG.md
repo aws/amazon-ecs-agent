@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.59.0-1
+* Cache Agent version 1.59.0
+* Log what pre-start is doing
+
 ## 1.58.0-2
 * Cache Agent version 1.58.0
 * Add exec prerequisites to ecs-anywhere installation script
