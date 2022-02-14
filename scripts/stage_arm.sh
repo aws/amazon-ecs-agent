@@ -30,7 +30,7 @@ usage() {
 	echo
 	echo "This script is responsible for staging new versions of the Amazon ECS Container Agent."
 	echo "1. (Optionally) Push the image to a registry, tagged with :latest, :VERSION, and :SHA"
-	echo "2. Push the image (and its md5sum) to S3 with -latest, -VERSION, and -SHA"
+	echo "2. Push the image (and its sha256sum) to S3 with -latest, -VERSION, and -SHA"
 	echo
 	echo "Options"
 	echo "  -d  true|false  Dryrun (default is true)"
@@ -43,22 +43,22 @@ usage() {
 
 stage_s3() {
 	tarball="$(mktemp)"
-	tarball_md5="$(mktemp)"
+	tarball_sha256="$(mktemp)"
 	tarball_manifest="$(mktemp)"
 
-	trap "rm -r \"${tarball}\" \"${tarball_md5}\" \"${tarball_manifest}\"" RETURN EXIT
+	trap "rm -r \"${tarball}\" \"${tarball_sha256}\" \"${tarball_manifest}\"" RETURN EXIT
 
 	generate_manifest ${IMAGE_TAG_VERSION} > "${tarball_manifest}"
 
 	docker save "amazon/amazon-ecs-agent:latest" > "${tarball}"
-	md5sum "${tarball}" | sed 's/ .*//' > "${tarball_md5}"
-	echo "Saved with md5sum $(cat ${tarball_md5})"
+	sha256sum "${tarball}" | sed 's/ .*//' > "${tarball_sha256}"
+	echo "Saved with sha256sum $(cat ${tarball_sha256})"
 
     mkdir -p out
 	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
 		echo "Publishing as ecs-agent-arm64-${tag}"
 		cp "${tarball}" "out/ecs-agent-arm64-${tag}.tar"
-		cp "${tarball_md5}" "out/ecs-agent-arm64-${tag}.tar.md5"
+		cp "${tarball_sha256}" "out/ecs-agent-arm64-${tag}.tar.sha256"
 		cp "${tarball_manifest}" "out/ecs-agent-arm64-${tag}.tar.json"
 
 	done

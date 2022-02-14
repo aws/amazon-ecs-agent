@@ -50,15 +50,15 @@ unpublish_s3() {
 	fi
 
 	tarball_bad="$(mktemp)"
-	tarball_latest_md5="$(mktemp)"
+	tarball_latest_sha256="$(mktemp)"
 
 	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${BAD_VERSION}.tar" "${tarball_bad}"
-	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${IMAGE_TAG_LATEST}.tar.md5" "${tarball_latest_md5}"
+	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${IMAGE_TAG_LATEST}.tar.sha256" "${tarball_latest_sha256}"
 
-	if ! check_md5 "${tarball_bad}" "${tarball_latest_md5}"; then
+	if ! check_sha256 "${tarball_bad}" "${tarball_latest_sha256}"; then
 		echo "The bad version ${BAD_VERSION} is not currently tagged as latest"
 		rm "${tarball_bad}"
-		rm "${tarball_latest_md5}"
+		rm "${tarball_latest_sha256}"
 		exit 1
 	fi
 
@@ -84,15 +84,15 @@ unpublish_docker() {
 	fi
 
 	tarball="$(mktemp)"
-	tarball_md5="$(mktemp)"
+	tarball_sha256="$(mktemp)"
 
 	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${GOOD_VERSION}.tar" "${tarball}"
-	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${GOOD_VERSION}.tar.md5" "${tarball_md5}"
+	s3_cp "s3://${PUBLISH_S3_BUCKET}/ecs-agent-${GOOD_VERSION}.tar.sha256" "${tarball_sha256}"
 
-	if ! check_md5 "${tarball}" "${tarball_md5}" ; then
+	if ! check_sha256 "${tarball}" "${tarball_sha256}" ; then
 		echo "Failed to validate integrity of s3://${PUBLISH_S3_BUCKET}/ecs-agent-${GOOD_VERSION}.tar"
 		rm "${tarball}"
-		rm "${tarball_md5}"
+		rm "${tarball_sha256}"
 		exit 1
 	fi
 
@@ -107,7 +107,7 @@ unpublish_docker() {
 	dryval docker push "${IMAGE_NAME}:${IMAGE_TAG_LATEST}"
 
 	rm "${tarball}"
-	rm "${tarball_md5}"
+	rm "${tarball_sha256}"
 }
 
 while getopts ":p:d:b:g:h:n" opt; do

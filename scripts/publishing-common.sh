@@ -54,11 +54,11 @@ dryval() {
 	esac
 }
 
-check_md5() {
-	test_md5="$(md5sum ${1} | sed 's/ .*//')"
-	expected_md5="$(cat ${2})"
-	if [ ! "${test_md5}" = "${expected_md5}" ]; then
-		echo "Computed md5sum ${test_md5} did not match expected md5sum ${expected_md5}"
+check_sha256() {
+	test_sha256="$(sha256sum ${1} | sed 's/ .*//')"
+	expected_sha256="$(cat ${2})"
+	if [ ! "${test_sha256}" = "${expected_sha256}" ]; then
+		echo "Computed sha256sum ${test_sha256} did not match expected sha256sum ${expected_sha256}"
 		return $(false)
 	fi
 

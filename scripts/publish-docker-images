@@ -42,8 +42,8 @@ usage() {
 	echo "  -h			  	Display this help message"
 }
 
-verify_md5() {
-	if ! check_md5 "${1}" "${2}" ; then
+verify_sha256() {
+	if ! check_sha256 "${1}" "${2}" ; then
 		echo "Failed to validate integrity of s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar"
 		exit 1
 	fi
@@ -57,14 +57,14 @@ push_linux_amd_agent_docker_hub() {
 	echo "======================================================"
 	echo
 	tarball="$(mktemp)"  # Directory that contains the staged image of agent
-	tarball_md5="$(mktemp)" # Directory that contains md5sum of the staged image
-	# Pulling the staged image and its md5sum
+	tarball_sha256="$(mktemp)" # Directory that contains sha256sum of the staged image
+	# Pulling the staged image and its sha256sum
 	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar" "${tarball}"
-	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5}"
-	echo "Checking ecs-agent-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-${IMAGE_TAG_SHA}.tar.md5"
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar.sha256" "${tarball_sha256}"
+	echo "Checking ecs-agent-${IMAGE_TAG_SHA}.tar sha256 sum against ecs-agent-${IMAGE_TAG_SHA}.tar.sha256"
 
-	verify_md5 "${tarball}" "${tarball_md5}"
-	echo "md5sum Check Successful"
+	verify_sha256 "${tarball}" "${tarball_sha256}"
+	echo "sha256sum Check Successful"
 
 	# Pushing to docker hub
 	docker load < "${tarball}"
@@ -73,7 +73,7 @@ push_linux_amd_agent_docker_hub() {
 	done
 
 	rm "${tarball}"
-	rm "${tarball_md5}"
+	rm "${tarball_sha256}"
 }
 
 push_linux_arm_agent_docker_hub() {
@@ -83,14 +83,14 @@ push_linux_arm_agent_docker_hub() {
 	echo "======================================================="
 	echo
 	tarball_arm="$(mktemp)" # Directory that contains the staged image of agent
-	tarball_md5_arm="$(mktemp)" # Directory that contains the staged image of agent
-	# Pulling the staged image and its md5sum
+	tarball_sha256_arm="$(mktemp)" # Directory that contains the staged image of agent
+	# Pulling the staged image and its sha256sum
 	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar" "${tarball_arm}"
-	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5_arm}"
-	echo "Checking ecs-agent-arm64-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5"
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.sha256" "${tarball_sha256_arm}"
+	echo "Checking ecs-agent-arm64-${IMAGE_TAG_SHA}.tar sha256 sum against ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.sha256"
 
-	verify_md5 "${tarball_arm}" "${tarball_md5_arm}"
-	echo "md5sum Check Successful"
+	verify_sha256 "${tarball_arm}" "${tarball_sha256_arm}"
+	echo "sha256sum Check Successful"
 
 	# Pushing to docker hub
 	docker load < "${tarball_arm}"
@@ -99,7 +99,7 @@ push_linux_arm_agent_docker_hub() {
 	done
 
 	rm "${tarball_arm}"
-	rm "${tarball_md5_arm}"
+	rm "${tarball_sha256_arm}"
 }
 
 push_multi-arch_manifest_docker_hub() {

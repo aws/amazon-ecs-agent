@@ -15,7 +15,7 @@ package metrics
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -58,7 +58,7 @@ func Init() {
 func (gm *GenericMetrics) RecordCall(callID, callName string, callTime time.Time, callStarted chan bool) string {
 	if callID == "" {
 		hashData := []byte("GenericMetrics-" + callName + strconv.FormatFloat(float64(rand.Float32()), 'f', -1, 32))
-		hash := fmt.Sprintf("%x", md5.Sum(hashData))
+		hash := fmt.Sprintf("%x", sha256.Sum256(hashData))
 		// Go routines are utilized to avoid blocking the main thread in case of
 		// resource contention with var outstandingCalls
 		go gm.FireCallStart(hash, callName, callTime, callStarted)

@@ -6,26 +6,26 @@
 [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
 $agentVersion = 'v1.15.2'
 $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-$agentZipMD5Uri = "$agentZipUri.md5"
+$agentZipSha256Uri = "$agentZipUri.sha256"
 
 
 ### --- Nothing user configurable after this point ---
 $ecsExeDir = "$env:ProgramFiles\Amazon\ECS"
 $zipFile = "$env:TEMP\ecs-agent.zip"
-$md5File = "$env:TEMP\ecs-agent.zip.md5"
+$sha256File = "$env:TEMP\ecs-agent.zip.sha256"
 
 ### Get the files from S3
 Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-Invoke-RestMethod -OutFile $md5File -Uri $agentZipMD5Uri
+Invoke-RestMethod -OutFile $sha256File -Uri $agentZipSha256Uri
 
-## MD5 Checksum
-$expectedMD5 = (Get-Content $md5File)
-$md5 = New-Object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
-$actualMD5 = [System.BitConverter]::ToString($md5.ComputeHash([System.IO.File]::ReadAllBytes($zipFile))).replace('-', '')
+## SHA256 Checksum
+$expectedSHA256 = (Get-Content $sha256File)
+$sha256 = New-Object -TypeName System.Security.Cryptography.SHA256CryptoServiceProvider
+$actualSHA256 = [System.BitConverter]::ToString($sha256.ComputeHash([System.IO.File]::ReadAllBytes($zipFile))).replace('-', '')
 
-if($expectedMD5 -ne $actualMD5) {
+if($expectedSHA256 -ne $actualSHA256) {
     echo "Download doesn't match hash."
-    echo "Expected: $expectedMD5 - Got: $actualMD5"
+    echo "Expected: $expectedSHA256 - Got: $actualSHA256"
     exit 1
 }
 
