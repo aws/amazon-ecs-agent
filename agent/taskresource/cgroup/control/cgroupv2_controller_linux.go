@@ -62,9 +62,13 @@ func (c *controlv2) Remove(cgroupPath string) error {
 
 	m, err := cgroupsv2.LoadSystemd(parentCgroupSlice, cgroupPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("cgroupv2 remove: error loading systemd cgroup: %s", err)
 	}
-	return m.DeleteSystemd()
+	err = m.DeleteSystemd()
+	if err != nil {
+		return fmt.Errorf("cgroupv2 remove: error deleting systemd cgroup: %s", err)
+	}
+	return nil
 }
 
 // Exists is used to verify the existence of a cgroup
@@ -78,6 +82,7 @@ func (c *controlv2) Exists(cgroupPath string) bool {
 	}
 	if err != nil {
 		seelog.Errorf("error checking if cgroup exists err=%s", err)
+		return false
 	}
 	return true
 }
