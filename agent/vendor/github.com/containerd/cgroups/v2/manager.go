@@ -734,12 +734,12 @@ func NewSystemd(slice, group string, pid int, resources *Resources) (*Manager, e
 		properties = append(properties, newSystemdProperty("PIDs", []uint32{uint32(pid)}))
 	}
 
-	if resources.Memory != nil && *resources.Memory.Max != 0 {
+	if resources.Memory != nil && resources.Memory.Max != nil && *resources.Memory.Max != 0 {
 		properties = append(properties,
 			newSystemdProperty("MemoryMax", uint64(*resources.Memory.Max)))
 	}
 
-	if resources.CPU != nil && *resources.CPU.Weight != 0 {
+	if resources.CPU != nil && resources.CPU.Weight != nil && *resources.CPU.Weight != 0 {
 		properties = append(properties,
 			newSystemdProperty("CPUWeight", *resources.CPU.Weight))
 	}

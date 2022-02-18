@@ -48,6 +48,7 @@ func (c *controlv2) Create(cgroupSpec *Spec) error {
 
 	cgroupPath := cgroupSpec.Root
 	seelog.Infof("Creating cgroup cgroupv2root=%s parentSlice=%s cgroupPath=%s", defaultCgroupv2Path, parentCgroupSlice, cgroupPath)
+
 	_, err = cgroupsv2.NewSystemd(parentCgroupSlice, cgroupPath, generalSlicePID, cgroupsv2.ToResources(cgroupSpec.Specs))
 	if err != nil {
 		return fmt.Errorf("cgroupv2 create: unable to create v2 manager cgroupPath=%s err=%s", cgroupPath, err)
