@@ -18,6 +18,7 @@ export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
 export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
+export GO111MODULE="auto"
 
 if [ -d "${TOPWD}/.git" ]; then
     version=$(cat "${TOPWD}/ecs-init/ECSVERSION")

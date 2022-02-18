@@ -23,6 +23,7 @@
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
 %global no_exec_perm 644
+%global debug_package %{nil}
 
 %ifarch x86_64
 %global agent_image %{SOURCE3}
@@ -224,7 +225,7 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %systemd_post amazon-ecs-volume-plugin.service
 
 %postun
-%systemd_postun
+%systemd_postun ecs
 %systemd_postun_with_restart amazon-ecs-volume-plugin
 
 %else
