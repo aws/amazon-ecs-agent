@@ -20,3 +20,4 @@ override_dh_auto_install:
 	echo "2" >debian/amazon-ecs-init/var/cache/ecs/state
 	ln -s "/var/cache/ecs/ecs-agent-v${VERSION}.tar" debian/amazon-ecs-init/var/cache/ecs/ecs-agent.tar
 	dh_installsystemd --no-start --no-enable --name=ecs
+	dh_installsystemd --no-start --no-enable --name=amazon-ecs-volume-plugin
