@@ -17,6 +17,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -118,16 +121,26 @@ func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string,
 
 	switch attachmentType {
 	case apieni.ENIAttachmentTypeTaskENI:
-		seelog.Infof("Adding task eni attachment info for task '%s' to state, attachment=%s mac=%s",
-			taskARN, attachmentARN, mac)
+		taskId, _ := utils.TaskIdFromArn(taskARN)
+		logger.Info("Adding eni attachment info to state for task", logger.Fields{
+			field.TaskID:    taskId,
+			"attachmentARN": attachmentARN,
+			"mac":           mac,
+		})
 	case apieni.ENIAttachmentTypeInstanceENI:
-		seelog.Infof("Adding instance eni attachment info to state, attachment=%s mac=%s", attachmentARN, mac)
+		logger.Info("Adding instance eni attachment info to state", logger.Fields{
+			"attachmentARN": attachmentARN,
+			"mac":           mac,
+		})
 	default:
 		return fmt.Errorf("unrecognized eni attachment type: %s", attachmentType)
 	}
 	state.AddENIAttachment(eniAttachment)
 	if err := dataClient.SaveENIAttachment(eniAttachment); err != nil {
-		seelog.Errorf("Failed to save data for eni attachment %s: %v", eniAttachment.AttachmentARN, err)
+		logger.Error("Failed to save data for eni attachment", logger.Fields{
+			"attachmentARN": attachmentARN,
+			field.Error:     err,
+		})
 	}
 	return nil
 }

@@ -68,7 +68,7 @@ type StatsTask struct {
 	*statsTaskCommon
 }
 
-func newStatsTaskContainer(taskARN string, containerPID string, numberOfContainers int,
+func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContainers int,
 	resolver resolver.ContainerMetadataResolver, publishInterval time.Duration, taskENIs task.TaskENIs) (*StatsTask, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 

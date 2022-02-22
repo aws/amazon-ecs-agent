@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+
 	"crypto/tls"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -145,7 +147,9 @@ type MakeRequestHookFunc func([]byte) ([]byte, error)
 // 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
-	seelog.Infof("Establishing a Websocket connection to %s", cs.URL)
+	logger.Info("Establishing a Websocket connection", logger.Fields{
+		"url": cs.URL,
+	})
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
 		return err

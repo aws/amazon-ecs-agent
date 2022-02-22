@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -149,18 +152,27 @@ func (event *sendableEvent) send(
 	backoff retry.Backoff,
 	taskEvents *taskSendableEvents) error {
 
-	seelog.Infof("TaskHandler: Sending %s change: %s", eventType, event.toString())
+	logger.Info("Sending state change to ECS", logger.Fields{
+		"eventType": eventType,
+		"eventData": event.toString(),
+	})
 	// Try submitting the change to ECS
 	if err := sendStatusToECS(client, event); err != nil {
-		seelog.Errorf("TaskHandler: Unretriable error submitting %s state change [%s]: %v",
-			eventType, event.toString(), err)
+		logger.Error("Unretriable error sending state change to ECS", logger.Fields{
+			"eventType": eventType,
+			"eventData": event.toString(),
+			field.Error: err,
+		})
 		return err
 	}
 	// submitted; ensure we don't retry it
 	event.setSent()
 	// Mark event as sent
 	setChangeSent(event, dataClient)
-	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
+	logger.Debug("Submitted state change to ECS", logger.Fields{
+		"eventType": eventType,
+		"eventData": event.toString(),
+	})
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
 	return nil

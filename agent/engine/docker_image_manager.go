@@ -21,6 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/docker/docker/api/types"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -102,7 +105,9 @@ func buildImageCleanupExclusionList(cfg *config.Config) []string {
 		config.CachedImageNameAgentContainer,
 	)
 	for _, image := range excludedImages {
-		seelog.Infof("Image excluded from cleanup: %s", image)
+		logger.Info("Image excluded from cleanup", logger.Fields{
+			field.Image: image,
+		})
 	}
 	return excludedImages
 }

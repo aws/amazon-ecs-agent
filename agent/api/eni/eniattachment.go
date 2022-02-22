@@ -18,8 +18,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -55,6 +58,25 @@ type ENIAttachment struct {
 	guard sync.RWMutex
 }
 
+func getEniAttachmentLogFields(eni *ENIAttachment, duration time.Duration) logger.Fields {
+	fields := logger.Fields{
+		"duration":       duration.String(),
+		"attachmentARN":  eni.AttachmentARN,
+		"attachmentType": eni.AttachmentType,
+		"attachmentSent": eni.AttachStatusSent,
+		"mac":            eni.MACAddress,
+		"status":         eni.Status.String(),
+		"expiresAt":      eni.ExpiresAt.Format(time.RFC3339),
+	}
+
+	if eni.AttachmentType != ENIAttachmentTypeInstanceENI {
+		taskId, _ := utils.TaskIdFromArn(eni.TaskARN)
+		fields[field.TaskID] = taskId
+	}
+
+	return fields
+}
+
 // StartTimer starts the ack timer to record the expiration of ENI attachment
 func (eni *ENIAttachment) StartTimer(timeoutFunc func()) error {
 	eni.guard.Lock()
@@ -70,7 +92,7 @@ func (eni *ENIAttachment) StartTimer(timeoutFunc func()) error {
 		return errors.Errorf("eni attachment: timer expiration is in the past; expiration [%s] < now [%s]",
 			eni.ExpiresAt.String(), now.String())
 	}
-	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.stringUnsafe())
+	logger.Info("Starting ENI ack timer", getEniAttachmentLogFields(eni, duration))
 	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
 	return nil
 }
@@ -92,7 +114,7 @@ func (eni *ENIAttachment) Initialize(timeoutFunc func()) error {
 		return errors.New("ENI attachment has already expired")
 	}
 
-	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.stringUnsafe())
+	logger.Info("Starting ENI ack timer", getEniAttachmentLogFields(eni, duration))
 	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
 	return nil
 }

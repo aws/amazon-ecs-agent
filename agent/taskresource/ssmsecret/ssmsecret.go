@@ -335,7 +335,7 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 	defer wg.Done()
 
 	ssmClient := secret.ssmClientCreator.NewSSMClient(region, iamCredentials)
-	seelog.Infof("ssm secret resource: retrieving resource for secrets %v in region [%s] in task: [%s]", names, region, secret.taskARN)
+	seelog.Debugf("ssm secret resource: retrieving resource for secrets %v in region [%s] in task: [%s]", names, region, secret.taskARN)
 	secValueMap, err := ssm.GetSecretsFromSSM(names, ssmClient)
 	if err != nil {
 		errorEvents <- fmt.Errorf("fetching secret data from SSM Parameter Store in %s: %v", region, err)

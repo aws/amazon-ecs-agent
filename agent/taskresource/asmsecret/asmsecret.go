@@ -269,7 +269,7 @@ func (secret *ASMSecretResource) Create() error {
 	// Get the maximum number of errors to be returned, which will be one error per goroutine
 	errorEvents := make(chan error, len(secret.requiredSecrets))
 
-	seelog.Infof("ASM secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
+	seelog.Debugf("ASM secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
 	secret.secretData = make(map[string]string)
 
 	for _, asmsecret := range secret.getRequiredSecrets() {
@@ -300,7 +300,7 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 	defer wg.Done()
 
 	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
-	seelog.Infof("ASM secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
+	seelog.Debugf("ASM secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
 	input, jsonKey, err := getASMParametersFromInput(apiSecret.ValueFrom)
 	if err != nil {
 		errorEvents <- fmt.Errorf("trying to retrieve secret with value %s resulted in error: %v", apiSecret.ValueFrom, err)

@@ -16,6 +16,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
@@ -128,7 +131,10 @@ func (payloadHandler *payloadRequestHandler) ackMessageId(messageID string) {
 		MessageId:         aws.String(messageID),
 	})
 	if err != nil {
-		seelog.Warnf("Error 'ack'ing request with messageID: %s, error: %v", messageID, err)
+		logger.Warn("Error ack'ing request", logger.Fields{
+			"messageID": messageID,
+			field.Error: err,
+		})
 	}
 }
 
@@ -197,6 +203,12 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			allTasksOK = false
 			continue
 		}
+
+		logger.Info("Received task payload from ACS", logger.Fields{
+			field.TaskARN:       apiTask.Arn,
+			"version":           apiTask.Version,
+			field.DesiredStatus: apiTask.GetDesiredStatus(),
+		})
 
 		if task.RoleCredentials != nil {
 			// The payload from ACS for the task has credentials for the
