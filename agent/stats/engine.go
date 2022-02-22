@@ -22,6 +22,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
@@ -165,7 +168,10 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 	defer engine.lock.Unlock()
 	statsContainer, statsTaskContainer, err := engine.addContainerUnsafe(containerID)
 	if err != nil {
-		seelog.Debugf("Adding container to stats watch list failed, container: %s, err: %v", containerID, err)
+		logger.Debug("Adding container to stats watchlist failed", logger.Fields{
+			field.Container: containerID,
+			field.Error:     err,
+		})
 		return
 	}
 
@@ -182,7 +188,10 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 
 	dockerContainer, errResolveContainer := engine.resolver.ResolveContainer(containerID)
 	if errResolveContainer != nil {
-		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", containerID, err)
+		logger.Debug("Could not map container ID to container", logger.Fields{
+			field.Container: containerID,
+			field.Error:     err,
+		})
 		return
 	}
 
@@ -191,7 +200,9 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 		if statsTaskContainer != nil && dockerContainer.Container.Type == apicontainer.ContainerCNIPause {
 			statsTaskContainer.StartStatsCollection()
 		} else {
-			seelog.Debugf("stats task container is nil, cannot start task stats collection")
+			logger.Debug("Stats task container is nil, cannot start task stats collection", logger.Fields{
+				field.Container: containerID,
+			})
 		}
 	}
 
@@ -204,7 +215,7 @@ func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecseng
 
 	engine.ctx = derivedCtx
 	// TODO ensure that this is done only once per engine object
-	seelog.Info("Initializing stats engine")
+	logger.Info("Initializing stats engine")
 	engine.cluster = cluster
 	engine.containerInstanceArn = containerInstanceArn
 
@@ -221,7 +232,9 @@ func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecseng
 	}
 	err = engine.synchronizeState()
 	if err != nil {
-		seelog.Warnf("Synchronize the container state failed, err: %v", err)
+		logger.Warn("Synchronize the container state failed", logger.Fields{
+			field.Error: err,
+		})
 	}
 
 	go engine.waitToStop()
@@ -243,7 +256,7 @@ func (engine *DockerStatsEngine) Disable() {
 func (engine *DockerStatsEngine) waitToStop() {
 	// Waiting for the event stream to close
 	<-engine.containerChangeEventStream.Context().Done()
-	seelog.Debug("Event stream closed, stop listening to the event stream")
+	logger.Debug("Event stream closed, stop listening to the event stream")
 	engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 	engine.removeAll()
 }
@@ -280,7 +293,7 @@ func (engine *DockerStatsEngine) addToStatsTaskMapUnsafe(task *apitask.Task, doc
 				return
 			}
 			containerpid := strconv.Itoa(containerInspect.State.Pid)
-			statsTaskContainer, err = newStatsTaskContainer(task.Arn, containerpid, numberOfContainers,
+			statsTaskContainer, err = newStatsTaskContainer(task.Arn, task.GetID(), containerpid, numberOfContainers,
 				engine.resolver, engine.config.PollingMetricsWaitDuration, task.ENIs)
 			if err != nil {
 				return
@@ -494,13 +507,18 @@ func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsCon
 		// docker task engine. If the docker task engine has already removed
 		// the container from its state, there's no point in stats engine tracking the
 		// container. So, clean-up anyway.
-		seelog.Warnf("Error determining if the container %s is terminal, removing from stats, err: %v", container.containerMetadata.DockerID, err)
+		logger.Warn("Error determining if the container is terminal, removing from stats", logger.Fields{
+			field.Container: container.containerMetadata.DockerID,
+			field.Error:     err,
+		})
 		engine.doRemoveContainerUnsafe(container, taskARN)
 		return true
 	}
 	if terminal {
 		// Container is in known terminal state. Stop collection metrics.
-		seelog.Infof("Container %s is terminal, removing from stats", container.containerMetadata.DockerID)
+		logger.Info("Container is terminal, removing from stats", logger.Fields{
+			field.Container: container.containerMetadata.DockerID,
+		})
 		engine.doRemoveContainerUnsafe(container, taskARN)
 		return true
 	}
@@ -657,12 +675,18 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Infof("cloudwatch metrics for container %v not collected, reason (cpu): %v", dockerID, err)
+			logger.Error("Error collecting cloudwatch metrics for container", logger.Fields{
+				field.Container: dockerID,
+				field.Error:     err,
+			})
 			continue
 		}
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Infof("cloudwatch metrics for container %v not collected, reason (memory): %v", dockerID, err)
+			logger.Error("Error collecting cloudwatch metrics for container", logger.Fields{
+				field.Container: dockerID,
+				field.Error:     err,
+			})
 			continue
 		}
 
@@ -674,14 +698,20 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 
 		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
+			logger.Warn("Error getting storage stats for container", logger.Fields{
+				field.Container: dockerID,
+				field.Error:     err,
+			})
 		} else {
 			containerMetric.StorageStatsSet = storageStatsSet
 		}
 
 		task, err := engine.resolver.ResolveTask(dockerID)
 		if err != nil {
-			seelog.Warnf("Task not found for container ID: %s", dockerID)
+			logger.Warn("Task not found for container", logger.Fields{
+				field.Container: dockerID,
+				field.Error:     err,
+			})
 		} else {
 			// send network stats for default/bridge/nat/awsvpc network modes
 			if !task.IsNetworkModeAWSVPC() && container.containerMetadata.NetworkMode != hostNetworkMode &&
@@ -689,7 +719,10 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
 				if err != nil {
 					// we log the error and still continue to publish cpu, memory stats
-					seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+					logger.Warn("Error getting network stats for container", logger.Fields{
+						field.Container: dockerID,
+						field.Error:     err,
+					})
 				} else {
 					containerMetric.NetworkStatsSet = networkStatsSet
 				}
@@ -705,7 +738,11 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 					if dockerContainer.Container.Type != apicontainer.ContainerCNIPause {
 						networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
 						if err != nil {
-							seelog.Warnf("error getting network stats: %v, task: %v", err, taskArn)
+							logger.Warn("Error getting network stats for container", logger.Fields{
+								field.TaskARN:   taskArn,
+								field.Container: dockerContainer.DockerID,
+								field.Error:     err,
+							})
 						} else {
 							containerMetric.NetworkStatsSet = networkStats
 						}
@@ -788,7 +825,11 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 			}
 			containerNetworkRateStats = taskStats.StatsQueue.GetLastNetworkStatPerSec()
 		} else {
-			seelog.Warnf("Network stats not found for container %s", containerID)
+			logger.Warn("Network stats not found for container", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: containerID,
+				field.Error:     err,
+			})
 		}
 	}
 

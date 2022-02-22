@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 
-	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockerstats "github.com/docker/docker/api/types"
 )
@@ -51,31 +53,40 @@ func (taskStat *StatsTask) StopStatsCollection() {
 }
 
 func (taskStat *StatsTask) collect() {
-	taskArn := taskStat.TaskMetadata.TaskArn
+	taskId := taskStat.TaskMetadata.TaskId
 	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*10, 0.5, 2)
 
 	for {
 		err := taskStat.processStatsStream()
 		select {
 		case <-taskStat.Ctx.Done():
-			seelog.Debugf("Stopping stats collection for taskStat %s", taskArn)
+			logger.Debug("Stopping stats collection for taskStat", logger.Fields{
+				field.TaskID: taskId,
+			})
 			return
 		default:
 			if err != nil {
 				d := backoff.Duration()
 				time.Sleep(d)
-				seelog.Debugf("Error querying stats for task %s: %v", taskArn, err)
+				logger.Debug("Error querying stats for task", logger.Fields{
+					field.TaskID: taskId,
+					field.Error:  err,
+				})
 			}
 			// We were disconnected from the stats stream.
 			// Check if the task is terminal. If it is, stop collecting metrics.
 			terminal, err := taskStat.terminal()
 			if err != nil {
 				// Error determining if the task is terminal. clean-up anyway.
-				seelog.Warnf("Error determining if the task %s is terminal, stopping stats collection: %v",
-					taskArn, err)
+				logger.Warn("Error determining if the task is terminal, stopping stats collection", logger.Fields{
+					field.TaskID: taskId,
+					field.Error:  err,
+				})
 				taskStat.StopStatsCollection()
 			} else if terminal {
-				seelog.Infof("Task %s is terminal, stopping stats collection", taskArn)
+				logger.Warn("Task is terminal, stopping stats collection", logger.Fields{
+					field.TaskID: taskId,
+				})
 				taskStat.StopStatsCollection()
 			}
 		}
@@ -83,18 +94,22 @@ func (taskStat *StatsTask) collect() {
 }
 
 func (taskStat *StatsTask) processStatsStream() error {
-	taskArn := taskStat.TaskMetadata.TaskArn
+	taskId := taskStat.TaskMetadata.TaskId
 	awsvpcNetworkStats, errC := taskStat.getAWSVPCNetworkStats()
 
 	returnError := false
 	for {
 		select {
 		case <-taskStat.Ctx.Done():
-			seelog.Info("task context is done")
+			logger.Info("Task context is done", logger.Fields{
+				field.TaskID: taskId,
+			})
 			return nil
 		case err := <-errC:
-			seelog.Warnf("Error encountered processing metrics stream from host, this may affect "+
-				"cloudwatch metric accuracy: %s", err)
+			logger.Warn("Error encountered processing metrics stream from host, this may affect cloudwatch metric accuracy", logger.Fields{
+				field.TaskID: taskId,
+				field.Error:  err,
+			})
 			returnError = true
 		case rawStat, ok := <-awsvpcNetworkStats:
 			if !ok {
@@ -104,7 +119,10 @@ func (taskStat *StatsTask) processStatsStream() error {
 				return nil
 			}
 			if err := taskStat.StatsQueue.Add(rawStat); err != nil {
-				seelog.Warnf("Task [%s]: error converting stats: %v", taskArn, err)
+				logger.Warn("Error converting task stats", logger.Fields{
+					field.TaskID: taskId,
+					field.Error:  err,
+				})
 			}
 		}
 

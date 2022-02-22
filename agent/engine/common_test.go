@@ -252,7 +252,6 @@ func addTaskToEngine(t *testing.T,
 
 	taskEngine.AddTask(sleepTask)
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
-
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
 	// backwards in state" stop and we haven't 'expect'd for that

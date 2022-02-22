@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -587,8 +589,11 @@ func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*
 	if !expired && found {
 		// Cache hit and not expired. Return the output.
 		if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
-			seelog.Infof("Using cached DiscoverPollEndpoint. endpoint=%s telemetryEndpoint=%s containerInstanceARN=%s",
-				aws.StringValue(output.Endpoint), aws.StringValue(output.TelemetryEndpoint), containerInstanceArn)
+			logger.Info("Using cached DiscoverPollEndpoint", logger.Fields{
+				"endpoint":             aws.StringValue(output.Endpoint),
+				"telemetryEndpoint":    aws.StringValue(output.TelemetryEndpoint),
+				"containerInstanceARN": containerInstanceArn,
+			})
 			return output, nil
 		}
 	}
@@ -604,8 +609,11 @@ func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*
 		// we have it.
 		if expired {
 			if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
-				seelog.Infof("Error calling DiscoverPollEndpoint. Using cached but expired endpoint as a fallback. error=%s endpoint=%s telemetryEndpoint=%s containerInstanceARN=%s",
-					err, aws.StringValue(output.Endpoint), aws.StringValue(output.TelemetryEndpoint), containerInstanceArn)
+				logger.Info("Error calling DiscoverPollEndpoint. Using cached-but-expired endpoint as a fallback.", logger.Fields{
+					"endpoint":             aws.StringValue(output.Endpoint),
+					"telemetryEndpoint":    aws.StringValue(output.TelemetryEndpoint),
+					"containerInstanceARN": containerInstanceArn,
+				})
 				return output, nil
 			}
 		}

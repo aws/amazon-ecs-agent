@@ -1640,30 +1640,6 @@ func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
 	}
 }
 
-// TestGetIDErrorPaths performs table tests on GetID with erroneous taskARNs
-func TestGetIDErrorPaths(t *testing.T) {
-	testCases := []struct {
-		arn  string
-		name string
-	}{
-		{"", "EmptyString"},
-		{"invalidArn", "InvalidARN"},
-		{"arn:aws:ecs:region:account-id:task:task-id", "IncorrectSections"},
-		{"arn:aws:ecs:region:account-id:task", "IncorrectResourceSections"},
-	}
-
-	task := Task{}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			task.Arn = tc.arn
-			taskID, err := task.GetID()
-			assert.Error(t, err, "GetID should return an error")
-			assert.Empty(t, taskID, "ID should be empty")
-		})
-	}
-}
-
 // TestGetIDHappyPath validates the happy path of GetID
 func TestGetIDHappyPath(t *testing.T) {
 	taskNormalARN := Task{
@@ -1673,14 +1649,11 @@ func TestGetIDHappyPath(t *testing.T) {
 		Arn: "arn:aws:ecs:region:account-id:task/cluster-name/task-id",
 	}
 
-	taskID, err := taskNormalARN.GetID()
-	assert.NoError(t, err)
+	taskID := taskNormalARN.GetID()
 	assert.Equal(t, "task-id", taskID)
 
-	taskID, err = taskLongARN.GetID()
-	assert.NoError(t, err)
+	taskID = taskLongARN.GetID()
 	assert.Equal(t, "task-id", taskID)
-
 }
 
 // TestTaskGetPrimaryENI tests the eni can be correctly acquired by calling GetTaskPrimaryENI

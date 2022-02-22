@@ -18,9 +18,11 @@ package engine
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -52,7 +54,11 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 	// Invoke the cni plugin for the container using libcni
 	_, err = engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
 	if err != nil {
-		seelog.Errorf("Task engine [%s]: unable to configure container %v in the pause namespace: %v", task.Arn, container.Name, err)
+		logger.Error("Unable to configure container in the pause namespace", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			field.Error:     err,
+		})
 		return errors.Wrap(err, "failed to connect HNS endpoint to container")
 	}
 

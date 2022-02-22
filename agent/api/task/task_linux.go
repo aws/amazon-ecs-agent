@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -78,11 +80,10 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 // BuildCgroupRoot helps build the task cgroup prefix
 // Example: /ecs/task-id
 func (task *Task) BuildCgroupRoot() (string, error) {
-	taskID, err := task.GetID()
+	taskID, err := utils.TaskIdFromArn(task.Arn)
 	if err != nil {
-		return "", errors.Wrapf(err, "task build cgroup root: unable to get task-id from task ARN: %s", task.Arn)
+		return "", err
 	}
-
 	return filepath.Join(config.DefaultTaskCgroupPrefix, taskID), nil
 }
 

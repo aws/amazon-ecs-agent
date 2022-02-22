@@ -428,7 +428,7 @@ func TestCleanupExecEnabledTask(t *testing.T) {
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
 	}
-	tID, _ := mTask.Task.GetID()
+	tID := mTask.Task.GetID()
 	removeAll = func(path string) error {
 		assert.Equal(t, fmt.Sprintf("/log/exec/%s", tID), path)
 		return nil

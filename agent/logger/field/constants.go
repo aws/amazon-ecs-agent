@@ -14,19 +14,25 @@
 package field
 
 const (
+	TaskID        = "task"
 	TaskARN       = "taskARN"
 	Container     = "container"
+	DockerId      = "dockerId"
 	ManagedAgent  = "managedAgent"
 	KnownStatus   = "knownStatus"
+	KnownSent     = "knownSent"
 	DesiredStatus = "desiredStatus"
 	SentStatus    = "sentStatus"
 	FailedStatus  = "failedStatus"
-	Sequence      = "sequence"
+	Sequence      = "seqnum"
 	Reason        = "reason"
 	Status        = "status"
 	RuntimeID     = "runtimeID"
+	Elapsed       = "elapsed"
 	Resource      = "resource"
 	Error         = "error"
 	Event         = "event"
 	Image         = "image"
+	Volume        = "volume"
+	Time          = "time"
 )

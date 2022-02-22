@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -151,8 +154,11 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	if blackholeEC2Metadata {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 	}
-
-	seelog.Info("Loading configuration")
+	logger.Info("Starting Amazon ECS Agent", logger.Fields{
+		"version": version.Version,
+		"commit":  version.GitShortHash,
+	})
+	logger.Info("Loading configuration")
 	cfg, err := config.NewConfig(ec2MetadataClient)
 	if err != nil {
 		// All required config values can be inferred from EC2 Metadata,
@@ -165,11 +171,10 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	if cfg.AcceptInsecureCert {
 		seelog.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
-	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
 	if cfg.External.Enabled() {
-		seelog.Info("Running in external mode.")
+		logger.Info("ECS Agent is running in external mode.")
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 		cfg.NoIID = true
 	}
@@ -179,7 +184,9 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 
 	if err != nil {
 		// This is also non terminal in the current config
-		seelog.Criticalf("Error creating Docker client: %v", err)
+		logger.Critical("Error creating Docker client", logger.Fields{
+			field.Error: err,
+		})
 		cancel()
 		return nil, err
 	}
@@ -188,7 +195,9 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	if cfg.Checkpoint.Enabled() {
 		dataClient, err = data.New(cfg.DataDir)
 		if err != nil {
-			seelog.Criticalf("Error creating data client: %v", err)
+			logger.Critical("Error creating Docker client", logger.Fields{
+				field.Error: err,
+			})
 			cancel()
 			return nil, err
 		}
@@ -572,11 +581,17 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 		err := clusterMismatchError{
 			fmt.Errorf(clusterMismatchErrorFormat, previousCluster, configuredCluster),
 		}
-		seelog.Criticalf("%v", err)
+		logger.Critical("Error restoring cluster", logger.Fields{
+			"previousCluster":   previousCluster,
+			"configuredCluster": configuredCluster,
+			field.Error:         err,
+		})
 		return err
 	}
 	agent.cfg.Cluster = previousCluster
-	seelog.Infof("Restored cluster '%s'", agent.cfg.Cluster)
+	logger.Info("Cluster was successfully restored", logger.Fields{
+		"cluster": agent.cfg.Cluster,
+	})
 
 	return nil
 }
@@ -596,8 +611,9 @@ func (agent *ecsAgent) getEC2InstanceID() string {
 		}
 	}
 	if err != nil {
-		seelog.Warnf(
-			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
+		logger.Warn("Unable to access EC2 Metadata service to determine EC2 ID", logger.Fields{
+			field.Error: err,
+		})
 	}
 	return instanceID
 }
@@ -687,20 +703,27 @@ func (agent *ecsAgent) registerContainerInstance(
 	outpostARN := agent.getoutpostARN()
 
 	if agent.containerInstanceARN != "" {
-		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
+		logger.Info("Restored from checkpoint file", logger.Fields{
+			"containerInstanceARN": agent.containerInstanceARN,
+			"cluster":              agent.cfg.Cluster,
+		})
 		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	}
 
-	seelog.Info("Registering Instance with ECS")
+	logger.Info("Registering Instance with ECS")
 	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("",
 		capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	if err != nil {
-		seelog.Errorf("Error registering: %v", err)
+		logger.Error("Error registering container instance", logger.Fields{
+			field.Error: err,
+		})
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return err
 		}
 		if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
-			seelog.Critical("Instance registration attempt with an invalid parameter")
+			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
+				field.Error: err,
+			})
 			return err
 		}
 		if _, ok := err.(apierrors.AttributeError); ok {
@@ -708,12 +731,17 @@ func (agent *ecsAgent) registerContainerInstance(
 			if len(agent.cfg.InstanceAttributes) > 0 {
 				attributeErrorMsg = customAttributeErrorMessage
 			}
-			seelog.Critical("Instance registration attempt with invalid attribute(s)." + attributeErrorMsg)
+			logger.Critical("Instance registration attempt with invalid attribute(s)", logger.Fields{
+				field.Error: attributeErrorMsg,
+			})
 			return err
 		}
 		return transientError{err}
 	}
-	seelog.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
+	logger.Info("Instance registration completed successfully", logger.Fields{
+		"instanceArn": containerInstanceArn,
+		"cluster":     agent.cfg.Cluster,
+	})
 	agent.containerInstanceARN = containerInstanceArn
 	agent.availabilityZone = availabilityZone
 	return nil
@@ -733,7 +761,9 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 	if err == nil {
 		return nil
 	}
-	seelog.Errorf("Error re-registering: %v", err)
+	logger.Error("Error re-registering container instance", logger.Fields{
+		field.Error: err,
+	})
 	if apierrors.IsInstanceTypeChangedError(err) {
 		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
 		return err
@@ -743,7 +773,9 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 		if len(agent.cfg.InstanceAttributes) > 0 {
 			attributeErrorMsg = customAttributeErrorMessage
 		}
-		seelog.Critical("Instance re-registration attempt with invalid attribute(s)." + attributeErrorMsg)
+		logger.Critical("Instance re-registration attempt with invalid attribute(s)", logger.Fields{
+			field.Error: attributeErrorMsg,
+		})
 		return err
 	}
 	return transientError{err}

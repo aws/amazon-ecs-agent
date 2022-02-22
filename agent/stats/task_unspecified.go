@@ -31,7 +31,7 @@ type StatsTask struct {
 	*statsTaskCommon
 }
 
-func newStatsTaskContainer(taskARN string, containerPID string, numberOfContainers int,
+func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContainers int,
 	resolver resolver.ContainerMetadataResolver, publishInterval time.Duration, _ task.TaskENIs) (*StatsTask, error) {
 	return nil, errors.New("Unsupported platform")
 }
