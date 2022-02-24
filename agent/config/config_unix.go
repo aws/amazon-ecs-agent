@@ -36,10 +36,10 @@ const (
 	// DefaultTaskCgroupV1Prefix is default cgroup v1 prefix for ECS tasks
 	DefaultTaskCgroupV1Prefix = "/ecs"
 	// DefaultTaskCgroupV2Prefix is default cgroup v2 prefix for ECS tasks
-	// ECSTasks is used because this creates a systemd "slice", and using just
+	// ecstasks is used because this creates a systemd "slice", and using just
 	// ecs would create a confusing name conflict with the ecs systemd service.
 	// (we would have both ecs.service and ecs.slice in /sys/fs/cgroup).
-	DefaultTaskCgroupV2Prefix = "ECSTasks"
+	DefaultTaskCgroupV2Prefix = "ecstasks"
 
 	// Default cgroup memory system root path, this is the default used if the
 	// path has not been configured through ECS_CGROUP_PATH

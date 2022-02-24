@@ -28,6 +28,8 @@ github.com/containerd/cgroups v1.0.3 h1:ADZftAkglvCiD44c77s5YmMqaP2pzVCFZvBmAlBd
 github.com/containerd/cgroups v1.0.3/go.mod h1:/ofk34relqNjSGyqPrmEULrO4Sc8LJhvJmWbUCUKqj8=
 github.com/containerd/cgroups v1.0.4-0.20220217190539-cf1b326d3714 h1:jCXPr1wkugK8p7oEQjuP8hBB7Q8Abq3w4ELsSs/0IwU=
 github.com/containerd/cgroups v1.0.4-0.20220217190539-cf1b326d3714/go.mod h1:/ofk34relqNjSGyqPrmEULrO4Sc8LJhvJmWbUCUKqj8=
+github.com/containerd/cgroups v1.0.4-0.20220221221032-e710ed6ebb1a h1:e956Q1zTD3IIKTQPWb92C20PvU3S2ohP9jWqqD0JJWE=
+github.com/containerd/cgroups v1.0.4-0.20220221221032-e710ed6ebb1a/go.mod h1:/ofk34relqNjSGyqPrmEULrO4Sc8LJhvJmWbUCUKqj8=
 github.com/containerd/containerd v1.4.12 h1:V+SHzYmhng/iju6M5nFrpTTusrhidoxKTwdwLw+u4c4=
 github.com/containerd/containerd v1.4.12/go.mod h1:bC6axHOhabU15QhwfG7w5PipXdVtMXFTttgp+kVtyUA=
 github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 h1:lJeDcldQnYskl7krc3lTppg8NKomoQkmQg1AzOXtQbA=

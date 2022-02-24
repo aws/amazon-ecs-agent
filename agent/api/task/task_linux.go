@@ -77,7 +77,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 
 // BuildCgroupRoot helps build the task cgroup prefix
 // Example v1: /ecs/task-id
-// Example v2: ECSTask-$TASKID.slice
+// Example v2: ecstasks-$TASKID.slice
 func (task *Task) BuildCgroupRoot() (string, error) {
 	taskID, err := task.GetID()
 	if err != nil {
@@ -97,10 +97,10 @@ func buildCgroupV1Root(taskID string) string {
 // buildCgroupV2Root creates a root cgroup using the systemd driver's special "-"
 // character. The "-" specifies a parent slice, so tasks and their containers end up
 // looking like this in the cgroup directory:
-//   /sys/fs/cgroup/ECSTasks.slice/
-//   ├── ECSTasks-XXXXf406f70c4c678073ae96944fXXXX.slice
+//   /sys/fs/cgroup/ecstasks.slice/
+//   ├── ecstasks-XXXXf406f70c4c678073ae96944fXXXX.slice
 //   │   └── docker-XXXX7c6dc81f2e9a8bf1c566dc769733ccba594b3007dd289a0f50ad7923XXXX.scope
-//   └── ECSTasks-XXXX30467358463ab6bbba4e73afXXXX.slice
+//   └── ecstasks-XXXX30467358463ab6bbba4e73afXXXX.slice
 //       └── docker-XXXX7ef4e942552437c96051356859c1df169f16e1cf9a9fc96fd30614e6XXXX.scope
 func buildCgroupV2Root(taskID string) string {
 	return fmt.Sprintf("%s-%s.slice", config.DefaultTaskCgroupV2Prefix, taskID)

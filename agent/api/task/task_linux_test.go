@@ -251,7 +251,7 @@ func TestBuildCgroupV1Root(t *testing.T) {
 
 func TestBuildCgroupV2Root(t *testing.T) {
 	cgroupRoot := buildCgroupV2Root("111mytaskid")
-	assert.Equal(t, "ECSTasks-111mytaskid.slice", cgroupRoot)
+	assert.Equal(t, "ecstasks-111mytaskid.slice", cgroupRoot)
 }
 
 // TestBuildLinuxResourceSpecCPUMem validates the linux resource spec builder

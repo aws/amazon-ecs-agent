@@ -76,7 +76,7 @@ github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/btf
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
-# github.com/containerd/cgroups v1.0.4-0.20220217190539-cf1b326d3714
+# github.com/containerd/cgroups v1.0.4-0.20220221221032-e710ed6ebb1a
 github.com/containerd/cgroups
 github.com/containerd/cgroups/stats/v1
 github.com/containerd/cgroups/v2

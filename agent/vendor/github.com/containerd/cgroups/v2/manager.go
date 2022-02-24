@@ -701,12 +701,39 @@ func setDevices(path string, devices []specs.LinuxDeviceCgroup) error {
 	return nil
 }
 
+// getSystemdFullPath returns the full systemd path when creating a systemd slice group.
+// the reason this is necessary is because the "-" character has a special meaning in
+// systemd slice. For example, when creating a slice called "my-group-112233.slice",
+// systemd will create a hierarchy like this:
+//      /sys/fs/cgroup/my.slice/my-group.slice/my-group-112233.slice
+func getSystemdFullPath(slice, group string) string {
+	return filepath.Join(defaultCgroup2Path, dashesToPath(slice), dashesToPath(group))
+}
+
+// dashesToPath converts a slice name with dashes to it's corresponding systemd filesystem path.
+func dashesToPath(in string) string {
+	path := ""
+	if strings.HasSuffix(in, ".slice") && strings.Contains(in, "-") {
+		parts := strings.Split(in, "-")
+		for i := range parts {
+			s := strings.Join(parts[0:i+1], "-")
+			if !strings.HasSuffix(s, ".slice") {
+				s += ".slice"
+			}
+			path = filepath.Join(path, s)
+		}
+	} else {
+		path = filepath.Join(path, in)
+	}
+	return path
+}
+
 func NewSystemd(slice, group string, pid int, resources *Resources) (*Manager, error) {
 	if slice == "" {
 		slice = defaultSlice
 	}
 	ctx := context.TODO()
-	path := filepath.Join(defaultCgroup2Path, slice, group)
+	path := getSystemdFullPath(slice, group)
 	conn, err := systemdDbus.NewWithContext(ctx)
 	if err != nil {
 		return &Manager{}, err
@@ -796,9 +823,9 @@ func LoadSystemd(slice, group string) (*Manager, error) {
 	if slice == "" {
 		slice = defaultSlice
 	}
-	group = filepath.Join(defaultCgroup2Path, slice, group)
+	path := getSystemdFullPath(slice, group)
 	return &Manager{
-		path: group,
+		path: path,
 	}, nil
 }
 

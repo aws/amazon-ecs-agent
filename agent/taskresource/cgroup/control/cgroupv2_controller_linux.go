@@ -49,9 +49,13 @@ func (c *controlv2) Create(cgroupSpec *Spec) error {
 	cgroupPath := cgroupSpec.Root
 	seelog.Infof("Creating cgroup cgroupv2root=%s parentSlice=%s cgroupPath=%s", defaultCgroupv2Path, parentCgroupSlice, cgroupPath)
 
-	_, err = cgroupsv2.NewSystemd(parentCgroupSlice, cgroupPath, generalSlicePID, cgroupsv2.ToResources(cgroupSpec.Specs))
+	m, err := cgroupsv2.NewSystemd(parentCgroupSlice, cgroupPath, generalSlicePID, cgroupsv2.ToResources(cgroupSpec.Specs))
 	if err != nil {
-		return fmt.Errorf("cgroupv2 create: unable to create v2 manager cgroupPath=%s err=%s", cgroupPath, err)
+		return fmt.Errorf("cgroupv2 create: unable to create v2 manager: %w", err)
+	}
+
+	if err := initializeControllers(m); err != nil {
+		return fmt.Errorf("cgroupv2 create: unable initialize cgroup controllers: %w", err)
 	}
 
 	return nil
@@ -63,11 +67,11 @@ func (c *controlv2) Remove(cgroupPath string) error {
 
 	m, err := cgroupsv2.LoadSystemd(parentCgroupSlice, cgroupPath)
 	if err != nil {
-		return fmt.Errorf("cgroupv2 remove: error loading systemd cgroup: %s", err)
+		return fmt.Errorf("cgroupv2 remove: error loading systemd cgroup: %w", err)
 	}
 	err = m.DeleteSystemd()
 	if err != nil {
-		return fmt.Errorf("cgroupv2 remove: error deleting systemd cgroup: %s", err)
+		return fmt.Errorf("cgroupv2 remove: error deleting systemd cgroup: %w", err)
 	}
 	return nil
 }
@@ -91,21 +95,37 @@ func (c *controlv2) Exists(cgroupPath string) bool {
 // Init is used to setup the cgroup root for ecs
 func (c *controlv2) Init() error {
 	// Load the "root" cgroup and verify cpu and memory cgroup controllers are available.
-	m, err := cgroupsv2.LoadSystemd(parentCgroupSlice, "")
+	m, err := cgroupsv2.LoadSystemd("", "")
 	if err != nil {
-		return fmt.Errorf("cgroupv2 init: unable to load root cgroup: %s", err)
+		return fmt.Errorf("cgroupv2 init: unable to load root cgroup: %w", err)
 	}
-	controllers, err := m.Controllers()
+
+	if err := initializeControllers(m); err != nil {
+		return err
+	}
+
+	seelog.Infof("ECS task resource limits cgroupv2 functionality initialized")
+	return nil
+}
+
+func initializeControllers(manager *cgroupsv2.Manager) error {
+	// enable cpu and memory cgroup controllers
+	err := manager.ToggleControllers([]string{"cpu", "memory"}, cgroupsv2.Enable)
 	if err != nil {
-		return fmt.Errorf("cgroupv2 init: unable to get cgroup controllers: %s", err)
+		return fmt.Errorf("cgroupv2 init: error enabling cpu and memory controllers: %w", err)
+	}
+
+	// verify that cpu and memory controllers are available
+	controllers, err := manager.Controllers()
+	if err != nil {
+		return fmt.Errorf("cgroupv2 init: unable to get cgroup controllers: %w", err)
 	}
 	if err := validateController("memory", controllers); err != nil {
-		return fmt.Errorf("cgroupv2 init: unable to validate cgroup controllers: %s", err)
+		return fmt.Errorf("cgroupv2 init: unable to validate cgroup controllers: %w", err)
 	}
 	if err := validateController("cpu", controllers); err != nil {
-		return fmt.Errorf("cgroupv2 init: unable to validate cgroup controllers: %s", err)
+		return fmt.Errorf("cgroupv2 init: unable to validate cgroup controllers: %w", err)
 	}
-	seelog.Infof("ECS task resource limits cgroupv2 functionality initialized")
 	return nil
 }
 
@@ -119,7 +139,7 @@ func validateController(controller string, controllers []string) error {
 }
 
 // fullCgroupPath returns the full path on disk to a task cgroup slice.
-// example: /sys/fs/cgroup/ECSTasks.slice/ECSTasks-529630467358463ab6bbba4e73afe704.slice
+// example: /sys/fs/cgroup/ecstasks.slice/ecstasks-529630467358463ab6bbba4e73afe704.slice
 func fullCgroupPath(cgroupPath string) string {
 	return filepath.Join(defaultCgroupv2Path, parentCgroupSlice, config.DefaultTaskCgroupV2Prefix+".slice", cgroupPath)
 }
