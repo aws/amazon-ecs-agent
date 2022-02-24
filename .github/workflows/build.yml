@@ -1,0 +1,24 @@
+name: Build
+
+on: [pull_request]
+
+jobs:
+  build:
+    name: CI Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.15.4
+    - uses: actions/checkout@v2
+      with:
+        path: src/github.com/aws/amazon-ecs-init
+    - name: run checks
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        export PATH=$PATH:$(go env GOPATH)/bin
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-init
+        make get-deps
+        make static-check
+        make test
+        make analyze-cover-profile
