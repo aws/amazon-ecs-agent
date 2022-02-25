@@ -17,7 +17,7 @@ jobs:
       run: |
         export GOPATH=$GITHUB_WORKSPACE
         export PATH=$PATH:$(go env GOPATH)/bin
-        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-init
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make get-deps
         make static-check
         make test

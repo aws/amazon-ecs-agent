@@ -22,8 +22,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 
 	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
