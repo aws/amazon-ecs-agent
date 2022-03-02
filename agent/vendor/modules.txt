@@ -69,9 +69,18 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/containerd/cgroups v1.0.3
+# github.com/cilium/ebpf v0.4.0
+github.com/cilium/ebpf
+github.com/cilium/ebpf/asm
+github.com/cilium/ebpf/internal
+github.com/cilium/ebpf/internal/btf
+github.com/cilium/ebpf/internal/unix
+github.com/cilium/ebpf/link
+# github.com/containerd/cgroups v1.0.4-0.20220221221032-e710ed6ebb1a
 github.com/containerd/cgroups
 github.com/containerd/cgroups/stats/v1
+github.com/containerd/cgroups/v2
+github.com/containerd/cgroups/v2/stats
 # github.com/containerd/containerd v1.4.12
 github.com/containerd/containerd/errdefs
 # github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8

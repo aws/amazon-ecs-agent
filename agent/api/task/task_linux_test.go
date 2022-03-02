@@ -244,6 +244,16 @@ func TestBuildCgroupRootErrorPath(t *testing.T) {
 	assert.Empty(t, cgroupRoot)
 }
 
+func TestBuildCgroupV1Root(t *testing.T) {
+	cgroupRoot := buildCgroupV1Root("111mytaskid")
+	assert.Equal(t, "/ecs/111mytaskid", cgroupRoot)
+}
+
+func TestBuildCgroupV2Root(t *testing.T) {
+	cgroupRoot := buildCgroupV2Root("111mytaskid")
+	assert.Equal(t, "ecstasks-111mytaskid.slice", cgroupRoot)
+}
+
 // TestBuildLinuxResourceSpecCPUMem validates the linux resource spec builder
 func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 	taskMemoryLimit := int64(taskMemoryLimit)
