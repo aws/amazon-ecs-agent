@@ -18,6 +18,7 @@ package stats
 import (
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 )
@@ -39,9 +40,16 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 }
 
 func validateDockerStats(dockerStats *types.StatsJSON) error {
-	// The length of PercpuUsage represents the number of cores in an instance.
-	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 || numCores == uint64(0) {
-		return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
+	if config.CgroupV2 {
+		// PercpuUsage is not available in cgroupv2
+		if numCores == uint64(0) {
+			return fmt.Errorf("invalid number of cores returned from runtime.NumCPU, numCores=0")
+		}
+	} else {
+		// The length of PercpuUsage represents the number of cores in an instance.
+		if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 || numCores == uint64(0) {
+			return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
+		}
 	}
 	return nil
 }
