@@ -187,6 +187,9 @@ var (
 	// DefaultPauseContainerTag is the tag for the pause container image. The linker's load
 	// flags are used to populate this value from the Makefile
 	DefaultPauseContainerTag = ""
+
+	// CgroupV2 Specifies whether or not to run in Cgroups V2 mode.
+	CgroupV2 = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or

@@ -101,7 +101,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	gomock.InOrder(
 		// Ensure that the resource is created first
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
+		mockControl.EXPECT().Create(gomock.Any()).Return(nil),
 		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
 		client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
@@ -263,7 +263,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	gomock.InOrder(
 		// resource creation failure
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(nil, errors.New("cgroup create error")),
+		mockControl.EXPECT().Create(gomock.Any()).Return(errors.New("cgroup create error")),
 	)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 
@@ -345,7 +345,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 					},
 				}
 				mockControl.EXPECT().Exists(gomock.Any()).Return(false)
-				mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil)
+				mockControl.EXPECT().Create(gomock.Any()).Return(nil)
 				mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil)
 			}
 

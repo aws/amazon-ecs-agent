@@ -16,7 +16,6 @@
 package control
 
 import (
-	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -30,7 +29,7 @@ type Spec struct {
 }
 
 type Control interface {
-	Create(cgroupSpec *Spec) (cgroups.Cgroup, error)
+	Create(cgroupSpec *Spec) error
 	Remove(cgroupPath string) error
 	Exists(cgroupPath string) bool
 	Init() error

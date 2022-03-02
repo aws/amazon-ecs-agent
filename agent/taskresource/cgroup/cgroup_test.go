@@ -22,7 +22,6 @@ import (
 	"time"
 
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	mock_cgroups "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
@@ -53,7 +52,7 @@ func TestCreateHappyPath(t *testing.T) {
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
+		mockControl.EXPECT().Create(gomock.Any()).Return(nil),
 		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 	)
 	cgroupResource := NewCgroupResource("taskArn", mockControl, mockIO, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
@@ -83,13 +82,12 @@ func TestCreateCgroupError(t *testing.T) {
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockCgroup := mock_cgroups.NewMockCgroup(ctrl)
 
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(mockCgroup, errors.New("cgroup create error")),
+		mockControl.EXPECT().Create(gomock.Any()).Return(errors.New("cgroup create error")),
 	)
 
 	cgroupResource := NewCgroupResource("taskArn", mockControl, mockIO, cgroupRoot, cgroupMountPath, specs.LinuxResources{})

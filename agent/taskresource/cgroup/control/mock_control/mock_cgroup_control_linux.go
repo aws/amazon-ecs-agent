@@ -22,7 +22,6 @@ import (
 	reflect "reflect"
 
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	cgroups "github.com/containerd/cgroups"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -50,12 +49,11 @@ func (m *MockControl) EXPECT() *MockControlMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockControl) Create(arg0 *control.Spec) (cgroups.Cgroup, error) {
+func (m *MockControl) Create(arg0 *control.Spec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(cgroups.Cgroup)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Create indicates an expected call of Create
