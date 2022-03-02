@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.60.0-1
+* Cache Agent version 1.60.0
+* Add volume plugin to rpm/deb package
+
 ## 1.59.0-1
 * Cache Agent version 1.59.0
 * Log what pre-start is doing

@@ -1,3 +1,10 @@
+amazon-ecs-init (1.60.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.60.0
+  * Add volume plugin to rpm/deb package
+
+ -- Chien Han Lin <chilinn@amazon.com>  Wed, 02 Mar 2022 19:00:00 +0000
+
 amazon-ecs-init (1.59.0-1) stable; urgency=medium
 
   * Cache Agent version 1.59.0

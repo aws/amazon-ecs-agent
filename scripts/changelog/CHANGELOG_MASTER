@@ -1,3 +1,9 @@
+1.60.0-1
+Chien Han Lin <chilinn@amazon.com>
+2022-03-02T11:00:00-08:00
+Cache Agent version 1.60.0
+Add volume plugin to rpm/deb package
+
 1.59.0-1
 Yash Kulshrestha <kulshres@amazon.com>
 2022-02-04T11:00:00-08:00
