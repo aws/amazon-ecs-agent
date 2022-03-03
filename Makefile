@@ -49,6 +49,9 @@ gobuild:
 static:
 	./scripts/build
 
+static-with-pause:
+	./scripts/build true "" false true
+
 # Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
@@ -114,6 +117,7 @@ certs: misc/certs/ca-certificates.crt
 misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
+
 
 gogenerate:
 	go generate -x ./agent/...
@@ -224,6 +228,22 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 	@echo "Built all cni plugins successfully."
 
 
+# dockerfree build process will build the agent container image from scratch
+# and with minimal dependencies
+# requires glibc-static
+
+dockerfree-pause:
+	GOOS=linux GOARCH=amd64 ./scripts/build-pause
+
+dockerfree-certs:
+	GOOS=linux GOARCH=amd64 ./scripts/get-host-certs
+
+dockerfree-cni-plugins: get-cni-sources
+	GOOS=linux GOARCH=amd64 ./scripts/build-cni-plugins
+
+dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
+	GOOS=linux GOARCH=amd64 ./scripts/build-agent-image
+
 .PHONY: codebuild
 codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
@@ -315,7 +335,14 @@ clean:
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
+	rm -f misc/certs/ca-bundle.crt &> /dev/null
+	rm -rf misc/pause-container/image/
+	rm -rf misc/pause-container/rootfs/
+	rm -rf misc/plugins/
+	rm -f misc/pause-container/amazon-ecs-pause.tar
 	rm -rf out/
+	rm -rf rootfs/
+	rm -f amazon-ecs-agent.tar
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
