@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.60.0
+* Enhancement - Update cgroups library to the latest release [#3126](https://github.com/aws/amazon-ecs-agent/pull/3126)
+* Enhancement - Improve log readability [#3134](https://github.com/aws/amazon-ecs-agent/pull/3134)
+* Enhancement - Add Host IP to port response for v4 container response [#3136](https://github.com/aws/amazon-ecs-agent/pull/3136)
+  
 ## 1.59.0
 * Feature - prevent instances in EC2 Autoscaling warm pool from being registered with cluster [#3123](https://github.com/aws/amazon-ecs-agent/pull/3123)
 * Enhancement - DiscoverPollEndpoint: lengthen cache ttl and improve resiliency [#3109](https://github.com/aws/amazon-ecs-agent/pull/3109)
