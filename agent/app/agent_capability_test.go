@@ -713,6 +713,79 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	assert.Error(t, err, "An error should be thrown when TaskCPUMemLimit is explicitly enabled")
 }
 
+func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
+	testCases := []struct {
+		testName                             string
+		taskCPUMemLimitValue                 config.Conditional
+		dockerVersion                        dockerclient.DockerVersion
+		expectedIncreasedTaskCPULimitEnabled bool
+	}{
+		{
+			testName:                             "enabled by default",
+			taskCPUMemLimitValue:                 config.NotSet,
+			dockerVersion:                        dockerclient.Version_1_22,
+			expectedIncreasedTaskCPULimitEnabled: true,
+		},
+		{
+			testName:                             "disabled, unsupportedDockerVersion",
+			taskCPUMemLimitValue:                 config.NotSet,
+			dockerVersion:                        dockerclient.Version_1_19,
+			expectedIncreasedTaskCPULimitEnabled: false,
+		},
+		{
+			testName:                             "disabled, taskCPUMemLimit explicitly disabled",
+			taskCPUMemLimitValue:                 config.ExplicitlyDisabled,
+			dockerVersion:                        dockerclient.Version_1_22,
+			expectedIncreasedTaskCPULimitEnabled: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			conf := &config.Config{
+				TaskCPUMemLimit: config.BooleanDefaultTrue{Value: tc.taskCPUMemLimitValue},
+			}
+
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+			versionList := []dockerclient.DockerVersion{tc.dockerVersion}
+			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			gomock.InOrder(
+				client.EXPECT().SupportedVersions().Return(versionList),
+				client.EXPECT().KnownVersions().Return(versionList),
+				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).AnyTimes().Return([]string{}, nil),
+			)
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:          ctx,
+				cfg:          conf,
+				dockerClient: client,
+				pauseLoader:  mockPauseLoader,
+				mobyPlugins:  mockMobyPlugins,
+			}
+
+			capability := attributePrefix + capabilityIncreasedTaskCPULimit
+			capabilities, err := agent.capabilities()
+			assert.NoError(t, err)
+
+			capMap := make(map[string]bool)
+			for _, capability := range capabilities {
+				capMap[aws.StringValue(capability.Name)] = true
+			}
+
+			_, ok := capMap[capability]
+			assert.Equal(t, tc.expectedIncreasedTaskCPULimitEnabled, ok)
+		})
+	}
+}
+
 func TestCapabilitiesContainerHealth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
