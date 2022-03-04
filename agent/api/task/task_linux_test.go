@@ -305,6 +305,29 @@ func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
 }
 
+// TestBuildLinuxResourceSpecIncreasedTaskCPULimit validates the linux resource spec builder
+// with increased task CPU limit (>10 vCPUs).
+func TestBuildLinuxResourceSpecIncreasedTaskCPULimit(t *testing.T) {
+	const increasedTaskVCPULimit float64 = 15
+	task := &Task{
+		Arn: validTaskArn,
+		CPU: increasedTaskVCPULimit,
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+
+	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	expectedTaskCPUQuota := int64(increasedTaskVCPULimit * float64(expectedTaskCPUPeriod))
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Quota:  &expectedTaskCPUQuota,
+			Period: &expectedTaskCPUPeriod,
+		},
+	}
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
 // TestBuildLinuxResourceSpecWithoutTaskCPULimits validates behavior of CPU Shares
 func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 	task := &Task{

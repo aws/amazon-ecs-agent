@@ -39,8 +39,6 @@ import (
 )
 
 const (
-	// With a 100ms CPU period, we can express 0.01 vCPU to 10 vCPUs
-	maxTaskVCPULimit = 10
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
 	minimumCPUShare = 2
 
@@ -141,21 +139,9 @@ func (task *Task) BuildLinuxResourceSpec(cGroupCPUPeriod time.Duration) (specs.L
 // buildExplicitLinuxCPUSpec builds CPU spec when task CPU limits are
 // explicitly requested
 func (task *Task) buildExplicitLinuxCPUSpec(cGroupCPUPeriod time.Duration) (specs.LinuxCPU, error) {
-	if task.CPU > maxTaskVCPULimit {
-		return specs.LinuxCPU{},
-			errors.Errorf("task CPU spec builder: unsupported CPU limits, requested=%f, max-supported=%d",
-				task.CPU, maxTaskVCPULimit)
-	}
 	taskCPUPeriod := uint64(cGroupCPUPeriod / time.Microsecond)
 	taskCPUQuota := int64(task.CPU * float64(taskCPUPeriod))
 
-	// TODO: DefaultCPUPeriod only permits 10VCPUs.
-	// Adaptive calculation of CPUPeriod required for further support
-	// (samuelkarp) The largest available EC2 instance in terms of CPU count is a x1.32xlarge,
-	// with 128 vCPUs. If we assume a fixed evaluation period of 100ms (100000us),
-	// we'd need a quota of 12800000us, which is longer than the maximum of 1000000.
-	// For 128 vCPUs, we'd probably need something like a 1ms (1000us - the minimum)
-	// evaluation period, an 128000us quota in order to stay within the min/max limits.
 	return specs.LinuxCPU{
 		Quota:  &taskCPUQuota,
 		Period: &taskCPUPeriod,
