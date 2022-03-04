@@ -40,6 +40,7 @@ const (
 	appMeshAttributeSuffix                                 = "aws-appmesh"
 	cniPluginVersionSuffix                                 = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                              = "task-cpu-mem-limit"
+	capabilityIncreasedTaskCPULimit                        = "increased-task-cpu-limit"
 	capabilityDockerPluginInfix                            = "docker-plugin."
 	attributeSeparator                                     = "."
 	capabilityPrivateRegistryAuthASM                       = "private-registry-authentication.secretsmanager"
@@ -210,6 +211,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		return nil, err
 	}
 
+	capabilities = agent.appendIncreasedTaskCPULimitCapability(capabilities)
 	capabilities = agent.appendTaskENICapabilities(capabilities)
 	capabilities = agent.appendENITrunkingCapabilities(capabilities)
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
@@ -349,6 +351,17 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Att
 		}
 	}
 	return capabilities, nil
+}
+
+func (agent *ecsAgent) appendIncreasedTaskCPULimitCapability(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if !agent.cfg.TaskCPUMemLimit.Enabled() {
+		// don't register the "increased-task-cpu-limit" capability if the "task-cpu-mem-limit" capability is disabled.
+		// "task-cpu-mem-limit" capability may be explicitly disabled or disabled due to unsupported docker version.
+		seelog.Warn("Increased Task CPU Limit capability is disabled since the Task CPU + Mem Limit capability is disabled.")
+	} else {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityIncreasedTaskCPULimit)
+	}
+	return capabilities
 }
 
 func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
