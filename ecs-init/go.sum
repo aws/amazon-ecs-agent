@@ -8,6 +8,8 @@ github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEV
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/Sirupsen/logrus v0.11.6-0.20170515105910-5e5dc898656f h1:3eIEAqeTtZJA4nO5wUMLpTAWTOmEApcaO9BTgwkxMpA=
 github.com/Sirupsen/logrus v0.11.6-0.20170515105910-5e5dc898656f/go.mod h1:rmk17hk6i8ZSAJkSDa7nOxamrG+SP4P0mm+DAvExv4U=
+github.com/aws/amazon-ecs-init v1.25.3 h1:rmqxXUpj9b536B4uR0qBCQ9tWgAo+Y8xrK1Gy6FnjdY=
+github.com/aws/amazon-ecs-init v1.25.3/go.mod h1:31MC3iHgL1yBkrDP0fj51y/qGKKCxezQlsrt9Cqwsc8=
 github.com/aws/aws-sdk-go v1.36.0 h1:CscTrS+szX5iu34zk2bZrChnGO/GMtUYgMK1Xzs2hYo=
 github.com/aws/aws-sdk-go v1.36.0/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
 github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 h1:kHaBemcxl8o/pQ5VM1c8PVE1PubbNx3mjUr09OqWGCs=
