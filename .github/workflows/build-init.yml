@@ -1,4 +1,4 @@
-me: Build
+name: BuildInit
 
 on: [pull_request]
 
