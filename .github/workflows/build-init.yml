@@ -21,4 +21,4 @@ jobs:
         make get-deps-init
         make static-check-init
         make test-init
-        make analyze-cover-profile
+        make analyze-cover-profile-init

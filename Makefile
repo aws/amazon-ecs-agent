@@ -155,9 +155,9 @@ test-silent:
 analyze-cover-profile: coverprofile.out
 	./scripts/analyze-cover-profile
 
-.PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile-init.out
-	./scripts/analyze-cover-profile
+.PHONY: analyze-cover-profile-init
+analyze-cover-profile-init: coverprofile-init.out
+	./scripts/analyze-cover-profile-init
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
