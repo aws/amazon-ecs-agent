@@ -28,3 +28,5 @@ jobs:
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           make test-silent
           make analyze-cover-profile
+          make test-init
+          make analyze-cover-profile-init
