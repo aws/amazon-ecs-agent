@@ -118,7 +118,7 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 gogenerate:
-	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./ecs-init/...
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./...
 	$(MAKE) goimports
 
 # 'go' may not be on the $PATH for sudo tests
