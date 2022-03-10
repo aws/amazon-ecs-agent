@@ -175,7 +175,7 @@ func (agent *ecsAgent) cgroupInit() error {
 	if agent.cfg.TaskCPUMemLimit.Value == config.ExplicitlyEnabled {
 		return errors.Wrapf(err, "unable to setup '/ecs' cgroup")
 	}
-	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
+	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unable to setup '/ecs' cgroup: %v", err)
 	agent.cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return nil
 }

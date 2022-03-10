@@ -338,6 +338,12 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			})
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
+	} else if task.CPU > 0 || task.Memory > 0 {
+		// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance
+		// where agent does not support it. These limits will be ignored.
+		logger.Warn("Ignoring task-level CPU/memory limits since agent does not support the TaskCPUMemLimits capability", logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	}
 
 	if err := task.initializeContainerOrderingForVolumes(); err != nil {
