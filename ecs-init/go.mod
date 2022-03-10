@@ -18,7 +18,7 @@ require (
 	github.com/Microsoft/go-winio v0.4.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/Sirupsen/logrus v0.11.6-0.20170515105910-5e5dc898656f // indirect
-	github.com/coreos/go-systemd v0.0.0-00010101000000-000000000000 // indirect
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/docker v1.4.2-0.20170530175538-4f55e390c4e5 // indirect
 	github.com/docker/go-connections v0.2.2-0.20170331145122-e15c02316c12 // indirect

@@ -18,7 +18,7 @@ package cache
 // package-level functions.  These interfaces are then used to create mocks
 // for the unit tests.
 
-//go:generate mockgen.sh $GOPACKAGE $GOFILE
+//go:generate mockgen.sh cache $GOFILE  
 
 import (
 	"io"

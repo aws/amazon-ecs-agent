@@ -39,7 +39,6 @@ all: docker
 gobuild:
 	./scripts/build false
 
-
 # create output directories
 .out-stamp:
 	mkdir -p ./out/test-artifacts ./out/cni-plugins ./out/amazon-ecs-cni-plugins ./out/amazon-vpc-cni-plugins
@@ -48,6 +47,9 @@ gobuild:
 # Basic go build
 static:
 	./scripts/build
+
+static-with-pause:
+	./scripts/build true "" false true
 
 # Cross-platform build target for static checks
 xplatform-build:
@@ -116,7 +118,7 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 gogenerate:
-	go generate -x ./agent/...
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./...
 	$(MAKE) goimports
 
 # 'go' may not be on the $PATH for sudo tests
@@ -140,6 +142,10 @@ test:
 	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
+test-init:
+	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
+	go tool cover -func cover.out > coverprofile-init.out
+
 test-silent:
 	$(eval VERBOSE=)
 	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
@@ -149,6 +155,10 @@ test-silent:
 analyze-cover-profile: coverprofile.out
 	./scripts/analyze-cover-profile
 
+.PHONY: analyze-cover-profile-init
+analyze-cover-profile-init: coverprofile-init.out
+	./scripts/analyze-cover-profile-init
+
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
 
@@ -157,7 +167,6 @@ run-sudo-tests:
 
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
-
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
@@ -223,6 +232,21 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 	mv $(PWD)/out/amazon-vpc-cni-plugins/* $(PWD)/out/cni-plugins
 	@echo "Built all cni plugins successfully."
 
+# dockerfree build process will build the agent container image from scratch
+# and with minimal dependencies
+# requires glibc-static
+
+dockerfree-pause:
+	GOOS=linux GOARCH=amd64 ./scripts/build-pause
+
+dockerfree-certs:
+	GOOS=linux GOARCH=amd64 ./scripts/get-host-certs
+
+dockerfree-cni-plugins: get-cni-sources
+	GOOS=linux GOARCH=amd64 ./scripts/build-cni-plugins
+
+dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
+	GOOS=linux GOARCH=amd64 ./scripts/build-agent-image
 
 .PHONY: codebuild
 codebuild: .out-stamp
@@ -259,7 +283,6 @@ image-cleanup-test-images:
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
-
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
 		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
@@ -291,7 +314,13 @@ static-check: gocyclo govet importcheck gogenerate-check
 	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./agent/...
+
+.PHONY: static-check-init
+static-check-init: gocyclo govet importcheck gogenerate-check
+	# use default checks of staticcheck tool, except style checks (-ST*)
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-init/...
 
 .PHONY: goimports
 goimports:
@@ -309,13 +338,29 @@ GOPATH=$(shell go env GOPATH)
 
 get-deps: .get-deps-stamp
 
+get-deps-init:
+	go get golang.org/x/tools/cover
+	go get golang.org/x/tools/cmd/cover
+	go get github.com/golang/mock/mockgen
+	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	go get golang.org/x/tools/cmd/goimports
+	go get honnef.co/go/tools/cmd/staticcheck
+
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
+	rm -f misc/certs/ca-bundle.crt &> /dev/null
+	rm -rf misc/pause-container/image/
+	rm -rf misc/pause-container/rootfs/
+	rm -rf misc/plugins/
+	rm -f misc/pause-container/amazon-ecs-pause.tar
 	rm -rf out/
+	rm -rf rootfs/
+	rm -f amazon-ecs-agent.tar
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
@@ -329,4 +374,4 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
-
+	-rm -rf coverprofile-init.out
