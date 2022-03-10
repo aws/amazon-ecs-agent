@@ -21,22 +21,6 @@ dev:
 generate:
 	PATH=$(PATH):$(shell pwd)/scripts go generate -v ./...
 
-PLATFORM:=$(shell uname -s)
-ifeq (${PLATFORM},Linux)
-	dep_arch=linux-386
-else ifeq (${PLATFORM},Darwin)
-	dep_arch=darwin-386
-endif
-
-DEP_VERSION=v0.5.0
-.PHONY: get-dep
-get-dep: bin/dep
-
-bin/dep:
-	mkdir -p ./bin
-	curl -L https://github.com/golang/dep/releases/download/$(DEP_VERSION)/dep-${dep_arch} -o ./bin/dep
-	chmod +x ./bin/dep
-
 static:
 	./scripts/gobuild.sh
 
@@ -74,7 +58,7 @@ static-check: gocyclo govet importcheck
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/test.dockerfile -t "amazon/amazon-ecs-init-test:make" .
-	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-init" "amazon/amazon-ecs-init-test:make"
+	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-init-test:make"
 
 build-mock-images:
 	docker build -t "test.localhost/amazon/mock-ecs-agent" -f "scripts/dockerfiles/mock-agent.dockerfile" .
