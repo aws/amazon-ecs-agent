@@ -374,3 +374,4 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
+	-rm -rf coverprofile-init.out
