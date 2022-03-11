@@ -2,7 +2,7 @@
 
 MINIMUM_TEST_COVERAGE = 73.7
 
-# coverprofile.out (see Makefile for how this is generated) will look something like this:
+# coverprofile-init.out (see Makefile for how this is generated) will look something like this:
 #
 # github.com/aws/amazon-ecs-agent/agent/wsclient/error.go:66:						Retry						0.0%
 # github.com/aws/amazon-ecs-agent/agent/wsclient/errors.go:23:						Error						0.0%

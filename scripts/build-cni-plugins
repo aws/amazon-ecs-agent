@@ -12,9 +12,9 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# This script builds a copy of the agent.
-# It exists to wrap go build and properly make a static binary, as well as to
-# correctly setup versioning before creating the binary
+# this script builds the ecs/vpc cni plugins from the submodules
+# by copying them out of agent into their expected location in the
+# gopath
 
 set -ex
 

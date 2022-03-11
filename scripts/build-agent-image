@@ -32,7 +32,7 @@ cp ./misc/plugins/vpc-branch-eni rootfs/amazon-ecs-cni-plugins/vpc-branch-eni
 
 # add certs
 mkdir -p rootfs/etc/ssl/certs/
-cp ./misc/certs/ca-bundle.crt rootfs/etc/ssl/certs/ca-certificates.crt
+cp ./misc/certs/host-certs.crt rootfs/etc/ssl/certs/ca-certificates.crt
 
 # add pause container
 mkdir -p rootfs/images/
@@ -48,7 +48,9 @@ DIGEST=$(sha256sum image/rootfs/layer.tar | sed -e 's/ .*//')
 install -m 0644 ./agent-container/agent-image-VERSION image/rootfs/VERSION
 install -m 0644 ./agent-container/agent-config.json image/config.json
 sed -i "s/~~digest~~/${DIGEST}/" image/config.json
+sed -i "s/~~timestamp~~/$(date +"%FT%T.%NZ")/g" image/config.json
 install -m 0644 ./agent-container/agent-manifest.json image/manifest.json
+sed -i "s/~~agentversion~~/${AGENT_VERSION}/" image/manifest.json
 install -m 0644 ./agent-container/agent-repositories image/repositories
 tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf ./ecs-agent-v${AGENT_VERSION}.tar -C image .
 rm -rf image/

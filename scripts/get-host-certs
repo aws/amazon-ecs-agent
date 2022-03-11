@@ -11,19 +11,20 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-
-# This script builds a copy of the agent.
-# It exists to wrap go build and properly make a static binary, as well as to
-# correctly setup versioning before creating the binary
+#
+# this script searches through known locations for certs (borrowed from 
+# https://go.dev/src/crypto/x509/root_linux.go) and writes them to the
+# current dir 
 
 set -ex
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}/misc/certs"
 
-# Possible certificate files; stop after finding one
+# Possible certificate files
 certFiles=("/etc/ssl/certs/ca-certificates.crt" "/etc/pki/tls/certs/ca-bundle.crt" "/etc/ssl/ca-bundle.pem" "/etc/pki/tls/cacert.pem" "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem" "/etc/ssl/cert.pem")
 
+# search and stop once certs are found
 thisCertFile=""
 for file in ${certFiles[@]}; do
   if test -f $file; then
@@ -35,7 +36,7 @@ done
 # if we found a cert file, we'll copy else return 0
 if [ ! -z "$thisCertFile" ]
 then
-  cp $thisCertFile .
+  cp $thisCertFile ./host-certs.crt
 else
   exit 1
 fi

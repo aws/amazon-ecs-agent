@@ -12,9 +12,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# This script builds a copy of the agent.
-# It exists to wrap go build and properly make a static binary, as well as to
-# correctly setup versioning before creating the binary
+# This script builds the pause container without Docker
+# The pause container configuration is static, except for the DIGEST
 
 set -ex
 

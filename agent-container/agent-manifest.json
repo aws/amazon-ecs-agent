@@ -1,2 +1,2 @@
-[{"Config":"config.json","RepoTags":["amazon/amazon-ecs-agent:1.60.0"],"Layers":["rootfs/layer.tar"]}]
+[{"Config":"config.json","RepoTags":["amazon/amazon-ecs-agent:~~agentversion~~"],"Layers":["rootfs/layer.tar"]}]
 

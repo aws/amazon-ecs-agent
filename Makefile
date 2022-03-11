@@ -386,8 +386,7 @@ clean:
 	docker ps > /dev/null
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
-	rm -f misc/certs/ca-certificates.crt &> /dev/null
-	rm -f misc/certs/ca-bundle.crt &> /dev/null
+	rm -f misc/certs/host-certs.crt &> /dev/null
 	rm -rf misc/pause-container/image/
 	rm -rf misc/pause-container/rootfs/
 	rm -rf misc/plugins/
@@ -419,6 +418,7 @@ clean:
 	-rm -rf ./bin
 	-rm -f ./sources.tgz
 	-rm -f ./amazon-ecs-init
+	-rm -f ./ecs-init/ecs-init
 	-rm -f ./amazon-ecs-init-*.rpm
 	-rm -f ./ecs-agent-*.tar
 	-rm -f ./ecs-init-*.src.rpm
