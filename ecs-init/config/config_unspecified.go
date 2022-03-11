@@ -1,3 +1,4 @@
+//go:build !suse && !ubuntu && !al2 && !debian && !generic_rpm
 // +build !suse,!ubuntu,!al2,!debian,!generic_rpm
 
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
