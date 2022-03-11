@@ -29,6 +29,32 @@ jobs:
           make get-deps
           make static-check
 
+  init-check:
+    name: Static Analysis Init
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: get GO_VERSION
+        run:  |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          echo "GO_VERSION=$(cat GO_VERSION)" >> $GITHUB_ENV
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v2
+        with:
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: run static checks
+        run: |
+          export GOPATH=$GITHUB_WORKSPACE
+          export PATH=$PATH:$(go env GOPATH)/bin
+          export GO111MODULE=auto
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          make get-deps-init
+          make static-check-init
+
   x-platform-build:
     name: Cross platform build
     runs-on: ubuntu-latest
