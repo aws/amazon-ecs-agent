@@ -5,8 +5,8 @@ Maintainer: ecs-agent-dev <ecs-agent-dev@amazon.com>
 Build-Depends: debhelper (>= 9.20160709~), golang-go (>= 1.7)
 Standards-Version: 4.3.0
 Homepage: https://aws.amazon.com/ecs
-Vcs-Git: git://github.com/aws/amazon-ecs-init.git
-Vcs-Browser: http://github.com/aws/amazon-ecs-init
+Vcs-Git: git://github.com/aws/amazon-ecs-agent.git
+Vcs-Browser: http://github.com/aws/amazon-ecs-agent
 
 Package: amazon-ecs-init
 Architecture: amd64 arm64
