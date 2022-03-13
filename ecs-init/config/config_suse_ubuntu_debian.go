@@ -1,3 +1,4 @@
+//go:build suse || ubuntu || debian
 // +build suse ubuntu debian
 
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.

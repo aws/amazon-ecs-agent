@@ -34,7 +34,7 @@ and limitations under the License.
 <seelog type="asyncloop">
 	<outputs formatid="main">
 		<console formatid="console" />
-		<rollingfile filename="` + initLogFile() + `" type="date"
+		<rollingfile filename="`+initLogFile()+`" type="date"
 			 datepattern="2006-01-02-15" archivetype="zip" maxrolls="5" />
 	</outputs>
 	<formats>

@@ -42,7 +42,6 @@ Source4:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v%{bun
 Source5:        amazon-ecs-volume-plugin.service
 Source6:        amazon-ecs-volume-plugin.socket
 
-BuildRequires:  golang >= 1.7
 BuildRequires:  systemd
 Requires:       systemd
 Requires:       iptables
