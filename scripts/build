@@ -25,6 +25,11 @@ set -ex
 static=${1:-true}
 output_directory=${2:-}
 version_gen=${3:-true}
+with_pause=${4:-false}
+
+PAUSE_CONTAINER_IMAGE="amazon/amazon-ecs-pause"
+PAUSE_CONTAINER_TAG="0.1.0"
+PAUSE_CONTAINER_TARBALL="amazon-ecs-pause.tar"
 
 # Normalize to working directory being build root (up one level from ./scripts)
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
@@ -46,6 +51,10 @@ if [[ "${version_gen}" == "true" ]]; then
   # and no dependency needed to be fetched (but if go mod is on it will try to fetch dependency causing
   # this script to fail when we run it in a container with network mode "none").
   GO111MODULE=off go run gen/version-gen.go
+fi
+
+if [[ "${with_pause}" == "true" ]]; then
+    LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$PAUSE_CONTAINER_TAG -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$PAUSE_CONTAINER_IMAGE"
 fi
 
 if [ "${TARGET_OS}" == "windows" ]; then

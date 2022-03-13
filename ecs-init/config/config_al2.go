@@ -1,3 +1,4 @@
+//go:build al2
 // +build al2
 
 // Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
