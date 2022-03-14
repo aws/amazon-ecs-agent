@@ -1,0 +1,3 @@
+etc/ecs
+var/log/ecs
+var/lib/ecs

@@ -1,0 +1,5 @@
+# This package is not intended for the Debian/Ubuntu package repositories.
+amazon-ecs-init binary: new-package-should-close-itp-bug
+
+# Go produces statically linked binaries.
+amazon-ecs-init binary: statically-linked-binary usr/sbin/amazon-ecs-init
