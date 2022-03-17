@@ -20,14 +20,14 @@ import (
 	"math"
 	"time"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
-	"github.com/aws/amazon-ecs-init/ecs-init/cache"
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
-	"github.com/aws/amazon-ecs-init/ecs-init/docker"
-	"github.com/aws/amazon-ecs-init/ecs-init/exec"
-	"github.com/aws/amazon-ecs-init/ecs-init/exec/iptables"
-	"github.com/aws/amazon-ecs-init/ecs-init/exec/sysctl"
-	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
+	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/docker"
+	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
+	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
+	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
+	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 )

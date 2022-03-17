@@ -18,8 +18,8 @@ import (
 	"os/user"
 	"strconv"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/volumes"
-	"github.com/aws/amazon-ecs-init/ecs-init/volumes/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes"
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/logger"
 	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
 )

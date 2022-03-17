@@ -21,8 +21,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/cache"
-	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
+	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 	"github.com/golang/mock/gomock"
 )
 

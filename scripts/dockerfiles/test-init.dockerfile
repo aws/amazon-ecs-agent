@@ -17,10 +17,10 @@
 # Because the Agent's tests include starting docker containers, it is necessary
 # to have both go and docker available in the testing environment.
 # It's easier to get go, so start with docker-in-docker and add go on top
-FROM golang:1.9
+FROM golang:1.15.4
 MAINTAINER Amazon Web Services, Inc.
 
 RUN mkdir -p /go/src/github.com/aws/
-WORKDIR /go/src/github.com/aws/amazon-ecs-init
+WORKDIR /go/src/github.com/aws/amazon-ecs-agent
 
-ENTRYPOINT /go/src/github.com/aws/amazon-ecs-init/scripts/test
+ENTRYPOINT /go/src/github.com/aws/amazon-ecs-agent/scripts/test-init
