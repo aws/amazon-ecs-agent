@@ -239,18 +239,19 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 # dockerfree build process will build the agent container image from scratch
 # and with minimal dependencies
 # requires glibc-static
-
+# dockerfree-pause works for both amd64 and arm64
 dockerfree-pause:
-	GOOS=linux GOARCH=amd64 ./scripts/build-pause
+	./scripts/build-pause
 
+# dockerfree-certs works for both amd64 and arm64
 dockerfree-certs:
-	GOOS=linux GOARCH=amd64 ./scripts/get-host-certs
+	./scripts/get-host-certs
 
 dockerfree-cni-plugins: get-cni-sources
-	GOOS=linux GOARCH=amd64 ./scripts/build-cni-plugins
+	./scripts/build-cni-plugins
 
 dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
-	GOOS=linux GOARCH=amd64 ./scripts/build-agent-image
+	./scripts/build-agent-image
 
 .PHONY: codebuild
 codebuild: .out-stamp
@@ -356,6 +357,36 @@ get-deps-init:
 	go get golang.org/x/tools/cmd/goimports
 	go get honnef.co/go/tools/cmd/staticcheck
 
+.amazon-linux-rpm-integrated-done:
+	./scripts/update-version.sh
+	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
+	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
+	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .amazon-linux-rpm-integrated-done
+
+amazon-linux-rpm-integrated: .amazon-linux-rpm-integrated-done
+
+.generic-rpm-integrated-done:
+	./scripts/update-version.sh
+	cp packaging/generic-rpm-integrated/amazon-ecs-init.spec amazon-ecs-init.spec
+	cp packaging/generic-rpm-integrated/ecs.service ecs.service
+	cp packaging/generic-rpm-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/generic-rpm-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
+	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb amazon-ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .generic-rpm-integrated-done
+
+generic-rpm-integrated: .generic-rpm-integrated-done
+
 .generic-rpm-done:
 	./scripts/update-version.sh
 	cp packaging/generic-rpm/amazon-ecs-init.spec amazon-ecs-init.spec
@@ -366,11 +397,9 @@ get-deps-init:
 	test -e SOURCES || ln -s . SOURCES
 	rpmbuild --define "%_topdir $(PWD)" -bb amazon-ecs-init.spec
 	find RPMS/ -type f -exec cp {} . \;
-	touch .rpm-done
+	touch .generic-rpm-done
 
 generic-rpm: .generic-rpm-done
-
-dockerfree-all: dockerfree-agent-image generic-rpm
 
 .deb-done: BUILDROOT/ecs-agent.tar
 	./scripts/update-version.sh
@@ -428,4 +457,6 @@ clean:
 	-rm -f ./amazon-ecs-init_${VERSION}*
 	-rm -f .srpm-done .rpm-done .generic-rpm-done
 	-rm -f .deb-done
+	-rm -f .amazon-linux-rpm-integrated-done
+	-rm -f .generic-rpm-integrated-done
 	-rm -f amazon-ecs-volume-plugin

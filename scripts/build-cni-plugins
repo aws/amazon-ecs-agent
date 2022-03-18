@@ -18,15 +18,40 @@
 
 set -ex
 
+architecture=""
+case $(uname -m) in
+    x86_64)
+	architecture="amd64"
+        ;;
+    arm64)
+        architecture="arm64"
+        ;;
+    aarch64)
+        architecture="arm64"
+        ;;
+    *)
+        echo $"Unknown architecture $0"
+        exit 1
+esac
+
+if [ "$architecture" == "amd64" ]; then export GOARCH=amd64; fi
+if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
+
 # this script assumes we've run the get-cni-sources make target to update the cni submodules
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
-# copy submodules to expected go build path github.com/aws/amazon-ecs-cni-plugins
-cp -r amazon-ecs-cni-plugins ../amazon-ecs-cni-plugins
-cp -r amazon-vpc-cni-plugins ../amazon-vpc-cni-plugins
-cd ../amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
-mkdir -p ../amazon-ecs-agent/misc/plugins && cp -a ./bin/plugins/. ../amazon-ecs-agent/misc/plugins/
+
+export BUILDDIR="$(mktemp -d)"
+export GITPATH="${BUILDDIR}/src/github.com/aws"
+export GOPATH="${BUILDDIR}"
+
+mkdir -p "${GITPATH}"
+ln -s "${ROOT}/amazon-ecs-cni-plugins" "${GITPATH}"
+ln -s "${ROOT}/amazon-vpc-cni-plugins" "${GITPATH}"
+
+cd ${GITPATH}/amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
+mkdir -p ${ROOT}/misc/plugins && cp -a ./bin/plugins/. ${ROOT}/misc/plugins/
 make clean
-cd ../amazon-vpc-cni-plugins && GO111MODULE=auto make build
-cp -a ./build/linux_amd64/. ../amazon-ecs-agent/misc/plugins/
+cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on make build
+cp -a ./build/linux_${GOARCH}/. ${ROOT}/misc/plugins/
 make clean

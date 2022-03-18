@@ -14,9 +14,10 @@
 package retry
 
 import (
+	"context"
+
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"golang.org/x/net/context"
 )
 
 var _time ttime.Time = &ttime.DefaultTime{}

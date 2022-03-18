@@ -1,4 +1,5 @@
 //go:build unit
+// +build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,6 +17,7 @@
 package retry
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -25,7 +27,6 @@ import (
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 )
 
 func TestRetryWithBackoff(t *testing.T) {
