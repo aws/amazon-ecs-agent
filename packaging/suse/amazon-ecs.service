@@ -1,0 +1,18 @@
+[Unit]
+Description=Amazon Elastic Container Service - container agent
+Documentation=https://aws.amazon.com/documentation/ecs/
+After=docker.service
+After=network.target
+Requires=docker.service
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/amazon-ecs-init pre-start
+ExecStart=/usr/sbin/amazon-ecs-init start
+ExecStop=/usr/sbin/amazon-ecs-init stop
+ExecStopPost=/usr/sbin/amazon-ecs-init post-stop
+ExecReload=/usr/sbin/amazon-ecs-init reload-cache
+
+[Install]
+WantedBy=multi-user.target
