@@ -372,13 +372,6 @@ ssm-agent-signature-verify() {
     fi
 
     curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ssm-agent.gpg"
-    local fp
-    fp=$(gpg --quiet --with-colons --with-fingerprint "$dir/amazon-ssm-agent.gpg" | awk -F: '$1 == "fpr" {print $10;}')
-    echo "$fp"
-    if [ "$fp" != "8108A07A9EBE248E3F1C63F254F4F56E693ECA21" ]; then
-        echo "amazon-ssm-agent GPG public key fingerprint verification fail. Stop the installation of the amazon-ssm-agent. Please contact AWS Support."
-        fail
-    fi
     gpg --import "$dir/amazon-ssm-agent.gpg"
 
     if gpg --verify "$1" "$2"; then
