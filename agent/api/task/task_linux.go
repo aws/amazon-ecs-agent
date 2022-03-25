@@ -148,16 +148,11 @@ func (task *Task) buildImplicitLinuxCPUSpec() specs.LinuxCPU {
 	// aggregate container CPU shares when present
 	var taskCPUShares uint64
 	for _, container := range task.Containers {
-		if container.CPU > 0 {
+		if container.CPU < minimumCPUShare {
+			taskCPUShares += minimumCPUShare
+		} else {
 			taskCPUShares += uint64(container.CPU)
 		}
-	}
-
-	// If there are are no CPU limits at task or container level,
-	// default task CPU shares
-	if taskCPUShares == 0 {
-		// Set default CPU shares
-		taskCPUShares = minimumCPUShare
 	}
 
 	return specs.LinuxCPU{
