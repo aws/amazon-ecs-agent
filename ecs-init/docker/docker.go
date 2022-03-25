@@ -22,9 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
-	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"

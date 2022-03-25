@@ -242,7 +242,6 @@ The following targets are available. Each may be run with `make <target>`.
 | `gobuild`              | Runs a normal `go build` of the agent and stores the binary in `./out/amazon-ecs-agent` |
 | `static`               | Runs `go build` to produce a static binary in `./out/amazon-ecs-agent` |
 | `test`                 | Runs all unit tests using `go test` |
-| `test-in-docker`       | Runs all tests inside a Docker container |
 | `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
 | `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
 

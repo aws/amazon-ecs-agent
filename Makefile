@@ -45,6 +45,9 @@ gobuild:
 static:
 	./scripts/build
 
+static-init:
+	./scripts/gobuild.sh
+
 # Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
@@ -114,6 +117,10 @@ gogenerate:
 	go generate -x ./agent/...
 	$(MAKE) goimports
 
+gogenerate-init:
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./ecs-init/...
+	$(MAKE) goimports
+
 # 'go' may not be on the $PATH for sudo tests
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
@@ -135,6 +142,10 @@ test:
 	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
+test-init:
+	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
+	go tool cover -func cover.out > coverprofile-init.out
+
 test-silent:
 	$(eval VERBOSE=)
 	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
@@ -143,6 +154,10 @@ test-silent:
 .PHONY: analyze-cover-profile
 analyze-cover-profile: coverprofile.out
 	./scripts/analyze-cover-profile
+
+.PHONY: analyze-cover-profile-init
+analyze-cover-profile-init: coverprofile-init.out
+	./scripts/analyze-cover-profile-init
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
@@ -278,7 +293,31 @@ static-check: gocyclo govet importcheck gogenerate-check
 	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./agent/...
+
+# all .go files in the ecs-init
+GOFILES_INIT:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./ecs-init/...)
+.PHONY: gocyclo-init
+gocyclo-init:
+	# Run gocyclo over all .go files
+	gocyclo -over 12 ${GOFILES_INIT}
+
+.PHONY: govet-init
+govet-init:
+	go vet ./ecs-init/...
+
+GOFMTFILES_INIT:=$(shell find ./ecs-init -not -path './ecs-init/vendor/*' -type f -iregex '.*\.go')
+
+.PHONY: importcheck-init
+importcheck-init:
+	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES_INIT)))
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
+
+.PHONY: static-check-init
+static-check-init: gocyclo-init govet-init importcheck-init
+	# use default checks of staticcheck tool, except style checks (-ST*)
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-init/...
 
 .PHONY: goimports
 goimports:
@@ -290,12 +329,19 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo/cmd/gocyclo
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
 
+get-deps-init:
+	go get golang.org/x/tools/cover
+	go get golang.org/x/tools/cmd/cover
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	go get golang.org/x/tools/cmd/goimports
+	go get github.com/golang/mock/mockgen
+	go get honnef.co/go/tools/cmd/staticcheck
 
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)
@@ -312,6 +358,58 @@ bin/dep:
 	mkdir -p ./bin
 	curl -L https://github.com/golang/dep/releases/download/$(DEP_VERSION)/dep-${dep_arch} -o ./bin/dep
 	chmod +x ./bin/dep
+
+# init targets
+sources.tgz:
+	./scripts/update-version.sh
+	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
+	cp packaging/amazon-linux-ami/ecs.service ecs.service
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
+	tar -czf ./sources.tgz ecs-init scripts
+
+# Hook to perform preparation steps prior to the sources target.
+prepare-sources::
+
+sources: prepare-sources sources.tgz
+
+.srpm-done: sources.tgz
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bs ecs-init.spec
+	find SRPMS/ -type f -exec cp {} . \;
+	touch .srpm-done
+
+srpm: .srpm-done
+
+.rpm-done: sources.tgz
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .rpm-done
+
+rpm: .rpm-done
+
+ubuntu-trusty:
+	cp packaging/ubuntu-trusty/ecs.conf ecs.conf
+	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init ecs.conf scripts README.md
+	mkdir -p BUILDROOT
+	cp -r packaging/ubuntu-trusty/debian BUILDROOT/debian
+	cp -r ecs-init BUILDROOT
+	cp packaging/ubuntu-trusty/ecs.conf BUILDROOT
+	cp -r scripts BUILDROOT
+	cp README.md BUILDROOT
+	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
+
+test-in-docker-init:
+	docker build -f scripts/dockerfiles/test-init.dockerfile -t "amazon/amazon-ecs-init-test:make" .
+	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-agent" "amazon/amazon-ecs-init-test:make"
+
+build-mock-images-init:
+	docker build -t "test.localhost/amazon/mock-ecs-agent" -f "scripts/dockerfiles/mock-agent.dockerfile" .
+	docker build -t "test.localhost/amazon/wants-update" -f "scripts/dockerfiles/wants-update.dockerfile" .
+	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
@@ -333,4 +431,21 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
-
+	# ecs init cleanup
+	-rm -f ecs-init.spec
+	-rm -f ecs.conf
+	-rm -f ecs.service
+	-rm -f amazon-ecs-volume-plugin.conf
+	-rm -f amazon-ecs-volume-plugin.service
+	-rm -f amazon-ecs-volume-plugin.socket
+	-rm -rf ./bin
+	-rm -f ./sources.tgz
+	-rm -f ./amazon-ecs-init
+	-rm -f ./ecs-agent-*.tar
+	-rm -f ./ecs-init-*.src.rpm
+	-rm -rf ./ecs-init-*
+	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
+	-rm -rf ./x86_64
+	-rm -f ./amazon-ecs-init_${VERSION}*
+	-rm -f .srpm-done .rpm-done
+	-rm -rf coverprofile-init.out
