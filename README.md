@@ -221,6 +221,8 @@ The agent also supports the following flags:
 The Amazon ECS Container Agent may be built by typing `make` with the [Docker
 daemon](https://docs.docker.com/installation/) (v1.5.0) running.
 
+foobar
+
 This produces an image tagged `amazon/ecs-container-agent:make` that
 you may run as described above.
 
