@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.60.1
+* Enhancement - Add dockerfree init build targets [#3149](https://github.com/aws/amazon-ecs-agent/pull/3149)
+* Enhancement - Merge ecs-init repo [#3141](https://github.com/aws/amazon-ecs-agent/pull/3141)
+
 ## 1.60.0
 * Enhancement - Update cgroups library to the latest release [#3126](https://github.com/aws/amazon-ecs-agent/pull/3126)
 * Enhancement - Improve log readability [#3134](https://github.com/aws/amazon-ecs-agent/pull/3134)
