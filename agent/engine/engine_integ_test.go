@@ -197,8 +197,7 @@ func TestHostVolumeMount(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	tmpPath, _ := ioutil.TempDir("", "ecs_volume_test")
-	defer os.RemoveAll(tmpPath)
+	tmpPath := t.TempDir()
 	ioutil.WriteFile(filepath.Join(tmpPath, "test-file"), []byte("test-data"), 0644)
 
 	testTask := createTestHostVolumeMountTask(tmpPath)
@@ -426,8 +425,7 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	// Set the task clean up duration to speed up the test
 	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
 
-	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
-	defer os.Remove(tmpDirectory)
+	testTask, err := createVolumeTask(t, "shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
 	require.NoError(t, err, "creating test task failed")
 
 	go taskEngine.AddTask(testTask)
@@ -454,8 +452,7 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	// Set the task clean up duration to speed up the test
 	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
 
-	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedDoNotAutoprovisionVolume", "TestSharedDoNotAutoprovisionVolume", false)
-	defer os.Remove(tmpDirectory)
+	testTask, err := createVolumeTask(t, "shared", "TestSharedDoNotAutoprovisionVolume", "TestSharedDoNotAutoprovisionVolume", false)
 	require.NoError(t, err, "creating test task failed")
 
 	// creating volume to simulate previously provisioned volume

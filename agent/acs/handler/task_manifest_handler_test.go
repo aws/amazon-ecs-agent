@@ -50,8 +50,7 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
 		dataClient, taskEngine, aws.Int64(11))
@@ -145,8 +144,7 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
 		dataClient, taskEngine, aws.Int64(11))
@@ -249,8 +247,7 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
 		dataClient, taskEngine, aws.Int64(11))
@@ -339,8 +336,7 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
 		dataClient, taskEngine, aws.Int64(11))
@@ -433,8 +429,7 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 }
 
 func TestManifestHandlerSequenceNumbers(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	testcases := []struct {
 		name                string

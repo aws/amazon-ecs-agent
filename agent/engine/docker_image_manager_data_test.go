@@ -48,8 +48,7 @@ var (
 )
 
 func TestAddImageStateSaveData(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	imageManager := &dockerImageManager{
 		dataClient: dataClient,
@@ -62,8 +61,7 @@ func TestAddImageStateSaveData(t *testing.T) {
 }
 
 func TestAddContainerReferenceToNewImageStateSaveData(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	imageManager := &dockerImageManager{
 		dataClient: dataClient,
@@ -76,8 +74,7 @@ func TestAddContainerReferenceToNewImageStateSaveData(t *testing.T) {
 }
 
 func TestAddContainerReferenceToExistingImageStateSaveData(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	imageManager := &dockerImageManager{
 		dataClient: dataClient,
@@ -90,8 +87,7 @@ func TestAddContainerReferenceToExistingImageStateSaveData(t *testing.T) {
 }
 
 func TestRemoveExistingImageNameOfDifferentID(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	imageManager := &dockerImageManager{
 		dataClient: dataClient,
@@ -110,8 +106,7 @@ func TestRemoveExistingImageNameOfDifferentID(t *testing.T) {
 }
 
 func TestRemoveImageStateSaveData(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	imageManager := &dockerImageManager{
 		dataClient: dataClient,

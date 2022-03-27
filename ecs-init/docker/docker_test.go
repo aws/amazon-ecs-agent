@@ -35,8 +35,6 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	testTempDirPrefix = "init-docker-test-"
-
 	expectedAgentBindsUnspecifiedPlatform = 20
 	expectedAgentBindsSuseUbuntuPlatform  = 18
 )
@@ -926,16 +924,15 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 }
 
 func TestDefaultIsPathValid(t *testing.T) {
-	rootDir, err := os.MkdirTemp(os.TempDir(), testTempDirPrefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(rootDir)
+	rootDir := t.TempDir()
 
 	file, err := os.CreateTemp(rootDir, "file")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		assert.NoError(t, file.Close())
+	})
 	notExistingPath := filepath.Join(rootDir, "not-existing")
 	testCases := []struct {
 		name              string

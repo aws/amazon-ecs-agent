@@ -17,8 +17,6 @@
 package data
 
 import (
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -26,9 +24,8 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func newTestClient(t *testing.T) (Client, func()) {
-	testDir, err := ioutil.TempDir("", "agent_data_unit_test")
-	require.NoError(t, err)
+func newTestClient(t *testing.T) Client {
+	testDir := t.TempDir()
 
 	testDB, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
 	require.NoError(t, err)
@@ -46,9 +43,8 @@ func newTestClient(t *testing.T) (Client, func()) {
 		db: testDB,
 	}
 
-	cleanup := func() {
+	t.Cleanup(func() {
 		require.NoError(t, testClient.Close())
-		require.NoError(t, os.RemoveAll(testDir))
-	}
-	return testClient, cleanup
+	})
+	return testClient
 }
