@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,10 +39,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-)
-
-const (
-	testTempDirPrefix = "agent-capability-test-"
 )
 
 func init() {
@@ -1281,20 +1276,17 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 }
 
 func TestDefaultGetSubDirectories(t *testing.T) {
-	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(rootDir)
+	rootDir := t.TempDir()
 
 	subDir, err := ioutil.TempDir(rootDir, "dir")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ioutil.TempFile(rootDir, "file")
+	file, err := ioutil.TempFile(rootDir, "file")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer require.NoError(t, file.Close())
 	notExistingPath := filepath.Join(rootDir, "not-existing")
 
 	testCases := []struct {
@@ -1333,16 +1325,13 @@ func TestDefaultGetSubDirectories(t *testing.T) {
 }
 
 func TestDefaultPathExistsd(t *testing.T) {
-	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(rootDir)
+	rootDir := t.TempDir()
 
 	file, err := ioutil.TempFile(rootDir, "file")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer require.NoError(t, file.Close())
 	notExistingPath := filepath.Join(rootDir, "not-existing")
 	testCases := []struct {
 		name              string

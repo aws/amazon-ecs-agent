@@ -18,8 +18,6 @@ package app
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"strconv"
 	"testing"
 
@@ -89,8 +87,7 @@ func TestLoadDataNoPreviousState(t *testing.T) {
 		_, stateManagerFactory, _, execCmdMgr, serviceConnectManager := setup(t)
 	defer ctrl.Finish()
 
-	stateManager, dataClient, cleanup := newTestClient(t)
-	defer cleanup()
+	stateManager, dataClient := newTestClient(t)
 
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -123,8 +120,8 @@ func TestLoadDataLoadFromBoltDB(t *testing.T) {
 		_, stateManagerFactory, _, execCmdMgr, serviceConnectManager := setup(t)
 	defer ctrl.Finish()
 
-	_, dataClient, cleanup := newTestClient(t)
-	defer cleanup()
+	_, dataClient := newTestClient(t)
+
 	// Populate boltdb with test data.
 	populateBoltDB(dataClient, t)
 
@@ -154,8 +151,8 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 		_, stateManagerFactory, _, execCmdMgr, serviceConnectManager := setup(t)
 	defer ctrl.Finish()
 
-	stateManager, dataClient, cleanup := newTestClient(t)
-	defer cleanup()
+	stateManager, dataClient := newTestClient(t)
+
 	// Generate a state file with test data.
 	generateStateFile(stateManager, t)
 
@@ -215,20 +212,18 @@ func checkLoadedData(state dockerstate.TaskEngineState, s *savedData, t *testing
 	assert.Equal(t, testLatestSeqNumberTaskManifest, s.latestTaskManifestSeqNum)
 }
 
-func newTestClient(t *testing.T) (statemanager.StateManager, data.Client, func()) {
-	testDir, err := ioutil.TempDir("", "agent_app_unit_test")
-	require.NoError(t, err)
+func newTestClient(t *testing.T) (statemanager.StateManager, data.Client) {
+	testDir := t.TempDir()
 
 	stateManager, err := statemanager.NewStateManager(&config.Config{DataDir: testDir})
 	require.NoError(t, err)
 
 	dataClient, err := data.NewWithSetup(testDir)
 
-	cleanup := func() {
+	t.Cleanup(func() {
 		require.NoError(t, dataClient.Close())
-		require.NoError(t, os.RemoveAll(testDir))
-	}
-	return stateManager, dataClient, cleanup
+	})
+	return stateManager, dataClient
 }
 
 func generateStateFile(stateManager statemanager.StateManager, t *testing.T) {
