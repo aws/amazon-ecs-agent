@@ -70,19 +70,17 @@ func setup(t *testing.T, options ...Option) (
 	*mock_dependencies.MockWindowsRegistry,
 	*mock_dependencies.MockRegistryKey,
 	oswrapper.File,
-	StateManager, func()) {
+	StateManager) {
 	ctrl := gomock.NewController(t)
 	mockRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
 	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
 	mockFile := mocks.NewMockFile()
 
 	// TODO set this to platform-specific tmpdir
-	tmpDir, err := ioutil.TempDir("", "ecs_statemanager_test")
-	assert.Nil(t, err)
-	cleanup := func() {
+	tmpDir := t.TempDir()
+	t.Cleanup(func() {
 		ctrl.Finish()
-		os.RemoveAll(tmpDir)
-	}
+	})
 	cfg := &config.Config{DataDir: tmpDir}
 	manager, err := NewStateManager(cfg, options...)
 	assert.Nil(t, err)
@@ -90,12 +88,11 @@ func setup(t *testing.T, options ...Option) (
 	basicManager.platformDependencies = windowsDependencies{
 		registry: mockRegistry,
 	}
-	return mockRegistry, mockKey, mockFile, basicManager, cleanup
+	return mockRegistry, mockKey, mockFile, basicManager
 }
 
 func TestStateManagerLoadNoRegistryKey(t *testing.T) {
-	mockRegistry, _, _, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, _, _, manager := setup(t)
 
 	// TODO figure out why gomock does not like registry.READ as the mode
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(nil, registry.ErrNotExist)
@@ -105,8 +102,7 @@ func TestStateManagerLoadNoRegistryKey(t *testing.T) {
 }
 
 func TestStateManagerLoadNoFile(t *testing.T) {
-	mockRegistry, mockKey, _, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, _, manager := setup(t)
 
 	defer mockOpenError()()
 	isNotExist = func(err error) bool {
@@ -126,8 +122,7 @@ func TestStateManagerLoadNoFile(t *testing.T) {
 }
 
 func TestStateManagerLoadError(t *testing.T) {
-	mockRegistry, mockKey, _, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, _, manager := setup(t)
 
 	defer mockOpenError()()
 	isNotExist = func(err error) bool {
@@ -148,8 +143,7 @@ func TestStateManagerLoadError(t *testing.T) {
 
 func TestStateManagerLoadState(t *testing.T) {
 	containerInstanceArn := ""
-	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t, AddSaveable("ContainerInstanceArn", &containerInstanceArn))
-	defer cleanup()
+	mockRegistry, mockKey, mockFile, manager := setup(t, AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 
 	data := `{"Version":1,"Data":{"ContainerInstanceArn":"foo"}}`
 	// TODO figure out why gomock does not like registry.READ as the mode
@@ -177,12 +171,11 @@ func TestStateManagerLoadState(t *testing.T) {
 func TestStateManagerLoadV1Data(t *testing.T) {
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
-	mockRegistry, mockKey, _, manager, cleanup := setup(t,
+	mockRegistry, mockKey, _, manager := setup(t,
 		AddSaveable("ContainerInstanceArn", &containerInstanceArn),
 		AddSaveable("Cluster", &cluster),
 		AddSaveable("EC2InstanceID", &savedInstanceID),
 		AddSaveable("SeqNum", &sequenceNumber))
-	defer cleanup()
 	dataFile, err := os.Open(filepath.Join(".", "testdata", "v1", "1", ecsDataFile))
 	assert.Nil(t, err, "Error opening test data")
 	defer dataFile.Close()
@@ -215,12 +208,11 @@ func TestStateManagerLoadV13Data(t *testing.T) {
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
-	mockRegistry, mockKey, _, manager, cleanup := setup(t,
+	mockRegistry, mockKey, _, manager := setup(t,
 		AddSaveable("ContainerInstanceArn", &containerInstanceArn),
 		AddSaveable("Cluster", &cluster),
 		AddSaveable("EC2InstanceID", &savedInstanceID),
 		AddSaveable("SeqNum", &sequenceNumber))
-	defer cleanup()
 
 	dataFile, err := os.Open(filepath.Join(".", "testdata", "v13", "1", ecsDataFile))
 	assert.Nil(t, err, "Error opening test data")
@@ -247,8 +239,7 @@ func TestStateManagerLoadV13Data(t *testing.T) {
 }
 
 func TestStateManagerSaveCreateFileError(t *testing.T) {
-	mockRegistry, mockKey, _, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, _, manager := setup(t)
 
 	// TODO figure out why gomock does not like registry.READ as the mode
 	gomock.InOrder(
@@ -263,8 +254,7 @@ func TestStateManagerSaveCreateFileError(t *testing.T) {
 }
 
 func TestStateManagerSaveSyncFileError(t *testing.T) {
-	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, mockFile, manager := setup(t)
 
 	mockFile.(*mocks.MockFile).NameImpl = mockNameImpl
 	mockFile.(*mock_oswrapper.MockFile).SyncImpl = func() error {
@@ -283,8 +273,7 @@ func TestStateManagerSaveSyncFileError(t *testing.T) {
 }
 
 func TestStateManagerSave(t *testing.T) {
-	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, mockFile, manager := setup(t)
 
 	otempFile := tempFile
 	tempFile = func(dir, pattern string) (oswrapper.File, error) {
@@ -314,8 +303,7 @@ func TestStateManagerSave(t *testing.T) {
 }
 
 func TestStateManagerNoOldStateRemoval(t *testing.T) {
-	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
-	defer cleanup()
+	mockRegistry, mockKey, mockFile, manager := setup(t)
 
 	otempFile := tempFile
 	tempFile = func(dir, pattern string) (oswrapper.File, error) {

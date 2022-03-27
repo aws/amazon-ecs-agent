@@ -32,8 +32,7 @@ const (
 )
 
 func TestManageImageStates(t *testing.T) {
-	testClient, cleanup := newTestClient(t)
-	defer cleanup()
+	testClient := newTestClient(t)
 
 	testImageState := &image.ImageState{
 		Image: &image.Image{

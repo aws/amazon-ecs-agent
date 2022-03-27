@@ -80,8 +80,7 @@ func TestCompatibilityNotSetFail(t *testing.T) {
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.TaskCPUMemLimit = config.BooleanDefaultTrue{Value: config.NotSet}
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 	populateBoltDB(dataClient, t)
 
 	// Put a bad task in previously saved state.
@@ -121,8 +120,7 @@ func TestCompatibilityExplicitlyEnabledFail(t *testing.T) {
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.TaskCPUMemLimit = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 	populateBoltDB(dataClient, t)
 
 	// Put a bad task in previously saved state.

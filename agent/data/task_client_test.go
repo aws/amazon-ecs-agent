@@ -30,8 +30,8 @@ const (
 )
 
 func TestManageTask(t *testing.T) {
-	testClient, cleanup := newTestClient(t)
-	defer cleanup()
+	testClient := newTestClient(t)
+
 	testTask := &apitask.Task{
 		Arn: testTaskArn,
 	}
@@ -48,8 +48,7 @@ func TestManageTask(t *testing.T) {
 }
 
 func TestSaveTaskInvalidID(t *testing.T) {
-	testClient, cleanup := newTestClient(t)
-	defer cleanup()
+	testClient := newTestClient(t)
 
 	testTask := &apitask.Task{
 		Arn: "invalid-arn",

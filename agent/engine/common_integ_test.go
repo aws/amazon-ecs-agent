@@ -19,12 +19,9 @@ package engine
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -74,8 +71,7 @@ func createTestTask(arn string) *apitask.Task {
 
 func setupIntegTestLogs(t *testing.T) string {
 	// Create a directory for storing test logs.
-	testLogDir, err := ioutil.TempDir("", "ecs-integ-test")
-	require.NoError(t, err, "Unable to create directory for storing test logs")
+	testLogDir := t.TempDir()
 
 	logger, err := log.LoggerFromConfigAsString(loggerConfigIntegrationTest(testLogDir))
 	assert.NoError(t, err, "initialisation failed")

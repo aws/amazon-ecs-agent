@@ -18,8 +18,6 @@ package eventhandler
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -343,8 +341,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 }
 
 func TestSetTaskSentStatus(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	testManagedAgent := apicontainer.ManagedAgent{
 		ManagedAgentState: apicontainer.ManagedAgentState{},
@@ -425,8 +422,7 @@ func TestSetTaskSentStatus(t *testing.T) {
 }
 
 func TestSetContainerSentStatus(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	testContainer := &apicontainer.Container{
 		Name:          testConainerName,
@@ -454,8 +450,7 @@ func TestSetContainerSentStatus(t *testing.T) {
 }
 
 func TestSetAttachmentSentStatus(t *testing.T) {
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	testAttachment := &apieni.ENIAttachment{
 		AttachStatusSent: true,
@@ -474,15 +469,14 @@ func TestSetAttachmentSentStatus(t *testing.T) {
 	assert.True(t, atts[0].IsSent())
 }
 
-func newTestDataClient(t *testing.T) (data.Client, func()) {
-	testDir, err := ioutil.TempDir("", "agent_eventhandler_unit_test")
-	require.NoError(t, err)
+func newTestDataClient(t *testing.T) data.Client {
+	testDir := t.TempDir()
 
 	testClient, err := data.NewWithSetup(testDir)
+	require.NoError(t, err)
 
-	cleanup := func() {
+	t.Cleanup(func() {
 		require.NoError(t, testClient.Close())
-		require.NoError(t, os.RemoveAll(testDir))
-	}
-	return testClient, cleanup
+	})
+	return testClient
 }

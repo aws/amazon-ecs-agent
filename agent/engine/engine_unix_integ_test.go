@@ -153,14 +153,11 @@ func createNamespaceSharingTask(arn, pidMode, ipcMode, testImage string, theComm
 	return testTask
 }
 
-func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
-	tmpDirectory, err := ioutil.TempDir("", "ecs_test")
+func createVolumeTask(t *testing.T, scope, arn, volume string, autoprovision bool) (*apitask.Task, error) {
+	tmpDirectory := t.TempDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDirectory, "volume-data"), []byte("volume"), 0666)
 	if err != nil {
-		return nil, "", err
-	}
-	err = ioutil.WriteFile(filepath.Join(tmpDirectory, "volume-data"), []byte("volume"), 0666)
-	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	testTask := createTestTask(arn)
@@ -196,7 +193,7 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	testTask.Containers[0].Command = []string{"sh", "-c", "if [[ $(cat /ecs/volume-data) != \"volume\" ]]; then cat /ecs/volume-data; exit 1; fi; exit 0"}
-	return testTask, tmpDirectory, nil
+	return testTask, nil
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -799,8 +796,7 @@ func TestTaskLevelVolume(t *testing.T) {
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
-	defer os.Remove(tmpDirectory)
+	testTask, err := createVolumeTask(t, "task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
 	require.NoError(t, err, "creating test task failed")
 
 	go taskEngine.AddTask(testTask)

@@ -29,8 +29,7 @@ const (
 )
 
 func TestManageMetadata(t *testing.T) {
-	testClient, cleanup := newTestClient(t)
-	defer cleanup()
+	testClient := newTestClient(t)
 
 	require.NoError(t, testClient.SaveMetadata(testKey, testVal))
 
