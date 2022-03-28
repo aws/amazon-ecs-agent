@@ -342,6 +342,31 @@ func TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits(t *testing.T
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
 }
 
+// TestBuildLinuxResourceSpecWithoutTaskCPUWithLessThanMinimumContainerCPULimits validates behavior of CPU Shares
+// when container CPU share is 1 (less than the current minimumCPUShare which is 2)
+func TestBuildLinuxResourceSpecWithoutTaskCPUWithLessThanMinimumContainerCPULimits(t *testing.T) {
+	task := &Task{
+		Arn: validTaskArn,
+		Containers: []*apicontainer.Container{
+			{
+				Name: "C1",
+				CPU:  uint(1),
+			},
+		},
+	}
+	expectedCPUShares := uint64(2)
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Shares: &expectedCPUShares,
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
 // TestBuildLinuxResourceSpecInvalidMem validates the linux resource spec builder
 func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 	taskMemoryLimit := int64(taskMemoryLimit)
