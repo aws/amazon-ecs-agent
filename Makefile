@@ -48,6 +48,9 @@ static:
 static-init:
 	./scripts/gobuild.sh
 
+static-with-pause:
+	./scripts/build true "" false true
+
 # Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
@@ -411,6 +414,22 @@ build-mock-images-init:
 	docker build -t "test.localhost/amazon/wants-update" -f "scripts/dockerfiles/wants-update.dockerfile" .
 	docker build -t "test.localhost/amazon/exit-success" -f "scripts/dockerfiles/exit-success.dockerfile" .
 
+# Dockerfree targets
+# TODO: arm
+dockerfree-pause:
+	GOOS=linux GOARCH=amd64 ./scripts/build-pause
+
+dockerfree-certs:
+	GOOS=linux GOARCH=amd64 ./scripts/get-host-certs
+
+dockerfree-cni-plugins: get-cni-sources
+	GOOS=linux GOARCH=amd64 ./scripts/build-cni-plugins
+
+dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
+	GOOS=linux GOARCH=amd64 ./scripts/build-agent-image
+
+dockerfree-all: dockerfree-agent-image rpm
+
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
@@ -449,3 +468,9 @@ clean:
 	-rm -f ./amazon-ecs-init_${VERSION}*
 	-rm -f .srpm-done .rpm-done
 	-rm -rf coverprofile-init.out
+	-rm -f misc/certs/host-certs.crt &> /dev/null
+	-rm -rf misc/pause-container/image/
+	-rm -rf misc/pause-container/rootfs/
+	-rm -rf misc/plugins/
+	-rm -f misc/pause-container/amazon-ecs-pause.tar
+	-rm -rf rootfs/
