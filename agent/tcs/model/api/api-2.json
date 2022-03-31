@@ -192,6 +192,37 @@
       "member":{"shape":"ContainerMetric"}
     },
     "Double":{"type":"double"},
+    "Dimension":{
+      "type": "structure",
+      "members":{
+        "key":{"shape":"String"},
+        "value":{"shape":"String"}
+      }
+    },
+    "Dimensions":{
+      "type":"list",
+      "member":{"shape":"Dimension"}
+    },
+    "GeneralMetric":{
+      "type":"structure",
+      "members":{
+        "metricName":{"shape":"String"},
+        "metricValues":{"shape":"MetricValues"},
+        "metricCounts":{"shape":"MetricCounts"}
+      }
+    },
+    "GeneralMetrics":{
+      "type":"list",
+      "member":{"shape":"GeneralMetric"}
+    },
+    "GeneralMetricsWrapper":{
+      "type":"structure",
+      "members":{
+        "dimensions":{"shape":"Dimensions"},
+        "metricType": {"shape":"MetricType"},
+        "generalMetrics":{"shape":"GeneralMetrics"}
+      }
+    },
     "HealthMetadata":{
       "type":"structure",
       "members":{
@@ -252,6 +283,11 @@
       },
       "exception":true
     },
+    "Long":{"type":"long"},
+    "MetricCounts":{
+      "type":"list",
+      "member":{"shape":"Long"}
+    },
     "MetricsMetadata":{
       "type":"structure",
       "members":{
@@ -261,6 +297,17 @@
         "idle":{"shape":"Boolean"},
         "fin":{"shape":"Boolean"}
       }
+    },
+    "MetricType":{
+      "type":"string",
+      "enum":[
+        "INGRESS",
+        "EGRESS"
+      ]
+    },
+    "MetricValues":{
+      "type":"list",
+      "member":{"shape":"Double"}
     },
     "NetworkStatsSet":{
       "type":"structure",
@@ -316,6 +363,10 @@
       "exception":true,
       "fault":true
     },
+    "ServiceConnectMetricsWrapper":{
+      "type":"list",
+      "member":{"shape":"GeneralMetricsWrapper"}
+    },
     "StartTelemetrySessionRequest":{
       "type":"structure",
       "members":{
@@ -358,7 +409,8 @@
         "clusterArn":{"shape":"String"},
         "taskDefinitionFamily":{"shape":"String"},
         "taskDefinitionVersion":{"shape":"String"},
-        "containerMetrics":{"shape":"ContainerMetrics"}
+        "containerMetrics":{"shape":"ContainerMetrics"},
+        "serviceConnectMetricsWrapper":{"shape":"ServiceConnectMetricsWrapper"}
       }
     },
     "TaskMetrics":{
