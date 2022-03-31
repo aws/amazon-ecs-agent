@@ -215,6 +215,64 @@ func (s *ContainerMetric) Validate() error {
 	return nil
 }
 
+type Dimension struct {
+	_ struct{} `type:"structure"`
+
+	Key *string `locationName:"key" type:"string"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s Dimension) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Dimension) GoString() string {
+	return s.String()
+}
+
+type GeneralMetric struct {
+	_ struct{} `type:"structure"`
+
+	MetricCounts []*int64 `locationName:"metricCounts" type:"list"`
+
+	MetricName *string `locationName:"metricName" type:"string"`
+
+	MetricValues []*float64 `locationName:"metricValues" type:"list"`
+}
+
+// String returns the string representation
+func (s GeneralMetric) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GeneralMetric) GoString() string {
+	return s.String()
+}
+
+type GeneralMetricsWrapper struct {
+	_ struct{} `type:"structure"`
+
+	Dimensions []*Dimension `locationName:"dimensions" type:"list"`
+
+	GeneralMetrics []*GeneralMetric `locationName:"generalMetrics" type:"list"`
+
+	MetricType *string `locationName:"metricType" type:"string" enum:"MetricType"`
+}
+
+// String returns the string representation
+func (s GeneralMetricsWrapper) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GeneralMetricsWrapper) GoString() string {
+	return s.String()
+}
+
 type HealthMetadata struct {
 	_ struct{} `type:"structure"`
 
@@ -932,6 +990,8 @@ type TaskMetric struct {
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
 	ContainerMetrics []*ContainerMetric `locationName:"containerMetrics" type:"list"`
+
+	ServiceConnectMetricsWrapper []*GeneralMetricsWrapper `locationName:"serviceConnectMetricsWrapper" type:"list"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
 
