@@ -35,6 +35,15 @@ PAUSE_CONTAINER_TARBALL="amazon-ecs-pause.tar"
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
+export GO111MODULE="auto"
+export BUILDDIR="$(mktemp -d)"
+export GOPATH="${ROOT}/agent/:${BUILDDIR}"
+export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
+
+mkdir -p "${SRCPATH}"
+ln -s "${ROOT}/agent" "${SRCPATH}"
+cd "${SRCPATH}/agent"
+
 if [[ "${version_gen}" == "true" ]]; then
   # Versioning stuff. We run the generator to setup the version and then always
   # restore ourselves to a clean state
@@ -67,3 +76,5 @@ fi
 if [[ -n "${output_directory}" ]]; then
   mv $build_exe "${output_directory}"
 fi
+
+rm -r "${BUILDDIR}"

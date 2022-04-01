@@ -394,16 +394,23 @@ srpm: .srpm-done
 
 rpm: .rpm-done
 
-ubuntu-trusty:
-	cp packaging/ubuntu-trusty/ecs.conf ecs.conf
-	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init ecs.conf scripts README.md
-	mkdir -p BUILDROOT
-	cp -r packaging/ubuntu-trusty/debian BUILDROOT/debian
-	cp -r ecs-init BUILDROOT
-	cp packaging/ubuntu-trusty/ecs.conf BUILDROOT
-	cp -r scripts BUILDROOT
-	cp README.md BUILDROOT
-	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
+sources-with-agent.tgz: get-cni-sources
+	./scripts/update-version.sh
+	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
+	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
+	tar -czf ./sources-with-agent.tgz ecs-init scripts agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins misc agent-container VERSION
+
+.rpm-with-agent-done: sources-with-agent.tgz
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .rpm-with-agent-done
+
+rpm-with-agent: .rpm-with-agent-done
 
 test-in-docker-init:
 	docker build -f scripts/dockerfiles/test-init.dockerfile -t "amazon/amazon-ecs-init-test:make" .
@@ -458,7 +465,7 @@ clean:
 	-rm -f amazon-ecs-volume-plugin.service
 	-rm -f amazon-ecs-volume-plugin.socket
 	-rm -rf ./bin
-	-rm -f ./sources.tgz
+	-rm -f ./sources.tgz sources-with-agent.tgz
 	-rm -f ./amazon-ecs-init
 	-rm -f ./ecs-agent-*.tar
 	-rm -f ./ecs-init-*.src.rpm
@@ -466,7 +473,7 @@ clean:
 	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
-	-rm -f .srpm-done .rpm-done
+	-rm -f .srpm-done .rpm-done .rpm-with-agent-done
 	-rm -rf coverprofile-init.out
 	-rm -f misc/certs/host-certs.crt &> /dev/null
 	-rm -rf misc/pause-container/image/
