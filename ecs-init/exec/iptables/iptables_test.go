@@ -16,6 +16,7 @@ package iptables
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -40,9 +41,10 @@ var (
 		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
 		"-j", "DROP",
 	}
+	offhostIntrospectionInterface                 = "ens5"
 	blockIntrospectionOffhostAccessInputRouteArgs = []string{
 		"-p", "tcp",
-		"-i", "eth0",
+		"-i", offhostIntrospectionInterface,
 		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
@@ -59,9 +61,30 @@ var (
 		"-j", "REDIRECT",
 		"--to-ports", localhostCredentialsProxyPort,
 	}
+
+	testIPV4RouteInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+ens5	00000000	01201FAC	0003	0	0	0	00000000	0	0	0                                                                               
+ens5	FEA9FEA9	00000000	0005	0	0	0	FFFFFFFF	0	0	0                                                                               
+ens5	00201FAC	00000000	0001	0	0	0	00F0FFFF	0	0	0
+`
 )
 
+func overrideIPRouteInput(ipv4RouteInput string) func() {
+	originalv4 := getDefaultNetworkInterfaceIPv4
+
+	getDefaultNetworkInterfaceIPv4 = func() (string, error) {
+		return scanIPv4RoutesForDefaultInterface(strings.NewReader(ipv4RouteInput))
+	}
+
+	return func() {
+		getDefaultNetworkInterfaceIPv4 = originalv4
+		// in real environment we'll only set it once, for testing we unset it after executing relevant test cases
+		defaultOffhostIntrospectionInterface = ""
+	}
+}
+
 func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -72,7 +95,21 @@ func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
 	assert.Error(t, err, "Expected error when executable's path lookup fails")
 }
 
+func TestNewNetfilterRouteWithDefaultOffhostIntrospectionInterfaceFallback(t *testing.T) {
+	defer overrideIPRouteInput("")()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockExec := NewMockExec(ctrl)
+	mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil)
+
+	_, err := NewNetfilterRoute(mockExec)
+	assert.NoError(t, err)
+	assert.Equal(t, defaultOffhostIntrospectionInterface, fallbackOffhostIntrospectionInterface)
+}
+
 func TestCreate(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	testCases := []struct {
 		setOffhostInterface bool
 		inputRouteArgs      []string
@@ -124,6 +161,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateSkipLocalTrafficFilter(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -226,6 +264,7 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 }
 
 func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -256,6 +295,7 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -287,6 +327,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -316,6 +357,7 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 }
 
 func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
 	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
 
@@ -348,6 +390,7 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 }
 
 func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -378,6 +421,7 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -408,6 +452,7 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -473,10 +518,12 @@ func TestGetLocalhostTrafficFilterInputChainArgs(t *testing.T) {
 }
 
 func TestGetBlockIntrospectionOffhostAccessInputChainArgs(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defaultOffhostIntrospectionInterface, _ = getOffhostIntrospectionInterface()
 	assert.Equal(t, []string{
 		"INPUT",
 		"-p", "tcp",
-		"-i", "eth0",
+		"-i", "ens5",
 		"--dport", "51678",
 		"-j", "DROP",
 	}, getBlockIntrospectionOffhostAccessInputChainArgs())
@@ -503,4 +550,50 @@ func TestGetActionName(t *testing.T) {
 
 func expectedArgs(table, action, chain string, args []string) []string {
 	return append([]string{"-t", table, action, chain}, args...)
+}
+
+func TestScanIPv4RoutesHappyCase(t *testing.T) {
+	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(testIPV4RouteInput))
+	assert.NoError(t, err)
+	assert.Equal(t, offhostIntrospectionInterface, iface)
+}
+
+func TestScanIPv4RoutesNoDefaultRoute(t *testing.T) {
+	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(""))
+	assert.Error(t, err)
+	assert.Equal(t, "", iface)
+}
+
+func TestScanIPv4RoutesNoDefaultRouteExceptLoopback(t *testing.T) {
+	var testInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+lo	00000000	01201FAC	0003	0	0	0	00000000	0	0	0
+`
+	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(testInput))
+	assert.Error(t, err)
+	assert.Equal(t, "", iface)
+}
+
+func TestGetOffhostIntrospectionInterfaceWithEnvOverride(t *testing.T) {
+	os.Setenv(offhostIntrospectonAccessInterfaceEnv, "test_iface")
+	defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
+
+	iface, err := getOffhostIntrospectionInterface()
+	assert.NoError(t, err)
+	assert.Equal(t, "test_iface", iface)
+}
+
+func TestGetOffhostIntrospectionInterfaceUseDefaultV4(t *testing.T) {
+	defer overrideIPRouteInput(testIPV4RouteInput)()
+
+	iface, err := getOffhostIntrospectionInterface()
+	assert.NoError(t, err)
+	assert.Equal(t, offhostIntrospectionInterface, iface)
+}
+
+func TestGetOffhostIntrospectionInterfaceFailure(t *testing.T) {
+	defer overrideIPRouteInput("")()
+
+	iface, err := getOffhostIntrospectionInterface()
+	assert.Error(t, err)
+	assert.Equal(t, "", iface)
 }
