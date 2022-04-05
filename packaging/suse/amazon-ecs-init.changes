@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Apr 05, 18:00:00 UTC 2022 - cssparr@amazon.com - 1.61.0-1
+
+- Cache Agent version 1.61.0
+- Check ipv4 routes for default network interface instead of defaulting to eth0
+-------------------------------------------------------------------
 Wed Mar 23, 18:00:00 UTC 2022 - fierlion@amazon.com - 1.60.1-1
 
 - Cache Agent version 1.60.1
