@@ -49,6 +49,7 @@ Source5:        amazon-ecs-volume-plugin.conf
 Source6:        amazon-ecs-volume-plugin.service
 Source7:        amazon-ecs-volume-plugin.socket
 
+BuildRequires:  golang >= 1.7
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd

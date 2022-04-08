@@ -13,19 +13,25 @@
 # permissions and limitations under the License.
 
 # this script builds the ecs/vpc cni plugins from the submodules
-# by copying them out of agent into their expected location in the
-# gopath
-
 set -ex
 
+# this script assumes we've run the get-cni-sources make target to update the cni submodules
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
-# copy submodules to expected go build path github.com/aws/amazon-ecs-cni-plugins
-cp -r amazon-ecs-cni-plugins ../amazon-ecs-cni-plugins
-cp -r amazon-vpc-cni-plugins ../amazon-vpc-cni-plugins
-cd ../amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
-mkdir -p ../amazon-ecs-agent/misc/plugins && cp -a ./bin/plugins/. ../amazon-ecs-agent/misc/plugins/
+
+export BUILDDIR="$(mktemp -d)"
+export GITPATH="${BUILDDIR}/src/github.com/aws"
+export GOPATH="${BUILDDIR}"
+
+mkdir -p "${GITPATH}"
+ln -s "${ROOT}/amazon-ecs-cni-plugins" "${GITPATH}"
+ln -s "${ROOT}/amazon-vpc-cni-plugins" "${GITPATH}"
+
+cd ${GITPATH}/amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
+mkdir -p ${ROOT}/misc/plugins && cp -a ./bin/plugins/. ${ROOT}/misc/plugins/
 make clean
-cd ../amazon-vpc-cni-plugins && GO111MODULE=auto make build
-cp -a ./build/linux_amd64/. ../amazon-ecs-agent/misc/plugins/
+cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=off BUILD_FLAGS="-tags disablekubeapi" make all-binaries
+cp -a ./build/linux_amd64/. ${ROOT}/misc/plugins/
 make clean
+
+rm -r "${BUILDDIR}"
