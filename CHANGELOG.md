@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.61.0
+* Enhancement - Support for unified cgroups and the systemd cgroup driver [#3127](https://github.com/aws/amazon-ecs-agent/pull/3127)
+* Enhancement - Apply minimumCPUShare to both task and container CPU shares [#3156](https://github.com/aws/amazon-ecs-agent/pull/3156)
+
 ## 1.60.1
 * Enhancement - Add dockerfree init build targets [#3149](https://github.com/aws/amazon-ecs-agent/pull/3149)
 * Enhancement - Merge ecs-init repo [#3141](https://github.com/aws/amazon-ecs-agent/pull/3141)
