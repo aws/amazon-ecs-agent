@@ -143,7 +143,7 @@ func startSession(
 	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
 	client.AddRequestHandler(ackPublishInstanceStatusHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
-	serveC := make(chan error)
+	serveC := make(chan error, 1)
 	go func() {
 		serveC <- client.Serve()
 	}()

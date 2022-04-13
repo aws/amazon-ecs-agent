@@ -196,12 +196,10 @@ func NewSession(
 func (acsSession *session) Start() error {
 	// connectToACS channel is used to indicate the intent to connect to ACS
 	// It's processed by the select loop to connect to ACS
-	connectToACS := make(chan struct{})
+	connectToACS := make(chan struct{}, 1)
 	// This is required to trigger the first connection to ACS. Subsequent
 	// connections are triggered by the handleACSError() method
-	go func() {
-		connectToACS <- struct{}{}
-	}()
+	connectToACS <- struct{}{}
 	for {
 		select {
 		case <-connectToACS:
