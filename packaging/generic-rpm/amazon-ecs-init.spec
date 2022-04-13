@@ -18,12 +18,12 @@
 %global no_exec_perm 644
 %global debug_package %{nil}
 
-%ifarch x86_64
-%global agent_image %{SOURCE3}
-%endif
-%ifarch aarch64
-%global agent_image %{SOURCE4}
-%endif
+#%ifarch x86_64
+#%global agent_image %{SOURCE3}
+#%endif
+#%ifarch aarch64
+#%global agent_image %{SOURCE4}
+#%endif
 
 Name:           amazon-ecs-init
 Version:        1.60.0
@@ -42,6 +42,7 @@ Source4:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v%{bun
 Source5:        amazon-ecs-volume-plugin.service
 Source6:        amazon-ecs-volume-plugin.socket
 
+BuildRequires:  golang >= 1.7
 BuildRequires:  systemd
 Requires:       systemd
 Requires:       iptables
