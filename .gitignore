@@ -8,6 +8,7 @@ _bin/
 *.swp
 *.orig
 /agent/version/_version.go
+/ecs-init/version/version.go
 .agignore
 *.sublime-*
 .DS_Store

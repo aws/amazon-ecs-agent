@@ -1,4 +1,6 @@
 //go:build linux && (sudo || integration)
+// +build linux
+// +build sudo integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
