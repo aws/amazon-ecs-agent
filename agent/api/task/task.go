@@ -1929,12 +1929,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) nat.PortMap {
 
 	for _, portBinding := range container.Ports {
 		dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
-		currentMappings, existing := dockerPortMap[dockerPort]
-		if existing {
-			dockerPortMap[dockerPort] = append(currentMappings, nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
-		} else {
-			dockerPortMap[dockerPort] = []nat.PortBinding{{HostPort: strconv.Itoa(int(portBinding.HostPort))}}
-		}
+		dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
 	}
 	return dockerPortMap
 }
