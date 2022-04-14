@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -188,6 +189,12 @@ func mockSetupNSResult() *current.Result {
 				Address: *ip,
 			},
 		},
+	}
+}
+
+func ensureCNISupportsPlatform(t *testing.T) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
+		t.Skipf("CNI config building is unsupported on this platform")
 	}
 }
 
@@ -971,6 +978,7 @@ func TestGetTaskByArn(t *testing.T) {
 }
 
 func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
+	ensureCNISupportsPlatform(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1055,6 +1063,7 @@ func TestProvisionContainerResourcesInspectError(t *testing.T) {
 // TestStopPauseContainerCleanupCalled tests when stopping the pause container
 // its network namespace should be cleaned up first
 func TestStopPauseContainerCleanupCalled(t *testing.T) {
+	ensureCNISupportsPlatform(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1112,6 +1121,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 // TestStopPauseContainerCleanupCalled tests when stopping the pause container
 // its network namespace should be cleaned up first
 func TestStopPauseContainerCleanupDelay(t *testing.T) {
+	ensureCNISupportsPlatform(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -1172,6 +1182,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 
 // TestCheckTearDownPauseContainer that the pause container teardown works and is idempotent
 func TestCheckTearDownPauseContainer(t *testing.T) {
+	ensureCNISupportsPlatform(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
