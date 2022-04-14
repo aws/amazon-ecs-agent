@@ -78,8 +78,9 @@ const (
 	// neuronRuntime is the name of the neuron docker runtime.
 	neuronRuntime = "neuron"
 
-	ContainerOrderingCreateCondition = "CREATE"
-	ContainerOrderingStartCondition  = "START"
+	ContainerOrderingCreateCondition  = "CREATE"
+	ContainerOrderingStartCondition   = "START"
+	ContainerOrderingHealthyCondition = "HEALTHY"
 
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
@@ -273,6 +274,8 @@ type Task struct {
 
 	// setIdOnce is used to set the value of this task's id only the first time GetID is invoked
 	setIdOnce sync.Once
+
+	ServiceConnectConfig *ServiceConnectConfig `json:"serviceConnectConfig,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -345,6 +348,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			field.TaskID: task.GetID(),
 		})
 	}
+
+	task.initServiceConnectResources()
 
 	if err := task.initializeContainerOrderingForVolumes(); err != nil {
 		logger.Error("Could not initialize volumes dependency for container", logger.Fields{
@@ -436,6 +441,48 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 	return nil
+}
+
+func (task *Task) initServiceConnectResources() {
+	// TODO [SC]: ServiceConnectConfig will come from ACS. Adding this here for dev/testing purposes only Remove when
+	// ACS model is integrated
+	if task.ServiceConnectConfig == nil {
+		task.ServiceConnectConfig = &ServiceConnectConfig{
+			ContainerName: "service-connect",
+		}
+	}
+	if task.IsServiceConnectEnabled() {
+		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
+		task.initDummyServiceConnectConfig()
+		task.configureContainerDependenciesForServiceConnect()
+	}
+}
+
+// TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
+func (task *Task) initDummyServiceConnectConfig() {
+	scContainer := task.GetServiceConnectContainer()
+	if _, ok := scContainer.Environment["SC_CONFIG"]; !ok {
+		// no SC_CONFIG :(
+		return
+	}
+	if err := json.Unmarshal([]byte(scContainer.Environment["SC_CONFIG"]), task.ServiceConnectConfig); err != nil {
+		logger.Error("Error parsing SC_CONFIG", logger.Fields{
+			field.Error: err,
+		})
+		return
+	}
+}
+
+func (task *Task) configureContainerDependenciesForServiceConnect() {
+	scContainer := task.GetServiceConnectContainer()
+
+	for _, container := range task.Containers {
+		if container.IsInternal() || container == scContainer {
+			continue
+		}
+		container.AddContainerDependency(scContainer.Name, ContainerOrderingHealthyCondition)
+		scContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+	}
 }
 
 // populateTaskARN populates the arn of the task to the containers.
@@ -2779,4 +2826,17 @@ func (task *Task) UpdateTaskENIsLinkName() {
 	for _, eni := range task.ENIs {
 		eni.GetLinkName()
 	}
+}
+
+func (task *Task) GetServiceConnectContainer() *apicontainer.Container {
+	if task.ServiceConnectConfig == nil {
+		return nil
+	}
+	c, _ := task.ContainerByName(task.ServiceConnectConfig.ContainerName)
+	return c
+}
+
+// IsServiceConnectEnabled returns true if Service Connect is enabled for this task.
+func (task *Task) IsServiceConnectEnabled() bool {
+	return task.GetServiceConnectContainer() != nil
 }
