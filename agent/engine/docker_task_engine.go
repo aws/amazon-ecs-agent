@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1250,6 +1251,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion, engine.cfg)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
+	}
+
+	// Add SC VIPs to pause container's known hosts
+	if task.IsServiceConnectEnabled() && container.Type == apicontainer.ContainerCNIPause {
+		serviceconnect.AppendEgressVIPHosts(task.ServiceConnectConfig.DNSConfig, hostConfig)
 	}
 
 	if container.AWSLogAuthExecutionRole() {
