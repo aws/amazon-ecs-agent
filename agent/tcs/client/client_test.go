@@ -116,6 +116,10 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*mockStatsEngine) GetServiceConnectStats() error {
+	return nil
+}
+
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
@@ -128,6 +132,10 @@ func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types
 
 func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*emptyStatsEngine) GetServiceConnectStats() error {
+	return nil
 }
 
 type idleStatsEngine struct{}
@@ -148,6 +156,10 @@ func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*idleStatsEngine) GetServiceConnectStats() error {
+	return nil
 }
 
 type nonIdleStatsEngine struct {
@@ -177,6 +189,11 @@ func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*typ
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
+
+func (*nonIdleStatsEngine) GetServiceConnectStats() error {
+	return nil
+}
+
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 	return &nonIdleStatsEngine{numTasks: numTasks}
 }
