@@ -71,6 +71,8 @@ type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
+	//TODO [SC]: Return service connect metrics from GetServiceConnects when the metrics are defined.
+	GetServiceConnectStats() error
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -91,8 +93,9 @@ type DockerStatsEngine struct {
 	// tasksToHealthCheckContainers map task arns to the containers that has health check enabled
 	tasksToHealthCheckContainers map[string]map[string]*StatsContainer
 	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
-	tasksToDefinitions map[string]*taskDefinition
-	taskToTaskStats    map[string]*StatsTask
+	tasksToDefinitions        map[string]*taskDefinition
+	taskToTaskStats           map[string]*StatsTask
+	taskToServiceConnectStats map[string]*ServiceConnectStats
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -144,6 +147,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		tasksToHealthCheckContainers: make(map[string]map[string]*StatsContainer),
 		tasksToDefinitions:           make(map[string]*taskDefinition),
 		taskToTaskStats:              make(map[string]*StatsTask),
+		taskToServiceConnectStats:    make(map[string]*ServiceConnectStats),
 		containerChangeEventStream:   containerChangeEventStream,
 	}
 }
@@ -305,6 +309,18 @@ func (engine *DockerStatsEngine) addToStatsTaskMapUnsafe(task *apitask.Task, doc
 	}
 }
 
+func (engine *DockerStatsEngine) addTaskToServiceConnectStatsUnsafe(taskArn string) {
+	_, taskExists := engine.taskToServiceConnectStats[taskArn]
+	if !taskExists {
+		serviceConnectStats, err := newServiceConnectStats()
+		if err != nil {
+			seelog.Errorf("Error adding task %s to the service connect stats watchlist : %v", taskArn, err)
+			return
+		}
+		engine.taskToServiceConnectStats[taskArn] = serviceConnectStats
+	}
+}
+
 // addContainerUnsafe adds a container to the map of containers being watched.
 func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsContainer, *StatsTask, error) {
 	// Make sure that this container belongs to a task and that the task
@@ -349,6 +365,10 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		// Track the container health status
 		engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.healthCheckContainerMapUnsafe)
 		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
+	}
+
+	if errResolveContainer == nil {
+		engine.addTaskToServiceConnectStatsUnsafe(task.Arn)
 	}
 
 	if !watchStatsContainer {
@@ -439,6 +459,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 			TaskDefinitionVersion: &taskDef.version,
 			ContainerMetrics:      containerMetrics,
 		}
+
 		taskMetrics = append(taskMetrics, taskMetric)
 	}
 
@@ -770,6 +791,11 @@ func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContain
 		seelog.Debugf("Deleted task from tasks, arn: %s", taskArn)
 	}
 
+	if _, ok := engine.taskToServiceConnectStats[taskArn]; ok {
+		delete(engine.taskToServiceConnectStats, taskArn)
+		seelog.Debugf("Deleted task from service connect stats watch list, arn: %s", taskArn)
+	}
+
 	// Remove the container from health container watch list
 	if _, ok := engine.tasksToHealthCheckContainers[taskArn][dockerID]; !ok {
 		return
@@ -834,4 +860,32 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 	}
 
 	return containerStats, containerNetworkRateStats, nil
+}
+
+// GetServiceConnectStats invokes the workflow to retrieve all service connect
+// related metrics for all service connect enabled tasks
+func (engine *DockerStatsEngine) GetServiceConnectStats() error {
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
+
+	var wg sync.WaitGroup
+
+	for taskArn := range engine.taskToServiceConnectStats {
+		wg.Add(1)
+		task, err := engine.resolver.ResolveTaskByARN(taskArn)
+		if err != nil {
+			return errors.Errorf("stats engine: task '%s' not found", taskArn)
+		}
+		// TODO [SC]: Check if task is service-connect enabled
+		serviceConnectStats, ok := engine.taskToServiceConnectStats[taskArn]
+		if !ok {
+			return errors.Errorf("task '%s' is not registered to collect service connect metrics", taskArn)
+		}
+		go func() {
+			serviceConnectStats.retrieveServiceConnectStats(task)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	return nil
 }
