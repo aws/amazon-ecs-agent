@@ -82,6 +82,20 @@ func (mr *MockEngineMockRecorder) GetInstanceMetrics() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceMetrics", reflect.TypeOf((*MockEngine)(nil).GetInstanceMetrics))
 }
 
+// GetServiceConnectStats mocks base method
+func (m *MockEngine) GetServiceConnectStats() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetServiceConnectStats")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GetServiceConnectStats indicates an expected call of GetServiceConnectStats
+func (mr *MockEngineMockRecorder) GetServiceConnectStats() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceConnectStats", reflect.TypeOf((*MockEngine)(nil).GetServiceConnectStats))
+}
+
 // GetTaskHealthMetrics mocks base method
 func (m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	m.ctrl.T.Helper()
