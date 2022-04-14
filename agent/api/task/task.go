@@ -237,6 +237,8 @@ type Task struct {
 	// AppMesh is the service mesh specified by the task
 	AppMesh *apiappmesh.AppMesh
 
+	ServiceConnectConfig *ServiceConnectConfig `json:"serviceConnectConfig,omitempty"`
+
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
 
@@ -340,6 +342,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
+	// TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
+	task.initDummyServiceConnectConfig()
+
 	if err := task.initializeContainerOrderingForVolumes(); err != nil {
 		logger.Error("Could not initialize volumes dependency for container", logger.Fields{
 			field.TaskID: task.GetID(),
@@ -430,6 +435,38 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 	return nil
+}
+
+// TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
+func (task *Task) initDummyServiceConnectConfig() {
+	task.ServiceConnectConfig = &ServiceConnectConfig{
+		ContainerName: "service-connect",
+		IngressConfig: []IngressConfig{
+			{
+				ServiceName:   "ping",
+				ListenerName:  "ping_ingress_listener",
+				ListenerPort:  0, // Default experience
+				InterceptPort: aws.Int(8080),
+			},
+			{
+				ServiceName:  "pingDirect",
+				ListenerName: "pingDirect_ingress_listener",
+				ListenerPort: 9090, // Non-default experience
+			},
+		},
+		EgressConfig: EgressConfig{
+			ListenerName: "egress_listener",
+			VIP: VIP{
+				IPV4: "169.254.0.0/16",
+			},
+		},
+		DNSConfig: []DNSConfig{
+			{
+				HostName:    "pong.my.corp",
+				IPV4Address: "169.254.1.1",
+			},
+		},
+	}
 }
 
 // populateTaskARN populates the arn of the task to the containers.
@@ -2778,4 +2815,11 @@ func (task *Task) UpdateTaskENIsLinkName() {
 	for _, eni := range task.ENIs {
 		eni.GetLinkName()
 	}
+}
+
+// IsServiceConnectEnabled returns true if Service Connect is enabled for this task.
+func (task *Task) IsServiceConnectEnabled() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.ServiceConnectConfig != nil
 }
