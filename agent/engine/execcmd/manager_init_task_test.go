@@ -1,4 +1,4 @@
-//go:build linux || windows
+//go:build (linux || windows) && unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
