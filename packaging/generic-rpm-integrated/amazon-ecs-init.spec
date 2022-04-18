@@ -14,7 +14,6 @@
 
 %global gobuild_tag generic_rpm
 %global _cachedir %{_localstatedir}/cache
-%global bundled_agent_version %{version}
 %global no_exec_perm 644
 %global debug_package %{nil}
 %global agent_image ecs-agent-v%{version}.tar
@@ -65,7 +64,6 @@ touch %{buildroot}%{_sysconfdir}/ecs/ecs.config.json
 # Configure ecs-init to reload the bundled ECS container agent image.
 mkdir -p %{buildroot}%{_cachedir}/ecs
 echo 2 > %{buildroot}%{_cachedir}/ecs/state
-# Add a bundled ECS container agent image
 install -m %{no_exec_perm} %{agent_image} %{buildroot}%{_cachedir}/ecs/
 
 mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
