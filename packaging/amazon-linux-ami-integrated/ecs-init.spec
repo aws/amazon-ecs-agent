@@ -21,7 +21,6 @@
 %global gobuild_tag %{nil}
 %endif
 %global _cachedir %{_localstatedir}/cache
-%global bundled_agent_version %{version}
 %global no_exec_perm 644
 %global debug_package %{nil}
 %global agent_image ecs-agent-v%{version}.tar
@@ -178,7 +177,7 @@ touch %{buildroot}%{_sysconfdir}/ecs/ecs.config.json
 # Configure ecs-init to reload the bundled ECS container agent image.
 mkdir -p %{buildroot}%{_cachedir}/ecs
 echo 2 > %{buildroot}%{_cachedir}/ecs/state
-install -m %{no_exec_perm} %{agent_image} %{buildroot}%{_cachedir}/ecs/ecs-agent.tar
+install -m %{no_exec_perm} %{agent_image} %{buildroot}%{_cachedir}/ecs/
 
 mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 
@@ -197,7 +196,8 @@ install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-
 %{_libexecdir}/amazon-ecs-volume-plugin
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
-%{_cachedir}/ecs/ecs-agent.tar
+%ghost %{_cachedir}/ecs/ecs-agent.tar
+%{_cachedir}/ecs/%{basename:%{agent_image}}
 %{_cachedir}/ecs/state
 %dir %{_sharedstatedir}/ecs/data
 
@@ -211,7 +211,7 @@ install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-
 %endif
 
 %post
-# Symlink the bundled ECS Agent at loadable path.
+# symlink the built ecs-agent image at a loadable path
 ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %if %{with systemd}
 %systemd_post ecs
