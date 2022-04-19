@@ -68,7 +68,7 @@ type DockerContainerMetadataResolver struct {
 // Engine defines methods to be implemented by the engine struct. It is
 // defined to make testing easier.
 type Engine interface {
-	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
+	GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 	//TODO [SC]: Return service connect metrics from GetServiceConnects when the metrics are defined.
@@ -414,7 +414,7 @@ func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
-func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	var taskMetrics []*ecstcs.TaskMetric
 	idle := engine.isIdle()
 	metricsMetadata := &ecstcs.MetricsMetadata{
@@ -423,7 +423,6 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 		Idle:              aws.Bool(idle),
 		MessageId:         aws.String(uuid.NewRandom().String()),
 	}
-
 	if idle {
 		seelog.Debug("Instance is idle. No task metrics to report")
 		fin := true
@@ -440,6 +439,8 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 			seelog.Debugf("Error getting container metrics for task: %s, err: %v", taskArn, err)
 			continue
 		}
+
+		// TODO [SC]: Call GetServiceConnectStats() and add it to taskMetrics with corresponding taskArn
 
 		if len(containerMetrics) == 0 {
 			seelog.Debugf("Empty containerMetrics for task, ignoring, task: %s", taskArn)
