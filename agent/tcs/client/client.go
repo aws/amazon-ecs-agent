@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -39,19 +40,28 @@ const (
 	tasksInMetricMessage = 10
 	// tasksInHealthMessage is the maximum number of tasks that can be sent in a message to the backend
 	tasksInHealthMessage = 10
+	// defaultPublishServiceConnectTicker is every 3rd time service connect metrics will be sent to the backend
+	// Task metrics are published at 20s interval, thus task's service metrics will be published 60s.
+	defaultPublishServiceConnectTicker = 3
+)
+
+var (
+	// publishMetricRequestSizeLimit is the maximum number of bytes that can be sent in a message to the backend
+	publishMetricRequestSizeLimit = 1024 * 1024
 )
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
-	statsEngine              stats.Engine
-	doctor                   *doctor.Doctor
-	publishTicker            *time.Ticker
-	publishHealthTicker      *time.Ticker
-	pullInstanceStatusTicker *time.Ticker
-	ctx                      context.Context
-	cancel                   context.CancelFunc
-	disableResourceMetrics   bool
-	publishMetricsInterval   time.Duration
+	statsEngine                         stats.Engine
+	doctor                              *doctor.Doctor
+	publishTicker                       *time.Ticker
+	publishHealthTicker                 *time.Ticker
+	pullInstanceStatusTicker            *time.Ticker
+	publishServiceConnectTickerInterval int32
+	ctx                                 context.Context
+	cancel                              context.CancelFunc
+	disableResourceMetrics              bool
+	publishMetricsInterval              time.Duration
 	wsclient.ClientServerImpl
 }
 
@@ -171,7 +181,13 @@ func (cs *clientServer) publishMetrics() {
 	for {
 		select {
 		case <-cs.publishTicker.C:
-			err := cs.publishMetricsOnce()
+			var includeServiceConnectStats bool
+			cs.publishServiceConnectTickerInterval++
+			if cs.publishServiceConnectTickerInterval == defaultPublishServiceConnectTicker {
+				includeServiceConnectStats = true
+				cs.publishServiceConnectTickerInterval = 0
+			}
+			err := cs.publishMetricsOnce(includeServiceConnectStats)
 			if err != nil {
 				seelog.Warnf("Error publishing metrics: %v", err)
 			}
@@ -182,9 +198,9 @@ func (cs *clientServer) publishMetrics() {
 }
 
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishMetricsOnce() error {
+func (cs *clientServer) publishMetricsOnce(includeServiceConnectStats bool) error {
 	// Get the list of objects to send to backend.
-	requests, err := cs.metricsToPublishMetricRequests()
+	requests, err := cs.metricsToPublishMetricRequests(includeServiceConnectStats)
 	if err != nil {
 		return err
 	}
@@ -201,8 +217,8 @@ func (cs *clientServer) publishMetricsOnce() error {
 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
 // objects.
-func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetricsRequest, error) {
-	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics()
+func (cs *clientServer) metricsToPublishMetricRequests(includeServiceConnectStats bool) ([]*ecstcs.PublishMetricsRequest, error) {
+	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics(includeServiceConnectStats)
 	if err != nil {
 		return nil, err
 	}
@@ -215,18 +231,22 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		return requests, nil
 	}
 	var messageTaskMetrics []*ecstcs.TaskMetric
+	var requestMetadata *ecstcs.MetricsMetadata
 	numTasks := len(taskMetrics)
 
 	for i, taskMetric := range taskMetrics {
+		requestMetadata = copyMetricsMetadata(metadata, false)
+
+		// TODO [SC]: Check if SC is enabled for the task
+		if includeServiceConnectStats {
+			taskMetric, messageTaskMetrics, requests = cs.serviceConnectMetricsToPublishMetricRequests(requestMetadata, taskMetric, messageTaskMetrics, requests)
+		}
 		messageTaskMetrics = append(messageTaskMetrics, taskMetric)
-		var requestMetadata *ecstcs.MetricsMetadata
 		if (i + 1) == numTasks {
 			// If this is the last task to send, set fin to true
 			requestMetadata = copyMetricsMetadata(metadata, true)
-		} else {
-			requestMetadata = copyMetricsMetadata(metadata, false)
 		}
-		if (i+1)%tasksInMetricMessage == 0 {
+		if len(messageTaskMetrics)%tasksInMetricMessage == 0 {
 			// Construct payload with tasksInMetricMessage number of task metrics and send to backend.
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
@@ -240,6 +260,45 @@ func (cs *clientServer) metricsToPublishMetricRequests() ([]*ecstcs.PublishMetri
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
 	}
 	return requests, nil
+}
+
+// serviceConnectMetricsToPublishMetricRequests loops over all the SC metrics in a
+// task metric to add SC metrics until the message size is within 1 MB.
+// If adding a SC metric to the message exceeds the 1 MB limit, it will be sent in the new message
+func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMetadata *ecstcs.MetricsMetadata, taskMetric *ecstcs.TaskMetric,
+	messageTaskMetrics []*ecstcs.TaskMetric, requests []*ecstcs.PublishMetricsRequest) (*ecstcs.TaskMetric, []*ecstcs.TaskMetric, []*ecstcs.PublishMetricsRequest) {
+	tempTaskMetric := *taskMetric
+	tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
+
+	for j, serviceConnectMetric := range taskMetric.ServiceConnectMetricsWrapper {
+		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
+		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
+		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
+		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
+		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
+		if len(tempMessage) > publishMetricRequestSizeLimit {
+			// since adding this SC metric to the message exceeds the 1 MB limit, remove it from taskMetric and create a request to send it to the backend
+			tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:len(tempTaskMetric.ServiceConnectMetricsWrapper)-1]
+			taskMetricTruncated := tempTaskMetric
+			messageTaskMetrics = append(messageTaskMetrics, &taskMetricTruncated)
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+
+			// reset the messageTaskMetrics and tempTaskMetric for the new request,
+			messageTaskMetrics = messageTaskMetrics[:0]
+			tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
+			// container metrics will be sent only once for each task metric
+			tempTaskMetric.ContainerMetrics = tempTaskMetric.ContainerMetrics[:0]
+			// add the serviceConnectMetric to tempTaskMetric to be sent in the next message
+			tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
+		}
+
+		// set taskMetric with remaining SC metrics
+		if (j + 1) == len(taskMetric.ServiceConnectMetricsWrapper) {
+			taskMetric = &tempTaskMetric
+		}
+	}
+	return taskMetric, messageTaskMetrics, requests
 }
 
 // publishHealthMetrics send the container health information to backend
