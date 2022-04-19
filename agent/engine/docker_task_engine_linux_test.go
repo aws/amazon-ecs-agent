@@ -862,3 +862,196 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestPauseContainerWitServiceConnect(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
+	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
+	sleepTask := testdata.LoadTask("sleep5TwoContainers")
+	sleepContainer1 := sleepTask.Containers[0]
+	sleepContainer1.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer2 := sleepTask.Containers[1]
+	sleepContainer2.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+
+	// Inject mock SC config
+	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+		ContainerName: "service-connect",
+		DNSConfig: []apitask.DNSConfigEntry{
+			{
+				HostName:    "host1.my.corp",
+				IPV4Address: "169.254.1.1",
+				IPV6Address: "ff06::c4",
+			},
+		},
+	}
+	dockerConfig := dockercontainer.Config{
+		Healthcheck: &dockercontainer.HealthConfig{
+			Test:     []string{"echo", "ok"},
+			Interval: time.Millisecond,
+			Timeout:  time.Second,
+			Retries:  1,
+		},
+	}
+
+	rawConfig, err := json.Marshal(&dockerConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sleepTask.Containers = append(sleepTask.Containers, &apicontainer.Container{
+		Name:            sleepTask.ServiceConnectConfig.ContainerName,
+		HealthCheckType: apicontainer.DockerHealthCheckType,
+		DockerConfig: apicontainer.DockerConfig{
+			Config: aws.String(string(rawConfig)),
+		},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	})
+
+	// Add eni information to the task so the task can add dependency of pause container
+	sleepTask.AddTaskENI(mockENI)
+
+	sleepTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+
+	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+
+	sleepContainerID1 := containerID + "1"
+	sleepContainerID2 := containerID + "2"
+	scContainerID := "serviceConnectID"
+	pauseContainerID := "pauseContainerID"
+	// Pause container will be launched first
+	gomock.InOrder(
+		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+		dockerClient.EXPECT().CreateContainer(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, y, z interface{}) {
+				name, ok := config.Labels[labelPrefix+"container-name"]
+				assert.True(t, ok)
+				assert.Equal(t, apitask.NetworkPauseContainerName, name)
+				expectedExtraHosts := []string{
+					"host1.my.corp:169.254.1.1",
+					"host1.my.corp:ff06::c4",
+				}
+				assert.Equal(t, expectedExtraHosts, hostConfig.ExtraHosts)
+			}).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
+			dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    pauseContainerID,
+					State: &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: containerNetNS,
+					},
+				},
+			}, nil),
+		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+	)
+
+	// For the other container
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(3)
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(3)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(3)
+	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(3)
+	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: scContainerID})
+	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: sleepContainerID1})
+	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
+	dockerClient.EXPECT().StartContainer(gomock.Any(), scContainerID, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{
+			DockerID: scContainerID,
+			Health:   apicontainer.HealthStatus{Status: apicontainerstatus.ContainerHealthy},
+		})
+	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID1, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{DockerID: sleepContainerID1})
+	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID2, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
+
+	cleanup := make(chan time.Time)
+	defer close(cleanup)
+	mockTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
+	dockerClient.EXPECT().DescribeContainer(gomock.Any(), scContainerID).AnyTimes()
+	dockerClient.EXPECT().DescribeContainer(gomock.Any(), sleepContainerID1).AnyTimes()
+	dockerClient.EXPECT().DescribeContainer(gomock.Any(), sleepContainerID2).AnyTimes()
+	dockerClient.EXPECT().DescribeContainer(gomock.Any(), pauseContainerID).AnyTimes()
+
+	err = taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	taskEngine.AddTask(sleepTask)
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	verifyTaskIsRunning(stateChangeEvents, sleepTask)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
+	gomock.InOrder(
+		dockerClient.EXPECT().StopContainer(gomock.Any(), sleepContainerID2, gomock.Any()).Return(
+			dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2}),
+		dockerClient.EXPECT().StopContainer(gomock.Any(), scContainerID, gomock.Any()).Return(
+			dockerapi.DockerContainerMetadata{DockerID: scContainerID}),
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    pauseContainerID,
+				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetNS,
+				},
+			},
+		}, nil),
+		cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+
+		dockerClient.EXPECT().StopContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(
+			dockerapi.DockerContainerMetadata{DockerID: pauseContainerID}),
+
+		cniClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) {
+				wg.Done()
+			}).Return(nil),
+	)
+
+	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(4)
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).Times(3)
+
+	// Simulate a container stop event from docker
+	eventStream <- dockerapi.DockerContainerChangeEvent{
+		Status: apicontainerstatus.ContainerStopped,
+		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+			DockerID: sleepContainerID1,
+			ExitCode: aws.Int(exitCode),
+		},
+	}
+
+	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
+	cleanup <- time.Now()
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		t.Logf("Found %d tasks in the engine; first task arn: %s", len(tasks), tasks[0].Arn)
+		fmt.Printf("Found %d tasks in the engine; first task arn: %s\n", len(tasks), tasks[0].Arn)
+		time.Sleep(5 * time.Millisecond)
+	}
+	wg.Wait()
+
+}
