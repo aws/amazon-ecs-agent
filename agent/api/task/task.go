@@ -448,7 +448,6 @@ func (task *Task) initServiceConnectResources() {
 	if task.IsServiceConnectEnabled() {
 		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
 		task.initDummyServiceConnectConfig()
-		task.configureContainerDependenciesForServiceConnect()
 	}
 }
 
@@ -464,18 +463,6 @@ func (task *Task) initDummyServiceConnectConfig() {
 			field.Error: err,
 		})
 		return
-	}
-}
-
-func (task *Task) configureContainerDependenciesForServiceConnect() {
-	scContainer := task.GetServiceConnectContainer()
-
-	for _, container := range task.Containers {
-		if container.IsInternal() || container == scContainer {
-			continue
-		}
-		container.AddContainerDependency(scContainer.Name, ContainerOrderingHealthyCondition)
-		scContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
 }
 
