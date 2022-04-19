@@ -567,7 +567,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	time.Sleep(checkPointSleep)
 
 	// Simulate tcs client invoking GetInstanceMetrics.
-	_, _, err = statsEngine.GetInstanceMetrics()
+	_, _, err = statsEngine.GetInstanceMetrics(false)
 	assert.Error(t, err, "expect error 'no task metrics tp report' when getting instance metrics")
 
 	// Should not contain any metrics after cleanup.
@@ -632,7 +632,7 @@ func testNetworkModeStats(t *testing.T, networkMode string, statsEmpty bool) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	_, taskMetrics, err := engine.GetInstanceMetrics()
+	_, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	taskMetric := taskMetrics[0]
 	for _, containerMetric := range taskMetric.ContainerMetrics {
@@ -712,7 +712,7 @@ func TestStorageStats(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	_, taskMetrics, err := engine.GetInstanceMetrics()
+	_, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	taskMetric := taskMetrics[0]
 	for _, containerMetric := range taskMetric.ContainerMetrics {
