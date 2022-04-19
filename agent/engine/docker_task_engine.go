@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -1253,6 +1255,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion, engine.cfg)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
+	}
+
+	// Add SC VIPs to pause container's known hosts
+	if task.IsServiceConnectEnabled() && container.Type == apicontainer.ContainerCNIPause {
+		hostConfig.ExtraHosts = append(hostConfig.ExtraHosts,
+			serviceconnect.DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 
 	if container.AWSLogAuthExecutionRole() {
