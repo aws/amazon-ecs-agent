@@ -116,7 +116,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c3 not found in engine")
 	}
 
-	_, _, err = engine.GetInstanceMetrics()
+	_, _, err = engine.GetInstanceMetrics(false)
 	if err == nil {
 		t.Error("Expected non-empty error for empty stats.")
 	}
@@ -207,7 +207,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -514,7 +514,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, empt
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	_, taskMetrics, err := engine.GetInstanceMetrics()
+	_, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {
