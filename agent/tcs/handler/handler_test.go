@@ -67,7 +67,7 @@ var testCfg = &config.Config{
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
-func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	req := createPublishMetricsRequest()
 	return req.Metadata, req.TaskMetrics, nil
 }

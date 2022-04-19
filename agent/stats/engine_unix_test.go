@@ -114,7 +114,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 			taskContainers.StatsQueue.add(containerStats[i])
 		}
 	}
-	_, taskMetrics, err := engine.GetInstanceMetrics()
+	_, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {
