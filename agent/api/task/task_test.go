@@ -3558,3 +3558,58 @@ func TestIsServiceConnectEnabled(t *testing.T) {
 		assert.Equal(t, tc.expectedSCEnabled, task.IsServiceConnectEnabled())
 	}
 }
+
+func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
+	const serviceConnectContainerName = "service-connect"
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: aws.String("C1"),
+			},
+			{
+				Name: aws.String("C2"),
+			},
+			{
+				Name: aws.String(serviceConnectContainerName),
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	task.ServiceConnectConfig = &ServiceConnectConfig{
+		ContainerName: serviceConnectContainerName,
+	}
+	assert.Nil(t, err, "Should be able to handle acs task")
+	err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
+	assert.NoError(t, err)
+
+	c1, _ := task.ContainerByName("C1")
+	c2, _ := task.ContainerByName("C2")
+	scC, _ := task.ContainerByName(serviceConnectContainerName)
+
+	// Check that regular containers have a dependency on SC container becoming HEALTHY
+	assert.NotEmpty(t, c1.DependsOnUnsafe)
+	assert.Equal(t, serviceConnectContainerName, c1.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingHealthyCondition, c1.DependsOnUnsafe[0].Condition)
+
+	assert.NotEmpty(t, c2.DependsOnUnsafe)
+	assert.Equal(t, serviceConnectContainerName, c2.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingHealthyCondition, c2.DependsOnUnsafe[0].Condition)
+
+	// Check that SC container has a stop dependency on regular containers
+	assert.Empty(t, scC.DependsOnUnsafe)
+	assert.NotEmpty(t, scC.TransitionDependenciesMap)
+	assert.NotEmpty(t, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies)
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   "C1",
+		SatisfiedStatus: apicontainerstatus.ContainerStopped,
+	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   "C2",
+		SatisfiedStatus: apicontainerstatus.ContainerStopped,
+	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[1])
+}
