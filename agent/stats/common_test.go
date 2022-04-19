@@ -142,7 +142,7 @@ func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID str
 }
 
 func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err, "gettting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
@@ -178,7 +178,7 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 }
 
 func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 
