@@ -24,8 +24,6 @@ import (
 const (
 	// defaultRotationInterval is how frequently to expire and re-retrieve the credentials from file.
 	defaultRotationInterval = time.Minute
-	// defaultFilename is the default location of the credentials file within the container.
-	defaultFilename = "/rotatingcreds/credentials"
 	// RotatingSharedCredentialsProviderName is the name of this provider
 	RotatingSharedCredentialsProviderName = "RotatingSharedCredentialsProvider"
 )
@@ -46,7 +44,7 @@ func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
 	return &RotatingSharedCredentialsProvider{
 		RotationInterval: defaultRotationInterval,
 		sharedCredentialsProvider: &credentials.SharedCredentialsProvider{
-			Filename: defaultFilename,
+			Filename: defaultRotatingCredentialsFilename,
 			Profile:  "default",
 		},
 	}

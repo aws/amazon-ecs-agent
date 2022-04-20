@@ -1,3 +1,5 @@
+//go:build !linux && !windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,15 +13,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package instancecreds
+package providers
 
-import (
-	"sync"
-
-	"github.com/aws/aws-sdk-go/aws/credentials"
-)
-
-var (
-	credentialChain *credentials.Credentials
-	mu              sync.Mutex
+const (
+	// defaultRotatingCredentialsFilename is the default location of the credentials file
+	// for RotatingSharedCredentialsProvider.
+	defaultRotatingCredentialsFilename = "/unsupported/rotatingcreds/credentials"
 )

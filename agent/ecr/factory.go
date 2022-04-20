@@ -75,7 +75,7 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 			authData.GetPullCredentials().SessionToken)
 		cfg = cfg.WithCredentials(creds)
 	} else {
-		cfg = cfg.WithCredentials(instancecreds.GetCredentials())
+		cfg = cfg.WithCredentials(instancecreds.GetCredentials(false))
 	}
 
 	return cfg, nil
