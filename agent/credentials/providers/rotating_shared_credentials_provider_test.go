@@ -29,7 +29,7 @@ func TestNewRotatingSharedCredentialsProvider(t *testing.T) {
 	p := NewRotatingSharedCredentialsProvider()
 	require.Equal(t, time.Minute, p.RotationInterval)
 	require.Equal(t, "default", p.sharedCredentialsProvider.Profile)
-	require.Equal(t, "/rotatingcreds/credentials", p.sharedCredentialsProvider.Filename)
+	require.Equal(t, defaultRotatingCredentialsFilename, p.sharedCredentialsProvider.Filename)
 }
 
 func TestRotatingSharedCredentialsProvider_RetrieveFail_BadPath(t *testing.T) {

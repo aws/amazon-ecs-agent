@@ -53,7 +53,7 @@ type ClientImpl struct {
 func NewClientImpl(awsRegion string) Client {
 	ec2Config := aws.NewConfig().WithMaxRetries(clientRetriesNum)
 	ec2Config.Region = aws.String(awsRegion)
-	ec2Config.Credentials = instancecreds.GetCredentials()
+	ec2Config.Credentials = instancecreds.GetCredentials(false)
 	client := ec2sdk.New(session.New(), ec2Config)
 	return &ClientImpl{
 		client: client,

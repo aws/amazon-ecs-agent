@@ -94,7 +94,7 @@ type ec2MetadataClientImpl struct {
 func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
 	if client == nil {
 		config := aws.NewConfig().WithMaxRetries(metadataRetries)
-		config.Credentials = instancecreds.GetCredentials()
+		config.Credentials = instancecreds.GetCredentials(false)
 		return &ec2MetadataClientImpl{
 			client: ec2metadata.New(session.New(), config),
 		}
