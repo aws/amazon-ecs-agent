@@ -25,7 +25,7 @@ type ServiceConnectConfig struct {
 // StatsConfig is the endpoint where SC stats can be retrieved from.
 type StatsConfig struct {
 	UrlPath string `json:"urlPath,omitempty"`
-	Port    int    `json:"port,omitempty"`
+	Port    uint16 `json:"port,omitempty"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
@@ -33,20 +33,24 @@ type IngressConfigEntry struct {
 	// ListenerName is the name of the listener for an SC service.
 	ListenerName string `json:"listenerName"`
 	// ListenerPort is the port where Envoy listens for ingress traffic for a given  SC service.
-	ListenerPort int `json:"listenerPort"`
+	ListenerPort uint16 `json:"listenerPort"`
 	// InterceptPort is only relevant for awsvpc mode. If present, SC CNI Plugin will configure netfilter rules to redirect
 	// traffic destined to this port to ListenerPort.
-	InterceptPort *int `json:"interceptPort,omitempty"`
+	InterceptPort *uint16 `json:"interceptPort,omitempty"`
 	// HostPort is only relevant for bridge network mode non-default case, where SC ingress host port is predefined in
 	// SC Service creation/modification time.
-	HostPort *int `json:"hostPort,omitempty"`
+	HostPort *uint16 `json:"hostPort,omitempty"`
 }
 
 // EgressConfig is the egress configuration for a given SC service.
 type EgressConfig struct {
 	// ListenerName is the name of the listener for SC service with name ServiceName.
 	ListenerName string `json:"listenerName"`
-	VIP          VIP    `json:"vip"`
+	// EgressPort represent the port number Envoy will bind to. This port is selected at random by ECS Agent during
+	// task startup. Port will be in the ephemeral range.
+	ListenerPort uint16 `json:"listenerPort,omitempty"`
+	// VIP is the representation of an SC VIP-CIDR
+	VIP VIP `json:"vip"`
 }
 
 // VIP is the representation of an SC VIP-CIDR
