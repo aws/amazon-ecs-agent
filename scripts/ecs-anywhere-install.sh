@@ -152,13 +152,6 @@ if [ ! -d /run/systemd/system ]; then
     fail
 fi
 
-if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
-    echo "Your system is using cgroups v2, which is not supported by ECS."
-    echo "Please change your system to cgroups v1 and reboot. If your system has grubby, we suggest using the following command:"
-    echo '    sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0" && sudo shutdown -r now'
-    fail
-fi
-
 SSM_SERVICE_NAME="amazon-ssm-agent"
 SSM_BIN_NAME="amazon-ssm-agent"
 if systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service &>/dev/null; then
