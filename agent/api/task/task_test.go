@@ -58,6 +58,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const serviceConnectContainerTestName = "service-connect"
+
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
@@ -3560,7 +3562,17 @@ func TestIsServiceConnectEnabled(t *testing.T) {
 }
 
 func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
-	const serviceConnectContainerName = "service-connect"
+	const (
+		utilizedPort1 = 33333
+		utilizedPort2 = 44444
+		utilizedPort3 = 55555
+	)
+	utilizedPorts := map[uint16]struct{}{
+		utilizedPort1: {},
+		utilizedPort2: {},
+		utilizedPort3: {},
+	}
+
 	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
@@ -3569,35 +3581,78 @@ func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
 		Containers: []*ecsacs.Container{
 			{
 				Name: aws.String("C1"),
+				PortMappings: []*ecsacs.PortMapping{
+					{
+						ContainerPort: aws.Int64(utilizedPort1),
+					},
+				},
 			},
 			{
 				Name: aws.String("C2"),
+				PortMappings: []*ecsacs.PortMapping{
+					{
+						ContainerPort: aws.Int64(utilizedPort2),
+					},
+				},
 			},
 			{
-				Name: aws.String(serviceConnectContainerName),
+				Name: aws.String(serviceConnectContainerTestName),
 			},
 		},
 	}
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-	task.ServiceConnectConfig = &ServiceConnectConfig{
-		ContainerName: serviceConnectContainerName,
+	testSCConfig := ServiceConnectConfig{
+		ContainerName: serviceConnectContainerTestName,
+		IngressConfig: []IngressConfigEntry{
+			{
+				ListenerName: "testListener1",
+				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
+			},
+			{
+				ListenerName: "testListener2",
+				ListenerPort: utilizedPort3, // this one should NOT get ephemeral port after PostUnmarshalTask
+			},
+			{
+				ListenerName: "testListener3",
+				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
+			},
+		},
+		EgressConfig: EgressConfig{
+			ListenerPort: 0, // Presently this should always get ephemeral port
+		},
 	}
+	originalSCConfig := cloneSCConfig(testSCConfig)
+	task.ServiceConnectConfig = &testSCConfig
 	assert.Nil(t, err, "Should be able to handle acs task")
 	err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
+	validateServiceConnectContainerOrder(t, task)
+	validateEphemeralPorts(t, task, originalSCConfig, utilizedPorts)
+}
+
+func cloneSCConfig(scConfig ServiceConnectConfig) ServiceConnectConfig {
+	clone := scConfig
+	clone.IngressConfig = nil
+	for _, ic := range scConfig.IngressConfig {
+		clone.IngressConfig = append(clone.IngressConfig, ic)
+	}
+	return clone
+}
+
+func validateServiceConnectContainerOrder(t *testing.T, task *Task) {
 	c1, _ := task.ContainerByName("C1")
 	c2, _ := task.ContainerByName("C2")
-	scC, _ := task.ContainerByName(serviceConnectContainerName)
+	scC, _ := task.ContainerByName(serviceConnectContainerTestName)
 
 	// Check that regular containers have a dependency on SC container becoming HEALTHY
 	assert.NotEmpty(t, c1.DependsOnUnsafe)
-	assert.Equal(t, serviceConnectContainerName, c1.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, serviceConnectContainerTestName, c1.DependsOnUnsafe[0].ContainerName)
 	assert.Equal(t, ContainerOrderingHealthyCondition, c1.DependsOnUnsafe[0].Condition)
 
 	assert.NotEmpty(t, c2.DependsOnUnsafe)
-	assert.Equal(t, serviceConnectContainerName, c2.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, serviceConnectContainerTestName, c2.DependsOnUnsafe[0].ContainerName)
 	assert.Equal(t, ContainerOrderingHealthyCondition, c2.DependsOnUnsafe[0].Condition)
 
 	// Check that SC container has a stop dependency on regular containers
@@ -3612,4 +3667,41 @@ func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
 		ContainerName:   "C2",
 		SatisfiedStatus: apicontainerstatus.ContainerStopped,
 	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[1])
+}
+
+func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig ServiceConnectConfig, utilizedPorts map[uint16]struct{}) {
+	for i, ic := range originalSCConfig.IngressConfig {
+		if ic.ListenerPort == 0 {
+			assignedPort := task.ServiceConnectConfig.IngressConfig[i].ListenerPort
+			_, ok := utilizedPorts[assignedPort]
+			assert.Falsef(t, ok, "An already-utilized port [%d] was assigned to ingress listener: %s", assignedPort, ic.ListenerName)
+			assert.NotZerof(t, assignedPort,
+				"Ephemeral port was not assigned for ingress listener: %s", ic.ListenerName)
+			utilizedPorts[assignedPort] = struct{}{}
+		} else {
+			assert.Equalf(t, ic.ListenerPort, task.ServiceConnectConfig.IngressConfig[i].ListenerPort,
+				"Ingress port incorrectly modified for listener: %s", ic.ListenerName)
+		}
+		assert.Equalf(t, ic.HostPort, task.ServiceConnectConfig.IngressConfig[i].HostPort,
+			"Ingress host port incorrectly modified for listener: %s", ic.ListenerName)
+		assert.Equalf(t, ic.InterceptPort, task.ServiceConnectConfig.IngressConfig[i].InterceptPort,
+			"Ingress intercept port incorrectly modified for listener: %s", ic.ListenerName)
+		assert.Equalf(t, ic.ListenerName, task.ServiceConnectConfig.IngressConfig[i].ListenerName,
+			"Ingress listener name incorrectly modified for listener: %s", ic.ListenerName)
+	}
+	if originalSCConfig.EgressConfig.ListenerPort == 0 {
+		assignedPort := task.ServiceConnectConfig.EgressConfig.ListenerPort
+		_, ok := utilizedPorts[assignedPort]
+		assert.Falsef(t, ok, "An already-utilized port [%d] was assigned to egress listener", assignedPort)
+		assert.NotZero(t, assignedPort,
+			"Ephemeral port was not assigned for egress listener")
+		utilizedPorts[assignedPort] = struct{}{}
+	} else {
+		assert.Equal(t, originalSCConfig.EgressConfig.ListenerPort, task.ServiceConnectConfig.EgressConfig.ListenerPort,
+			"Egress port incorrectly modified for egress listener")
+	}
+	assert.Equalf(t, originalSCConfig.EgressConfig.ListenerName, task.ServiceConnectConfig.EgressConfig.ListenerName,
+		"Egress listener name incorrectly modified")
+	assert.Equalf(t, originalSCConfig.EgressConfig.VIP, task.ServiceConnectConfig.EgressConfig.VIP,
+		"Egress VIP incorrectly modified")
 }
