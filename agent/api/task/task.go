@@ -349,7 +349,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		})
 	}
 
-	task.initServiceConnectResources()
+	if err := task.initServiceConnectResources(); err != nil {
+		logger.Error("Could not initialize Service Connect resources", logger.Fields{
+			field.TaskID: task.GetID(),
+			field.Error:  err,
+		})
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
 
 	if err := task.initializeContainerOrderingForVolumes(); err != nil {
 		logger.Error("Could not initialize volumes dependency for container", logger.Fields{
@@ -443,7 +449,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	return nil
 }
 
-func (task *Task) initServiceConnectResources() {
+func (task *Task) initServiceConnectResources() error {
 	// TODO [SC]: ServiceConnectConfig will come from ACS. Adding this here for dev/testing purposes only Remove when
 	// ACS model is integrated
 	if task.ServiceConnectConfig == nil {
@@ -454,8 +460,12 @@ func (task *Task) initServiceConnectResources() {
 	if task.IsServiceConnectEnabled() {
 		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
 		task.initDummyServiceConnectConfig()
-		task.configureContainerDependenciesForServiceConnect()
+		task.initServiceConnectContainerDependencies()
+		if err := task.initServiceConnectEphemeralPorts(); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
@@ -473,7 +483,7 @@ func (task *Task) initDummyServiceConnectConfig() {
 	}
 }
 
-func (task *Task) configureContainerDependenciesForServiceConnect() {
+func (task *Task) initServiceConnectContainerDependencies() {
 	scContainer := task.GetServiceConnectContainer()
 
 	for _, container := range task.Containers {
@@ -483,6 +493,53 @@ func (task *Task) configureContainerDependenciesForServiceConnect() {
 		container.AddContainerDependency(scContainer.Name, ContainerOrderingHealthyCondition)
 		scContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
+}
+
+func (task *Task) initServiceConnectEphemeralPorts() error {
+	var utilizedPorts []uint16
+	// First determine how many ephemeral ports we need
+	var numEphemeralPortsNeeded int
+	for _, ic := range task.ServiceConnectConfig.IngressConfig {
+		if ic.ListenerPort == 0 { // This means listener port was not sent to us by ACS, signaling the port needs to be ephemeral
+			numEphemeralPortsNeeded++
+		} else {
+			utilizedPorts = append(utilizedPorts, ic.ListenerPort)
+		}
+	}
+
+	// Presently, SC egress port is always ephemeral, but adding this for future-proofing
+	if task.ServiceConnectConfig.EgressConfig.ListenerPort == 0 {
+		numEphemeralPortsNeeded++
+	} else {
+		utilizedPorts = append(utilizedPorts, task.ServiceConnectConfig.EgressConfig.ListenerPort)
+	}
+
+	// Get all exposed ports in the task so that the ephemeral port generator doesn't take those into account in order
+	// to avoid port conflicts.
+	for _, c := range task.Containers {
+		for _, p := range c.Ports {
+			utilizedPorts = append(utilizedPorts, p.ContainerPort)
+		}
+	}
+
+	ephemeralPorts, err := utils.GenerateEphemeralPortNumbers(numEphemeralPortsNeeded, utilizedPorts)
+	if err != nil {
+		return fmt.Errorf("error initializing ports for Service Connect: %w", err)
+	}
+
+	// Assign ephemeral ports
+	var curEphemeralIndex int
+	for i, ic := range task.ServiceConnectConfig.IngressConfig {
+		if ic.ListenerPort == 0 {
+			task.ServiceConnectConfig.IngressConfig[i].ListenerPort = ephemeralPorts[curEphemeralIndex]
+			curEphemeralIndex++
+		}
+	}
+
+	if task.ServiceConnectConfig.EgressConfig.ListenerPort == 0 {
+		task.ServiceConnectConfig.EgressConfig.ListenerPort = ephemeralPorts[curEphemeralIndex]
+	}
+	return nil
 }
 
 // populateTaskARN populates the arn of the task to the containers.
