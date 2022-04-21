@@ -11,50 +11,36 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package serviceconnect
+package utils
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
-
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
+// From https://www.kernel.org/doc/html/latest//networking/ip-sysctl.html#ip-variables
 const (
-	// From https://www.kernel.org/doc/html/latest//networking/ip-sysctl.html#ip-variables
-	ephemeralPortMin         = 32768
-	ephemeralPortMax         = 60999
+	EphemeralPortMin         = 32768
+	EphemeralPortMax         = 60999
 	maxPortSelectionAttempts = 100
 )
 
-// DNSConfigToDockerExtraHostsFormat converts a DNSConfig to a list of ExtraHost entries that Docker will
-// recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConf apitask.DNSConfig) []string {
-	var hosts []string
-	for _, vipConf := range dnsConf {
-		if len(vipConf.IPV4Address) > 0 {
-			hosts = append(hosts,
-				fmt.Sprintf("%s:%s", vipConf.HostName, vipConf.IPV4Address))
-		}
-		if len(vipConf.IPV6Address) > 0 {
-			hosts = append(hosts,
-				fmt.Sprintf("%s:%s", vipConf.HostName, vipConf.IPV6Address))
-		}
-	}
-	return hosts
-}
+var (
+	// Injection point for UTs
+	randIntFunc = rand.Intn
+)
 
 // GenerateEphemeralPortNumbers generates a list of n unique port numbers in the 32768-60999 range. The resulting port
-// number list is guaranteed to not include any port number present in "exclude" parameter.
-func GenerateEphemeralPortNumbers(n int, exclude []int) ([]int, error) {
-	toExcludeSet := map[int]struct{}{}
-	for _, e := range exclude {
+// number list is guaranteed to not include any port number present in "reserved" parameter.
+func GenerateEphemeralPortNumbers(n int, reserved []uint16) ([]uint16, error) {
+	toExcludeSet := map[uint16]struct{}{}
+	for _, e := range reserved {
 		toExcludeSet[e] = struct{}{}
 	}
 	rand.Seed(time.Now().UnixNano())
 
-	var result []int
+	var result []uint16
 	var portSelectionAttempts int
 	for len(result) < n {
 		// The intention of maxPortSelectionAttempts is to avoid a super highly unlikely case where we
@@ -62,7 +48,7 @@ func GenerateEphemeralPortNumbers(n int, exclude []int) ([]int, error) {
 		if portSelectionAttempts > maxPortSelectionAttempts {
 			return nil, fmt.Errorf("maximum number of attempts to generate unique ports reached")
 		}
-		port := rand.Intn(ephemeralPortMax-ephemeralPortMin+1) + ephemeralPortMin
+		port := uint16(randIntFunc(EphemeralPortMax-EphemeralPortMin+1) + EphemeralPortMin)
 		if _, ok := toExcludeSet[port]; ok {
 			portSelectionAttempts++
 			continue
