@@ -145,6 +145,8 @@ const (
 	disableIPv6SysctlKey = "net.ipv6.conf.all.disable_ipv6"
 	// sysctlValueOff specifies the value to use to turn off a sysctl setting.
 	sysctlValueOff = "0"
+
+	serviceConnectListenerPortMappingEnvVar = "APPNET_LISTENER_PORT_MAPPING"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -528,17 +530,29 @@ func (task *Task) initServiceConnectEphemeralPorts() error {
 	}
 
 	// Assign ephemeral ports
+	portMapping := make(map[string]uint16)
 	var curEphemeralIndex int
 	for i, ic := range task.ServiceConnectConfig.IngressConfig {
 		if ic.ListenerPort == 0 {
+			portMapping[ic.ListenerName] = ephemeralPorts[curEphemeralIndex]
 			task.ServiceConnectConfig.IngressConfig[i].ListenerPort = ephemeralPorts[curEphemeralIndex]
 			curEphemeralIndex++
 		}
 	}
 
 	if task.ServiceConnectConfig.EgressConfig.ListenerPort == 0 {
+		portMapping[task.ServiceConnectConfig.EgressConfig.ListenerName] = ephemeralPorts[curEphemeralIndex]
 		task.ServiceConnectConfig.EgressConfig.ListenerPort = ephemeralPorts[curEphemeralIndex]
 	}
+
+	// Add the APPNET_LISTENER_PORT_MAPPING env var for listeners that require it
+	envVars := make(map[string]string)
+	portMappingJson, err := json.Marshal(portMapping)
+	if err != nil {
+		return fmt.Errorf("error injecting required env vars to Service Connect container: %w", err)
+	}
+	envVars[serviceConnectListenerPortMappingEnvVar] = string(portMappingJson)
+	task.GetServiceConnectContainer().MergeEnvironmentVariables(envVars)
 	return nil
 }
 
