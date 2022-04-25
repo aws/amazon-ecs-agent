@@ -3619,6 +3619,7 @@ func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
 			},
 		},
 		EgressConfig: EgressConfig{
+			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
 	}
@@ -3630,6 +3631,8 @@ func TestPostUnmarshalTaskWithServiceConnect(t *testing.T) {
 
 	validateServiceConnectContainerOrder(t, task)
 	validateEphemeralPorts(t, task, originalSCConfig, utilizedPorts)
+	validateAppnetEnvVars(t, task)
+
 }
 
 func cloneSCConfig(scConfig ServiceConnectConfig) ServiceConnectConfig {
@@ -3704,4 +3707,24 @@ func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig ServiceCo
 		"Egress listener name incorrectly modified")
 	assert.Equalf(t, originalSCConfig.EgressConfig.VIP, task.ServiceConnectConfig.EgressConfig.VIP,
 		"Egress VIP incorrectly modified")
+}
+
+func validateAppnetEnvVars(t *testing.T, task *Task) {
+	// Validate the env vars were injected to SC container
+	for _, c := range task.Containers {
+		if c.Name != serviceConnectContainerTestName {
+			continue
+		}
+		portMappingStr := c.Environment["APPNET_LISTENER_PORT_MAPPING"]
+		// TODO [SC]: this map probably needs to change to the real Appnet model when it's ready
+		portMapping := make(map[string]int)
+		err := json.Unmarshal([]byte(portMappingStr), &portMapping)
+		assert.NoError(t, err, "Error parsing APPNET_LISTENER_PORT_MAPPING")
+		listener1 := task.ServiceConnectConfig.IngressConfig[0]
+		listener3 := task.ServiceConnectConfig.IngressConfig[2]
+		egressListener := task.ServiceConnectConfig.EgressConfig
+		assert.Equalf(t, int(listener1.ListenerPort), portMapping[listener1.ListenerName], "Listener-port mapping incorrectly configured for %s", listener1.ListenerName)
+		assert.Equalf(t, int(listener3.ListenerPort), portMapping[listener3.ListenerName], "Listener-port mapping incorrectly configured for %s", listener3.ListenerName)
+		assert.Equalf(t, int(egressListener.ListenerPort), portMapping[egressListener.ListenerName], "Listener-port mapping incorrectly configured for %s", egressListener.ListenerName)
+	}
 }
