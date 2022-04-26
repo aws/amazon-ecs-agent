@@ -18,9 +18,9 @@
 set -ex
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
-cd "${ROOT}/misc/pause-container"
+cd "${ROOT}/misc/pause-container-go"
 mkdir -p rootfs/
-gcc -static pause.c -o rootfs/pause
+CGO_ENABLED=0 GO111MODULE="auto" go build -ldflags="-s -w" -o rootfs/pause .
 mkdir -p image/rootfs
 tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf image/rootfs/layer.tar -C rootfs .
 DIGEST=$(sha256sum image/rootfs/layer.tar | sed -e 's/ .*//')

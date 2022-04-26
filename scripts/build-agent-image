@@ -55,7 +55,7 @@ cp ./misc/certs/host-certs.crt rootfs/etc/ssl/certs/ca-certificates.crt
 
 # add pause container
 mkdir -p rootfs/images/
-cp ./misc/pause-container/amazon-ecs-pause.tar rootfs/images/amazon-ecs-pause.tar
+cp ./misc/pause-container-go/amazon-ecs-pause.tar rootfs/images/amazon-ecs-pause.tar
 
 # add agent
 cp ./out/amazon-ecs-agent rootfs/agent

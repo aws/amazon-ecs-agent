@@ -357,15 +357,17 @@ get-deps-init:
 	go get golang.org/x/tools/cmd/goimports
 	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.2.1
 
-.amazon-linux-rpm-integrated-done:
+amazon-linux-sources.tgz:
 	./scripts/update-version.sh
-	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
 	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION
+
+.amazon-linux-rpm-integrated-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
 	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
 	find RPMS/ -type f -exec cp {} . \;
@@ -418,8 +420,10 @@ clean:
 	rm -f misc/certs/host-certs.crt &> /dev/null
 	rm -rf misc/pause-container/image/
 	rm -rf misc/pause-container/rootfs/
+	rm -rf misc/pause-container-go/image/
+	rm -rf misc/pause-container-go/rootfs/
+	rm -f  misc/pause-container-go/amazon-ecs-pause.tar
 	rm -rf misc/plugins/
-	rm -f misc/pause-container/amazon-ecs-pause.tar
 	rm -rf out/
 	rm -rf rootfs/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
