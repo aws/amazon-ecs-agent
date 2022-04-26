@@ -1,0 +1,80 @@
+---
+version_info: '0'
+resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: ingress_listener
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: SC_INGRESS_PORT
+    filter_chains:
+      - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: http_proxy
+              route_config:
+                name: all
+                virtual_hosts:
+                  - name: ping_vh
+                    domains:
+                      - '*'
+                    routes:
+                      - match: { prefix: "/"}
+                        route:
+                          cluster: local_cluster
+              http_filters:
+                - name: envoy.filters.http.router
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: egress_listener
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: SC_EGRESS_PORT
+    listener_filters:
+      - name: envoy.filters.listener.original_dst
+    filter_chains:
+      - filter_chain_match:
+          prefix_ranges:
+            - address_prefix: 169.254.1.1
+              prefix_len: 32
+          destination_port: 11111
+        filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: remote_1
+              route_config:
+                name: outbound_remote_route_1
+                virtual_hosts:
+                  - name: outbound_remote_service_1
+                    domains:
+                      - "*"
+                    routes:
+                      - match: { prefix: "/"}
+                        route:
+                          cluster:  remote_cluster_1
+              http_filters:
+                - name: envoy.filters.http.router
+      - filter_chain_match:
+          prefix_ranges:
+            - address_prefix: 169.254.1.2
+              prefix_len: 32
+          destination_port: 22222
+        filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: remote_2
+              route_config:
+                name: outbound_remote_route_2
+                virtual_hosts:
+                  - name: outbound_remote_service_2
+                    domains:
+                      - "*"
+                    routes:
+                      - match: { prefix: "/"}
+                        route:
+                          cluster:  remote_cluster_2
+              http_filters:
+                - name: envoy.filters.http.router

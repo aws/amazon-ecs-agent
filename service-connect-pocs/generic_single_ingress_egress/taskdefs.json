@@ -1,0 +1,41 @@
+{
+    "family": "sc-generic-server-awsvpc",
+    "networkMode": "awsvpc",
+    "executionRoleArn": "arn:aws:iam::901447253822:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::901447253822:role/TaskIAMRoleArn",
+    "containerDefinitions": [
+        {
+            "name": "server",
+            "image": "public.ecr.aws/u5s6c6g2/sc-poc-generic-server",
+            "memory": 128,
+            "cpu": 100
+        },
+        {
+            "name": "service-connect",
+            "image": "public.ecr.aws/u5s6c6g2/sc-poc-generic-server-appnet-agent",
+            "memory": 1024,
+            "cpu": 100,
+            "environment": [
+                {
+                    "name": "SC_CONFIG",
+                    "value": "{}"
+                }
+            ],
+            "healthCheck": {
+              "retries": 3,
+              "command": [
+                  "CMD-SHELL",
+                  "sleep 1"
+              ],
+              "timeout": 3,
+              "interval": 30,
+              "startPeriod": 2
+          },
+          "linuxParameters": {
+            "capabilities": {
+              "add": ["NET_ADMIN", "SYS_ADMIN"]
+            }
+          }
+        }
+    ]
+}

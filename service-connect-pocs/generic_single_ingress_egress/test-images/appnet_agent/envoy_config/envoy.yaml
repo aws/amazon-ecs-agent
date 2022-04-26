@@ -1,0 +1,12 @@
+node:
+  id: envoy
+  cluster: local
+admin:
+  profile_path: /tmp/envoy.prof
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }
+dynamic_resources:
+  lds_config:
+    path: /etc/envoy/lds_config.yaml
+  cds_config:
+    path: /etc/envoy/cds_config.yaml
