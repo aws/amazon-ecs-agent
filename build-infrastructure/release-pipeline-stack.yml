@@ -237,7 +237,7 @@ Resources:
           - Name: PASSPHRASE
             Type: SECRETS_MANAGER
             Value: !Ref PassphraseArn
-          - Name: SECRET_KEY_ARN
+          - Name: PRIVATE_KEY_ARN
             Type: PLAINTEXT
             Value: !Ref SecretKeyArn
       Source:
@@ -401,6 +401,7 @@ Resources:
                 ConnectionArn: !Ref CodeStarConnectionArn
                 FullRepositoryId: !Ref GithubFullRepoName
                 BranchName: !Ref GithubBranchName
+                OutputArtifactFormat: CODEBUILD_CLONE_REF
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
