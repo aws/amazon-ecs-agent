@@ -24,40 +24,33 @@ import (
 
 func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 	tt := []struct {
-		dnsConf         task.DNSConfig
+		dnsConfigs      []task.DNSConfigEntry
 		expectedRestult []string
 	}{
 		{
-			dnsConf: task.DNSConfig{
+			dnsConfigs: []task.DNSConfigEntry{
 				{
-					HostName:    "my.test.host",
-					IPV4Address: "169.254.1.1",
+					HostName: "my.test.host",
+					Address:  "169.254.1.1",
 				},
 				{
-					HostName:    "my.test.host2",
-					IPV6Address: "ff06::c3",
-				},
-				{
-					HostName:    "my.test.host3",
-					IPV4Address: "169.254.1.2",
-					IPV6Address: "ff06::c4",
+					HostName: "my.test.host2",
+					Address:  "ff06::c3",
 				},
 			},
 			expectedRestult: []string{
 				"my.test.host:169.254.1.1",
 				"my.test.host2:ff06::c3",
-				"my.test.host3:169.254.1.2",
-				"my.test.host3:ff06::c4",
 			},
 		},
 		{
-			dnsConf:         nil,
+			dnsConfigs:      nil,
 			expectedRestult: nil,
 		},
 	}
 
 	for _, tc := range tt {
-		res := DNSConfigToDockerExtraHostsFormat(tc.dnsConf)
+		res := DNSConfigToDockerExtraHostsFormat(tc.dnsConfigs)
 		assert.Equal(t, tc.expectedRestult, res, "Wrong docker host config ")
 	}
 }
