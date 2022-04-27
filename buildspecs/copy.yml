@@ -1,0 +1,13 @@
+version: 0.2
+
+env:
+  variables:
+    ECS_AGENT_TAR: ecs-agent.tar
+    ECS_AGENT_TAR_SIGNATURE: ecs-agent.tar.asc
+
+phases:
+  build:
+    commands:
+      # copy the artifacts out to the results bucket
+      - aws s3 cp $ECS_AGENT_TAR "${RESULTS_BUCKET_URI}/${GIT_COMMIT_SHA}/${ECS_AGENT_TAR}"
+      - aws s3 cp $ECS_AGENT_TAR_SIGNATURE "${RESULTS_BUCKET_URI}/${GIT_COMMIT_SHA}/${ECS_AGENT_TAR_SIGNATURE}"
