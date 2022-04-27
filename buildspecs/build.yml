@@ -1,0 +1,20 @@
+version: 0.2
+
+env:
+  git-credential-helper: yes
+  variables:
+    ECS_AGENT_IMAGE: amazon/amazon-ecs-agent:latest
+    ECS_AGENT_TAR: ecs-agent.tar
+
+phases:
+  build:
+    commands:
+      - echo Building agent image
+      - make release
+  post_build:
+    commands:
+      - echo Saving image $ECS_AGENT_IMAGE to tar $ECS_AGENT_TAR
+      - docker save $ECS_AGENT_IMAGE > $ECS_AGENT_TAR
+artifacts:
+  files:
+    - $ECS_AGENT_TAR

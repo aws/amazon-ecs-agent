@@ -1,0 +1,34 @@
+version: 0.2
+
+# About this buildspec
+# It derives the region from AWS_REGION which the AWS CLI is automatically programmed
+# to do so we don't set a region specifically.
+# $PASSPHRASE gets pulled from secretsmanager because codebuild can pull secrets from secretsmanager
+# as an integration point. This does require the codebuild role to have proper permissions.
+# $PRIVATE_KEY_ARN is pulled from the environment as well. This is something that will probably
+# be specified by the CloudFormation template that this becomes a part of.
+
+env:
+  variables:
+    ECS_AGENT_TAR: ecs-agent.tar
+    ECS_AGENT_TAR_SIGNATURE: ecs-agent.tar.asc
+
+phases:
+  build:
+    commands:
+      # Get the private key from secrets manager, jq parse it, turn it into raw output, pipe to file
+      - aws secretsmanager get-secret-value --secret-id $PRIVATE_KEY_ARN | jq -r '.SecretString' > private.gpg
+      # import the key into the keychain, the private key comes with the public key built in
+      - gpg --allow-secret-key-import --import private.gpg
+      # remove the private key file because we don't want it to be packaged with the artifacts
+      - rm private.gpg
+      # Echo some status
+      - echo "Signing $ECS_AGENT_TAR"
+      # Sign the file
+      - gpg --detach-sign --batch --passphrase $PASSPHRASE --armor --output $ECS_AGENT_TAR_SIGNATURE $ECS_AGENT_TAR
+      # Echo some more status
+      - echo "Signed $ECS_AGENT_TAR"
+artifacts:
+  files:
+    - $ECS_AGENT_TAR
+    - $ECS_AGENT_TAR_SIGNATURE
