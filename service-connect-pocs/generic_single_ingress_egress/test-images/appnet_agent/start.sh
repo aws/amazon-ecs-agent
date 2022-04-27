@@ -6,11 +6,11 @@ ingress_port=$(echo ${SC_CONFIG} | jq -c '.ingressConfig | .[] | select (.listen
 
 if [[ "${ingress_port}" == "null" || "${ingress_port}" == "0" ]]
 then
-  ingress_port=$(echo ${listener_port_mapping} | jq -c '.ingress_listener')
+  ingress_port=$(echo ${APPNET_LISTENER_PORT_MAPPING} | jq -c '.ingress_listener')
 fi
 
 
-egress_port=$(echo ${listener_port_mapping} | jq -c '.egress_listener')
+egress_port=$(echo ${APPNET_LISTENER_PORT_MAPPING} | jq -c '.egress_listener')
 
 intercept_port=$(echo ${SC_CONFIG} | jq -c '.ingressConfig | .[] | select (.listenerName == "ingress_listener") | .interceptPort ')
 app_port=$intercept_port
@@ -20,7 +20,7 @@ then
 fi
 
 
-vipCidr=$(echo ${SC_CONFIG} | jq -r '.egressConfig.vip.ipv4')
+vipCidr=$(echo ${SC_CONFIG} | jq -r '.egressConfig.vip.ipv4Cidr')
 
 _SC_INGRESS_PORT_=${ingress_port:-15000}
 _SC_EGRESS_PORT_=${egress_port:-30000}
