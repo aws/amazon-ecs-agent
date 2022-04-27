@@ -19,18 +19,14 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
-// DNSConfigToDockerExtraHostsFormat converts a DNSConfig to a list of ExtraHost entries that Docker will
+// DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
 // recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConf apitask.DNSConfig) []string {
+func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apitask.DNSConfigEntry) []string {
 	var hosts []string
-	for _, vipConf := range dnsConf {
-		if len(vipConf.IPV4Address) > 0 {
+	for _, dnsConf := range dnsConfigs {
+		if len(dnsConf.Address) > 0 {
 			hosts = append(hosts,
-				fmt.Sprintf("%s:%s", vipConf.HostName, vipConf.IPV4Address))
-		}
-		if len(vipConf.IPV6Address) > 0 {
-			hosts = append(hosts,
-				fmt.Sprintf("%s:%s", vipConf.HostName, vipConf.IPV6Address))
+				fmt.Sprintf("%s:%s", dnsConf.HostName, dnsConf.Address))
 		}
 	}
 	return hosts

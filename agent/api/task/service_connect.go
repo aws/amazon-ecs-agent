@@ -19,13 +19,12 @@ type ServiceConnectConfig struct {
 	StatsConfig   StatsConfig          `json:"statsConfig"`
 	IngressConfig []IngressConfigEntry `json:"ingressConfig"`
 	EgressConfig  EgressConfig         `json:"egressConfig"`
-	DNSConfig     DNSConfig            `json:"dnsConfig"`
+	DNSConfig     []DNSConfigEntry     `json:"dnsConfig"`
 }
 
 // StatsConfig is the endpoint where SC stats can be retrieved from.
 type StatsConfig struct {
-	UrlPath string `json:"urlPath,omitempty"`
-	Port    uint16 `json:"port,omitempty"`
+	Path string `json:"path"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
@@ -56,17 +55,13 @@ type EgressConfig struct {
 // VIP is the representation of an SC VIP-CIDR
 // e.g. 169.254.0.0/16
 type VIP struct {
-	IPV4 string `json:"ipv4,omitempty"`
-	IPV6 string `json:"ipv6,omitempty"`
+	IPV4CIDR string `json:"ipv4Cidr,omitempty"`
+	IPV6CIDR string `json:"ipv6Cidr,omitempty"`
 }
 
-// DNSConfig is a list of DNSConfigEntry's
-type DNSConfig []DNSConfigEntry
-
 // DNSConfigEntry represents a mapping between a VIP in the SC VIP-CIDR and an upstream SC service.
-// e.g. DummySCService.corp.local -> 169.254.1.1
+// e.g. DummySCService.my.corp -> 169.254.1.1
 type DNSConfigEntry struct {
-	HostName    string `json:"hostName"`
-	IPV4Address string `json:"ipv4Address,omitempty"`
-	IPV6Address string `json:"ipv6Address,omitempty"`
+	HostName string `json:"hostName"`
+	Address  string `json:"address"`
 }
