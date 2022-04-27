@@ -884,9 +884,12 @@ func TestPauseContainerWitServiceConnect(t *testing.T) {
 		ContainerName: "service-connect",
 		DNSConfig: []apitask.DNSConfigEntry{
 			{
-				HostName:    "host1.my.corp",
-				IPV4Address: "169.254.1.1",
-				IPV6Address: "ff06::c4",
+				HostName: "host1.my.corp",
+				Address:  "169.254.1.1",
+			},
+			{
+				HostName: "host1.my.corp",
+				Address:  "ff06::c4",
 			},
 		},
 	}
