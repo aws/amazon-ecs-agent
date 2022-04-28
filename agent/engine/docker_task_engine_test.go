@@ -1219,11 +1219,11 @@ func TestCheckTearDownPauseContainer(t *testing.T) {
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1),
 	)
 
-	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainerAwsvpc(testTask)
 	require.True(t, pauseContainer.IsContainerTornDown())
 
 	// Invoke one more time to check for idempotency (mocks configured with maxTimes = 1)
-	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainerAwsvpc(testTask)
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the
