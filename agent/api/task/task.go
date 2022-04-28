@@ -141,6 +141,9 @@ const (
 	// specifies awsvpc type mode for a task
 	AWSVPCNetworkMode = "awsvpc"
 
+	// specifies host type mode for a task
+	HostNetworkMode = "host"
+
 	// disableIPv6SysctlKey specifies the setting that controls whether ipv6 is disabled.
 	disableIPv6SysctlKey = "net.ipv6.conf.all.disable_ipv6"
 	// sysctlValueOff specifies the value to use to turn off a sysctl setting.
@@ -277,7 +280,9 @@ type Task struct {
 	// setIdOnce is used to set the value of this task's id only the first time GetID is invoked
 	setIdOnce sync.Once
 
-	ServiceConnectConfig *ServiceConnectConfig `json:"serviceConnectConfig,omitempty"`
+	ServiceConnectConfig *ServiceConnectConfig `json:"ServiceConnectConfig,omitempty"`
+
+	NetworkMode string `json:"NetworkMode,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -332,6 +337,9 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
 	dockerClient dockerapi.DockerClient, ctx context.Context, options ...Option) error {
+
+	task.initNetworkMode()
+
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -449,6 +457,34 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 	return nil
+}
+
+// initNetworkMode initializes/infers the network mode for the task and assigns the result to this task's NetworkMode field.
+// This is necessary because ACS doesn't send the actual network mode declared in task def.
+// TODO [SC]: Instead of doing this, it's perhaps better/easier to just ask ACS to send network mode from task definition. Using this in the meantime to avoid being blocked.
+func (task *Task) initNetworkMode() {
+	if len(task.ENIs) > 0 {
+		task.NetworkMode = AWSVPCNetworkMode
+		return
+	}
+	for _, c := range task.Containers {
+		// ACS sets task def network mode to each and every customer container docker host config, so the presence
+		// of one container with a given network mode is enough to infer the task network mode
+		switch c.GetNetworkModeFromHostConfig() {
+		case BridgeNetworkMode:
+			task.NetworkMode = BridgeNetworkMode
+			return
+		case HostNetworkMode:
+			task.NetworkMode = HostNetworkMode
+			return
+		case "":
+			// the absence of a network mode means the default docker network mode is used, which, for ECS it's bridge.
+			// for future proofing, let's keep inspecting the rest of the containers for this particular case.
+			continue
+		}
+	}
+	// If we reached this part, it means none of the containers has network mode set, which means bridge mode (default)
+	task.NetworkMode = BridgeNetworkMode
 }
 
 func (task *Task) initServiceConnectResources() error {
@@ -1331,10 +1367,27 @@ func (task *Task) IsNetworkModeAWSVPC() bool {
 	return len(task.ENIs) > 0
 }
 
+// IsNetworkModeBridge checks if the task is configured to use the bridge network mode.
+func (task *Task) IsNetworkModeBridge() bool {
+	return task.NetworkMode == BridgeNetworkMode
+}
+
+// IsNetworkModeHost checks if the task is configured to use the host network mode.
+func (task *Task) IsNetworkModeHost() bool {
+	return task.NetworkMode == HostNetworkMode
+}
+
 func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) error {
-	if !task.IsNetworkModeAWSVPC() {
-		return nil
+	if task.IsNetworkModeAWSVPC() {
+		return task.addNetworkResourceProvisioningDependencyAwsvpc(cfg)
 	}
+	//else if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
+	//	// TODO [SC]: This is where we would setup a pause container per task container for Service Connect only
+	//}
+	return nil
+}
+
+func (task *Task) addNetworkResourceProvisioningDependencyAwsvpc(cfg *config.Config) error {
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	pauseContainer.Name = NetworkPauseContainerName
@@ -1589,7 +1642,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		containerConfig.Labels = make(map[string]string)
 	}
 
-	if container.Type == apicontainer.ContainerCNIPause {
+	if container.Type == apicontainer.ContainerCNIPause && task.IsNetworkModeAWSVPC() {
 		// apply hostname to pause container's docker config
 		return task.applyENIHostname(containerConfig), nil
 	}
@@ -1686,7 +1739,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	if ok {
 		hostConfig.NetworkMode = dockercontainer.NetworkMode(networkMode)
 		// Override 'awsvpc' parameters if needed
-		if container.Type == apicontainer.ContainerCNIPause {
+		if container.Type == apicontainer.ContainerCNIPause && task.IsNetworkModeAWSVPC() {
 			// apply ExtraHosts to HostConfig for pause container
 			if hosts := task.generateENIExtraHosts(); hosts != nil {
 				hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
@@ -1779,10 +1832,18 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 	// TODO. We can do an early return here by determining which kind of task it is
 	// Example: Does this task have ENIs in its payload, what is its networking mode etc
 	if container.IsInternal() {
-		// If it's an internal container, set the network mode to none.
+		// If it's an internal container, set the network mode to none for awsvpc, set to bridge if task is using
+		// bridge mode and this is an SC-enabled task.
 		// Currently, internal containers are either for creating empty host
 		// volumes or for creating the 'pause' container. Both of these
 		// only need the network mode to be set to "none"
+		if container.Type == apicontainer.ContainerCNIPause {
+			if task.IsNetworkModeAWSVPC() {
+				return true, networkModeNone
+			} else if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
+				return true, BridgeNetworkMode
+			}
+		}
 		return true, networkModeNone
 	}
 
@@ -1791,10 +1852,17 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 	// when using non docker daemon supported network modes, its existence
 	// indicates the need to configure the network mode outside of supported
 	// network drivers
-	if !task.IsNetworkModeAWSVPC() {
-		return false, ""
+	if task.IsNetworkModeAWSVPC() {
+		return task.shouldOverrideNetworkModeAwsvpc(container, dockerContainerMap)
 	}
+	//else if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
+	//	// TODO [SC]: This is where the logic to override network mode for a customer to join its pause container would go
+	//	// return task.shouldOverrideNetworkModeServiceConnectBridge(container, dockerContainerMap)
+	//}
+	return false, ""
+}
 
+func (task *Task) shouldOverrideNetworkModeAwsvpc(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
 	pauseContName := ""
 	for _, cont := range task.Containers {
 		if cont.Type == apicontainer.ContainerCNIPause {

@@ -1719,9 +1719,9 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	}
 }
 
-// checkTearDownPauseContainer idempotently tears down the pause container network when the pause container's known
+// checkTearDownPauseContainerAwsvpc idempotently tears down the pause container network when the pause container's known
 //or desired status is stopped.
-func (engine *DockerTaskEngine) checkTearDownPauseContainer(task *apitask.Task) {
+func (engine *DockerTaskEngine) checkTearDownPauseContainerAwsvpc(task *apitask.Task) {
 	if !task.IsNetworkModeAWSVPC() {
 		return
 	}
@@ -1730,7 +1730,7 @@ func (engine *DockerTaskEngine) checkTearDownPauseContainer(task *apitask.Task) 
 		if container.Type == apicontainer.ContainerCNIPause {
 			// Clean up if the pause container has stopped or will stop
 			if container.KnownTerminal() || container.DesiredTerminal() {
-				err := engine.cleanupPauseContainerNetwork(task, container)
+				err := engine.cleanupPauseContainerNetworkAwsvpc(task, container)
 				if err != nil {
 					logger.Error("Unable to cleanup pause container network namespace", logger.Fields{
 						field.TaskID: task.GetID(),
@@ -1743,8 +1743,8 @@ func (engine *DockerTaskEngine) checkTearDownPauseContainer(task *apitask.Task) 
 	}
 }
 
-// cleanupPauseContainerNetwork will clean up the network namespace of pause container
-func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task, container *apicontainer.Container) error {
+// cleanupPauseContainerNetworkAwsvpc will clean up the network namespace of pause container
+func (engine *DockerTaskEngine) cleanupPauseContainerNetworkAwsvpc(task *apitask.Task, container *apicontainer.Container) error {
 	// This operation is idempotent
 	if container.IsContainerTornDown() {
 		return nil
@@ -1849,13 +1849,18 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 
 	// Cleanup the pause container network namespace before stop the container
 	if container.Type == apicontainer.ContainerCNIPause {
-		err := engine.cleanupPauseContainerNetwork(task, container)
-		if err != nil {
-			logger.Error("Unable to cleanup pause container network namespace", logger.Fields{
-				field.TaskID: task.GetID(),
-				field.Error:  err,
-			})
+		if task.IsNetworkModeAWSVPC() {
+			err := engine.cleanupPauseContainerNetworkAwsvpc(task, container)
+			if err != nil {
+				logger.Error("Unable to cleanup pause container network namespace", logger.Fields{
+					field.TaskID: task.GetID(),
+					field.Error:  err,
+				})
+			}
 		}
+		//else if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
+		//	// TODO [SC]: Pause containers in bridge mode also need cleaning up for SC-enabled tasks
+		//}
 	}
 
 	apiTimeoutStopContainer := container.GetStopTimeout()

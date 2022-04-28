@@ -239,7 +239,8 @@ func (mtask *managedTask) overseeTask() {
 	logger.Info("Managed task has reached stopped; waiting for container cleanup", logger.Fields{
 		field.TaskID: mtask.GetID(),
 	})
-	mtask.engine.checkTearDownPauseContainer(mtask.Task)
+	mtask.engine.checkTearDownPauseContainerAwsvpc(mtask.Task)
+	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		logger.Debug("Marking done for this sequence", logger.Fields{
