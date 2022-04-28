@@ -3728,3 +3728,75 @@ func validateAppnetEnvVars(t *testing.T, task *Task) {
 		assert.Equalf(t, int(egressListener.ListenerPort), portMapping[egressListener.ListenerName], "Listener-port mapping incorrectly configured for %s", egressListener.ListenerName)
 	}
 }
+
+func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
+	for _, tc := range []struct {
+		inputNetworkMode        string
+		expectedTaskNetworkMode string
+	}{
+		{
+			inputNetworkMode:        AWSVPCNetworkMode,
+			expectedTaskNetworkMode: AWSVPCNetworkMode,
+		},
+		{
+			inputNetworkMode:        BridgeNetworkMode,
+			expectedTaskNetworkMode: BridgeNetworkMode,
+		},
+		{
+			inputNetworkMode:        "",
+			expectedTaskNetworkMode: BridgeNetworkMode,
+		},
+		{
+			inputNetworkMode:        HostNetworkMode,
+			expectedTaskNetworkMode: HostNetworkMode,
+		},
+	} {
+		taskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: aws.String("C1"),
+				},
+				{
+					Name: aws.String("C2"),
+				},
+			},
+		}
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+
+		// Setup
+		if tc.inputNetworkMode == AWSVPCNetworkMode {
+			// Inject a dummy ENI to signal this is an awsvpc task
+			task.ENIs = []*apieni.ENI{{}}
+		} else if tc.inputNetworkMode != "" {
+			// otherwise, if networkMode is bridge or host, inject it into container's docker host config
+			task.Containers[0].DockerConfig = apicontainer.DockerConfig{
+				HostConfig: aws.String(fmt.Sprintf(
+					`{"NetworkMode":"%s"}`, tc.inputNetworkMode)),
+			}
+		}
+
+		err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedTaskNetworkMode, task.NetworkMode)
+		switch tc.inputNetworkMode {
+		case AWSVPCNetworkMode:
+			assert.True(t, task.IsNetworkModeAWSVPC())
+			assert.False(t, task.IsNetworkModeBridge())
+			assert.False(t, task.IsNetworkModeHost())
+		case BridgeNetworkMode, "":
+			assert.False(t, task.IsNetworkModeAWSVPC())
+			assert.True(t, task.IsNetworkModeBridge())
+			assert.False(t, task.IsNetworkModeHost())
+		case HostNetworkMode:
+			assert.False(t, task.IsNetworkModeAWSVPC())
+			assert.False(t, task.IsNetworkModeBridge())
+			assert.True(t, task.IsNetworkModeHost())
+		}
+	}
+}
