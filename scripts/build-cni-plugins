@@ -52,6 +52,6 @@ ln -s "${ROOT}/amazon-vpc-cni-plugins" "${GITPATH}"
 cd ${GITPATH}/amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
 mkdir -p ${ROOT}/misc/plugins && cp -a ./bin/plugins/. ${ROOT}/misc/plugins/
 make clean
-cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on make build
+cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor" make aws-appmesh vpc-branch-eni
 cp -a ./build/linux_${GOARCH}/. ${ROOT}/misc/plugins/
 make clean

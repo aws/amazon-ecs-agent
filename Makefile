@@ -237,20 +237,18 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 	@echo "Built all cni plugins successfully."
 
 # dockerfree build process will build the agent container image from scratch
-# and with minimal dependencies
-# requires glibc-static
-# dockerfree-pause works for both amd64 and arm64
+# requires glibc-static -- we precompile amd/arm to the misc/pause-container/pause-image-tar-files/ directory
 dockerfree-pause:
 	./scripts/build-pause
 
-# dockerfree-certs works for both amd64 and arm64
 dockerfree-certs:
 	./scripts/get-host-certs
 
 dockerfree-cni-plugins: get-cni-sources
 	./scripts/build-cni-plugins
 
-dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
+# see dockerfree-pause above: assumes that the pre-compiled pause container tar exists
+dockerfree-agent-image: dockerfree-certs dockerfree-cni-plugins static-with-pause
 	./scripts/build-agent-image
 
 .PHONY: codebuild
@@ -357,15 +355,18 @@ get-deps-init:
 	go get golang.org/x/tools/cmd/goimports
 	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.2.1
 
-.amazon-linux-rpm-integrated-done:
+amazon-linux-sources.tgz:
 	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
 	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION
+
+.amazon-linux-rpm-integrated-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
 	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
 	find RPMS/ -type f -exec cp {} . \;
@@ -419,7 +420,6 @@ clean:
 	rm -rf misc/pause-container/image/
 	rm -rf misc/pause-container/rootfs/
 	rm -rf misc/plugins/
-	rm -f misc/pause-container/amazon-ecs-pause.tar
 	rm -rf out/
 	rm -rf rootfs/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
