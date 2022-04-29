@@ -1,0 +1,235 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: A Cloudformation template to build Agent artifacts on PR creation and modification. It spawns CodeBuild projects for different architectures which trigger agent artifact builds for PR creation and modification, and store the artifacts in an S3 bucket.
+
+Parameters:
+  GithubFullRepoName:
+    Type: String
+    Description: Full name of the agent repository to use (e.g. https://github.com/aws/amazon-ecs-agent.git)
+  GithubBranchName:
+    Type: String
+    Description: Name of the base branch to use to build, PRs to which will trigger builds (e.g. refs/heads/dev)
+  BuildBucketName:
+    Type: String
+    Description: Name of the S3 bucket which will store artifacts
+  BuildBucketArn:
+    Type: String
+    Description: ARN of the S3 bucket which will store artifacts
+  BuildProjectName:
+    Type: String
+    Description: Base name of CodeBuild projects - will start different CodeBuild projects with different suffixes (-amd, -arm) for different artifacts
+
+Resources:
+  ArmProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:2.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: ARM_CONTAINER
+      Name: !Sub '${BuildProjectName}-arm'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleArm
+      Source:
+        BuildSpec: buildspecs/build.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
+        # This allow list can be modified using aws-cli or aws-sdk
+        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
+        # so they have to be listed separately
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE
+  AmdProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:3.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: LINUX_CONTAINER
+      Name: !Sub '${BuildProjectName}-amd'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmd
+      Source:
+        BuildSpec: buildspecs/build.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
+        # This allow list can be modified using aws-cli or aws-sdk
+        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
+        # so they have to be listed separately
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE
+  ServiceRoleAmd:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Join 
+                    - ':'
+                    - - 'arn:aws:logs'
+                      - !Ref 'AWS::Region'
+                      - !Ref 'AWS::AccountId'
+                      - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-amd'
+                  - !Join 
+                    - ':'
+                    - - 'arn:aws:logs'
+                      - !Ref 'AWS::Region'
+                      - !Ref 'AWS::AccountId'
+                      - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-amd:*'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*' 
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmd'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'
+  ServiceRoleArm:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Join 
+                    - ':'
+                    - - 'arn:aws:logs'
+                      - !Ref 'AWS::Region'
+                      - !Ref 'AWS::AccountId'
+                      - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-arm'
+                  - !Join 
+                    - ':'
+                    - - 'arn:aws:logs'
+                      - !Ref 'AWS::Region'
+                      - !Ref 'AWS::AccountId'
+                      - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-arm:*'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*'
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyArm'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleArm'
