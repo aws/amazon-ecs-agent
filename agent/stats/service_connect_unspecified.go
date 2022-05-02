@@ -17,12 +17,12 @@ package stats
 
 import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/pkg/errors"
 )
 
 type ServiceConnectStats struct {
-	//TODO Change the type of Service Connect stats when it is defined.
-	stats string
+	stats []*ecstcs.GeneralMetricsWrapper
 	sent  bool
 }
 
