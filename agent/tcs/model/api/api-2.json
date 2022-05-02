@@ -191,9 +191,8 @@
       "type":"list",
       "member":{"shape":"ContainerMetric"}
     },
-    "Double":{"type":"double"},
     "Dimension":{
-      "type": "structure",
+      "type":"structure",
       "members":{
         "key":{"shape":"String"},
         "value":{"shape":"String"}
@@ -203,6 +202,7 @@
       "type":"list",
       "member":{"shape":"Dimension"}
     },
+    "Double":{"type":"double"},
     "GeneralMetric":{
       "type":"structure",
       "members":{
@@ -219,7 +219,7 @@
       "type":"structure",
       "members":{
         "dimensions":{"shape":"Dimensions"},
-        "metricType": {"shape":"MetricType"},
+        "metricType":{"shape":"MetricType"},
         "generalMetrics":{"shape":"GeneralMetrics"}
       }
     },
@@ -288,6 +288,17 @@
       "type":"list",
       "member":{"shape":"Long"}
     },
+    "MetricType":{
+      "type":"string",
+      "enum":[
+        "1",
+        "2"
+      ]
+    },
+    "MetricValues":{
+      "type":"list",
+      "member":{"shape":"Double"}
+    },
     "MetricsMetadata":{
       "type":"structure",
       "members":{
@@ -297,17 +308,6 @@
         "idle":{"shape":"Boolean"},
         "fin":{"shape":"Boolean"}
       }
-    },
-    "MetricType":{
-      "type":"string",
-      "enum":[
-        "INGRESS",
-        "EGRESS"
-      ]
-    },
-    "MetricValues":{
-      "type":"list",
-      "member":{"shape":"Double"}
     },
     "NetworkStatsSet":{
       "type":"structure",
@@ -421,7 +421,7 @@
     "Timestamp":{"type":"timestamp"},
     "UDouble":{
       "type":"double",
-      "min":0
+      "min":0.0
     },
     "UDoubleCWStatsSet":{
       "type":"structure",
