@@ -270,7 +270,7 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 	tempTaskMetric := *taskMetric
 	tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
-	for j, serviceConnectMetric := range taskMetric.ServiceConnectMetricsWrapper {
+	for _, serviceConnectMetric := range taskMetric.ServiceConnectMetricsWrapper {
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
 		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
@@ -281,6 +281,8 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 			// since adding this SC metric to the message exceeds the 1 MB limit, remove it from taskMetric and create a request to send it to the backend
 			tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:len(tempTaskMetric.ServiceConnectMetricsWrapper)-1]
 			taskMetricTruncated := tempTaskMetric
+			taskMetricTruncated.ServiceConnectMetricsWrapper = copyServiceConnectMetrics(tempTaskMetric.ServiceConnectMetricsWrapper)
+
 			messageTaskMetrics = append(messageTaskMetrics, &taskMetricTruncated)
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 
@@ -292,13 +294,8 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 			// add the serviceConnectMetric to tempTaskMetric to be sent in the next message
 			tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		}
-
-		// set taskMetric with remaining SC metrics
-		if (j + 1) == len(taskMetric.ServiceConnectMetricsWrapper) {
-			taskMetric = &tempTaskMetric
-		}
 	}
-	return taskMetric, messageTaskMetrics, requests
+	return &tempTaskMetric, messageTaskMetrics, requests
 }
 
 // publishHealthMetrics send the container health information to backend
@@ -400,6 +397,17 @@ func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
 	to := make([]*ecstcs.TaskMetric, len(from))
 	copy(to, from)
 	return to
+}
+
+// copyServiceConnectMetrics loops over list of GeneralMetricsWrapper obejcts and creates a new GeneralMetricsWrapper list
+// and creates a new GeneralMetricsWrapper object from each given GeneralMetricsWrapper object.
+func copyServiceConnectMetrics(scMetrics []*ecstcs.GeneralMetricsWrapper) []*ecstcs.GeneralMetricsWrapper {
+	scMetricsTo := make([]*ecstcs.GeneralMetricsWrapper, len(scMetrics))
+	for i, scMetricFrom := range scMetrics {
+		scMetricTo := *scMetricFrom
+		scMetricsTo[i] = &scMetricTo
+	}
+	return scMetricsTo
 }
 
 // copyHealthMetadata performs a deep copy of HealthMetadata object
