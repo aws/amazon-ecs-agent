@@ -48,6 +48,7 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 	return &ServiceConnectStats{}, nil
 }
 
+// TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 	var ipAddress string
 	if task.IsNetworkModeAWSVPC() {
