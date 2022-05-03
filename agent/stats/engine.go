@@ -71,8 +71,6 @@ type Engine interface {
 	GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
-	//TODO [SC]: Return service connect metrics from GetServiceConnects when the metrics are defined.
-	GetServiceConnectStats() error
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -367,7 +365,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
 	}
 
-	if errResolveContainer == nil {
+	if errResolveContainer == nil && task.IsServiceConnectEnabled() {
 		engine.addTaskToServiceConnectStatsUnsafe(task.Arn)
 	}
 
@@ -433,14 +431,19 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 	engine.lock.Lock()
 	defer engine.lock.Unlock()
 
+	if includeServiceConnectStats {
+		err := engine.getServiceConnectStats()
+		if err != nil {
+			seelog.Errorf("Error getting service connect metrics: %v", err)
+		}
+	}
+
 	for taskArn := range engine.tasksToContainers {
 		containerMetrics, err := engine.taskContainerMetricsUnsafe(taskArn)
 		if err != nil {
 			seelog.Debugf("Error getting container metrics for task: %s, err: %v", taskArn, err)
 			continue
 		}
-
-		// TODO [SC]: Call GetServiceConnectStats() and add it to taskMetrics with corresponding taskArn
 
 		if len(containerMetrics) == 0 {
 			seelog.Debugf("Empty containerMetrics for task, ignoring, task: %s", taskArn)
@@ -459,6 +462,15 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 			TaskDefinitionFamily:  &taskDef.family,
 			TaskDefinitionVersion: &taskDef.version,
 			ContainerMetrics:      containerMetrics,
+		}
+
+		if includeServiceConnectStats {
+			serviceConnectStats, ok := engine.taskToServiceConnectStats[taskArn]
+			if !ok {
+				seelog.Debugf("task '%s' is not registered to collect service connect metrics", taskArn)
+				continue
+			}
+			taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
 		}
 
 		taskMetrics = append(taskMetrics, taskMetric)
@@ -863,12 +875,9 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 	return containerStats, containerNetworkRateStats, nil
 }
 
-// GetServiceConnectStats invokes the workflow to retrieve all service connect
+// getServiceConnectStats invokes the workflow to retrieve all service connect
 // related metrics for all service connect enabled tasks
-func (engine *DockerStatsEngine) GetServiceConnectStats() error {
-	engine.lock.Lock()
-	defer engine.lock.Unlock()
-
+func (engine *DockerStatsEngine) getServiceConnectStats() error {
 	var wg sync.WaitGroup
 
 	for taskArn := range engine.taskToServiceConnectStats {
