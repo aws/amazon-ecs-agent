@@ -32,3 +32,7 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 }
+
+func (sc *ServiceConnectStats) GetStats() []*ecstcs.GeneralMetricsWrapper {
+	return nil
+}
