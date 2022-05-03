@@ -1,3 +1,11 @@
+amazon-ecs-init (1.61.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.61.1
+  * Install script no longer fails on systems using cgroups v2
+  * Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+
+ -- Anuj Singh <singholt@amazon.com>  Tue, 03 May 2022 18:00:00 +0000
+
 amazon-ecs-init (1.61.0-1) stable; urgency=medium
 
   * Cache Agent version 1.61.0

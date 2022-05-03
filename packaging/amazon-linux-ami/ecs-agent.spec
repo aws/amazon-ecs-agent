@@ -33,7 +33,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.61.0
+Version:        1.61.1
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -279,6 +279,11 @@ fi
 %endif
 
 %changelog
+* Tue May 03 2022 Anuj Singh <singholt@amazon.com> - 1.61.1-1
+- Cache Agent version 1.61.1
+- Install script no longer fails on systems using cgroups v2
+- Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+
 * Tue Apr 05 2022 Cameron Sparr <cssparr@amazon.com> - 1.61.0-1
 - Cache Agent version 1.61.0
 - Check ipv4 routes for default network interface instead of defaulting to eth0
