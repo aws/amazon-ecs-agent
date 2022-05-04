@@ -21,6 +21,17 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
+const (
+	defaultRelayPathContainer  = "/var/run/ecs/relay/"
+	defaultRelayPathHost       = "/var/run/ecs/instance/relay/"
+	defaultRelayFileName       = "envoy_xds.sock"
+	defaultRelayENV            = "APPMESH_XDS_ENDPOINT"
+	defaultStatusPathContainer = "/var/run/ecs/"
+	defaultStatusPathHostRoot  = "/var/run/ecs/"
+	defaultStatusFileName      = "appnet_admin.sock"
+	defaultStatusENV           = "APPNET_AGENT_UDS_PATH"
+)
+
 type manager struct {
 }
 
