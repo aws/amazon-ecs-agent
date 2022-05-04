@@ -68,6 +68,12 @@ func NewManager() Manager {
 }
 
 func (m *manager) initializeAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+	if task.IsNetworkModeBridge() {
+		err := m.initServiceConnectContainerMapping(task, container, hostConfig)
+		if err != nil {
+			return err
+		}
+	}
 	return m.initServiceConnectDirectoryMounts(task.GetID(), container, hostConfig)
 }
 
@@ -99,6 +105,11 @@ func (m *manager) initServiceConnectDirectoryMounts(taskId string, container *ap
 
 	container.MergeEnvironmentVariables(scEnv)
 	return nil
+}
+
+func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+	// TODO [SC] - Move the function here
+	return task.PopulateServiceConnectContainerMappingEnvVar()
 }
 
 // DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
