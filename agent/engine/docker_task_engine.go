@@ -1668,6 +1668,11 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
+	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() && container == task.GetServiceConnectContainer() {
+		// TODO [SC]: CNI integration for SC bridge-mode task
+		return dockerapi.MetadataFromContainer(containerInspectOutput)
+	}
+
 	task.SetPausePIDInVolumeResources(strconv.Itoa(containerInspectOutput.State.Pid))
 
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, containerInspectOutput, true)
@@ -1718,9 +1723,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	return dockerapi.DockerContainerMetadata{
-		DockerID: cniConfig.ContainerID,
-	}
+	return dockerapi.MetadataFromContainer(containerInspectOutput)
 }
 
 // checkTearDownPauseContainerAwsvpc idempotently tears down the pause container network when the pause container's known
