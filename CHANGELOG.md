@@ -1,4 +1,11 @@
 # Changelog
+## 1.61.1
+* Enhancement - Remove hard-coded task CPU limit and advertise a new capability ecs.capability.increased-task-cpu-limit [#3197](https://github.com/aws/amazon-ecs-agent/pull/3197)
+* Enhancement - Simplify api/task code [#3176](https://github.com/aws/amazon-ecs-agent/pull/3176)
+* Enhancement - Remove unused .travis.yml file [#3171](https://github.com/aws/amazon-ecs-agent/pull/3171)
+* Bug - Fix potential goroutine leaks [#3170](https://github.com/aws/amazon-ecs-agent/pull/3170)
+* Bug - Fix credential rotation issue with ECS-A Windows [#3184](https://github.com/aws/amazon-ecs-agent/pull/3184)  
+* Bug - Fix Windows base image versions for integration tests [#3179](https://github.com/aws/amazon-ecs-agent/pull/3179)
 
 ## 1.61.0
 * Enhancement - Support for unified cgroups and the systemd cgroup driver [#3127](https://github.com/aws/amazon-ecs-agent/pull/3127)
