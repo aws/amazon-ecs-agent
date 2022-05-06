@@ -1,5 +1,5 @@
 ---
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: A template that brings up a code pipeline that builds and signs artifacts
 
 Parameters:
@@ -7,10 +7,14 @@ Parameters:
     Type: String
     Description: The name of the code pipeline
     Default: artifact-build-sign-pipeline
-  BuildCodeBuildProjectName:
+  AmdBuildCodeBuildProjectName:
     Type: String
-    Description: The name of the build project
-    Default: artifact-build
+    Description: The name of the AMD build project
+    Default: amd-artifact-build
+  ArmBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the ARM build project
+    Default: arm-artifact-build
   SigningCodeBuildProjectName:
     Type: String
     Description: The name of the signing project
@@ -77,17 +81,17 @@ Resources:
   BuildAndSignCodePipelineArtifactBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts"
+      BucketName: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  BuildCodeBuildProjectServiceRole:
+  AmdBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "build-codebuild-project-service-role-${AWS::Region}"
+      RoleName: !Sub 'amd-build-codebuild-project-service-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -104,7 +108,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub "${CodeBuildLogGroup.Arn}:*"
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -112,7 +116,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -128,7 +132,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${BuildCodeBuildProjectName}-*"
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${AmdBuildCodeBuildProjectName}-*'
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -136,7 +140,7 @@ Resources:
                   - codebuild:BatchPutTestCases
                   - codebuild:BatchPutCodeCoverages
 
-  BuildCodeBuildProject:
+  AmdBuildCodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Artifacts:
@@ -153,19 +157,97 @@ Resources:
         CloudWatchLogs:
           GroupName: !Ref CodeBuildLogGroupName
           Status: ENABLED
-          StreamName: build
-      Name: !Ref BuildCodeBuildProjectName
+          StreamName: !Ref AmdBuildCodeBuildProjectName
+      Name: !Ref AmdBuildCodeBuildProjectName
       QueuedTimeoutInMinutes: 60
-      ServiceRole: !Ref BuildCodeBuildProjectServiceRole
+      ServiceRole: !Ref AmdBuildCodeBuildProjectServiceRole
       Source:
-        BuildSpec: buildspecs/build.yml
+        BuildSpec: buildspecs/merge-build.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
+  ArmBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'arm-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ArmBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  ArmBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: A sample agent build on pr
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: ARM_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref ArmBuildCodeBuildProjectName
+      Name: !Ref ArmBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ArmBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build.yml
         Type: CODEPIPELINE
       TimeoutInMinutes: 60
 
   SigningCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "signing-codebuild-project-service-role-${AWS::Region}"
+      RoleName: !Sub 'signing-codebuild-project-service-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -182,7 +264,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub "${CodeBuildLogGroup.Arn}:*"
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -190,7 +272,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -200,7 +282,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${SigningCodeBuildProjectName}-*"
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${SigningCodeBuildProjectName}-*'
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -249,12 +331,12 @@ Resources:
         CloudWatchLogs:
           GroupName: !Ref CodeBuildLogGroupName
           Status: ENABLED
-          StreamName: signing
+          StreamName: !Ref SigningCodeBuildProjectName
 
   CopyCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "copy-codebuild-project-service-role-${AWS::Region}"
+      RoleName: !Sub 'copy-codebuild-project-service-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -271,7 +353,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub "${CodeBuildLogGroup.Arn}:*"
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -279,7 +361,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -290,12 +372,12 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !Ref ReleaseArtifactsBucketArn
-                  - !Sub "${ReleaseArtifactsBucketArn}/*"
+                  - !Sub '${ReleaseArtifactsBucketArn}/*'
                 Action: s3:*
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${CopyCodeBuildProjectName}-*"
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${CopyCodeBuildProjectName}-*'
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -330,12 +412,12 @@ Resources:
         CloudWatchLogs:
           GroupName: !Ref CodeBuildLogGroupName
           Status: ENABLED
-          StreamName: copy
+          StreamName: !Ref CopyCodeBuildProjectName
 
   BuildAndSignCodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "build-and-sign-codepipeline-service-role-${AWS::Region}"
+      RoleName: !Sub 'build-and-sign-codepipeline-service-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -350,7 +432,7 @@ Resources:
             Statement:
               - Sid: CodePipelinePassRoleAccess
                 Effect: Allow
-                Resource: "*"
+                Resource: '*'
                 Action:
                   - iam:PassRole
                 Condition:
@@ -362,17 +444,17 @@ Resources:
                       - ecs-tasks.amazonaws.com
               - Sid: CodePipelineGithubConnectionsAccess
                 Effect: Allow
-                Resource: "*"
+                Resource: '*'
                 Action:
                   - codestar-connections:UseConnection
               - Sid: CodePipelineReadAndWriteToS3Access
                 Effect: Allow
-                Resource: "*"
+                Resource: '*'
                 Action:
                   - s3:*
               - Sid: CodePipelineCodeBuildAccess
                 Effect: Allow
-                Resource: "*"
+                Resource: '*'
                 Action:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
@@ -386,7 +468,7 @@ Resources:
       RoleArn: !GetAtt BuildAndSignCodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3
-        Location: !Sub "codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts"
+        Location: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
       Stages:
         - Name: Source
           Actions:
@@ -395,7 +477,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: "1"
+                Version: '1'
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: !Ref CodeStarConnectionArn
@@ -408,36 +490,55 @@ Resources:
               Namespace: SourceVariables
         - Name: Build
           Actions:
-            - Name: Make
+            - Name: MakeAmd
               InputArtifacts:
                 - Name: SourceArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
+                Version: '1'
                 Provider: CodeBuild
               Configuration:
-                ProjectName: !Ref BuildCodeBuildProject
+                ProjectName: !Ref AmdBuildCodeBuildProject
                 EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
               OutputArtifacts:
-                - Name: BuildArtifact
+                - Name: AmdBuildArtifact
               RunOrder: 1
+              Namespace: AmdBuildVariables
+            - Name: MakeArm
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref ArmBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: ArmBuildArtifact
+              RunOrder: 1
+              Namespace: ArmBuildVariables
         - Name: Sign
           Actions:
             - Name: GPG
               InputArtifacts:
-                - Name: BuildArtifact
+                - Name: AmdBuildArtifact
+                - Name: ArmBuildArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
+                Version: '1'
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref SigningCodeBuildProject
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+                PrimarySource: AmdBuildArtifact
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: SignedArtifact
               RunOrder: 1
+              Namespace: SigningVariables
         - Name: Copy
           Actions:
             - Name: ToS3
@@ -446,9 +547,10 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: "1"
+                Version: '1'
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref CopyCodeBuildProject
                 EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
               RunOrder: 1
+              Namespace: CopyVariables
