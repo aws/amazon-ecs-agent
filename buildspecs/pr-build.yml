@@ -1,0 +1,66 @@
+version: 0.2
+
+env:
+  variables:
+    # Github username of the forked repo on which to make builds
+    GITHUBUSERNAME: aws
+
+phases:
+  install:
+    commands:
+       - architecture=""
+       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+       - case $(uname -m) in
+           x86_64)
+             architecture="amd64"
+           ;;
+           aarch64)
+             architecture="arm64"
+           ;;
+         esac
+
+       - GOVERSION="$(cat GO_VERSION)"
+       - BUILD_LOG="build_${architecture}.log"
+       - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+
+       # Need to install GOLANG explicitly as required versions do not come preinstalled
+       - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} 2>&1 | tee $BUILD_LOG
+       - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} 2>&1 | tee -a $BUILD_LOG
+       - go version
+
+       # glibc-static required for dockerfree make method
+       - echo "Install glibc-static for dockerfree make method" | tee -a $BUILD_LOG
+       - yum -y install glibc-static 2>&1 | tee -a $BUILD_LOG
+
+  build:
+    commands:
+      - go version
+      - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
+      - echo Building agent image 2>&1 | tee -a $BUILD_LOG
+      - AGENT_VERSION=$(cat VERSION)
+      - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Path readjustment for codebuild testing with fork - may not needed when deploying with main account
+      - cd ../..
+      - mv $GITHUBUSERNAME aws
+      - cd aws/amazon-ecs-agent
+
+      - GO111MODULE=auto
+      - make dockerfree-agent-image 2>&1 | tee -a $BUILD_LOG
+      # Rename artifacts for architecture
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+        fi
+
+  post_build:
+    commands:
+
+artifacts:
+  files:
+    - $ECS_AGENT_TAR
+    - $BUILD_LOG
+  name: $CODEBUILD_RESOLVED_SOURCE_VERSION
+
