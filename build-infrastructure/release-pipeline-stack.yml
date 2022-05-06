@@ -224,7 +224,7 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       ConcurrentBuildLimit: 10
-      Description: CodeBuild project to build the ECS Agent Docker image tarball
+      Description: A sample agent build on pr
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
