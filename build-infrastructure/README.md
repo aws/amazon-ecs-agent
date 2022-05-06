@@ -43,10 +43,7 @@ The directory structure that is expected is as follows,
 ```
 buildspecs/
 |- merge-build.yml
-<<<<<<< HEAD
 |- pr-build.yml
-=======
->>>>>>> added a note about adding more artifacts to be signed and copied
 |- signing.yml
 |- copy.yml
 ```
