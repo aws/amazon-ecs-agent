@@ -43,6 +43,7 @@ The directory structure that is expected is as follows,
 ```
 buildspecs/
 |- merge-build.yml
+|- pr-build.yml
 |- signing.yml
 |- copy.yml
 ```
