@@ -29,7 +29,7 @@ Parameters:
     Default: build-and-sign-logs
   LogGroupRetentionPeriodInDays:
     Type: Number
-    Description: The number of days to retain cloudwatch logs
+    Description: The number of days to retain cloudwatch logs, the allowed values exist because CloudWatch Logs only accepts certain day values
     Default: 180
     AllowedValues:
       - 1
@@ -146,7 +146,7 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       ConcurrentBuildLimit: 10
-      Description: A sample agent build on pr
+      Description: A pipeline to build ECS Agent artifacts, sign them, and copy them to the staging bucket
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
