@@ -243,7 +243,7 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 				HostPort:     &SCIngressListener2HostPort,
 			},
 		},
-		EgressConfig: EgressConfig{
+		EgressConfig: &EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: SCEgressListenerContainerPort, // Presently this should always get ephemeral port
 		},
@@ -377,8 +377,11 @@ func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) 
 
 func TestDockerContainerConfigSCBridgeMode_emptyEgressConfig(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
-	testTask.ServiceConnectConfig.EgressConfig = EgressConfig{}
-	actualConfig, err := testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
+	testTask.ServiceConnectConfig.EgressConfig = &EgressConfig{
+		ListenerName: "",
+		VIP:          VIP{},
+	}
+	actualConfig, err := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.NotNil(t, actualConfig.ExposedPorts)
@@ -3806,7 +3809,7 @@ func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
 				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
 			},
 		},
-		EgressConfig: EgressConfig{
+		EgressConfig: &EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
@@ -3876,7 +3879,7 @@ func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
 				ListenerPort: listenerPort3,
 			},
 		},
-		EgressConfig: EgressConfig{
+		EgressConfig: &EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
@@ -3976,7 +3979,7 @@ func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig ServiceCo
 		assert.Equalf(t, ic.ListenerName, task.ServiceConnectConfig.IngressConfig[i].ListenerName,
 			"Ingress listener name incorrectly modified for listener: %s", ic.ListenerName)
 	}
-	if originalSCConfig.EgressConfig.ListenerPort == 0 {
+	if originalSCConfig.EgressConfig != nil && originalSCConfig.EgressConfig.ListenerPort == 0 {
 		assignedPort := task.ServiceConnectConfig.EgressConfig.ListenerPort
 		_, ok := utilizedPorts[assignedPort]
 		assert.Falsef(t, ok, "An already-utilized port [%d] was assigned to egress listener", assignedPort)
@@ -4175,4 +4178,148 @@ func TestGetBridgeModeTaskContainerForPauseContainer_NotFound(t *testing.T) {
 	_, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "could not find task container"))
+}
+
+func TestTaskServiceConnectAttachment(t *testing.T) {
+	seqNum := int64(42)
+	tt := []struct {
+		testName                    string
+		testElasticNetworkInterface *ecsacs.ElasticNetworkInterface
+		testNetworkMode             string
+		testSCConfigValue           string
+		testExpectedSCConfig        *ServiceConnectConfig
+	}{
+		{
+			testName: "Bridge default case",
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String(ipv4),
+					},
+				},
+			},
+			testNetworkMode:   BridgeNetworkMode,
+			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"172.31.21.40\"}],\"ingressConfig\":[{\"listenerPort\":15000}]}",
+			testExpectedSCConfig: &ServiceConnectConfig{
+				ContainerName: serviceConnectContainerTestName,
+				IngressConfig: []IngressConfigEntry{
+					{
+						ListenerPort: testBridgeDefaultListenerPort,
+					},
+				},
+				EgressConfig: &EgressConfig{
+					ListenerName: testOutboundListenerName,
+					VIP: VIP{
+						IPV4CIDR: testIPv4Cidr,
+						IPV6CIDR: "",
+					},
+				},
+				DNSConfig: []DNSConfigEntry{
+					{
+						HostName: testHostName,
+						Address:  testIPv4Address,
+					},
+				},
+			},
+		},
+		{
+			testName: "AWSVPC override case with IPv6 enabled",
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String("ipv6"),
+					},
+				},
+			},
+			testNetworkMode:   AWSVPCNetworkMode,
+			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"\",\"ipv6Cidr\":\"2002::1234:abcd:ffff:c0a8:101/64\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"abcd:dcba:1234:4321::\"}],\"ingressConfig\":[{\"listenerPort\":8080}]}",
+			testExpectedSCConfig: &ServiceConnectConfig{
+				ContainerName: serviceConnectContainerTestName,
+				IngressConfig: []IngressConfigEntry{
+					{
+						ListenerPort: testListenerPort,
+					},
+				},
+				EgressConfig: &EgressConfig{
+					ListenerName: testOutboundListenerName,
+					VIP: VIP{
+						IPV4CIDR: "",
+						IPV6CIDR: testIPv6Cidr,
+					},
+				},
+				DNSConfig: []DNSConfigEntry{
+					{
+						HostName: testHostName,
+						Address:  testIPv6Address,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.testName, func(t *testing.T) {
+			taskFromACS := ecsacs.Task{
+				Arn:                      strptr("myArn"),
+				DesiredStatus:            strptr("RUNNING"),
+				Family:                   strptr("myFamily"),
+				Version:                  strptr("1"),
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{tc.testElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
+					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
+					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
+				},
+				Attachments: []*ecsacs.Attachment{
+					{
+						AttachmentArn: strptr("attachmentArn"),
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
+							{
+								Name:  strptr(serviceConnectConfigKey),
+								Value: strptr(tc.testSCConfigValue),
+							},
+							{
+								Name:  strptr(serviceConnectContainerNameKey),
+								Value: strptr(serviceConnectContainerTestName),
+							},
+						},
+						AttachmentType: strptr(serviceConnectAttachmentType),
+					},
+				},
+				NetworkMode: strptr(tc.testNetworkMode),
+			}
+			task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+			assert.Nil(t, err, "Should be able to handle acs task")
+			assert.Equal(t, tc.testNetworkMode, task.NetworkMode)
+			assert.Equal(t, tc.testExpectedSCConfig, task.ServiceConnectConfig)
+		})
+	}
+}
+
+func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
+	seqNum := int64(42)
+	testElasticNetworkInterface := &ecsacs.ElasticNetworkInterface{
+		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			{
+				Primary:        aws.Bool(true),
+				PrivateAddress: aws.String(ipv4),
+			},
+		},
+	}
+	taskFromACS := ecsacs.Task{
+		Arn:                      strptr("myArn"),
+		DesiredStatus:            strptr("RUNNING"),
+		Family:                   strptr("myFamily"),
+		Version:                  strptr("1"),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testElasticNetworkInterface},
+		Containers: []*ecsacs.Container{
+			containerFromACS("C1", 33333, 0, BridgeNetworkMode),
+		},
+		NetworkMode: strptr(BridgeNetworkMode),
+	}
+
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, BridgeNetworkMode, task.NetworkMode)
+	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
 }
