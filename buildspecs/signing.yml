@@ -7,14 +7,39 @@ version: 0.2
 # as an integration point. This does require the codebuild role to have proper permissions.
 # $PRIVATE_KEY_ARN is pulled from the environment as well. This is something that will probably
 # be specified by the CloudFormation template that this becomes a part of.
+# $ECS_AGENT_AMD_TAR and $ECS_AGENT_ARM_TAR get fed into this codebuild by codepipeline
 
 env:
-  variables:
-    ECS_AGENT_TAR: ecs-agent.tar
-    ECS_AGENT_TAR_SIGNATURE: ecs-agent.tar.asc
+  exported-variables:
+    - CODEBUILD_BUILD_ID
 
 phases:
+  pre_build:
+    on-failure: ABORT
+    commands:
+      # create functions for signing files and deleting the whole keyring
+      # NOTE: you have to source /tmp/functions.sh before every command that requires the
+      # functions defined here because each command is run in isolation so it doesn't
+      # carry over the command environment from command to command
+      - |
+        cat <<- 'EOF' > /tmp/functions.sh
+        function sign_file() {
+          local file_to_sign="$1"
+
+          echo "Signing $file_to_sign"
+          gpg --detach-sign --batch --passphrase $PASSPHRASE --armor --output "$file_to_sign.asc" $file_to_sign
+          echo "Signed $file_to_sign"
+        }
+
+        function delete_all_secret_keys() {
+          for i in $(gpg --with-colons --fingerprint | grep "^fpr" | cut -d: -f10); do
+            gpg --batch --delete-secret-keys "$i"
+          done
+        }
+        EOF
+
   build:
+    on-failure: ABORT
     commands:
       # Get the private key from secrets manager, jq parse it, turn it into raw output, pipe to file
       - aws secretsmanager get-secret-value --secret-id $PRIVATE_KEY_ARN | jq -r '.SecretString' > private.gpg
@@ -22,13 +47,19 @@ phases:
       - gpg --allow-secret-key-import --import private.gpg
       # remove the private key file because we don't want it to be packaged with the artifacts
       - rm private.gpg
-      # Echo some status
-      - echo "Signing $ECS_AGENT_TAR"
-      # Sign the file
-      - gpg --detach-sign --batch --passphrase $PASSPHRASE --armor --output $ECS_AGENT_TAR_SIGNATURE $ECS_AGENT_TAR
-      # Echo some more status
-      - echo "Signed $ECS_AGENT_TAR"
+      # Sign the amd tar that exists in this directory because it is the primary source
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_TAR
+      # Sign the arm tar (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_TAR" $ECS_AGENT_ARM_TAR
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_TAR
+      # Clean up the key just in case
+      - source /tmp/functions.sh && delete_all_secret_keys
+      # validate that the keychain is empty
+      - gpg --list-secret-keys --verbose
+
 artifacts:
   files:
-    - $ECS_AGENT_TAR
-    - $ECS_AGENT_TAR_SIGNATURE
+    - $ECS_AGENT_AMD_TAR
+    - '$ECS_AGENT_AMD_TAR.asc'
+    - $ECS_AGENT_ARM_TAR
+    - '$ECS_AGENT_ARM_TAR.asc'

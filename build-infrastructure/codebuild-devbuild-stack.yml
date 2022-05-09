@@ -42,7 +42,7 @@ Resources:
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleArm
       Source:
-        BuildSpec: buildspecs/build.yml
+        BuildSpec: buildspecs/pr-build.yml
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
@@ -96,7 +96,7 @@ Resources:
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmd
       Source:
-        BuildSpec: buildspecs/build.yml
+        BuildSpec: buildspecs/pr-build.yml
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
@@ -145,13 +145,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Join 
+                  - !Join
                     - ':'
                     - - 'arn:aws:logs'
                       - !Ref 'AWS::Region'
                       - !Ref 'AWS::AccountId'
                       - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-amd'
-                  - !Join 
+                  - !Join
                     - ':'
                     - - 'arn:aws:logs'
                       - !Ref 'AWS::Region'
@@ -172,7 +172,7 @@ Resources:
                   - 's3:GetBucketLocation'
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*' 
+                  - !Sub '${BuildBucketArn}/*'
                 Action:
                   - 's3:GetObject'
                   - 's3:PutObject'
@@ -198,13 +198,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Join 
+                  - !Join
                     - ':'
                     - - 'arn:aws:logs'
                       - !Ref 'AWS::Region'
                       - !Ref 'AWS::AccountId'
                       - !Sub 'log-group:/aws/codebuild/${BuildProjectName}-arm'
-                  - !Join 
+                  - !Join
                     - ':'
                     - - 'arn:aws:logs'
                       - !Ref 'AWS::Region'
