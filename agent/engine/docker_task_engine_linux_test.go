@@ -1063,7 +1063,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 				ListenerPort: 15000,
 			},
 		},
-		EgressConfig: apitask.EgressConfig{
+		EgressConfig: &apitask.EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
