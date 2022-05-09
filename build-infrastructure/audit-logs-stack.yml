@@ -1,5 +1,5 @@
 ---
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: A template that creates an audit log and associated logs and buckets
 
 Parameters:
@@ -44,13 +44,13 @@ Resources:
   AuditLogsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "audit-logs-bucket-${AWS::AccountId}"
+      BucketName: !Sub 'audit-logs-bucket-${AWS::AccountId}'
 
   AuditLogsBucketPolicy:
     DependsOn: AuditLogsBucket
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Sub "audit-logs-bucket-${AWS::AccountId}"
+      Bucket: !Sub 'audit-logs-bucket-${AWS::AccountId}'
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -59,25 +59,25 @@ Resources:
             Principal:
               Service: cloudtrail.amazonaws.com
             Action: s3:GetBucketAcl
-            Resource: !Sub "arn:aws:s3:::audit-logs-bucket-${AWS::AccountId}"
+            Resource: !Sub 'arn:aws:s3:::audit-logs-bucket-${AWS::AccountId}'
             Condition:
               StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${KeyAccessTrailName}"
+                AWS:SourceArn: !Sub 'arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${KeyAccessTrailName}'
           - Sid: AWSCloudTrailWrite20150319
             Effect: Allow
             Principal:
               Service: cloudtrail.amazonaws.com
             Action: s3:PutObject
-            Resource: !Sub "arn:aws:s3:::audit-logs-bucket-${AWS::AccountId}/AWSLogs/${AWS::AccountId}/*"
+            Resource: !Sub 'arn:aws:s3:::audit-logs-bucket-${AWS::AccountId}/AWSLogs/${AWS::AccountId}/*'
             Condition:
               StringEquals:
                 s3:x-amz-acl: bucket-owner-full-control
-                AWS:SourceArn: !Sub "arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${KeyAccessTrailName}"
+                AWS:SourceArn: !Sub 'arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${KeyAccessTrailName}'
 
   KeyAccessCloudTrailCloudWatchLogsRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "key-access-cloudtrail-service-role-${AWS::Region}"
+      RoleName: !Sub 'key-access-cloudtrail-service-role-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -96,14 +96,14 @@ Resources:
                   - logs:CreateLogStream
                 Resource:
                   - !GetAtt KeyAccessAuditLogGroup.Arn
-                  - !Sub "${KeyAccessAuditLogGroup.Arn}:*"
+                  - !Sub '${KeyAccessAuditLogGroup.Arn}:*'
               - Sid: CloudTrailLogStreamEventAccess
                 Effect: Allow
                 Action:
                   - logs:PutLogEvents
                 Resource:
                   - !GetAtt KeyAccessAuditLogGroup.Arn
-                  - !Sub "${KeyAccessAuditLogGroup.Arn}:*"
+                  - !Sub '${KeyAccessAuditLogGroup.Arn}:*'
 
   KeyAccessCloudTrailAuditLog:
     DependsOn:
@@ -118,4 +118,4 @@ Resources:
       IsLogging: true
       IsMultiRegionTrail: true
       TrailName: !Ref KeyAccessTrailName
-      S3BucketName: !Sub "audit-logs-bucket-${AWS::AccountId}"
+      S3BucketName: !Sub 'audit-logs-bucket-${AWS::AccountId}'

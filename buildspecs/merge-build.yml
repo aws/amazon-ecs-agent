@@ -1,0 +1,55 @@
+version: 0.2
+
+env:
+  git-credential-helper: yes
+  exported-variables:
+    - CODEBUILD_BUILD_ID
+    - ECS_AGENT_TAR
+
+phases:
+  install:
+    commands:
+      - architecture=""
+      # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - |
+        case $(uname -m) in
+          x86_64)
+            architecture="amd64"
+          ;;
+          aarch64)
+            architecture="arm64"
+          ;;
+        esac
+
+      - GOVERSION="$(cat GO_VERSION)"
+      - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR}
+      - tar -C /usr/local -xzf /tmp/${GOLANG_TAR}
+      - go version
+
+      # glibc-static required for dockerfree make method
+      - echo "Install glibc-static for dockerfree make method"
+      - yum -y install glibc-static
+
+  build:
+    commands:
+      - go version
+      - echo Building agent image
+      - AGENT_VERSION=$(cat VERSION)
+      - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - echo $(pwd)
+
+      - GO111MODULE=auto
+      - make dockerfree-agent-image
+      # Rename artifacts for architecture
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+        fi
+
+artifacts:
+  files:
+    - $ECS_AGENT_TAR
