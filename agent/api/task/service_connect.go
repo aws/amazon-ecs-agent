@@ -13,12 +13,26 @@
 
 package task
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/aws-sdk-go/aws"
+)
+
+const (
+	serviceConnectConfigKey        = "ServiceConnectConfig"
+	serviceConnectContainerNameKey = "ContainerName"
+)
+
 // ServiceConnectConfig represents the Service Connect configuration for a task.
 type ServiceConnectConfig struct {
 	ContainerName string               `json:"containerName"`
-	IngressConfig []IngressConfigEntry `json:"ingressConfig"`
-	EgressConfig  EgressConfig         `json:"egressConfig"`
-	DNSConfig     []DNSConfigEntry     `json:"dnsConfig"`
+	IngressConfig []IngressConfigEntry `json:"ingressConfig,omitempty"`
+	EgressConfig  *EgressConfig        `json:"egressConfig,omitempty"`
+	DNSConfig     []DNSConfigEntry     `json:"dnsConfig,omitempty"`
 
 	// Admin configuration for operating with AppNet Agent
 	RuntimeConfig RuntimeConfig `json:"runtimeConfig"`
@@ -38,7 +52,7 @@ type RuntimeConfig struct {
 type IngressConfigEntry struct {
 	// ListenerName is the name of the listener for an SC service.
 	ListenerName string `json:"listenerName"`
-	// ListenerPort is the port where Envoy listens for ingress traffic for a given  SC service.
+	// ListenerPort is the port where Envoy listens for ingress traffic for a given SC service.
 	ListenerPort uint16 `json:"listenerPort"`
 	// InterceptPort is only relevant for awsvpc mode. If present, SC CNI Plugin will configure netfilter rules to redirect
 	// traffic destined to this port to ListenerPort.
@@ -71,4 +85,34 @@ type VIP struct {
 type DNSConfigEntry struct {
 	HostName string `json:"hostName"`
 	Address  string `json:"address"`
+}
+
+// ParseServiceConnectAttachment parses the service connect container name and service connect config value
+// from the given attachment.
+func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment, networkMode string, ipv6Enabled bool) (*ServiceConnectConfig, error) {
+	scConfigValue := &ServiceConnectConfig{}
+	containerName := ""
+
+	for _, property := range scAttachment.AttachmentProperties {
+		switch aws.StringValue(property.Name) {
+		case serviceConnectConfigKey:
+			// extract service connect config value from the attachment property,
+			// and translate the attachment property value to ServiceConnectConfig
+			data := aws.StringValue(property.Value)
+			if err := json.Unmarshal([]byte(data), scConfigValue); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal service connect attachment property value: %w", err)
+			}
+		case serviceConnectContainerNameKey:
+			// extract service connect container name from the attachment property
+			containerName = aws.StringValue(property.Value)
+		default:
+			logger.Warn("Received an unrecognized attachment property", logger.Fields{
+				"attachmentProperty": property.String(),
+			})
+		}
+	}
+
+	scConfigValue.ContainerName = containerName
+
+	return scConfigValue, nil
 }
