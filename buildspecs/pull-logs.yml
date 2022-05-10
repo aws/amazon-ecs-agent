@@ -81,6 +81,6 @@ phases:
       # setting the Name property and the LogsConfig.StreamName property of the
       # CodeBuild project to the same string in the CloudFormation template
       - |
-        source /tmp/functions.sh && for build_id in $AMD_BUILD_ID $ARM_BUILD_ID $SIGNING_BUILD_ID $COPY_BUILD_ID; do
+        source /tmp/functions.sh && for build_id in $EXTRACT_BUILD_ID $AMD_BUILD_ID $ARM_BUILD_ID $SIGNING_BUILD_ID $COPY_BUILD_ID; do
           export_and_describe $(echo $build_id | sed -r 's/:/\//g')
         done

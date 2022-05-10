@@ -7,6 +7,10 @@ Parameters:
     Type: String
     Description: The name of the code pipeline
     Default: artifact-build-sign-pipeline
+  BuildspecsExtractCodeBuildProjectName:
+    Type: String
+    Description: The name of the buildspec extractor project
+    Default: buildspec-extractor
   AmdBuildCodeBuildProjectName:
     Type: String
     Description: The name of the AMD build project
@@ -94,6 +98,84 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+
+  BuildspecsExtractCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'buildspecs-extract-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-buildspec-extract-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${BuildspecsExtractCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  BuildspecsExtractCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project to extract buildspecs from the source repo
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref BuildspecsExtractCodeBuildProjectName
+      Name: !Ref BuildspecsExtractCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref BuildspecsExtractCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/extract.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
 
   AmdBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
@@ -585,6 +667,22 @@ Resources:
                 - Name: SourceArtifact
               RunOrder: 1
               Namespace: SourceVariables
+        - Name: Extract
+          Actions:
+            - Name: Buildspecs
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref BuildspecsExtractCodeBuildProject
+              OutputArtifacts:
+                - Name: Buildspecs
+              RunOrder: 1
+              Namespace: BuildspecsExtractVariables
         - Name: Build
           Actions:
             - Name: MakeAmd
@@ -621,6 +719,7 @@ Resources:
           Actions:
             - Name: GPG
               InputArtifacts:
+                - Name: Buildspecs
                 - Name: AmdBuildArtifact
                 - Name: ArmBuildArtifact
               ActionTypeId:
@@ -630,7 +729,7 @@ Resources:
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref SigningCodeBuildProject
-                PrimarySource: AmdBuildArtifact
+                PrimarySource: Buildspecs
                 EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: SignedArtifact
@@ -640,6 +739,7 @@ Resources:
           Actions:
             - Name: ToS3
               InputArtifacts:
+                - Name: Buildspecs
                 - Name: SignedArtifact
               ActionTypeId:
                 Category: Build
@@ -648,6 +748,7 @@ Resources:
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref CopyCodeBuildProject
+                PrimarySource: Buildspecs
                 EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
               RunOrder: 1
               Namespace: CopyVariables
@@ -655,8 +756,7 @@ Resources:
           Actions:
             - Name: ToS3
               InputArtifacts:
-                - Name: SignedArtifact
-                # We're basically going to ignore 👆 because we're just starting a bunch of async tasks to copy logs
+                - Name: Buildspecs
               ActionTypeId:
                 Category: Build
                 Owner: AWS
@@ -664,6 +764,6 @@ Resources:
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref LogsPullerCodeBuildProject
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"AMD_BUILD_ID","value":"#{AmdBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"ARM_BUILD_ID","value":"#{ArmBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"SIGNING_BUILD_ID","value":"#{SigningVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"COPY_BUILD_ID","value":"#{CopyVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"}]'
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"EXTRACT_BUILD_ID","value":"#{BuildspecsExtractVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"AMD_BUILD_ID","value":"#{AmdBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"ARM_BUILD_ID","value":"#{ArmBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"SIGNING_BUILD_ID","value":"#{SigningVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"COPY_BUILD_ID","value":"#{CopyVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"}]'
               RunOrder: 1
               Namespace: LogsPullerVariables
