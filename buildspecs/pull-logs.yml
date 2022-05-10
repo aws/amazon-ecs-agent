@@ -1,0 +1,86 @@
+version: 0.2
+
+### Environment variables in this buildspec and where they came from ###
+
+# - $SOURCE_LOG_GROUP_NAME is defined in the CloudFormation template called
+#   located at build-infrastructure/release-pipeline-stack.yml
+
+# - $RELEASE_BUCKET_NAME is defined in the CloudFormation template called
+#   located at build-infrastructure/release-pipeline-stack.yml
+
+# - $GIT_COMMIT_SHA comes from the CodePipeline variables, the first stage
+#   of the pipeline is the source stage, and the variables that the stage
+#   outputs is mapped under the namespace SourceVariables. So we set
+#   $GIT_COMMIT_SHA to the commit id from that namespace in all subsequent
+#   steps. You can find this mapped in the EnvironmentVariables key for each
+#   CodeBuild stage action in the CodePipeline CloudFormation resource.
+
+# - $<STAGE>-BUILD_ID comes from the CodePipeline variables as well. Since
+#   each stage of the CodePipeline is a CodeBuild project except for the
+#   first one, a variable that is exported by default is the build id of
+#   that specific CodeBuild project run. In our CloudFormation template, we
+#   also namespace all of the CodeBuild projects which makes it easy to
+#   locate and map each of the build ids in the EnvironmentVariables key.
+#   You can find this in the ToS3 action of the ExportLogs stage of the
+#   CodePipeline resouce in the CloudFormation template.
+
+# - $START_EPOCH_MILLIS is defined below
+
+# - $END_EPOCH_MILLIS is defined below
+
+# - $DEFAULT_SLEEP_DURATION_IN_SECONDS is defined below
+
+phases:
+  pre_build:
+    on-failure: ABORT
+    commands:
+      - START_EPOCH_MILLIS=$(date -d '2 hours ago' +%s%3N)
+      - END_EPOCH_MILLIS=$(date +%s%3N)
+      - DEFAULT_SLEEP_DURATION_IN_SECONDS=5
+      - |
+        cat <<- 'EOF' > /tmp/functions.sh
+        function export_and_describe() {
+          local build_id="$1"
+
+          # starting of the logs grab task marker
+          echo "getting logs for $build_id"
+
+          # we grab the logs from the given log group and log stream, and export to
+          # a folder within the git commit sha called logs but this is an async task
+          # and this call returns a task id for us to watch
+          local export_task_id=$(aws logs create-export-task \
+            --task-name export \
+            --log-group-name $SOURCE_LOG_GROUP_NAME \
+            --log-stream-name-prefix $build_id \
+            --from $START_EPOCH_MILLIS \
+            --to $END_EPOCH_MILLIS \
+            --destination $RELEASE_BUCKET_NAME \
+            --destination-prefix "$GIT_COMMIT_SHA/logs" | jq -r '.taskId')
+
+          echo "log export task for $build_id started with $export_task_id"
+          echo "wait for export to finish..." && sleep $DEFAULT_SLEEP_DURATION_IN_SECONDS
+
+          # use the given task id to look up the status, log the status later
+          local export_task_status=$(aws logs describe-export-tasks --task-id $export_task_id | jq -r '.exportTasks[] | .status | .code')
+
+          echo "log export task for $build_id (task $export_task_id) has status $export_task_status after $DEFAULT_SLEEP_DURATION_IN_SECONDS seconds"
+          echo "wait so we don't get throttled..." && sleep $DEFAULT_SLEEP_DURATION_IN_SECONDS
+          echo -e "-------------------------------------------------\n"
+        }
+        EOF
+  build:
+    on-failure: ABORT
+    commands:
+      # A note about $(echo $build_id | sed -r 's/:/\//g') - the build id
+      # that we get from codebuild uses the project name and a uuid joined
+      # together with a : character. But the log stream name is in the same
+      # format just with a / character, so we run a quick replace command to
+      # map the build id to the log stream name.
+      #
+      # this is not how it works by default, this is done intentionaly by
+      # setting the Name property and the LogsConfig.StreamName property of the
+      # CodeBuild project to the same string in the CloudFormation template
+      - |
+        source /tmp/functions.sh && for build_id in $EXTRACT_BUILD_ID $AMD_BUILD_ID $ARM_BUILD_ID $SIGNING_BUILD_ID $COPY_BUILD_ID; do
+          export_and_describe $(echo $build_id | sed -r 's/:/\//g')
+        done

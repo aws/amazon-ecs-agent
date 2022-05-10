@@ -52,6 +52,22 @@ Resources:
               - s3:ListBucket
             Resource:
               - !GetAtt StagingArtifactsBucket.Arn
+          - Sid: AllowCloudWatchLogsWriteAccess
+            Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action:
+              - s3:PutObject
+            Resource:
+              - !Sub '${StagingArtifactsBucket.Arn}/*'
+          - Sid: AllowCloudWatchLogsAclAccess
+            Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action:
+              - s3:GetBucketAcl
+            Resource:
+              - !GetAtt StagingArtifactsBucket.Arn
 
 Outputs:
   ReleaseBucketName:

@@ -7,6 +7,8 @@ env:
 phases:
   build:
     commands:
+      # since the buildspecs are the primary artifacts, we need to change directory
+      - cd $CODEBUILD_SRC_DIR_SignedArtifact
       # list the artifacts that are ready to upload
       - ls -lsa
       # copy the artifacts out to the results bucket
