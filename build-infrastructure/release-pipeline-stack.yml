@@ -23,6 +23,10 @@ Parameters:
     Type: String
     Description: The name of the copy project
     Default: artifact-copy
+  LogsPullerCodeBuildProjectName:
+    Type: String
+    Description: The name of the copy project
+    Default: log-puller
   CodeBuildLogGroupName:
     Type: String
     Description: The name of the log group to push build logs to
@@ -49,6 +53,9 @@ Parameters:
       - 731
       - 1827
       - 3653
+  ReleaseArtifactsBucketName:
+    Type: String
+    Description: The name of the bucket where things land at the end, this is assumed to already exist
   ReleaseArtifactsBucketArn:
     Type: String
     Description: The ARN of the bucket where things land at the end, this is assumed to already exist
@@ -414,6 +421,96 @@ Resources:
           Status: ENABLED
           StreamName: !Ref CopyCodeBuildProjectName
 
+  LogsPullerCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'logs-puller-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-logs-puller-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: CloudWatchLogsExportAccess
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - logs:CreateExportTask
+                  - logs:DescribeExportTasks
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: ResultsBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Ref ReleaseArtifactsBucketArn
+                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                Action: s3:*
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${LogsPullerCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  LogsPullerCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref LogsPullerCodeBuildProjectName
+      Description: A CodeBuild project that pulls logs from CloudWatch Logs and moves them to S3
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt LogsPullerCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: RELEASE_BUCKET_NAME
+            Type: PLAINTEXT
+            Value: !Ref ReleaseArtifactsBucketName
+          - Name: SOURCE_LOG_GROUP_NAME
+            Type: PLAINTEXT
+            Value: !Ref CodeBuildLogGroupName
+      Source:
+        BuildSpec: buildspecs/pull-logs.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref CopyCodeBuildProjectName
+
   BuildAndSignCodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -554,3 +651,19 @@ Resources:
                 EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
               RunOrder: 1
               Namespace: CopyVariables
+        - Name: ExportLogs
+          Actions:
+            - Name: ToS3
+              InputArtifacts:
+                - Name: SignedArtifact
+                # We're basically going to ignore 👆 because we're just starting a bunch of async tasks to copy logs
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref LogsPullerCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"AMD_BUILD_ID","value":"#{AmdBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"ARM_BUILD_ID","value":"#{ArmBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"SIGNING_BUILD_ID","value":"#{SigningVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"COPY_BUILD_ID","value":"#{CopyVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"}]'
+              RunOrder: 1
+              Namespace: LogsPullerVariables
