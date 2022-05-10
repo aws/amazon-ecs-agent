@@ -1,3 +1,5 @@
+//go:build !linux
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -21,17 +23,6 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
-const (
-	defaultRelayPathContainer  = "/var/run/ecs/relay/"
-	defaultRelayPathHost       = "/var/run/ecs/instance/relay/"
-	defaultRelayFileName       = "envoy_xds.sock"
-	defaultRelayENV            = "APPMESH_XDS_ENDPOINT"
-	defaultStatusPathContainer = "/var/run/ecs/"
-	defaultStatusPathHostRoot  = "/var/run/ecs/"
-	defaultStatusFileName      = "appnet_admin.sock"
-	defaultStatusENV           = "APPNET_AGENT_UDS_PATH"
-)
-
 type manager struct {
 }
 
@@ -40,5 +31,5 @@ func NewManager() *manager {
 }
 
 func (m *manager) InitializeTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
-	return errors.New("ServiceConnect is not supported on windows")
+	return errors.New("ServiceConnect is only supported on linux")
 }
