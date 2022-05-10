@@ -21,26 +21,40 @@ phases:
           ;;
         esac
 
+      # Set up proper go version using goenv utility (pre-installed in CodeBuild). Need to use this because default images come with 1.14.x
       - GOVERSION="$(cat GO_VERSION)"
       - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
 
       # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation and install downloaded binaries
+      - rm -rf /root/.goenv/
       - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR}
       - tar -C /usr/local -xzf /tmp/${GOLANG_TAR}
-      - go version
 
-      # glibc-static required for dockerfree make method
-      - echo "Install glibc-static for dockerfree make method"
-      - yum -y install glibc-static
+      # Set appropriate environment variables
+      - export GOROOT=/usr/local/go
+      - export GOPATH=$HOME/go
+      - export GOBIN=$GOPATH/bin
+      - export PATH=$PATH:$GOROOT/bin:$GOBIN
+      - which go
+      - go version
 
   build:
     commands:
-      - go version
       - echo Building agent image
       - AGENT_VERSION=$(cat VERSION)
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
       - echo $(pwd)
 
+      # Directory/GOPATH restructuring needed for CodePipeline
+      - cd ../..
+      - GITHUBUSERNAME=$(ls)
+      - mkdir -p src/github.com/
+      - mv $GITHUBUSERNAME src/github.com/aws
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com/aws/amazon-ecs-agent
+
+      # Build agent tars
       - GO111MODULE=auto
       - make dockerfree-agent-image
       # Rename artifacts for architecture
