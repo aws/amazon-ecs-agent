@@ -15,6 +15,7 @@ package serviceconnect
 
 import (
 	"fmt"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockercontainer "github.com/docker/docker/api/types/container"

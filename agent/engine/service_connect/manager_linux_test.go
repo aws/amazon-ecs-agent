@@ -16,10 +16,49 @@
 package serviceconnect
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+	"github.com/aws/aws-sdk-go/aws"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	labelPrefix = "com.amazonaws.ecs."
+	ipv4        = "10.0.0.1"
+	gatewayIPv4 = "10.0.0.2/20"
+	mac         = "1.2.3.4"
+	ipv6        = "f0:234:23"
+)
+
+var (
+	cfg     config.Config
+	mockENI = &apieni.ENI{
+		ID: "eni-id",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+		SubnetGatewayIPV4Address: gatewayIPv4,
+	}
 )
 
 func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
@@ -53,4 +92,66 @@ func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 		res := DNSConfigToDockerExtraHostsFormat(tc.dnsConfigs)
 		assert.Equal(t, tc.expectedRestult, res, "Wrong docker host config ")
 	}
+}
+
+func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
+	sleepTask := testdata.LoadTask("sleep5TwoContainers")
+
+	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+		ContainerName: "service-connect",
+		DNSConfig: []apitask.DNSConfigEntry{
+			{
+				HostName: "host1.my.corp",
+				Address:  "169.254.1.1",
+			},
+			{
+				HostName: "host1.my.corp",
+				Address:  "ff06::c4",
+			},
+		},
+	}
+	dockerConfig := dockercontainer.Config{
+		Healthcheck: &dockercontainer.HealthConfig{
+			Test:     []string{"echo", "ok"},
+			Interval: time.Millisecond,
+			Timeout:  time.Second,
+			Retries:  1,
+		},
+	}
+
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
+	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	pauseContainer.Name = task.NetworkPauseContainerName
+	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
+	pauseContainer.Essential = true
+	pauseContainer.Type = apicontainer.ContainerCNIPause
+
+	rawConfig, err := json.Marshal(&dockerConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sleepTask.Containers = append(sleepTask.Containers, &apicontainer.Container{
+		Name:            sleepTask.ServiceConnectConfig.ContainerName,
+		HealthCheckType: apicontainer.DockerHealthCheckType,
+		DockerConfig: apicontainer.DockerConfig{
+			Config: aws.String(string(rawConfig)),
+		},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	})
+
+	// Add eni information to the task so the task can add dependency of pause container
+	sleepTask.AddTaskENI(mockENI)
+	hostConfig := &dockercontainer.HostConfig{}
+	scManager := NewManager()
+
+	err = scManager.InitializeTaskContainer(sleepTask, pauseContainer, hostConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedExtraHosts := []string{
+		"host1.my.corp:169.254.1.1",
+		"host1.my.corp:ff06::c4",
+	}
+	assert.Equal(t, expectedExtraHosts, hostConfig.ExtraHosts)
 }
