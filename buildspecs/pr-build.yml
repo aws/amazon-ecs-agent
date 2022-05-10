@@ -8,29 +8,35 @@ env:
 phases:
   install:
     commands:
-       - architecture=""
-       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
-       - case $(uname -m) in
+      - architecture=""
+      # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - case $(uname -m) in
            x86_64)
              architecture="amd64"
            ;;
            aarch64)
              architecture="arm64"
            ;;
-         esac
+        esac
 
-       - GOVERSION="$(cat GO_VERSION)"
-       - BUILD_LOG="build_${architecture}.log"
-       - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+      # Set up proper go version using goenv utility (pre-installed in CodeBuild). Need to use this because default images come with 1.14.x
+      - GOVERSION="$(cat GO_VERSION)"
+      - BUILD_LOG="build_${architecture}.log"
+      - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
 
-       # Need to install GOLANG explicitly as required versions do not come preinstalled
-       - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} 2>&1 | tee $BUILD_LOG
-       - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} 2>&1 | tee -a $BUILD_LOG
-       - go version
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation and install downloaded binaries
+      - rm -rf /root/.goenv/
+      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} | tee $BUILD_LOG
+      - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} | tee -a $BUILD_LOG
 
-       # glibc-static required for dockerfree make method
-       - echo "Install glibc-static for dockerfree make method" | tee -a $BUILD_LOG
-       - yum -y install glibc-static 2>&1 | tee -a $BUILD_LOG
+      # Set appropriate environment variables
+      - export GOROOT=/usr/local/go
+      - export GOPATH=$HOME/go
+      - export GOBIN=$GOPATH/bin
+      - export PATH=$PATH:$GOROOT/bin:$GOBIN
+      - which go | tee -a $BUILD_LOG
+      - go version | tee -a $BUILD_LOG
 
   build:
     commands:
@@ -41,11 +47,14 @@ phases:
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
-      # Path readjustment for codebuild testing with fork - may not needed when deploying with main account
-      - cd ../..
+      # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
+      - cd ../../../..
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com
       - mv $GITHUBUSERNAME aws
       - cd aws/amazon-ecs-agent
 
+      # Building agent tars
       - GO111MODULE=auto
       - make dockerfree-agent-image 2>&1 | tee -a $BUILD_LOG
       # Rename artifacts for architecture
