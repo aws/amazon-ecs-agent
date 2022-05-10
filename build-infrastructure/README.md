@@ -54,13 +54,36 @@ Everything else is already set up for you.
 
 There are a few changes that need to be made to add another artifact that needs to be signed and copied to the CodePipeline. They are as follows,
 
-1. The CodeBuild project that feeds into the signer has to export a variable that carries the name of the artifact to sign. Check out the `exported-variables` key within `merge-build.yml` for an example of how to set this up. You create an environment variable and any defined environment variable can be exported from a codebuild project.
-1. In `release-pipeline-stack.yml`, add the project that will feed into the signer, and add an IAM role to go with it. See the `AmdBuildCodeBuildProjectServiceRole` and `AmdBuildCodeBuildProject` keys in the file for examples. Follow established naming conventions.
-1. In `release-pipeline-stack.yml`, add an action to the appropriate stage under the `BuildAndSignCodePipeline` key. Likely, you're going to want to define a new item in the `Actions` list under one of the `Stages`. Pay close attention to define both `OutputArtifacts` and `Namespace` for your new action. See `Action` with the `Name` called `MakeAmd` for an example.
-1. In `release-pipeline-stack.yml`, add a new entry in the `InputArtifacts` list for the `Action` with `Name` called `GPG`. This name should correspond to the `OutputArtifacts` name that you defined above.
-1. In `release-pipeline-stack.yml`, the `Action` with `Name` called `GPG` has a key called `EnvironmentVariables` with a JSON string as value. Be careful not to unstringify the JSON, CodePipeline through CloudFormation expects this key to have stringified JSON, and nothing else. Add an entry to this declaring the new artifact that you want to sign. Your exported variable from the CodeBuild buildspec and the `Namespace` that you declared comes into play here. You can find the name of the artifact in the value specified by `#{<namespace_name>.<exported_variable_name>}`. Create a new JSON object with the `name` key containing the environment variable name you'd like to be set, the `value` key containing something akin to `#{something.something}`, and the `type` key set to `PLAINTEXT`.
-1. Within the signing CodeBuild environment, the primary source is the directory that the build starts out in. All the other input sources are what CodeBuild considers secondary sources and they get their own directories within the build environment. Those directories are stored in environment variables in the format `$CODEBUILD_SRC_DIR_<output_artifact_name>`. This allows you to locate the new artifact that needs to be signed and call the `sign_file` function with the new artifact.
-1. The signing is going to generate a new file that ends in `.asc`. You have to export that out of the signing environment for it to be picked up by the Copy to S3 CodeBuild project.
+1. Prepare your CodeBuild project
+   - The CodeBuild project that feeds into the signer has to export a variable that carries the name of the artifact to sign.
+   - Check out the `exported-variables` key within `merge-build.yml` for an example of how to set this up.
+   - You create an environment variable and any defined environment variable can be exported from a codebuild project.
+1. Add a new CodeBuild project in `release-pipeline-stack.yml`
+   1. Add the project that will feed into the signer, and add an IAM role to go with it.
+   2. See the `AmdBuildCodeBuildProjectServiceRole` and `AmdBuildCodeBuildProject` keys in the file for examples.
+   3. Follow established naming conventions.
+1. Add a new CodePipeline stage in `release-pipeline-stack.yml`
+   1. Add an action to the appropriate stage under the `BuildAndSignCodePipeline` key.
+   1. You're going to want to define a new item in the `Actions` list under one of the `Stages`
+   1. Pay close attention to the definitions of both `OutputArtifacts` and `Namespace` for your new action.
+   1. See `Action` with the `Name` called `MakeAmd` for an example.
+1. Add input artifacts to the signer action in `release-pipeline-stack.yml`
+   1. Add a new entry in the `InputArtifacts` list for the `Action` with `Name` called `GPG`.
+   2. This name should correspond to the `OutputArtifacts` name that you defined above.
+1. Add environment variable to the signer action in `release-pipeline-stack.yml`
+   1. The `Action` with `Name` called `GPG` has a key called `EnvironmentVariables` with a JSON string as value.
+   1. Be careful not to unstringify the JSON, CodePipeline through CloudFormation expects this key to have stringified JSON, and nothing else.
+   1. Add an entry to this declaring the new artifact that you want to sign. Your exported variable from the CodeBuild buildspec and the `Namespace` that you declared comes into play here.
+   1. You can find the name of the artifact in the value specified by `#{<namespace_name>.<exported_variable_name>}`.
+   1. Create a new JSON object with the `name` key containing the environment variable name you'd like to be set, the `value` key containing something akin to `#{something.something}`, and the `type` key set to `PLAINTEXT`.
+1. Modify the signing CodeBuild environment
+   - The primary source is the directory that the build starts out in.
+   - All the other input sources are what CodeBuild considers secondary sources and they get their own directories within the build environment.
+   - Those directories are stored in environment variables in the format `$CODEBUILD_SRC_DIR_<output_artifact_name>`.
+   - This allows you to locate the new artifact that needs to be signed and call the `sign_file` function with the new artifact.
+1. Add the signed artifact and signature to the output
+   1. The signing is going to generate a new file that ends in `.asc`.
+   1. You have to export that out of the signing environment for it to be picked up by the Copy to S3 CodeBuild project.
 1. The Copy to S3 CodeBuild project is already written to handle multiple files so no changes are required there.
 
 ## Secrets Manager access logs

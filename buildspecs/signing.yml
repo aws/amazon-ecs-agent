@@ -47,7 +47,8 @@ phases:
       - gpg --allow-secret-key-import --import private.gpg
       # remove the private key file because we don't want it to be packaged with the artifacts
       - rm private.gpg
-      # Sign the amd tar that exists in this directory because it is the primary source
+      # Sign the amd tar (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_TAR" $ECS_AGENT_AMD_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_TAR
       # Sign the arm tar (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_TAR" $ECS_AGENT_ARM_TAR
