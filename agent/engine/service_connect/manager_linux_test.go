@@ -34,7 +34,6 @@ import (
 )
 
 const (
-	labelPrefix = "com.amazonaws.ecs."
 	ipv4        = "10.0.0.1"
 	gatewayIPv4 = "10.0.0.2/20"
 	mac         = "1.2.3.4"
@@ -94,7 +93,7 @@ func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 	}
 }
 
-func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
+func getAWSVPCTask(t *testing.T) (*apitask.Task, *apicontainer.Container, *apicontainer.Container) {
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
 
 	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
@@ -130,28 +129,63 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sleepTask.Containers = append(sleepTask.Containers, &apicontainer.Container{
+	serviceConnectContainer := &apicontainer.Container{
 		Name:            sleepTask.ServiceConnectConfig.ContainerName,
 		HealthCheckType: apicontainer.DockerHealthCheckType,
 		DockerConfig: apicontainer.DockerConfig{
 			Config: aws.String(string(rawConfig)),
 		},
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
-	})
+	}
+	sleepTask.Containers = append(sleepTask.Containers, serviceConnectContainer)
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.AddTaskENI(mockENI)
-	hostConfig := &dockercontainer.HostConfig{}
-	scManager := NewManager()
+	return sleepTask, pauseContainer, serviceConnectContainer
+}
 
-	err = scManager.InitializeTaskContainer(sleepTask, pauseContainer, hostConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
+	scTask, pauseContainer, _ := getAWSVPCTask(t)
 
-	expectedExtraHosts := []string{
+	expectedPauseExtraHosts := []string{
 		"host1.my.corp:169.254.1.1",
 		"host1.my.corp:ff06::c4",
 	}
-	assert.Equal(t, expectedExtraHosts, hostConfig.ExtraHosts)
+
+	type testCase struct {
+		name               string
+		container          *apicontainer.Container
+		expectedExtraHosts []string
+	}
+	testcases := []testCase{
+		{
+			name:               "Pause container has extra hosts",
+			container:          pauseContainer,
+			expectedExtraHosts: expectedPauseExtraHosts,
+		},
+	}
+	for _, container := range scTask.Containers {
+		addDefaultCase := true
+		for _, tc := range testcases {
+			if tc.container == container {
+				addDefaultCase = false
+				break
+			}
+		}
+		if addDefaultCase {
+			testcases = append(testcases, testCase{name: container.Name, container: container})
+		}
+	}
+	scManager := NewManager()
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			hostConfig := &dockercontainer.HostConfig{}
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.expectedExtraHosts, hostConfig.ExtraHosts)
+		})
+	}
 }

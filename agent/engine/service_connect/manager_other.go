@@ -26,10 +26,10 @@ import (
 type manager struct {
 }
 
-func NewManager() *manager {
+func NewManager() Manager {
 	return &manager{}
 }
 
-func (m *manager) InitializeTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
 	return errors.New("ServiceConnect is only supported on linux")
 }

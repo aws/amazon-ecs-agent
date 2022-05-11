@@ -13,13 +13,4 @@
 
 package serviceconnect
 
-import (
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-
-	dockercontainer "github.com/docker/docker/api/types/container"
-)
-
-type Manager interface {
-	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
-}
+//go:generate mockgen -destination=mock/manager.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine/service_connect Manager

@@ -926,7 +926,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	// Pause container will be launched first
 	gomock.InOrder(
 		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		serviceConnectManager.EXPECT().InitializeTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().CreateContainer(
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
@@ -950,7 +950,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(3)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(3)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(3)
-	serviceConnectManager.EXPECT().InitializeTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: scContainerID})
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),

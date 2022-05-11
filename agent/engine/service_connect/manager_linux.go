@@ -24,7 +24,7 @@ import (
 type manager struct {
 }
 
-func NewManager() *manager {
+func NewManager() Manager {
 	return &manager{}
 }
 
@@ -41,7 +41,7 @@ func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apitask.DNSConfigEntry) []st
 	return hosts
 }
 
-func (m *manager) InitializeTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
 	var err error
 	// Add SC VIPs to pause container's known hosts
 	if container.Type == apicontainer.ContainerCNIPause {

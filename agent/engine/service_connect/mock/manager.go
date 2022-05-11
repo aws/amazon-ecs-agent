@@ -50,16 +50,16 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// InitializeTaskContainer mocks base method
-func (m *MockManager) InitializeTaskContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
+// AugmentTaskContainer mocks base method
+func (m *MockManager) AugmentTaskContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitializeTaskContainer", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AugmentTaskContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// InitializeTaskContainer indicates an expected call of InitializeTaskContainer
-func (mr *MockManagerMockRecorder) InitializeTaskContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
+// AugmentTaskContainer indicates an expected call of AugmentTaskContainer
+func (mr *MockManagerMockRecorder) AugmentTaskContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeTaskContainer", reflect.TypeOf((*MockManager)(nil).InitializeTaskContainer), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AugmentTaskContainer", reflect.TypeOf((*MockManager)(nil).AugmentTaskContainer), arg0, arg1, arg2)
 }
