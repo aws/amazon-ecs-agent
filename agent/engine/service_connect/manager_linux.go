@@ -71,8 +71,7 @@ func getBindMountMapping(hostDir, containerDir string) string {
 }
 
 func (m *manager) initServiceConnectDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
-	var instancePath string
-	instancePath = filepath.Join(m.statusPathHostRoot, taskId)
+	instancePath := filepath.Join(m.statusPathHostRoot, taskId)
 	if _, err := os.Stat(instancePath); os.IsNotExist(err) {
 		os.MkdirAll(instancePath, 0770)
 	} else if err != nil {
