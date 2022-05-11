@@ -40,3 +40,4 @@ ecs-agent-*.tar
 /ecs.service
 *.log
 *.DS_Store
+.run/
