@@ -163,6 +163,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
+	serviceconnectManager               serviceconnect.Manager
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -216,6 +217,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 
 		metadataManager:                   metadataManager,
+		serviceconnectManager:             serviceconnect.NewManager(),
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
@@ -1260,10 +1262,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
-	// Add SC VIPs to pause container's known hosts
-	if task.IsServiceConnectEnabled() && container.Type == apicontainer.ContainerCNIPause {
-		hostConfig.ExtraHosts = append(hostConfig.ExtraHosts,
-			serviceconnect.DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
+	// Add Service Connect modifications if needed
+	if task.IsServiceConnectEnabled() {
+		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
+		}
 	}
 
 	if container.AWSLogAuthExecutionRole() {

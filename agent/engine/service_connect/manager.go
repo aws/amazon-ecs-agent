@@ -14,20 +14,12 @@
 package serviceconnect
 
 import (
-	"fmt"
-
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
-// DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
-// recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apitask.DNSConfigEntry) []string {
-	var hosts []string
-	for _, dnsConf := range dnsConfigs {
-		if len(dnsConf.Address) > 0 {
-			hosts = append(hosts,
-				fmt.Sprintf("%s:%s", dnsConf.HostName, dnsConf.Address))
-		}
-	}
-	return hosts
+type Manager interface {
+	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 }
