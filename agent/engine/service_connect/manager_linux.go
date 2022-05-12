@@ -25,12 +25,12 @@ import (
 
 const (
 	defaultRelayPathContainer  = "/var/run/ecs/relay/"
-	defaultRelayPathHost       = "/var/run/ecs/instance/relay/"
+	defaultRelayPathHost       = "/var/run/ecs/service_connect/instance/relay/"
 	defaultRelayFileName       = "envoy_xds.sock"
 	defaultRelayENV            = "APPMESH_XDS_ENDPOINT"
 	defaultStatusPathContainer = "/var/run/ecs/"
 	// Expected to have task.GetID() appended to form actual host path
-	defaultStatusPathHostRoot = "/var/run/ecs/"
+	defaultStatusPathHostRoot = "/var/run/ecs/service_connect/"
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_UDS_PATH"
 )
