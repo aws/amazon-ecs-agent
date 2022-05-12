@@ -365,7 +365,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
 	}
 
-	if errResolveContainer == nil && task.IsServiceConnectEnabled() {
+	if errResolveContainer == nil && task.GetServiceConnectContainer() == dockerContainer.Container {
 		engine.addTaskToServiceConnectStatsUnsafe(task.Arn)
 	}
 
@@ -470,7 +470,11 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 				seelog.Debugf("task '%s' is not registered to collect service connect metrics", taskArn)
 				continue
 			}
-			taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
+			if !serviceConnectStats.HasStatsBeenSent() {
+				taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
+				serviceConnectStats.SetStatsSent(true)
+			}
+
 		}
 
 		taskMetrics = append(taskMetrics, taskMetric)
