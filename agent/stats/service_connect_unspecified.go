@@ -36,3 +36,11 @@ func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 func (sc *ServiceConnectStats) GetStats() []*ecstcs.GeneralMetricsWrapper {
 	return nil
 }
+
+func (sc *ServiceConnectStats) SetStatsSent(sent bool) {
+	sc.sent = false
+}
+
+func (sc *ServiceConnectStats) HasStatsBeenSent() bool {
+	return false
+}
