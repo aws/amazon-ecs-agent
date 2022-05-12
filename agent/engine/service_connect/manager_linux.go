@@ -29,20 +29,29 @@ const (
 	defaultRelayFileName       = "envoy_xds.sock"
 	defaultRelayENV            = "APPMESH_XDS_ENDPOINT"
 	defaultStatusPathContainer = "/var/run/ecs/"
-	defaultStatusPathHostRoot  = "/var/run/ecs/"
-	defaultStatusFileName      = "appnet_admin.sock"
-	defaultStatusENV           = "APPNET_AGENT_UDS_PATH"
+	// Expected to have task.GetID() appended to form actual host path
+	defaultStatusPathHostRoot = "/var/run/ecs/"
+	defaultStatusFileName     = "appnet_admin.sock"
+	defaultStatusENV          = "APPNET_AGENT_UDS_PATH"
 )
 
 type manager struct {
-	relayPathContainer  string
-	relayPathHost       string
-	relayFileName       string
-	relayENV            string
+	// Path to where relayFileName exists which Envoy in the container will connect to
+	relayPathContainer string
+	// Path to where relayFileName exists on Host
+	relayPathHost string
+	// Filename without Path which Relay will create and Envoy in the container will connect to
+	relayFileName string
+	// Environment variable to set on Container with contents of relayPathContainer/relayFileName
+	relayENV string
+	// Path to where statusFileName exists which Envoy in the container will create for status endpoint
 	statusPathContainer string
-	statusPathHostRoot  string
-	statusFileName      string
-	statusENV           string
+	// PathRoot to be appended with TaskID statusPathHostRoot/task.GetID() where statusFileName exists on Host
+	statusPathHostRoot string
+	// Filename without Path which Envoy in container will create for status endpoint
+	statusFileName string
+	// Environment variable to set on Container with contents of statusPathContainer/statusFileName
+	statusENV string
 }
 
 func NewManager() Manager {
@@ -58,10 +67,6 @@ func NewManager() Manager {
 	}
 }
 
-func IsServiceConnectEnabledTask(task *apitask.Task) bool {
-	return task.IsServiceConnectEnabled()
-}
-
 func (m *manager) initializeAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
 	return m.initServiceConnectDirectoryMounts(task.GetID(), container, hostConfig)
 }
@@ -71,19 +76,20 @@ func getBindMountMapping(hostDir, containerDir string) string {
 }
 
 func (m *manager) initServiceConnectDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
-	instancePath := filepath.Join(m.statusPathHostRoot, taskId)
-	if _, err := os.Stat(instancePath); os.IsNotExist(err) {
-		os.MkdirAll(instancePath, 0770)
-	} else if err != nil {
-		return err
-	}
-	if _, err := os.Stat(m.relayPathHost); os.IsNotExist(err) {
-		os.MkdirAll(m.relayPathHost, 0770)
-	} else if err != nil {
-		return err
+	statusPathHost := filepath.Join(m.statusPathHostRoot, taskId)
+
+	// Create host directories if they don't exist
+	for _, path := range []string{statusPathHost, m.relayPathHost} {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(path, 0770)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
-	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(instancePath, m.statusPathContainer))
+	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
 
 	scEnv := map[string]string{

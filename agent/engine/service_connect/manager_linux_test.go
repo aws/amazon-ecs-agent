@@ -1,4 +1,5 @@
 //go:build linux && unit
+// +build linux,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -165,15 +166,9 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 			expectedExtraHosts: expectedPauseExtraHosts,
 		},
 	}
+	// Add test cases for other containers expecting no modifications
 	for _, container := range scTask.Containers {
-		addDefaultCase := true
-		for _, tc := range testcases {
-			if tc.container == container {
-				addDefaultCase = false
-				break
-			}
-		}
-		if addDefaultCase {
+		if container != pauseContainer {
 			testcases = append(testcases, testCase{name: container.Name, container: container})
 		}
 	}
@@ -218,15 +213,9 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 			expectedBinds: expectedBinds,
 		},
 	}
+	// Add test cases for other containers expecting no modifications
 	for _, container := range scTask.Containers {
-		addDefaultCase := true
-		for _, tc := range testcases {
-			if tc.container == container {
-				addDefaultCase = false
-				break
-			}
-		}
-		if addDefaultCase {
+		if container != serviceConnectContainer {
 			testcases = append(testcases, testCase{name: container.Name, container: container, expectedENV: map[string]string{}})
 		}
 	}
