@@ -1,4 +1,5 @@
 //go:build linux && unit
+// +build linux,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -18,6 +19,7 @@ package serviceconnect
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -164,15 +166,9 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 			expectedExtraHosts: expectedPauseExtraHosts,
 		},
 	}
+	// Add test cases for other containers expecting no modifications
 	for _, container := range scTask.Containers {
-		addDefaultCase := true
-		for _, tc := range testcases {
-			if tc.container == container {
-				addDefaultCase = false
-				break
-			}
-		}
-		if addDefaultCase {
+		if container != pauseContainer {
 			testcases = append(testcases, testCase{name: container.Name, container: container})
 		}
 	}
@@ -186,6 +182,63 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.expectedExtraHosts, hostConfig.ExtraHosts)
+		})
+	}
+}
+
+func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
+	scTask, _, serviceConnectContainer := getAWSVPCTask(t)
+
+	tempDir := t.TempDir()
+	expectedBinds := []string{
+		fmt.Sprintf("%s/status/%s:%s", tempDir, scTask.GetID(), "/some/other/run"),
+		fmt.Sprintf("%s:%s", tempDir, "/not/var/run"),
+	}
+	expectedENVs := map[string]string{
+		"ReLaYgOeShErE":  "/not/var/run/relay_file_of_holiness",
+		"StAtUsGoEsHeRe": "/some/other/run/status_file_of_holiness",
+	}
+
+	type testCase struct {
+		name          string
+		container     *apicontainer.Container
+		expectedENV   map[string]string
+		expectedBinds []string
+	}
+	testcases := []testCase{
+		{
+			name:          "Service connect container has extra binds/ENV",
+			container:     serviceConnectContainer,
+			expectedENV:   expectedENVs,
+			expectedBinds: expectedBinds,
+		},
+	}
+	// Add test cases for other containers expecting no modifications
+	for _, container := range scTask.Containers {
+		if container != serviceConnectContainer {
+			testcases = append(testcases, testCase{name: container.Name, container: container, expectedENV: map[string]string{}})
+		}
+	}
+	scManager := &manager{
+		relayPathContainer:  "/not/var/run",
+		relayPathHost:       tempDir,
+		relayFileName:       "relay_file_of_holiness",
+		relayENV:            "ReLaYgOeShErE",
+		statusPathContainer: "/some/other/run",
+		statusPathHostRoot:  filepath.Join(tempDir, "status"),
+		statusFileName:      "status_file_of_holiness",
+		statusENV:           "StAtUsGoEsHeRe",
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			hostConfig := &dockercontainer.HostConfig{}
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tc.expectedBinds, hostConfig.Binds)
+			assert.Equal(t, tc.expectedENV, tc.container.Environment)
 		})
 	}
 }
