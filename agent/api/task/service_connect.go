@@ -27,11 +27,11 @@ type ServiceConnectConfig struct {
 // RuntimeConfig contains the runtime information for administering AppNet Agent
 type RuntimeConfig struct {
 	// Host path for the administration socket
-	AdminSocketPath string
+	AdminSocketPath string `json:"adminSocketPath"`
 	// HTTP Path + Params to get statistical information
-	StatsRequest string
+	StatsRequest string `json:"statsRequest"`
 	// HTTP Path + Params to drain ServiceConnect connections
-	DrainRequest string
+	DrainRequest string `json:"drainRequest"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
