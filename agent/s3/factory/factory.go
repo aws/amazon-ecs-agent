@@ -34,6 +34,7 @@ const (
 
 type S3ClientCreator interface {
 	NewS3ClientForBucket(bucket, region string, creds credentials.IAMRoleCredentials) (s3client.S3Client, error)
+	// NewS3ClientForECSLogsUpload(region string, creds awscreds.Value) (s3client.S3Client, error)
 }
 
 func NewS3ClientCreator() S3ClientCreator {
@@ -61,6 +62,20 @@ func (*s3ClientCreator) NewS3ClientForBucket(bucket, region string,
 	sessWithRegion := session.Must(session.NewSession(cfg.WithRegion(bucketRegion)))
 	return s3manager.NewDownloaderWithClient(s3.New(sessWithRegion)), nil
 }
+
+/*// NewS3Client returns a new S3 client based on the region of the bucket.
+func (*s3ClientCreator) NewS3ClientForECSLogsUpload(region string,
+	creds awscreds.Value) (s3client.S3Client, error) {
+	cfg := aws.NewConfig().
+		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithCredentials(
+			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
+				creds.SessionToken)).WithRegion(region)
+	sess := session.Must(session.NewSession(cfg))
+	s3Svc := s3.New(sess)
+
+	return s3manager.NewUploaderWithClient(s3Svc), nil
+}*/
 
 func getRegionFromBucket(svc *s3.S3, bucket string) (string, error) {
 	input := &s3.GetBucketLocationInput{

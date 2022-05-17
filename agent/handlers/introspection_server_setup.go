@@ -105,6 +105,7 @@ func v1HandlersSetup(serverMux *http.ServeMux,
 	serverMux.HandleFunc(v1.AgentMetadataPath, v1.AgentMetadataHandler(containerInstanceArn, cfg))
 	serverMux.HandleFunc(v1.TaskContainerMetadataPath, v1.TaskContainerMetadataHandler(taskEngine))
 	serverMux.HandleFunc(v1.LicensePath, v1.LicenseHandler)
+	serverMux.HandleFunc(v1.ECSLogsCollectorPath, v1.ECSLogsCollectorHandler(*containerInstanceArn, cfg.AWSRegion))
 }
 
 func pprofHandlerSetup(serverMux *http.ServeMux, cfg *config.Config) {

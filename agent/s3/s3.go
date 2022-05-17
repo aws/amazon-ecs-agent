@@ -28,6 +28,19 @@ const (
 	s3ARNRegex = `arn:([^:]+):s3:::([^/]+)/(.+)`
 )
 
+/*func UploadFile(bucket, key string, bodyBytes []byte, timeout time.Duration, client S3Client) error {
+	input := &s3manager.UploadInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(bodyBytes),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	_, err := client.UploadWithContext(ctx, input)
+	return err
+}*/
+
 // DownloadFile downloads a file from s3 and writes it with the writer.
 func DownloadFile(bucket, key string, timeout time.Duration, w io.WriterAt, client S3Client) error {
 	input := &s3.GetObjectInput{
