@@ -91,9 +91,12 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	m.initAgentEnvironment(container)
 
 	// Setup runtime configuration
-	task.ServiceConnectConfig.RuntimeConfig.AdminSocketPath = adminPath
-	task.ServiceConnectConfig.RuntimeConfig.StatsRequest = m.adminStatsRequest
-	task.ServiceConnectConfig.RuntimeConfig.DrainRequest = m.adminDrainRequest
+	var config apitask.RuntimeConfig
+	config.AdminSocketPath = adminPath
+	config.StatsRequest = m.adminStatsRequest
+	config.DrainRequest = m.adminDrainRequest
+
+	task.PopulateServiceConnectRuntimeConfig(config)
 	return nil
 }
 
