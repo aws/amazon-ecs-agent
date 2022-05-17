@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"os"
 	"time"
@@ -26,6 +27,10 @@ const (
 
 	s3UploadTimeout = 5 * time.Minute
 )
+
+type logCollectorResponse struct {
+	LogBundleURL string
+}
 
 // ECSLogsCollectorHandler creates response for 'v1/logsbundle' API.
 func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.ResponseWriter, *http.Request) {
@@ -58,7 +63,14 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 		// return the presigned url
 		presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
 		seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
-		// TODO: write the presigned url to response
+		resp := logCollectorResponse{LogBundleURL: presignedUrl}
+		respBuf, err := json.Marshal(resp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(respBuf)
 	}
 }
 
