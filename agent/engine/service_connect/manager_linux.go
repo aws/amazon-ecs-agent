@@ -34,7 +34,7 @@ const (
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_UDS_PATH"
 	defaultAdminStatsRequest  = "/stats/prometheus?usedonly&filter=metrics_extension&delta"
-	defaultAdminDrainRequest  = "/drain-connections"
+	defaultAdminDrainRequest  = "/drain_listeners?inboundonly"
 )
 
 type manager struct {
