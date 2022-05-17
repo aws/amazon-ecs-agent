@@ -358,4 +358,9 @@ type Config struct {
 	// WarmPoolsSupport specifies whether the agent should poll IMDS to check the target lifecycle state for a starting
 	// instance
 	WarmPoolsSupport BooleanDefaultFalse
+
+	// NetworkDebugEnabled specifies whether network debugging is enabled. If enabled, a special container is injected into
+	// the task immediately after task networking setup completes.  The container then executes certain network diagnostic
+	// commands and logs the output for later analysis.
+	NetworkDebugEnabled BooleanDefaultFalse
 }

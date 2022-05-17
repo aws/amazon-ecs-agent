@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -60,6 +62,8 @@ import (
 const (
 	// NetworkPauseContainerName is the internal name for the pause container
 	NetworkPauseContainerName = "~internal~ecs~pause"
+
+	NetworkDebugContainerName = "~internal~ecs~network~debug"
 
 	// NamespacePauseContainerName is the internal name for the IPC resource namespace and/or
 	// PID namespace sharing pause container
@@ -1213,6 +1217,29 @@ func (task *Task) IsNetworkModeAWSVPC() bool {
 	return len(task.ENIs) > 0
 }
 
+const nwDebugScript = `#!/usr/bin/env bash
+touch /ecs-logs/ip-address /ecs-logs/ip-neigh /ecs-logs/ip-route /ecs-logs/ip-rule /ecs-logs/ip-route-table-10001 /ecs-logs/ip-monitor /ecs-logs/ip-tables /ecs-logs/drill
+
+print_fmt='{ print strftime("%Y-%m-%d %H:%M:%S"), $0; fflush(); }'
+
+ip monitor | awk "$print_fmt" >> /ecs-logs/ip-monitor &
+
+cat /etc/resolv.conf > /ecs-logs/resolv.conf
+cat /etc/hosts  > /ecs-logs/etc_hosts
+
+for i in {1..10}
+do
+		drill | awk "$print_fmt" >>  /ecs-logs/drill 
+		ip a| awk "$print_fmt" >>  /ecs-logs/ip-address
+		ip neigh | awk "$print_fmt" >>  /ecs-logs/ip-neigh
+		ip ro | awk "$print_fmt" >>  /ecs-logs/ip-route
+		ip rule | awk "$print_fmt" >>  /ecs-logs/ip-rule
+		ip ro show table 10001 | awk "$print_fmt" >> /ecs-logs/ip-route-table-10001
+		iptables -t nat -S awk "$print_fmt" >> /ecs-logs/ip-tables
+		sleep 1
+done
+`
+
 func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) error {
 	if !task.IsNetworkModeAWSVPC() {
 		return nil
@@ -1264,6 +1291,35 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 	}
 
 	task.Containers = append(task.Containers, pauseContainer)
+
+	if cfg.NetworkDebugEnabled.Enabled() {
+		nwDebugContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerRunning)
+		nwDebugContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+		nwDebugContainer.Name = NetworkDebugContainerName
+		nwDebugContainer.Image = "nicolaka/netshoot"
+		nwDebugContainer.Essential = false
+		nwDebugContainer.Type = apicontainer.ContainerNetworkDebug
+		nwDebugContainer.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerRunning)
+		nwDebugContainer.Command = []string{"bash", "-c", "/ecs-logs/nw_debug.sh"}
+		taskId := task.GetID()
+		nwLogsPath := "/var/run/log/ecs/" + taskId
+		os.MkdirAll(nwLogsPath, 0644)
+		ioutil.WriteFile(nwLogsPath+"/nw_debug.sh", []byte(nwDebugScript), 0770)
+		hostConfig := &dockercontainer.HostConfig{
+			Binds:  []string{nwLogsPath + ":/ecs-logs"},
+			CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+		}
+		hostConfigBytes, err := json.Marshal(hostConfig)
+		if err != nil {
+			logger.Error("Error marshalling host config for network debug container", logger.Fields{
+				field.Error: err,
+			})
+		}
+		nwDebugContainer.DockerConfig = apicontainer.DockerConfig{
+			HostConfig: aws.String(string(hostConfigBytes)),
+		}
+		task.Containers = append(task.Containers, nwDebugContainer)
+	}
 
 	for _, container := range task.Containers {
 		if container.IsInternal() {
@@ -1660,7 +1716,7 @@ func (task *Task) getDockerResources(container *apicontainer.Container, cfg *con
 func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
 	// TODO. We can do an early return here by determining which kind of task it is
 	// Example: Does this task have ENIs in its payload, what is its networking mode etc
-	if container.IsInternal() {
+	if container.IsInternal() && container.Type != apicontainer.ContainerNetworkDebug {
 		// If it's an internal container, set the network mode to none.
 		// Currently, internal containers are either for creating empty host
 		// volumes or for creating the 'pause' container. Both of these

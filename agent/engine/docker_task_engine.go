@@ -712,6 +712,17 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
+	if engine.cfg.NetworkDebugEnabled.Enabled() {
+		// cleanup host exec agent log dirs
+		tID := task.GetID()
+		if err := removeAll(filepath.Join("/var/run/log/ecs/", tID)); err != nil {
+			logger.Warn("Unable to remove network debug logs for task", logger.Fields{
+				field.TaskID: task.GetID(),
+				field.Error:  err,
+			})
+		}
+	}
+
 	// Now remove ourselves from the global state and cleanup channels
 	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)

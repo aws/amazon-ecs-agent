@@ -35,6 +35,8 @@ const (
 	// sharing either PID or IPC resource namespaces. Regardless if one or
 	// both flags are used, only 1 of these containers need to be active
 	ContainerNamespacePause
+
+	ContainerNetworkDebug
 )
 
 // ContainerType represents the type of the internal container created
