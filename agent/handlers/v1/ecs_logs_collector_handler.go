@@ -1,29 +1,35 @@
 package v1
 
 import (
-	"bytes"
+	"archive/tar"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
 
 // AgentMetadataPath is the Agent metadata path for v1 handler.
 const (
+	// ECSLogsCollectorPath is the Agent metadata path for v1 logs collector.
 	ECSLogsCollectorPath = "/v1/logsbundle"
+
+	logsFilePathDir = "/var/lib/ecs/data"
 
 	s3UploadTimeout = 5 * time.Minute
 )
@@ -35,16 +41,15 @@ type logCollectorResponse struct {
 // ECSLogsCollectorHandler creates response for 'v1/logsbundle' API.
 func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// create logscollect state file
+		createLogscollectFile()
 
-		// TODO: create a state file, if not exists
-		logsFound := isLogsCollectionSuccessful()
+		seelog.Infof("Finding the logsbundle...")
+		logsFound, key := isLogsCollectionSuccessful()
 		if !logsFound {
-			// TODO: write error response
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
-
-		// TODO: parse the file name into key
-		key := "instanceId"
-
 		// upload the ecs logs
 		iamcredentials, err := instancecreds.GetCredentials(false).Get()
 		if err != nil {
@@ -74,16 +79,39 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 	}
 }
 
-func isLogsCollectionSuccessful() bool {
-	filepath := "/var/lib/ecs/data/i-*"
-	for i := 0; i < 30; i++ {
-		_, err := os.Stat(filepath)
+func createLogscollectFile() {
+	logscollectFile, err := os.Create(filepath.Join(logsFilePathDir, "logscollect"))
+	defer logscollectFile.Close()
+	if err != nil {
+		seelog.Errorf("Error creating logscollect file, err: %v", err)
+	}
+	seelog.Debugf("Successfully created %s file", logscollectFile.Name())
+	logscollectFile.Close()
+}
+
+func readLogsbundleTar(logsbundlepath string) io.Reader {
+	seelog.Debugf("Reading logsbundle from path %s", logsbundlepath)
+	tarFile, err := os.Open(logsbundlepath)
+	if err != nil {
+		seelog.Errorf("Error: %v", err)
+	}
+	defer tarFile.Close()
+	return tar.NewReader(tarFile)
+}
+
+func isLogsCollectionSuccessful() (bool, string) {
+	var err error
+	for i := 0; i < 60; i++ {
+		matches, err := filepath.Glob(filepath.Join(logsFilePathDir, "collect-i*"))
 		if err == nil {
-			return true
+			logCollectFilePath := strings.Split(matches[0], "/")
+			seelog.Infof("Found the logsbundle in %s", matches[0])
+			return true, logCollectFilePath[len(logCollectFilePath)-1]
 		}
 		time.Sleep(5 * time.Second)
 	}
-	return false
+	seelog.Errorf("Error while trying to find matches for %s, err: %v", filepath.Join(logsFilePathDir, "collect-i*"), err)
+	return false, ""
 }
 
 func uploadECSLogsToS3(iamcredentials awscreds.Value, bucket, key, region string) error {
@@ -101,20 +129,22 @@ func uploadECSLogsToS3(iamcredentials awscreds.Value, bucket, key, region string
 		Bucket: aws.String(bucket),
 	})
 	if err.(awserr.Error).Code() == s3.ErrCodeNoSuchBucket {
+		seelog.Infof("%s bucket not found, creating it", bucket)
 		_, err = svc.CreateBucket(&s3.CreateBucketInput{
 			Bucket: aws.String(bucket),
 		})
 		if err != nil {
-			seelog.Errorf("Error creating the bucket %s, err: %v", bucket, err)
+			return seelog.Errorf("Error creating the bucket %s, err: %v", bucket, err)
 		}
 	}
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
+	seelog.Debugf("uploading the logsbundle")
 	// Upload the file to S3.
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-		Body:   bytes.NewReader([]byte(`Hello`)),
+		Body:   readLogsbundleTar(filepath.Join(logsFilePathDir, key)),
 	})
 	if err != nil {
 		return seelog.Errorf("failed to upload file, %v", err)
@@ -150,20 +180,4 @@ func getPreSignedUrl(iamcredentials awscreds.Value, bucket, key, region string) 
 	}
 
 	return urlStr
-	/*	cfg, err := config.LoadDefaultConfig(context.TODO())
-		if err != nil {
-			log.Fatalf("Failed to load default config: %v", err)
-		}
-		client := s3.NewFromConfig(cfg)
-		presignClient := s3.NewPresignClient(client)
-
-		presignResult, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-			Bucket: aws.String("ecs-logs"),
-			Key:    aws.String("instanceId"),
-		})
-
-		if err != nil {
-			panic("Couldn't get presigned URL for GetObject")
-	}*/
-
 }
