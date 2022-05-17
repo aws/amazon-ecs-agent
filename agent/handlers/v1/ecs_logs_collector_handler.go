@@ -1,9 +1,7 @@
 package v1
 
 import (
-	"archive/tar"
-	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,62 +46,61 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 		logsFound, key := isLogsCollectionSuccessful()
 		if !logsFound {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("error"))
 			return
 		}
 		// upload the ecs logs
 		iamcredentials, err := instancecreds.GetCredentials(false).Get()
 		if err != nil {
-			seelog.Debugf("Error getting instance credentials %v", err)
+			seelog.Infof("Error getting instance credentials %v", err)
 		}
 		arn, err := arn.Parse(containerInstanceArn)
 		if err != nil {
-			seelog.Debugf("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
+			seelog.Infof("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
 		}
 		bucket := "ecs-logs-" + arn.AccountID
 		err = uploadECSLogsToS3(iamcredentials, bucket, key, region)
 		if err != nil {
-			seelog.Debugf("Error uploading the ecs logs %v", err)
+			seelog.Infof("Error uploading the ecs logs %v", err)
 		}
 
 		// return the presigned url
 		presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
 		seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
-		resp := logCollectorResponse{LogBundleURL: presignedUrl}
-		respBuf, err := json.Marshal(resp)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		w.Write([]byte(presignedUrl))
+		// resp := logCollectorResponse{LogBundleURL: presignedUrl}
+		// encoder := json.NewEncoder(w)
+		// encoder.SetEscapeHTML(false)
+		// err = encoder.Encode(resp)
+		// if err != nil {
+		// 	seelog.Errorf("Error encoding json: %s", err)
+		// 	w.WriteHeader(http.StatusInternalServerError)
+		// 	return
+		// }
 		w.WriteHeader(http.StatusOK)
-		w.Write(respBuf)
+		//w.Write(buf.Bytes())
 	}
 }
 
 func createLogscollectFile() {
 	logscollectFile, err := os.Create(filepath.Join(logsFilePathDir, "logscollect"))
-	defer logscollectFile.Close()
 	if err != nil {
 		seelog.Errorf("Error creating logscollect file, err: %v", err)
 	}
-	seelog.Debugf("Successfully created %s file", logscollectFile.Name())
-	logscollectFile.Close()
+	defer logscollectFile.Close()
+	seelog.Infof("Successfully created %s file", logscollectFile.Name())
 }
 
-func readLogsbundleTar(logsbundlepath string) io.Reader {
-	seelog.Debugf("Reading logsbundle from path %s", logsbundlepath)
-	tarFile, err := os.Open(logsbundlepath)
-	if err != nil {
-		seelog.Errorf("Error: %v", err)
-	}
-	defer tarFile.Close()
-	return tar.NewReader(tarFile)
+func readLogsbundleTar(logsbundlepath string) (*os.File, error) {
+	seelog.Infof("Reading logsbundle from path %s", logsbundlepath)
+	return os.Open(logsbundlepath)
 }
 
 func isLogsCollectionSuccessful() (bool, string) {
 	var err error
 	for i := 0; i < 60; i++ {
 		matches, err := filepath.Glob(filepath.Join(logsFilePathDir, "collect-i*"))
-		if err == nil {
+		if err == nil && len(matches) > 0 {
 			logCollectFilePath := strings.Split(matches[0], "/")
 			seelog.Infof("Found the logsbundle in %s", matches[0])
 			return true, logCollectFilePath[len(logCollectFilePath)-1]
@@ -121,40 +118,51 @@ func uploadECSLogsToS3(iamcredentials awscreds.Value, bucket, key, region string
 		WithCredentials(
 			awscreds.NewStaticCredentials(iamcredentials.AccessKeyID, iamcredentials.SecretAccessKey,
 				iamcredentials.SessionToken)).WithRegion(region)
-	sess := session.Must(session.NewSession(cfg))
+	sess, err := session.NewSession(cfg)
+	if err != nil {
+		return err
+	}
 
 	// create the bucket if it does not exist
 	svc := s3.New(sess)
-	_, err := svc.HeadBucket(&s3.HeadBucketInput{
+	_, err = svc.HeadBucket(&s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
 	})
-	if err.(awserr.Error).Code() == s3.ErrCodeNoSuchBucket {
-		seelog.Infof("%s bucket not found, creating it", bucket)
-		_, err = svc.CreateBucket(&s3.CreateBucketInput{
-			Bucket: aws.String(bucket),
-		})
-		if err != nil {
-			return seelog.Errorf("Error creating the bucket %s, err: %v", bucket, err)
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			seelog.Infof("awserr received: %s", awsErr.Code())
+			if awsErr.Code() == s3.ErrCodeNoSuchBucket || awsErr.Code() == "NotFound" {
+				_, err = svc.CreateBucket(&s3.CreateBucketInput{
+					Bucket: aws.String(bucket),
+				})
+				if err != nil {
+					return fmt.Errorf("Error creating the bucket %s, err: %v", bucket, err)
+				}
+			} else {
+				return err
+			}
+		} else {
+			return err
 		}
 	}
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
-	seelog.Debugf("uploading the logsbundle")
+	seelog.Infof("uploading the logsbundle")
 	// Upload the file to S3.
+	f, err := readLogsbundleTar(filepath.Join(logsFilePathDir, key))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-		Body:   readLogsbundleTar(filepath.Join(logsFilePathDir, key)),
+		Body:   f,
 	})
 	if err != nil {
-		return seelog.Errorf("failed to upload file, %v", err)
+		return fmt.Errorf("failed to upload file, %v", err)
 	}
-	seelog.Debugf("file uploaded to, %s\n", aws.StringValue(&result.Location))
-	/*s3Client, err := s3ClientCreator.NewS3ClientForECSLogsUpload(region, iamcredentials)
-	err = agentS3.UploadFile("ecs-logs", "instanceId", []byte(`Hello`), s3UploadTimeout, s3Client)
-	if err != nil {
-		return err
-	}*/
+	seelog.Infof("file uploaded to, %s\n", aws.StringValue(&result.Location))
 	return nil
 }
 
@@ -173,7 +181,7 @@ func getPreSignedUrl(iamcredentials awscreds.Value, bucket, key, region string) 
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
-	urlStr, err := req.Presign(1 * time.Minute)
+	urlStr, err := req.Presign(1 * time.Hour)
 
 	if err != nil {
 		seelog.Errorf("Error to signing the request: %v", err)
