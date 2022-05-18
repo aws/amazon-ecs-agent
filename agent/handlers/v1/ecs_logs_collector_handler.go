@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -55,34 +57,27 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 		}
 		defer f.Close()
 
-		http.ServeContent(w, r, filename, time.Now(), f)
-
-		// w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-		// w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-
-		// io.Copy(w, f)
+		// http.ServeContent(w, r, filename, time.Now(), f)
 
 		// upload the ecs logs
-		// iamcredentials, err := instancecreds.GetCredentials(false).Get()
-		// if err != nil {
-		// 	seelog.Infof("Error getting instance credentials %v", err)
-		// }
-		// arn, err := arn.Parse(containerInstanceArn)
-		// if err != nil {
-		// 	seelog.Infof("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
-		// }
-		// bucket := "ecs-logs-" + arn.AccountID
-		// err = uploadECSLogsToS3(iamcredentials, bucket, key, region)
-		// if err != nil {
-		// 	seelog.Infof("Error uploading the ecs logs %v", err)
-		// }
+		iamcredentials, err := instancecreds.GetCredentials(false).Get()
+		if err != nil {
+			seelog.Infof("Error getting instance credentials %v", err)
+		}
+		arn, err := arn.Parse(containerInstanceArn)
+		if err != nil {
+			seelog.Infof("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
+		}
+		bucket := "ecs-logs-" + arn.AccountID
+		err = uploadECSLogsToS3(iamcredentials, bucket, filename, region)
+		if err != nil {
+			seelog.Infof("Error uploading the ecs logs %v", err)
+		}
 
-		// // return the presigned url
-		// presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
-		// seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
-		// http.Redirect(w, r, presignedUrl, 301)
-		// // w.Write([]byte(presignedUrl))
-		// // w.WriteHeader(http.StatusOK)
+		// return the presigned url
+		presignedUrl := getPreSignedUrl(iamcredentials, bucket, filename, region)
+		seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
+		http.Redirect(w, r, presignedUrl, 301)
 	}
 }
 
