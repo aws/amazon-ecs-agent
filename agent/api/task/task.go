@@ -1218,9 +1218,12 @@ func (task *Task) IsNetworkModeAWSVPC() bool {
 }
 
 const nwDebugScript = `#!/usr/bin/env bash
-touch /ecs-logs/ip-address /ecs-logs/ip-neigh /ecs-logs/ip-route /ecs-logs/ip-rule /ecs-logs/ip-route-table-10001 /ecs-logs/ip-monitor /ecs-logs/ip-tables /ecs-logs/drill
+touch /ecs-logs/ip-address /ecs-logs/ip-neigh /ecs-logs/ip-route /ecs-logs/ip-rule /ecs-logs/ip-route-table-10001 /ecs-logs/ip-monitor /ecs-logs/ip-tables /ecs-logs/drill /ecs-logs/curl
 
 print_fmt='{ print strftime("%Y-%m-%d %H:%M:%S"), $0; fflush(); }'
+
+date +"%m-%d-%y %H:%M:%S" >| /ecs-logs/curl
+(curl -v --max-time 1 ip-10-0-1-136.us-west-2.compute.internal >> /ecs-logs/curl 2>&1) &
 
 ip monitor | awk "$print_fmt" >> /ecs-logs/ip-monitor &
 
