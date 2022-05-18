@@ -10,14 +10,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/cihub/seelog"
 )
 
@@ -42,33 +40,49 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 		createLogscollectFile()
 
 		seelog.Infof("Finding the logsbundle...")
-		logsFound, key := isLogsCollectionSuccessful()
+		logsFound, filename := isLogsCollectionSuccessful()
 		if !logsFound {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error"))
 			return
 		}
-		defer os.Remove(filepath.Join(logsFilePathDir, key))
-		// upload the ecs logs
-		iamcredentials, err := instancecreds.GetCredentials(false).Get()
+		defer os.Remove(filepath.Join(logsFilePathDir, filename))
+		f, err := readLogsbundleTar(filepath.Join(logsFilePathDir, filename))
 		if err != nil {
-			seelog.Infof("Error getting instance credentials %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
 		}
-		arn, err := arn.Parse(containerInstanceArn)
-		if err != nil {
-			seelog.Infof("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
-		}
-		bucket := "ecs-logs-" + arn.AccountID
-		err = uploadECSLogsToS3(iamcredentials, bucket, key, region)
-		if err != nil {
-			seelog.Infof("Error uploading the ecs logs %v", err)
-		}
+		defer f.Close()
 
-		// return the presigned url
-		presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
-		seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
-		w.Write([]byte(presignedUrl))
-		w.WriteHeader(http.StatusOK)
+		http.ServeContent(w, r, filename, time.Now(), f)
+
+		// w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+		// w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+
+		// io.Copy(w, f)
+
+		// upload the ecs logs
+		// iamcredentials, err := instancecreds.GetCredentials(false).Get()
+		// if err != nil {
+		// 	seelog.Infof("Error getting instance credentials %v", err)
+		// }
+		// arn, err := arn.Parse(containerInstanceArn)
+		// if err != nil {
+		// 	seelog.Infof("Error parsing containerInstanceArn %s, err: %v", containerInstanceArn, err)
+		// }
+		// bucket := "ecs-logs-" + arn.AccountID
+		// err = uploadECSLogsToS3(iamcredentials, bucket, key, region)
+		// if err != nil {
+		// 	seelog.Infof("Error uploading the ecs logs %v", err)
+		// }
+
+		// // return the presigned url
+		// presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
+		// seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
+		// http.Redirect(w, r, presignedUrl, 301)
+		// // w.Write([]byte(presignedUrl))
+		// // w.WriteHeader(http.StatusOK)
 	}
 }
 
