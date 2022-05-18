@@ -33,6 +33,8 @@ const (
 	defaultStatusPathHostRoot = "/var/run/ecs/service_connect/"
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_UDS_PATH"
+	defaultAdminStatsRequest  = "/stats/prometheus?usedonly&filter=metrics_extension&delta"
+	defaultAdminDrainRequest  = "/drain_listeners?inboundonly"
 )
 
 type manager struct {
@@ -52,6 +54,11 @@ type manager struct {
 	statusFileName string
 	// Environment variable to set on Container with contents of statusPathContainer/statusFileName
 	statusENV string
+
+	// Http path + params to make a statistics request of AppNetAgent
+	adminStatsRequest string
+	// Http path + params to make a drain request of AppNetAgent
+	adminDrainRequest string
 }
 
 func NewManager() Manager {
@@ -64,24 +71,40 @@ func NewManager() Manager {
 		statusPathHostRoot:  defaultStatusPathHostRoot,
 		statusFileName:      defaultStatusFileName,
 		statusENV:           defaultStatusENV,
+
+		adminStatsRequest: defaultAdminStatsRequest,
+		adminDrainRequest: defaultAdminDrainRequest,
 	}
 }
 
-func (m *manager) initializeAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
 	if task.IsNetworkModeBridge() {
 		err := m.initServiceConnectContainerMapping(task, container, hostConfig)
 		if err != nil {
 			return err
 		}
 	}
-	return m.initServiceConnectDirectoryMounts(task.GetID(), container, hostConfig)
+	adminPath, err := m.initAgentDirectoryMounts(task.GetID(), container, hostConfig)
+	if err != nil {
+		return err
+	}
+	m.initAgentEnvironment(container)
+
+	// Setup runtime configuration
+	var config apitask.RuntimeConfig
+	config.AdminSocketPath = adminPath
+	config.StatsRequest = m.adminStatsRequest
+	config.DrainRequest = m.adminDrainRequest
+
+	task.PopulateServiceConnectRuntimeConfig(config)
+	return nil
 }
 
 func getBindMountMapping(hostDir, containerDir string) string {
 	return hostDir + ":" + containerDir
 }
 
-func (m *manager) initServiceConnectDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) (string, error) {
 	statusPathHost := filepath.Join(m.statusPathHostRoot, taskId)
 
 	// Create host directories if they don't exist
@@ -91,20 +114,22 @@ func (m *manager) initServiceConnectDirectoryMounts(taskId string, container *ap
 			err = os.MkdirAll(path, 0770)
 		}
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
+	return filepath.Join(statusPathHost, m.relayFileName), nil
+}
 
+func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 	scEnv := map[string]string{
 		m.relayENV:  filepath.Join(m.relayPathContainer, m.relayFileName),
 		m.statusENV: filepath.Join(m.statusPathContainer, m.statusFileName),
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
-	return nil
 }
 
 func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
@@ -133,7 +158,7 @@ func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontain
 			DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 	if container == task.GetServiceConnectContainer() {
-		m.initializeAgentContainer(task, container, hostConfig)
+		m.augmentAgentContainer(task, container, hostConfig)
 	}
 	return err
 }
