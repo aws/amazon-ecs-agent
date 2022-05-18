@@ -16,15 +16,22 @@ package task
 // ServiceConnectConfig represents the Service Connect configuration for a task.
 type ServiceConnectConfig struct {
 	ContainerName string               `json:"containerName"`
-	StatsConfig   StatsConfig          `json:"statsConfig"`
 	IngressConfig []IngressConfigEntry `json:"ingressConfig"`
 	EgressConfig  EgressConfig         `json:"egressConfig"`
 	DNSConfig     []DNSConfigEntry     `json:"dnsConfig"`
+
+	// Admin configuration for operating with AppNet Agent
+	RuntimeConfig RuntimeConfig `json:"runtimeConfig"`
 }
 
-// StatsConfig is the endpoint where SC stats can be retrieved from.
-type StatsConfig struct {
-	Path string `json:"path"`
+// RuntimeConfig contains the runtime information for administering AppNet Agent
+type RuntimeConfig struct {
+	// Host path for the administration socket
+	AdminSocketPath string `json:"adminSocketPath"`
+	// HTTP Path + Params to get statistical information
+	StatsRequest string `json:"statsRequest"`
+	// HTTP Path + Params to drain ServiceConnect connections
+	DrainRequest string `json:"drainRequest"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.

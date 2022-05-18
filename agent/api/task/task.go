@@ -3183,3 +3183,17 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
 	task.GetServiceConnectContainer().MergeEnvironmentVariables(envVars)
 	return nil
 }
+
+func (task *Task) PopulateServiceConnectRuntimeConfig(serviceConnectConfig RuntimeConfig) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.ServiceConnectConfig.RuntimeConfig = serviceConnectConfig
+}
+
+func (task *Task) GetServiceConnectRuntimeConfig() RuntimeConfig {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ServiceConnectConfig.RuntimeConfig
+}
