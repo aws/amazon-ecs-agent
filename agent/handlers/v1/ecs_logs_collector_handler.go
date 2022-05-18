@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
@@ -49,6 +48,7 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 			w.Write([]byte("error"))
 			return
 		}
+		defer os.Remove(filepath.Join(logsFilePathDir, key))
 		// upload the ecs logs
 		iamcredentials, err := instancecreds.GetCredentials(false).Get()
 		if err != nil {
@@ -68,17 +68,7 @@ func ECSLogsCollectorHandler(containerInstanceArn, region string) func(http.Resp
 		presignedUrl := getPreSignedUrl(iamcredentials, bucket, key, region)
 		seelog.Infof("Presigned URL for ECS logs: %s", presignedUrl)
 		w.Write([]byte(presignedUrl))
-		// resp := logCollectorResponse{LogBundleURL: presignedUrl}
-		// encoder := json.NewEncoder(w)
-		// encoder.SetEscapeHTML(false)
-		// err = encoder.Encode(resp)
-		// if err != nil {
-		// 	seelog.Errorf("Error encoding json: %s", err)
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	return
-		// }
 		w.WriteHeader(http.StatusOK)
-		//w.Write(buf.Bytes())
 	}
 }
 
@@ -101,11 +91,11 @@ func isLogsCollectionSuccessful() (bool, string) {
 	for i := 0; i < 60; i++ {
 		matches, err := filepath.Glob(filepath.Join(logsFilePathDir, "collect-i*"))
 		if err == nil && len(matches) > 0 {
-			logCollectFilePath := strings.Split(matches[0], "/")
 			seelog.Infof("Found the logsbundle in %s", matches[0])
-			return true, logCollectFilePath[len(logCollectFilePath)-1]
+			filename := filepath.Base(matches[0])
+			return true, filename
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	seelog.Errorf("Error while trying to find matches for %s, err: %v", filepath.Join(logsFilePathDir, "collect-i*"), err)
 	return false, ""
