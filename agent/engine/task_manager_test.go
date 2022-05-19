@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"sync"
 	"testing"
 	"time"
@@ -726,6 +727,86 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 		})
 	assert.False(t, canTransition)
 	assert.Empty(t, transitions)
+}
+
+func TestStartContainerTransitionsWithTerminalError(t *testing.T) {
+	firstContainerName := "container1"
+	firstContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerStopped,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		KnownExitCodeUnsafe: aws.Int(1), // This simulated the container has stopped unsuccessfully
+		Name:                firstContainerName,
+	}
+	secondContainerName := "container2"
+	secondContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		Name:                secondContainerName,
+		DependsOnUnsafe: []apicontainer.DependsOn{
+			{
+				ContainerName: firstContainerName,
+				Condition:     "SUCCESS", // This means this condition can never be fulfilled since container1 has exited with non-zero code
+			},
+		},
+	}
+	thirdContainerName := "container3"
+	thirdContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		Name:                thirdContainerName,
+		DependsOnUnsafe: []apicontainer.DependsOn{
+			{
+				ContainerName: secondContainerName,
+				Condition:     "SUCCESS", // This means this condition can never be fulfilled since container2 has exited with non-zero code
+			},
+		},
+	}
+	dockerMessagesChan := make(chan dockerContainerChange)
+	task := &managedTask{
+		Task: &apitask.Task{
+			Containers: []*apicontainer.Container{
+				firstContainer,
+				secondContainer,
+				thirdContainer,
+			},
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		},
+		engine:         &DockerTaskEngine{},
+		dockerMessages: dockerMessagesChan,
+	}
+
+	canTransition, _, transitions, errors := task.startContainerTransitions(
+		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+			t.Error("Transition function should not be called when no transitions are possible")
+		})
+	assert.False(t, canTransition)
+	assert.Empty(t, transitions)
+	assert.Equal(t, 3, len(errors)) // first error is just indicating container1 is at desired status, following errors should be terminal
+	assert.False(t, errors[0].(dependencygraph.DependencyError).IsTerminal(), "Error should NOT  be terminal")
+	assert.True(t, errors[1].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+	assert.True(t, errors[2].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+
+	stoppedMessages := make(map[string]dockerContainerChange)
+	// verify we are sending STOPPED message
+	for i := 0; i < 2; i++ {
+		select {
+		case msg := <-dockerMessagesChan:
+			stoppedMessages[msg.container.Name] = msg
+		case <-time.After(time.Second):
+			t.Fatal("Timed out waiting for docker messages")
+			break
+		}
+	}
+
+	assert.Equal(t, secondContainer, stoppedMessages[secondContainerName].container)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, stoppedMessages[secondContainerName].event.Status)
+	assert.Error(t, stoppedMessages[secondContainerName].event.DockerContainerMetadata.Error)
+	assert.Equal(t, 143, *stoppedMessages[secondContainerName].event.DockerContainerMetadata.ExitCode)
+
+	assert.Equal(t, thirdContainer, stoppedMessages[thirdContainerName].container)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, stoppedMessages[thirdContainerName].event.Status)
+	assert.Error(t, stoppedMessages[thirdContainerName].event.DockerContainerMetadata.Error)
+	assert.Equal(t, 143, *stoppedMessages[thirdContainerName].event.DockerContainerMetadata.ExitCode)
 }
 
 func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
