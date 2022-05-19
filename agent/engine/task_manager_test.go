@@ -19,10 +19,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
