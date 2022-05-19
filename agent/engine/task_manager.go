@@ -1003,17 +1003,6 @@ func (mtask *managedTask) progressTask() {
 
 	blockedByOrderingDependencies := len(blockedDependencies) > 0
 
-	logger.Info(">>>>>atLeastOneTransitionStarted", logger.Fields{
-		"value": atLeastOneTransitionStarted,
-	})
-
-	for _, b := range blockedDependencies {
-		logger.Info(">>>>>blocked on ", logger.Fields{
-			"container": b.ContainerName,
-			"condition": b.Condition,
-		})
-	}
-
 	// If no transitions happened and we aren't blocked by ordering dependencies, then we are possibly in a state where
 	// its impossible for containers to move forward. We will do an additional check to see if we are waiting for ACS
 	// execution credentials. If not, then we will abort the task progression.
@@ -1143,6 +1132,10 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 }
 
 func (mtask *managedTask) handleTerminalDependencyError(container *apicontainer.Container, error dependencygraph.DependencyError) {
+	logger.Error("Terminal error detected during transition; marking container as stopped", logger.Fields{
+		field.Container: container.Name,
+		field.Error:     error.Error(),
+	})
 	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 	exitCode := 143
 	container.SetKnownExitCode(&exitCode)
