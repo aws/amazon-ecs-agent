@@ -908,28 +908,48 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) {
-	firstContainerName := "container1"
-	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		Name:                firstContainerName,
-	}
-	task := &managedTask{
-		Task: &apitask.Task{
-			Containers: []*apicontainer.Container{
-				firstContainer,
-			},
-			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+	for _, tc := range []struct {
+		knownStatus                    apicontainerstatus.ContainerStatus
+		expectedContainerDesiredStatus apicontainerstatus.ContainerStatus
+		expectedTaskDesiredStatus      apitaskstatus.TaskStatus
+	}{
+		{
+			knownStatus:                    apicontainerstatus.ContainerCreated,
+			expectedContainerDesiredStatus: apicontainerstatus.ContainerStopped,
+			expectedTaskDesiredStatus:      apitaskstatus.TaskStopped,
 		},
-		engine: &DockerTaskEngine{
-			dataClient: data.NewNoopClient(),
+		{
+			knownStatus:                    apicontainerstatus.ContainerRunning,
+			expectedContainerDesiredStatus: apicontainerstatus.ContainerRunning,
+			expectedTaskDesiredStatus:      apitaskstatus.TaskRunning,
 		},
-		ctx: context.TODO(),
-	}
+	} {
+		t.Run(fmt.Sprintf("Essential container with knownStatus=%s", tc.knownStatus.String()), func(t *testing.T) {
+			firstContainerName := "container1"
+			firstContainer := &apicontainer.Container{
+				KnownStatusUnsafe:   tc.knownStatus,
+				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				Name:                firstContainerName,
+				Essential:           true, // setting this to true since at least one container in the task must be essential.
+			}
+			task := &managedTask{
+				Task: &apitask.Task{
+					Containers: []*apicontainer.Container{
+						firstContainer,
+					},
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				engine: &DockerTaskEngine{
+					dataClient: data.NewNoopClient(),
+				},
+				ctx: context.TODO(),
+			}
 
-	task.handleContainersUnableToTransitionState()
-	assert.Equal(t, apitaskstatus.TaskStopped, task.GetDesiredStatus())
-	assert.Equal(t, apicontainerstatus.ContainerStopped, task.Containers[0].GetDesiredStatus())
+			task.handleContainersUnableToTransitionState()
+			assert.Equal(t, tc.expectedTaskDesiredStatus, task.GetDesiredStatus())
+			assert.Equal(t, tc.expectedContainerDesiredStatus, task.Containers[0].GetDesiredStatus())
+		})
+	}
 }
 
 // TODO: Test progressContainers workflow

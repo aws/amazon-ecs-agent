@@ -1410,21 +1410,13 @@ func (mtask *managedTask) handleContainersUnableToTransitionState() {
 	} else {
 		// If we end up here, it means containers are not able to transition anymore; maybe because of dependencies that
 		// are unable to start. Therefore, if there are essential containers that haven't started yet, we need to
-		// stop the task since they are not going to start anymore.
+		// stop the task since they are not going to start.
 		stopTask := false
-		containersRunning := 0
 		for _, c := range mtask.Containers {
 			if c.IsEssential() && !c.IsKnownSteadyState() {
 				stopTask = true
 				break
 			}
-			if c.IsKnownSteadyState() {
-				containersRunning++
-			}
-		}
-
-		if containersRunning == 0 {
-			stopTask = true
 		}
 
 		if stopTask {
