@@ -240,7 +240,7 @@ func TestContainerNextState(t *testing.T) {
 		containerDesiredStatus       apicontainerstatus.ContainerStatus
 		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		expectedTransitionActionable bool
-		reason                       error
+		reason                       dependencygraph.DependencyError
 	}{
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running
 		// The expected next status is Pulled
@@ -928,8 +928,8 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 	}
 
 	task.handleContainersUnableToTransitionState()
-	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainerstatus.ContainerStopped)
+	assert.Equal(t, apitaskstatus.TaskStopped, task.GetDesiredStatus())
+	assert.Equal(t, apicontainerstatus.ContainerStopped, task.Containers[0].GetDesiredStatus())
 }
 
 // TODO: Test progressContainers workflow

@@ -87,7 +87,7 @@ type containerTransition struct {
 	nextState      apicontainerstatus.ContainerStatus
 	actionRequired bool
 	blockedOn      *apicontainer.DependsOn
-	reason         *dependencygraph.DependencyError
+	reason         dependencygraph.DependencyError
 }
 
 // resourceTransition defines the struct for a resource to transition.
@@ -1142,7 +1142,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 	return anyCanTransition, blocked, transitions, reasons
 }
 
-func (mtask *managedTask) handleTerminalDependencyError(container *apicontainer.Container, error *dependencygraph.DependencyError) {
+func (mtask *managedTask) handleTerminalDependencyError(container *apicontainer.Container, error dependencygraph.DependencyError) {
 	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 	exitCode := 143
 	container.SetKnownExitCode(&exitCode)
@@ -1419,11 +1419,19 @@ func (mtask *managedTask) handleContainersUnableToTransitionState() {
 		// are unable to start. Therefore, if there are essential containers that haven't started yet, we need to
 		// stop the task since they are not going to start anymore.
 		stopTask := false
+		containersRunning := 0
 		for _, c := range mtask.Containers {
 			if c.IsEssential() && !c.IsKnownSteadyState() {
 				stopTask = true
 				break
 			}
+			if c.IsKnownSteadyState() {
+				containersRunning++
+			}
+		}
+
+		if containersRunning == 0 {
+			stopTask = true
 		}
 
 		if stopTask {
