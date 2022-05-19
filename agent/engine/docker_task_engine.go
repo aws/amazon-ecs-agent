@@ -1019,6 +1019,12 @@ func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.Image
 		// by inspecting the image.
 		_, err := engine.client.InspectImage(container.Image)
 		if err != nil {
+			logger.Info("Image inspect returned error, going to pull image for container", logger.Fields{
+				field.TaskID:    taskId,
+				field.Container: container.Name,
+				field.Image:     container.Image,
+				field.Error:     err.Error(),
+			})
 			return true
 		}
 		logger.Info("Found cached image, use it directly for container", logger.Fields{
