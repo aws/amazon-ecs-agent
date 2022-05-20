@@ -1098,16 +1098,27 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	sleepPauseContainerID := "sleepPauseContainerID"
 	scPauseContainerID := "pauseContainerID"
 
-	// For sleep pause and SC pause container, they can start in parallel except sleepPause.RESOURCES_PROVISIONED depends on
-	// SCPause.RUNNING
-	// sleep pause container expected calls
-	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	// Sleep and SC pause containers can be created and started in parallel, but sleepPause.RESOURCES_PROVISIONED depends on
+	// SCPause.RUNNING (verified in the InOrder block down below)
+
+	// For both pause containers
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 	dockerClient.EXPECT().CreateContainer(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, y, z interface{}) {
-			verifyServiceConnectSleepPauseContainerBridgeMode(t, ctx, config, hostConfig, y, z)
-		}).Return(dockerapi.DockerContainerMetadata{DockerID: sleepPauseContainerID})
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, dockerContainerName string, z interface{}) dockerapi.DockerContainerMetadata {
+			if strings.Contains(dockerContainerName, "internalecspause-service-connect") {
+				verifyServiceConnectPauseContainerBridgeMode(t, ctx, config, hostConfig, dockerContainerName, z)
+				return dockerapi.DockerContainerMetadata{DockerID: scPauseContainerID}
+			} else if strings.Contains(dockerContainerName, "internalecspause-sleep5") {
+				verifyServiceConnectSleepPauseContainerBridgeMode(t, ctx, config, hostConfig, dockerContainerName, z)
+				return dockerapi.DockerContainerMetadata{DockerID: sleepPauseContainerID}
+			}
+			assert.FailNow(t, fmt.Sprintf("Unexpected container %s", dockerContainerName))
+			return dockerapi.DockerContainerMetadata{}
+		}).Times(2)
+
+	// For sleep pause container -> RUNNING
 	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepPauseContainerID, defaultConfig.ContainerStartTimeout).Return(
 		dockerapi.DockerContainerMetadata{
 			DockerID: sleepPauseContainerID,
@@ -1116,17 +1127,12 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 			}},
 	)
 
-	// SC pause container expected calls
-	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	dockerClient.EXPECT().CreateContainer(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, y, z interface{}) {
-			verifyServiceConnectPauseContainerBridgeMode(t, ctx, config, hostConfig, y, z)
-		}).Return(dockerapi.DockerContainerMetadata{DockerID: scPauseContainerID})
+	// For SC pause container -> RESOURCES_PROVISIONED
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), scPauseContainerID, gomock.Any()).Return(
+		&types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: scPauseContainerID}}, nil)
 
-	// sleepPause.RESOURCES_PROVISIONED depends on SCPause.RUNNING
 	gomock.InOrder(
+		// sleepPause.RESOURCES_PROVISIONED depends on SCPause.RUNNING
 		dockerClient.EXPECT().StartContainer(gomock.Any(), scPauseContainerID, defaultConfig.ContainerStartTimeout).Return(
 			dockerapi.DockerContainerMetadata{
 				DockerID: scPauseContainerID,
@@ -1136,20 +1142,8 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 		),
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), sleepPauseContainerID, gomock.Any()).Return(
 			&types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: sleepPauseContainerID}}, nil),
-	)
-	dockerClient.EXPECT().InspectContainer(gomock.Any(), scPauseContainerID, gomock.Any()).Return(
-		&types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: scPauseContainerID}}, nil)
 
-	// For SC and sleep container - those calls can happen in parallel
-	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
-	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
-
-	gomock.InOrder(
-		// SC container
+		// SC container should only start after pause containers are done
 		dockerClient.EXPECT().CreateContainer(
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: scContainerID}),
 		dockerClient.EXPECT().StartContainer(gomock.Any(), scContainerID, defaultConfig.ContainerStartTimeout).Return(
@@ -1164,6 +1158,14 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 		dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID, defaultConfig.ContainerStartTimeout).Return(
 			dockerapi.DockerContainerMetadata{DockerID: sleepContainerID}),
 	)
+
+	// For SC and sleep container - those calls can happen in parallel
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
+	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
