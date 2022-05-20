@@ -1,0 +1,80 @@
+{
+    "family": "sc-generic-server-bridge",
+    "networkMode": "bridge",
+    "executionRoleArn": "arn:aws:iam::624830224597:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::624830224597:role/ECSTaskRole",
+    "volumes": [
+      {
+        "name": "docker-sock",
+        "host": {
+          "sourcePath": "/var/run/docker.sock"
+        }
+      },
+      {
+        "name": "docker-cli",
+        "host": {
+          "sourcePath": "/usr/bin/docker"
+        }
+      },
+      {
+        "name": "proc",
+        "host": {
+          "sourcePath": "/proc"
+        }
+      }
+    ],
+    "containerDefinitions": [
+        {
+            "name": "server",
+            "image": "public.ecr.aws/h3q0z0z0/sc-poc-generic-server",
+            "memory": 128,
+            "cpu": 100,
+            "mountPoints": [
+              {
+                "containerPath": "/var/run/docker.sock",
+                "sourceVolume": "docker-sock"
+              },
+              {
+                "containerPath": "/usr/bin/docker",
+                "sourceVolume": "docker-cli"
+              },
+              {
+                "containerPath": "/proc",
+                "sourceVolume": "proc"
+              }
+            ]
+        },
+        {
+            "name": "service-connect",
+            "image": "public.ecr.aws/h3q0z0z0/sc-poc-generic-server-appnet-agent",
+            "memory": 1024,
+            "cpu": 100,
+            "environment": [
+                {
+                    "name": "SC_CONFIG",
+                    "value": "{}"
+                }
+            ],
+            "healthCheck": {
+              "retries": 3,
+              "command": [
+                  "CMD-SHELL",
+                  "sleep 1"
+              ],
+              "timeout": 3,
+              "interval": 30,
+              "startPeriod": 2
+          },
+          "linuxParameters": {
+            "capabilities": {
+              "add": ["NET_ADMIN", "SYS_ADMIN"]
+            }
+          },
+          "portMappings": [
+            {
+              "containerPort": 8080
+            }
+          ],      
+        }
+    ]
+}

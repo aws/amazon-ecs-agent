@@ -1,0 +1,54 @@
+{
+  "containerOverrides": [
+    {
+      "name": "service-connect",
+      "environment": [
+        {
+          "name": "SC_CONFIG",
+          "value": ""
+        },
+        {
+          "name": "SC_APP_CONTAINER_PORT",
+          "value": ""
+        },
+        {
+          "name": "SC_REMOTE_IP_1",
+          "value": ""
+        },
+        {
+          "name": "SC_REMOTE_PORT_1",
+          "value": ""
+        },
+        {
+          "name": "SC_REMOTE_IP_2",
+          "value": ""
+        },
+        {
+          "name": "SC_REMOTE_PORT_2",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "server",
+      "environment": [
+        {
+          "name": "SERVER_TITLE",
+          "value": "SERVER_TITLE_VALUE"
+        },
+        {
+          "name": "SERVER_PORT",
+          "value": "SERVER_PORT_VALUE"
+        },
+        {
+          "name": "OTHER_SERVER_PORT",
+          "value": "OTHER_SERVER_PORT_VALUE"
+        },
+        {
+          "name": "SC_DEPS",
+          "value": ""
+        }
+      ]
+    }
+  ]
+}

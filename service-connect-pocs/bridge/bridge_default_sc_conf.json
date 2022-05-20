@@ -1,0 +1,27 @@
+{
+  "containerName": "service-connect",
+  "statsConfig": {
+    "path":"/stats"
+  },
+  "ingressConfig": [
+    {
+      "listenerPort": 15000
+    }
+  ],
+  "egressConfig": {
+    "listenerName": "egress_listener",
+    "vip": {
+      "ipv4Cidr": "169.254.0.0/16"
+    }
+  },
+  "dnsConfig": [
+    {
+      "hostName": "dep1.my.corp",
+      "address": "169.254.1.1"
+    },
+    {
+      "hostName": "dep2.my.corp",
+      "address": "169.254.1.2"
+    }
+  ]
+}

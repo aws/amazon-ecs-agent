@@ -1,0 +1,11 @@
+version_info: "0"
+resources:
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: remote_cluster_1
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: 172.17.0.4
+                  port_value: 8080

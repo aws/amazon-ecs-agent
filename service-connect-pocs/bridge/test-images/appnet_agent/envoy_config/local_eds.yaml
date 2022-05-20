@@ -1,0 +1,11 @@
+version_info: "0"
+resources:
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: local_cluster
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: SC_APP_CONTAINER_IP
+                  port_value: SC_APP_PORT
