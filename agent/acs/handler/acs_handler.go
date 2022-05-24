@@ -189,70 +189,61 @@ func NewSession(
 // Start starts the session. It'll forever keep trying to connect to ACS unless
 // the context is cancelled.
 //
-// If the context is cancelled, Start() would return with the error code returned
-// by the context.
-// If the instance is deregistered, Start() would emit an event to the
-// deregister-instance event stream and sets the connection backoff time to 1 hour.
+// If the context is cancelled returns nil otherwise returns error from context
 func (acsSession *session) Start() error {
-	// connectToACS channel is used to indicate the intent to connect to ACS
-	// It's processed by the select loop to connect to ACS
-	connectToACS := make(chan struct{}, 1)
-	// This is required to trigger the first connection to ACS. Subsequent
-	// connections are triggered by the handleACSError() method
-	connectToACS <- struct{}{}
+	// Loop continuously until context is closed/cancelled
 	for {
-		select {
-		case <-connectToACS:
-			seelog.Debugf("Received connect to ACS message")
-			// Start a session with ACS
-			acsError := acsSession.startSessionOnce()
-			select {
-			case <-acsSession.ctx.Done():
-				// agent is shutting down, exiting cleanly
+		seelog.Debugf("Attempting connect to ACS")
+		// Start a session with ACS
+		acsError := acsSession.startSessionOnce()
+
+		// If the session is over check for shutdown first
+		if err := acsSession.ctx.Err(); err != nil {
+			if err == context.Canceled {
 				return nil
-			default:
 			}
-			// Session with ACS was stopped with some error, start processing the error
-			isInactiveInstance := isInactiveInstanceError(acsError)
-			if isInactiveInstance {
-				// If the instance was deregistered, send an event to the event stream
-				// for the same
-				seelog.Debug("Container instance is deregistered, notifying listeners")
-				err := acsSession.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
-				if err != nil {
-					seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
-				}
-			}
-			if shouldReconnectWithoutBackoff(acsError) {
-				// If ACS closed the connection, there's no need to backoff,
-				// reconnect immediately
-				seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
-				acsSession.backoff.Reset()
-				sendEmptyMessageOnChannel(connectToACS)
-			} else {
-				// Disconnected unexpectedly from ACS, compute backoff duration to
-				// reconnect
-				reconnectDelay := acsSession.computeReconnectDelay(isInactiveInstance)
-				seelog.Infof("Reconnecting to ACS in: %s", reconnectDelay.String())
-				waitComplete := acsSession.waitForDuration(reconnectDelay)
-				if waitComplete {
-					// If the context was not cancelled and we've waited for the
-					// wait duration without any errors, send the message to the channel
-					// to reconnect to ACS
-					seelog.Info("Done waiting; reconnecting to ACS")
-					sendEmptyMessageOnChannel(connectToACS)
-				} else {
-					// Wait was interrupted. We expect the session to close as canceling
-					// the session context is the only way to end up here. Print a message
-					// to indicate the same
-					seelog.Info("Interrupted waiting for reconnect delay to elapse; Expect session to close")
-				}
-			}
-		case <-acsSession.ctx.Done():
-			// agent is shutting down, exiting cleanly
-			return nil
+			return err
 		}
 
+		// Session with ACS was stopped with some error, start processing the error
+		isInactiveInstance := isInactiveInstanceError(acsError)
+		if isInactiveInstance {
+			// If the instance was deregistered, send an event to the event stream
+			// for the same
+			seelog.Debug("Container instance is deregistered, notifying listeners")
+			err := acsSession.deregisterInstanceEventStream.WriteToEventStream(struct{}{})
+			if err != nil {
+				seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
+			}
+		}
+		if shouldReconnectWithoutBackoff(acsError) {
+			// If ACS closed the connection, there's no need to backoff,
+			// reconnect immediately
+			seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
+			acsSession.backoff.Reset()
+		} else {
+			// Disconnected unexpectedly from ACS, compute backoff duration to
+			// reconnect
+			reconnectDelay := acsSession.computeReconnectDelay(isInactiveInstance)
+			seelog.Infof("Reconnecting to ACS in: %s", reconnectDelay.String())
+			waitComplete := acsSession.waitForDuration(reconnectDelay)
+			if waitComplete {
+				// If the context was not cancelled and we've waited for the
+				// wait duration without any errors, send the message to the channel
+				// to reconnect to ACS
+				seelog.Info("Done waiting; reconnecting to ACS")
+			} else {
+				// Wait was interrupted. We expect the session to close as canceling
+				// the session context is the only way to end up here. Print a message
+				// to indicate the same
+				seelog.Info("Interrupted waiting for reconnect delay to elapse; Expect session to close")
+				err := acsSession.ctx.Err()
+				if err == context.Canceled {
+					return nil
+				}
+				return err
+			}
+		}
 	}
 }
 
@@ -513,12 +504,4 @@ func shouldReconnectWithoutBackoff(acsError error) bool {
 
 func isInactiveInstanceError(acsError error) bool {
 	return acsError != nil && strings.HasPrefix(acsError.Error(), inactiveInstanceExceptionPrefix)
-}
-
-// sendEmptyMessageOnChannel sends an empty message using a go-routine on the
-// specified channel
-func sendEmptyMessageOnChannel(channel chan<- struct{}) {
-	go func() {
-		channel <- struct{}{}
-	}()
 }
