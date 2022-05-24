@@ -1668,8 +1668,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() && container == task.GetServiceConnectContainer() {
-		// TODO [SC]: CNI integration for SC bridge-mode task
+	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() {
+		// TODO [SC]: CNI integration for SC bridge-mode task (need branching to handle SC pause and task container pause)
 		return dockerapi.MetadataFromContainer(containerInspectOutput)
 	}
 

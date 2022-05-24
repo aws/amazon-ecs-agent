@@ -219,8 +219,13 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 				NetworkModeUnsafe: "", // should later be overridden to explicit bridge mode
 			},
 			{
-				Name:              serviceConnectContainerTestName, // port binding is retrieved through listener config
-				NetworkModeUnsafe: "",                              // should not be overridden (implicit bridge mode)
+				Name:              serviceConnectContainerTestName, // port binding is retrieved through listener config and published by pause container
+				NetworkModeUnsafe: "",                              // should later be overridden to container mode
+			},
+			{
+				Name:              fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceConnectContainerTestName),
+				Type:              apicontainer.ContainerCNIPause,
+				NetworkModeUnsafe: "", // should later be overridden to explicit bridge mode
 			},
 		},
 	}
@@ -252,10 +257,10 @@ func convertSCPort(port uint16) nat.Port {
 
 // TestDockerHostConfigSCBridgeMode verifies port bindings and network mode overrides for each
 // container in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
-// and the pause container associated with it.
+// and two pause containers associated with each.
 func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
-	// task container should get empty port binding map and "container" network mode
+	// task container and SC container should both get empty port binding map and "container" network mode
 	actualConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
@@ -264,7 +269,15 @@ func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, "C1")), actualConfig.NetworkMode)
 	assert.Empty(t, actualConfig.PortBindings, "Task container port binding should be empty")
 
-	// pause container should get port binding map of the task container
+	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
+		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, serviceConnectContainerTestName)), actualConfig.NetworkMode)
+	assert.Empty(t, actualConfig.PortBindings, "SC container port binding should be empty")
+
+	// task pause container should get port binding map of the task container
 	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
@@ -279,12 +292,12 @@ func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
 	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
 
-	// SC container should get port binding map of all ingress listeners
-	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion,
+	// SC pause container should get port binding map of all ingress listeners
+	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[3], dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
-	assert.Equal(t, dockercontainer.NetworkMode(""), actualConfig.NetworkMode)
+	assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
 	// SC - ingress listener 1 - default experience
 	bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener1ContainerPort)]
 	assert.True(t, ok, "Could not get port bindings")
@@ -313,7 +326,7 @@ func TestDockerHostConfigSCBridgeMode_getPortBindingFailure(t *testing.T) {
 
 // TestDockerContainerConfigSCBridgeMode verifies exposed port configuration for each container
 // in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
-// and the pause container associated with it.
+// and two pause container associated with each of them.
 func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 
@@ -323,7 +336,13 @@ func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	assert.NotNil(t, actualConfig)
 	assert.Empty(t, actualConfig.ExposedPorts)
 
-	// Containers[1] pause container should expose all container ports from the associated user-defined task containers
+	// Containers[2] aka SC container should NOT expose any ports (it's done through the associated pause container)
+	actualConfig, err = testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Empty(t, actualConfig.ExposedPorts)
+
+	// Containers[1] aka task pause container should expose all container ports from the associated user-defined task containers
 	actualConfig, err = testTask.DockerConfig(testTask.Containers[1], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
@@ -334,8 +353,8 @@ func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	_, ok = actualConfig.ExposedPorts[convertSCPort(SCTaskContainerPort2)]
 	assert.True(t, ok)
 
-	// Containers[2] aka SC container should expose all container ports from SC ingress and egress listeners
-	actualConfig, err = testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	// Containers[3] aka SC pause container should expose all container ports from SC ingress and egress listeners
+	actualConfig, err = testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.NotNil(t, actualConfig.ExposedPorts)
@@ -359,7 +378,7 @@ func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) 
 func TestDockerContainerConfigSCBridgeMode_emptyEgressConfig(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 	testTask.ServiceConnectConfig.EgressConfig = EgressConfig{}
-	actualConfig, err := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	actualConfig, err := testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.NotNil(t, actualConfig.ExposedPorts)
@@ -3795,6 +3814,7 @@ func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
 	assert.NoError(t, err)
+	task.NetworkMode = AWSVPCNetworkMode
 
 	validateServiceConnectContainerOrder(t, task)
 	validateEphemeralPorts(t, task, originalSCConfig, utilizedPorts)
@@ -3932,25 +3952,6 @@ func validateServiceConnectContainerOrder(t *testing.T, task *Task) {
 		ContainerName:   "C2",
 		SatisfiedStatus: apicontainerstatus.ContainerStopped,
 	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[1])
-
-	// For bridge mode, also check that regular containers CREATED have a dependency on SC container RESOURCES_PROVISIONED
-	if task.IsNetworkModeBridge() {
-		assert.NotEmpty(t, c1.TransitionDependenciesMap)
-		assert.NotNil(t, c1.TransitionDependenciesMap[apicontainerstatus.ContainerCreated])
-		assert.NotEmpty(t, c1.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies)
-		assert.Equal(t, apicontainer.ContainerDependency{
-			ContainerName:   serviceConnectContainerTestName,
-			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
-		}, c1.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies[0])
-
-		assert.NotEmpty(t, c2.TransitionDependenciesMap)
-		assert.NotNil(t, c2.TransitionDependenciesMap[apicontainerstatus.ContainerCreated])
-		assert.NotEmpty(t, c2.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies)
-		assert.Equal(t, apicontainer.ContainerDependency{
-			ContainerName:   serviceConnectContainerTestName,
-			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
-		}, c2.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies[0])
-	}
 }
 
 func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig ServiceConnectConfig, utilizedPorts map[uint16]struct{}) {
@@ -4014,36 +4015,47 @@ func validateAppnetEnvVars(t *testing.T, task *Task) {
 
 func validateServiceConnectBridgeModePauseContainer(t *testing.T, task *Task) {
 	scC, _ := task.ContainerByName(serviceConnectContainerTestName)
+	scPauseC, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceConnectContainerTestName))
+	assert.True(t, ok)
 	p1, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, "C1"))
 	assert.True(t, ok)
 	p2, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, "C2"))
 	assert.True(t, ok)
+	pauseContainers := [...]*apicontainer.Container{p1, p2, scPauseC}
 
-	// verify that SCContainer.CREATED depends on PauseContainer.RUNNING
+	// verify that SCContainer.CREATED depends on ALL PauseContainer.RESOURCES_PROVISIONED, and dthat
+	// ALL PauseContainer.STOPPED depends on SCContainer.STOPPED
 	assert.NotEmpty(t, scC.TransitionDependenciesMap)
 	assert.NotNil(t, scC.TransitionDependenciesMap[apicontainerstatus.ContainerCreated])
 	containerDependencies := scC.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies
-	assert.NotEmpty(t, containerDependencies)
-	assert.Equal(t, p1.Name, containerDependencies[0].ContainerName)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, containerDependencies[0].SatisfiedStatus)
-	assert.Equal(t, p2.Name, containerDependencies[1].ContainerName)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, containerDependencies[1].SatisfiedStatus)
+	assert.Equal(t, len(pauseContainers), len(containerDependencies))
+	for i, pc := range pauseContainers {
+		assert.Equal(t, pc.Name, containerDependencies[i].ContainerName)
+		assert.Equal(t, apicontainerstatus.ContainerResourcesProvisioned, containerDependencies[i].SatisfiedStatus)
 
-	// verify that PauseContainer.STOPPED depends on SCContainer.STOPPED
-	assert.NotEmpty(t, p1.TransitionDependenciesMap)
-	assert.NotNil(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerStopped])
-	assert.NotEmpty(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies)
-	assert.Equal(t, apicontainer.ContainerDependency{
-		ContainerName:   serviceConnectContainerTestName,
-		SatisfiedStatus: apicontainerstatus.ContainerStopped,
-	}, p1.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+		assert.NotEmpty(t, pc.TransitionDependenciesMap)
+		assert.NotNil(t, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped])
+		assert.NotEmpty(t, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies)
+		assert.Equal(t, apicontainer.ContainerDependency{
+			ContainerName:   serviceConnectContainerTestName,
+			SatisfiedStatus: apicontainerstatus.ContainerStopped,
+		}, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+	}
 
-	assert.NotEmpty(t, p2.TransitionDependenciesMap)
-	assert.NotNil(t, p2.TransitionDependenciesMap[apicontainerstatus.ContainerStopped])
+	// verify that taskPauseContainer.RESOURCES_PROVISIONED depends on SCPauseContainer.RUNNING
+	assert.NotNil(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned])
+	assert.NotEmpty(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies)
 	assert.Equal(t, apicontainer.ContainerDependency{
-		ContainerName:   serviceConnectContainerTestName,
-		SatisfiedStatus: apicontainerstatus.ContainerStopped,
-	}, p2.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+		ContainerName:   scPauseC.Name,
+		SatisfiedStatus: apicontainerstatus.ContainerRunning,
+	}, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies[0])
+
+	assert.NotNil(t, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned])
+	assert.NotEmpty(t, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies)
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   scPauseC.Name,
+		SatisfiedStatus: apicontainerstatus.ContainerRunning,
+	}, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies[0])
 }
 
 func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
