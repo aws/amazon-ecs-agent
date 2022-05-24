@@ -99,7 +99,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	validateInstanceMetrics(t, engine)
+	validateInstanceMetrics(t, engine, false)
 	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.ContainerStop(ctx, container.ID, &timeout)
@@ -171,7 +171,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	validateInstanceMetrics(t, engine)
+	validateInstanceMetrics(t, engine, false)
 	validateEmptyTaskHealthMetrics(t, engine)
 
 	err = client.ContainerStop(ctx, container.ID, &timeout)
@@ -240,7 +240,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	time.Sleep(checkPointSleep)
 
 	// Verify the metrics of the container
-	validateInstanceMetrics(t, engine)
+	validateInstanceMetrics(t, engine, false)
 
 	// Verify the health metrics of container
 	validateTaskHealthMetrics(t, engine)
@@ -317,7 +317,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	validateInstanceMetrics(t, engine)
+	validateInstanceMetrics(t, engine, false)
 	// Verify the health metrics of container
 	validateTaskHealthMetrics(t, engine)
 
@@ -399,7 +399,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(10 * time.Second)
-	validateInstanceMetrics(t, engine)
+	validateInstanceMetrics(t, engine, false)
 	// Verify the health metrics of container
 	validateTaskHealthMetrics(t, engine)
 
@@ -489,7 +489,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 
 	// Wait for the stats collection go routine to start.
 	time.Sleep(checkPointSleep)
-	validateInstanceMetrics(t, statsEngine)
+	validateInstanceMetrics(t, statsEngine, false)
 	validateTaskHealthMetrics(t, statsEngine)
 
 	err = client.ContainerStop(ctx, container.ID, &timeout)
