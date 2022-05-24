@@ -474,7 +474,6 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 				taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
 				serviceConnectStats.SetStatsSent(true)
 			}
-
 		}
 
 		taskMetrics = append(taskMetrics, taskMetric)
