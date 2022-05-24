@@ -377,10 +377,7 @@ func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) 
 
 func TestDockerContainerConfigSCBridgeMode_emptyEgressConfig(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
-	testTask.ServiceConnectConfig.EgressConfig = &EgressConfig{
-		ListenerName: "",
-		VIP:          VIP{},
-	}
+	testTask.ServiceConnectConfig.EgressConfig = nil
 	actualConfig, err := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
@@ -4233,7 +4230,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 				},
 			},
 			testNetworkMode:   AWSVPCNetworkMode,
-			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"\",\"ipv6Cidr\":\"2002::1234:abcd:ffff:c0a8:101/64\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"abcd:dcba:1234:4321::\"}],\"ingressConfig\":[{\"listenerPort\":8080}]}",
+			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"2002::1234:abcd:ffff:c0a8:101/64\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"abcd:dcba:1234:4321::\"}],\"ingressConfig\":[{\"listenerPort\":8080}]}",
 			testExpectedSCConfig: &ServiceConnectConfig{
 				ContainerName: serviceConnectContainerTestName,
 				IngressConfig: []IngressConfigEntry{
@@ -4244,7 +4241,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 				EgressConfig: &EgressConfig{
 					ListenerName: testOutboundListenerName,
 					VIP: VIP{
-						IPV4CIDR: "",
+						IPV4CIDR: testIPv4Cidr,
 						IPV6CIDR: testIPv6Cidr,
 					},
 				},
