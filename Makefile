@@ -293,7 +293,7 @@ GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 19 ${GOFILES}
+	gocyclo -over 17 ${GOFILES}
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet
