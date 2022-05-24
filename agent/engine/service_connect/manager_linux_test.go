@@ -195,8 +195,9 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		fmt.Sprintf("%s:%s", tempDir, "/not/var/run"),
 	}
 	expectedENVs := map[string]string{
-		"ReLaYgOeShErE":  "/not/var/run/relay_file_of_holiness",
-		"StAtUsGoEsHeRe": "/some/other/run/status_file_of_holiness",
+		"ReLaYgOeShErE":           "/not/var/run/relay_file_of_holiness",
+		"StAtUsGoEsHeRe":          "/some/other/run/status_file_of_holiness",
+		"APPNET_AGENT_ADMIN_MODE": "uds",
 	}
 
 	type testCase struct {

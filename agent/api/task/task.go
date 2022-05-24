@@ -150,7 +150,7 @@ const (
 	sysctlValueOff = "0"
 
 	serviceConnectListenerPortMappingEnvVar = "APPNET_LISTENER_PORT_MAPPING"
-	serviceConnectContainerMappingEnvVar    = "APPNET_CONTAINER_MAPPING"
+	serviceConnectContainerMappingEnvVar    = "APPNET_CONTAINER_IP_MAPPING"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -3196,7 +3196,7 @@ func (task *Task) IsServiceConnectEnabled() bool {
 	return task.GetServiceConnectContainer() != nil
 }
 
-// PopulateServiceConnectContainerMappingEnvVar populates APPNET_CONTAINER_MAPPING env var for AppNet Agent container
+// PopulateServiceConnectContainerMappingEnvVar populates APPNET_CONTAINER_IP_MAPPING env var for AppNet Agent container
 // aka SC container
 func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
 	envVars := make(map[string]string)
