@@ -378,7 +378,7 @@ func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) 
 func TestDockerContainerConfigSCBridgeMode_emptyEgressConfig(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 	testTask.ServiceConnectConfig.EgressConfig = nil
-	actualConfig, err := testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	actualConfig, err := testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.NotNil(t, actualConfig.ExposedPorts)
