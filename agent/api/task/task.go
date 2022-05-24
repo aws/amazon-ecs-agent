@@ -1779,7 +1779,7 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 					dockerExposedPorts[dockerPort] = struct{}{}
 				}
 				ec := task.ServiceConnectConfig.EgressConfig
-				if ec.ListenerName != "" { // it's possible that task does not have an egress listener
+				if ec != nil { // it's possible that task does not have an egress listener
 					dockerPort := nat.Port(strconv.Itoa(int(ec.ListenerPort))) + "/tcp"
 					dockerExposedPorts[dockerPort] = struct{}{}
 				}
