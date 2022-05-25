@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -71,9 +72,8 @@ func NewManager() Manager {
 		statusPathHostRoot:  defaultStatusPathHostRoot,
 		statusFileName:      defaultStatusFileName,
 		statusENV:           defaultStatusENV,
-
-		adminStatsRequest: defaultAdminStatsRequest,
-		adminDrainRequest: defaultAdminDrainRequest,
+		adminStatsRequest:   defaultAdminStatsRequest,
+		adminDrainRequest:   defaultAdminDrainRequest,
 	}
 }
 
@@ -106,6 +106,8 @@ func getBindMountMapping(hostDir, containerDir string) string {
 
 func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) (string, error) {
 	statusPathHost := filepath.Join(m.statusPathHostRoot, taskId)
+	oldMask := syscall.Umask(0)
+	defer syscall.Umask(oldMask)
 
 	// Create host directories if they don't exist
 	for _, path := range []string{statusPathHost, m.relayPathHost} {
@@ -120,7 +122,7 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
-	return filepath.Join(statusPathHost, m.relayFileName), nil
+	return filepath.Join(statusPathHost, m.statusFileName), nil
 }
 
 func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
