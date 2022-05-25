@@ -34,8 +34,6 @@ const (
 	defaultStatusPathHostRoot = "/var/run/ecs/service_connect/"
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_UDS_PATH"
-	defaultAdminStatsRequest  = "/stats/prometheus?usedonly&filter=metrics_extension&delta"
-	defaultAdminDrainRequest  = "/drain_listeners?inboundonly"
 )
 
 type manager struct {
@@ -55,11 +53,6 @@ type manager struct {
 	statusFileName string
 	// Environment variable to set on Container with contents of statusPathContainer/statusFileName
 	statusENV string
-
-	// Http path + params to make a statistics request of AppNetAgent
-	adminStatsRequest string
-	// Http path + params to make a drain request of AppNetAgent
-	adminDrainRequest string
 }
 
 func NewManager() Manager {
@@ -72,8 +65,6 @@ func NewManager() Manager {
 		statusPathHostRoot:  defaultStatusPathHostRoot,
 		statusFileName:      defaultStatusFileName,
 		statusENV:           defaultStatusENV,
-		adminStatsRequest:   defaultAdminStatsRequest,
-		adminDrainRequest:   defaultAdminDrainRequest,
 	}
 }
 
@@ -93,8 +84,6 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	// Setup runtime configuration
 	var config apitask.RuntimeConfig
 	config.AdminSocketPath = adminPath
-	config.StatsRequest = m.adminStatsRequest
-	config.DrainRequest = m.adminDrainRequest
 
 	task.PopulateServiceConnectRuntimeConfig(config)
 	return nil

@@ -28,10 +28,6 @@ type ServiceConnectConfig struct {
 type RuntimeConfig struct {
 	// Host path for the administration socket
 	AdminSocketPath string `json:"adminSocketPath"`
-	// HTTP Path + Params to get statistical information
-	StatsRequest string `json:"statsRequest"`
-	// HTTP Path + Params to drain ServiceConnect connections
-	DrainRequest string `json:"drainRequest"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
