@@ -43,6 +43,12 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 			{Name: "test"},
 		},
 		LocalIPAddressUnsafe: "127.0.0.1",
+		ServiceConnectConfig: &apitask.ServiceConnectConfig{
+			RuntimeConfig: apitask.RuntimeConfig{
+				AdminSocketPath: "/tmp/appnet_admin.sock",
+				StatsRequest:    "/stats/prometheus",
+			},
+		},
 	}
 
 	var tests = []struct {
@@ -110,7 +116,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 
 	for _, test := range tests {
 		// Set up a mock http sever on the statsUrlpath
-		statsMockurl := "127.0.0.1:9901"
+		mockUDSPath := "/tmp/appnet_admin.sock"
 		r := mux.NewRouter()
 		r.HandleFunc("/stats/prometheus", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%v", test.stats)
@@ -118,10 +124,9 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 
 		ts := httptest.NewUnstartedServer(r)
 
-		l, err := net.Listen("tcp", statsMockurl)
-		if err != nil {
-			fmt.Printf("%v", err)
-		}
+		l, err := net.Listen("unix", mockUDSPath)
+		assert.NoError(t, err)
+
 		ts.Listener.Close()
 		ts.Listener = l
 		ts.Start()
