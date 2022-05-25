@@ -87,7 +87,7 @@ type containerTransition struct {
 	nextState      apicontainerstatus.ContainerStatus
 	actionRequired bool
 	blockedOn      *apicontainer.DependsOn
-	reason         error
+	reason         dependencygraph.DependencyError
 }
 
 // resourceTransition defines the struct for a resource to transition.
@@ -1088,6 +1088,9 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 	for _, cont := range mtask.Containers {
 		transition := mtask.containerNextState(cont)
 		if transition.reason != nil {
+			if transition.reason.IsTerminal() {
+				mtask.handleTerminalDependencyError(cont, transition.reason)
+			}
 			// container can't be transitioned
 			reasons = append(reasons, transition.reason)
 			if transition.blockedOn != nil {
@@ -1126,6 +1129,31 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 	}
 
 	return anyCanTransition, blocked, transitions, reasons
+}
+
+func (mtask *managedTask) handleTerminalDependencyError(container *apicontainer.Container, error dependencygraph.DependencyError) {
+	logger.Error("Terminal error detected during transition; marking container as stopped", logger.Fields{
+		field.Container: container.Name,
+		field.Error:     error.Error(),
+	})
+	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+	exitCode := 143
+	container.SetKnownExitCode(&exitCode)
+	// Change container status to STOPPED with exit code 143. This exit code is what docker reports when
+	// a container receives SIGTERM. In this case it's technically not true that we send SIGTERM because the
+	// container didn't even start, but we have to report an error and 143 seems the most appropriate.
+	go func(cont *apicontainer.Container) {
+		mtask.dockerMessages <- dockerContainerChange{
+			container: cont,
+			event: dockerapi.DockerContainerChangeEvent{
+				Status: apicontainerstatus.ContainerStopped,
+				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+					Error:    dockerapi.CannotStartContainerError{FromError: error},
+					ExitCode: &exitCode,
+				},
+			},
+		}
+	}(container)
 }
 
 // startResourceTransitions steps through each resource in the task and calls
@@ -1370,10 +1398,6 @@ func (mtask *managedTask) resourceNextState(resource taskresource.TaskResource) 
 }
 
 func (mtask *managedTask) handleContainersUnableToTransitionState() {
-	logger.Critical("Task in a bad state; it's not steady state but no containers want to transition", logger.Fields{
-		field.TaskID: mtask.GetID(),
-	})
-
 	if mtask.GetDesiredStatus().Terminal() {
 		// Ack, really bad. We want it to stop but the containers don't think
 		// that's possible. let's just break out and hope for the best!
@@ -1384,10 +1408,23 @@ func (mtask *managedTask) handleContainersUnableToTransitionState() {
 		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
 	} else {
-		logger.Critical("Moving task to stopped due to bad state", logger.Fields{
-			field.TaskID: mtask.GetID(),
-		})
-		mtask.handleDesiredStatusChange(apitaskstatus.TaskStopped, 0)
+		// If we end up here, it means containers are not able to transition anymore; maybe because of dependencies that
+		// are unable to start. Therefore, if there are essential containers that haven't started yet, we need to
+		// stop the task since they are not going to start.
+		stopTask := false
+		for _, c := range mtask.Containers {
+			if c.IsEssential() && !c.IsKnownSteadyState() {
+				stopTask = true
+				break
+			}
+		}
+
+		if stopTask {
+			logger.Critical("Task in a bad state; it's not steady state but no containers want to transition", logger.Fields{
+				field.TaskID: mtask.GetID(),
+			})
+			mtask.handleDesiredStatusChange(apitaskstatus.TaskStopped, 0)
+		}
 	}
 }
 

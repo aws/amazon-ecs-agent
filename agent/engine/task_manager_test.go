@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
@@ -240,7 +242,7 @@ func TestContainerNextState(t *testing.T) {
 		containerDesiredStatus       apicontainerstatus.ContainerStatus
 		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		expectedTransitionActionable bool
-		reason                       error
+		reason                       dependencygraph.DependencyError
 	}{
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running
 		// The expected next status is Pulled
@@ -728,6 +730,86 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 	assert.Empty(t, transitions)
 }
 
+func TestStartContainerTransitionsWithTerminalError(t *testing.T) {
+	firstContainerName := "container1"
+	firstContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerStopped,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		KnownExitCodeUnsafe: aws.Int(1), // This simulated the container has stopped unsuccessfully
+		Name:                firstContainerName,
+	}
+	secondContainerName := "container2"
+	secondContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		Name:                secondContainerName,
+		DependsOnUnsafe: []apicontainer.DependsOn{
+			{
+				ContainerName: firstContainerName,
+				Condition:     "SUCCESS", // This means this condition can never be fulfilled since container1 has exited with non-zero code
+			},
+		},
+	}
+	thirdContainerName := "container3"
+	thirdContainer := &apicontainer.Container{
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		Name:                thirdContainerName,
+		DependsOnUnsafe: []apicontainer.DependsOn{
+			{
+				ContainerName: secondContainerName,
+				Condition:     "SUCCESS", // This means this condition can never be fulfilled since container2 has exited with non-zero code
+			},
+		},
+	}
+	dockerMessagesChan := make(chan dockerContainerChange)
+	task := &managedTask{
+		Task: &apitask.Task{
+			Containers: []*apicontainer.Container{
+				firstContainer,
+				secondContainer,
+				thirdContainer,
+			},
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		},
+		engine:         &DockerTaskEngine{},
+		dockerMessages: dockerMessagesChan,
+	}
+
+	canTransition, _, transitions, errors := task.startContainerTransitions(
+		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+			t.Error("Transition function should not be called when no transitions are possible")
+		})
+	assert.False(t, canTransition)
+	assert.Empty(t, transitions)
+	assert.Equal(t, 3, len(errors)) // first error is just indicating container1 is at desired status, following errors should be terminal
+	assert.False(t, errors[0].(dependencygraph.DependencyError).IsTerminal(), "Error should NOT  be terminal")
+	assert.True(t, errors[1].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+	assert.True(t, errors[2].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+
+	stoppedMessages := make(map[string]dockerContainerChange)
+	// verify we are sending STOPPED message
+	for i := 0; i < 2; i++ {
+		select {
+		case msg := <-dockerMessagesChan:
+			stoppedMessages[msg.container.Name] = msg
+		case <-time.After(time.Second):
+			t.Fatal("Timed out waiting for docker messages")
+			break
+		}
+	}
+
+	assert.Equal(t, secondContainer, stoppedMessages[secondContainerName].container)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, stoppedMessages[secondContainerName].event.Status)
+	assert.Error(t, stoppedMessages[secondContainerName].event.DockerContainerMetadata.Error)
+	assert.Equal(t, 143, *stoppedMessages[secondContainerName].event.DockerContainerMetadata.ExitCode)
+
+	assert.Equal(t, thirdContainer, stoppedMessages[thirdContainerName].container)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, stoppedMessages[thirdContainerName].event.Status)
+	assert.Error(t, stoppedMessages[thirdContainerName].event.DockerContainerMetadata.Error)
+	assert.Equal(t, 143, *stoppedMessages[thirdContainerName].event.DockerContainerMetadata.ExitCode)
+}
+
 func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	eventStreamName := "TESTTASKENGINE"
 
@@ -908,28 +990,48 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) {
-	firstContainerName := "container1"
-	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		Name:                firstContainerName,
-	}
-	task := &managedTask{
-		Task: &apitask.Task{
-			Containers: []*apicontainer.Container{
-				firstContainer,
-			},
-			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+	for _, tc := range []struct {
+		knownStatus                    apicontainerstatus.ContainerStatus
+		expectedContainerDesiredStatus apicontainerstatus.ContainerStatus
+		expectedTaskDesiredStatus      apitaskstatus.TaskStatus
+	}{
+		{
+			knownStatus:                    apicontainerstatus.ContainerCreated,
+			expectedContainerDesiredStatus: apicontainerstatus.ContainerStopped,
+			expectedTaskDesiredStatus:      apitaskstatus.TaskStopped,
 		},
-		engine: &DockerTaskEngine{
-			dataClient: data.NewNoopClient(),
+		{
+			knownStatus:                    apicontainerstatus.ContainerRunning,
+			expectedContainerDesiredStatus: apicontainerstatus.ContainerRunning,
+			expectedTaskDesiredStatus:      apitaskstatus.TaskRunning,
 		},
-		ctx: context.TODO(),
-	}
+	} {
+		t.Run(fmt.Sprintf("Essential container with knownStatus=%s", tc.knownStatus.String()), func(t *testing.T) {
+			firstContainerName := "container1"
+			firstContainer := &apicontainer.Container{
+				KnownStatusUnsafe:   tc.knownStatus,
+				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				Name:                firstContainerName,
+				Essential:           true, // setting this to true since at least one container in the task must be essential.
+			}
+			task := &managedTask{
+				Task: &apitask.Task{
+					Containers: []*apicontainer.Container{
+						firstContainer,
+					},
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				engine: &DockerTaskEngine{
+					dataClient: data.NewNoopClient(),
+				},
+				ctx: context.TODO(),
+			}
 
-	task.handleContainersUnableToTransitionState()
-	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
-	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainerstatus.ContainerStopped)
+			task.handleContainersUnableToTransitionState()
+			assert.Equal(t, tc.expectedTaskDesiredStatus, task.GetDesiredStatus())
+			assert.Equal(t, tc.expectedContainerDesiredStatus, task.Containers[0].GetDesiredStatus())
+		})
+	}
 }
 
 // TODO: Test progressContainers workflow

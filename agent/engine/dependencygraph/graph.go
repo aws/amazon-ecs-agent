@@ -47,23 +47,44 @@ const (
 var (
 	// CredentialsNotResolvedErr is the error where a container needs to wait for
 	// credentials before it can process by agent
-	CredentialsNotResolvedErr = errors.New("dependency graph: container execution credentials not available")
+	CredentialsNotResolvedErr = &dependencyError{err: errors.New("dependency graph: container execution credentials not available")}
 	// DependentContainerNotResolvedErr is the error where a dependent container isn't in expected state
-	DependentContainerNotResolvedErr = errors.New("dependency graph: dependent container not in expected state")
+	DependentContainerNotResolvedErr = &dependencyError{err: errors.New("dependency graph: dependent container not in expected state")}
 	// ContainerPastDesiredStatusErr is the error where the container status is bigger than desired status
-	ContainerPastDesiredStatusErr = errors.New("container transition: container status is equal or greater than desired status")
+	ContainerPastDesiredStatusErr = &dependencyError{err: errors.New("container transition: container status is equal or greater than desired status")}
 	// ErrContainerDependencyNotResolved is when the container's dependencies
 	// on other containers are not resolved
-	ErrContainerDependencyNotResolved = errors.New("dependency graph: dependency on containers not resolved")
+	ErrContainerDependencyNotResolved = &dependencyError{err: errors.New("dependency graph: dependency on containers not resolved")}
 	// ErrResourceDependencyNotResolved is when the container's dependencies
 	// on task resources are not resolved
-	ErrResourceDependencyNotResolved = errors.New("dependency graph: dependency on resources not resolved")
+	ErrResourceDependencyNotResolved = &dependencyError{err: errors.New("dependency graph: dependency on resources not resolved")}
 	// ResourcePastDesiredStatusErr is the error where the task resource known status is bigger than desired status
-	ResourcePastDesiredStatusErr = errors.New("task resource transition: task resource status is equal or greater than desired status")
+	ResourcePastDesiredStatusErr = &dependencyError{err: errors.New("task resource transition: task resource status is equal or greater than desired status")}
 	// ErrContainerDependencyNotResolvedForResource is when the resource's dependencies
 	// on other containers are not resolved
-	ErrContainerDependencyNotResolvedForResource = errors.New("dependency graph: resource's dependency on containers not resolved")
+	ErrContainerDependencyNotResolvedForResource = &dependencyError{err: errors.New("dependency graph: resource's dependency on containers not resolved")}
 )
+
+// DependencyError represents an error of a container dependency. These errors can be either terminal or non-terminal.
+// Terminal dependency errors indicate that a given dependency can never be fulfilled (e.g. a container with a SUCCESS
+// dependency has stopped with an exit code other than zero).
+type DependencyError interface {
+	Error() string
+	IsTerminal() bool
+}
+
+type dependencyError struct {
+	err        error
+	isTerminal bool
+}
+
+func (de *dependencyError) Error() string {
+	return de.err.Error()
+}
+
+func (de *dependencyError) IsTerminal() bool {
+	return de.isTerminal
+}
 
 // ValidDependencies takes a task and verifies that it is possible to allow all
 // containers within it to reach the desired status by proceeding in some
@@ -124,7 +145,7 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	id string,
 	manager credentials.Manager,
 	resources []taskresource.TaskResource,
-	cfg *config.Config) (*apicontainer.DependsOn, error) {
+	cfg *config.Config) (*apicontainer.DependsOn, DependencyError) {
 	if !executionCredentialsResolved(target, id, manager) {
 		return nil, CredentialsNotResolvedErr
 	}
@@ -244,7 +265,7 @@ func verifyStatusResolvable(target *apicontainer.Container, existingContainers m
 // (map from name to container). The `resolves` function passed should return true if the named container is resolved.
 
 func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
-	cfg *config.Config, resolves func(*apicontainer.Container, *apicontainer.Container, string, *config.Config) bool) (*apicontainer.DependsOn, error) {
+	cfg *config.Config, resolves func(*apicontainer.Container, *apicontainer.Container, string, *config.Config) bool) (*apicontainer.DependsOn, DependencyError) {
 
 	targetGoal := target.GetDesiredStatus()
 	targetKnown := target.GetKnownStatus()
@@ -260,7 +281,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 	for _, dependency := range targetDependencies {
 		dependencyContainer, ok := existingContainers[dependency.ContainerName]
 		if !ok {
-			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
+			return nil, &dependencyError{err: fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target), isTerminal: true}
 		}
 
 		// We want to check whether the dependency container has timed out only if target has not been created yet.
@@ -268,7 +289,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		// However, if dependency container has already stopped, then it cannot time out.
 		if targetKnown < apicontainerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != apicontainerstatus.ContainerStopped {
 			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
-				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
+				return nil, &dependencyError{err: fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target), isTerminal: true}
 			}
 		}
 
@@ -276,13 +297,13 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		// can then never progress to its desired state when the dependency condition is 'SUCCESS'
 		if dependency.Condition == successCondition && dependencyContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
 			!hasDependencyStoppedSuccessfully(dependencyContainer) {
-			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
+			return nil, &dependencyError{err: fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target), isTerminal: true}
 		}
 
 		// For any of the dependency conditions - START/COMPLETE/SUCCESS/HEALTHY, if the dependency container has
 		// not started and will not start in the future, this dependency can never be resolved.
 		if dependencyContainer.HasNotAndWillNotStart() {
-			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] because dependency will never start", dependencyContainer, target)
+			return nil, &dependencyError{err: fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] because dependency will never start", dependencyContainer, target), isTerminal: true}
 		}
 
 		if !resolves(target, dependencyContainer, dependency.Condition, cfg) {
@@ -290,14 +311,14 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		}
 	}
 	if blockedDependency != nil {
-		return blockedDependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", blockedDependency, target)
+		return blockedDependency, &dependencyError{err: fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", blockedDependency, target)}
 	}
 	return nil, nil
 }
 
 func verifyTransitionDependenciesResolved(target *apicontainer.Container,
 	existingContainers map[string]*apicontainer.Container,
-	existingResources map[string]taskresource.TaskResource) error {
+	existingResources map[string]taskresource.TaskResource) DependencyError {
 
 	if !verifyContainerDependenciesResolved(target, existingContainers) {
 		return ErrContainerDependencyNotResolved
@@ -471,7 +492,7 @@ func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) b
 		dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
 }
 
-func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container) error {
+func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container) DependencyError {
 	// We considered adding this to the task state, but this will be at most 45 loops,
 	// so we err'd on the side of having less state.
 	missingShutdownDependencies := []string{}
@@ -493,8 +514,8 @@ func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[
 		return nil
 	}
 
-	return fmt.Errorf("dependency graph: target %s needs other containers stopped before it can stop: [%s]",
-		target.Name, strings.Join(missingShutdownDependencies, "], ["))
+	return &dependencyError{err: fmt.Errorf("dependency graph: target %s needs other containers stopped before it can stop: [%s]",
+		target.Name, strings.Join(missingShutdownDependencies, "], ["))}
 }
 
 func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.Container) bool {
