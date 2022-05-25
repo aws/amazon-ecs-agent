@@ -16,11 +16,12 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -33,9 +34,8 @@ import (
 	"github.com/prometheus/common/expfmt"
 )
 
-const (
-	statsURLPath      = ":9901/stats/prometheus"
-	bridgeNetworkMode = "bridge"
+var (
+	statsUrlFormat = "http://unix%v"
 )
 
 type ServiceConnectStats struct {
@@ -50,24 +50,19 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 
 // TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
-	var ipAddress string
-	if task.IsNetworkModeAWSVPC() {
-		ipAddress = task.GetLocalIPAddress()
-	} else {
-		for _, container := range task.Containers {
-			// TODO [SC]: Implement a proper check for appnet agent container when it is defined
-			if strings.Contains(container.Name, "envoy") &&
-				(container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == bridgeNetworkMode) {
-				network := *container.GetNetworkSettings()
-				networkSettings := network.DefaultNetworkSettings
-				ipAddress = networkSettings.IPAddress
-				break
-			}
-		}
+
+	serviceConnectConfig := task.GetServiceConnectRuntimeConfig()
+
+	// TODO [SC]: Use the formal appnet client to connect to the UDS and fetch stats
+	httpclient := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
+				return net.Dial("unix", serviceConnectConfig.AdminSocketPath)
+			},
+		},
 	}
-	// TODO [SC]: Replace the stats url when it is defined
-	statsEndpoint, _ := url.Parse(fmt.Sprintf("http://" + ipAddress + statsURLPath))
-	resp, err := http.Get(statsEndpoint.String())
+
+	resp, err := httpclient.Get(fmt.Sprintf(statsUrlFormat, serviceConnectConfig.StatsRequest))
 	if err != nil {
 		logger.Error("Could not connect to service connect stats endpoint for task", logger.Fields{
 			field.TaskID: task.GetID(),
