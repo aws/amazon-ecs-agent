@@ -283,6 +283,8 @@ type Task struct {
 
 	ServiceConnectConfig *ServiceConnectConfig `json:"ServiceConnectConfig,omitempty"`
 
+	ServiceConnectConnectionDrainingUnsafe bool `json:"ServiceConnectConnectionDraining,omitempty"`
+
 	NetworkMode string `json:"NetworkMode,omitempty"`
 }
 
@@ -2413,8 +2415,9 @@ func (task *Task) UpdateDesiredStatus() {
 // Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatusUnsafe() {
 	logger.Debug("Updating task's desired status", logger.Fields{
-		field.TaskID:      task.GetID(),
-		field.KnownStatus: task.KnownStatusUnsafe.String(),
+		field.TaskID:        task.GetID(),
+		field.KnownStatus:   task.KnownStatusUnsafe.String(),
+		field.DesiredStatus: task.DesiredStatusUnsafe.String(),
 	})
 
 	// A task's desired status is stopped if any essential container is stopped
@@ -3229,4 +3232,16 @@ func (task *Task) GetServiceConnectRuntimeConfig() RuntimeConfig {
 	defer task.lock.RUnlock()
 
 	return task.ServiceConnectConfig.RuntimeConfig
+}
+
+func (task *Task) SetServiceConnectConnectionDraining(draining bool) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+	task.ServiceConnectConnectionDrainingUnsafe = draining
+}
+
+func (task *Task) IsServiceConnectConnectionDraining() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.ServiceConnectConnectionDrainingUnsafe
 }

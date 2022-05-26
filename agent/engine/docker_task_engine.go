@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appnetclient"
+
 	serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -114,7 +116,11 @@ const (
 	stopContainerMaxRetryCount     = 5
 )
 
-var newExponentialBackoff = retry.NewExponentialBackoff
+var (
+	newExponentialBackoff = retry.NewExponentialBackoff
+	// Injection point for appnetclient.DrainInboundConnections UTs
+	appnetDrainInboundConnections = appnetclient.DrainInboundConnections
+)
 
 // DockerTaskEngine is a state machine for managing a task and its containers
 // in ECS.
@@ -1835,6 +1841,19 @@ func (engine *DockerTaskEngine) inspectContainer(task *apitask.Task, container *
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
+	// Before attempting to stop any container, send drain signal for Appnet Agent to start draining connections
+	// (if not already in progress).
+	if task.IsServiceConnectEnabled() && !task.IsServiceConnectConnectionDraining() {
+		if err := appnetDrainInboundConnections(task.GetServiceConnectRuntimeConfig()); err != nil {
+			logger.Error("Error sending drain signal to Appnet Agent", logger.Fields{
+				field.TaskID: task.GetID(),
+				field.Error:  err,
+			})
+		} else {
+			task.SetServiceConnectConnectionDraining(true)
+		}
+	}
+
 	logger.Info("Stopping container", logger.Fields{
 		field.TaskID:    task.GetID(),
 		field.Container: container.Name,
