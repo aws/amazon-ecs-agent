@@ -17,6 +17,7 @@ set -e
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
+export GOPATH="${TOPWD}:${BUILDDIR}"
 export GO111MODULE="auto"
 
 if [ -d "${TOPWD}/.git" ]; then

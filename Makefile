@@ -374,7 +374,7 @@ amazon-linux-sources.tgz:
 
 amazon-linux-rpm-integrated: .amazon-linux-rpm-integrated-done
 
-.generic-rpm-integrated-done:
+.generic-rpm-integrated-done: get-cni-sources
 	./scripts/update-version.sh
 	cp packaging/generic-rpm-integrated/amazon-ecs-init.spec amazon-ecs-init.spec
 	cp packaging/generic-rpm-integrated/ecs.service ecs.service
@@ -388,7 +388,40 @@ amazon-linux-rpm-integrated: .amazon-linux-rpm-integrated-done
 
 generic-rpm-integrated: .generic-rpm-integrated-done
 
-.generic-rpm-done:
+VERSION = $(shell cat ecs-init/ECSVERSION)
+
+.generic-deb-integrated-done: get-cni-sources
+	mkdir -p BUILDROOT
+	./scripts/update-version.sh
+	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
+	cp -r packaging/generic-deb-integrated/debian ecs-init scripts misc agent agent-container amazon-ecs-cni-plugins amazon-vpc-cni-plugins README.md VERSION BUILDROOT
+	cd BUILDROOT && debuild -uc -us --lintian-opts --suppress-tags bad-distribution-in-changes-file,file-in-unusual-dir
+	touch .generic-deb-integrated-done
+
+generic-deb-integrated: .generic-deb-integrated-done
+
+ARCH:=$(shell uname -m)
+ifeq (${ARCH},x86_64)
+	AGENT_FILENAME=ecs-agent-v${VERSION}.tar
+else ifeq (${ARCH},aarch64)
+	AGENT_FILENAME=ecs-agent-arm64-v${VERSION}.tar
+# osx M1 instances
+else ifeq (${ARCH},arm64)
+	AGENT_FILENAME=ecs-agent-arm64-v${VERSION}.tar
+endif
+
+BUILDROOT/ecs-agent.tar:
+	mkdir -p BUILDROOT
+	curl -o BUILDROOT/ecs-agent.tar https://s3.amazonaws.com/amazon-ecs-agent/${AGENT_FILENAME}
+
+${AGENT_FILENAME}: BUILDROOT/ecs-agent.tar
+	cp BUILDROOT/ecs-agent.tar ${AGENT_FILENAME}
+
+rpm-in-docker: ${AGENT_FILENAME}
+	docker build -t "amazon/amazon-ecs-init:build" -f "scripts/dockerfiles/build.dockerfile" .
+	docker run -u "$(shell id -u)" --tmpfs /.cache -v "$(shell pwd):/workspace/amazon-ecs-init" "amazon/amazon-ecs-init:build"
+
+.generic-rpm-done: ${AGENT_FILENAME}
 	./scripts/update-version.sh
 	cp packaging/generic-rpm/amazon-ecs-init.spec amazon-ecs-init.spec
 	cp packaging/generic-rpm/ecs.service ecs.service
@@ -409,13 +442,10 @@ generic-rpm: .generic-rpm-done
 	cd BUILDROOT && debuild -uc -us --lintian-opts --suppress-tags bad-distribution-in-changes-file,file-in-unusual-dir
 	touch .deb-done
 
+.PHONY: deb
 deb: .deb-done
 
 clean:
-	# ensure docker is running and we can talk to it, abort if not:
-	docker ps > /dev/null
-	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
-	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 	rm -f misc/certs/host-certs.crt &> /dev/null
 	rm -rf misc/pause-container/image/
 	rm -rf misc/pause-container/rootfs/
@@ -423,12 +453,6 @@ clean:
 	rm -rf out/
 	rm -rf rootfs/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
-	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
-	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
-	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
-	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
-	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
@@ -460,3 +484,16 @@ clean:
 	-rm -f .amazon-linux-rpm-integrated-done
 	-rm -f .generic-rpm-integrated-done
 	-rm -f amazon-ecs-volume-plugin
+
+clean-all: clean
+	# for our dockerfree builds, we likely don't have docker
+	# ensure docker is running and we can talk to it, abort if not:
+	docker ps > /dev/null
+	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
+	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
+	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
+	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
+	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
+	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
+	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
+	-$(MAKE) -C misc/container-health $(MFLAGS) clean
