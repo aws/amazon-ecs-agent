@@ -340,24 +340,16 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	dockerClient dockerapi.DockerClient, ctx context.Context, options ...Option) error {
 
 	task.initNetworkMode()
+	task.adjustForPlatform(cfg)
 
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.adjustForPlatform(cfg)
-	if task.MemoryCPULimitsEnabled {
-		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
-			logger.Error("Could not initialize resource", logger.Fields{
-				field.TaskID: task.GetID(),
-				field.Error:  err,
-			})
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-	} else if task.CPU > 0 || task.Memory > 0 {
-		// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance
-		// where agent does not support it. These limits will be ignored.
-		logger.Warn("Ignoring task-level CPU/memory limits since agent does not support the TaskCPUMemLimits capability", logger.Fields{
+	if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
+		logger.Error("Could not initialize resource", logger.Fields{
 			field.TaskID: task.GetID(),
+			field.Error:  err,
 		})
+		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	if err := task.initServiceConnectResources(); err != nil {
@@ -368,16 +360,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	if err := task.initializeContainerOrderingForVolumes(); err != nil {
-		logger.Error("Could not initialize volumes dependency for container", logger.Fields{
-			field.TaskID: task.GetID(),
-			field.Error:  err,
-		})
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-
-	if err := task.initializeContainerOrderingForLinks(); err != nil {
-		logger.Error("Could not initialize links dependency for container", logger.Fields{
+	if err := task.initializeContainerOrdering(); err != nil {
+		logger.Error("Could not initialize dependency for container", logger.Fields{
 			field.TaskID: task.GetID(),
 			field.Error:  err,
 		})
@@ -499,7 +483,6 @@ func (task *Task) initServiceConnectResources() error {
 	if task.IsServiceConnectEnabled() {
 		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
 		task.initDummyServiceConnectConfig()
-		task.initServiceConnectContainerDependencies()
 		if err := task.initServiceConnectEphemeralPorts(); err != nil {
 			return err
 		}
@@ -519,20 +502,6 @@ func (task *Task) initDummyServiceConnectConfig() {
 			field.Error: err,
 		})
 		return
-	}
-}
-
-// initServiceConnectContainerDependencies builds container dependency for regular task containers and SC container, such that
-// - during task start up, a regular container depends on SC container to become Healthy
-// - during task tear down, SC container depends on all regular containers to be stopped first
-func (task *Task) initServiceConnectContainerDependencies() {
-	scContainer := task.GetServiceConnectContainer()
-	for _, container := range task.Containers {
-		if container.IsInternal() || container == scContainer {
-			continue
-		}
-		container.AddContainerDependency(scContainer.Name, ContainerOrderingHealthyCondition)
-		scContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
 }
 
@@ -1877,15 +1846,8 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		}
 	}
 
-	ok, pidMode := task.shouldOverridePIDMode(container, dockerContainerMap)
-	if ok {
-		hostConfig.PidMode = dockercontainer.PidMode(pidMode)
-	}
-
-	ok, ipcMode := task.shouldOverrideIPCMode(container, dockerContainerMap)
-	if ok {
-		hostConfig.IpcMode = dockercontainer.IpcMode(ipcMode)
-	}
+	task.pidModeOverride(container, dockerContainerMap, hostConfig)
+	task.ipcModeOverride(container, dockerContainerMap, hostConfig)
 
 	return hostConfig, nil
 }
@@ -2101,20 +2063,23 @@ func (task *Task) shouldEnableIPv6() bool {
 	return len(eni.GetIPV6Addresses()) > 0
 }
 
-// shouldOverridePIDMode returns true if the PIDMode of the container needs
-// to be overridden. It also returns the override string in this case. It returns
-// false otherwise
-func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
+func setPIDMode(hostConfig *dockercontainer.HostConfig, pidMode string) {
+	hostConfig.PidMode = dockercontainer.PidMode(pidMode)
+}
+
+// pidModeOverride sets the PIDMode of the container if needed
+func (task *Task) pidModeOverride(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, hostConfig *dockercontainer.HostConfig) {
 	// If the container is an internal container (ContainerEmptyHostVolume,
 	// ContainerCNIPause, or ContainerNamespacePause), then PID namespace for
 	// the container itself should be private (default Docker option)
 	if container.IsInternal() {
-		return false, ""
+		return
 	}
 
 	switch task.getPIDMode() {
 	case pidModeHost:
-		return true, pidModeHost
+		setPIDMode(hostConfig, pidModeHost)
+		return
 
 	case pidModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
@@ -2123,7 +2088,7 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 				field.TaskID: task.GetID(),
 			})
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
-			return false, ""
+			return
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
@@ -2132,20 +2097,23 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 				field.TaskID: task.GetID(),
 			})
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
-			return false, ""
+			return
 		}
-		return true, dockerMappingContainerPrefix + pauseDockerID.DockerID
+		setPIDMode(hostConfig, dockerMappingContainerPrefix+pauseDockerID.DockerID)
+		return
 
 		// If PIDMode is not Host or Task, then no need to override
 	default:
-		return false, ""
+		break
 	}
 }
 
-// shouldOverrideIPCMode returns true if the IPCMode of the container needs
-// to be overridden. It also returns the override string in this case. It returns
-// false otherwise
-func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
+func setIPCMode(hostConfig *dockercontainer.HostConfig, mode string) {
+	hostConfig.IpcMode = dockercontainer.IpcMode(mode)
+}
+
+// ipcModeOverride will override the IPCMode of the container if needed
+func (task *Task) ipcModeOverride(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, hostConfig *dockercontainer.HostConfig) {
 	// All internal containers do not need the same IPCMode. The NamespaceContainerPause
 	// needs to be "shareable" if ipcMode is "task". All other internal containers should
 	// defer to the Docker daemon default option (either shareable or private depending on
@@ -2154,24 +2122,23 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 		if container.Type == apicontainer.ContainerNamespacePause {
 			// Setting NamespaceContainerPause to be sharable with other containers
 			if task.getIPCMode() == ipcModeTask {
-				return true, ipcModeSharable
+				setIPCMode(hostConfig, ipcModeSharable)
+				return
 			}
 		}
 		// Defaulting to Docker daemon default option
-		return false, ""
+		return
 	}
 
 	switch task.getIPCMode() {
-	// No IPCMode provided in Task Definition, no need to override
-	case "":
-		return false, ""
-
-		// IPCMode is none - container will have own private namespace with /dev/shm not mounted
+	// IPCMode is none - container will have own private namespace with /dev/shm not mounted
 	case ipcModeNone:
-		return true, ipcModeNone
+		setIPCMode(hostConfig, ipcModeNone)
+		return
 
 	case ipcModeHost:
-		return true, ipcModeHost
+		setIPCMode(hostConfig, ipcModeHost)
+		return
 
 	case ipcModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
@@ -2180,7 +2147,7 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 				field.TaskID: task.GetID(),
 			})
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
-			return false, ""
+			break
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
@@ -2189,31 +2156,44 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 				field.TaskID: task.GetID(),
 			})
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
-			return false, ""
+			break
 		}
-		return true, dockerMappingContainerPrefix + pauseDockerID.DockerID
+		setIPCMode(hostConfig, dockerMappingContainerPrefix+pauseDockerID.DockerID)
+		return
 
 	default:
-		return false, ""
+		break
 	}
 }
 
-func (task *Task) initializeContainerOrderingForVolumes() error {
+func (task *Task) initializeContainerOrdering() error {
+	// Handle ordering for Service Connect
+	if task.IsServiceConnectEnabled() {
+		scContainer := task.GetServiceConnectContainer()
+
+		for _, container := range task.Containers {
+			if container.IsInternal() || container == scContainer {
+				continue
+			}
+			container.AddContainerDependency(scContainer.Name, ContainerOrderingHealthyCondition)
+			scContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+		}
+	}
+
+	// Handle ordering for Volumes
 	for _, container := range task.Containers {
 		if len(container.VolumesFrom) > 0 {
 			for _, volume := range container.VolumesFrom {
 				if _, ok := task.ContainerByName(volume.SourceContainer); !ok {
-					return fmt.Errorf("could not find container with name %s", volume.SourceContainer)
+					return fmt.Errorf("could not find volume source container with name %s", volume.SourceContainer)
 				}
 				dependOn := apicontainer.DependsOn{ContainerName: volume.SourceContainer, Condition: ContainerOrderingCreateCondition}
 				container.SetDependsOn(append(container.GetDependsOn(), dependOn))
 			}
 		}
 	}
-	return nil
-}
 
-func (task *Task) initializeContainerOrderingForLinks() error {
+	// Handle ordering for Links
 	for _, container := range task.Containers {
 		if len(container.Links) > 0 {
 			for _, link := range container.Links {
@@ -2223,7 +2203,7 @@ func (task *Task) initializeContainerOrderingForLinks() error {
 				}
 				linkName := linkParts[0]
 				if _, ok := task.ContainerByName(linkName); !ok {
-					return fmt.Errorf("could not find container with name %s", linkName)
+					return fmt.Errorf("could not find container for link %s", link)
 				}
 				dependOn := apicontainer.DependsOn{ContainerName: linkName, Condition: ContainerOrderingStartCondition}
 				container.SetDependsOn(append(container.GetDependsOn(), dependOn))
