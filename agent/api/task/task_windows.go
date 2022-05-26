@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/containernetworking/cni/libcni"
 
@@ -124,6 +126,16 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 }
 
 func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
+	if !task.MemoryCPULimitsEnabled {
+		if task.CPU > 0 || task.Memory > 0 {
+			// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance
+			// where agent does not support it. These limits will be ignored.
+			logger.Warn("Ignoring task-level CPU/memory limits since agent does not support the TaskCPUMemLimits capability", logger.Fields{
+				field.TaskID: task.GetID(),
+			})
+		}
+		return nil
+	}
 	return errors.New("unsupported platform")
 }
 

@@ -3400,9 +3400,7 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 			containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
 	}
 
-	err := task.initializeContainerOrderingForVolumes()
-	assert.NoError(t, err)
-	err = task.initializeContainerOrderingForLinks()
+	err := task.initializeContainerOrdering()
 	assert.NoError(t, err)
 
 	containerResultWithVolume := task.Containers[0]
@@ -3442,26 +3440,30 @@ func TestInitializeContainerOrderingWithError(t *testing.T) {
 		Links: []string{"myName:link1:link2"},
 	}
 
-	task1 := &Task{
+	task1v := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError1},
+		Containers:         []*apicontainer.Container{containerWithVolumeError},
 	}
 
-	task2 := &Task{
+	task1l := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError2},
+		Containers:         []*apicontainer.Container{containerWithLinkError1},
 	}
 
-	errVolume1 := task1.initializeContainerOrderingForVolumes()
+	task2l := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithLinkError2},
+	}
+
+	errVolume1 := task1v.initializeContainerOrdering()
 	assert.Error(t, errVolume1)
-	errLink1 := task1.initializeContainerOrderingForLinks()
+	errLink1 := task1l.initializeContainerOrdering()
 	assert.Error(t, errLink1)
 
-	errVolume2 := task2.initializeContainerOrderingForVolumes()
-	assert.Error(t, errVolume2)
-	errLink2 := task2.initializeContainerOrderingForLinks()
+	errLink2 := task2l.initializeContainerOrdering()
 	assert.Error(t, errLink2)
 }
 
