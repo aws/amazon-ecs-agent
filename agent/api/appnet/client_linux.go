@@ -1,4 +1,5 @@
 //go:build linux
+// +build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -30,10 +31,7 @@ import (
 )
 
 const (
-	unixNetworkName   = "unix"
-	httpRequestPrefix = "http://" + unixNetworkName
-	statsUrl          = httpRequestPrefix + "/stats/prometheus?usedonly&filter=metrics_extension&delta"
-	drainUrl          = httpRequestPrefix + "/drain_listeners?inboundonly"
+	unixNetworkName = "unix"
 )
 
 type appnetClientCtxKey int
@@ -68,7 +66,7 @@ var udsHttpClient = http.Client{
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
 func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
-	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, statsUrl)
+	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.StatsRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +78,7 @@ func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.Me
 // This function expects an Appnet-agent-hosted HTTP server listening on the UDS path passed in config.
 func (cl *client) DrainInboundConnections(config task.RuntimeConfig) error {
 	return retry.RetryNWithBackoff(oneSecondBackoffNoJitter, 3, func() error {
-		resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, drainUrl)
+		resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.DrainRequest)
 		if err != nil {
 			logger.Warn("Error invoking Appnet's DrainInboundConnections", logger.Fields{
 				"adminSocketPath": config.AdminSocketPath,
