@@ -1205,8 +1205,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).AnyTimes()
 
 	// Set task desired status to STOPPED for triggering container stop sequence
-	sleepTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
-	sleepTask.UpdateDesiredStatus()
+	sleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 
 	verifyTaskIsStopped(stateChangeEvents, sleepTask)
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
