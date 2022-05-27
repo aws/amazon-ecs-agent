@@ -11,6 +11,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package appnet
 
-//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSSubmitStateSDK,ECSClient,AppnetClient
+type client struct {
+}
+
+// This client is a singleton. No need to create multiple clients since the only thing that veries between requests is
+// the Appnet's admin UDS
+var defaultClient = &client{}
+
+// Client retrieves the singleton Appnet client
+func Client() *client {
+	return defaultClient
+}
