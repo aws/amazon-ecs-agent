@@ -1,3 +1,5 @@
+//go:build !linux
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,6 +13,19 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package api
+package appnet
 
-//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSSubmitStateSDK,ECSClient,AppnetClient
+import (
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	prometheus "github.com/prometheus/client_model/go"
+)
+
+func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
+	return nil, fmt.Errorf("appnet client: GetStats is not supported in this platform")
+}
+
+func (cl *client) DrainInboundConnections(config task.RuntimeConfig) error {
+	return fmt.Errorf("appnet client: DrainInboundConnections is not supported in this platform")
+}

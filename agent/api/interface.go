@@ -13,7 +13,11 @@
 
 package api
 
-import "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	prometheus "github.com/prometheus/client_model/go"
+)
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
 // details around constructing the request and reading the response down to the
@@ -68,4 +72,11 @@ type ECSSubmitStateSDK interface {
 	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
 	SubmitAttachmentStateChanges(*ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error)
+}
+
+// AppnetClient is an interface with customized Appnet client that
+// implements the GetStats and DrainInboundConnections
+type AppnetClient interface {
+	GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error)
+	DrainInboundConnections(config task.RuntimeConfig) error
 }
