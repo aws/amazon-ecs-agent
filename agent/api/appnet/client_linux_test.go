@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package appnetclient
+package appnet
 
 import (
 	"fmt"
@@ -175,7 +175,7 @@ func TestGetStats(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			stats, err := GetStats(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
+			stats, err := Client().GetStats(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
 			assert.Equal(t, tc.expectedResult, stats)
 			if tc.isErrorExpected {
 				assert.Error(t, err)
@@ -218,7 +218,7 @@ func TestDrainInboundConnections(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			err := DrainInboundConnections(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
+			err := Client().DrainInboundConnections(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
 			if tc.isErrorExpected {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorContains)

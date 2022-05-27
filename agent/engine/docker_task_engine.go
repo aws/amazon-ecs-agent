@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appnetclient"
+	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 
 	serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect"
 
@@ -116,11 +116,7 @@ const (
 	stopContainerMaxRetryCount     = 5
 )
 
-var (
-	newExponentialBackoff = retry.NewExponentialBackoff
-	// Injection point for appnetclient.DrainInboundConnections UTs
-	appnetDrainInboundConnections = appnetclient.DrainInboundConnections
-)
+var newExponentialBackoff = retry.NewExponentialBackoff
 
 // DockerTaskEngine is a state machine for managing a task and its containers
 // in ECS.
@@ -149,9 +145,10 @@ type DockerTaskEngine struct {
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 
-	client     dockerapi.DockerClient
-	dataClient data.Client
-	cniClient  ecscni.CNIClient
+	client       dockerapi.DockerClient
+	dataClient   data.Client
+	cniClient    ecscni.CNIClient
+	appnetClient api.AppnetClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -221,6 +218,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
+		appnetClient:               appnet.Client(),
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             serviceconnect.NewManager(),
@@ -1844,7 +1842,7 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	// Before attempting to stop any container, send drain signal for Appnet Agent to start draining connections
 	// (if not already in progress).
 	if task.IsServiceConnectEnabled() && !task.IsServiceConnectConnectionDraining() {
-		if err := appnetDrainInboundConnections(task.GetServiceConnectRuntimeConfig()); err != nil {
+		if err := engine.appnetClient.DrainInboundConnections(task.GetServiceConnectRuntimeConfig()); err != nil {
 			logger.Error("Error sending drain signal to Appnet Agent", logger.Fields{
 				field.TaskID: task.GetID(),
 				field.Error:  err,

@@ -1,5 +1,3 @@
-//go:build !linux
-
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,19 +11,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package appnetclient
+package appnet
 
-import (
-	"fmt"
-
-	"github.com/aws/amazon-ecs-agent/agent/api/task"
-	prometheus "github.com/prometheus/client_model/go"
-)
-
-func GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
-	return nil, fmt.Errorf("appnet client: GetStats is not supported in this platform")
+type client struct {
 }
 
-func DrainInboundConnections(config task.RuntimeConfig) error {
-	return fmt.Errorf("appnet client: DrainInboundConnections is not supported in this platform")
+// This client is a singleton. No need to create multiple clients since the only thing that veries between requests is
+// the Appnet's admin UDS
+var defaultClient = &client{}
+
+// Client retrieves the singleton Appnet client
+func Client() *client {
+	return defaultClient
 }

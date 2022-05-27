@@ -13,15 +13,19 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package appnetclient
+package appnet
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	prometheus "github.com/prometheus/client_model/go"
 )
 
@@ -40,7 +44,8 @@ const (
 
 var (
 	// Injection point for UTs
-	performAppnetRequest = doPerformAppnetRequest
+	performAppnetRequest     = doPerformAppnetRequest
+	oneSecondBackoffNoJitter = retry.NewExponentialBackoff(time.Second, time.Second, 0, 1)
 )
 
 func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -62,7 +67,7 @@ var udsHttpClient = http.Client{
 
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
-func GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
+func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
 	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, statsUrl)
 	if err != nil {
 		return nil, err
@@ -73,13 +78,19 @@ func GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, e
 
 // DrainInboundConnections invokes Appnet Agent's drain_listeners API which starts draining ServiceConnect inbound connections.
 // This function expects an Appnet-agent-hosted HTTP server listening on the UDS path passed in config.
-func DrainInboundConnections(config task.RuntimeConfig) error {
-	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, drainUrl)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return err
+func (cl *client) DrainInboundConnections(config task.RuntimeConfig) error {
+	return retry.RetryNWithBackoff(oneSecondBackoffNoJitter, 3, func() error {
+		resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, drainUrl)
+		if err != nil {
+			logger.Warn("Error invoking Appnet's DrainInboundConnections", logger.Fields{
+				"adminSocketPath": config.AdminSocketPath,
+				field.Error:       err,
+			})
+			return err
+		}
+		defer resp.Body.Close()
+		return nil
+	})
 }
 
 func doPerformAppnetRequest(method, udsPath, url string) (*http.Response, error) {
