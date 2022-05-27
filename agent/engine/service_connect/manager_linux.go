@@ -35,8 +35,15 @@ const (
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_ADMIN_UDS_PATH"
 
+	agentAuthENV   = "ENVOY_ENABLE_IAM_AUTH_FOR_XDS"
+	agentAuthOff   = "0"
 	agentModeENV   = "APPNET_AGENT_ADMIN_MODE"
 	agentModeValue = "uds"
+
+	unixRequestPrefix        = "unix://"
+	httpRequestPrefix        = "http://localhost"
+	defaultAdminStatsRequest = httpRequestPrefix + "/stats/prometheus?usedonly&filter=metrics_extension&delta"
+	defaultAdminDrainRequest = httpRequestPrefix + "/drain_listeners?inboundonly"
 )
 
 type manager struct {
@@ -56,6 +63,11 @@ type manager struct {
 	statusFileName string
 	// Environment variable to set on Container with contents of statusPathContainer/statusFileName
 	statusENV string
+
+	// Http path + params to make a statistics request of AppNetAgent
+	adminStatsRequest string
+	// Http path + params to make a drain request of AppNetAgent
+	adminDrainRequest string
 }
 
 func NewManager() Manager {
@@ -68,6 +80,8 @@ func NewManager() Manager {
 		statusPathHostRoot:  defaultStatusPathHostRoot,
 		statusFileName:      defaultStatusFileName,
 		statusENV:           defaultStatusENV,
+		adminStatsRequest:   defaultAdminStatsRequest,
+		adminDrainRequest:   defaultAdminDrainRequest,
 	}
 }
 
@@ -87,6 +101,8 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	// Setup runtime configuration
 	var config apitask.RuntimeConfig
 	config.AdminSocketPath = adminPath
+	config.StatsRequest = m.adminStatsRequest
+	config.DrainRequest = m.adminDrainRequest
 
 	task.PopulateServiceConnectRuntimeConfig(config)
 	return nil
@@ -119,9 +135,10 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 	scEnv := map[string]string{
-		m.relayENV:   filepath.Join(m.relayPathContainer, m.relayFileName),
+		m.relayENV:   unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
 		m.statusENV:  filepath.Join(m.statusPathContainer, m.statusFileName),
 		agentModeENV: agentModeValue,
+		agentAuthENV: agentAuthOff,
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
