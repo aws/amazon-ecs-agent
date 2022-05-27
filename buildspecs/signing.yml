@@ -47,12 +47,19 @@ phases:
       - gpg --allow-secret-key-import --import private.gpg
       # remove the private key file because we don't want it to be packaged with the artifacts
       - rm private.gpg
-      # Sign the amd tar (this is a secondary source so we have to do some copying)
+      # Sign the amd tar and rpm (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_TAR" $ECS_AGENT_AMD_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_TAR
-      # Sign the arm tar (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_RPM" $ECS_AGENT_AMD_RPM
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_RPM
+      # Sign the arm tar and rpm (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_TAR" $ECS_AGENT_ARM_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_TAR
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_RPM" $ECS_AGENT_ARM_RPM
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_RPM
+      # Sign the amd deb (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_UbuntuAmdBuildArtifact/$ECS_AGENT_UBUNTU_AMD_DEB" $ECS_AGENT_UBUNTU_AMD_DEB
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_UBUNTU_AMD_DEB
       # Clean up the key just in case
       - source /tmp/functions.sh && delete_all_secret_keys
       # validate that the keychain is empty
@@ -62,5 +69,11 @@ artifacts:
   files:
     - $ECS_AGENT_AMD_TAR
     - '$ECS_AGENT_AMD_TAR.asc'
+    - $ECS_AGENT_AMD_RPM
+    - '$ECS_AGENT_AMD_RPM.asc'
     - $ECS_AGENT_ARM_TAR
     - '$ECS_AGENT_ARM_TAR.asc'
+    - $ECS_AGENT_ARM_RPM
+    - '$ECS_AGENT_ARM_RPM.asc'
+    - $ECS_AGENT_UBUNTU_AMD_DEB
+    - '$ECS_AGENT_UBUNTU_AMD_DEB.asc'
