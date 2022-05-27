@@ -31,7 +31,6 @@ Source2:        amazon-ecs-volume-plugin.service
 Source3:        amazon-ecs-volume-plugin.socket
 
 BuildRequires:  systemd
-BuildRequires:	glibc-static
 Requires:       systemd
 Requires:       iptables
 Requires:       procps
@@ -45,7 +44,6 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/build-pause
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
 ./scripts/build-integrated true "" false true
