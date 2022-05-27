@@ -270,7 +270,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	defer mockCtrl.Finish()
 	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	exitCode := 20
-	reason := strings.Repeat("a", ecsMaxReasonLength)
+	reason := strings.Repeat("a", ecsMaxContainerReasonLength)
 
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
@@ -300,8 +300,8 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	defer mockCtrl.Finish()
 	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	exitCode := 20
-	trimmedReason := strings.Repeat("a", ecsMaxReasonLength)
-	reason := strings.Repeat("a", ecsMaxReasonLength+1)
+	trimmedReason := strings.Repeat("a", ecsMaxContainerReasonLength)
+	reason := strings.Repeat("a", ecsMaxContainerReasonLength+1)
 
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{

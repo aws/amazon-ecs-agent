@@ -39,15 +39,16 @@ import (
 )
 
 const (
-	ecsMaxImageDigestLength = 255
-	ecsMaxReasonLength      = 255
-	ecsMaxRuntimeIDLength   = 255
-	pollEndpointCacheTTL    = 12 * time.Hour
-	roundtripTimeout        = 5 * time.Second
-	azAttrName              = "ecs.availability-zone"
-	cpuArchAttrName         = "ecs.cpu-architecture"
-	osTypeAttrName          = "ecs.os-type"
-	osFamilyAttrName        = "ecs.os-family"
+	ecsMaxImageDigestLength     = 255
+	ecsMaxContainerReasonLength = 255
+	ecsMaxTaskReasonLength      = 1024
+	ecsMaxRuntimeIDLength       = 255
+	pollEndpointCacheTTL        = 12 * time.Hour
+	roundtripTimeout            = 5 * time.Second
+	azAttrName                  = "ecs.availability-zone"
+	cpuArchAttrName             = "ecs.cpu-architecture"
+	osTypeAttrName              = "ecs.os-type"
+	osFamilyAttrName            = "ecs.os-family"
 )
 
 // APIECSClient implements ECSClient
@@ -404,7 +405,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		Cluster:            aws.String(client.config.Cluster),
 		Task:               aws.String(change.TaskARN),
 		Status:             aws.String(status),
-		Reason:             aws.String(change.Reason),
+		Reason:             aws.String(trimString(change.Reason, ecsMaxTaskReasonLength)),
 		PullStartedAt:      change.PullStartedAt,
 		PullStoppedAt:      change.PullStoppedAt,
 		ExecutionStoppedAt: change.ExecutionStoppedAt,
@@ -449,7 +450,7 @@ func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.Manag
 	}
 	var trimmedReason *string
 	if change.Reason != "" {
-		trimmedReason = aws.String(trimString(change.Reason, ecsMaxReasonLength))
+		trimmedReason = aws.String(trimString(change.Reason, ecsMaxContainerReasonLength))
 	}
 	return &ecs.ManagedAgentStateChange{
 		ManagedAgentName: aws.String(change.Name),
@@ -468,7 +469,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		statechange.RuntimeId = aws.String(trimmedRuntimeID)
 	}
 	if change.Reason != "" {
-		trimmedReason := trimString(change.Reason, ecsMaxReasonLength)
+		trimmedReason := trimString(change.Reason, ecsMaxContainerReasonLength)
 		statechange.Reason = aws.String(trimmedReason)
 	}
 	if change.ImageDigest != "" {
