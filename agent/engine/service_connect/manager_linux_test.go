@@ -228,8 +228,6 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		statusPathHostRoot:  filepath.Join(tempDir, "status"),
 		statusFileName:      "status_file_of_holiness",
 		statusENV:           "StAtUsGoEsHeRe",
-		adminStatsRequest:   "/give?stats",
-		adminDrainRequest:   "/do?drain",
 	}
 
 	for _, tc := range testcases {
@@ -245,11 +243,7 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		})
 	}
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
-	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest, "/give?stats")
-	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest, "/do?drain")
 
 	config := scTask.GetServiceConnectRuntimeConfig()
 	assert.Equal(t, config.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
-	assert.Equal(t, config.StatsRequest, "/give?stats")
-	assert.Equal(t, config.DrainRequest, "/do?drain")
 }

@@ -16,26 +16,18 @@
 package stats
 
 import (
-	"context"
-	"fmt"
-	"io"
 	"math"
-	"net"
-	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	prometheus "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
-)
-
-var (
-	statsUrlFormat = "http://unix%v"
 )
 
 type ServiceConnectStats struct {
@@ -50,28 +42,16 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 
 // TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
-
-	serviceConnectConfig := task.GetServiceConnectRuntimeConfig()
-
-	// TODO [SC]: Use the formal appnet client to connect to the UDS and fetch stats
-	httpclient := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
-				return net.Dial("unix", serviceConnectConfig.AdminSocketPath)
-			},
-		},
-	}
-
-	resp, err := httpclient.Get(fmt.Sprintf(statsUrlFormat, serviceConnectConfig.StatsRequest))
+	stats, err := appnet.Client().GetStats(task.GetServiceConnectRuntimeConfig())
 	if err != nil {
-		logger.Error("Could not connect to service connect stats endpoint for task", logger.Fields{
+		logger.Error("Error retrieving Service Connect stats for task", logger.Fields{
 			field.TaskID: task.GetID(),
 			field.Error:  err,
 		})
 		return
 	}
 
-	statsCollectedList, err := parseStats(resp.Body, task.GetID())
+	statsCollectedList, err := convertToTACSStats(stats, task.GetID())
 	if err != nil {
 		logger.Error("Error parsing service-connect stats", logger.Fields{
 			field.TaskID: task.GetID(),
@@ -83,12 +63,8 @@ func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 	sc.setStats(statsCollectedList)
 }
 
-func parseStats(rawStats io.Reader, taskId string) ([]*ecstcs.GeneralMetricsWrapper, error) {
+func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) ([]*ecstcs.GeneralMetricsWrapper, error) {
 	statsMap := make(map[string]*ecstcs.GeneralMetricsWrapper)
-	mf, err := parseServiceConnectStats(rawStats)
-	if err != nil {
-		return nil, err
-	}
 
 	for _, v := range mf {
 		for _, metric := range v.Metric {
@@ -213,29 +189,6 @@ func (sc *ServiceConnectStats) resetStats() {
 
 	sc.stats = nil
 	sc.sent = false
-}
-
-/* This method parses stats in prometheus format and converts it to prometheus client model. RawStats looks like below
-=====================================================
-TYPE MetricFamily1 counter
-MetricFamily1{dimensionA=value1, dimensionB=value2} 1
-
-# TYPE MetricFamily3 gauge
-MetricFamily3{dimensionA=value1, dimensionB=value2} 3
-
-# TYPE MetricFamily2 histogram
-MetricFamily2{dimensionX=value1, dimensionY=value2, le=0.5} 1
-MetricFamily2{dimensionX=value1, dimensionY=value2, le=1} 2
-MetricFamily2{dimensionX=value1, dimensionY=value2, le=5} 3
-*/
-
-func parseServiceConnectStats(rawStats io.Reader) (map[string]*prometheus.MetricFamily, error) {
-	var parser expfmt.TextParser
-	stats, err := parser.TextToMetricFamilies(rawStats)
-	if err != nil {
-		return nil, err
-	}
-	return stats, nil
 }
 
 // CloudWatch accepts the histogram buckets in a disjoint manner while the prometheus emits these values in a cumulative way.
