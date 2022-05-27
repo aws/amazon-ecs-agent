@@ -1,4 +1,5 @@
 //go:build linux && unit
+// +build linux,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -46,6 +47,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 		ServiceConnectConfig: &apitask.ServiceConnectConfig{
 			RuntimeConfig: apitask.RuntimeConfig{
 				AdminSocketPath: "/tmp/appnet_admin.sock",
+				StatsRequest:    "http://myhost/get/them/stats",
 			},
 		},
 	}
@@ -117,7 +119,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 		// Set up a mock http sever on the statsUrlpath
 		mockUDSPath := "/tmp/appnet_admin.sock"
 		r := mux.NewRouter()
-		r.HandleFunc("/stats/prometheus", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.HandleFunc("/get/them/stats", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%v", test.stats)
 		}))
 
