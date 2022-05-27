@@ -46,7 +46,6 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 		ServiceConnectConfig: &apitask.ServiceConnectConfig{
 			RuntimeConfig: apitask.RuntimeConfig{
 				AdminSocketPath: "/tmp/appnet_admin.sock",
-				StatsRequest:    "/stats/prometheus",
 			},
 		},
 	}

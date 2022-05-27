@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -870,7 +872,9 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	appnetClient := mock_api.NewMockAppnetClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+	taskEngine.(*DockerTaskEngine).appnetClient = appnetClient
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
@@ -987,6 +991,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	wg.Add(1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
 	gomock.InOrder(
+		appnetClient.EXPECT().DrainInboundConnections(gomock.Any()).MaxTimes(1),
 		dockerClient.EXPECT().StopContainer(gomock.Any(), sleepContainerID2, gomock.Any()).Return(
 			dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2}),
 		dockerClient.EXPECT().StopContainer(gomock.Any(), scContainerID, gomock.Any()).Return(
@@ -1024,6 +1029,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	}
 
 	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {
