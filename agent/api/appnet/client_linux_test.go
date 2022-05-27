@@ -1,4 +1,5 @@
 //go:build linux
+// +build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -30,7 +31,9 @@ import (
 )
 
 const (
-	testUDSPath = "/tmp/appnet_admin.sock"
+	testUDSPath  = "/tmp/appnet_admin.sock"
+	testStatsUrl = "http://thingie/stats/are/cool?true&key=value"
+	testDrainUrl = "http://widget/drain/connections?all_of_them&key=value"
 )
 
 var (
@@ -90,16 +93,16 @@ var (
 func setupTestUdsServer(t *testing.T, rawResponse string) *httptest.Server {
 	t.Helper()
 	r := mux.NewRouter()
-	r.HandleFunc("/stats/prometheus", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/stats/are/cool", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.True(t, r.URL.Query().Has("usedonly"))
-		assert.Equal(t, "metrics_extension", r.URL.Query().Get("filter"))
-		assert.True(t, r.URL.Query().Has("delta"))
+		assert.True(t, r.URL.Query().Has("true"))
+		assert.Equal(t, "value", r.URL.Query().Get("key"))
 		fmt.Fprintf(w, "%s", rawResponse)
 	})
-	r.HandleFunc("/drain_listeners", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/drain/connections", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.True(t, r.URL.Query().Has("inboundonly"))
+		assert.True(t, r.URL.Query().Has("all_of_them"))
+		assert.Equal(t, "value", r.URL.Query().Get("key"))
 		fmt.Fprintf(w, "%s", rawResponse)
 	})
 	ts := httptest.NewUnstartedServer(r)
@@ -175,7 +178,7 @@ func TestGetStats(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			stats, err := Client().GetStats(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
+			stats, err := Client().GetStats(task.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
 			assert.Equal(t, tc.expectedResult, stats)
 			if tc.isErrorExpected {
 				assert.Error(t, err)
@@ -218,7 +221,7 @@ func TestDrainInboundConnections(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			err := Client().DrainInboundConnections(task.RuntimeConfig{AdminSocketPath: tc.udsPath})
+			err := Client().DrainInboundConnections(task.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
 			if tc.isErrorExpected {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorContains)
