@@ -19,6 +19,10 @@ Parameters:
     Type: String
     Description: The name of the ARM build project
     Default: arm-artifact-build
+  UbuntuAmdBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the Ubuntu AMD build project (builds .deb )
+    Default: ubuntu-amd-artifact-build
   SigningCodeBuildProjectName:
     Type: String
     Description: The name of the signing project
@@ -65,16 +69,16 @@ Parameters:
     Description: The ARN of the bucket where things land at the end, this is assumed to already exist
   ReleaseArtifactsBucketS3Uri:
     Type: String
-    Description: The URI of the bucket where things land at the end, this is assumed to already exist
+    Description: The URI of the bucket where things land at the end, this is assumed to already exist (e.g. s3://artifacts)
   CodeStarConnectionArn:
     Type: String
     Description: The ARN of the connection to use to connect to GitHub
   GithubFullRepoName:
     Type: String
-    Description: The name of the repository that we want to use
+    Description: The name of the repository that we want to use (e.g. aws/amazon-ecs-agent)
   GithubBranchName:
     Type: String
-    Description: The name of the branch to use to build
+    Description: The name of the branch to use to build (e.g. mainline, dev)
   SecretKeyArn:
     Type: String
     Description: The ARN of the secret key
@@ -189,7 +193,7 @@ Resources:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       Policies:
-        - PolicyName: codebuild-build-base-policy
+        - PolicyName: amd-codebuild-build-base-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -229,13 +233,65 @@ Resources:
                   - codebuild:BatchPutTestCases
                   - codebuild:BatchPutCodeCoverages
 
+  UbuntuAmdBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ubuntu-amd-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ubuntu-codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuAmdBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
   AmdBuildCodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Artifacts:
         Type: CODEPIPELINE
       ConcurrentBuildLimit: 10
-      Description: CodeBuild project to build the ECS Agent Docker image tarball
+      Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
@@ -255,6 +311,32 @@ Resources:
         Type: CODEPIPELINE
       TimeoutInMinutes: 60
 
+  UbuntuAmdBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent Docker deb packages
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref UbuntuAmdBuildCodeBuildProjectName
+      Name: !Ref UbuntuAmdBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref UbuntuAmdBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build-ubuntu.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
   ArmBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -267,7 +349,7 @@ Resources:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
       Policies:
-        - PolicyName: codebuild-build-base-policy
+        - PolicyName: arm-codebuild-build-base-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -700,6 +782,21 @@ Resources:
                 - Name: AmdBuildArtifact
               RunOrder: 1
               Namespace: AmdBuildVariables
+            - Name: MakeUbuntuAmd
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref UbuntuAmdBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: UbuntuAmdBuildArtifact
+              RunOrder: 1
+              Namespace: UbuntuAmdBuildVariables
             - Name: MakeArm
               InputArtifacts:
                 - Name: SourceArtifact
@@ -720,6 +817,7 @@ Resources:
             - Name: GPG
               InputArtifacts:
                 - Name: Buildspecs
+                - Name: UbuntuAmdBuildArtifact
                 - Name: AmdBuildArtifact
                 - Name: ArmBuildArtifact
               ActionTypeId:
@@ -730,7 +828,14 @@ Resources:
               Configuration:
                 ProjectName: !Ref SigningCodeBuildProject
                 PrimarySource: Buildspecs
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"}]'
+                # This project takes the following names as env vars
+                # - Commit sha
+                # - AMD tar
+                # - AMD rpm
+                # - Ubuntu AMD deb
+                # - ARM tar
+                # - ARM rpm
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_RPM","value":"#{AmdBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_AMD_DEB","value":"#{UbuntuAmdBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_RPM","value":"#{ArmBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: SignedArtifact
               RunOrder: 1

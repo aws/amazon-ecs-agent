@@ -5,6 +5,7 @@ env:
   exported-variables:
     - CODEBUILD_BUILD_ID
     - ECS_AGENT_TAR
+    - ECS_AGENT_RPM
 
 phases:
   install:
@@ -41,9 +42,10 @@ phases:
 
   build:
     commands:
-      - echo Building agent image
+      - echo "Building agent image"
       - AGENT_VERSION=$(cat VERSION)
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
       - echo $(pwd)
 
       # Directory/GOPATH restructuring needed for CodePipeline
@@ -57,13 +59,18 @@ phases:
       # Build agent tars
       - GO111MODULE=auto
       - make dockerfree-agent-image
+      - make generic-rpm-integrated
+      - ls
+
       # Rename artifacts for architecture
       - |
         if [[ $architecture == "arm64" ]] ; then
           mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
           ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
         fi
 
 artifacts:
   files:
     - $ECS_AGENT_TAR
+    - $ECS_AGENT_RPM
