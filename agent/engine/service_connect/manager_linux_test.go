@@ -195,9 +195,10 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		fmt.Sprintf("%s:%s", tempDir, "/not/var/run"),
 	}
 	expectedENVs := map[string]string{
-		"ReLaYgOeShErE":           "/not/var/run/relay_file_of_holiness",
-		"StAtUsGoEsHeRe":          "/some/other/run/status_file_of_holiness",
-		"APPNET_AGENT_ADMIN_MODE": "uds",
+		"ReLaYgOeShErE":                 "unix:///not/var/run/relay_file_of_holiness",
+		"StAtUsGoEsHeRe":                "/some/other/run/status_file_of_holiness",
+		"APPNET_AGENT_ADMIN_MODE":       "uds",
+		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
 	}
 
 	type testCase struct {
@@ -229,6 +230,8 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		statusPathHostRoot:  filepath.Join(tempDir, "status"),
 		statusFileName:      "status_file_of_holiness",
 		statusENV:           "StAtUsGoEsHeRe",
+		adminStatsRequest:   "/give?stats",
+		adminDrainRequest:   "/do?drain",
 	}
 
 	for _, tc := range testcases {
@@ -244,7 +247,11 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		})
 	}
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
+	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest, "/give?stats")
+	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest, "/do?drain")
 
 	config := scTask.GetServiceConnectRuntimeConfig()
 	assert.Equal(t, config.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
+	assert.Equal(t, config.StatsRequest, "/give?stats")
+	assert.Equal(t, config.DrainRequest, "/do?drain")
 }
