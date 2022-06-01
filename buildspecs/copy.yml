@@ -1,0 +1,19 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - CODEBUILD_BUILD_ID
+
+phases:
+  build:
+    commands:
+      # since the buildspecs are the primary artifacts, we need to change directory
+      - cd $CODEBUILD_SRC_DIR_SignedArtifact
+      # list the artifacts that are ready to upload
+      - ls -lsa
+      # copy the artifacts out to the results bucket
+      - |
+        for filename in $(ls .); do
+          echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
+          aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
+        done

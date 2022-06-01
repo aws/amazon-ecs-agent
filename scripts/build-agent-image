@@ -1,0 +1,84 @@
+#!/bin/bash
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+# This script builds a copy of the agent.
+# It exists to wrap go build and properly make a static binary, as well as to
+# correctly setup versioning before creating the binary
+
+set -ex
+
+ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+cd "${ROOT}"
+AGENT_VERSION=$(cat VERSION)
+
+architecture=""
+case $(uname -m) in
+    x86_64)
+        architecture="amd64"
+        ;;
+    arm64)
+        architecture="arm64"
+        ;;
+    aarch64)
+        architecture="arm64"
+        ;;
+    *)
+        echo $"Unknown architecture $0"
+        exit 1
+esac
+
+if [ "$architecture" == "amd64" ]; then export GOARCH=amd64; fi
+if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
+
+# add cni-plugins
+mkdir -p rootfs/amazon-ecs-cni-plugins/
+cp ./misc/plugins/aws-appmesh rootfs/amazon-ecs-cni-plugins/aws-appmesh
+cp ./misc/plugins/ecs-bridge rootfs/amazon-ecs-cni-plugins/ecs-bridge
+cp ./misc/plugins/ecs-eni rootfs/amazon-ecs-cni-plugins/ecs-eni
+cp ./misc/plugins/ecs-ipam rootfs/amazon-ecs-cni-plugins/ecs-ipam
+cp ./misc/plugins/vpc-branch-eni rootfs/amazon-ecs-cni-plugins/vpc-branch-eni
+
+# add certs
+mkdir -p rootfs/etc/ssl/certs/
+cp ./misc/certs/host-certs.crt rootfs/etc/ssl/certs/ca-certificates.crt
+
+# add pause container
+mkdir -p rootfs/images/
+# check for precompiled pause image tar -- if one doesn't exist,
+# you need to run make dockerfree-pause
+PAUSE_TAR_FILE="${ROOT}/misc/pause-container/pause-image-tar-files/amazon-ecs-pause-${GOARCH}.tar"
+if test -f "$PAUSE_TAR_FILE"; then
+    echo "using existing pause container: $PAUSE_TAR_FILE"
+    cp ${PAUSE_TAR_FILE} rootfs/images/amazon-ecs-pause.tar
+else
+    echo "$PAUSE_TAR_FILE does not exist; you should run make dockerfree-pause"
+    exit 2
+fi
+
+# add agent
+cp ./out/amazon-ecs-agent rootfs/agent
+
+# build container
+mkdir -p image/rootfs
+tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf image/rootfs/layer.tar -C rootfs .
+DIGEST=$(sha256sum image/rootfs/layer.tar | sed -e 's/ .*//')
+install -m 0644 ./agent-container/agent-image-VERSION image/rootfs/VERSION
+install -m 0644 ./agent-container/agent-config.json image/config.json
+sed -i "s/~~digest~~/${DIGEST}/" image/config.json
+sed -i "s/~~timestamp~~/$(date +"%FT%T.%NZ")/g" image/config.json
+install -m 0644 ./agent-container/agent-manifest.json image/manifest.json
+sed -i "s/~~agentversion~~/${AGENT_VERSION}/" image/manifest.json
+install -m 0644 ./agent-container/agent-repositories image/repositories
+tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf ./ecs-agent-v${AGENT_VERSION}.tar -C image .
+rm -rf image/

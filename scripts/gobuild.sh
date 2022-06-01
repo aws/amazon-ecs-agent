@@ -16,8 +16,8 @@ set -x
 set -e
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
-export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
-export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
+export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
+export GOPATH="${TOPWD}:${BUILDDIR}"
 export GO111MODULE="auto"
 
 if [ -d "${TOPWD}/.git" ]; then
@@ -29,9 +29,9 @@ if [ -d "${TOPWD}/.git" ]; then
 	git_dirty=true
     fi
 
-    VERSION_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.Version=${version}"
-    GIT_HASH_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitShortHash=${git_hash}"
-    GIT_DIRTY_FLAG="-X github.com/aws/amazon-ecs-init/ecs-init/version.GitDirty=${git_dirty}"
+    VERSION_FLAG="-X github.com/aws/amazon-ecs-agent/ecs-init/version.Version=${version}"
+    GIT_HASH_FLAG="-X github.com/aws/amazon-ecs-agent/ecs-init/version.GitShortHash=${git_hash}"
+    GIT_DIRTY_FLAG="-X github.com/aws/amazon-ecs-agent/ecs-init/version.GitDirty=${git_dirty}"
 fi
 
 mkdir -p "${SRCPATH}"

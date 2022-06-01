@@ -1,3 +1,4 @@
+// +build test
 // Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -20,8 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
-	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

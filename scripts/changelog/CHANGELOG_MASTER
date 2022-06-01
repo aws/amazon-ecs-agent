@@ -1,3 +1,21 @@
+1.61.1-1
+Anuj Singh <singholt@amazon.com>
+2022-05-03T10:00:00-08:00
+Cache Agent version 1.61.1
+Install script no longer fails on systems using cgroups v2
+Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+
+1.61.0-1
+Cameron Sparr <cssparr@amazon.com>
+2022-04-05T10:00:00-08:00
+Cache Agent version 1.61.0
+Check ipv4 routes for default network interface instead of defaulting to eth0
+
+1.60.1-1
+Ray Allan <fierlion@amazon.com>
+2022-03-23T10:00:00-08:00
+Cache Agent version 1.60.1
+
 1.60.0-1
 Chien Han Lin <chilinn@amazon.com>
 2022-03-02T11:00:00-08:00

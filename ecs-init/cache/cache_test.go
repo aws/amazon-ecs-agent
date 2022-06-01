@@ -1,3 +1,4 @@
+// +build test
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -24,7 +25,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

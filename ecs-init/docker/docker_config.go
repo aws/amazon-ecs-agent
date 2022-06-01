@@ -14,7 +14,7 @@
 package docker
 
 import (
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	godocker "github.com/fsouza/go-dockerclient"
 )
 

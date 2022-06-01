@@ -1,0 +1,76 @@
+version: 0.2
+
+env:
+  git-credential-helper: yes
+  exported-variables:
+    - CODEBUILD_BUILD_ID
+    - ECS_AGENT_TAR
+    - ECS_AGENT_RPM
+
+phases:
+  install:
+    commands:
+      - architecture=""
+      # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - |
+        case $(uname -m) in
+          x86_64)
+            architecture="amd64"
+          ;;
+          aarch64)
+            architecture="arm64"
+          ;;
+        esac
+
+      # Set up proper go version using goenv utility (pre-installed in CodeBuild). Need to use this because default images come with 1.14.x
+      - GOVERSION="$(cat GO_VERSION)"
+      - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation and install downloaded binaries
+      - rm -rf /root/.goenv/
+      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR}
+      - tar -C /usr/local -xzf /tmp/${GOLANG_TAR}
+
+      # Set appropriate environment variables
+      - export GOROOT=/usr/local/go
+      - export GOPATH=$HOME/go
+      - export GOBIN=$GOPATH/bin
+      - export PATH=$PATH:$GOROOT/bin:$GOBIN
+      - which go
+      - go version
+
+  build:
+    commands:
+      - echo "Building agent image"
+      - AGENT_VERSION=$(cat VERSION)
+      - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
+      - echo $(pwd)
+
+      # Directory/GOPATH restructuring needed for CodePipeline
+      - cd ../..
+      - GITHUBUSERNAME=$(ls)
+      - mkdir -p src/github.com/
+      - mv $GITHUBUSERNAME src/github.com/aws
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com/aws/amazon-ecs-agent
+
+      # Build agent tars
+      - GO111MODULE=auto
+      - make dockerfree-agent-image
+      - make generic-rpm-integrated
+      - ls
+
+      # Rename artifacts for architecture
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
+          ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+        fi
+
+artifacts:
+  files:
+    - $ECS_AGENT_TAR
+    - $ECS_AGENT_RPM

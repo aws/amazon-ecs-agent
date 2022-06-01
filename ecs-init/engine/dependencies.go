@@ -16,7 +16,7 @@ package engine
 import (
 	"io"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/cache"
+	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 )
 
 //go:generate mockgen.sh $GOPACKAGE $GOFILE

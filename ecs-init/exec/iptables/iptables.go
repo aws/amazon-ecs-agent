@@ -14,12 +14,14 @@
 package iptables
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/aws/amazon-ecs-init/ecs-init/exec"
+	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -47,7 +49,15 @@ const (
 	offhostIntrospectionAccessConfigEnv   = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
 	offhostIntrospectonAccessInterfaceEnv = "ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME"
 	agentIntrospectionServerPort          = "51678"
-	defaultOffhostIntrospectionInterface  = "eth0"
+
+	ipv4RouteFile                         = "/proc/net/route"
+	ipv4ZeroAddrInHex                     = "00000000"
+	loopbackInterfaceName                 = "lo"
+	fallbackOffhostIntrospectionInterface = "eth0"
+)
+
+var (
+	defaultOffhostIntrospectionInterface = ""
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
@@ -67,6 +77,14 @@ func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
 	if err != nil {
 		log.Errorf("Error searching '%s' executable: %v", iptablesExecutable, err)
 		return nil, err
+	}
+
+	defaultOffhostIntrospectionInterface, err = getOffhostIntrospectionInterface()
+	if err != nil {
+		log.Warnf("Error resolving default offhost introspection network interface, will use eth0 as fallback: %+v", err)
+		// fall back to the previous behavior (always use 'eth0') in the rare case that it
+		// might affect some customer with a special routing setup that's previously working.
+		defaultOffhostIntrospectionInterface = fallbackOffhostIntrospectionInterface
 	}
 
 	return &NetfilterRoute{
@@ -189,18 +207,51 @@ func getBlockIntrospectionOffhostAccessInputChainArgs() []string {
 	return []string{
 		"INPUT",
 		"-p", "tcp",
-		"-i", getOffhostIntrospectionInterface(),
+		"-i", defaultOffhostIntrospectionInterface,
 		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
 }
 
-func getOffhostIntrospectionInterface() string {
+func getOffhostIntrospectionInterface() (string, error) {
 	s := os.Getenv(offhostIntrospectonAccessInterfaceEnv)
 	if s != "" {
-		return s
+		return s, nil
 	}
-	return defaultOffhostIntrospectionInterface
+	return getDefaultNetworkInterfaceIPv4()
+}
+
+// Parse /proc/net/route file and retrieves a non-loopback default network interface for IPv4 (which maps to default 0.0.0.0/0 destination)
+// Example file content:
+// $ sudo cat /proc/net/route
+// Iface   Destination Gateway     Flags   RefCnt  Use Metric  Mask   MTU Window  IRTT
+// ens5    00000000    01201FAC    0003    0   		0   512 00000000    0   0   	0
+// ...
+//
+// 1st column contains interface name
+// 2nd column contains destination network in hex
+var getDefaultNetworkInterfaceIPv4 = func() (string, error) {
+	input, err := os.Open(ipv4RouteFile)
+	if err != nil {
+		return "", fmt.Errorf("could not get IPv4 route input: %v", err)
+	}
+	defer input.Close()
+	return scanIPv4RoutesForDefaultInterface(input)
+}
+
+func scanIPv4RoutesForDefaultInterface(input io.Reader) (string, error) {
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "Iface") { // skip header line
+			continue
+		}
+		fields := strings.Fields(line)
+		if (fields[1] == ipv4ZeroAddrInHex) && (fields[0] != loopbackInterfaceName) {
+			return fields[0], nil
+		}
+	}
+	return "", fmt.Errorf("could not find a default IPv4 route through non-loopback interface")
 }
 
 func getOutputChainArgs() []string {

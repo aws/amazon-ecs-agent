@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	cache "github.com/aws/amazon-ecs-init/ecs-init/cache"
+	cache "github.com/aws/amazon-ecs-agent/ecs-init/cache"
 	gomock "github.com/golang/mock/gomock"
 )
 

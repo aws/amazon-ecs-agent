@@ -18,15 +18,15 @@
 %global no_exec_perm 644
 %global debug_package %{nil}
 
-%ifarch x86_64
-%global agent_image %{SOURCE3}
-%endif
-%ifarch aarch64
-%global agent_image %{SOURCE4}
-%endif
+#%ifarch x86_64
+#%global agent_image %{SOURCE3}
+#%endif
+#%ifarch aarch64
+#%global agent_image %{SOURCE4}
+#%endif
 
 Name:           amazon-ecs-init
-Version:        1.60.0
+Version:        1.61.1
 Release:        1
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -105,6 +105,18 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %systemd_postun_with_restart amazon-ecs-volume-plugin
 
 %changelog
+* Tue May 03 2022 Anuj Singh <singholt@amazon.com> - 1.61.1-1
+- Cache Agent version 1.61.1
+- Install script no longer fails on systems using cgroups v2
+- Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+
+* Tue Apr 05 2022 Cameron Sparr <cssparr@amazon.com> - 1.61.0-1
+- Cache Agent version 1.61.0
+- Check ipv4 routes for default network interface instead of defaulting to eth0
+
+* Wed Mar 23 2022 Ray Allan <fierlion@amazon.com> - 1.60.1-1
+- Cache Agent version 1.60.1
+
 * Wed Mar 02 2022 Chien Han Lin <chilinn@amazon.com> - 1.60.0-1
 - Cache Agent version 1.60.0
 - Add volume plugin to rpm/deb package

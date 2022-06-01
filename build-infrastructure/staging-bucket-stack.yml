@@ -1,0 +1,82 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: A template that creates a staging bucket and the associated bucket policy
+
+Parameters:
+  StagingBucketNamePrefix:
+    Type: String
+    Description: The prefix for the name of the S3 bucket to store the staging artifacts in. The region and account ID will be appended to this in the following format, ${prefix}-${region}-${account_id}
+    Default: ecs-agent-staging-artifacts
+  ExternalAccessRoleArn:
+    Type: String
+    Description: Any IAM role from another account that will also want access to the staging bucket
+
+Resources:
+  StagingArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${StagingBucketNamePrefix}-${AWS::Region}-${AWS::AccountId}'
+
+  StagingArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StagingArtifactsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowExternalObjectAccess
+            Effect: Allow
+            Principal:
+              AWS: !Ref ExternalAccessRoleArn
+            Action:
+              - s3:GetObject
+              - s3:PutObjectAcl
+            Resource:
+              - !Sub '${StagingArtifactsBucket.Arn}/*'
+          - Sid: EnforceBucketOwnerFullControlOnPutObject
+            Effect: Allow
+            Principal:
+              AWS: !Ref ExternalAccessRoleArn
+            Action:
+              - s3:PutObject
+            Resource:
+              - !Sub '${StagingArtifactsBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+          - Sid: AllowExternalBucketAccess
+            Effect: Allow
+            Principal:
+              AWS: !Ref ExternalAccessRoleArn
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !GetAtt StagingArtifactsBucket.Arn
+          - Sid: AllowCloudWatchLogsWriteAccess
+            Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action:
+              - s3:PutObject
+            Resource:
+              - !Sub '${StagingArtifactsBucket.Arn}/*'
+          - Sid: AllowCloudWatchLogsAclAccess
+            Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action:
+              - s3:GetBucketAcl
+            Resource:
+              - !GetAtt StagingArtifactsBucket.Arn
+
+Outputs:
+  ReleaseBucketName:
+    Description: The staging bucket name
+    Value: !Ref StagingArtifactsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-StagingArtifactsBucketName'
+  ReleaseBucketArn:
+    Description: The staging bucket ARN
+    Value: !GetAtt StagingArtifactsBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-StagingArtifactsBucketArn'

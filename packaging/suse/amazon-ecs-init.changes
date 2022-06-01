@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Tue May 03, 18:00:00 UTC 2022 - singholt@amazon.com - 1.61.1-1
+
+- Cache Agent version 1.61.1
+- Install script no longer fails on systems using cgroups v2
+- Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+-------------------------------------------------------------------
+Tue Apr 05, 18:00:00 UTC 2022 - cssparr@amazon.com - 1.61.0-1
+
+- Cache Agent version 1.61.0
+- Check ipv4 routes for default network interface instead of defaulting to eth0
+-------------------------------------------------------------------
+Wed Mar 23, 18:00:00 UTC 2022 - fierlion@amazon.com - 1.60.1-1
+
+- Cache Agent version 1.60.1
+-------------------------------------------------------------------
 Wed Mar 02, 19:00:00 UTC 2022 - chilinn@amazon.com - 1.60.0-1
 
 - Cache Agent version 1.60.0

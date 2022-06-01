@@ -1,0 +1,1 @@
+{"author":"Amazon Web Services, Inc.","config":{"Cmd":["/agent"],"ArgsEscaped":true},"created":"~~timestamp~~","history":[{"created":"~~timestamp~~","author":"Amazon Web Services, Inc.","created_by":"°o°","empty_layer":true}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:~~digest~~"]}}

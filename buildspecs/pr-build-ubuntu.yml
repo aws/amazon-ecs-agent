@@ -1,0 +1,63 @@
+version: 0.2
+
+env:
+  variables:
+    # Github username of the forked repo on which to make builds
+    GITHUBUSERNAME: aws
+
+phases:
+  install:
+    commands:
+      - architecture=""
+      # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - case $(uname -m) in
+           x86_64)
+             architecture="amd64"
+           ;;
+           aarch64)
+             architecture="arm64"
+           ;;
+        esac
+
+      # Need to install GOLANG using apt for making deb
+      # Remove existing go installation (goenv utility)
+      - rm -rf /root/.goenv/
+
+  build:
+    commands:
+      - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
+      - echo "Building agent deb" 2>&1 | tee -a $BUILD_LOG
+      - AGENT_VERSION=$(cat VERSION)
+      - ECS_AGENT_DEB="amazon-ecs-init_${AGENT_VERSION}-1_${architecture}.deb"
+      - ECS_AGENT_DEB_TAR="amazon-ecs-init_${AGENT_VERSION}-1.debian.tar.xz"
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
+      - cd ../../../..
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com
+      - mv $GITHUBUSERNAME aws
+      - cd aws/amazon-ecs-agent
+
+      # Building agent deb
+      - GO111MODULE=auto
+      - sudo apt-get update -y | tee -a $BUILD_LOG
+      - sudo apt install -y make | tee -a $BUILD_LOG
+      - sudo apt install -y dpkg-dev | tee -a $BUILD_LOG
+      - sudo apt install -y devscripts | tee -a $BUILD_LOG
+      - sudo apt install -y debhelper | tee -a $BUILD_LOG
+      - sudo apt install -y golang | tee -a $BUILD_LOG
+      - which go
+      - go version
+      - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG
+      - ls | tee -a $BUILD_LOG
+
+  post_build:
+    commands:
+
+artifacts:
+  files:
+    - $ECS_AGENT_DEB
+    - $ECS_AGENT_DEB_TAR
+    - $BUILD_LOG
+  name: $CODEBUILD_RESOLVED_SOURCE_VERSION

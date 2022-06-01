@@ -1,0 +1,874 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: A template that brings up a code pipeline that builds and signs artifacts
+
+Parameters:
+  BuildAndSignCodePipelineName:
+    Type: String
+    Description: The name of the code pipeline
+    Default: artifact-build-sign-pipeline
+  BuildspecsExtractCodeBuildProjectName:
+    Type: String
+    Description: The name of the buildspec extractor project
+    Default: buildspec-extractor
+  AmdBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the AMD build project
+    Default: amd-artifact-build
+  ArmBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the ARM build project
+    Default: arm-artifact-build
+  UbuntuAmdBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the Ubuntu AMD build project (builds .deb )
+    Default: ubuntu-amd-artifact-build
+  SigningCodeBuildProjectName:
+    Type: String
+    Description: The name of the signing project
+    Default: artifact-sign
+  CopyCodeBuildProjectName:
+    Type: String
+    Description: The name of the copy project
+    Default: artifact-copy
+  LogsPullerCodeBuildProjectName:
+    Type: String
+    Description: The name of the copy project
+    Default: log-puller
+  CodeBuildLogGroupName:
+    Type: String
+    Description: The name of the log group to push build logs to
+    Default: build-and-sign-logs
+  LogGroupRetentionPeriodInDays:
+    Type: Number
+    Description: The number of days to retain cloudwatch logs, the allowed values exist because CloudWatch Logs only accepts certain day values
+    Default: 180
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1827
+      - 3653
+  ReleaseArtifactsBucketName:
+    Type: String
+    Description: The name of the bucket where things land at the end, this is assumed to already exist
+  ReleaseArtifactsBucketArn:
+    Type: String
+    Description: The ARN of the bucket where things land at the end, this is assumed to already exist
+  ReleaseArtifactsBucketS3Uri:
+    Type: String
+    Description: The URI of the bucket where things land at the end, this is assumed to already exist (e.g. s3://artifacts)
+  CodeStarConnectionArn:
+    Type: String
+    Description: The ARN of the connection to use to connect to GitHub
+  GithubFullRepoName:
+    Type: String
+    Description: The name of the repository that we want to use (e.g. aws/amazon-ecs-agent)
+  GithubBranchName:
+    Type: String
+    Description: The name of the branch to use to build (e.g. mainline, dev)
+  SecretKeyArn:
+    Type: String
+    Description: The ARN of the secret key
+  PassphraseArn:
+    Type: String
+    Description: The ARN of the passphrase
+
+Resources:
+  CodeBuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref CodeBuildLogGroupName
+      RetentionInDays: !Ref LogGroupRetentionPeriodInDays
+
+  BuildAndSignCodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  BuildspecsExtractCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'buildspecs-extract-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-buildspec-extract-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${BuildspecsExtractCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  BuildspecsExtractCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project to extract buildspecs from the source repo
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref BuildspecsExtractCodeBuildProjectName
+      Name: !Ref BuildspecsExtractCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref BuildspecsExtractCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/extract.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
+  AmdBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'amd-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: amd-codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${AmdBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  UbuntuAmdBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ubuntu-amd-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ubuntu-codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuAmdBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  AmdBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref AmdBuildCodeBuildProjectName
+      Name: !Ref AmdBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref AmdBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
+  UbuntuAmdBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent Docker deb packages
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref UbuntuAmdBuildCodeBuildProjectName
+      Name: !Ref UbuntuAmdBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref UbuntuAmdBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build-ubuntu.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
+  ArmBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'arm-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: arm-codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ArmBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  ArmBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project to build the ECS Agent Docker image tarball
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: ARM_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref ArmBuildCodeBuildProjectName
+      Name: !Ref ArmBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ArmBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
+  SigningCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'signing-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-signing-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${SigningCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+        - PolicyName: codebuild-secretsmanager-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: SecretsManagerAccess
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref SecretKeyArn
+                  - !Ref PassphraseArn
+
+  SigningCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref SigningCodeBuildProjectName
+      Description: A CodeBuild project that signs artifacts that were built earlier
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt SigningCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: PASSPHRASE
+            Type: SECRETS_MANAGER
+            Value: !Ref PassphraseArn
+          - Name: PRIVATE_KEY_ARN
+            Type: PLAINTEXT
+            Value: !Ref SecretKeyArn
+      Source:
+        BuildSpec: buildspecs/signing.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref SigningCodeBuildProjectName
+
+  CopyCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'copy-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-copy-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: ResultsBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Ref ReleaseArtifactsBucketArn
+                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                Action: s3:*
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${CopyCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  CopyCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref CopyCodeBuildProjectName
+      Description: A CodeBuild project that copies provided input artifacts to S3
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt CopyCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: RESULTS_BUCKET_URI
+            Type: PLAINTEXT
+            Value: !Ref ReleaseArtifactsBucketS3Uri
+      Source:
+        BuildSpec: buildspecs/copy.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref CopyCodeBuildProjectName
+
+  LogsPullerCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'logs-puller-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-logs-puller-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: CloudWatchLogsExportAccess
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - logs:CreateExportTask
+                  - logs:DescribeExportTasks
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: ResultsBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Ref ReleaseArtifactsBucketArn
+                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                Action: s3:*
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${LogsPullerCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  LogsPullerCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref LogsPullerCodeBuildProjectName
+      Description: A CodeBuild project that pulls logs from CloudWatch Logs and moves them to S3
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt LogsPullerCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: RELEASE_BUCKET_NAME
+            Type: PLAINTEXT
+            Value: !Ref ReleaseArtifactsBucketName
+          - Name: SOURCE_LOG_GROUP_NAME
+            Type: PLAINTEXT
+            Value: !Ref CodeBuildLogGroupName
+      Source:
+        BuildSpec: buildspecs/pull-logs.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref CopyCodeBuildProjectName
+
+  BuildAndSignCodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'build-and-sign-codepipeline-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: build-and-sign-codepipeline-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CodePipelinePassRoleAccess
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - iam:PassRole
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - cloudformation.amazonaws.com
+                      - elasticbeanstalk.amazonaws.com
+                      - ec2.amazonaws.com
+                      - ecs-tasks.amazonaws.com
+              - Sid: CodePipelineGithubConnectionsAccess
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodePipelineReadAndWriteToS3Access
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - s3:*
+              - Sid: CodePipelineCodeBuildAccess
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuildBatches
+                  - codebuild:StartBuildBatch
+
+  BuildAndSignCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Ref BuildAndSignCodePipelineName
+      RoleArn: !GetAtt BuildAndSignCodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Github
+              InputArtifacts: []
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeStarSourceConnection
+              Configuration:
+                ConnectionArn: !Ref CodeStarConnectionArn
+                FullRepositoryId: !Ref GithubFullRepoName
+                BranchName: !Ref GithubBranchName
+                OutputArtifactFormat: CODEBUILD_CLONE_REF
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+              Namespace: SourceVariables
+        - Name: Extract
+          Actions:
+            - Name: Buildspecs
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref BuildspecsExtractCodeBuildProject
+              OutputArtifacts:
+                - Name: Buildspecs
+              RunOrder: 1
+              Namespace: BuildspecsExtractVariables
+        - Name: Build
+          Actions:
+            - Name: MakeAmd
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref AmdBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: AmdBuildArtifact
+              RunOrder: 1
+              Namespace: AmdBuildVariables
+            - Name: MakeUbuntuAmd
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref UbuntuAmdBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: UbuntuAmdBuildArtifact
+              RunOrder: 1
+              Namespace: UbuntuAmdBuildVariables
+            - Name: MakeArm
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref ArmBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: ArmBuildArtifact
+              RunOrder: 1
+              Namespace: ArmBuildVariables
+        - Name: Sign
+          Actions:
+            - Name: GPG
+              InputArtifacts:
+                - Name: Buildspecs
+                - Name: UbuntuAmdBuildArtifact
+                - Name: AmdBuildArtifact
+                - Name: ArmBuildArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref SigningCodeBuildProject
+                PrimarySource: Buildspecs
+                # This project takes the following names as env vars
+                # - Commit sha
+                # - AMD tar
+                # - AMD rpm
+                # - Ubuntu AMD deb
+                # - ARM tar
+                # - ARM rpm
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_RPM","value":"#{AmdBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_AMD_DEB","value":"#{UbuntuAmdBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_RPM","value":"#{ArmBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: SignedArtifact
+              RunOrder: 1
+              Namespace: SigningVariables
+        - Name: Copy
+          Actions:
+            - Name: ToS3
+              InputArtifacts:
+                - Name: Buildspecs
+                - Name: SignedArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CopyCodeBuildProject
+                PrimarySource: Buildspecs
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              RunOrder: 1
+              Namespace: CopyVariables
+        - Name: ExportLogs
+          Actions:
+            - Name: ToS3
+              InputArtifacts:
+                - Name: Buildspecs
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref LogsPullerCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"EXTRACT_BUILD_ID","value":"#{BuildspecsExtractVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"AMD_BUILD_ID","value":"#{AmdBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"ARM_BUILD_ID","value":"#{ArmBuildVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"SIGNING_BUILD_ID","value":"#{SigningVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"},{"name":"COPY_BUILD_ID","value":"#{CopyVariables.CODEBUILD_BUILD_ID}","type":"PLAINTEXT"}]'
+              RunOrder: 1
+              Namespace: LogsPullerVariables
