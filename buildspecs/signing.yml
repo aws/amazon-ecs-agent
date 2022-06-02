@@ -60,6 +60,9 @@ phases:
       # Sign the amd deb (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_UbuntuAmdBuildArtifact/$ECS_AGENT_UBUNTU_AMD_DEB" $ECS_AGENT_UBUNTU_AMD_DEB
       - source /tmp/functions.sh && sign_file $ECS_AGENT_UBUNTU_AMD_DEB
+      # Sign the arm deb (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_UbuntuArmBuildArtifact/$ECS_AGENT_UBUNTU_ARM_DEB" $ECS_AGENT_UBUNTU_ARM_DEB
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_UBUNTU_ARM_DEB
       # Clean up the key just in case
       - source /tmp/functions.sh && delete_all_secret_keys
       # validate that the keychain is empty
@@ -77,3 +80,5 @@ artifacts:
     - '$ECS_AGENT_ARM_RPM.asc'
     - $ECS_AGENT_UBUNTU_AMD_DEB
     - '$ECS_AGENT_UBUNTU_AMD_DEB.asc'
+    - $ECS_AGENT_UBUNTU_ARM_DEB
+    - '$ECS_AGENT_UBUNTU_ARM_DEB.asc'

@@ -22,10 +22,6 @@ phases:
           ;;
         esac
 
-      # Need to install GOLANG using apt for making deb
-      # Remove existing go installation (goenv utility)
-      - rm -rf /root/.goenv/
-
   build:
     commands:
       - echo "Building agent deb"
@@ -44,12 +40,14 @@ phases:
 
       # Build agent tars
       - GO111MODULE=auto
-      - sudo apt-get update -y
-      - sudo apt install -y make
-      - sudo apt install -y dpkg-dev
-      - sudo apt install -y devscripts
-      - sudo apt install -y debhelper
-      - sudo apt install -y golang
+      - DEBIAN_FRONTEND=noninteractive
+
+      - apt-get update -y
+      - apt-get install -y make
+      - apt-get install -y dpkg-dev
+      - apt-get install -y devscripts
+      - apt-get install -y debhelper
+      - apt-get install -y golang
       - which go
       - go version
       - make generic-deb-integrated
