@@ -1,4 +1,10 @@
 # Changelog
+## 1.61.2
+* Enhancement - Integrate new/updated build targets and processes [#3234](https://github.com/aws/amazon-ecs-agent/pull/3234)
+* Enhancement - Trimming task reason to a max of 1024 characters as per Back-end model [#3229](https://github.com/aws/amazon-ecs-agent/pull/3229)
+* Enhancement - Add log message when receiving error during cached image inspection [#3216](https://github.com/aws/amazon-ecs-agent/pull/3216)
+* Bug - Fix an issue where a task can be stuck in PENDING for ever when container dependencies can never be fulfilled [#3218](https://github.com/aws/amazon-ecs-agent/pull/3218)
+
 ## 1.61.1
 * Enhancement - Remove hard-coded task CPU limit and advertise a new capability ecs.capability.increased-task-cpu-limit [#3197](https://github.com/aws/amazon-ecs-agent/pull/3197)
 * Enhancement - Simplify api/task code [#3176](https://github.com/aws/amazon-ecs-agent/pull/3176)
