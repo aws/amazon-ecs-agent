@@ -43,7 +43,9 @@ The directory structure that is expected is as follows,
 ```
 buildspecs/
 |- merge-build.yml
+|- merge-build-ubuntu.yml
 |- pr-build.yml
+|- pr-build-ubuntu.yml
 |- signing.yml
 |- copy.yml
 ```
