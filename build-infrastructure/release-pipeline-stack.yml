@@ -23,6 +23,10 @@ Parameters:
     Type: String
     Description: The name of the Ubuntu AMD build project (builds .deb )
     Default: ubuntu-amd-artifact-build
+  UbuntuArmBuildCodeBuildProjectName:
+    Type: String
+    Description: The name of the Ubuntu ARM build project (builds .deb )
+    Default: ubuntu-arm-artifact-build
   SigningCodeBuildProjectName:
     Type: String
     Description: The name of the signing project
@@ -285,6 +289,84 @@ Resources:
                   - codebuild:BatchPutTestCases
                   - codebuild:BatchPutCodeCoverages
 
+  UbuntuArmBuildCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ubuntu-arm-build-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ubuntu-codebuild-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuArmBuildCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  UbuntuArmBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: ARM_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref UbuntuArmBuildCodeBuildProjectName
+      Name: !Ref UbuntuArmBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref UbuntuArmBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build-ubuntu.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
   AmdBuildCodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -317,10 +399,10 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       ConcurrentBuildLimit: 10
-      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent Docker deb packages
+      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
+        Image: 'public.ecr.aws/lts/ubuntu:20.04'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: LINUX_CONTAINER
@@ -812,12 +894,28 @@ Resources:
                 - Name: ArmBuildArtifact
               RunOrder: 1
               Namespace: ArmBuildVariables
+            - Name: MakeUbuntuArm
+              InputArtifacts:
+                - Name: SourceArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref UbuntuArmBuildCodeBuildProject
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: UbuntuArmBuildArtifact
+              RunOrder: 1
+              Namespace: UbuntuArmBuildVariables
         - Name: Sign
           Actions:
             - Name: GPG
               InputArtifacts:
                 - Name: Buildspecs
                 - Name: UbuntuAmdBuildArtifact
+                - Name: UbuntuArmBuildArtifact
                 - Name: AmdBuildArtifact
                 - Name: ArmBuildArtifact
               ActionTypeId:
@@ -833,9 +931,10 @@ Resources:
                 # - AMD tar
                 # - AMD rpm
                 # - Ubuntu AMD deb
+                # - Ubuntu ARM deb
                 # - ARM tar
                 # - ARM rpm
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_RPM","value":"#{AmdBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_AMD_DEB","value":"#{UbuntuAmdBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_RPM","value":"#{ArmBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"}]'
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_RPM","value":"#{AmdBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_AMD_DEB","value":"#{UbuntuAmdBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_ARM_DEB","value":"#{UbuntuArmBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_RPM","value":"#{ArmBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: SignedArtifact
               RunOrder: 1
