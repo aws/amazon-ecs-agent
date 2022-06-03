@@ -170,7 +170,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: true
+        PrivilegedMode: false
         Type: LINUX_CONTAINER
       LogsConfig:
         CloudWatchLogs:
@@ -352,7 +352,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
         ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: true
+        PrivilegedMode: false
         Type: ARM_CONTAINER
       LogsConfig:
         CloudWatchLogs:
@@ -378,7 +378,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: true
+        PrivilegedMode: false
         Type: LINUX_CONTAINER
       LogsConfig:
         CloudWatchLogs:
@@ -404,7 +404,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
         ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: true
+        PrivilegedMode: false
         Type: LINUX_CONTAINER
       LogsConfig:
         CloudWatchLogs:
@@ -482,7 +482,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
         ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: true
+        PrivilegedMode: false
         Type: ARM_CONTAINER
       LogsConfig:
         CloudWatchLogs:
