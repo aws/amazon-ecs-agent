@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - BUILD_DATE=$(date +%Y%m%d)
+      - $(aws --region $AWS_REGION ecr get-login --no-include-email)
+  build:
+    commands:
+      # Go into the right folder
+      - cd build-infrastructure
+      - echo "Building ecs-agent-signer version $BUILD_DATE"
+      # build the image dictated by the Dockerfile.signer file
+      - docker build -f Dockerfile.signer -t ecs-agent-signer:latest --build-arg builddate=$BUILD_DATE .
+      # Tag the built image with latest as well as the build date
+      - echo "Tagging and pushing Docker image to ECR"
+      - docker tag ecs-agent-signer:latest $SIGNER_ECR_REPO:latest
+      - docker tag ecs-agent-signer:latest $SIGNER_ECR_REPO:build-$BUILD_DATE
+      # push the image to ECR
+      - docker push $SIGNER_ECR_REPO:latest
+      - docker push $SIGNER_ECR_REPO:build-$BUILD_DATE
