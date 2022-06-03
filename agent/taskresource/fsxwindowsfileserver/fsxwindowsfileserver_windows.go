@@ -553,18 +553,23 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 
 	// New-SmbGlobalMapping cmdlet creates an SMB mapping between the container instance
 	// and SMB share (FSx for Windows File Server file-system)
-	cmd := execCommand("powershell.exe",
+
+	args := []string{
 		"New-SmbGlobalMapping",
 		localPathArg,
 		remotePathArg,
 		creds,
 		"-Persistent $true",
 		"-RequirePrivacy $true",
-		"-ErrorAction Stop")
+		"-ErrorAction Stop",
+	}
+	seelog.Debugf("Executing mapping of fsxwindowsfileserver with cmd: %v %v", strings.Join(args[:3], " "), strings.Join(args[4:], " "))
 
-	_, err = cmd.CombinedOutput()
+	cmd := execCommand("powershell.exe", args...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		seelog.Errorf("Failed to map fsxwindowsfileserver resource on the container instance: %v", err)
+		safeOutput := strings.ReplaceAll(string(out), password, "<pass>")
+		seelog.Errorf("Failed to map fsxwindowsfileserver resource on the container instance error: %v, out: %v", err, safeOutput)
 		fv.setTerminalReason(err.Error())
 		return err
 	}
