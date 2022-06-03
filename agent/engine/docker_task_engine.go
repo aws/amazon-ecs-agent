@@ -709,12 +709,22 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
+	tID := task.GetID()
 	if execcmd.IsExecEnabledTask(task) {
 		// cleanup host exec agent log dirs
-		tID := task.GetID()
 		if err := removeAll(filepath.Join(execcmd.ECSAgentExecLogDir, tID)); err != nil {
 			logger.Warn("Unable to remove ExecAgent host logs for task", logger.Fields{
-				field.TaskID: task.GetID(),
+				field.TaskID: tID,
+				field.Error:  err,
+			})
+		}
+	}
+
+	if task.IsServiceConnectEnabled() {
+		serviceconnectConfig := task.GetServiceConnectRuntimeConfig()
+		if err := removeAll(filepath.Dir(serviceconnectConfig.AdminSocketPath)); err != nil {
+			logger.Warn("Unable to remove service-connect UDS bind mount path for task", logger.Fields{
+				field.TaskID: tID,
 				field.Error:  err,
 			})
 		}
