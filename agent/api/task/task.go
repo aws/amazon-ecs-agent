@@ -320,56 +320,12 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 
-	// get the service connect attachment from acsTask.Attachments
-	if acsTask.Attachments != nil {
-		scConfig, err := getServiceConnectConfig(acsTask)
-		if err != nil {
-			return nil, err
-		}
-		task.ServiceConnectConfig = scConfig
+	// extract and validate attachments
+	if err := handleTaskAttachments(acsTask, task); err != nil {
+		return nil, err
 	}
 
 	return task, nil
-}
-
-// getServiceConnectConfig returns service connect config from the service connect type attachment if it exists.
-func getServiceConnectConfig(acsTask *ecsacs.Task) (*serviceconnect.Config, error) {
-	var scAttachment *ecsacs.Attachment
-	for _, attachment := range acsTask.Attachments {
-		if aws.StringValue(attachment.AttachmentType) == serviceConnectAttachmentType {
-			scAttachment = attachment
-			break
-		}
-	}
-
-	// extract the service connect container name and service connect config value from the service connect attachment
-	if scAttachment != nil {
-		networkMode := aws.StringValue(acsTask.NetworkMode)
-		ipv6Enabled := false
-		if acsTask.ElasticNetworkInterfaces != nil {
-			for _, eni := range acsTask.ElasticNetworkInterfaces {
-				if len(eni.Ipv6Addresses) != 0 {
-					ipv6Enabled = true
-					break
-				}
-			}
-		}
-
-		// parse service connect from the attachment value
-		scConfig, err := serviceconnect.ParseServiceConnectAttachment(scAttachment)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing service connect config value from the service connect attachment: %w", err)
-		}
-
-		// validate service connect config
-		if err := serviceconnect.ValidateServiceConnectConfig(scConfig, acsTask.Containers, networkMode, ipv6Enabled); err != nil {
-			return nil, fmt.Errorf("service connect config validation failed: %w", err)
-		}
-
-		return scConfig, nil
-	}
-
-	return nil, nil
 }
 
 func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
