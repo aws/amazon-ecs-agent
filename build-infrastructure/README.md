@@ -19,11 +19,13 @@ gpg --full-generate-key
 gpg --output private.gpg --armor --export-secret-key <email>
 ```
 
-A couple of things to keep in mind. If you're using Amazon Linux, it comes with a slightly older `gpg` executable so it doesn't _yet_ support ECC keys; best bet is to pick RSA 4096-bit. You will also need a passphrase for the key because it's better security.
+A couple of things to keep in mind. If you're using Amazon Linux (or the AL2 container image), it comes with a slightly older `gpg` executable so it doesn't _yet_ support ECC keys; best bet is to pick RSA 4096-bit. You will also need a passphrase for the key because it's better security.
 
-You will then have to import this key into secrets manager. To set expectations, plaintext in the context of creating secrets means unstructured (non JSON formatted) data, rather than unencrypted data. Be sure to pick plaintext and just paste the contents of the key into the textbox without JSON encoding it. Secrets Manager encourages the use of JSON structured data but it is not required. You will also need to create a Secrets Manager secret for the passphrase the same way as above.
+You will then have to import this key into secrets manager. To set expectations, plaintext in the context of creating Secrets Manager secrets means unstructured (non JSON formatted) data, rather than unencrypted data.
 
-As for the codestar connection, you can generate one of those by logging into the AWS Console, going to any of the CodeSuite services, clicking on the Settings left nav item and clicking connections. And then clicking the new button. You'll need the ARN of that connection.
+Be sure to pick plaintext and just paste the contents of the key into the textbox without JSON encoding it. Secrets Manager encourages the use of JSON structured data but it is not required. You will also need to create a Secrets Manager secret for the passphrase the same way as above.
+
+As for the codestar connection, you can generate one of those by logging into the AWS Console, going to any of the CodeSuite services, clicking on the Settings left nav item and clicking connections. And then clicking the new button. The wizard will walk you through generating the connection. You'll need the ARN of that connection.
 
 ## Release pipeline
 
@@ -31,9 +33,10 @@ Grab the `release-pipeline-stack.yml` file and either upload it to CloudFormatio
 
 1. A CloudWatch Logs group for the whole CodePipeline
 1. An S3 bucket used to move artifacts between the CodePipeline stages
-1. A builder CodeBuild project and corresponding IAM role
+1. Several builder CodeBuild projects and corresponding IAM roles
 1. A signer CodeBuild project and corresponding IAM role
 1. A copier CodeBuild project and corresponding IAM role
+1. A log collector CodeBuild project and corresponding IAM role
 1. A CodePipeline to pull these all together and corresponding IAM role
 
 Once the stack is successful, by default, the project is configured to use `buildspecs/<stage>.yml` as the CodeBuild buildspec file but you can change that by manually editing the buildspec for each CodeBuild project or putting the buildspec files in this repository in a `buildspecs` folder in the root of the repository you're building.
@@ -49,6 +52,8 @@ buildspecs/
 ```
 
 Everything else is already set up for you.
+
+You can specify a minimal build environment for the signing portion of this process by providing an ECR repository based image URI to the `SigningCodeBuildProjectCustomImageUri` parameter in this template. If it is left blank, the default CodeBuild build environment will be used. Read below for more information.
 
 ## Adding a new artifact get signed and copied
 
@@ -85,6 +90,14 @@ There are a few changes that need to be made to add another artifact that needs 
    1. The signing is going to generate a new file that ends in `.asc`.
    1. You have to export that out of the signing environment for it to be picked up by the Copy to S3 CodeBuild project.
 1. The Copy to S3 CodeBuild project is already written to handle multiple files so no changes are required there.
+
+## Minimal build environment for signing
+
+The default CodeBuild image that we use to build all of our projects is a [very well equipped general purpose build environment](https://github.com/aws/aws-codebuild-docker-images) which is not necessary for our artifact signing process. So to help with this, a new stack (specified by `minimal-signing-build-stack.yml`) is included as a way to optionally minimize the build environment for signing.
+
+The stack includes a CodeBuild project that builds the minimal image using the `Dockerfile.signer` file, stores it in ECR, and additionally includes a trigger to build this image on a periodic basis. This ECR image can then be provided to the `release-pipeline-stack.yml` stack as a parameter and the right permissions and options will be selected to allow the use of this.
+
+The periodic trigger is controlled by a cron expression and documentation on supported cron options can be found [here](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html). If the cron expression parameter is left empty, a periodic trigger will not be generated.
 
 ## Secrets Manager access logs
 
