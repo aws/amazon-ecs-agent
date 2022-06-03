@@ -58,18 +58,19 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 	}{
 		{
 			stats: `# TYPE MetricFamily1 counter
-				MetricFamily1{dimensionA="value1", dimensionB="value2"} 1
+				MetricFamily1{DimensionA="value1", DimensionB="value2", Direction="ingress"} 1
 				# TYPE MetricFamily2 counter
-				MetricFamily2{dimensionB="value2", dimensionA="value1"} 1
+				MetricFamily2{DimensionB="value2", DimensionA="value1", Direction="ingress"} 1
 				`,
 			expectedStats: []*ecstcs.GeneralMetricsWrapper{
 				{
+					MetricType: aws.String("1"),
 					Dimensions: []*ecstcs.Dimension{
 						{
-							Key:   aws.String("dimensionA"),
+							Key:   aws.String("DimensionA"),
 							Value: aws.String("value1"),
 						}, {
-							Key:   aws.String("dimensionB"),
+							Key:   aws.String("DimensionB"),
 							Value: aws.String("value2"),
 						}},
 					GeneralMetrics: []*ecstcs.GeneralMetric{
@@ -89,18 +90,19 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 		},
 		{
 			stats: `# TYPE MetricFamily3 histogram
-				MetricFamily3{dimensionX="value1", dimensionY="value2", le="0.5"} 1
-				MetricFamily3{dimensionX="value1", dimensionY="value2", le="1"} 2
-				MetricFamily3{dimensionX="value1", dimensionY="value2", le="5"} 3
+				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="0.5"} 1
+				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="1"} 2
+				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="5"} 3
 				`,
 			expectedStats: []*ecstcs.GeneralMetricsWrapper{
 				{
+					MetricType: aws.String("2"),
 					Dimensions: []*ecstcs.Dimension{
 						{
-							Key:   aws.String("dimensionX"),
+							Key:   aws.String("DimensionX"),
 							Value: aws.String("value1"),
 						}, {
-							Key:   aws.String("dimensionY"),
+							Key:   aws.String("DimensionY"),
 							Value: aws.String("value2"),
 						}},
 					GeneralMetrics: []*ecstcs.GeneralMetric{
