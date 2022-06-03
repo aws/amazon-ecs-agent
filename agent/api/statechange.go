@@ -161,6 +161,14 @@ func newUncheckedContainerStateChangeEvent(task *apitask.Task, cont *apicontaine
 			"create container state change event api: internal container: %s",
 			cont.Name)
 	}
+	portBindings := cont.GetKnownPortBindings()
+	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() {
+		pauseCont, err := task.GetBridgeModePauseContainerForTaskContainer(cont)
+		if err != nil {
+			return event, fmt.Errorf("error resolving pause container for bridge mode SC container: %s", cont.Name)
+		}
+		portBindings = pauseCont.GetKnownPortBindings()
+	}
 	contKnownStatus := cont.GetKnownStatus()
 	event = ContainerStateChange{
 		TaskArn:       task.Arn,
@@ -168,7 +176,7 @@ func newUncheckedContainerStateChangeEvent(task *apitask.Task, cont *apicontaine
 		RuntimeID:     cont.GetRuntimeID(),
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
-		PortBindings:  cont.GetKnownPortBindings(),
+		PortBindings:  portBindings,
 		ImageDigest:   cont.GetImageDigest(),
 		Reason:        reason,
 		Container:     cont,
