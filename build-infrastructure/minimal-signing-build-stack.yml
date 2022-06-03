@@ -223,7 +223,7 @@ Resources:
       Targets:
         - Arn: !GetAtt ImageCodeBuildProject.Arn
           Id: !Sub 'codebuild-target-${PeriodicBuildTriggerName}'
-          RoleArn: !GetAtt ImageCodeBuildProjectServiceRole.Arn
+          RoleArn: !GetAtt ImageBuildPeriodicTriggerRole.Arn
 
 Outputs:
   EcrRepositoryUri:
