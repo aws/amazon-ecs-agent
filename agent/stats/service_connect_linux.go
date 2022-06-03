@@ -36,6 +36,16 @@ type ServiceConnectStats struct {
 	lock  sync.RWMutex
 }
 
+const (
+	ingress = "1"
+	egress  = "2"
+)
+
+var directionToMetricType = map[string]string{
+	"ingress": ingress,
+	"egress":  egress,
+}
+
 func newServiceConnectStats() (*ServiceConnectStats, error) {
 	return &ServiceConnectStats{}, nil
 }
@@ -119,9 +129,14 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 
 			// Get metric dimensions
 			var dimensions []*ecstcs.Dimension
+			var metricType string
 			if metric.Label != nil {
 				for _, d := range metric.Label {
-					// TODO [SC]: New stats endpoint will surface a new dimension which indicates what is the MetricType.
+					if *d.Name == "Direction" {
+						metricType = directionToMetricType[*d.Value]
+						continue
+					}
+
 					dimension := &ecstcs.Dimension{
 						Key:   d.Name,
 						Value: d.Value,
@@ -138,6 +153,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 				generalMetricsWrapper = &ecstcs.GeneralMetricsWrapper{
 					Dimensions:     dimensions,
 					GeneralMetrics: generalMetricsList,
+					MetricType:     &metricType,
 				}
 				statsMap[dimensionAsString] = generalMetricsWrapper
 			} else {
