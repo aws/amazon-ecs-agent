@@ -31,6 +31,14 @@ Parameters:
     Type: String
     Description: The name of the signing project
     Default: artifact-sign
+  SigningCodeBuildProjectCustomImageUri:
+    Type: String
+    Description: A custom ECR image to use with the signing project, can be left blank to use the default Codebuild image
+    Default: ''
+  SigningCodeBuildProjectCustomImageRepositoryArn:
+    Type: String
+    Description: The ARN of the ECR repository where the custom image is stored, ignored if SigningCodeBuildProjectCustomImageUri is blank
+    Default: ''
   CopyCodeBuildProjectName:
     Type: String
     Description: The name of the copy project
@@ -89,6 +97,10 @@ Parameters:
   PassphraseArn:
     Type: String
     Description: The ARN of the passphrase
+
+Conditions:
+  UseCustomSigningImage:
+    !Not [!Equals [!Ref 'SigningCodeBuildProjectCustomImageUri', '']]
 
 Resources:
   CodeBuildLogGroup:
@@ -553,6 +565,30 @@ Resources:
                 Resource:
                   - !Ref SecretKeyArn
                   - !Ref PassphraseArn
+        - !If
+          - UseCustomSigningImage
+          - PolicyName: codebuild-custom-ecr-image-policy
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Sid: EcrGetAuthTokenAccess
+                  Effect: Allow
+                  Action:
+                    - ecr:GetAuthorizationToken
+                  Resource: '*'
+                - Sid: EcrImageAccess
+                  Effect: Allow
+                  Action:
+                    - ecr:BatchCheckLayerAvailability
+                    - ecr:GetDownloadUrlForLayer
+                    - ecr:BatchGetImage
+                    - ecr:PutImage
+                    - ecr:InitiateLayerUpload
+                    - ecr:UploadLayerPart
+                    - ecr:CompleteLayerUpload
+                  Resource:
+                    - !Ref SigningCodeBuildProjectCustomImageRepositoryArn
+          - !Ref AWS::NoValue
 
   SigningCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -566,8 +602,14 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        ImagePullCredentialsType: CODEBUILD
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        ImagePullCredentialsType: !If
+          - UseCustomSigningImage
+          - SERVICE_ROLE
+          - CODEBUILD
+        Image: !If
+          - UseCustomSigningImage
+          - !Ref SigningCodeBuildProjectCustomImageUri
+          - aws/codebuild/amazonlinux2-x86_64-standard:3.0
         EnvironmentVariables:
           - Name: PASSPHRASE
             Type: SECRETS_MANAGER

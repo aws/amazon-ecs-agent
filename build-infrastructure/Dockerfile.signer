@@ -1,0 +1,14 @@
+# Pull from Public ECR because less likely to get throttled
+FROM public.ecr.aws/amazonlinux/amazonlinux:2
+
+# Assign a build tag because if we ever run into issues with
+# this image, we'll be able to look back at the image tag
+# and figure out what went wrong
+# To build this image, run
+# docker run -t <your_repo>:<tag_you_want> --build-arg builddate=$(date +%Y%m%d) .
+# For reference date +%Y%m%d outputs today's date in YYYYMMDD format
+# We also tag this image with the same tag in ECR
+ARG builddate
+ENV ECS_AGENT_SIGNING_IMAGE_TAG="build-${builddate}"
+
+RUN yum install -y awscli gpg jq

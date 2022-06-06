@@ -1,0 +1,233 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: A template that creates a minimal signing CodeBuild environment and stores it in ECR
+
+Parameters:
+  SignerImageRepositoryName:
+    Type: String
+    Description: the name of the ECR repository to upload the signer image to
+    Default: ecs-agent-signer
+  RepositoryImageRententionPeriodInDays:
+    Type: Number
+    Default: 180
+  ImageCodeBuildProjectName:
+    Type: String
+    Description: the name of the CodeBuild project that builds the signing Docker image
+    Default: ecs-agent-signer-image-build
+  DockerBuildLogsGroupName:
+    Type: String
+    Description: The name of the log group to store the signing Docker image logs in
+    Default: signer-image-build-logs
+  CodeStarConnectionArn:
+    Type: String
+    Description: The ARN of the connection to use to connect to GitHub
+  GitHubRepositoryUrl:
+    Type: String
+    Description: The repository to pull the Dockerfile from so that we can build the signer image
+    Default: https://github.com/aws/amazon-ecs-agent
+  GitHubBranchName:
+    Type: String
+    Description: The branch to use from the repository mentioned above
+    Default: master
+  ImageBuildFrequencyCronExpression:
+    Type: String
+    Description: A cron expression to periodically build the signing image, can be left blank to disable periodic builds. See https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html
+    Default: 30 10 ? * 4 *
+  PeriodicBuildTriggerName:
+    Type: String
+    Description: The name of the CloudWatch Event rule, ignored if ImageBuildFrequencyCronExpression is blank
+    Default: PeriodicallyTriggerSigningImageBuild
+  LogGroupRetentionPeriodInDays:
+    Type: Number
+    Description: The number of days to retain cloudwatch logs
+    Default: 180
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1827
+      - 3653
+
+Conditions:
+  GeneratePeriodicTrigger:
+    !Not [!Equals [!Ref 'ImageBuildFrequencyCronExpression', '']]
+
+Resources:
+  DockerBuildLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref DockerBuildLogsGroupName
+      RetentionInDays: !Ref LogGroupRetentionPeriodInDays
+
+  SignerImageRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref SignerImageRepositoryName
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Only keep build-yyyymmdd images for ${RepositoryImageRententionPeriodInDays} days",
+                "selection": {
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": ${RepositoryImageRententionPeriodInDays},
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "build"
+                  ]
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+  ImageCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'image-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-image-build-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: EcrPushImageAccess
+                Effect: Allow
+                Action:
+                  - ecr:CompleteLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:InitiateLayerUpload
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                Resource: !GetAtt SignerImageRepository.Arn
+              - Sid: EcrGetAuthTokenAccess
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: CodeBuildCodeStarConnectionAccess
+                Effect: Allow
+                Resource:
+                  - !Ref CodeStarConnectionArn
+                Action:
+                  - codestar-connections:UseConnection
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt DockerBuildLogsGroup.Arn
+                  - !Sub '${DockerBuildLogsGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ImageCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  ImageCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref ImageCodeBuildProjectName
+      Description: A CodeBuild project that signs artifacts that were built earlier
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt ImageCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: SIGNER_ECR_REPO
+            Type: PLAINTEXT
+            Value: !GetAtt SignerImageRepository.RepositoryUri
+      Source:
+        BuildSpec: buildspecs/signing-image-build.yml
+        Type: GITHUB
+        Location: !Ref GitHubRepositoryUrl
+        GitSubmodulesConfig:
+          FetchSubmodules: true
+      SourceVersion: !Ref GitHubBranchName
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref DockerBuildLogsGroupName
+          Status: ENABLED
+          StreamName: !Ref ImageCodeBuildProjectName
+
+  ImageBuildPeriodicTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'image-periodic-trigger-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: build-event-trigger-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CodeBuildStartBuildAccess
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                Resource: !GetAtt ImageCodeBuildProject.Arn
+
+  PeriodicBuildTrigger:
+    Condition: GeneratePeriodicTrigger
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger the image build periodically based on a cron expression
+      Name: !Ref PeriodicBuildTriggerName
+      RoleArn: !GetAtt ImageBuildPeriodicTriggerRole.Arn
+      ScheduleExpression: !Sub 'cron(${ImageBuildFrequencyCronExpression})'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ImageCodeBuildProject.Arn
+          Id: !Sub 'codebuild-target-${PeriodicBuildTriggerName}'
+          RoleArn: !GetAtt ImageBuildPeriodicTriggerRole.Arn
+
+Outputs:
+  EcrRepositoryUri:
+    Description: The URI of the Agent Signer image ECR repository
+    Value: !GetAtt SignerImageRepository.RepositoryUri
+    Export:
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-SignerImageEcrRepositoryUri'
