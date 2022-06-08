@@ -4149,7 +4149,7 @@ func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
 
 func TestGetBridgeModePauseContainerForTaskContainer(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
-	container, err := testTask.getBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
+	container, err := testTask.GetBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
 	assert.Nil(t, err)
 	assert.NotNil(t, container)
 	assert.Equal(t, testTask.Containers[1].Name, container.Name)
@@ -4158,7 +4158,7 @@ func TestGetBridgeModePauseContainerForTaskContainer(t *testing.T) {
 func TestGetBridgeModePauseContainerForTaskContainer_NotFound(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 	testTask.Containers[1].Name = "invalid"
-	_, err := testTask.getBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
+	_, err := testTask.GetBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "could not find pause container"))
 }

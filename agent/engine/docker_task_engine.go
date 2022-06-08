@@ -502,7 +502,8 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 	return tasksToStart
 }
 
-// updateContainerMetadata sets the container metadata from the docker inspect
+// updateContainerMetadata sets the container metadata from the docker inspect,
+// and update port mappings for bridge mode containers with service connect enabled
 func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, container *apicontainer.Container, task *apitask.Task) {
 	container.SetCreatedAt(metadata.CreatedAt)
 	container.SetStartedAt(metadata.StartedAt)
@@ -531,6 +532,25 @@ func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, contai
 	if len(metadata.PortBindings) != 0 && len(container.GetKnownPortBindings()) == 0 {
 		container.SetKnownPortBindings(metadata.PortBindings)
 	}
+
+	// update port mappings for service connect bridge mode.
+	// For the bridge-mode ServiceConnect-enabled task, port mappings are applied to the pause container
+	// (~internal-ecs-pause-<$APP_CONTAINER>) instead of the application container (<$APP_CONTAINER>); therefore,
+	// we need to remap the port mappings from the associated pause container (~internal-ecs-pause-<$APP_CONTAINER>)
+	// to the application container (<$APP_CONTAINER>).
+	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() &&
+		!container.IsInternal() && len(container.Name) > 0 {
+		pauseContainer, err := task.GetBridgeModePauseContainerForTaskContainer(container)
+		if err != nil {
+			logger.Error("Error resolving pause container for bridge mode SC container", logger.Fields{
+				field.Container: container.Name,
+				field.Error:     err,
+			})
+		} else {
+			container.SetKnownPortBindings(pauseContainer.GetKnownPortBindings())
+		}
+	}
+
 	// update the container health information
 	if container.HealthStatusShouldBeReported() {
 		container.SetHealthStatus(metadata.Health)
