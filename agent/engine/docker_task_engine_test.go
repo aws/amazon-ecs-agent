@@ -35,6 +35,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
@@ -1981,42 +1982,106 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 }
 
 func TestSynchronizeContainerStatus(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, _, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
-	dockerID := "1234"
-	dockerContainer := &apicontainer.DockerContainer{
-		DockerID:   dockerID,
-		DockerName: "c1",
-		Container:  &apicontainer.Container{},
-	}
-	labels := map[string]string{
+	testContainerName := "c1"
+	testDockerID := "1234"
+	testServiceConnectContainerName := "service-connect"
+	testLabels := map[string]string{
 		"name": "metadata",
 	}
-	volumes := []types.MountPoint{
+	testVolumes := []types.MountPoint{
 		{
 			Name:        "volume",
 			Source:      "/src/vol",
 			Destination: "/vol",
 		},
 	}
-	created := time.Now()
-	gomock.InOrder(
-		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainerstatus.ContainerRunning,
-			dockerapi.DockerContainerMetadata{
-				Labels:    labels,
-				DockerID:  dockerID,
-				CreatedAt: created,
-				Volumes:   volumes,
-			}),
-		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
-	)
-	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
-	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
-	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
-	assert.Equal(t, volumes, dockerContainer.Container.GetVolumes())
+	testAppContainer := &apicontainer.Container{
+		Name: testContainerName,
+		Type: apicontainer.ContainerNormal,
+	}
+	testCases := []struct {
+		name                       string
+		serviceConnectEnabled      bool
+		addPauseContainer          bool
+		pauseContainerName         string
+		pauseContainerPortBindings []apicontainer.PortBinding
+		networkMode                string
+	}{
+		{
+			name:                  "Service connect bridge mode with matched pause container",
+			serviceConnectEnabled: true,
+			addPauseContainer:     true,
+			pauseContainerName:    fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, testContainerName),
+			pauseContainerPortBindings: []apicontainer.PortBinding{
+				{
+					ContainerPort: 8080,
+				},
+			},
+			networkMode: networkModeBridge,
+		},
+		{
+			name:                  "Default task",
+			serviceConnectEnabled: false,
+			addPauseContainer:     false,
+			networkMode:           networkModeAWSVPC,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			testTask := &apitask.Task{
+				Containers:  []*apicontainer.Container{testAppContainer},
+				NetworkMode: tc.networkMode,
+			}
+
+			dockerContainer := &apicontainer.DockerContainer{
+				DockerID:   testDockerID,
+				DockerName: testContainerName,
+				Container:  testAppContainer,
+			}
+			testCreated := time.Now()
+			gomock.InOrder(
+				client.EXPECT().DescribeContainer(gomock.Any(), testDockerID).Return(apicontainerstatus.ContainerRunning,
+					dockerapi.DockerContainerMetadata{
+						Labels:    testLabels,
+						DockerID:  testDockerID,
+						CreatedAt: testCreated,
+						Volumes:   testVolumes,
+					}),
+				imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
+			)
+
+			if tc.serviceConnectEnabled {
+				testTask.ServiceConnectConfig = &serviceconnect.Config{
+					ContainerName: "service-connect",
+				}
+				scContainer := &apicontainer.Container{
+					Name: testServiceConnectContainerName,
+				}
+				testTask.Containers = append(testTask.Containers, scContainer)
+			}
+			pauseContainer := &apicontainer.Container{}
+			if tc.addPauseContainer {
+				pauseContainer.Name = tc.pauseContainerName
+				pauseContainer.Type = apicontainer.ContainerCNIPause
+				pauseContainer.SetKnownPortBindings(tc.pauseContainerPortBindings)
+				testTask.Containers = append(testTask.Containers, pauseContainer)
+			}
+			taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, testTask)
+			assert.Equal(t, testCreated, dockerContainer.Container.GetCreatedAt())
+			assert.Equal(t, testLabels, dockerContainer.Container.GetLabels())
+			assert.Equal(t, testVolumes, dockerContainer.Container.GetVolumes())
+
+			if tc.serviceConnectEnabled && tc.addPauseContainer {
+				assert.Equal(t, tc.pauseContainerPortBindings, dockerContainer.Container.GetKnownPortBindings())
+			}
+		})
+	}
 }
 
 // TestHandleDockerHealthEvent tests the docker health event will only cause the
