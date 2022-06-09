@@ -415,7 +415,7 @@ func TestExecCommandAgent(t *testing.T) {
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
 
-	testExecCmdHostBinDir := "/managed-agents/execute-command/bin"
+	testExecCmdHostBinDir := "misc/exec-command-agent-test/managed-agents/execute-command/bin"
 
 	taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
 	stateChangeEvents := taskEngine.StateChangeEvents()

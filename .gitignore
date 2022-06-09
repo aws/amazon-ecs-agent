@@ -40,3 +40,5 @@ ecs-agent-*.tar
 /ecs.service
 *.log
 *.DS_Store
+misc/exec-command-agent-test/managed-agents
+.run
