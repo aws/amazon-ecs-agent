@@ -32,7 +32,10 @@ phases:
       - cd ../../../..
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
-      - mv $GITHUBUSERNAME aws
+      - |
+        if [[ $GITHUBUSERNAME != "aws" ]] ; then
+          mv $GITHUBUSERNAME aws
+        fi
       - cd aws/amazon-ecs-agent
 
       # Building agent deb

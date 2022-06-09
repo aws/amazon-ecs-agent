@@ -1,0 +1,57 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - CODEBUILD_BUILD_ID
+
+phases:
+  build:
+    commands:
+      - AMD_TAR_FILE_PATH="${CODEBUILD_SRC_DIR_SignedArtifact}/ecs-agent-v${AGENT_VERSION}.tar"
+      - ARM_TAR_FILE_PATH="${CODEBUILD_SRC_DIR_SignedArtifact}/ecs-agent-arm64-v${AGENT_VERSION}.tar"
+      - AMD_TAR_FILE="ecs-agent-v${AGENT_VERSION}.tar"
+      - ARM_TAR_FILE="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+      
+      # Checksum commands output checksum followed by filename
+      # Taking the checksum out explicitly using string length
+      - AMD_MD5_CMD=$(md5sum $AMD_TAR_FILE_PATH)
+      - AMD_MD5_CHECKSUM=${AMD_MD5_CMD::32}
+      - AMD_SHA256_CMD=$(sha256sum $AMD_TAR_FILE_PATH)
+      - AMD_SHA256_CHECKSUM=${AMD_SHA256_CMD::64}
+
+      - ARM_MD5_CMD=$(md5sum $ARM_TAR_FILE_PATH)
+      - ARM_MD5_CHECKSUM=${ARM_MD5_CMD::32}
+      - ARM_SHA256_CMD=$(sha256sum $ARM_TAR_FILE_PATH)
+      - ARM_SHA256_CHECKSUM=${ARM_SHA256_CMD::64}
+
+      - RELEASE_DATE=$(date +'%Y%m%d')
+
+      # Prepare agent.json config file
+      - |
+        cat << EOF > agent.json
+        {
+          "agentReleaseVersion" : "$AGENT_VERSION",
+          "releaseDate" : "$RELEASE_DATE",
+          "agentStagingConfig": {
+            "releaseGitSha": "$GIT_COMMIT_SHA",
+            "gitFarmRepoName": "MadisonContainerAgentExternal",
+            "gitHubRepoName": "aws/amazon-ecs-agent",
+            "gitFarmStageBranch": "v${AGENT_VERSION}-stage",
+            "githubReleaseUrl": ""
+          },
+          "amazonLinux": {
+            "artifactFilename": "${AMD_TAR_FILE}",
+            "md5": "${AMD_MD5_CHECKSUM}",
+            "signature": "${AMD_SHA256_CHECKSUM}"
+          },
+          "amazonLinux2Arm": {
+            "artifactFilename": "${ARM_TAR_FILE}",
+            "md5": "${ARM_MD5_CHECKSUM}",
+            "signature": "${ARM_SHA256_CHECKSUM}"
+          }
+        }
+        EOF
+
+artifacts:
+  files:
+    - agent.json
