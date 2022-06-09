@@ -7,6 +7,9 @@ env:
 phases:
   build:
     commands:
+      # Copy release config
+      - aws s3 cp $CODEBUILD_SRC_DIR_JSONArtifact/agent.json "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/agent.json"
+      
       # since the buildspecs are the primary artifacts, we need to change directory
       - cd $CODEBUILD_SRC_DIR_SignedArtifact
       # list the artifacts that are ready to upload
