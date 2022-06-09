@@ -47,6 +47,10 @@ Parameters:
     Type: String
     Description: The name of the copy project
     Default: log-puller
+  MakeJSONCodeBuildProjectName:
+    Type: String
+    Description: The name of the release config builder project
+    Default: make-json
   CodeBuildLogGroupName:
     Type: String
     Description: The name of the log group to push build logs to
@@ -628,6 +632,77 @@ Resources:
           Status: ENABLED
           StreamName: !Ref SigningCodeBuildProjectName
 
+  MakeJSONCodeBuildProjectServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'make-json-codebuild-project-service-role-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-copy-base-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildLogGroup.Arn
+                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Sid: CodeBuildCreateReportAccess
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${MakeJSONCodeBuildProjectName}-*'
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+
+  MakeJSONCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref MakeJSONCodeBuildProjectName
+      Description: A CodeBuild project that prepares a release config JSON file
+      ConcurrentBuildLimit: 10
+      ServiceRole: !GetAtt MakeJSONCodeBuildProjectServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        ImagePullCredentialsType: CODEBUILD
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+      Source:
+        BuildSpec: buildspecs/release-config.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+      QueuedTimeoutInMinutes: 480
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref MakeJSONCodeBuildProjectName
+
   CopyCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -972,6 +1047,7 @@ Resources:
                 # - Commit sha
                 # - AMD tar
                 # - AMD rpm
+                # - ECS Anywhere install script (From AMD Project)
                 # - Ubuntu AMD deb
                 # - Ubuntu ARM deb
                 # - ARM tar
@@ -981,12 +1057,32 @@ Resources:
                 - Name: SignedArtifact
               RunOrder: 1
               Namespace: SigningVariables
+        - Name: ReleaseConfig
+          Actions:
+            - Name: MakeJSON
+              InputArtifacts:
+                - Name: Buildspecs
+                - Name: SignedArtifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref MakeJSONCodeBuildProject
+                PrimarySource: Buildspecs
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"AGENT_VERSION","value":"#{AmdBuildVariables.AGENT_VERSION}","type":"PLAINTEXT"}]'
+              OutputArtifacts:
+                - Name: JSONArtifact
+              RunOrder: 1
+              Namespace: JSONVariables
         - Name: Copy
           Actions:
             - Name: ToS3
               InputArtifacts:
                 - Name: Buildspecs
                 - Name: SignedArtifact
+                - Name: JSONArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS

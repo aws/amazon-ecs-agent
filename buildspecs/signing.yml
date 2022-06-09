@@ -52,6 +52,9 @@ phases:
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_TAR
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_RPM" $ECS_AGENT_AMD_RPM
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_RPM
+      # Sign ECS Anywhere Script
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/scripts/ecs-anywhere-install.sh" ecs-anywhere-install.sh
+      - source /tmp/functions.sh && sign_file ecs-anywhere-install.sh
       # Sign the arm tar and rpm (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_TAR" $ECS_AGENT_ARM_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_TAR
@@ -82,3 +85,5 @@ artifacts:
     - '$ECS_AGENT_UBUNTU_AMD_DEB.asc'
     - $ECS_AGENT_UBUNTU_ARM_DEB
     - '$ECS_AGENT_UBUNTU_ARM_DEB.asc'
+    - 'ecs-anywhere-install.sh'
+    - 'ecs-anywhere-install.sh.asc'
