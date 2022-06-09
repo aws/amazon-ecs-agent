@@ -1,4 +1,5 @@
 //go:build !windows && integration
+// +build !windows,integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -21,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -38,8 +40,8 @@ import (
 )
 
 const (
-	testUDSPath       = "/tmp/appnet_admin.sock"
-	testStatsRestPath = "/stats/prometheus"
+	testStatsRestPath = "/get/stats"
+	testStatsRestURL  = "http://testhost" + testStatsRestPath
 )
 
 const (
@@ -65,6 +67,8 @@ func TestStatsEngineWithNetworkStatsDifferentModes(t *testing.T) {
 }
 
 func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
+	testUDSPath := filepath.Join(t.TempDir(), "test_stats_metrics.sock")
+
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithServiceConnectMetrics"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -93,6 +97,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 		ContainerName: serviceConnectContainerName,
 		RuntimeConfig: apitask.RuntimeConfig{
 			AdminSocketPath: testUDSPath,
+			StatsRequest:    testStatsRestURL,
 		},
 	}
 	// Populate Tasks and Container map in the engine.
