@@ -24,6 +24,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -44,8 +46,8 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 			{Name: "test"},
 		},
 		LocalIPAddressUnsafe: "127.0.0.1",
-		ServiceConnectConfig: &apitask.ServiceConnectConfig{
-			RuntimeConfig: apitask.RuntimeConfig{
+		ServiceConnectConfig: &serviceconnect.Config{
+			RuntimeConfig: serviceconnect.RuntimeConfig{
 				AdminSocketPath: "/tmp/appnet_admin.sock",
 				StatsRequest:    "http://myhost/get/them/stats",
 			},

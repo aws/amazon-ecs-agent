@@ -18,6 +18,8 @@ package ecscni
 import (
 	"net"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 
@@ -168,4 +170,47 @@ func NewAppMeshConfig(appMesh *appmesh.AppMesh, cfg *Config) (string, *libcni.Ne
 	}
 
 	return defaultAppMeshIfName, networkConfig, nil
+}
+
+// NewServiceConnectNetworkConfig creates a new ServiceConnect CNI network configuration
+func NewServiceConnectNetworkConfig(
+	scConfig *serviceconnect.Config,
+	enableIPv4, enableIPv6 bool,
+	cfg *Config) (string, *libcni.NetworkConfig, error) {
+	var ingressConfig []IngressConfigJSONEntry
+	for _, ic := range scConfig.IngressConfig {
+		newEntry := IngressConfigJSONEntry{
+			ListenerPort: ic.ListenerPort,
+		}
+		if ic.InterceptPort != nil {
+			newEntry.InterceptPort = *ic.InterceptPort
+		}
+		ingressConfig = append(ingressConfig, newEntry)
+	}
+
+	var egressConfig *EgressConfigJSON
+	if scConfig.EgressConfig != nil {
+		egressConfig = &EgressConfigJSON{
+			ListenerPort: scConfig.EgressConfig.ListenerPort,
+			VIP: VIPConfigJSON{
+				IPv4CIDR: scConfig.EgressConfig.VIP.IPV4CIDR,
+				IPv6CIDR: scConfig.EgressConfig.VIP.IPV6CIDR,
+			},
+		}
+	}
+
+	scNetworkConfig := ServiceConnectConfig{
+		Name:          ECSServiceConnectPluginName,
+		Type:          ECSServiceConnectPluginName,
+		IngressConfig: ingressConfig,
+		EgressConfig:  egressConfig,
+		EnableIPv4:    enableIPv4,
+		EnableIPv6:    enableIPv6,
+	}
+	networkConfig, err := newNetworkConfig(scNetworkConfig, ECSServiceConnectPluginName, cfg.MinSupportedCNIVersion)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "NewServiceConnectNetworkConfig: construct the service connect network configuration failed")
+	}
+
+	return defaultServiceConnectIfName, networkConfig, nil
 }
