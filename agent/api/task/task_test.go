@@ -4295,7 +4295,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 								Value: strptr(serviceConnectContainerTestName),
 							},
 						},
-						AttachmentType: strptr(serviceconnect.ServiceConnectAttachmentType),
+						AttachmentType: strptr(serviceConnectAttachmentType),
 					},
 				},
 				NetworkMode: strptr(tc.testNetworkMode),

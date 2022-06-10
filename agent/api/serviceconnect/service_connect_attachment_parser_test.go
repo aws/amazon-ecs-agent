@@ -34,6 +34,7 @@ const (
 	testBridgePortDefault                   = "15000"
 	testBridgeHostPort                      = "8080"
 	testServiceConnectContainerName         = "ecs-service-connect"
+	testServiceConnectAttachmentType        = "ServiceConnect"
 	testHostName                            = "testHostName"
 	testAddress                             = "testAddress"
 	testOutboundListenerName                = "testOutboundListener"
@@ -143,7 +144,7 @@ func getTestACSAttachments(attachmentProperties []*ecsacs.AttachmentProperty) *e
 	return &ecsacs.Attachment{
 		AttachmentArn:        strptr("attachmentArn"),
 		AttachmentProperties: attachmentProperties,
-		AttachmentType:       strptr(ServiceConnectAttachmentType),
+		AttachmentType:       strptr(testServiceConnectAttachmentType),
 	}
 }
 

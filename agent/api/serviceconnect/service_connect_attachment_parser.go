@@ -23,8 +23,6 @@ import (
 )
 
 const (
-	// ServiceConnectAttachmentType specifies attachment type for service connect
-	ServiceConnectAttachmentType = "ServiceConnect"
 	// ServiceConnectConfigKey specifies the key maps to the service connect config in attachment properties
 	ServiceConnectConfigKey = "Config"
 	// ServiceConnectContainerNameKey specifies the key maps to the service connect container name in attachment properties

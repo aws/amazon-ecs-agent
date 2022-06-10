@@ -153,6 +153,8 @@ const (
 
 	serviceConnectListenerPortMappingEnvVar = "APPNET_LISTENER_PORT_MAPPING"
 	serviceConnectContainerMappingEnvVar    = "APPNET_CONTAINER_IP_MAPPING"
+	// ServiceConnectAttachmentType specifies attachment type for service connect
+	serviceConnectAttachmentType = "ServiceConnect"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -283,7 +285,7 @@ type Task struct {
 	// setIdOnce is used to set the value of this task's id only the first time GetID is invoked
 	setIdOnce sync.Once
 
-	ServiceConnectConfig *serviceconnect.Config `json:"Config,omitempty"`
+	ServiceConnectConfig *serviceconnect.Config `json:"ServiceConnectConfig,omitempty"`
 
 	ServiceConnectConnectionDrainingUnsafe bool `json:"ServiceConnectConnectionDraining,omitempty"`
 
@@ -330,11 +332,11 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
-// getServiceConnectConfig returns service connect conifg from the service connect type attachment if it exists.
+// getServiceConnectConfig returns service connect config from the service connect type attachment if it exists.
 func getServiceConnectConfig(acsTask *ecsacs.Task) (*serviceconnect.Config, error) {
 	var scAttachment *ecsacs.Attachment
 	for _, attachment := range acsTask.Attachments {
-		if aws.StringValue(attachment.AttachmentType) == serviceconnect.ServiceConnectAttachmentType {
+		if aws.StringValue(attachment.AttachmentType) == serviceConnectAttachmentType {
 			scAttachment = attachment
 			break
 		}

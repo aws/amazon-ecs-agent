@@ -26,9 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -93,9 +94,9 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
 		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
 	testTask := createRunningTask()
-	testTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+	testTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: serviceConnectContainerName,
-		RuntimeConfig: apitask.RuntimeConfig{
+		RuntimeConfig: serviceconnect.RuntimeConfig{
 			AdminSocketPath: testUDSPath,
 			StatsRequest:    testStatsRestURL,
 		},
