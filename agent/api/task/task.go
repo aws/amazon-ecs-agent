@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -281,7 +283,7 @@ type Task struct {
 	// setIdOnce is used to set the value of this task's id only the first time GetID is invoked
 	setIdOnce sync.Once
 
-	ServiceConnectConfig *ServiceConnectConfig `json:"ServiceConnectConfig,omitempty"`
+	ServiceConnectConfig *serviceconnect.Config `json:"Config,omitempty"`
 
 	ServiceConnectConnectionDrainingUnsafe bool `json:"ServiceConnectConnectionDraining,omitempty"`
 
@@ -329,10 +331,10 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 }
 
 // getServiceConnectConfig returns service connect conifg from the service connect type attachment if it exists.
-func getServiceConnectConfig(acsTask *ecsacs.Task) (*ServiceConnectConfig, error) {
+func getServiceConnectConfig(acsTask *ecsacs.Task) (*serviceconnect.Config, error) {
 	var scAttachment *ecsacs.Attachment
 	for _, attachment := range acsTask.Attachments {
-		if aws.StringValue(attachment.AttachmentType) == serviceConnectAttachmentType {
+		if aws.StringValue(attachment.AttachmentType) == serviceconnect.ServiceConnectAttachmentType {
 			scAttachment = attachment
 			break
 		}
@@ -352,13 +354,13 @@ func getServiceConnectConfig(acsTask *ecsacs.Task) (*ServiceConnectConfig, error
 		}
 
 		// parse service connect from the attachment value
-		scConfig, err := ParseServiceConnectAttachment(scAttachment)
+		scConfig, err := serviceconnect.ParseServiceConnectAttachment(scAttachment)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing service connect config value from the service connect attachment: %w", err)
 		}
 
 		// validate service connect config
-		if err := ValidateServiceConnectConfig(scConfig, acsTask.Containers, networkMode, ipv6Enabled); err != nil {
+		if err := serviceconnect.ValidateServiceConnectConfig(scConfig, acsTask.Containers, networkMode, ipv6Enabled); err != nil {
 			return nil, fmt.Errorf("service connect config validation failed: %w", err)
 		}
 
@@ -528,7 +530,7 @@ func (task *Task) initServiceConnectResources() error {
 	// TODO [SC]: ServiceConnectConfig will come from ACS. Adding this here for dev/testing purposes only Remove when
 	// ACS model is integrated
 	if task.ServiceConnectConfig == nil {
-		task.ServiceConnectConfig = &ServiceConnectConfig{
+		task.ServiceConnectConfig = &serviceconnect.Config{
 			ContainerName: "service-connect",
 		}
 	}
@@ -3220,14 +3222,14 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
 	return nil
 }
 
-func (task *Task) PopulateServiceConnectRuntimeConfig(serviceConnectConfig RuntimeConfig) {
+func (task *Task) PopulateServiceConnectRuntimeConfig(serviceConnectConfig serviceconnect.RuntimeConfig) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
 	task.ServiceConnectConfig.RuntimeConfig = serviceConnectConfig
 }
 
-func (task *Task) GetServiceConnectRuntimeConfig() RuntimeConfig {
+func (task *Task) GetServiceConnectRuntimeConfig() serviceconnect.RuntimeConfig {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 

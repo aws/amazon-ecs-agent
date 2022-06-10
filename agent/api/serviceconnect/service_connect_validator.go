@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package serviceconnect
 
 import (
 	"fmt"
@@ -24,6 +24,8 @@ import (
 )
 
 const (
+	BridgeNetworkMode         = "bridge"
+	AWSVPCNetworkMode         = "awsvpc"
 	invalidEgressConfigFormat = `no service connect %s in the egress config. %s`
 	portCollisionFormat       = `%s port collision detected in the ingress config with the %s port=%d, and listener name=%s`
 	invalidIngressPortFormat  = `the %s port=%d in the ingress config is not valid: %w`
@@ -295,7 +297,7 @@ func validatePort(port uint16) error {
 }
 
 // ValidateSCConfig validates service connect container name, config, egress config, and ingress config.
-func ValidateServiceConnectConfig(scConfig *ServiceConnectConfig,
+func ValidateServiceConnectConfig(scConfig *Config,
 	taskContainers []*ecsacs.Container,
 	taskNetworkMode string,
 	ipv6Enabled bool) error {
