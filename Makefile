@@ -222,9 +222,10 @@ build-ecs-cni-plugins:
 
 build-vpc-cni-plugins:
 	@docker build --build-arg GOARCH=$(GOARCH) --build-arg GO_VERSION=$(GO_VERSION) -f $(VPC_CNI_REPOSITORY_DOCKER_FILE) -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
-	docker run --rm --net=none \
-		-e GO111MODULE=off \
+	docker run --rm --net=host \
+		-e GO111MODULE=auto \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
+		-e GIT_TAG=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git describe --tags --always --dirty) \
 		-u "$(USERID)" \
 		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/${TARGET_OS}_$(GOARCH)" \
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
