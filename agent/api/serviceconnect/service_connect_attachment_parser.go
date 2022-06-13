@@ -24,7 +24,7 @@ import (
 
 const (
 	// ServiceConnectConfigKey specifies the key maps to the service connect config in attachment properties
-	ServiceConnectConfigKey = "Config"
+	ServiceConnectConfigKey = "ServiceConnectConfig"
 	// ServiceConnectContainerNameKey specifies the key maps to the service connect container name in attachment properties
 	ServiceConnectContainerNameKey = "ContainerName"
 	keyValidationMsgFormat         = `missing service connect config required key(s) in the attachment: found service connect config key: %t, found service connect container name key: %t`
