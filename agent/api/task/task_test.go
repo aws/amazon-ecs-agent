@@ -4287,11 +4287,11 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 						AttachmentArn: strptr("attachmentArn"),
 						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
-								Name:  strptr(serviceconnect.ServiceConnectConfigKey),
+								Name:  strptr(serviceconnect.GetServiceConnectConfigKey()),
 								Value: strptr(tc.testSCConfigValue),
 							},
 							{
-								Name:  strptr(serviceconnect.ServiceConnectContainerNameKey),
+								Name:  strptr(serviceconnect.GetServiceConnectContainerNameKey()),
 								Value: strptr(serviceConnectContainerTestName),
 							},
 						},

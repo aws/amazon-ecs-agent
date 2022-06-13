@@ -163,7 +163,7 @@ func getExpectedTestServiceConnectConfig(scContainerName string,
 
 func TestParseServiceConnectAttachment(t *testing.T) {
 	initServiceConnectConfValue()
-	testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(ServiceConnectContainerNameKey, testServiceConnectContainerName)
+	testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(serviceConnectContainerNameKey, testServiceConnectContainerName)
 	tt := []struct {
 		testName                 string
 		testSCAttachmentProperty *ecsacs.AttachmentProperty
@@ -173,7 +173,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 	}{
 		{
 			testName:                 "AWSVPC default case",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testAwsVpcDefaultSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testAwsVpcDefaultSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					InterceptPort: testAwsVpcDefaultInterceptPort,
@@ -196,7 +196,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "AWSVPC default case with IPv6 enabled",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testAwsVpcDefaultIPv6EnabledSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testAwsVpcDefaultIPv6EnabledSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					InterceptPort: testAwsVpcDefaultInterceptPort,
@@ -219,7 +219,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "AWSVPC override case",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testAwsVpcOverrideSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testAwsVpcOverrideSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					ListenerPort: testListenerPort,
@@ -241,7 +241,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "AWSVPC override case with IPv6 enabled",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testAwsVpcOverrideIPv6EnabledSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testAwsVpcOverrideIPv6EnabledSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					ListenerPort: testListenerPort,
@@ -263,7 +263,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "Bridge default case",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testBridgeDefaultSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testBridgeDefaultSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					ListenerPort: testBridgeDefaultListenerPort,
@@ -285,7 +285,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "Bridge default case with no ingress config",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testBridgeDefaultEmptyIngressSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testBridgeDefaultEmptyIngressSCConfig),
 			expectedEgressConfig: &EgressConfig{
 				ListenerName: testOutboundListenerName,
 				VIP: VIP{
@@ -302,7 +302,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName:                 "Bridge default case with no egress config and dns config",
-			testSCAttachmentProperty: getTestACSAttachmentProperty(ServiceConnectConfigKey, testBridgeDefaultEmptyEgressSCConfig),
+			testSCAttachmentProperty: getTestACSAttachmentProperty(serviceConnectConfigKey, testBridgeDefaultEmptyEgressSCConfig),
 			expectedIngressConfig: []IngressConfigEntry{
 				{
 					ListenerPort: testBridgeDefaultListenerPort,
@@ -329,7 +329,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 
 func TestParseServiceConnectAttachmentWithError(t *testing.T) {
 	initServiceConnectConfValue()
-	testSCAttachmentProperty := getTestACSAttachmentProperty(ServiceConnectConfigKey, testAwsVpcDefaultSCConfig)
+	testSCAttachmentProperty := getTestACSAttachmentProperty(serviceConnectConfigKey, testAwsVpcDefaultSCConfig)
 	tt := []struct {
 		testName                    string
 		testSCContainerName         string
@@ -344,8 +344,8 @@ func TestParseServiceConnectAttachmentWithError(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
-			testSCAttachmentProperty = getTestACSAttachmentProperty(ServiceConnectConfigKey, tc.testAttachmentPropertyValue)
-			testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(ServiceConnectContainerNameKey, tc.testSCContainerName)
+			testSCAttachmentProperty = getTestACSAttachmentProperty(serviceConnectConfigKey, tc.testAttachmentPropertyValue)
+			testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(serviceConnectContainerNameKey, tc.testSCContainerName)
 			testAttachmentProperties := []*ecsacs.AttachmentProperty{testSCAttachmentProperty}
 			testAttachmentProperties = append(testAttachmentProperties, testSCContainerNameAttachmentProperty)
 			testSCAttachment := getTestACSAttachments(testAttachmentProperties)

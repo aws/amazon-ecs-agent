@@ -23,12 +23,20 @@ import (
 )
 
 const (
-	// ServiceConnectConfigKey specifies the key maps to the service connect config in attachment properties
-	ServiceConnectConfigKey = "ServiceConnectConfig"
-	// ServiceConnectContainerNameKey specifies the key maps to the service connect container name in attachment properties
-	ServiceConnectContainerNameKey = "ContainerName"
+	// serviceConnectConfigKey specifies the key maps to the service connect config in attachment properties
+	serviceConnectConfigKey = "ServiceConnectConfig"
+	// serviceConnectContainerNameKey specifies the key maps to the service connect container name in attachment properties
+	serviceConnectContainerNameKey = "ContainerName"
 	keyValidationMsgFormat         = `missing service connect config required key(s) in the attachment: found service connect config key: %t, found service connect container name key: %t`
 )
+
+func GetServiceConnectConfigKey() string {
+	return serviceConnectConfigKey
+}
+
+func GetServiceConnectContainerNameKey() string {
+	return serviceConnectContainerNameKey
+}
 
 // ParseServiceConnectAttachment parses the service connect container name and service connect config value
 // from the given attachment.
@@ -40,7 +48,7 @@ func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, er
 
 	for _, property := range scAttachment.AttachmentProperties {
 		switch aws.StringValue(property.Name) {
-		case ServiceConnectConfigKey:
+		case serviceConnectConfigKey:
 			foundSCConfigKey = true
 			// extract service connect config value from the attachment property,
 			// and translate the attachment property value to Config
@@ -48,7 +56,7 @@ func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, er
 			if err := json.Unmarshal([]byte(data), scConfigValue); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal service connect attachment property value: %w", err)
 			}
-		case ServiceConnectContainerNameKey:
+		case serviceConnectContainerNameKey:
 			foundSCContainerNameKey = true
 			// extract service connect container name from the attachment property
 			containerName = aws.StringValue(property.Value)
