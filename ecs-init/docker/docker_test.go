@@ -35,7 +35,7 @@ import (
 const (
 	testTempDirPrefix = "init-docker-test-"
 
-	expectedAgentBindsUnspecifiedPlatform = 21
+	expectedAgentBindsUnspecifiedPlatform = 20
 	expectedAgentBindsSuseUbuntuPlatform  = 18
 )
 
@@ -829,21 +829,13 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 	hostCapabilityExecResourcesDir := filepath.Join(hostResourcesRootDir, execCapabilityName)
 	containerCapabilityExecResourcesDir := filepath.Join(containerResourcesRootDir, execCapabilityName)
 
-	// binaries
-	hostBinDir := filepath.Join(hostCapabilityExecResourcesDir, execBinRelativePath)
-	containerBinDir := filepath.Join(containerCapabilityExecResourcesDir, execBinRelativePath)
-
 	// config
 	hostConfigDir := filepath.Join(hostCapabilityExecResourcesDir, execConfigRelativePath)
 	containerConfigDir := filepath.Join(containerCapabilityExecResourcesDir, execConfigRelativePath)
 
-	// certs
-	hostCertsDir := filepath.Join(hostCapabilityExecResourcesDir, execCertsRelativePath)
-	containerCertsDir := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath)
-
 	expectedExecBinds := []string{
-		hostBinDir + ":" + containerBinDir + readOnly,
-		hostCertsDir + ":" + containerCertsDir + readOnly,
+		hostResourcesRootDir + ":" + containerResourcesRootDir + readOnly,
+		hostConfigDir + ":" + containerConfigDir,
 	}
 	expectedAgentBinds += len(expectedExecBinds)
 
@@ -886,17 +878,9 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 	hostCapabilityExecResourcesDir := filepath.Join(hostResourcesRootDir, execCapabilityName)
 	containerCapabilityExecResourcesDir := filepath.Join(containerResourcesRootDir, execCapabilityName)
 
-	// binaries
-	hostBinDir := filepath.Join(hostCapabilityExecResourcesDir, execBinRelativePath)
-	containerBinDir := filepath.Join(containerCapabilityExecResourcesDir, execBinRelativePath)
-
 	// config
 	hostConfigDir := filepath.Join(hostCapabilityExecResourcesDir, execConfigRelativePath)
 	containerConfigDir := filepath.Join(containerCapabilityExecResourcesDir, execConfigRelativePath)
-
-	// certs
-	hostCertsDir := filepath.Join(hostCapabilityExecResourcesDir, execCertsRelativePath)
-	containerCertsDir := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath)
 
 	testCases := []struct {
 		name            string
@@ -909,19 +893,17 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 				return true
 			},
 			expectedBinds: []string{
-				hostBinDir + ":" + containerBinDir + readOnly,
+				hostResourcesRootDir + ":" + containerResourcesRootDir + readOnly,
 				hostConfigDir + ":" + containerConfigDir,
-				hostCertsDir + ":" + containerCertsDir + readOnly,
 			},
 		},
 		{
-			name: "only ssm-agent bin path valid",
+			name: "managed-agents path valid, no execute-command",
 			testIsPathValid: func(path string, isDir bool) bool {
-				return path == hostBinDir
+				return path == hostResourcesRootDir
 			},
 			expectedBinds: []string{
-				hostBinDir + ":" + containerBinDir + readOnly,
-				hostConfigDir + ":" + containerConfigDir,
+				hostResourcesRootDir + ":" + containerResourcesRootDir + readOnly,
 			},
 		},
 		{
@@ -929,15 +911,13 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 			testIsPathValid: func(path string, isDir bool) bool {
 				return false
 			},
-			expectedBinds: []string{
-				hostConfigDir + ":" + containerConfigDir,
-			},
+			expectedBinds: []string{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			isPathValid = tc.testIsPathValid
-			binds := getCapabilityExecBinds()
+			binds := getCapabilityBinds()
 			assert.Equal(t, tc.expectedBinds, binds)
 		})
 	}
