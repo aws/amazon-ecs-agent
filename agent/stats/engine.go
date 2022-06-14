@@ -465,17 +465,13 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		}
 
 		if includeServiceConnectStats {
-			serviceConnectStats, ok := engine.taskToServiceConnectStats[taskArn]
-			if !ok {
-				seelog.Debugf("task '%s' is not registered to collect service connect metrics", taskArn)
-				continue
-			}
-			if !serviceConnectStats.HasStatsBeenSent() {
-				taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
-				serviceConnectStats.SetStatsSent(true)
+			if serviceConnectStats, ok := engine.taskToServiceConnectStats[taskArn]; ok {
+				if !serviceConnectStats.HasStatsBeenSent() {
+					taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
+					serviceConnectStats.SetStatsSent(true)
+				}
 			}
 		}
-
 		taskMetrics = append(taskMetrics, taskMetric)
 	}
 
