@@ -128,6 +128,36 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
 
+	for _, statsContainer := range containers {
+		assert.Equal(t, name, statsContainer.containerMetadata.Name)
+		assert.Equal(t, networkMode, statsContainer.containerMetadata.NetworkMode)
+		for _, fakeContainerStats := range createFakeContainerStats() {
+			statsContainer.statsQueue.add(fakeContainerStats)
+		}
+	}
+
+	// Ensure task shows up in metrics.
+	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1")
+	if err != nil {
+		t.Errorf("Error getting container metrics: %v", err)
+	}
+	err = validateContainerMetrics(containerMetrics, 2)
+	if err != nil {
+		t.Errorf("Error validating container metrics: %v", err)
+	}
+
+	metadata, taskMetrics, err = engine.GetInstanceMetrics(true)
+	if err != nil {
+		t.Errorf("Error gettting instance metrics: %v", err)
+	}
+
+	err = validateMetricsMetadata(metadata)
+	require.NoError(t, err)
+	require.Len(t, taskMetrics, 1, "Incorrect number of tasks.")
+	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 2)
+	require.NoError(t, err)
+	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
+
 	// Ensure that only valid task shows up in metrics.
 	_, err = engine.taskContainerMetricsUnsafe("t2")
 	if err == nil {
