@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
@@ -885,9 +887,9 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	sleepContainer2.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
 	// Inject mock SC config
-	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+	sleepTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: "service-connect",
-		DNSConfig: []apitask.DNSConfigEntry{
+		DNSConfig: []serviceconnect.DNSConfigEntry{
 			{
 				HostName: "host1.my.corp",
 				Address:  "169.254.1.1",
@@ -1061,19 +1063,19 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
 	// Inject mock SC config
-	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+	sleepTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: "service-connect",
-		IngressConfig: []apitask.IngressConfigEntry{
+		IngressConfig: []serviceconnect.IngressConfigEntry{
 			{
 				ListenerName: "testListener1", // bridge mode default - ephemeral listener host port
 				ListenerPort: 15000,
 			},
 		},
-		EgressConfig: &apitask.EgressConfig{
+		EgressConfig: &serviceconnect.EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
-		DNSConfig: []apitask.DNSConfigEntry{
+		DNSConfig: []serviceconnect.DNSConfigEntry{
 			{
 				HostName: "host1.my.corp",
 				Address:  "169.254.1.1",

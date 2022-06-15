@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -99,7 +101,7 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	m.initAgentEnvironment(container)
 
 	// Setup runtime configuration
-	var config apitask.RuntimeConfig
+	var config serviceconnect.RuntimeConfig
 	config.AdminSocketPath = adminPath
 	config.StatsRequest = m.adminStatsRequest
 	config.DrainRequest = m.adminDrainRequest
@@ -151,7 +153,7 @@ func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, contain
 
 // DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
 // recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apitask.DNSConfigEntry) []string {
+func DNSConfigToDockerExtraHostsFormat(dnsConfigs []serviceconnect.DNSConfigEntry) []string {
 	var hosts []string
 	for _, dnsConf := range dnsConfigs {
 		if len(dnsConf.Address) > 0 {
