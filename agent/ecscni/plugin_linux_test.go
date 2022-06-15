@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
@@ -232,6 +234,74 @@ func appMeshNetworkConfig(config *Config) *NetworkConfig {
 	return &NetworkConfig{CNINetworkConfig: appMeshNetworkConfig}
 }
 
+func TestSetupNSServiceConnectEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient("")
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+
+	gomock.InOrder(
+		// ENI plugin was called first
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
+			}),
+		// Bridge plugin was called second
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "second plugin should be bridge")
+				var bridgeConfig BridgeConfig
+				err := json.Unmarshal(net.Bytes, &bridgeConfig)
+				assert.NoError(t, err, "unmarshal BridgeConfig")
+				assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+			}),
+		// ServiceConnect plugin was called third
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSServiceConnectPluginName, net.Network.Type, "third plugin should be service connect")
+			}),
+	)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, serviceConnectNetworkConfig(config))
+	_, err = ecscniClient.SetupNS(context.TODO(), config, time.Second)
+	assert.NoError(t, err)
+}
+
+func serviceConnectNetworkConfig(config *Config) *NetworkConfig {
+	_, serviceConnectNetworkConfig, _ := NewServiceConnectNetworkConfig(defaultTestServiceConnectConfig(), true, false, config)
+	return &NetworkConfig{CNINetworkConfig: serviceConnectNetworkConfig}
+}
+
+func defaultTestServiceConnectConfig() *serviceconnect.Config {
+	return &serviceconnect.Config{
+		IngressConfig: []serviceconnect.IngressConfigEntry{{
+			ListenerName: "test ingress listener",
+			ListenerPort: 11111,
+		}},
+		EgressConfig: &serviceconnect.EgressConfig{
+			ListenerName: "test egress listener",
+			ListenerPort: 22222,
+			VIP: serviceconnect.VIP{
+				IPV4CIDR: "169.254.0.0/16",
+			},
+		},
+		DNSConfig:     nil,
+		RuntimeConfig: serviceconnect.RuntimeConfig{},
+	}
+}
+
 func TestSetupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -344,6 +414,27 @@ func TestCleanupNSAppMeshEnabled(t *testing.T) {
 	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
 	config.NetworkConfigs = append(config.NetworkConfigs, appMeshNetworkConfig(config))
 	err = ecscniClient.CleanupNS(context.TODO(), config, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestCleanupNSServiceConnectEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient("")
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	// This will be called for both bridge and eni plugin
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(3)
+
+	config := &Config{
+		NetworkConfigs: []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, serviceConnectNetworkConfig(config))
+	err := ecscniClient.CleanupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -555,6 +646,91 @@ func TestConstructIPAMNetworkConfig(t *testing.T) {
 	}
 	expectedConfigBytes, _ := json.Marshal(expectedConfig)
 	assert.Equal(t, expectedConfigBytes, networkConfig.Bytes)
+}
+
+func TestConstructServiceConnectNetworkConfig(t *testing.T) {
+	config := defaultTestServiceConnectConfig()
+	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, false, &Config{})
+	require.NoError(t, err, "Failed to construct service connect network config")
+	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+
+	var scNetworkConfig ServiceConnectConfig
+	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+	assert.NoError(t, err, "unmarshal ServiceConnect network config")
+	assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
+	assert.Equal(t, uint16(11111), scNetworkConfig.IngressConfig[0].ListenerPort)
+	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+	assert.NotNil(t, scNetworkConfig.EgressConfig)
+	assert.Equal(t, uint16(22222), scNetworkConfig.EgressConfig.ListenerPort)
+	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
+	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+	assert.Equal(t, false, scNetworkConfig.EnableIPv6)
+}
+
+func TestConstructServiceConnectNetworkConfig_EmptyEgress(t *testing.T) {
+	config := defaultTestServiceConnectConfig()
+	config.EgressConfig = nil
+	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, true, &Config{})
+	require.NoError(t, err, "Failed to construct service connect network config")
+	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+
+	var scNetworkConfig ServiceConnectConfig
+	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+	assert.NoError(t, err, "unmarshal ServiceConnect network config")
+	assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
+	assert.Equal(t, uint16(11111), scNetworkConfig.IngressConfig[0].ListenerPort)
+	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+	assert.Nil(t, scNetworkConfig.EgressConfig)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+}
+
+func TestConstructServiceConnectNetworkConfig_MultipleIngress(t *testing.T) {
+	config := defaultTestServiceConnectConfig()
+	interceptPort := uint16(44444)
+	config.IngressConfig = append(config.IngressConfig, serviceconnect.IngressConfigEntry{
+		ListenerName:  "test listener 2",
+		ListenerPort:  uint16(33333),
+		InterceptPort: &interceptPort,
+	})
+	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, true, &Config{})
+	require.NoError(t, err, "Failed to construct service connect network config")
+	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+
+	var scNetworkConfig ServiceConnectConfig
+	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+	assert.NoError(t, err, "unmarshal ServiceConnect network config")
+	assert.Equal(t, 2, len(scNetworkConfig.IngressConfig))
+	assert.Equal(t, uint16(11111), scNetworkConfig.IngressConfig[0].ListenerPort)
+	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+	assert.Equal(t, uint16(33333), scNetworkConfig.IngressConfig[1].ListenerPort)
+	assert.Equal(t, uint16(44444), scNetworkConfig.IngressConfig[1].InterceptPort)
+	assert.NotNil(t, scNetworkConfig.EgressConfig)
+	assert.Equal(t, uint16(22222), scNetworkConfig.EgressConfig.ListenerPort)
+	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
+	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+}
+
+func TestConstructServiceConnectNetworkConfig_EmptyIngress(t *testing.T) {
+	config := defaultTestServiceConnectConfig()
+	config.IngressConfig = []serviceconnect.IngressConfigEntry{}
+	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, false, &Config{})
+	require.NoError(t, err, "Failed to construct service connect network config")
+	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+
+	var scNetworkConfig ServiceConnectConfig
+	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+	assert.NoError(t, err, "unmarshal ServiceConnect network config")
+	assert.Equal(t, 0, len(scNetworkConfig.IngressConfig))
+	assert.NotNil(t, scNetworkConfig.EgressConfig)
+	assert.Equal(t, uint16(22222), scNetworkConfig.EgressConfig.ListenerPort)
+	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
+	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
+	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+	assert.Equal(t, false, scNetworkConfig.EnableIPv6)
 }
 
 // TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM

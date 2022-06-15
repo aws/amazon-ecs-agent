@@ -335,6 +335,22 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 		})
 	}
 
+	// Build a CNI network configuration for ServiceConnect-enabled task in AWSVPC mode
+	if task.IsServiceConnectEnabled() {
+		ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
+			task.ServiceConnectConfig,
+			task.shouldEnableIPv4(),
+			task.shouldEnableIPv6(),
+			cniConfig)
+		if err != nil {
+			return nil, err
+		}
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           ifName,
+			CNINetworkConfig: netconf,
+		})
+	}
+
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 
 	return cniConfig, nil
