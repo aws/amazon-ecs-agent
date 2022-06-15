@@ -15,9 +15,9 @@ package serviceconnect
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
@@ -114,17 +114,30 @@ func getBindMountMapping(hostDir, containerDir string) string {
 	return hostDir + ":" + containerDir
 }
 
+var mkdirAllAndChown = defaultMkdirAllAndChown
+
+func defaultMkdirAllAndChown(path string, perm fs.FileMode, uid, gid int) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(path, perm)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to mkdir %s: %+v", path, err)
+	}
+	// AppNet Agent container is going to run as non-root user $AppNetUID.
+	// Change directory owner to $AppNetUID so that it has full permission (to create socket file and bind to it etc.)
+	if err = os.Chown(path, uid, gid); err != nil {
+		return fmt.Errorf("failed to chown %s: %+v", path, err)
+	}
+	return nil
+}
+
 func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) (string, error) {
 	statusPathHost := filepath.Join(m.statusPathHostRoot, taskId)
-	oldMask := syscall.Umask(0)
-	defer syscall.Umask(oldMask)
 
 	// Create host directories if they don't exist
 	for _, path := range []string{statusPathHost, m.relayPathHost} {
-		_, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			err = os.MkdirAll(path, 0770)
-		}
+		err := mkdirAllAndChown(path, 0700, serviceconnect.AppNetUID, os.Getegid())
 		if err != nil {
 			return "", err
 		}
