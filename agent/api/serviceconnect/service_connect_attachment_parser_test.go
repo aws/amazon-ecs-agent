@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package serviceconnect
 
 import (
 	"fmt"
@@ -34,6 +34,7 @@ const (
 	testBridgePortDefault                   = "15000"
 	testBridgeHostPort                      = "8080"
 	testServiceConnectContainerName         = "ecs-service-connect"
+	testServiceConnectAttachmentType        = "ServiceConnect"
 	testHostName                            = "testHostName"
 	testAddress                             = "testAddress"
 	testOutboundListenerName                = "testOutboundListener"
@@ -72,6 +73,8 @@ func initServiceConnectConfValue() {
 	testBridgeDefaultEmptyIngressSCConfig = constructTestServiceConnectConfig(BridgeNetworkMode, false, true, false, false)
 	testBridgeDefaultEmptyEgressSCConfig = constructTestServiceConnectConfig(BridgeNetworkMode, false, false, true, false)
 }
+
+func strptr(s string) *string { return &s }
 
 // constructTestServiceConnectConfig returns service connect config value as string based on the passed values.
 func constructTestServiceConnectConfig(networkMode string, override, emptyIngress, emptyEgress, ipv6Enabled bool) string {
@@ -141,16 +144,16 @@ func getTestACSAttachments(attachmentProperties []*ecsacs.AttachmentProperty) *e
 	return &ecsacs.Attachment{
 		AttachmentArn:        strptr("attachmentArn"),
 		AttachmentProperties: attachmentProperties,
-		AttachmentType:       strptr(serviceConnectAttachmentType),
+		AttachmentType:       strptr(testServiceConnectAttachmentType),
 	}
 }
 
-// getExpectedTestServiceConnectConfig returns *ServiceConnectConfig based on given parameters.
+// getExpectedTestServiceConnectConfig returns *Config based on given parameters.
 func getExpectedTestServiceConnectConfig(scContainerName string,
 	scIngressConfig []IngressConfigEntry,
 	scEgressConfig *EgressConfig,
-	scDNSConfig []DNSConfigEntry) *ServiceConnectConfig {
-	return &ServiceConnectConfig{
+	scDNSConfig []DNSConfigEntry) *Config {
+	return &Config{
 		ContainerName: scContainerName,
 		IngressConfig: scIngressConfig,
 		EgressConfig:  scEgressConfig,

@@ -23,7 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
@@ -65,7 +66,7 @@ var udsHttpClient = http.Client{
 
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
-func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
+func (cl *client) GetStats(config serviceconnect.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
 	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.StatsRequest)
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (cl *client) GetStats(config task.RuntimeConfig) (map[string]*prometheus.Me
 
 // DrainInboundConnections invokes Appnet Agent's drain_listeners API which starts draining ServiceConnect inbound connections.
 // This function expects an Appnet-agent-hosted HTTP server listening on the UDS path passed in config.
-func (cl *client) DrainInboundConnections(config task.RuntimeConfig) error {
+func (cl *client) DrainInboundConnections(config serviceconnect.RuntimeConfig) error {
 	return retry.RetryNWithBackoff(oneSecondBackoffNoJitter, 3, func() error {
 		resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.DrainRequest)
 		if err != nil {

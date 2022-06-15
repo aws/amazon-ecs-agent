@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -64,11 +66,11 @@ var (
 
 func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 	tt := []struct {
-		dnsConfigs      []task.DNSConfigEntry
+		dnsConfigs      []serviceconnect.DNSConfigEntry
 		expectedRestult []string
 	}{
 		{
-			dnsConfigs: []task.DNSConfigEntry{
+			dnsConfigs: []serviceconnect.DNSConfigEntry{
 				{
 					HostName: "my.test.host",
 					Address:  "169.254.1.1",
@@ -98,9 +100,9 @@ func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 func getAWSVPCTask(t *testing.T) (*apitask.Task, *apicontainer.Container, *apicontainer.Container) {
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
 
-	sleepTask.ServiceConnectConfig = &apitask.ServiceConnectConfig{
+	sleepTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: "service-connect",
-		DNSConfig: []apitask.DNSConfigEntry{
+		DNSConfig: []serviceconnect.DNSConfigEntry{
 			{
 				HostName: "host1.my.corp",
 				Address:  "169.254.1.1",
