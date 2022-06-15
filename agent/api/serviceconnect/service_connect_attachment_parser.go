@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package serviceconnect
 
 import (
 	"encoding/json"
@@ -23,8 +23,6 @@ import (
 )
 
 const (
-	// serviceConnectAttachmentType specifies attachment type for service connect
-	serviceConnectAttachmentType = "ServiceConnect"
 	// serviceConnectConfigKey specifies the key maps to the service connect config in attachment properties
 	serviceConnectConfigKey = "ServiceConnectConfig"
 	// serviceConnectContainerNameKey specifies the key maps to the service connect container name in attachment properties
@@ -32,10 +30,18 @@ const (
 	keyValidationMsgFormat         = `missing service connect config required key(s) in the attachment: found service connect config key: %t, found service connect container name key: %t`
 )
 
+func GetServiceConnectConfigKey() string {
+	return serviceConnectConfigKey
+}
+
+func GetServiceConnectContainerNameKey() string {
+	return serviceConnectContainerNameKey
+}
+
 // ParseServiceConnectAttachment parses the service connect container name and service connect config value
 // from the given attachment.
-func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*ServiceConnectConfig, error) {
-	scConfigValue := &ServiceConnectConfig{}
+func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, error) {
+	scConfigValue := &Config{}
 	containerName := ""
 	foundSCConfigKey := false
 	foundSCContainerNameKey := false
@@ -45,7 +51,7 @@ func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*ServiceCon
 		case serviceConnectConfigKey:
 			foundSCConfigKey = true
 			// extract service connect config value from the attachment property,
-			// and translate the attachment property value to ServiceConnectConfig
+			// and translate the attachment property value to Config
 			data := aws.StringValue(property.Value)
 			if err := json.Unmarshal([]byte(data), scConfigValue); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal service connect attachment property value: %w", err)

@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	task "github.com/aws/amazon-ecs-agent/agent/api/task"
+	serviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	gomock "github.com/golang/mock/gomock"
 	go0 "github.com/prometheus/client_model/go"
@@ -358,7 +358,7 @@ func (m *MockAppnetClient) EXPECT() *MockAppnetClientMockRecorder {
 }
 
 // DrainInboundConnections mocks base method
-func (m *MockAppnetClient) DrainInboundConnections(arg0 task.RuntimeConfig) error {
+func (m *MockAppnetClient) DrainInboundConnections(arg0 serviceconnect.RuntimeConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DrainInboundConnections", arg0)
 	ret0, _ := ret[0].(error)
@@ -372,7 +372,7 @@ func (mr *MockAppnetClientMockRecorder) DrainInboundConnections(arg0 interface{}
 }
 
 // GetStats mocks base method
-func (m *MockAppnetClient) GetStats(arg0 task.RuntimeConfig) (map[string]*go0.MetricFamily, error) {
+func (m *MockAppnetClient) GetStats(arg0 serviceconnect.RuntimeConfig) (map[string]*go0.MetricFamily, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStats", arg0)
 	ret0, _ := ret[0].(map[string]*go0.MetricFamily)
