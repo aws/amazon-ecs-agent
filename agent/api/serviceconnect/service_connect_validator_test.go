@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package serviceconnect
 
 import (
 	"testing"
@@ -37,13 +37,13 @@ var (
 	}
 )
 
-// getTestServiceConnectConfig returns *ServiceConnectConfig based on given parameters.
+// getTestServiceConnectConfig returns *Config based on given parameters.
 func getTestServiceConnectConfig(
 	scContainerName string,
 	scEgressConfig *EgressConfig,
 	scDnsConfig []DNSConfigEntry,
-	scIngressConfig []IngressConfigEntry) *ServiceConnectConfig {
-	return &ServiceConnectConfig{
+	scIngressConfig []IngressConfigEntry) *Config {
+	return &Config{
 		ContainerName: scContainerName,
 		IngressConfig: scIngressConfig,
 		EgressConfig:  scEgressConfig,

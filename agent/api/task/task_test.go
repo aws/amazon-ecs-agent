@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/docker/go-connections/nat"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -62,7 +64,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const serviceConnectContainerTestName = "service-connect"
+const (
+	serviceConnectContainerTestName = "service-connect"
+	testHostName                    = "testHostName"
+	testOutboundListenerName        = "testOutboundListener"
+	testIPv4Address                 = "172.31.21.40"
+	testIPv6Address                 = "abcd:dcba:1234:4321::"
+	testIPv4Cidr                    = "127.255.0.0/16"
+	testIPv6Cidr                    = "2002::1234:abcd:ffff:c0a8:101/64"
+)
+
+var (
+	testListenerPort              = uint16(8080)
+	testBridgeDefaultListenerPort = uint16(15000)
+)
 
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
@@ -230,9 +245,9 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 		},
 	}
 
-	testTask.ServiceConnectConfig = &ServiceConnectConfig{
+	testTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: serviceConnectContainerTestName,
-		IngressConfig: []IngressConfigEntry{
+		IngressConfig: []serviceconnect.IngressConfigEntry{
 			{
 				ListenerName: "testListener1", // bridge mode default - ephemeral listener host port
 				ListenerPort: SCIngressListener1ContainerPort,
@@ -243,7 +258,7 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 				HostPort:     &SCIngressListener2HostPort,
 			},
 		},
-		EgressConfig: &EgressConfig{
+		EgressConfig: &serviceconnect.EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: SCEgressListenerContainerPort, // Presently this should always get ephemeral port
 		},
@@ -3690,13 +3705,13 @@ func TestGetServiceConnectContainer(t *testing.T) {
 		Name: serviceConnectContainerName,
 	}
 	tt := []struct {
-		scConfig *ServiceConnectConfig
+		scConfig *serviceconnect.Config
 	}{
 		{
 			scConfig: nil,
 		},
 		{
-			scConfig: &ServiceConnectConfig{
+			scConfig: &serviceconnect.Config{
 				ContainerName: serviceConnectContainerName,
 			},
 		},
@@ -3720,7 +3735,7 @@ func TestGetServiceConnectContainer(t *testing.T) {
 func TestIsServiceConnectEnabled(t *testing.T) {
 	const serviceConnectContainerName = "service-connect"
 	tt := []struct {
-		scConfig          *ServiceConnectConfig
+		scConfig          *serviceconnect.Config
 		scContainer       *apicontainer.Container
 		expectedSCEnabled bool
 	}{
@@ -3730,7 +3745,7 @@ func TestIsServiceConnectEnabled(t *testing.T) {
 			expectedSCEnabled: false,
 		},
 		{
-			scConfig: &ServiceConnectConfig{
+			scConfig: &serviceconnect.Config{
 				ContainerName: serviceConnectContainerName,
 			},
 			scContainer:       nil,
@@ -3744,7 +3759,7 @@ func TestIsServiceConnectEnabled(t *testing.T) {
 			expectedSCEnabled: false,
 		},
 		{
-			scConfig: &ServiceConnectConfig{
+			scConfig: &serviceconnect.Config{
 				ContainerName: serviceConnectContainerName,
 			},
 			scContainer: &apicontainer.Container{
@@ -3790,9 +3805,9 @@ func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
 	}
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-	testSCConfig := ServiceConnectConfig{
+	testSCConfig := serviceconnect.Config{
 		ContainerName: serviceConnectContainerTestName,
-		IngressConfig: []IngressConfigEntry{
+		IngressConfig: []serviceconnect.IngressConfigEntry{
 			{
 				ListenerName: "testListener1",
 				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
@@ -3806,7 +3821,7 @@ func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
 				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
 			},
 		},
-		EgressConfig: &EgressConfig{
+		EgressConfig: &serviceconnect.EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
@@ -3860,9 +3875,9 @@ func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
 	}
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-	testSCConfig := ServiceConnectConfig{
+	testSCConfig := serviceconnect.Config{
 		ContainerName: serviceConnectContainerTestName,
-		IngressConfig: []IngressConfigEntry{
+		IngressConfig: []serviceconnect.IngressConfigEntry{
 			{
 				ListenerName: "testListener1",
 				ListenerPort: listenerPort1,
@@ -3876,7 +3891,7 @@ func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
 				ListenerPort: listenerPort3,
 			},
 		},
-		EgressConfig: &EgressConfig{
+		EgressConfig: &serviceconnect.EgressConfig{
 			ListenerName: "testEgressListener",
 			ListenerPort: 0, // Presently this should always get ephemeral port
 		},
@@ -3919,7 +3934,7 @@ func containerFromACS(name string, containerPort int64, hostPort int64, networkM
 	return container
 }
 
-func cloneSCConfig(scConfig ServiceConnectConfig) ServiceConnectConfig {
+func cloneSCConfig(scConfig serviceconnect.Config) serviceconnect.Config {
 	clone := scConfig
 	clone.IngressConfig = nil
 	for _, ic := range scConfig.IngressConfig {
@@ -3956,7 +3971,7 @@ func validateServiceConnectContainerOrder(t *testing.T, task *Task) {
 	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[1])
 }
 
-func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig ServiceConnectConfig, utilizedPorts map[uint16]struct{}) {
+func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig serviceconnect.Config, utilizedPorts map[uint16]struct{}) {
 	for i, ic := range originalSCConfig.IngressConfig {
 		if ic.ListenerPort == 0 {
 			assignedPort := task.ServiceConnectConfig.IngressConfig[i].ListenerPort
@@ -4184,7 +4199,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 		testElasticNetworkInterface *ecsacs.ElasticNetworkInterface
 		testNetworkMode             string
 		testSCConfigValue           string
-		testExpectedSCConfig        *ServiceConnectConfig
+		testExpectedSCConfig        *serviceconnect.Config
 	}{
 		{
 			testName: "Bridge default case",
@@ -4198,21 +4213,21 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 			},
 			testNetworkMode:   BridgeNetworkMode,
 			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"172.31.21.40\"}],\"ingressConfig\":[{\"listenerPort\":15000}]}",
-			testExpectedSCConfig: &ServiceConnectConfig{
+			testExpectedSCConfig: &serviceconnect.Config{
 				ContainerName: serviceConnectContainerTestName,
-				IngressConfig: []IngressConfigEntry{
+				IngressConfig: []serviceconnect.IngressConfigEntry{
 					{
 						ListenerPort: testBridgeDefaultListenerPort,
 					},
 				},
-				EgressConfig: &EgressConfig{
+				EgressConfig: &serviceconnect.EgressConfig{
 					ListenerName: testOutboundListenerName,
-					VIP: VIP{
+					VIP: serviceconnect.VIP{
 						IPV4CIDR: testIPv4Cidr,
 						IPV6CIDR: "",
 					},
 				},
-				DNSConfig: []DNSConfigEntry{
+				DNSConfig: []serviceconnect.DNSConfigEntry{
 					{
 						HostName: testHostName,
 						Address:  testIPv4Address,
@@ -4231,21 +4246,21 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 			},
 			testNetworkMode:   AWSVPCNetworkMode,
 			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"2002::1234:abcd:ffff:c0a8:101/64\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"abcd:dcba:1234:4321::\"}],\"ingressConfig\":[{\"listenerPort\":8080}]}",
-			testExpectedSCConfig: &ServiceConnectConfig{
+			testExpectedSCConfig: &serviceconnect.Config{
 				ContainerName: serviceConnectContainerTestName,
-				IngressConfig: []IngressConfigEntry{
+				IngressConfig: []serviceconnect.IngressConfigEntry{
 					{
 						ListenerPort: testListenerPort,
 					},
 				},
-				EgressConfig: &EgressConfig{
+				EgressConfig: &serviceconnect.EgressConfig{
 					ListenerName: testOutboundListenerName,
-					VIP: VIP{
+					VIP: serviceconnect.VIP{
 						IPV4CIDR: testIPv4Cidr,
 						IPV6CIDR: testIPv6Cidr,
 					},
 				},
-				DNSConfig: []DNSConfigEntry{
+				DNSConfig: []serviceconnect.DNSConfigEntry{
 					{
 						HostName: testHostName,
 						Address:  testIPv6Address,
@@ -4272,11 +4287,11 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 						AttachmentArn: strptr("attachmentArn"),
 						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
-								Name:  strptr(serviceConnectConfigKey),
+								Name:  strptr(serviceconnect.GetServiceConnectConfigKey()),
 								Value: strptr(tc.testSCConfigValue),
 							},
 							{
-								Name:  strptr(serviceConnectContainerNameKey),
+								Name:  strptr(serviceconnect.GetServiceConnectContainerNameKey()),
 								Value: strptr(serviceConnectContainerTestName),
 							},
 						},

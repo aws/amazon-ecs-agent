@@ -11,10 +11,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package serviceconnect
 
-// ServiceConnectConfig represents the Service Connect configuration for a task.
-type ServiceConnectConfig struct {
+// Config represents the Service Connect configuration for a task.
+type Config struct {
 	ContainerName string               `json:"containerName"`
 	IngressConfig []IngressConfigEntry `json:"ingressConfig,omitempty"`
 	EgressConfig  *EgressConfig        `json:"egressConfig,omitempty"`
