@@ -19,6 +19,8 @@ ARG GOARCH
 
 ENV GOARCH ${GOARCH}
 ENV GOOS windows
+ENV XDG_CACHE_HOME /tmp
+ENV GOPROXY https://proxy.golang.org|direct
 
 RUN mkdir -p /go/src/github.com/aws/
 
