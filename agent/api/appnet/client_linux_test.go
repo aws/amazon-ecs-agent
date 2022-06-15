@@ -23,7 +23,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 	prometheus "github.com/prometheus/client_model/go"
@@ -178,7 +179,7 @@ func TestGetStats(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			stats, err := Client().GetStats(task.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
+			stats, err := Client().GetStats(serviceconnect.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
 			assert.Equal(t, tc.expectedResult, stats)
 			if tc.isErrorExpected {
 				assert.Error(t, err)
@@ -221,7 +222,7 @@ func TestDrainInboundConnections(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			err := Client().DrainInboundConnections(task.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
+			err := Client().DrainInboundConnections(serviceconnect.RuntimeConfig{AdminSocketPath: tc.udsPath, StatsRequest: testStatsUrl, DrainRequest: testDrainUrl})
 			if tc.isErrorExpected {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorContains)
