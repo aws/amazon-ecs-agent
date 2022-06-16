@@ -237,7 +237,21 @@ func (cs *clientServer) metricsToPublishMetricRequests(includeServiceConnectStat
 	for i, taskMetric := range taskMetrics {
 		requestMetadata = copyMetricsMetadata(metadata, false)
 
-		// TODO [SC]: Check if SC is enabled for the task
+		// Check if taskMetric without service connect metrics exceed the message size
+		tempTaskMetric := *taskMetric
+		tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
+
+		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
+		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
+		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
+		if len(tmsg) > publishMetricRequestSizeLimit {
+			// Create a new request as the current task metric if added is exceeding the size of the frame.
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+			// reset the messageTaskMetrics for the new request
+			messageTaskMetrics = messageTaskMetrics[:0]
+		}
+
 		if includeServiceConnectStats {
 			taskMetric, messageTaskMetrics, requests = cs.serviceConnectMetricsToPublishMetricRequests(requestMetadata, taskMetric, messageTaskMetrics, requests)
 		}
