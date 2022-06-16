@@ -30,8 +30,10 @@ const (
 	// for app mesh container. IfName is mandatory field to invoke CNI plugin.
 	defaultAppMeshIfName = "aws-appmesh"
 	// defaultServiceConnectIfName is the default ifname used for invoking SC CNI plugin.
-	// IfName is a mandatory field to invoke any CNI plugin. But it's not actually used in this case.
-	defaultServiceConnectIfName = "ecs-serviceconnect"
+	// IfName is a mandatory field to invoke any CNI plugin. For tasks in awsvpc mode, the network configuration
+	// does not need the ifname so this is simply a placeholder. For tasks in bridge mode, the configuration does
+	// require the ifname, and we use "eth0" because that's the default interface for docker bridge container network.
+	defaultServiceConnectIfName = "eth0"
 	// ECSIPAMPluginName is the binary of the ipam plugin
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
