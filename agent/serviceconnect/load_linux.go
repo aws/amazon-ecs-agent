@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.tar"
+	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.interface-v1.tar"
 )
 
 // LoadImage helps load the pause container image for the agent

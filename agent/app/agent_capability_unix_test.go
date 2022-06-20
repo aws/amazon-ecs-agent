@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
@@ -72,6 +73,8 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -130,6 +133,7 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -156,6 +160,8 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -199,6 +205,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 				DriverVersion: "396.44",
 			},
 		},
+		appNetLoader: mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -225,6 +232,8 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -266,6 +275,7 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 				DriverVersion: "",
 			},
 		},
+		appNetLoader: mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -294,6 +304,8 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -349,6 +361,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -378,6 +391,8 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -425,6 +440,7 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -450,6 +466,8 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -492,6 +510,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -517,6 +536,8 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, errors.New("mock error"))
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -558,6 +579,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -583,6 +605,8 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -627,6 +651,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -657,6 +682,8 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -679,6 +706,7 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -705,6 +733,8 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 	defer resetOpenFile()
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -727,6 +757,7 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -750,6 +781,8 @@ func TestCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -799,6 +832,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -823,6 +857,8 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -845,6 +881,7 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
+		appNetLoader:       mockServiceConnectLoader,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)

@@ -73,6 +73,7 @@ const (
 	capabilityExecConfigRelativePath                       = "config"
 	capabilityExecCertsRelativePath                        = "certs"
 	capabilityExternal                                     = "external"
+	capabilityServiceConnect                               = "service-connect-v1"
 )
 
 var (
@@ -114,6 +115,7 @@ var (
 		attributePrefix + appMeshAttributeSuffix,
 		attributePrefix + taskEIAAttributeSuffix,
 		attributePrefix + taskEIAWithOptimizedCPU,
+		attributePrefix + capabilityServiceConnect,
 	}
 	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
 	// for future proof and also align with externalUnsupportedCapabilities.
@@ -176,6 +178,7 @@ var (
 //    ecs.capability.fsxWindowsFileServer
 //    ecs.capability.execute-command
 //    ecs.capability.external
+//    ecs.capability.service-connect-v1
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -268,6 +271,11 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities = agent.appendFSxWindowsFileServerCapabilities(capabilities)
 	// add ecs-exec capabilities if applicable
 	capabilities, err = agent.appendExecCapabilities(capabilities)
+	if err != nil {
+		return nil, err
+	}
+	// add service-connect capabilities if applicable
+	capabilities, err = agent.appendServiceConenctCapabilities(capabilities)
 	if err != nil {
 		return nil, err
 	}
@@ -436,6 +444,18 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	}
 
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
+}
+
+func (agent *ecsAgent) appendServiceConenctCapabilities(capabilities []*ecs.Attribute) ([]*ecs.Attribute, error) {
+	if loaded, _ := agent.appNetLoader.IsLoaded(agent.dockerClient); !loaded {
+		_, err := agent.appNetLoader.LoadImage(agent.ctx, agent.dockerClient)
+		if err != nil {
+			seelog.Warn("ServiceConnect Capability: Failed to load appnet Agent container")
+			return capabilities, nil
+		}
+	}
+
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityServiceConnect), nil
 }
 
 func defaultGetSubDirectories(path string) ([]string, error) {
