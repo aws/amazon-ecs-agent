@@ -25,16 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
-
-	serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect"
-
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -50,7 +44,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -166,7 +163,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
-	serviceconnectManager               serviceconnect.Manager
+	serviceconnectManager               engineserviceconnect.Manager
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -221,7 +218,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		appnetClient:               appnet.Client(),
 
 		metadataManager:                   metadataManager,
-		serviceconnectManager:             serviceconnect.NewManager(),
+		serviceconnectManager:             engineserviceconnect.NewManager(),
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
