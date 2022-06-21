@@ -63,7 +63,7 @@ func TestStatsEngineWithNetworkStatsDifferentModes(t *testing.T) {
 		{"none", true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.StatsEmpty)
+		testNetworkModeStatsInteg(t, tc.NetworkMode, tc.StatsEmpty)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithServiceConnectMetrics")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 	testTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: serviceConnectContainerName,

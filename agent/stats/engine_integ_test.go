@@ -79,7 +79,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainersWithoutHealth")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
@@ -138,7 +138,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
@@ -216,7 +216,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithExistingContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 	// enable container health check for this container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -283,7 +283,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 
 	testTask := createRunningTask()
 	// enable health check of the container
@@ -365,7 +365,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNewContainers")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 
 	testTask := createRunningTask()
 	// enable health check of the container
@@ -430,7 +430,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngine")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -514,7 +514,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngineMissingRemoveEvent")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -577,10 +577,10 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 }
 
 func TestStatsEngineWithNetworkStatsDefaultMode(t *testing.T) {
-	testNetworkModeStats(t, "default", false)
+	testNetworkModeStatsInteg(t, "default", false)
 }
 
-func testNetworkModeStats(t *testing.T, networkMode string, statsEmpty bool) {
+func testNetworkModeStatsInteg(t *testing.T, networkMode string, statsEmpty bool) {
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNetworkStats"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -603,7 +603,7 @@ func testNetworkModeStats(t *testing.T, networkMode string, statsEmpty bool) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithNetworkStats")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 
 	// Populate Tasks and Container map in the engine.
@@ -684,7 +684,7 @@ func TestStorageStats(t *testing.T) {
 
 	containerChangeEventStream := eventStream("TestStatsEngineWithStorageStats")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+		nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	testTask := createRunningTask()
 
 	// Populate Tasks and Container map in the engine.
