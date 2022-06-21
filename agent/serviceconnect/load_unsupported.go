@@ -41,3 +41,9 @@ func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 		"appnetAgent container isloaded: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
+
+func (*loader) GetLoadedImageName() (string, error) {
+	return "", NewUnsupportedPlatformError(errors.Errorf(
+		"appnetAgent container get image name: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}

@@ -18,6 +18,7 @@ package serviceconnect
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -39,12 +40,16 @@ func (agent *loader) LoadImage(ctx context.Context, dockerClient dockerapi.Docke
 		return nil, err
 	}
 
-	return getAgentContainerImage(
-		agent.AgentContainerImageName, agent.AgentContainerTag, dockerClient)
+	imageName, _ := agent.GetLoadedImageName()
+	return getAgentContainerImage(imageName, dockerClient)
 }
 
 func (agent *loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 	return agent.isImageLoaded(dockerClient)
+}
+
+func (agent *loader) GetLoadedImageName() (string, error) {
+	return fmt.Sprintf("%s:%s", agent.AgentContainerImageName, agent.AgentContainerTag), nil
 }
 
 var open = os.Open

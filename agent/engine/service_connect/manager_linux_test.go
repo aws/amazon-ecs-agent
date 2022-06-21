@@ -23,15 +23,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/golang/mock/gomock"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
@@ -124,7 +125,7 @@ func getAWSVPCTask(t *testing.T) (*apitask.Task, *apicontainer.Container, *apico
 
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	pauseContainer.Name = task.NetworkPauseContainerName
+	pauseContainer.Name = apitask.NetworkPauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
@@ -175,11 +176,15 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 		}
 	}
 	scManager := NewManager()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockLoader := mock_serviceconnect.NewMockLoader(ctrl)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, mockLoader)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -235,11 +240,16 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		adminStatsRequest:   "/give?stats",
 		adminDrainRequest:   "/do?drain",
 	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockLoader := mock_serviceconnect.NewMockLoader(ctrl)
+	mockLoader.EXPECT().GetLoadedImageName().Return("locked:loaded", nil)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, mockLoader)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -251,6 +261,8 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest, "/give?stats")
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest, "/do?drain")
+
+	assert.Equal(t, scTask.GetServiceConnectContainer().Image, "locked:loaded")
 
 	config := scTask.GetServiceConnectRuntimeConfig()
 	assert.Equal(t, config.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))

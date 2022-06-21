@@ -1300,7 +1300,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Add Service Connect modifications if needed
 	if task.IsServiceConnectEnabled() {
-		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig)
+		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig, engine.appnetAgentLoader)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
 		}

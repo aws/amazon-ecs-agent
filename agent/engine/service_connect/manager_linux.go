@@ -19,10 +19,10 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -87,7 +87,7 @@ func NewManager() Manager {
 	}
 }
 
-func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, appnetAgentoader serviceconnect.Loader) error {
 	if task.IsNetworkModeBridge() {
 		err := m.initServiceConnectContainerMapping(task, container, hostConfig)
 		if err != nil {
@@ -101,12 +101,13 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	m.initAgentEnvironment(container)
 
 	// Setup runtime configuration
-	var config serviceconnect.RuntimeConfig
+	var config apiserviceconnect.RuntimeConfig
 	config.AdminSocketPath = adminPath
 	config.StatsRequest = m.adminStatsRequest
 	config.DrainRequest = m.adminDrainRequest
 
 	task.PopulateServiceConnectRuntimeConfig(config)
+	container.Image, _ = appnetAgentoader.GetLoadedImageName()
 	return nil
 }
 
@@ -153,7 +154,7 @@ func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, contain
 
 // DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
 // recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConfigs []serviceconnect.DNSConfigEntry) []string {
+func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apiserviceconnect.DNSConfigEntry) []string {
 	var hosts []string
 	for _, dnsConf := range dnsConfigs {
 		if len(dnsConf.Address) > 0 {
@@ -164,7 +165,7 @@ func DNSConfigToDockerExtraHostsFormat(dnsConfigs []serviceconnect.DNSConfigEntr
 	return hosts
 }
 
-func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, appnetAgentLoader serviceconnect.Loader) error {
 	var err error
 	// Add SC VIPs to pause container's known hosts
 	if container.Type == apicontainer.ContainerCNIPause {
@@ -172,7 +173,7 @@ func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontain
 			DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 	if container == task.GetServiceConnectContainer() {
-		m.augmentAgentContainer(task, container, hostConfig)
+		m.augmentAgentContainer(task, container, hostConfig, appnetAgentLoader)
 	}
 	return err
 }

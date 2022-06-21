@@ -15,7 +15,6 @@ package serviceconnect
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	log "github.com/cihub/seelog"
@@ -33,6 +32,7 @@ var (
 type Loader interface {
 	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
 	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
+	GetLoadedImageName() (string, error)
 }
 
 type loader struct {
@@ -51,8 +51,7 @@ func New() Loader {
 }
 
 // This function uses the DockerClient to inspect the image with the given name and tag.
-func getAgentContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	imageName := fmt.Sprintf("%s:%s", name, tag)
+func getAgentContainerImage(imageName string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	log.Debugf("Inspecting appnet agent container image: %s", imageName)
 
 	image, err := dockerClient.InspectImage(imageName)
@@ -66,8 +65,8 @@ func getAgentContainerImage(name string, tag string, dockerClient dockerapi.Dock
 
 // Common function for linux and windows to check if the container pause image has been loaded
 func (agent *loader) isImageLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	image, err := getAgentContainerImage(
-		agent.AgentContainerImageName, agent.AgentContainerTag, dockerClient)
+	imageName, _ := agent.GetLoadedImageName()
+	image, err := getAgentContainerImage(imageName, dockerClient)
 
 	if err != nil {
 		return false, err
