@@ -19,7 +19,8 @@ ARG GOARCH
 
 ENV GOARCH ${GOARCH}
 ENV XDG_CACHE_HOME /tmp
-ENV GOPROXY https://proxy.golang.org|direct
+
+ENV GOFLAGS=-mod=vendor
 
 RUN mkdir -p /go/src/github.com/aws/
 
