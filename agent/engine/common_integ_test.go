@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	log "github.com/cihub/seelog"
 	"github.com/stretchr/testify/assert"
@@ -169,7 +170,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
-		nil, execcmd.NewManager())
+		nil, execcmd.NewManager(), serviceconnect.New())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()

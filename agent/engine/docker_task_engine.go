@@ -49,6 +49,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
@@ -142,10 +143,11 @@ type DockerTaskEngine struct {
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 
-	client       dockerapi.DockerClient
-	dataClient   data.Client
-	cniClient    ecscni.CNIClient
-	appnetClient api.AppnetClient
+	client               dockerapi.DockerClient
+	dataClient           data.Client
+	cniClient            ecscni.CNIClient
+	appnetClient         api.AppnetClient
+	serviceConnectLoader serviceconnect.Loader
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -199,7 +201,8 @@ func NewDockerTaskEngine(cfg *config.Config,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
-	execCmdMgr execcmd.Manager) *DockerTaskEngine {
+	execCmdMgr execcmd.Manager,
+	serviceConnectLoader serviceconnect.Loader) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -216,6 +219,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
+		serviceConnectLoader:       serviceConnectLoader,
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             engineserviceconnect.NewManager(),

@@ -306,8 +306,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Create the task engine
-	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
-		credentialsManager, state, imageManager, execCmdMgr)
+	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
+		containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, agent.serviceconnectLoader)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -491,7 +491,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	execCmdMgr execcmd.Manager) (engine.TaskEngine, string, error) {
+	execCmdMgr execcmd.Manager,
+	serviceConnectloader serviceconnect.Loader) (engine.TaskEngine, string, error) {
 
 	containerChangeEventStream.StartListening()
 
@@ -499,10 +500,10 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resourceFields, execCmdMgr), "", nil
+			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectloader), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, serviceConnectloader)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -524,7 +525,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state, agent.metadataManager,
-			agent.resourceFields, execCmdMgr), currentEC2InstanceID, nil
+			agent.resourceFields, execCmdMgr, serviceConnectloader), currentEC2InstanceID, nil
 	}
 
 	if savedData.cluster != "" {

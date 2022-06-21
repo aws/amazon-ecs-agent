@@ -26,18 +26,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containernetworking/cni/pkg/types/current"
-
-	"github.com/docker/docker/api/types/network"
-
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
-
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -55,11 +49,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/golang/mock/gomock"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	"github.com/golang/mock/gomock"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,7 +79,7 @@ func init() {
 func TestResourceContainerProgression(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -252,7 +248,7 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 func TestResourceContainerProgressionFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
@@ -309,7 +305,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _ := mocks(
+			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _, _ := mocks(
 				t, ctx, &metadataConfig)
 			defer ctrl.Finish()
 
@@ -523,7 +519,7 @@ func TestCreateFirelensContainer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			mockTime.EXPECT().Now().AnyTimes()
@@ -549,7 +545,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	config := defaultConfig
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &config)
+	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &config)
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
@@ -591,7 +587,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -728,7 +724,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -874,7 +870,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 func TestContainersWithServiceConnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1055,7 +1051,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1285,7 +1281,7 @@ func verifyServiceConnectPauseContainerBridgeMode(t *testing.T, ctx interface{},
 func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)

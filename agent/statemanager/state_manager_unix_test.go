@@ -48,7 +48,7 @@ func TestStateManager(t *testing.T) {
 	// Now let's make some state to save
 	containerInstanceArn := ""
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(),
-		nil, nil, nil)
+		nil, nil, nil, nil)
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", taskEngine),
 		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn))
@@ -66,7 +66,7 @@ func TestStateManager(t *testing.T) {
 
 	// Now make sure we can load that state sanely
 	loadedTaskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(),
-		nil, nil, nil)
+		nil, nil, nil, nil)
 	var loadedContainerInstanceArn string
 
 	manager, err = statemanager.NewStateManager(cfg, statemanager.AddSaveable("TaskEngine", &loadedTaskEngine),
@@ -111,7 +111,7 @@ func TestLoadsDataForAWSVPCTask(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v11", tc.dir)}
 
-			taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+			taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 			var containerInstanceArn, cluster, savedInstanceID string
 
 			stateManager, err := statemanager.NewStateManager(cfg,
@@ -150,7 +150,7 @@ func TestLoadsDataForAWSVPCTask(t *testing.T) {
 // verify that the state manager correctly loads gpu related fields in state file
 func TestLoadsDataForGPU(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "gpu")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -195,7 +195,7 @@ func TestLoadsDataForGPU(t *testing.T) {
 
 func TestLoadsDataForFirelensTask(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "firelens")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -243,7 +243,7 @@ func TestLoadsDataForFirelensTask(t *testing.T) {
 
 func TestLoadsDataForFirelensTaskWithExternalConfig(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v24", "firelens")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -297,7 +297,7 @@ func TestLoadsDataForFirelensTaskWithExternalConfig(t *testing.T) {
 
 func TestLoadsDataForEFSGATask(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v27", "efs")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,

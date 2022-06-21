@@ -51,6 +51,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -496,7 +497,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
-		resourceFields, execcmd.NewManager())
+		resourceFields, execcmd.NewManager(), serviceconnect.New())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -738,7 +739,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
-		nil, execCmdMgr)
+		nil, execCmdMgr, serviceconnect.New())
 	taskEngine.monitorExecAgentsInterval = time.Second
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
