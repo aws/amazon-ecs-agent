@@ -16,10 +16,11 @@ package serviceconnect
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 type Manager interface {
-	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
+	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, serviceConnectLoader serviceconnect.Loader) error
 }

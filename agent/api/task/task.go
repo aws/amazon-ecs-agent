@@ -494,9 +494,11 @@ func (task *Task) initServiceConnectResources() error {
 			ContainerName: "service-connect",
 		}
 	}
+	// TODO [SC]: End dev/testing purposes
 	if task.IsServiceConnectEnabled() {
 		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
 		task.initDummyServiceConnectConfig()
+		// TODO [SC]: End dev/testing purposes
 		if err := task.initServiceConnectEphemeralPorts(); err != nil {
 			return err
 		}
@@ -518,6 +520,8 @@ func (task *Task) initDummyServiceConnectConfig() {
 		return
 	}
 }
+
+// TODO [SC]: End dev/testing purposes
 
 func (task *Task) initServiceConnectEphemeralPorts() error {
 	var utilizedPorts []uint16

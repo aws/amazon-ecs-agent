@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
@@ -25,6 +27,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
@@ -123,6 +126,11 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 	}()
 	scTask, _, serviceConnectContainer := getAWSVPCTask(t)
 
+	expectedImage := "container:tag"
+	ctrl := gomock.NewController(t)
+	loader := mock_serviceconnect.NewMockLoader(ctrl)
+	loader.EXPECT().GetLoadedImageName().Return(expectedImage, nil)
+
 	expectedBinds := []string{
 		fmt.Sprintf("%s/status/%s:%s", tempDir, scTask.GetID(), "/some/other/run"),
 		fmt.Sprintf("%s/relay:%s", tempDir, "/not/var/run"),
@@ -174,7 +182,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, loader)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -192,6 +200,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 			}
 		})
 	}
+
+	assert.Equal(t, serviceConnectContainer.Image, expectedImage)
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest, "/give?stats")
 	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest, "/do?drain")

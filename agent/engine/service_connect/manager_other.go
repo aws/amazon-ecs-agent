@@ -1,4 +1,5 @@
 //go:build !linux
+// +build !linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,10 +17,11 @@
 package serviceconnect
 
 import (
-	"errors"
+	"fmt"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -30,6 +32,6 @@ func NewManager() Manager {
 	return &manager{}
 }
 
-func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
-	return errors.New("ServiceConnect is only supported on linux")
+func (m *manager) AugmentTaskContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig, serviceconnect.Loader) error {
+	return fmt.Errorf("ServiceConnect is only supported on linux")
 }
