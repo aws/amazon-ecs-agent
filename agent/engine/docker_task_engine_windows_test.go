@@ -38,7 +38,6 @@ import (
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -134,16 +133,14 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 
-	credentialSpecReq := []string{credentialspecFile}
-
 	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
 		testTask.Arn,
 		defaultConfig.AWSRegion,
-		credentialSpecReq,
 		credentialsID,
 		credentialsManager,
 		ssmClientCreator,
-		s3ClientCreator)
+		s3ClientCreator,
+		nil)
 	assert.NoError(t, cerr)
 
 	credSpecdata := map[string]string{
@@ -215,16 +212,14 @@ func TestCredentialSpecResourceTaskFileErr(t *testing.T) {
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 
-	credentialSpecReq := []string{credentialspecFile}
-
 	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
 		testTask.Arn,
 		defaultConfig.AWSRegion,
-		credentialSpecReq,
 		credentialsID,
 		credentialsManager,
 		ssmClientCreator,
-		s3ClientCreator)
+		s3ClientCreator,
+		nil)
 	assert.NoError(t, cerr)
 
 	credSpecdata := map[string]string{
