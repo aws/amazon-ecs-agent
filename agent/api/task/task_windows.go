@@ -141,8 +141,9 @@ func (task *Task) requiresCredentialSpecResource() bool {
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
-	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.getAllCredentialSpecRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator)
+	credspecContainerMapping := task.getAllCredentialSpecRequirements()
+	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, credspecContainerMapping)
 	if err != nil {
 		return err
 	}
@@ -162,17 +163,15 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() []string {
-	reqs := []string{}
-
+func (task *Task) getAllCredentialSpecRequirements() map[string]string {
+	reqsContainerMap := make(map[string]string)
 	for _, container := range task.Containers {
 		credentialSpec, err := container.GetCredentialSpec()
-		if err == nil && credentialSpec != "" && !utils.StrSliceContains(reqs, credentialSpec) {
-			reqs = append(reqs, credentialSpec)
+		if err == nil && credentialSpec != "" {
+			reqsContainerMap[credentialSpec] = container.Name
 		}
 	}
-
-	return reqs
+	return reqsContainerMap
 }
 
 // GetCredentialSpecResource retrieves credentialspec resource from resource map
