@@ -245,6 +245,9 @@ Resources:
             Principal:
               Service: codebuild.amazonaws.com
             Action: 'sts:AssumeRole'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${BuildProjectName}-amd'
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -253,8 +256,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd:*"
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd:*'
                 Action:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
@@ -288,6 +291,9 @@ Resources:
             Principal:
               Service: codebuild.amazonaws.com
             Action: 'sts:AssumeRole'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${BuildProjectName}-ubuntu-amd'
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -296,8 +302,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd:*"
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd:*'
                 Action:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
@@ -331,6 +337,9 @@ Resources:
             Principal:
               Service: codebuild.amazonaws.com
             Action: 'sts:AssumeRole'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${BuildProjectName}-arm'
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -339,8 +348,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm:*"
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm:*'
                 Action:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
@@ -374,6 +383,9 @@ Resources:
             Principal:
               Service: codebuild.amazonaws.com
             Action: 'sts:AssumeRole'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${BuildProjectName}-ubuntu-arm'
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -382,8 +394,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm:*"
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm:*'
                 Action:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'

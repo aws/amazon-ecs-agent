@@ -134,6 +134,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${BuildspecsExtractCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-buildspec-extract-base-policy
           PolicyDocument:
@@ -212,6 +215,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${AmdBuildCodeBuildProjectName}'
       Policies:
         - PolicyName: amd-codebuild-build-base-policy
           PolicyDocument:
@@ -253,6 +259,32 @@ Resources:
                   - codebuild:BatchPutTestCases
                   - codebuild:BatchPutCodeCoverages
 
+  AmdBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref AmdBuildCodeBuildProjectName
+      Name: !Ref AmdBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref AmdBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
   UbuntuAmdBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -264,6 +296,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${UbuntuAmdBuildCodeBuildProjectName}'
       Policies:
         - PolicyName: ubuntu-codebuild-build-base-policy
           PolicyDocument:
@@ -305,6 +340,32 @@ Resources:
                   - codebuild:BatchPutTestCases
                   - codebuild:BatchPutCodeCoverages
 
+  UbuntuAmdBuildCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      ConcurrentBuildLimit: 10
+      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          GroupName: !Ref CodeBuildLogGroupName
+          Status: ENABLED
+          StreamName: !Ref UbuntuAmdBuildCodeBuildProjectName
+      Name: !Ref UbuntuAmdBuildCodeBuildProjectName
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref UbuntuAmdBuildCodeBuildProjectServiceRole
+      Source:
+        BuildSpec: buildspecs/merge-build-ubuntu.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 60
+
   UbuntuArmBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -316,6 +377,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${UbuntuArmBuildCodeBuildProjectName}'
       Policies:
         - PolicyName: ubuntu-codebuild-build-base-policy
           PolicyDocument:
@@ -383,58 +447,6 @@ Resources:
         Type: CODEPIPELINE
       TimeoutInMinutes: 60
 
-  AmdBuildCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      ConcurrentBuildLimit: 10
-      Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
-        ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: false
-        Type: LINUX_CONTAINER
-      LogsConfig:
-        CloudWatchLogs:
-          GroupName: !Ref CodeBuildLogGroupName
-          Status: ENABLED
-          StreamName: !Ref AmdBuildCodeBuildProjectName
-      Name: !Ref AmdBuildCodeBuildProjectName
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !Ref AmdBuildCodeBuildProjectServiceRole
-      Source:
-        BuildSpec: buildspecs/merge-build.yml
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 60
-
-  UbuntuAmdBuildCodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      ConcurrentBuildLimit: 10
-      Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: 'public.ecr.aws/lts/ubuntu:20.04'
-        ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: false
-        Type: LINUX_CONTAINER
-      LogsConfig:
-        CloudWatchLogs:
-          GroupName: !Ref CodeBuildLogGroupName
-          Status: ENABLED
-          StreamName: !Ref UbuntuAmdBuildCodeBuildProjectName
-      Name: !Ref UbuntuAmdBuildCodeBuildProjectName
-      QueuedTimeoutInMinutes: 60
-      ServiceRole: !Ref UbuntuAmdBuildCodeBuildProjectServiceRole
-      Source:
-        BuildSpec: buildspecs/merge-build-ubuntu.yml
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 60
-
   ArmBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -446,6 +458,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${ArmBuildCodeBuildProjectName}'
       Policies:
         - PolicyName: arm-codebuild-build-base-policy
           PolicyDocument:
@@ -524,6 +539,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${SigningCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-signing-base-policy
           PolicyDocument:
@@ -643,6 +661,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${MakeJSONCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-copy-base-policy
           PolicyDocument:
@@ -714,6 +735,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${CopyCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-copy-base-policy
           PolicyDocument:
@@ -795,6 +819,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${LogsPullerCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-logs-puller-base-policy
           PolicyDocument:
@@ -885,6 +912,9 @@ Resources:
           Principal:
             Service: codepipeline.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${BuildAndSignCodePipelineName}'
       Policies:
         - PolicyName: build-and-sign-codepipeline-base-policy
           PolicyDocument:

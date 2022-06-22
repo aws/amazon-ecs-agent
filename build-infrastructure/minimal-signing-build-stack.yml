@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Description: the name of the ECR repository to upload the signer image to
     Default: ecs-agent-signer
-  RepositoryImageRententionPeriodInDays:
+  RepositoryImageRetentionPeriodInDays:
     Type: Number
     Default: 180
   ImageCodeBuildProjectName:
@@ -82,11 +82,11 @@ Resources:
             "rules": [
               {
                 "rulePriority": 1,
-                "description": "Only keep build-yyyymmdd images for ${RepositoryImageRententionPeriodInDays} days",
+                "description": "Only keep build-yyyymmdd images for ${RepositoryImageRetentionPeriodInDays} days",
                 "selection": {
                   "countType": "sinceImagePushed",
                   "countUnit": "days",
-                  "countNumber": ${RepositoryImageRententionPeriodInDays},
+                  "countNumber": ${RepositoryImageRetentionPeriodInDays},
                   "tagStatus": "tagged",
                   "tagPrefixList": [
                     "build"
@@ -110,6 +110,9 @@ Resources:
           Principal:
             Service: codebuild.amazonaws.com
           Action: sts:AssumeRole
+          Condition:
+            ArnEquals:
+              'aws:SourceArn': !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${ImageCodeBuildProjectName}'
       Policies:
         - PolicyName: codebuild-image-build-base-policy
           PolicyDocument:
@@ -200,6 +203,9 @@ Resources:
             Principal:
               Service: events.amazonaws.com
             Action: sts:AssumeRole
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${PeriodicBuildTriggerName}'
       Policies:
         - PolicyName: build-event-trigger-base-policy
           PolicyDocument:
