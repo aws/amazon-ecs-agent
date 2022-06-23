@@ -50,7 +50,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	sdkClient "github.com/docker/docker/client"
