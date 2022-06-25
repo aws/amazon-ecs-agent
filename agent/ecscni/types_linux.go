@@ -29,6 +29,10 @@ const (
 	// defaultAppMeshIfName is the default name of app mesh to setup iptable rules
 	// for app mesh container. IfName is mandatory field to invoke CNI plugin.
 	defaultAppMeshIfName = "aws-appmesh"
+	// defaultServiceConnectIfName is the default ifname used for invoking ServiceConnect CNI plugin.
+	// Even though the actual SC netns configuration does not require IfName, we still need to pass in a placeholder
+	// value because IfName is a mandatory field to invoke any CNI plugin.
+	defaultServiceConnectIfName = "ecs-serviceconnect"
 	// ECSIPAMPluginName is the binary of the ipam plugin
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
@@ -39,6 +43,8 @@ const (
 	ECSAppMeshPluginName = "aws-appmesh"
 	// ECSBranchENIPluginName is the binary of the branch-eni plugin
 	ECSBranchENIPluginName = "vpc-branch-eni"
+	// ECSServiceConnectPluginName is the binary of the service connect plugin
+	ECSServiceConnectPluginName = "ecs-serviceconnect"
 	// NetnsFormat is used to construct the path to cotainer network namespace
 	NetnsFormat = "/host/proc/%s/ns/net"
 )
@@ -159,4 +165,40 @@ type BranchENIConfig struct {
 	BlockInstanceMetadata bool `json:"blockInstanceMetadata"`
 	// InterfaceType is the type of the interface to connect the branch ENI to
 	InterfaceType string `json:"interfaceType,omitempty"`
+}
+
+type ServiceConnectConfig struct {
+	// CNIVersion is the CNI spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// Name is the CNI network name
+	Name string `json:"name,omitempty"`
+	// Type is the CNI plugin name
+	Type string `json:"type,omitempty"`
+
+	// IngressConfig (optional) specifies the netfilter rules to be set for incoming requests.
+	IngressConfig []IngressConfigJSONEntry `json:"ingressConfig,omitempty"`
+	// EgressConfig (optional) specifies the netfilter rules to be set for outgoing requests.
+	EgressConfig *EgressConfigJSON `json:"egressConfig,omitempty"`
+	// EnableIPv4 (optional) specifies whether to set the rules in IPV4 table. Default value is false.
+	EnableIPv4 bool `json:"enableIPv4,omitempty"`
+	// EnableIPv6 (optional) specifies whether to set the rules in IPV6 table. Default value is false.
+	EnableIPv6 bool `json:"enableIPv6,omitempty"`
+}
+
+// IngressConfig defines the ingress network config in JSON format for the ecs-serviceconnect CNI plugin.
+type IngressConfigJSONEntry struct {
+	ListenerPort  uint16 `json:"listenerPort"`
+	InterceptPort uint16 `json:"interceptPort,omitempty"`
+}
+
+// EgressConfig defines the egress network config in JSON format for the ecs-serviceconnect CNI plugin.
+type EgressConfigJSON struct {
+	ListenerPort uint16        `json:"listenerPort"`
+	VIP          VIPConfigJSON `json:"vip"`
+}
+
+// vipConfig defines the EgressVIP network config in JSON format for the ecs-serviceconnect CNI plugin.
+type VIPConfigJSON struct {
+	IPv4CIDR string `json:"ipv4Cidr,omitempty"`
+	IPv6CIDR string `json:"ipv6Cidr,omitempty"`
 }
