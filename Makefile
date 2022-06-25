@@ -225,6 +225,7 @@ build-vpc-cni-plugins:
 	docker run --rm --net=none \
 		-e GO111MODULE=off \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
+		-e GIT_TAG=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git describe --tags --always --dirty) \
 		-u "$(USERID)" \
 		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/${TARGET_OS}_$(GOARCH)" \
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
