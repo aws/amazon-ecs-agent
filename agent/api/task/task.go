@@ -2116,6 +2116,14 @@ func (task *Task) generateENIExtraHosts() []string {
 	return extraHosts
 }
 
+func (task *Task) shouldEnableIPv4() bool {
+	eni := task.GetPrimaryENI()
+	if eni == nil {
+		return false
+	}
+	return len(eni.GetIPV4Addresses()) > 0
+}
+
 func (task *Task) shouldEnableIPv6() bool {
 	eni := task.GetPrimaryENI()
 	if eni == nil {

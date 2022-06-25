@@ -18,7 +18,6 @@ MAINTAINER Amazon Web Services, Inc.
 ARG GOARCH
 
 ENV GOARCH ${GOARCH}
-
 ENV XDG_CACHE_HOME /tmp
 
 ENV GOFLAGS=-mod=vendor
@@ -27,4 +26,4 @@ RUN mkdir -p /go/src/github.com/aws/
 
 WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
 
-CMD ["make", "aws-appmesh", "vpc-branch-eni"]
+CMD ["make", "aws-appmesh", "vpc-branch-eni", "ecs-serviceconnect"]
