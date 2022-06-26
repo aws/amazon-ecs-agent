@@ -274,9 +274,9 @@ func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, cre
 	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }
 
-// BuildCNIConfig builds a list of CNI network configurations for the task.
+// BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
 // If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
-func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
 	if !task.IsNetworkModeAWSVPC() {
 		return nil, errors.New("task config: task network mode is not AWSVPC")
 	}
@@ -339,6 +339,8 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 	if task.IsServiceConnectEnabled() {
 		ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
 			task.ServiceConnectConfig,
+			ecscni.NAT,
+			false,
 			task.shouldEnableIPv4(),
 			task.shouldEnableIPv6(),
 			cniConfig)
@@ -353,5 +355,40 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 
+	return cniConfig, nil
+}
+
+// BuildCNIConfigBridgeMode builds a list of CNI network configurations for a task in docker bridge mode.
+func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerName string) (*ecscni.Config, error) {
+	if !task.IsNetworkModeBridge() {
+		return nil, errors.New("non bridge-mode task should not invoke BuildCNIConfigBridgeMode")
+	}
+
+	var netconf *libcni.NetworkConfig
+	var ifName string
+	var err error
+
+	// Build a CNI network configuration for bridge-mode SC-enabled task
+	if task.IsServiceConnectEnabled() {
+		scPauseIPConfig := task.GetServiceConnectRuntimeConfig().PauseContainerIPConfig
+		if scPauseIPConfig == nil {
+			return nil, fmt.Errorf("failed to build CNI Bridge SC config - SC PauseContainerIPConfig cannot be nil")
+		}
+		ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
+			task.ServiceConnectConfig,
+			ecscni.TPROXY,
+			!task.IsContainerServiceConnectPause(containerName),
+			scPauseIPConfig.IPv4Addr != "",
+			scPauseIPConfig.IPv6Addr != "",
+			cniConfig)
+		if err != nil {
+			return nil, err
+		}
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           ifName,
+			CNINetworkConfig: netconf,
+		})
+	}
+	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 	return cniConfig, nil
 }

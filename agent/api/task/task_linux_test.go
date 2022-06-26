@@ -19,8 +19,11 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
@@ -67,6 +70,16 @@ const (
 	testExecutionCredentialsID = "testExecutionCredentialsID"
 
 	defaultCPUPeriod = 100 * time.Millisecond // 100ms
+
+	scContainerName      = "service-connect"
+	scEgressListenerPort = 12345
+	scInterceptPort      = 8080
+	scListenerPort       = 15000
+	scPauseIPv4          = "172.0.0.2"
+)
+
+var (
+	scPauseContainerName = fmt.Sprintf("%s-%s", NetworkPauseContainerName, scContainerName)
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -1283,7 +1296,7 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 					egressIgnoredIP,
 				},
 			})
-			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+			cniConfig, err := testTask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 				BlockInstanceMetadata: blockIMDS,
 			})
 			assert.NoError(t, err)
@@ -1316,6 +1329,54 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 	}
 }
 
+func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.AddTaskENI(getTestENI())
+			testTask.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: scContainerName,
+				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
+				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
+			}
+			testTask.Containers = []*apicontainer.Container{{Name: "service-connect"}}
+
+			cniConfig, err := testTask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
+				BlockInstanceMetadata: blockIMDS,
+			})
+			assert.NoError(t, err)
+			// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+			// ENI, Bridge and ServiceConnect
+			require.Len(t, cniConfig.NetworkConfigs, 3)
+			// The first one should be for the ENI.
+			var eniConfig ecscni.ENIConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+			require.NoError(t, err)
+			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
+			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.IPAddresses)
+			assert.Equal(t, []string{ipv4Gateway}, eniConfig.GatewayIPAddresses)
+			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			// The second one should be for the Bridge.
+			var bridgeConfig ecscni.BridgeConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
+			require.NoError(t, err)
+			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+			// The third one should be for ServiceConnect.
+			var scConfig ecscni.ServiceConnectConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[2].CNINetworkConfig.Bytes, &scConfig)
+			require.NoError(t, err)
+			assert.Equal(t, 1, len(scConfig.IngressConfig))
+			assert.Equal(t, uint16(scListenerPort), scConfig.IngressConfig[0].ListenerPort)
+			assert.NotNil(t, scConfig.EgressConfig)
+			assert.Equal(t, string(ecscni.NAT), scConfig.EgressConfig.RedirectMode)
+			assert.Equal(t, uint16(scEgressListenerPort), scConfig.EgressConfig.ListenerPort)
+			assert.Nil(t, scConfig.EgressConfig.RedirectIP) // AWSVPC mode task should not include RedirectIP
+			assert.True(t, scConfig.EnableIPv4)
+			assert.True(t, scConfig.EnableIPv6)
+		})
+	}
+}
+
 func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
@@ -1342,7 +1403,7 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 				},
 			})
 
-			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+			cniConfig, err := testTask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 				BlockInstanceMetadata: blockIMDS,
 			})
 			assert.NoError(t, err)
@@ -1364,6 +1425,74 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
 			require.NoError(t, err)
 			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+		})
+	}
+}
+
+func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
+	for _, containerName := range []string{"other-pause", scPauseContainerName} {
+		t.Run(fmt.Sprintf("When container name is %s", containerName), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.NetworkMode = BridgeNetworkMode
+			testTask.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: scContainerName,
+				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
+				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
+				RuntimeConfig: serviceconnect.RuntimeConfig{
+					PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
+						IPv4Addr: scPauseIPv4,
+						IPv6Addr: "",
+					},
+				},
+			}
+			testTask.Containers = []*apicontainer.Container{{Name: scContainerName}}
+
+			cniConfig := &ecscni.Config{}
+			cniConfig, err := testTask.BuildCNIConfigBridgeMode(cniConfig, containerName)
+			assert.NoError(t, err)
+			// We expect 1 NetworkConfig objects in the cni Config wrapper object which is ServiceConnect
+			require.Len(t, cniConfig.NetworkConfigs, 1)
+			// The first one should be for the ENI.
+			var scConfig ecscni.ServiceConnectConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &scConfig)
+			require.NoError(t, err)
+			assert.Equal(t, 1, len(scConfig.IngressConfig))
+			assert.Equal(t, uint16(scListenerPort), scConfig.IngressConfig[0].ListenerPort)
+			assert.NotNil(t, scConfig.EgressConfig)
+			assert.Equal(t, string(ecscni.TPROXY), scConfig.EgressConfig.RedirectMode)
+			if containerName != scPauseContainerName {
+				// Should only include redirect IPs if container is an application pause container
+				assert.Equal(t, uint16(0), scConfig.EgressConfig.ListenerPort)
+				assert.Equal(t, scPauseIPv4, scConfig.EgressConfig.RedirectIP.IPv4)
+				assert.Equal(t, "", scConfig.EgressConfig.RedirectIP.IPv6)
+			} else {
+				// SC pause container should not include redirect IP in CNI config
+				assert.Equal(t, uint16(scEgressListenerPort), scConfig.EgressConfig.ListenerPort)
+				assert.Nil(t, scConfig.EgressConfig.RedirectIP)
+			}
+			assert.True(t, scConfig.EnableIPv4)
+			assert.False(t, scConfig.EnableIPv6)
+		})
+	}
+}
+
+func TestBuildCNIBridgeModeWithServiceConnect_missingPauseIPConfig(t *testing.T) {
+	for _, containerName := range []string{"other-pause", scPauseContainerName} {
+		t.Run(fmt.Sprintf("When container name is %s", containerName), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.NetworkMode = BridgeNetworkMode
+			testTask.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: scContainerName,
+				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
+				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
+			}
+			testTask.Containers = []*apicontainer.Container{{Name: scContainerName}}
+
+			cniConfig := &ecscni.Config{}
+			cniConfig, err := testTask.BuildCNIConfigBridgeMode(cniConfig, containerName)
+			assert.NotNil(t, err)
+			assert.True(t, strings.Contains(err.Error(), "SC PauseContainerIPConfig cannot be nil"))
+			assert.Nil(t, cniConfig)
 		})
 	}
 }

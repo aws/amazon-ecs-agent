@@ -51,6 +51,8 @@ const (
 	branchENIVLANID                             = "42"
 	testIngressListenerPort                     = uint16(11111)
 	testEgressConfigListenerPort                = uint16(22222)
+	testSCPauseIPv4Addr                         = "172.0.0.2"
+	testSCPauseIPv6Addr                         = "fd00::4:120"
 )
 
 func TestSetupNS(t *testing.T) {
@@ -282,7 +284,7 @@ func TestSetupNSServiceConnectEnabled(t *testing.T) {
 }
 
 func serviceConnectNetworkConfig(config *Config) *NetworkConfig {
-	_, serviceConnectNetworkConfig, _ := NewServiceConnectNetworkConfig(defaultTestServiceConnectConfig(), true, false, config)
+	_, serviceConnectNetworkConfig, _ := NewServiceConnectNetworkConfig(defaultTestServiceConnectConfig(), NAT, false, true, false, config)
 	return &NetworkConfig{CNINetworkConfig: serviceConnectNetworkConfig}
 }
 
@@ -299,8 +301,12 @@ func defaultTestServiceConnectConfig() *serviceconnect.Config {
 				IPV4CIDR: "169.254.0.0/16",
 			},
 		},
-		DNSConfig:     nil,
-		RuntimeConfig: serviceconnect.RuntimeConfig{},
+		DNSConfig: nil,
+		RuntimeConfig: serviceconnect.RuntimeConfig{
+			PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
+				IPv4Addr: testSCPauseIPv4Addr,
+				IPv6Addr: testSCPauseIPv6Addr,
+			}},
 	}
 }
 
@@ -651,88 +657,198 @@ func TestConstructIPAMNetworkConfig(t *testing.T) {
 }
 
 func TestConstructServiceConnectNetworkConfig(t *testing.T) {
-	config := defaultTestServiceConnectConfig()
-	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, false, &Config{})
-	require.NoError(t, err, "Failed to construct service connect network config")
-	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+	testCases := []struct {
+		redirectMode            RedirectMode
+		shouldIncludeRedirectIP bool
+	}{
+		{
+			redirectMode:            NAT,
+			shouldIncludeRedirectIP: false,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: true,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: false,
+		},
+	}
 
-	var scNetworkConfig ServiceConnectConfig
-	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
-	assert.NoError(t, err, "unmarshal ServiceConnect network config")
-	assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
-	assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
-	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
-	assert.NotNil(t, scNetworkConfig.EgressConfig)
-	assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
-	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
-	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
-	assert.Equal(t, false, scNetworkConfig.EnableIPv6)
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("redirectMode: %s, shouldIncludeRedirectIP: %t", string(tc.redirectMode), tc.shouldIncludeRedirectIP), func(t *testing.T) {
+
+			config := defaultTestServiceConnectConfig()
+			scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, tc.redirectMode, tc.shouldIncludeRedirectIP, true, false, &Config{})
+			require.NoError(t, err, "Failed to construct service connect network config")
+			assert.Equal(t, defaultServiceConnectIfName, scIfName)
+
+			var scNetworkConfig ServiceConnectConfig
+			err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+			assert.NoError(t, err, "unmarshal ServiceConnect network config")
+			assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
+			assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
+			assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+			assert.NotNil(t, scNetworkConfig.EgressConfig)
+			assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
+			assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
+			assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+			assert.Equal(t, false, scNetworkConfig.EnableIPv6)
+			// For Egress config, only one of RedirectIP and Egress ListenerPort can be specified.
+			// Only Bridge mode application pause container should specify RedirectIP.
+			if tc.redirectMode == TPROXY && tc.shouldIncludeRedirectIP {
+				assert.NotNil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testSCPauseIPv4Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv4)
+				assert.Equal(t, testSCPauseIPv6Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv6)
+				assert.Equal(t, uint16(0), scNetworkConfig.EgressConfig.ListenerPort)
+			} else {
+				assert.Nil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
+			}
+		})
+	}
 }
 
 func TestConstructServiceConnectNetworkConfig_EmptyEgress(t *testing.T) {
-	config := defaultTestServiceConnectConfig()
-	config.EgressConfig = nil
-	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, true, &Config{})
-	require.NoError(t, err, "Failed to construct service connect network config")
-	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+	testCases := []struct {
+		redirectMode            RedirectMode
+		shouldIncludeRedirectIP bool
+	}{
+		{
+			redirectMode:            NAT,
+			shouldIncludeRedirectIP: false,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: true,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("redirectMode: %s, shouldIncludeRedirectIP: %t", string(tc.redirectMode), tc.shouldIncludeRedirectIP), func(t *testing.T) {
+			config := defaultTestServiceConnectConfig()
+			config.EgressConfig = nil
+			scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, tc.redirectMode, tc.shouldIncludeRedirectIP, true, true, &Config{})
+			require.NoError(t, err, "Failed to construct service connect network config")
+			assert.Equal(t, defaultServiceConnectIfName, scIfName)
 
-	var scNetworkConfig ServiceConnectConfig
-	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
-	assert.NoError(t, err, "unmarshal ServiceConnect network config")
-	assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
-	assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
-	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
-	assert.Nil(t, scNetworkConfig.EgressConfig)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+			var scNetworkConfig ServiceConnectConfig
+			err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+			assert.NoError(t, err, "unmarshal ServiceConnect network config")
+			assert.Equal(t, 1, len(scNetworkConfig.IngressConfig))
+			assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
+			assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+			assert.Nil(t, scNetworkConfig.EgressConfig)
+			assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+			assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+		})
+	}
 }
 
 func TestConstructServiceConnectNetworkConfig_MultipleIngress(t *testing.T) {
-	config := defaultTestServiceConnectConfig()
-	interceptPort := uint16(44444)
-	config.IngressConfig = append(config.IngressConfig, serviceconnect.IngressConfigEntry{
-		ListenerName:  "test listener 2",
-		ListenerPort:  uint16(33333),
-		InterceptPort: &interceptPort,
-	})
-	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, true, &Config{})
-	require.NoError(t, err, "Failed to construct service connect network config")
-	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+	testCases := []struct {
+		redirectMode            RedirectMode
+		shouldIncludeRedirectIP bool
+	}{
+		{
+			redirectMode:            NAT,
+			shouldIncludeRedirectIP: false,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: true,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("redirectMode: %s, shouldIncludeRedirectIP: %t", string(tc.redirectMode), tc.shouldIncludeRedirectIP), func(t *testing.T) {
+			config := defaultTestServiceConnectConfig()
+			interceptPort := uint16(44444)
+			config.IngressConfig = append(config.IngressConfig, serviceconnect.IngressConfigEntry{
+				ListenerName:  "test listener 2",
+				ListenerPort:  uint16(33333),
+				InterceptPort: &interceptPort,
+			})
+			scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, tc.redirectMode, tc.shouldIncludeRedirectIP, true, true, &Config{})
+			require.NoError(t, err, "Failed to construct service connect network config")
+			assert.Equal(t, defaultServiceConnectIfName, scIfName)
 
-	var scNetworkConfig ServiceConnectConfig
-	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
-	assert.NoError(t, err, "unmarshal ServiceConnect network config")
-	assert.Equal(t, 2, len(scNetworkConfig.IngressConfig))
-	assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
-	assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
-	assert.Equal(t, uint16(33333), scNetworkConfig.IngressConfig[1].ListenerPort)
-	assert.Equal(t, uint16(44444), scNetworkConfig.IngressConfig[1].InterceptPort)
-	assert.NotNil(t, scNetworkConfig.EgressConfig)
-	assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
-	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
-	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+			var scNetworkConfig ServiceConnectConfig
+			err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+			assert.NoError(t, err, "unmarshal ServiceConnect network config")
+			assert.Equal(t, 2, len(scNetworkConfig.IngressConfig))
+			assert.Equal(t, testIngressListenerPort, scNetworkConfig.IngressConfig[0].ListenerPort)
+			assert.Equal(t, uint16(0), scNetworkConfig.IngressConfig[0].InterceptPort)
+			assert.Equal(t, uint16(33333), scNetworkConfig.IngressConfig[1].ListenerPort)
+			assert.Equal(t, uint16(44444), scNetworkConfig.IngressConfig[1].InterceptPort)
+			// For Egress config, only one of RedirectIP and Egress ListenerPort can be specified.
+			// Only Bridge mode application pause container should specify RedirectIP.
+			if tc.redirectMode == TPROXY && tc.shouldIncludeRedirectIP {
+				assert.NotNil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testSCPauseIPv4Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv4)
+				assert.Equal(t, testSCPauseIPv6Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv6)
+				assert.Equal(t, uint16(0), scNetworkConfig.EgressConfig.ListenerPort)
+			} else {
+				assert.Nil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
+			}
+			assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+			assert.Equal(t, true, scNetworkConfig.EnableIPv6)
+		})
+	}
 }
 
 func TestConstructServiceConnectNetworkConfig_EmptyIngress(t *testing.T) {
-	config := defaultTestServiceConnectConfig()
-	config.IngressConfig = []serviceconnect.IngressConfigEntry{}
-	scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, true, false, &Config{})
-	require.NoError(t, err, "Failed to construct service connect network config")
-	assert.Equal(t, defaultServiceConnectIfName, scIfName)
+	testCases := []struct {
+		redirectMode            RedirectMode
+		shouldIncludeRedirectIP bool
+	}{
+		{
+			redirectMode:            NAT,
+			shouldIncludeRedirectIP: false,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: true,
+		},
+		{
+			redirectMode:            TPROXY,
+			shouldIncludeRedirectIP: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("redirectMode: %s, shouldIncludeRedirectIP: %t", string(tc.redirectMode), tc.shouldIncludeRedirectIP), func(t *testing.T) {
+			config := defaultTestServiceConnectConfig()
+			config.IngressConfig = []serviceconnect.IngressConfigEntry{}
+			scIfName, netConfig, err := NewServiceConnectNetworkConfig(config, tc.redirectMode, tc.shouldIncludeRedirectIP, true, false, &Config{})
+			require.NoError(t, err, "Failed to construct service connect network config")
+			assert.Equal(t, defaultServiceConnectIfName, scIfName)
 
-	var scNetworkConfig ServiceConnectConfig
-	err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
-	assert.NoError(t, err, "unmarshal ServiceConnect network config")
-	assert.Equal(t, 0, len(scNetworkConfig.IngressConfig))
-	assert.NotNil(t, scNetworkConfig.EgressConfig)
-	assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
-	assert.Equal(t, "169.254.0.0/16", scNetworkConfig.EgressConfig.VIP.IPv4CIDR)
-	assert.Equal(t, "", scNetworkConfig.EgressConfig.VIP.IPv6CIDR)
-	assert.Equal(t, true, scNetworkConfig.EnableIPv4)
-	assert.Equal(t, false, scNetworkConfig.EnableIPv6)
+			var scNetworkConfig ServiceConnectConfig
+			err = json.Unmarshal(netConfig.Bytes, &scNetworkConfig)
+			assert.NoError(t, err, "unmarshal ServiceConnect network config")
+			assert.Equal(t, 0, len(scNetworkConfig.IngressConfig))
+			// For Egress config, only one of RedirectIP and Egress ListenerPort can be specified.
+			// Only Bridge mode application pause container should specify RedirectIP.
+			if tc.redirectMode == TPROXY && tc.shouldIncludeRedirectIP {
+				assert.NotNil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testSCPauseIPv4Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv4)
+				assert.Equal(t, testSCPauseIPv6Addr, scNetworkConfig.EgressConfig.RedirectIP.IPv6)
+				assert.Equal(t, uint16(0), scNetworkConfig.EgressConfig.ListenerPort)
+			} else {
+				assert.Nil(t, scNetworkConfig.EgressConfig.RedirectIP)
+				assert.Equal(t, testEgressConfigListenerPort, scNetworkConfig.EgressConfig.ListenerPort)
+			}
+			assert.Equal(t, true, scNetworkConfig.EnableIPv4)
+			assert.Equal(t, false, scNetworkConfig.EnableIPv6)
+		})
+	}
 }
 
 // TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM

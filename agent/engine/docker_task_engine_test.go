@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -87,6 +89,7 @@ const (
 	ipv6                        = "f0:234:23"
 	dockerContainerName         = "docker-container-name"
 	containerPid                = 123
+	containerPid2               = 456
 	taskIP                      = "169.254.170.3"
 	exitCode                    = 1
 	labelsTaskARN               = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
@@ -107,6 +110,7 @@ const (
 	networkModeAWSVPC           = "awsvpc"
 	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
 	containerNetworkMode        = "none"
+	serviceConnectContainerName = "service-connect"
 )
 
 var (
@@ -976,7 +980,7 @@ func TestGetTaskByArn(t *testing.T) {
 	assert.False(t, found, "Task with invalid arn found in the task engine")
 }
 
-func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
+func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1031,7 +1035,7 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	assert.Len(t, savedTasks, 1)
 }
 
-func TestProvisionContainerResourcesInspectError(t *testing.T) {
+func TestProvisionContainerResourcesAwsvpcInspectError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1058,9 +1062,48 @@ func TestProvisionContainerResourcesInspectError(t *testing.T) {
 	assert.NotNil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 }
 
-// TestStopPauseContainerCleanupCalled tests when stopping the pause container
+func TestProvisionContainerResourcesAwsvpcMissingCNIResponseError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5")
+	pauseContainer := &apicontainer.Container{
+		Name: "pausecontainer",
+		Type: apicontainer.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.AddTaskENI(mockENI)
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
+	}, testTask)
+
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
+			},
+		},
+	}, nil)
+	mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	actualErr := taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error
+
+	assert.NotNil(t, actualErr)
+	assert.True(t, strings.Contains(actualErr.Error(), "empty result from network namespace setup"))
+}
+
+// TestStopPauseContainerCleanupCalledAwsvpc tests when stopping the pause container
 // its network namespace should be cleaned up first
-func TestStopPauseContainerCleanupCalled(t *testing.T) {
+func TestStopPauseContainerCleanupCalledAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1115,9 +1158,9 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	require.True(t, pauseContainer.IsContainerTornDown())
 }
 
-// TestStopPauseContainerCleanupCalled tests when stopping the pause container
+// TestStopPauseContainerCleanupDelayAwsvpc tests when stopping the pause container
 // its network namespace should be cleaned up first
-func TestStopPauseContainerCleanupDelay(t *testing.T) {
+func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -1176,8 +1219,8 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	}
 }
 
-// TestCheckTearDownPauseContainer that the pause container teardown works and is idempotent
-func TestCheckTearDownPauseContainer(t *testing.T) {
+// TestCheckTearDownPauseContainerAwsvpc that the pause container teardown works and is idempotent
+func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -1224,11 +1267,91 @@ func TestCheckTearDownPauseContainer(t *testing.T) {
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1),
 	)
 
-	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainerAwsvpc(testTask)
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
 	require.True(t, pauseContainer.IsContainerTornDown())
 
 	// Invoke one more time to check for idempotency (mocks configured with maxTimes = 1)
-	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainerAwsvpc(testTask)
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
+}
+
+func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5PortMappings")
+	testTask.NetworkMode = apitask.BridgeNetworkMode
+
+	// append SC pause, application container pause, SC container
+	scContainer := &apicontainer.Container{
+		Name: serviceConnectContainerName,
+		Type: apicontainer.ContainerNormal,
+	}
+	scPauseContainer := &apicontainer.Container{
+		Name: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, serviceConnectContainerName),
+		Type: apicontainer.ContainerCNIPause,
+	}
+	appPauseContainer := &apicontainer.Container{
+		Name: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, "sleep5"),
+		Type: apicontainer.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, scContainer, scPauseContainer, appPauseContainer)
+
+	// add task SC config
+	testTask.ServiceConnectConfig = &serviceconnect.Config{
+		ContainerName: serviceConnectContainerName,
+		IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: 11111}},
+		EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: 22222},
+		RuntimeConfig: serviceconnect.RuntimeConfig{
+			PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
+				IPv4Addr: "172.0.0.1",
+				IPv6Addr: "",
+			},
+		},
+	}
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  scContainer,
+	}, testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID + scPauseContainer.Name,
+		DockerName: dockerContainerName + scPauseContainer.Name,
+		Container:  scPauseContainer,
+	}, testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID + appPauseContainer.Name,
+		DockerName: dockerContainerName + appPauseContainer.Name,
+		Container:  appPauseContainer,
+	}, testTask)
+
+	for _, cont := range []*apicontainer.Container{scPauseContainer, appPauseContainer} {
+		gomock.InOrder(
+			dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID+cont.Name, gomock.Any()).Return(&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID + cont.Name,
+					State: &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: apitask.BridgeNetworkMode,
+					},
+				},
+			}, nil),
+			mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) (*current.Result, error) {
+					assert.Equal(t, 1, len(cfg.NetworkConfigs))
+					var scNetworkConfig ecscni.ServiceConnectConfig
+					err := json.Unmarshal(cfg.NetworkConfigs[0].CNINetworkConfig.Bytes, &scNetworkConfig)
+					assert.NoError(t, err, "unmarshal ServiceConnect network config")
+					assert.Equal(t, string(ecscni.TPROXY), scNetworkConfig.EgressConfig.RedirectMode)
+					return nil, nil
+				}),
+		)
+		require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, cont).Error)
+	}
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the

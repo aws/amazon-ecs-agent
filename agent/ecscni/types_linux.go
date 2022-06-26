@@ -191,13 +191,29 @@ type IngressConfigJSONEntry struct {
 	InterceptPort uint16 `json:"interceptPort,omitempty"`
 }
 
+// RedirectMode defines the type of redirection of traffic to be used.
+type RedirectMode string
+
+const (
+	NAT    RedirectMode = "nat"
+	TPROXY RedirectMode = "tproxy"
+)
+
 // EgressConfig defines the egress network config in JSON format for the ecs-serviceconnect CNI plugin.
 type EgressConfigJSON struct {
-	ListenerPort uint16        `json:"listenerPort"`
-	VIP          VIPConfigJSON `json:"vip"`
+	ListenerPort uint16          `json:"listenerPort"`
+	RedirectIP   *RedirectIPJson `json:"redirectIP"`
+	RedirectMode string          `json:"redirectMode"`
+	VIP          VIPConfigJSON   `json:"vip"`
 }
 
-// vipConfig defines the EgressVIP network config in JSON format for the ecs-serviceconnect CNI plugin.
+// RedirectIPJson defines the IP to be redirected in JSON format for the ecs-serviceconnect CNI plugin.
+type RedirectIPJson struct {
+	IPv4 string `json:"ipv4,omitempty"`
+	IPv6 string `json:"ipv6,omitempty"`
+}
+
+// VIPConfigJSON defines the EgressVIP network config in JSON format for the ecs-serviceconnect CNI plugin.
 type VIPConfigJSON struct {
 	IPv4CIDR string `json:"ipv4Cidr,omitempty"`
 	IPv6CIDR string `json:"ipv6Cidr,omitempty"`

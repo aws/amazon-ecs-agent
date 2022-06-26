@@ -34,6 +34,8 @@ type RuntimeConfig struct {
 	StatsRequest string `json:"statsRequest"`
 	// HTTP Path + Params to drain ServiceConnect connections
 	DrainRequest string `json:"drainRequest"`
+	// SC pause container IP address - used for bridge-mode CNI configuration
+	PauseContainerIPConfig *PauseContainerIPConfig `json:"pauseContainerIPConfig,omitempty"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
@@ -73,4 +75,9 @@ type VIP struct {
 type DNSConfigEntry struct {
 	HostName string `json:"hostName"`
 	Address  string `json:"address"`
+}
+
+type PauseContainerIPConfig struct {
+	IPv4Addr string `json:"ipv4Addr,omitempty"`
+	IPv6Addr string `json:"ipv6Addr,omitempty"`
 }

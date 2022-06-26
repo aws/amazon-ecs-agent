@@ -263,8 +263,8 @@ func (task *Task) addFSxWindowsFileServerResource(
 	return nil
 }
 
-// BuildCNIConfig builds a list of CNI network configurations for the task.
-func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+// BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
+func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
 	if !task.IsNetworkModeAWSVPC() {
 		return nil, errors.New("task config: task network mode is not awsvpc")
 	}
@@ -307,4 +307,9 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 	})
 
 	return cniConfig, nil
+}
+
+// BuildCNIConfigBridgeMode builds a list of CNI network configurations for a task in docker bridge mode.
+func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerName string) (*ecscni.Config, error) {
+	return nil, errors.New("unsupported platform")
 }

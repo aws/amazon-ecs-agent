@@ -4178,7 +4178,7 @@ func TestGetBridgeModeTaskContainerForPauseContainer(t *testing.T) {
 	testTask.Containers[0].Name = serviceContainerName
 	testTask.Containers[1].Name = fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceContainerName)
 
-	container, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	container, err := testTask.GetBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
 	assert.Nil(t, err)
 	assert.NotNil(t, container)
 	assert.Equal(t, testTask.Containers[0].Name, container.Name)
@@ -4187,7 +4187,7 @@ func TestGetBridgeModeTaskContainerForPauseContainer(t *testing.T) {
 func TestGetBridgeModeTaskContainerForPauseContainer_InvalidPauseContainerName(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 	testTask.Containers[1].Name = "invalid"
-	_, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	_, err := testTask.GetBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "does not conform to ~internal~ecs~pause-$TASK_CONTAINER_NAME format"))
 }
@@ -4195,7 +4195,7 @@ func TestGetBridgeModeTaskContainerForPauseContainer_InvalidPauseContainerName(t
 func TestGetBridgeModeTaskContainerForPauseContainer_NotFound(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 	testTask.Containers[0].Name = "anotherTaskContainer"
-	_, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	_, err := testTask.GetBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "could not find task container"))
 }
