@@ -160,7 +160,6 @@ required routes among its preparation steps.
 
 %build
 # each of these should build for arm and amd arch
-./scripts/build-pause
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
 ./scripts/build-integrated true "" false true
@@ -715,4 +714,3 @@ fi
 
 * Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
 - Naive update functionality
-
