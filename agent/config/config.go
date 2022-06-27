@@ -596,6 +596,7 @@ func environmentConfig() (Config, error) {
 		EnableRuntimeStats:                  parseBooleanDefaultFalseConfig("ECS_ENABLE_RUNTIME_STATS"),
 		ShouldExcludeIPv6PortBinding:        parseBooleanDefaultTrueConfig("ECS_EXCLUDE_IPV6_PORTBINDING"),
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
+		DisconnectCapable:                   parseBooleanDefaultFalseConfig("ECS_DISCONNECT_CAPABLE"),
 	}, err
 }
 
@@ -629,6 +630,7 @@ func (cfg *Config) String() string {
 			"DependentContainersPullUpfront: %v, "+
 			"TaskCPUMemLimit: %v, "+
 			"ShouldExcludeIPv6PortBinding: %v, "+
+			"DisconnectCapable : %v"+
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
@@ -647,6 +649,7 @@ func (cfg *Config) String() string {
 		cfg.DependentContainersPullUpfront,
 		cfg.TaskCPUMemLimit,
 		cfg.ShouldExcludeIPv6PortBinding,
+		cfg.DisconnectCapable,
 		cfg.platformString(),
 	)
 }
