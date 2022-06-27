@@ -630,8 +630,8 @@ func (cfg *Config) String() string {
 			"DependentContainersPullUpfront: %v, "+
 			"TaskCPUMemLimit: %v, "+
 			"ShouldExcludeIPv6PortBinding: %v, "+
-			"%s"+
-			"DisconnectCapable : %v",
+			"DisconnectCapable : %v"+
+			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
 		cfg.DataDir,
@@ -649,7 +649,7 @@ func (cfg *Config) String() string {
 		cfg.DependentContainersPullUpfront,
 		cfg.TaskCPUMemLimit,
 		cfg.ShouldExcludeIPv6PortBinding,
-		cfg.platformString(),
 		cfg.DisconnectCapable,
+		cfg.platformString(),
 	)
 }
