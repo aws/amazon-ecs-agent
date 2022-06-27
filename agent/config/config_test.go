@@ -33,6 +33,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDefaultValueOfDisconnectModeEnabled(t *testing.T) {
+
+	assert.False(t, GetDisconnectModeEnabled(), "Wrong default value for disconnectModeEnabled")
+}
+
+func TestGetAndSetDisconnectModeEnabled(t *testing.T) {
+
+	SetDisconnectModeEnabled(true)
+	assert.True(t, GetDisconnectModeEnabled(), "GetDisconnectModeEnabled not working as expected")
+
+	SetDisconnectModeEnabled(false)
+	assert.False(t, GetDisconnectModeEnabled(), "GetDisconnectModeEnabled not working as expected")
+}
+
 func TestMerge(t *testing.T) {
 	conf1 := &Config{Cluster: "Foo"}
 	conf2 := Config{Cluster: "ignored", APIEndpoint: "Bar"}

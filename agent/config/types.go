@@ -14,6 +14,7 @@
 package config
 
 import (
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -27,6 +28,15 @@ type ImagePullBehaviorType int8
 // ContainerInstancePropagateTagsFromType is an enum variable type corresponding to different
 // ways to propagate tags, it includes none (default) and ec2_instance.
 type ContainerInstancePropagateTagsFromType int8
+
+type DisconnectMode struct {
+
+	//indicates if agent is in disconnected mode
+	disconnectModeEnabled bool
+
+	//used to safely access and modify disconnectModeEnabled
+	disconnectModeLock sync.RWMutex
+}
 
 type Config struct {
 	// DEPRECATED
