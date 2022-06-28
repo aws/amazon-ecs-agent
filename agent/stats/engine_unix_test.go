@@ -22,8 +22,10 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	"github.com/docker/docker/api/types"
@@ -124,4 +126,42 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 			assert.Nil(t, containerMetric.NetworkStatsSet, "network stats should be empty for pause")
 		}
 	}
+}
+
+func TestServiceConnectWithDisabledMetrics(t *testing.T) {
+	disableMetricsConfig := cfg
+	disableMetricsConfig.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	containerID := "containerID"
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	container := apicontainer.Container{
+		Name:            "service-connect",
+		HealthCheckType: "docker",
+	}
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	resolver.EXPECT().ResolveTask(containerID).Return(&apitask.Task{
+		Arn:               "t1",
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+		Family:            "f1",
+		ServiceConnectConfig: &serviceconnect.Config{
+			ContainerName: "service-connect",
+		},
+		Containers: []*apicontainer.Container{&container},
+	}, nil)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
+		DockerID:  containerID,
+		Container: &container,
+	}, nil).Times(2)
+
+	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestServiceConnectWithDisabledMetrics"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.resolver = resolver
+	engine.addAndStartStatsContainer(containerID)
+
+	assert.Len(t, engine.tasksToContainers, 0, "No containers should be tracked if metrics is disabled")
+	assert.Len(t, engine.tasksToHealthCheckContainers, 1)
+	assert.Len(t, engine.taskToServiceConnectStats, 1)
 }

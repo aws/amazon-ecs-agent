@@ -68,96 +68,122 @@ func TestStatsEngineWithNetworkStatsDifferentModes(t *testing.T) {
 }
 
 func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
-	testUDSPath := filepath.Join(t.TempDir(), "test_stats_metrics.sock")
-
-	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithServiceConnectMetrics"))
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	// Assign ContainerStop timeout to addressable variable
-	timeout := defaultDockerTimeoutSeconds
-
-	// Create a container to get the container id.
-	container, err := createGremlin(client, "default")
-	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
-
-	engine.cluster = defaultCluster
-	engine.containerInstanceArn = defaultContainerInstance
-
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
-	require.NoError(t, err, "starting container failed")
-	defer client.ContainerStop(ctx, container.ID, &timeout)
-
-	containerChangeEventStream := eventStream("TestStatsEngineWithServiceConnectMetrics")
-	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-		nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
-	testTask := createRunningTask()
-	testTask.ServiceConnectConfig = &serviceconnect.Config{
-		ContainerName: serviceConnectContainerName,
-		RuntimeConfig: serviceconnect.RuntimeConfig{
-			AdminSocketPath: testUDSPath,
-			StatsRequest:    testStatsRestURL,
+	testcases := []struct {
+		name                 string
+		shouldDisableMetrics bool
+	}{
+		{
+			name: "Test Stats engine for Service Connect task with metrics enabled",
+		},
+		{
+			name:                 "Test Stats engine for Service Connect task with metrics disabled",
+			shouldDisableMetrics: true,
 		},
 	}
-	// Populate Tasks and Container map in the engine.
-	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
-	dockerTaskEngine.State().AddTask(testTask)
-	dockerTaskEngine.State().AddContainer(
-		&apicontainer.DockerContainer{
-			DockerID:   container.ID,
-			DockerName: "gremlin",
-			Container:  testTask.Containers[0],
-		},
-		testTask)
+	testUDSPath := filepath.Join(t.TempDir(), "test_stats_metrics.sock")
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			testConfig := cfg
+			if tc.shouldDisableMetrics {
+				testConfig.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			}
 
-	// Simulate container start prior to listener initialization.
-	time.Sleep(checkPointSleep)
-	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
-	require.NoError(t, err, "initializing stats engine failed")
-	serviceConnectStats, err := newServiceConnectStats()
-	require.NoError(t, err, "expected no error")
-	engine.taskToServiceConnectStats[taskArn] = serviceConnectStats
-	assert.Equal(t, 1, len(engine.taskToServiceConnectStats))
+			// Create a new docker stats engine
+			engine := NewDockerStatsEngine(&testConfig, dockerClient, eventStream("TestStatsEngineWithServiceConnectMetrics"))
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 
-	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
+			// Assign ContainerStop timeout to addressable variable
+			timeout := defaultDockerTimeoutSeconds
 
-	// simulate appnet server providing service connect metrics
-	r := mux.NewRouter()
-	r.HandleFunc(testStatsRestPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%v", stats)
-	}))
-	ts := httptest.NewUnstartedServer(r)
-	l, err := net.Listen("unix", testUDSPath)
-	require.NoError(t, err)
+			// Create a container to get the container id.
+			container, err := createGremlin(client, "default")
+			require.NoError(t, err, "creating container failed")
+			defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
-	ts.Listener.Close()
-	ts.Listener = l
-	ts.Start()
-	defer ts.Close()
+			engine.cluster = defaultCluster
+			engine.containerInstanceArn = defaultContainerInstance
 
-	// Wait for the stats collection go routine to start.
-	time.Sleep(checkPointSleep)
-	validateInstanceMetrics(t, engine, true)
-	scStats := engine.taskToServiceConnectStats[taskArn]
-	require.True(t, scStats.sent, "expected service connect metrics sent flag to be set")
-	validateEmptyTaskHealthMetrics(t, engine)
+			err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+			require.NoError(t, err, "starting container failed")
+			defer client.ContainerStop(ctx, container.ID, &timeout)
 
-	err = client.ContainerStop(ctx, container.ID, &timeout)
-	require.NoError(t, err, "stopping container failed")
+			containerChangeEventStream := eventStream("TestStatsEngineWithServiceConnectMetrics")
+			taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+				nil, dockerstate.NewTaskEngineState(), nil, nil, nil)
+			testTask := createRunningTask()
+			testTask.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: serviceConnectContainerName,
+				RuntimeConfig: serviceconnect.RuntimeConfig{
+					AdminSocketPath: testUDSPath,
+					StatsRequest:    testStatsRestURL,
+				},
+			}
+			// Populate Tasks and Container map in the engine.
+			dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
+			dockerTaskEngine.State().AddTask(testTask)
+			dockerTaskEngine.State().AddContainer(
+				&apicontainer.DockerContainer{
+					DockerID:   container.ID,
+					DockerName: "gremlin",
+					Container:  testTask.Containers[0],
+				},
+				testTask)
 
-	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
-		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
-			DockerID: container.ID,
-		},
-	})
-	assert.NoError(t, err, "failed to write to container change event stream")
+			// Simulate container start prior to listener initialization.
+			time.Sleep(checkPointSleep)
+			err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
+			require.NoError(t, err, "initializing stats engine failed")
+			serviceConnectStats, err := newServiceConnectStats()
+			require.NoError(t, err, "expected no error")
+			engine.taskToServiceConnectStats[taskArn] = serviceConnectStats
+			assert.Equal(t, 1, len(engine.taskToServiceConnectStats))
 
-	time.Sleep(waitForCleanupSleep)
+			defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
-	// Should not contain any metrics after cleanup.
-	validateIdleContainerMetrics(t, engine)
-	validateEmptyTaskHealthMetrics(t, engine)
+			// simulate appnet server providing service connect metrics
+			r := mux.NewRouter()
+			r.HandleFunc(testStatsRestPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, "%v", stats)
+			}))
+			ts := httptest.NewUnstartedServer(r)
+			l, err := net.Listen("unix", testUDSPath)
+			require.NoError(t, err)
+
+			ts.Listener.Close()
+			ts.Listener = l
+			ts.Start()
+			defer ts.Close()
+
+			// Wait for the stats collection go routine to start.
+			time.Sleep(checkPointSleep)
+			if tc.shouldDisableMetrics {
+				validateInstanceMetricsWithDisabledMetrics(t, engine, true)
+			} else {
+				validateInstanceMetrics(t, engine, true)
+			}
+			scStats := engine.taskToServiceConnectStats[taskArn]
+			require.True(t, scStats.sent, "expected service connect metrics sent flag to be set")
+			validateEmptyTaskHealthMetrics(t, engine)
+
+			err = client.ContainerStop(ctx, container.ID, &timeout)
+			require.NoError(t, err, "stopping container failed")
+
+			err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
+				Status: apicontainerstatus.ContainerStopped,
+				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+					DockerID: container.ID,
+				},
+			})
+			assert.NoError(t, err, "failed to write to container change event stream")
+
+			time.Sleep(waitForCleanupSleep)
+
+			// Should not contain any metrics after cleanup.
+			if !tc.shouldDisableMetrics {
+				validateIdleContainerMetrics(t, engine)
+			}
+			validateEmptyTaskHealthMetrics(t, engine)
+		})
+	}
 }

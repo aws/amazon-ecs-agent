@@ -157,6 +157,21 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeSer
 	}
 }
 
+func validateInstanceMetricsWithDisabledMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(includeServiceConnectStats)
+	assert.NoError(t, err, "gettting instance metrics failed")
+	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
+	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
+
+	taskMetric := taskMetrics[0]
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
+	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 0), "validating container metrics failed")
+	if includeServiceConnectStats {
+		assert.NoError(t, validateServiceConnectMetrics(taskMetric.ServiceConnectMetricsWrapper, 1), "validating service connect metrics failed")
+	}
+}
+
 func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expected int) error {
 	if len(containerMetrics) != expected {
 		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
