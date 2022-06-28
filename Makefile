@@ -402,7 +402,7 @@ amazon-linux-sources.tgz: get-cni-sources
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
-	tar -czf ./amazon-linux-sources.tgz ecs-init scripts agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins misc agent-container VERSION
+	tar -czf ./sources.tgz ecs-init scripts agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins misc agent-container VERSION
 
 .rpm-with-agent-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
