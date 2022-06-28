@@ -206,6 +206,8 @@ func (acsSession *session) Start() error {
 			seelog.Debugf("Received connect to ACS message")
 			// Start a session with ACS
 			acsError := acsSession.startSessionOnce()
+			seelog.Infof("disconnect mode is")
+			seelog.Infof(strconv.FormatBool(config.GetDisconnectModeEnabled()))
 			select {
 			case <-acsSession.ctx.Done():
 				// agent is shutting down, exiting cleanly
@@ -234,6 +236,12 @@ func (acsSession *session) Start() error {
 				// reconnect
 				reconnectDelay := acsSession.computeReconnectDelay(isInactiveInstance)
 				seelog.Infof("Reconnecting to ACS in: %s", reconnectDelay.String())
+				if !config.GetDisconnectModeEnabled() {
+					seelog.Infof("switching to disconnected mode")
+					config.SetDisconnectModeEnabled(true)
+				}
+				seelog.Infof("disconnect mode is")
+				seelog.info(strconv.FormatBool(config.GetDisconnectModeEnabled()))
 				waitComplete := acsSession.waitForDuration(reconnectDelay)
 				if waitComplete {
 					// If the context was not cancelled and we've waited for the
@@ -360,6 +368,14 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	seelog.Info("Connected to ACS endpoint")
+	
+	if config.GetDisconnectModeEnabled() {
+		seelog.Infof("switching to normal mode")
+		config.SetDisconnectModeEnabled(false)
+	}
+
+	seelog.Infof("disconnect mode is")
+	seelog.Infof(strconv.FormatBool(config.GetDisconnectModeEnabled)))
 	// Start inactivity timer for closing the connection
 	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	// Any message from the server resets the disconnect timeout
