@@ -26,8 +26,8 @@ License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 # TODO: add back aarch64
 ExclusiveArch:  x86_64
- 
-Source0:        sources-with-agent.tgz
+
+Source0:        sources.tgz
 Source1:        ecs.conf
 Source2:        ecs.service
 Source3:        amazon-ecs-volume-plugin.service
@@ -164,4 +164,3 @@ if [ -e %{running_semaphore} ]; then
 	rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 %endif
-
