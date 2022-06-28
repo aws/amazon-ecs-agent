@@ -417,7 +417,6 @@ func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
 func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	var taskMetrics []*ecstcs.TaskMetric
 	idle := engine.isIdle()
 	metricsMetadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(engine.cluster),
@@ -425,6 +424,8 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		Idle:              aws.Bool(idle),
 		MessageId:         aws.String(uuid.NewRandom().String()),
 	}
+
+	var taskMetrics []*ecstcs.TaskMetric
 	if idle {
 		seelog.Debug("Instance is idle. No task metrics to report")
 		fin := true
@@ -442,16 +443,24 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		}
 	}
 
-	for taskArn := range engine.tasksToContainers {
+	taskStatsToCollect := engine.getTaskStatsToCollect()
+	for taskArn := range taskStatsToCollect {
+		_, isServiceConnectTask := engine.taskToServiceConnectStats[taskArn]
 		containerMetrics, err := engine.taskContainerMetricsUnsafe(taskArn)
 		if err != nil {
 			seelog.Debugf("Error getting container metrics for task: %s, err: %v", taskArn, err)
-			continue
+			// skip collecting service connect related metrics, if task is not service connect enabled
+			if !isServiceConnectTask {
+				continue
+			}
 		}
 
 		if len(containerMetrics) == 0 {
 			seelog.Debugf("Empty containerMetrics for task, ignoring, task: %s", taskArn)
-			continue
+			// skip collecting service connect related metrics, if task is not service connect enabled
+			if !isServiceConnectTask {
+				continue
+			}
 		}
 
 		taskDef, exists := engine.tasksToDefinitions[taskArn]
@@ -523,7 +532,7 @@ func (engine *DockerStatsEngine) isIdle() bool {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
-	return len(engine.tasksToContainers) == 0
+	return len(engine.tasksToContainers) == 0 && len(engine.taskToServiceConnectStats) == 0
 }
 
 func (engine *DockerStatsEngine) containerHealthsToMonitor() bool {
@@ -876,6 +885,22 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 	}
 
 	return containerStats, containerNetworkRateStats, nil
+}
+
+// getTaskStatsToCollect returns a map of taskArns for which task metrics needs to collected
+func (engine *DockerStatsEngine) getTaskStatsToCollect() map[string]bool {
+	taskStatsToCollect := make(map[string]bool)
+	for taskArn := range engine.tasksToContainers {
+		if _, taskArnExists := taskStatsToCollect[taskArn]; !taskArnExists {
+			taskStatsToCollect[taskArn] = true
+		}
+	}
+	for taskArn := range engine.taskToServiceConnectStats {
+		if _, taskArnExists := taskStatsToCollect[taskArn]; !taskArnExists {
+			taskStatsToCollect[taskArn] = true
+		}
+	}
+	return taskStatsToCollect
 }
 
 // getServiceConnectStats invokes the workflow to retrieve all service connect
