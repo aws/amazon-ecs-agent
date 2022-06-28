@@ -35,16 +35,16 @@ import (
 
 func TestDefaultValueOfDisconnectModeEnabled(t *testing.T) {
 
-	assert.False(t, GetDisconnectModeEnabled(), "Wrong default value for disconnectModeEnabled")
+	assert.False(t, GetDisconnectModeEnabled(), "Wrong default value for disconnectModeEnabled, expected value is false")
 }
 
 func TestGetAndSetDisconnectModeEnabled(t *testing.T) {
 
 	SetDisconnectModeEnabled(true)
-	assert.True(t, GetDisconnectModeEnabled(), "GetDisconnectModeEnabled not working as expected")
+	assert.True(t, GetDisconnectModeEnabled(), "Wrong value for disconnectModeEnabled, expected value is true")
 
 	SetDisconnectModeEnabled(false)
-	assert.False(t, GetDisconnectModeEnabled(), "GetDisconnectModeEnabled not working as expected")
+	assert.False(t, GetDisconnectModeEnabled(), "Wrong value for disconnectModeEnabled, expected value is false")
 }
 
 func TestMerge(t *testing.T) {
