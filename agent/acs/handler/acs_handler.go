@@ -241,7 +241,7 @@ func (acsSession *session) Start() error {
 					config.SetDisconnectModeEnabled(true)
 				}
 				seelog.Infof("disconnect mode is")
-				seelog.info(strconv.FormatBool(config.GetDisconnectModeEnabled()))
+				seelog.Infof(strconv.FormatBool(config.GetDisconnectModeEnabled()))
 				waitComplete := acsSession.waitForDuration(reconnectDelay)
 				if waitComplete {
 					// If the context was not cancelled and we've waited for the
@@ -375,7 +375,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	seelog.Infof("disconnect mode is")
-	seelog.Infof(strconv.FormatBool(config.GetDisconnectModeEnabled)))
+	seelog.Infof(strconv.FormatBool(config.GetDisconnectModeEnabled()))
 	// Start inactivity timer for closing the connection
 	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	// Any message from the server resets the disconnect timeout
