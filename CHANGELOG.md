@@ -1,4 +1,8 @@
 # Changelog
+## 1.61.3
+* Enhancement - Add command and error logging for FSx file mapping when calling out to PowerShell [#3240](https://github.com/aws/amazon-ecs-agent/pull/3240)
+* Enhancement - Update README.md with missing environment variables [#3244](https://github.com/aws/amazon-ecs-agent/pull/3244)
+
 ## 1.61.2
 * Enhancement - Integrate new/updated build targets and processes [#3234](https://github.com/aws/amazon-ecs-agent/pull/3234)
 * Enhancement - Trimming task reason to a max of 1024 characters as per Back-end model [#3229](https://github.com/aws/amazon-ecs-agent/pull/3229)
