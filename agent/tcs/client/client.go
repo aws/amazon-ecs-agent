@@ -116,9 +116,8 @@ func (cs *clientServer) Serve() error {
 	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
 
-	if !cs.disableResourceMetrics {
-		go cs.publishMetrics()
-	}
+	go cs.publishMetrics()
+
 	go cs.publishHealthMetrics()
 
 	go cs.publishInstanceStatus()
@@ -188,9 +187,11 @@ func (cs *clientServer) publishMetrics() {
 				metricCounter = 0
 			}
 			cs.statsEngine.SetPublishServiceConnectTickerInterval(metricCounter)
-			err := cs.publishMetricsOnce(includeServiceConnectStats)
-			if err != nil {
-				seelog.Warnf("Error publishing metrics: %v", err)
+			if !cs.disableResourceMetrics || includeServiceConnectStats {
+				err := cs.publishMetricsOnce(includeServiceConnectStats)
+				if err != nil {
+					seelog.Warnf("Error publishing metrics: %v", err)
+				}
 			}
 		case <-cs.ctx.Done():
 			return
