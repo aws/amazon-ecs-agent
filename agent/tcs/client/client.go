@@ -52,16 +52,15 @@ var (
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
-	statsEngine                         stats.Engine
-	doctor                              *doctor.Doctor
-	publishTicker                       *time.Ticker
-	publishHealthTicker                 *time.Ticker
-	pullInstanceStatusTicker            *time.Ticker
-	publishServiceConnectTickerInterval int32
-	ctx                                 context.Context
-	cancel                              context.CancelFunc
-	disableResourceMetrics              bool
-	publishMetricsInterval              time.Duration
+	statsEngine              stats.Engine
+	doctor                   *doctor.Doctor
+	publishTicker            *time.Ticker
+	publishHealthTicker      *time.Ticker
+	pullInstanceStatusTicker *time.Ticker
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	disableResourceMetrics   bool
+	publishMetricsInterval   time.Duration
 	wsclient.ClientServerImpl
 }
 
@@ -182,11 +181,13 @@ func (cs *clientServer) publishMetrics() {
 		select {
 		case <-cs.publishTicker.C:
 			var includeServiceConnectStats bool
-			cs.publishServiceConnectTickerInterval++
-			if cs.publishServiceConnectTickerInterval == defaultPublishServiceConnectTicker {
+			metricCounter := cs.statsEngine.GetPublishServiceConnectTickerInterval()
+			metricCounter++
+			if metricCounter == defaultPublishServiceConnectTicker {
 				includeServiceConnectStats = true
-				cs.publishServiceConnectTickerInterval = 0
+				metricCounter = 0
 			}
+			cs.statsEngine.SetPublishServiceConnectTickerInterval(metricCounter)
 			err := cs.publishMetricsOnce(includeServiceConnectStats)
 			if err != nil {
 				seelog.Warnf("Error publishing metrics: %v", err)
