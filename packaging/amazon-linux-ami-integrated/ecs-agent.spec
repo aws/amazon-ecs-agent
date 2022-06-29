@@ -35,7 +35,6 @@ Source4:        amazon-ecs-volume-plugin.socket
 Source5:        amazon-ecs-volume-plugin.conf
 
 BuildRequires:  golang >= 1.7
-BuildRequires:  glibc-static
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -55,7 +54,6 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/build-pause
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
 ./scripts/build true "" false true
