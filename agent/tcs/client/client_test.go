@@ -119,6 +119,14 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*mockStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
@@ -131,6 +139,14 @@ func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types
 
 func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*emptyStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*emptyStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
 }
 
 type idleStatsEngine struct{}
@@ -151,6 +167,14 @@ func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*idleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*idleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
 }
 
 type nonIdleStatsEngine struct {
@@ -179,6 +203,14 @@ func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*typ
 
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*nonIdleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*nonIdleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
 }
 
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
@@ -268,6 +300,14 @@ func (*serviceConnectStatsEngine) ContainerDockerStats(taskARN string, id string
 
 func (*serviceConnectStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*serviceConnectStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*serviceConnectStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
 }
 
 func newServiceConnectStatsEngine(numTasks int) *serviceConnectStatsEngine {
