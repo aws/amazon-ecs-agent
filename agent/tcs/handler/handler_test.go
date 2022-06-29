@@ -80,6 +80,14 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*mockStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
 // TestDisableMetrics tests the StartMetricsSession will return immediately if
 // the metrics was disabled
 func TestDisableMetrics(t *testing.T) {

@@ -71,6 +71,8 @@ type Engine interface {
 	GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
+	GetPublishServiceConnectTickerInterval() int32
+	SetPublishServiceConnectTickerInterval(int32)
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -91,9 +93,10 @@ type DockerStatsEngine struct {
 	// tasksToHealthCheckContainers map task arns to the containers that has health check enabled
 	tasksToHealthCheckContainers map[string]map[string]*StatsContainer
 	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
-	tasksToDefinitions        map[string]*taskDefinition
-	taskToTaskStats           map[string]*StatsTask
-	taskToServiceConnectStats map[string]*ServiceConnectStats
+	tasksToDefinitions                  map[string]*taskDefinition
+	taskToTaskStats                     map[string]*StatsTask
+	taskToServiceConnectStats           map[string]*ServiceConnectStats
+	publishServiceConnectTickerInterval int32
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -138,15 +141,16 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
 	return &DockerStatsEngine{
-		client:                       client,
-		resolver:                     nil,
-		config:                       cfg,
-		tasksToContainers:            make(map[string]map[string]*StatsContainer),
-		tasksToHealthCheckContainers: make(map[string]map[string]*StatsContainer),
-		tasksToDefinitions:           make(map[string]*taskDefinition),
-		taskToTaskStats:              make(map[string]*StatsTask),
-		taskToServiceConnectStats:    make(map[string]*ServiceConnectStats),
-		containerChangeEventStream:   containerChangeEventStream,
+		client:                              client,
+		resolver:                            nil,
+		config:                              cfg,
+		tasksToContainers:                   make(map[string]map[string]*StatsContainer),
+		tasksToHealthCheckContainers:        make(map[string]map[string]*StatsContainer),
+		tasksToDefinitions:                  make(map[string]*taskDefinition),
+		taskToTaskStats:                     make(map[string]*StatsTask),
+		taskToServiceConnectStats:           make(map[string]*ServiceConnectStats),
+		containerChangeEventStream:          containerChangeEventStream,
+		publishServiceConnectTickerInterval: 0,
 	}
 }
 
@@ -897,4 +901,18 @@ func (engine *DockerStatsEngine) getServiceConnectStats() error {
 	}
 	wg.Wait()
 	return nil
+}
+
+func (engine *DockerStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	engine.lock.RLock()
+	defer engine.lock.RUnlock()
+
+	return engine.publishServiceConnectTickerInterval
+}
+
+func (engine *DockerStatsEngine) SetPublishServiceConnectTickerInterval(publishServiceConnectTickerInterval int32) {
+	engine.lock.Lock()
+	defer engine.lock.Unlock()
+
+	engine.publishServiceConnectTickerInterval = publishServiceConnectTickerInterval
 }
