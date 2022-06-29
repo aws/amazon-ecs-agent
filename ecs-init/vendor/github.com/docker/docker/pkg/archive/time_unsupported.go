@@ -1,6 +1,7 @@
+//go:build !linux
 // +build !linux
 
-package archive
+package archive // import "github.com/docker/docker/pkg/archive"
 
 import (
 	"syscall"

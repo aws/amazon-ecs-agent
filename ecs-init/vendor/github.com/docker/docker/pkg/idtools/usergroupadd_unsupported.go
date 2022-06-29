@@ -1,6 +1,7 @@
+//go:build !linux
 // +build !linux
 
-package idtools
+package idtools // import "github.com/docker/docker/pkg/idtools"
 
 import "fmt"
 
