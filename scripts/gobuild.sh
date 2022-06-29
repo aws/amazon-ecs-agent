@@ -16,8 +16,9 @@ set -x
 set -e
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
-export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
+export GOPATH="${TOPWD}:${BUILDDIR}"
+export GO111MODULE="auto"
 
 if [ -d "${TOPWD}/.git" ]; then
     version=$(cat "${TOPWD}/ecs-init/ECSVERSION")
@@ -25,7 +26,7 @@ if [ -d "${TOPWD}/.git" ]; then
     git_dirty=false
 
     if [[ "$(git status --porcelain)" != "" ]]; then
-	git_dirty=true
+        git_dirty=true
     fi
 
     VERSION_FLAG="-X github.com/aws/amazon-ecs-agent/ecs-init/version.Version=${version}"
@@ -36,18 +37,19 @@ fi
 mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"
 cd "${SRCPATH}/ecs-init"
+
 if [[ "$1" == "dev" ]]; then
-	CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' go build -tags 'development' -ldflags "${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
-	   -o "${TOPWD}/amazon-ecs-init"
+    CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' go build -tags 'development' -ldflags "${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+        -o "${TOPWD}/amazon-ecs-init"
 else
-	tags=""
-	if [[ "$1" != "" ]]; then
-		tags="-tags '$1'"
-	fi
-	CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' go build -a ${tags} -x \
-		   -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
-		   -o "${TOPWD}/amazon-ecs-init"
+    tags=""
+    if [[ "$1" != "" ]]; then
+        tags="-tags '$1'"
+    fi
+    CGO_ENABLED=1 CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' go build -a ${tags} -x \
+        -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+        -o "${TOPWD}/amazon-ecs-init"
 fi
 CGO_ENABLED=0 go build -x -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
-	-o "${TOPWD}/amazon-ecs-volume-plugin" "./volumes/amazon-ecs-volume-plugin"
+    -o "${TOPWD}/amazon-ecs-volume-plugin" "./volumes/amazon-ecs-volume-plugin"
 rm -r "${BUILDDIR}"
