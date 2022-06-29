@@ -82,6 +82,20 @@ func (mr *MockEngineMockRecorder) GetInstanceMetrics(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceMetrics", reflect.TypeOf((*MockEngine)(nil).GetInstanceMetrics), arg0)
 }
 
+// GetPublishServiceConnectTickerInterval mocks base method
+func (m *MockEngine) GetPublishServiceConnectTickerInterval() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPublishServiceConnectTickerInterval")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetPublishServiceConnectTickerInterval indicates an expected call of GetPublishServiceConnectTickerInterval
+func (mr *MockEngineMockRecorder) GetPublishServiceConnectTickerInterval() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublishServiceConnectTickerInterval", reflect.TypeOf((*MockEngine)(nil).GetPublishServiceConnectTickerInterval))
+}
+
 // GetTaskHealthMetrics mocks base method
 func (m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	m.ctrl.T.Helper()
@@ -96,4 +110,16 @@ func (m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.T
 func (mr *MockEngineMockRecorder) GetTaskHealthMetrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskHealthMetrics", reflect.TypeOf((*MockEngine)(nil).GetTaskHealthMetrics))
+}
+
+// SetPublishServiceConnectTickerInterval mocks base method
+func (m *MockEngine) SetPublishServiceConnectTickerInterval(arg0 int32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPublishServiceConnectTickerInterval", arg0)
+}
+
+// SetPublishServiceConnectTickerInterval indicates an expected call of SetPublishServiceConnectTickerInterval
+func (mr *MockEngineMockRecorder) SetPublishServiceConnectTickerInterval(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPublishServiceConnectTickerInterval", reflect.TypeOf((*MockEngine)(nil).SetPublishServiceConnectTickerInterval), arg0)
 }
