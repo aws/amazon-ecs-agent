@@ -190,7 +190,26 @@ var (
 
 	// CgroupV2 Specifies whether or not to run in Cgroups V2 mode.
 	CgroupV2 = false
+
+	//indicates if agent is in disconnected mode
+	disconnectMode = DisconnectMode{}
 )
+
+func GetDisconnectModeEnabled() bool {
+
+	disconnectMode.disconnectModeLock.RLock()
+	defer disconnectMode.disconnectModeLock.RUnlock()
+
+	return disconnectMode.disconnectModeEnabled
+}
+
+func SetDisconnectModeEnabled(desiredDisconnectEnabledStatus bool) {
+
+	disconnectMode.disconnectModeLock.Lock()
+	defer disconnectMode.disconnectModeLock.Unlock()
+
+	disconnectMode.disconnectModeEnabled = desiredDisconnectEnabledStatus
+}
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
 // zero values present in the left that are present in the right will be overridden
