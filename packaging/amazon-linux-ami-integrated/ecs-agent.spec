@@ -40,7 +40,7 @@ Source4:        amazon-ecs-volume-plugin.socket
 Source5:        amazon-ecs-volume-plugin.conf
 
 # TODO need to update this once golang 1.17.x is available in Koji
-BuildRequires:  golang >= 1.13.0, golang < 1.16.15
+BuildRequires:  golang >= 1.18.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
