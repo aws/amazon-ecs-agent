@@ -233,7 +233,7 @@ func (acsSession *session) Start() error {
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
 			}
-			if cfg.DisconnectCapable.Enabled() {
+			else if cfg.DisconnectCapable.Enabled() {
 				seelog.Debugf("RIYA entering code block w/ DisconnectCapable.Enabled()")
 				// check if disconnection timer has started already
 				if acsSession.disconnectionTimer != nil {
