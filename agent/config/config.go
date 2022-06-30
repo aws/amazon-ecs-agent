@@ -195,7 +195,7 @@ var (
 	disconnectMode = DisconnectMode{}
 )
 
-func GetDisconnectModeEnabled() bool {
+func (cfg *Config) GetDisconnectModeEnabled() bool {
 
 	disconnectMode.disconnectModeLock.RLock()
 	defer disconnectMode.disconnectModeLock.RUnlock()
@@ -203,7 +203,7 @@ func GetDisconnectModeEnabled() bool {
 	return disconnectMode.disconnectModeEnabled
 }
 
-func SetDisconnectModeEnabled(desiredDisconnectEnabledStatus bool) {
+func (cfg *Config) SetDisconnectModeEnabled(desiredDisconnectEnabledStatus bool) {
 
 	disconnectMode.disconnectModeLock.Lock()
 	defer disconnectMode.disconnectModeLock.Unlock()
