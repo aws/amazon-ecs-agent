@@ -232,7 +232,7 @@ func TestAgentContainerModificationsForServiceConnect(t *testing.T) {
 		relayPathContainer:  "/not/var/run",
 		relayPathHost:       tempDir,
 		relayFileName:       "relay_file_of_holiness",
-		relayENV:            "ReLaYgOeShErE",
+		endpointENV:         "ReLaYgOeShErE",
 		statusPathContainer: "/some/other/run",
 		statusPathHostRoot:  filepath.Join(tempDir, "status"),
 		statusFileName:      "status_file_of_holiness",

@@ -876,6 +876,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	taskEngine.(*DockerTaskEngine).appnetClient = appnetClient
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
+	taskEngine.(*DockerTaskEngine).serviceconnectRelay = &apitask.Task{Arn: "arn::::::/task"}
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
 	sleepTask.NetworkMode = apitask.AWSVPCNetworkMode
@@ -1055,6 +1056,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = cniClient
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
+	taskEngine.(*DockerTaskEngine).serviceconnectRelay = &apitask.Task{Arn: "arn::::::/task"}
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5PortMappings")
 	sleepContainer := sleepTask.Containers[0]

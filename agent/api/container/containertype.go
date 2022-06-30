@@ -35,6 +35,10 @@ const (
 	// sharing either PID or IPC resource namespaces. Regardless if one or
 	// both flags are used, only 1 of these containers need to be active
 	ContainerNamespacePause
+
+	// ContainerServiceConnectRelay represents the internal container type
+	// for the relay to share connections to management infrastructure.
+	ContainerServiceConnectRelay
 )
 
 // ContainerType represents the type of the internal container created

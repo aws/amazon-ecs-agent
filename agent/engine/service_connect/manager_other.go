@@ -21,6 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
@@ -33,5 +34,11 @@ func NewManager() Manager {
 }
 
 func (m *manager) AugmentTaskContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig, serviceconnect.Loader) error {
+	return errors.New("ServiceConnect is only supported on linux")
+}
+func (m *manager) CreateInstanceTask(config *config.Config, appnetAgentLoader serviceconnect.Loader) (*apitask.Task, error) {
+	return nil, errors.New("ServiceConnect is only supported on linux")
+}
+func (m *manager) AugmentInstanceContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig) error {
 	return errors.New("ServiceConnect is only supported on linux")
 }
