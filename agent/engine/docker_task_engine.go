@@ -166,6 +166,7 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               engineserviceconnect.Manager
+	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -958,6 +959,25 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		return
 	}
 
+	// Check if ServiceConnect is Needed
+	if task.IsServiceConnectEnabled() {
+		if engine.serviceconnectRelay == nil {
+			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg, engine.serviceConnectLoader)
+
+			if err != nil {
+				logger.Error("Unable to start relay for task in the engine", logger.Fields{
+					field.TaskID: task.GetID(),
+					field.Error:  err,
+				})
+				task.SetKnownStatus(apitaskstatus.TaskStopped)
+				task.SetDesiredStatus(apitaskstatus.TaskStopped)
+				engine.emitTaskEvent(task, err.Error())
+				return
+			}
+			engine.AddTask(engine.serviceconnectRelay)
+		}
+	}
+
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
 
@@ -1300,6 +1320,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// Add Service Connect modifications if needed
 	if task.IsServiceConnectEnabled() {
 		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig, engine.serviceConnectLoader)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
+		}
+	}
+	if container.Type == apicontainer.ContainerServiceConnectRelay {
+		err := engine.serviceconnectManager.AugmentInstanceContainer(task, container, hostConfig)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
 		}
