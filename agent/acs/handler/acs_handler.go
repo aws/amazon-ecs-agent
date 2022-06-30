@@ -232,8 +232,7 @@ func (acsSession *session) Start() error {
 				seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
-			}
-			else if cfg.DisconnectCapable.Enabled() {
+			} else if cfg.DisconnectCapable.Enabled() {
 				seelog.Debugf("RIYA entering code block w/ DisconnectCapable.Enabled()")
 				// check if disconnection timer has started already
 				if acsSession.disconnectionTimer != nil {
