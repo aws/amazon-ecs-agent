@@ -146,6 +146,10 @@ test:
 	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
+test-acs:
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/acs/...
+	go tool cover -func cover.out > coverprofile.out
+
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
