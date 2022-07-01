@@ -334,7 +334,7 @@ func TestShouldReconnectWithoutBackoffReturnsFalseForNonEOF(t *testing.T) {
 func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	testCases := []struct {
 		Name   string
-		Config config.Config
+		Config *config.Config
 	}{
 		{
 			Name:   "disconnect capable off",
