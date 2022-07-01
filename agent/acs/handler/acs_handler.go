@@ -237,7 +237,10 @@ func (acsSession *session) Start() error {
 				// check if disconnection timer has started already
 				if acsSession.disconnectionTimer != nil {
 					//check if disconnection timer has stopped
-					if acsSession.checkDisconnectionTimer() {
+					seelog.Debugf("RIYAchecking if disconnection timer is initialized")
+					timerCompleted := acsSession.checkDisconnectionTimer()
+					seelog.Debugf("RIYA disconnection timer status is %v", timerCompleted)
+					if timerCompleted {
 						cfg.SetDisconnectModeEnabled(true)
 						seelog.Debugf("RIYA set disconnect enabled to true %v", cfg.GetDisconnectModeEnabled())
 						// if disconnection timer is still ongoing, attempt reconnection
@@ -294,7 +297,7 @@ func (acsSession *session) checkDisconnectionTimer() bool {
 
 // // TODO: start timer using NewTimer (could also use AfterFunc but less sure about that)
 func (acsSession *session) startDisconnectionTimer() {
-	acsSession.disconnectionTimer = time.NewTimer(time.Duration(time.Minute * 5))
+	acsSession.disconnectionTimer = time.NewTimer(time.Duration(time.Minute * 10))
 
 }
 
