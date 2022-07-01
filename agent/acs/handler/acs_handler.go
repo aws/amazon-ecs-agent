@@ -290,9 +290,10 @@ func (acsSession *session) checkDisconnectionTimer() bool {
 	select {
 	case <-acsSession.disconnectionTimer.C:
 		return true
+	case <-time.After(1 * time.Second):
+		return false
 
 	}
-	return false
 }
 
 // // TODO: start timer using NewTimer (could also use AfterFunc but less sure about that)
