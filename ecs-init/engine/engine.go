@@ -139,7 +139,7 @@ func (e *Engine) PreStart() error {
 	if err != nil {
 		return engineError("could not check Docker for Agent image presence", err)
 	}
-	log.Infof("pre-start: ecs agent container image loaded presence: %s", imageLoaded)
+	log.Infof("pre-start: ecs agent container image loaded presence: %t", imageLoaded)
 
 	switch e.downloader.AgentCacheStatus() {
 	// Uncached, go get the Agent.
