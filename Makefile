@@ -169,6 +169,9 @@ run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tes
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
+run-sudo-unit-tests:
+	sudo -E ${GOTEST} -tags 'sudo_unit' -timeout=60s ./agent/...
+
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
 

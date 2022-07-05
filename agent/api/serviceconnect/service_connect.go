@@ -13,6 +13,8 @@
 
 package serviceconnect
 
+const AppNetUID = 1337
+
 // Config represents the Service Connect configuration for a task.
 type Config struct {
 	ContainerName string               `json:"containerName"`
