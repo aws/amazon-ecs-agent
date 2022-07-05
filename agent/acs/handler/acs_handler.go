@@ -404,10 +404,13 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	// once this is successful, set disconnectModeEnabled to FALSE
 	seelog.Info("Connected to ACS endpoint")
+	seelog.Debugf("RIYA Checking if disconnect mode capability is on")
 	if cfg.DisconnectCapable.Enabled() {
+		seelog.Debugf("RIYA Checking if disconnect mode is on")
 		if cfg.GetDisconnectModeEnabled() {
 			cfg.SetDisconnectModeEnabled(false)
 		} else if acsSession.disconnectionTimer != nil {
+			seelog.Debugf("setting timer equal to nil")
 			acsSession.disconnectionTimer = nil
 		}
 	}
