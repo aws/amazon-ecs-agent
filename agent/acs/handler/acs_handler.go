@@ -405,10 +405,15 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		return err
 	}
 
-	seelog.Info("Connected to ACS endpoint")
-
 	// once this is successful, set disconnectModeEnabled to FALSE
-	cfg.SetDisconnectModeEnabled(false)
+	seelog.Info("Connected to ACS endpoint")
+	if cfg.DisconnectCapable.Enabled() {
+		if cfg.GetDisconnectModeEnabled() {
+			cfg.SetDisconnectModeEnabled(false)
+		} else if acsSession.disconnectionTimer != nil {
+			acsSession.disconnectionTimer = nil
+		}
+	}
 
 	// Start inactivity timer for closing the connection
 	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
