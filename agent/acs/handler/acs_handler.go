@@ -234,16 +234,13 @@ func (acsSession *session) Start() error {
 				sendEmptyMessageOnChannel(connectToACS)
 			} else if cfg.DisconnectCapable.Enabled() {
 				seelog.Debugf("RIYA entering code block w/ DisconnectCapable.Enabled()")
-				// check if disconnection timer has started already
 				if acsSession.disconnectionTimer != nil {
-					//check if disconnection timer has stopped
 					seelog.Debugf("RIYAchecking if disconnection timer is initialized")
 					timerCompleted := acsSession.checkDisconnectionTimer()
 					seelog.Debugf("RIYA disconnection timer status is %v", timerCompleted)
 					if timerCompleted {
 						cfg.SetDisconnectModeEnabled(true)
 						seelog.Debugf("RIYA set disconnect enabled to true %v", cfg.GetDisconnectModeEnabled())
-						// if disconnection timer is still ongoing, attempt reconnection
 					} else {
 						seelog.Debugf("RIYA starting 1 minute timer to reconnect to ACS")
 						intervalComplete := acsSession.waitForDuration(1 * time.Minute)
