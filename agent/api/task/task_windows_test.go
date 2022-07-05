@@ -19,6 +19,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -396,7 +397,7 @@ func TestRequiresCredentialSpecResource(t *testing.T) {
 
 func TestGetAllCredentialSpecRequirements(t *testing.T) {
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
-	container := &apicontainer.Container{}
+	container := &apicontainer.Container{Name: "webapp1"}
 	container.DockerConfig.HostConfig = &hostConfig
 
 	task := &Task{
@@ -404,20 +405,20 @@ func TestGetAllCredentialSpecRequirements(t *testing.T) {
 		Containers: []*apicontainer.Container{container},
 	}
 
-	allCredSpecReq := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
 
-	credentialspec := "credentialspec:file://gmsa_gmsa-acct.json"
-	expectedCredSpecReq := []string{credentialspec}
+	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
+	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp1"}
 
-	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
 }
 
 func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *testing.T) {
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
-	c1 := &apicontainer.Container{}
+	c1 := &apicontainer.Container{Name: "webapp1"}
 	c1.DockerConfig.HostConfig = &hostConfig
 
-	c2 := &apicontainer.Container{}
+	c2 := &apicontainer.Container{Name: "webapp2"}
 	c2.DockerConfig.HostConfig = &hostConfig
 
 	task := &Task{
@@ -425,26 +426,26 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *
 		Containers: []*apicontainer.Container{c1, c2},
 	}
 
-	allCredSpecReq := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
 
-	credentialspec := "credentialspec:file://gmsa_gmsa-acct.json"
-	expectedCredSpecReq := []string{credentialspec}
+	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
+	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp2"}
 
-	assert.Equal(t, len(expectedCredSpecReq), len(allCredSpecReq))
-	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
+	assert.Equal(t, len(expectedCredentialSpecContainerMap), len(credentialSpecContainerMap))
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
 }
 
 func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
 	hostConfig1 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-1.json\"]}"
 	hostConfig2 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-2.json\"]}"
 
-	c1 := &apicontainer.Container{}
+	c1 := &apicontainer.Container{Name: "webapp1"}
 	c1.DockerConfig.HostConfig = &hostConfig1
 
-	c2 := &apicontainer.Container{}
+	c2 := &apicontainer.Container{Name: "webapp2"}
 	c2.DockerConfig.HostConfig = &hostConfig1
 
-	c3 := &apicontainer.Container{}
+	c3 := &apicontainer.Container{Name: "webapp3"}
 	c3.DockerConfig.HostConfig = &hostConfig2
 
 	task := &Task{
@@ -452,14 +453,14 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
 		Containers: []*apicontainer.Container{c1, c2, c3},
 	}
 
-	allCredSpecReq := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
 
 	credentialspec1 := "credentialspec:file://gmsa_gmsa-acct-1.json"
 	credentialspec2 := "credentialspec:file://gmsa_gmsa-acct-2.json"
 
-	expectedCredSpecReq := []string{credentialspec1, credentialspec2}
+	expectedCredentialSpecContainerMap := map[string]string{credentialspec1: "webapp2", credentialspec2: "webapp3"}
 
-	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
 }
 
 func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
