@@ -232,27 +232,24 @@ func (acsSession *session) Start() error {
 				seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
+				// Check if this instance has ECS_DISCONNECT_CAPABLE turned on. This code block is only reached when
+				// ACS has already failed to connect.
 			} else if cfg.DisconnectCapable.Enabled() {
-				seelog.Debugf("RIYA entering code block w/ DisconnectCapable.Enabled()")
 				if acsSession.disconnectionTimer != nil {
-					seelog.Debugf("RIYAchecking if disconnection timer is initialized")
 					timerCompleted := acsSession.checkDisconnectionTimer()
-					seelog.Debugf("RIYA disconnection timer status is %v", timerCompleted)
+					// If the timer has been completed, then set DisconnectModeEnabled to true.
 					if timerCompleted {
 						cfg.SetDisconnectModeEnabled(true)
-						seelog.Debugf("RIYA set disconnect enabled to true %v", cfg.GetDisconnectModeEnabled())
+						// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
+						// excessive connection attempts).
 					} else {
-						seelog.Debugf("RIYA starting 1 minute timer to reconnect to ACS")
 						intervalComplete := acsSession.waitForDuration(1 * time.Minute)
 						if intervalComplete {
-							seelog.Debugf("RIYA finished timer, attempting to reconnect to ACS")
 							sendEmptyMessageOnChannel(connectToACS)
 						} else {
-							seelog.Debugf("RIYA 1 minute timer wait interrupted")
 						}
 					}
 				} else {
-					seelog.Debugf("RIYA starting disconnection timer")
 					acsSession.startDisconnectionTimer()
 					sendEmptyMessageOnChannel(connectToACS)
 				}
@@ -295,7 +292,7 @@ func (acsSession *session) checkDisconnectionTimer() bool {
 
 // // TODO: start timer using NewTimer (could also use AfterFunc but less sure about that)
 func (acsSession *session) startDisconnectionTimer() {
-	acsSession.disconnectionTimer = time.NewTimer(time.Duration(time.Minute * 10))
+	acsSession.disconnectionTimer = time.NewTimer(time.Duration(time.Minute * 5))
 
 }
 
@@ -401,16 +398,16 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-
-	// once this is successful, set disconnectModeEnabled to FALSE
 	seelog.Info("Connected to ACS endpoint")
-	seelog.Debugf("RIYA Checking if disconnect mode capability is on")
+
+	// Once ACS successfully reconnects, set disconnectModeEnabled to FALSE
 	if cfg.DisconnectCapable.Enabled() {
-		seelog.Debugf("RIYA Checking if disconnect mode is on")
 		if cfg.GetDisconnectModeEnabled() {
 			cfg.SetDisconnectModeEnabled(false)
+			// If reconnection is successful when the disconnection timer has already started,
+			// then terminate the timer. This way the timer can be re-initalized when connection
+			// is lost again.
 		} else if acsSession.disconnectionTimer != nil {
-			seelog.Debugf("setting timer equal to nil")
 			acsSession.disconnectionTimer = nil
 		}
 	}
