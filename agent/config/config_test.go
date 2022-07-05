@@ -34,13 +34,13 @@ import (
 )
 
 func TestDefaultValueOfDisconnectModeEnabled(t *testing.T) {
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf := Config{Cluster: "Foo"}
 
 	assert.False(t, conf.GetDisconnectModeEnabled(), "Wrong default value for disconnectModeEnabled, expected value is false")
 }
 
 func TestGetAndSetDisconnectModeEnabled(t *testing.T) {
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf := Config{Cluster: "Foo"}
 
 	conf.SetDisconnectModeEnabled(true)
 	assert.True(t, conf.GetDisconnectModeEnabled(), "Wrong value for disconnectModeEnabled, expected value is true")
