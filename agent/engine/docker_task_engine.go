@@ -1675,7 +1675,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{
 				Error: ContainerNetworkingError{
-					fromError: errors.Wrapf(err, "startContainer: cni plugin invocation failed"),
+					fromError: fmt.Errorf("startContainer: cni plugin invocation failed: %+v", err),
 				},
 			}
 		}
@@ -1683,6 +1683,13 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 
 	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() && task.IsContainerServiceConnectPause(container.Name) {
 		ipv4Addr, ipv6Addr := getBridgeModeContainerIP(dockerContainerMD.NetworkSettings)
+		if ipv4Addr == "" && ipv6Addr == "" {
+			return dockerapi.DockerContainerMetadata{
+				Error: ContainerNetworkingError{
+					fromError: fmt.Errorf("startContainer: failed to resolve container IP for SC bridge mode pause container"),
+				},
+			}
+		}
 		task.PopulateServiceConnectPauseIPConfig(ipv4Addr, ipv6Addr)
 	}
 

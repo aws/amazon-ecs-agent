@@ -79,7 +79,7 @@ const (
 )
 
 var (
-	scPauseContainerName = fmt.Sprintf("%s-%s", NetworkPauseContainerName, scContainerName)
+	scPauseContainerName = fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainerName)
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -1339,7 +1339,7 @@ func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
 				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
 			}
-			testTask.Containers = []*apicontainer.Container{{Name: "service-connect"}}
+			testTask.Containers = []*apicontainer.Container{{Name: scContainerName}}
 
 			cniConfig, err := testTask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 				BlockInstanceMetadata: blockIMDS,

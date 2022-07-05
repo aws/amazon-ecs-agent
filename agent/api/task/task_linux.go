@@ -359,36 +359,35 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 }
 
 // BuildCNIConfigBridgeMode builds a list of CNI network configurations for a task in docker bridge mode.
+// Currently the only plugin in available is for Service Connect
 func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerName string) (*ecscni.Config, error) {
-	if !task.IsNetworkModeBridge() {
-		return nil, errors.New("non bridge-mode task should not invoke BuildCNIConfigBridgeMode")
+	if !task.IsNetworkModeBridge() || !task.IsServiceConnectEnabled() {
+		return nil, errors.New("only bridge-mode Service-Connect-enabled task should invoke BuildCNIConfigBridgeMode")
 	}
 
 	var netconf *libcni.NetworkConfig
 	var ifName string
 	var err error
 
-	// Build a CNI network configuration for bridge-mode SC-enabled task
-	if task.IsServiceConnectEnabled() {
-		scPauseIPConfig := task.GetServiceConnectRuntimeConfig().PauseContainerIPConfig
-		if scPauseIPConfig == nil {
-			return nil, fmt.Errorf("failed to build CNI Bridge SC config - SC PauseContainerIPConfig cannot be nil")
-		}
-		ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
-			task.ServiceConnectConfig,
-			ecscni.TPROXY,
-			!task.IsContainerServiceConnectPause(containerName),
-			scPauseIPConfig.IPv4Addr != "",
-			scPauseIPConfig.IPv6Addr != "",
-			cniConfig)
-		if err != nil {
-			return nil, err
-		}
-		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           ifName,
-			CNINetworkConfig: netconf,
-		})
+	scPauseIPConfig := task.GetServiceConnectRuntimeConfig().PauseContainerIPConfig
+	if scPauseIPConfig == nil {
+		return nil, fmt.Errorf("failed to build CNI Bridge SC config - SC PauseContainerIPConfig cannot be nil")
 	}
+	ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
+		task.ServiceConnectConfig,
+		ecscni.TPROXY,
+		!task.IsContainerServiceConnectPause(containerName),
+		scPauseIPConfig.IPv4Addr != "",
+		scPauseIPConfig.IPv6Addr != "",
+		cniConfig)
+	if err != nil {
+		return nil, err
+	}
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ifName,
+		CNINetworkConfig: netconf,
+	})
+
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 	return cniConfig, nil
 }

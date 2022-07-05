@@ -29,8 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -1272,86 +1270,6 @@ func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 
 	// Invoke one more time to check for idempotency (mocks configured with maxTimes = 1)
 	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
-}
-
-func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
-	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
-	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
-	testTask := testdata.LoadTask("sleep5PortMappings")
-	testTask.NetworkMode = apitask.BridgeNetworkMode
-
-	// append SC pause, application container pause, SC container
-	scContainer := &apicontainer.Container{
-		Name: serviceConnectContainerName,
-		Type: apicontainer.ContainerNormal,
-	}
-	scPauseContainer := &apicontainer.Container{
-		Name: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, serviceConnectContainerName),
-		Type: apicontainer.ContainerCNIPause,
-	}
-	appPauseContainer := &apicontainer.Container{
-		Name: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, "sleep5"),
-		Type: apicontainer.ContainerCNIPause,
-	}
-	testTask.Containers = append(testTask.Containers, scContainer, scPauseContainer, appPauseContainer)
-
-	// add task SC config
-	testTask.ServiceConnectConfig = &serviceconnect.Config{
-		ContainerName: serviceConnectContainerName,
-		IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: 11111}},
-		EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: 22222},
-		RuntimeConfig: serviceconnect.RuntimeConfig{
-			PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
-				IPv4Addr: "172.0.0.1",
-				IPv6Addr: "",
-			},
-		},
-	}
-	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
-	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
-		DockerID:   containerID,
-		DockerName: dockerContainerName,
-		Container:  scContainer,
-	}, testTask)
-	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
-		DockerID:   containerID + scPauseContainer.Name,
-		DockerName: dockerContainerName + scPauseContainer.Name,
-		Container:  scPauseContainer,
-	}, testTask)
-	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
-		DockerID:   containerID + appPauseContainer.Name,
-		DockerName: dockerContainerName + appPauseContainer.Name,
-		Container:  appPauseContainer,
-	}, testTask)
-
-	for _, cont := range []*apicontainer.Container{scPauseContainer, appPauseContainer} {
-		gomock.InOrder(
-			dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID+cont.Name, gomock.Any()).Return(&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID + cont.Name,
-					State: &types.ContainerState{Pid: containerPid},
-					HostConfig: &dockercontainer.HostConfig{
-						NetworkMode: apitask.BridgeNetworkMode,
-					},
-				},
-			}, nil),
-			mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) (*current.Result, error) {
-					assert.Equal(t, 1, len(cfg.NetworkConfigs))
-					var scNetworkConfig ecscni.ServiceConnectConfig
-					err := json.Unmarshal(cfg.NetworkConfigs[0].CNINetworkConfig.Bytes, &scNetworkConfig)
-					assert.NoError(t, err, "unmarshal ServiceConnect network config")
-					assert.Equal(t, string(ecscni.TPROXY), scNetworkConfig.EgressConfig.RedirectMode)
-					return nil, nil
-				}),
-		)
-		require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, cont).Error)
-	}
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the

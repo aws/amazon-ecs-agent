@@ -178,7 +178,8 @@ func NewServiceConnectNetworkConfig(
 	scConfig *serviceconnect.Config,
 	redirectMode RedirectMode,
 	shouldIncludeRedirectIP bool,
-	enableIPv4, enableIPv6 bool,
+	enableIPv4 bool,
+	enableIPv6 bool,
 	cfg *Config) (string, *libcni.NetworkConfig, error) {
 	var ingressConfig []IngressConfigJSONEntry
 	for _, ic := range scConfig.IngressConfig {
