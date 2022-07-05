@@ -339,25 +339,30 @@ func TestDockerHostConfigSCBridgeMode_getPortBindingFailure(t *testing.T) {
 	assert.True(t, strings.Contains(err.Msg, "error retrieving docker port map"))
 }
 
-// TestDockerContainerConfigSCBridgeMode verifies exposed port configuration for each container
+// TestDockerContainerConfigSCBridgeMode verifies exposed port and uid configuration for each container
 // in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
 // and two pause container associated with each of them.
 func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
 
 	// Containers[0] aka user-defined task container should NOT expose any ports (it's done through the associated pause container)
+	// It should NOT get UID override
 	actualConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.Empty(t, actualConfig.ExposedPorts)
+	assert.Empty(t, actualConfig.User)
 
 	// Containers[2] aka SC container should NOT expose any ports (it's done through the associated pause container)
+	// It should get UID override
 	actualConfig, err = testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
 	assert.Empty(t, actualConfig.ExposedPorts)
+	assert.Equal(t, strconv.Itoa(serviceconnect.AppNetUID), actualConfig.User)
 
 	// Containers[1] aka task pause container should expose all container ports from the associated user-defined task containers
+	// It should NOT get UID override
 	actualConfig, err = testTask.DockerConfig(testTask.Containers[1], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
@@ -367,8 +372,10 @@ func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = actualConfig.ExposedPorts[convertSCPort(SCTaskContainerPort2)]
 	assert.True(t, ok)
+	assert.Empty(t, actualConfig.User)
 
 	// Containers[3] aka SC pause container should expose all container ports from SC ingress and egress listeners
+	// It should NOT get UID override
 	actualConfig, err = testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 	assert.NotNil(t, actualConfig)
@@ -380,6 +387,7 @@ func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = actualConfig.ExposedPorts[convertSCPort(SCEgressListenerContainerPort)]
 	assert.True(t, ok)
+	assert.Empty(t, actualConfig.User)
 }
 
 func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) {
