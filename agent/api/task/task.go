@@ -1736,6 +1736,11 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Env:          dockerEnv,
 	}
 
+	// TODO [SC] - Move this as well as 'dockerExposedPorts' SC-specific logic into a separate file
+	if task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer() {
+		containerConfig.User = strconv.Itoa(serviceconnect.AppNetUID)
+	}
+
 	if container.DockerConfig.Config != nil {
 		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
