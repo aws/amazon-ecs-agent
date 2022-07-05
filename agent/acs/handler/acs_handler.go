@@ -246,7 +246,6 @@ func (acsSession *session) Start() error {
 						intervalComplete := acsSession.waitForDuration(1 * time.Minute)
 						if intervalComplete {
 							sendEmptyMessageOnChannel(connectToACS)
-						} else {
 						}
 					}
 				} else {
