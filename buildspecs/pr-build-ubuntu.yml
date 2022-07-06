@@ -21,6 +21,7 @@ phases:
 
   build:
     commands:
+      - BUILD_LOG="ubuntu_build_${architecture}.log"
       - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
       - echo "Building agent deb" 2>&1 | tee -a $BUILD_LOG
       - AGENT_VERSION=$(cat VERSION)
