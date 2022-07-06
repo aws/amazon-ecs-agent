@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -237,18 +238,27 @@ func (acsSession *session) Start() error {
 			} else if cfg.DisconnectCapable.Enabled() {
 				if acsSession.disconnectionTimer != nil {
 					timerCompleted := acsSession.checkDisconnectionTimer()
+					logger.Debug("Checking disconnectionTimer status", logger.Fields{
+						"timerCompleted": timerCompleted,
+					})
 					// If the timer has been completed, then set DisconnectModeEnabled to true.
 					if timerCompleted {
 						cfg.SetDisconnectModeEnabled(true)
+						logger.Debug("Turning Disconnection Mode on after timer is completed", logger.Fields{
+							"disconnectionMode": cfg.GetDisconnectModeEnabled(),
+						})
 						// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
 						// excessive connection attempts).
 					} else {
+						logger.Debug("Starting 1 minute timer to reconnect to ACS")
 						intervalComplete := acsSession.waitForDuration(1 * time.Minute)
 						if intervalComplete {
+							logger.Debug("Timer complete, reconnecting to ACS now")
 							sendEmptyMessageOnChannel(connectToACS)
 						}
 					}
 				} else {
+					logger.Debug("Starting disconnectionTimer to enable Disconnected Mode")
 					acsSession.startDisconnectionTimer()
 					sendEmptyMessageOnChannel(connectToACS)
 				}
@@ -402,11 +412,13 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	// Once ACS successfully reconnects, set disconnectModeEnabled to FALSE
 	if cfg.DisconnectCapable.Enabled() {
 		if cfg.GetDisconnectModeEnabled() {
+			logger.Debug("Turning Disconnect Mode off after successful reconnection.")
 			cfg.SetDisconnectModeEnabled(false)
 			// If reconnection is successful when the disconnection timer has already started,
 			// then terminate the timer. This way the timer can be re-initalized when connection
 			// is lost again.
 		} else if acsSession.disconnectionTimer != nil {
+			logger.Debug("Terminating disconnectionTimer due to successful reconnection after unexpected disconnect.")
 			acsSession.disconnectionTimer = nil
 		}
 	}
