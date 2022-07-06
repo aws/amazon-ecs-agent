@@ -55,6 +55,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	steadyStateRate int,
 	burstRate int,
 	availabilityZone string,
+	vpcId string,
 	containerInstanceArn string) *http.Server {
 	muxRouter := mux.NewRouter()
 
@@ -65,11 +66,11 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	muxRouter.HandleFunc(v1.CredentialsPath,
 		v1.CredentialsHandler(credentialsManager, auditLogger))
 
-	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
+	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, vpcId, containerInstanceArn)
 
-	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
+	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, vpcId, containerInstanceArn)
 
-	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
+	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, vpcId, containerInstanceArn)
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
@@ -104,13 +105,14 @@ func v2HandlersSetup(muxRouter *mux.Router,
 	credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
 	availabilityZone string,
+	vpcId string,
 	containerInstanceArn string) {
 	muxRouter.HandleFunc(v2.CredentialsPath, v2.CredentialsHandler(credentialsManager, auditLogger))
-	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
-	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
-	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
-	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
-	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
+	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, true))
+	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, true))
 	muxRouter.HandleFunc(v2.ContainerStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPathWithSlash, v2.TaskContainerStatsHandler(state, statsEngine))
@@ -123,10 +125,11 @@ func v3HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	availabilityZone string,
+	vpcId string,
 	containerInstanceArn string) {
 	muxRouter.HandleFunc(v3.ContainerMetadataPath, v3.ContainerMetadataHandler(state))
-	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
-	muxRouter.HandleFunc(v3.TaskWithTagsMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
+	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false))
+	muxRouter.HandleFunc(v3.TaskWithTagsMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, true))
 	muxRouter.HandleFunc(v3.ContainerStatsPath, v3.ContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v3.TaskStatsPath, v3.TaskStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v3.ContainerAssociationsPath, v3.ContainerAssociationsHandler(state))
@@ -141,10 +144,11 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	availabilityZone string,
+	vpcId string,
 	containerInstanceArn string) {
 	muxRouter.HandleFunc(v4.ContainerMetadataPath, v4.ContainerMetadataHandler(state))
-	muxRouter.HandleFunc(v4.TaskMetadataPath, v4.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
-	muxRouter.HandleFunc(v4.TaskWithTagsMetadataPath, v4.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
+	muxRouter.HandleFunc(v4.TaskMetadataPath, v4.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false))
+	muxRouter.HandleFunc(v4.TaskWithTagsMetadataPath, v4.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, true))
 	muxRouter.HandleFunc(v4.ContainerStatsPath, v4.ContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v4.TaskStatsPath, v4.TaskStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v4.ContainerAssociationsPath, v4.ContainerAssociationsHandler(state))
@@ -162,7 +166,8 @@ func ServeTaskHTTPEndpoint(
 	containerInstanceArn string,
 	cfg *config.Config,
 	statsEngine stats.Engine,
-	availabilityZone string) {
+	availabilityZone string,
+	vpcId string) {
 	// Create and initialize the audit log
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
 	if err != nil {
@@ -174,7 +179,7 @@ func ServeTaskHTTPEndpoint(
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
 	server := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, statsEngine,
-		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, containerInstanceArn)
+		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, vpcId, containerInstanceArn)
 
 	go func() {
 		<-ctx.Done()

@@ -46,7 +46,7 @@ const (
 var ContainerMetadataPath = TaskMetadataPathWithSlash + utils.ConstructMuxVar(metadataContainerIDMuxName, utils.AnythingButEmptyRegEx)
 
 // TaskContainerMetadataHandler returns the handler method for handling task and container metadata requests.
-func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
+func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, vpcId, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
@@ -65,7 +65,7 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient a
 		}
 
 		seelog.Infof("V2 task/container metadata handler: writing response for task '%s'", taskARN)
-		WriteTaskMetadataResponse(w, taskARN, cluster, state, ecsClient, az, containerInstanceArn, propagateTags)
+		WriteTaskMetadataResponse(w, taskARN, cluster, state, ecsClient, az, vpcId, containerInstanceArn, propagateTags)
 	}
 }
 
@@ -89,9 +89,9 @@ func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, s
 }
 
 // WriteTaskMetadataResponse writes the task metadata to response writer.
-func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState, ecsClient api.ECSClient, az, containerInstanceArn string, propagateTags bool) {
+func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState, ecsClient api.ECSClient, az, vpcId, containerInstanceArn string, propagateTags bool) {
 	// Generate a response for the task
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, az, vpcId, containerInstanceArn, propagateTags, false)
 	if err != nil {
 		errResponseJSON, err := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {

@@ -82,11 +82,12 @@ func NewTaskResponse(
 	ecsClient api.ECSClient,
 	cluster string,
 	az string,
+	vpcId string,
 	containerInstanceARN string,
 	propagateTags bool,
 ) (*TaskResponse, error) {
 	// Construct the v2 response first.
-	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az,
+	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, vpcId,
 		containerInstanceARN, propagateTags, true)
 	if err != nil {
 		return nil, err

@@ -44,6 +44,7 @@ type TaskResponse struct {
 	PullStoppedAt         *time.Time          `json:"PullStoppedAt,omitempty"`
 	ExecutionStoppedAt    *time.Time          `json:"ExecutionStoppedAt,omitempty"`
 	AvailabilityZone      string              `json:"AvailabilityZone,omitempty"`
+	VpcId                 string              `json:"VpcId,omitempty"`
 	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
 	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
 	LaunchType            string              `json:"LaunchType,omitempty"`
@@ -105,6 +106,7 @@ func NewTaskResponse(
 	ecsClient api.ECSClient,
 	cluster string,
 	az string,
+	vpcId string,
 	containerInstanceArn string,
 	propagateTags bool,
 	includeV4Metadata bool,
@@ -122,6 +124,7 @@ func NewTaskResponse(
 		DesiredStatus:    task.GetDesiredStatus().String(),
 		KnownStatus:      task.GetKnownStatus().String(),
 		AvailabilityZone: az,
+		VpcId:            vpcId,
 	}
 	if includeV4Metadata {
 		resp.LaunchType = task.LaunchType
