@@ -369,16 +369,13 @@ func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerNa
 	var ifName string
 	var err error
 
-	scPauseIPConfig := task.GetServiceConnectRuntimeConfig().PauseContainerIPConfig
-	if scPauseIPConfig == nil {
-		return nil, fmt.Errorf("failed to build CNI Bridge SC config - SC PauseContainerIPConfig cannot be nil")
-	}
+	scNetworkConfig := task.GetServiceConnectNetworkConfig()
 	ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
 		task.ServiceConnectConfig,
 		ecscni.TPROXY,
 		!task.IsContainerServiceConnectPause(containerName),
-		scPauseIPConfig.IPv4Addr != "",
-		scPauseIPConfig.IPv6Addr != "",
+		scNetworkConfig.SCPauseIPv4Addr != "",
+		scNetworkConfig.SCPauseIPv6Addr != "",
 		cniConfig)
 	if err != nil {
 		return nil, err

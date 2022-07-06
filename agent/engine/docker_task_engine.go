@@ -1690,7 +1690,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 				},
 			}
 		}
-		task.PopulateServiceConnectPauseIPConfig(ipv4Addr, ipv6Addr)
+		task.PopulateServiceConnectNetworkConfig(ipv4Addr, ipv6Addr)
 	}
 
 	return dockerContainerMD

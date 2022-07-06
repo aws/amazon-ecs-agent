@@ -302,11 +302,10 @@ func defaultTestServiceConnectConfig() *serviceconnect.Config {
 			},
 		},
 		DNSConfig: nil,
-		RuntimeConfig: serviceconnect.RuntimeConfig{
-			PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
-				IPv4Addr: testSCPauseIPv4Addr,
-				IPv6Addr: testSCPauseIPv6Addr,
-			}},
+		NetworkConfig: serviceconnect.NetworkConfig{
+			SCPauseIPv4Addr: testSCPauseIPv4Addr,
+			SCPauseIPv6Addr: testSCPauseIPv6Addr,
+		},
 	}
 }
 

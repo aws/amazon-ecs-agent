@@ -3174,7 +3174,7 @@ func (task *Task) IsContainerServiceConnectPause(containerName string) bool {
 	if scContainer == nil {
 		return false
 	}
-	scPauseName := fmt.Sprintf("%s-%s", NetworkPauseContainerName, scContainer.Name)
+	scPauseName := fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainer.Name)
 	return containerName == scPauseName
 }
 
@@ -3215,15 +3215,14 @@ func (task *Task) PopulateServiceConnectRuntimeConfig(serviceConnectConfig servi
 }
 
 // PopulateServiceConnectPauseIPConfig is called once we've started SC pause container and retrieved its container IPs.
-func (task *Task) PopulateServiceConnectPauseIPConfig(IPv4Addr, IPv6Addr string) {
+func (task *Task) PopulateServiceConnectNetworkConfig(ipv4Addr string, ipv6Addr string) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	task.ServiceConnectConfig.RuntimeConfig.PauseContainerIPConfig =
-		&serviceconnect.PauseContainerIPConfig{
-			IPv4Addr: IPv4Addr,
-			IPv6Addr: IPv6Addr,
-		}
+	task.ServiceConnectConfig.NetworkConfig = serviceconnect.NetworkConfig{
+		SCPauseIPv4Addr: ipv4Addr,
+		SCPauseIPv6Addr: ipv6Addr,
+	}
 }
 
 func (task *Task) GetServiceConnectRuntimeConfig() serviceconnect.RuntimeConfig {
@@ -3231,6 +3230,13 @@ func (task *Task) GetServiceConnectRuntimeConfig() serviceconnect.RuntimeConfig 
 	defer task.lock.RUnlock()
 
 	return task.ServiceConnectConfig.RuntimeConfig
+}
+
+func (task *Task) GetServiceConnectNetworkConfig() serviceconnect.NetworkConfig {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ServiceConnectConfig.NetworkConfig
 }
 
 func (task *Task) SetServiceConnectConnectionDraining(draining bool) {

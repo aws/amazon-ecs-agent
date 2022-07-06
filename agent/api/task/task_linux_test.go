@@ -19,7 +19,6 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -1438,11 +1437,9 @@ func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
 				ContainerName: scContainerName,
 				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
 				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
-				RuntimeConfig: serviceconnect.RuntimeConfig{
-					PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
-						IPv4Addr: scPauseIPv4,
-						IPv6Addr: "",
-					},
+				NetworkConfig: serviceconnect.NetworkConfig{
+					SCPauseIPv4Addr: scPauseIPv4,
+					SCPauseIPv6Addr: "",
 				},
 			}
 			testTask.Containers = []*apicontainer.Container{{Name: scContainerName}}
@@ -1472,27 +1469,6 @@ func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
 			}
 			assert.True(t, scConfig.EnableIPv4)
 			assert.False(t, scConfig.EnableIPv6)
-		})
-	}
-}
-
-func TestBuildCNIBridgeModeWithServiceConnect_missingPauseIPConfig(t *testing.T) {
-	for _, containerName := range []string{"other-pause", scPauseContainerName} {
-		t.Run(fmt.Sprintf("When container name is %s", containerName), func(t *testing.T) {
-			testTask := &Task{}
-			testTask.NetworkMode = BridgeNetworkMode
-			testTask.ServiceConnectConfig = &serviceconnect.Config{
-				ContainerName: scContainerName,
-				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
-				EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: scEgressListenerPort},
-			}
-			testTask.Containers = []*apicontainer.Container{{Name: scContainerName}}
-
-			cniConfig := &ecscni.Config{}
-			cniConfig, err := testTask.BuildCNIConfigBridgeMode(cniConfig, containerName)
-			assert.NotNil(t, err)
-			assert.True(t, strings.Contains(err.Error(), "SC PauseContainerIPConfig cannot be nil"))
-			assert.Nil(t, cniConfig)
 		})
 	}
 }

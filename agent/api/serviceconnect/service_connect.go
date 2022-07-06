@@ -24,6 +24,8 @@ type Config struct {
 
 	// Admin configuration for operating with AppNet Agent
 	RuntimeConfig RuntimeConfig `json:"runtimeConfig"`
+	// NetworkConfig contains additional network information for setting up task network namespace
+	NetworkConfig NetworkConfig `json:"networkConfig"`
 }
 
 // RuntimeConfig contains the runtime information for administering AppNet Agent
@@ -34,8 +36,6 @@ type RuntimeConfig struct {
 	StatsRequest string `json:"statsRequest"`
 	// HTTP Path + Params to drain ServiceConnect connections
 	DrainRequest string `json:"drainRequest"`
-	// SC pause container IP address - used for bridge-mode CNI configuration
-	PauseContainerIPConfig *PauseContainerIPConfig `json:"pauseContainerIPConfig,omitempty"`
 }
 
 // IngressConfigEntry is the ingress configuration for a given SC service.
@@ -77,7 +77,9 @@ type DNSConfigEntry struct {
 	Address  string `json:"address"`
 }
 
-type PauseContainerIPConfig struct {
-	IPv4Addr string `json:"ipv4Addr,omitempty"`
-	IPv6Addr string `json:"ipv6Addr,omitempty"`
+// NetworkConfig contains additional network information for setting up task network namespace.
+// This includes SC pause container IP address - used for bridge-mode CNI configuration
+type NetworkConfig struct {
+	SCPauseIPv4Addr string `json:"scPauseIPv4Addr,omitempty"`
+	SCPauseIPv6Addr string `json:"scPauseIPv6Addr,omitempty"`
 }

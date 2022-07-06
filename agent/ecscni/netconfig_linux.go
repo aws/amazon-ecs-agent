@@ -211,13 +211,10 @@ func NewServiceConnectNetworkConfig(
 			// 2. Other task pause container netns will add a route for traffic destined for SC VIP-CIDR to go to SC container.
 			//    In that case the configuration requires the SC (pause) container IP.
 			if shouldIncludeRedirectIP {
-				scPauseIPConfig := scConfig.RuntimeConfig.PauseContainerIPConfig
-				if scPauseIPConfig == nil {
-					return "", nil, fmt.Errorf("NewServiceConnectNetworkConfig: SC pause container IP config cannot be nil")
-				}
+				scNetworkConfig := scConfig.NetworkConfig
 				egressConfig.RedirectIP = &RedirectIPJson{
-					IPv4: scPauseIPConfig.IPv4Addr,
-					IPv6: scPauseIPConfig.IPv6Addr,
+					IPv4: scNetworkConfig.SCPauseIPv4Addr,
+					IPv6: scNetworkConfig.SCPauseIPv6Addr,
 				}
 			} else {
 				// for sc pause container, pass egress listener port for setting up tproxy

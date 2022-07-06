@@ -1313,11 +1313,9 @@ func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
 		ContainerName: serviceConnectContainerName,
 		IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: 11111}},
 		EgressConfig:  &serviceconnect.EgressConfig{ListenerPort: 22222},
-		RuntimeConfig: serviceconnect.RuntimeConfig{
-			PauseContainerIPConfig: &serviceconnect.PauseContainerIPConfig{
-				IPv4Addr: "172.0.0.1",
-				IPv6Addr: "",
-			},
+		NetworkConfig: serviceconnect.NetworkConfig{
+			SCPauseIPv4Addr: "172.0.0.1",
+			SCPauseIPv6Addr: "",
 		},
 	}
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
