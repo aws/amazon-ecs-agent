@@ -15,8 +15,11 @@ package retry
 
 import (
 	"context"
+	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
 
@@ -28,6 +31,10 @@ var _time ttime.Time = &ttime.DefaultTime{}
 // retried
 func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
+}
+
+func RetryWithBackoffForTaskHandler(cfg *config.Config, taskARN string, delay time.Duration, backoff Backoff, eventFlowCtx context.Context, fn func() error) error {
+	return RetryWithBackoffCtxForTaskHandler(context.Background(), eventFlowCtx, cfg, taskARN, backoff, delay, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -53,6 +60,84 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 		}
 
 		_time.Sleep(backoff.Duration())
+	}
+}
+
+func RetryWithBackoffCtxForTaskHandler(ctx context.Context, eventFlowCtx context.Context, cfg *config.Config, taskARN string, backoff Backoff, delay time.Duration, fn func() error) error {
+
+	var err error
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		err = fn()
+
+		retriableErr, isRetriableErr := err.(apierrors.Retriable)
+
+		//if unretriable error in disconnected mode, don't return
+		if err == nil || (!cfg.GetDisconnectModeEnabled() && isRetriableErr && !retriableErr.Retry()) {
+			return err
+		}
+
+		/*
+			If we were in normal mode up to this point and switch to disconnected mode here,
+			we enter the if block
+
+			If we were in disconnected mode up to this point and switch to normal mode here,
+			eventFlowCtx is cancelled, and we enter else block
+		*/
+		if cfg.GetDisconnectModeEnabled() {
+
+			/*
+				If we switch to normal mode while we are in this portion before calling WaitForDurationAndInterruptIfRequired,
+				there is a chance that we receive on a cancelled context- but this returns immediately
+			*/
+			WaitForDurationWithContext(eventFlowCtx, delay)
+		} else {
+
+			/*
+				If we switch to disconnected mode at this point, eventFlowCtx is initialized, no effect
+			*/
+
+			waitForDuration(backoff.Duration())
+		}
+
+		/*
+			If we were in disconnected mode up to this point and switch to normal mode here,
+			eventFlowCtx context is cancelled, but this has no effect
+
+			If we were in normal mode up to this point and switch to disconnected mode here,
+			eventFlowCtx is initialzed, but this has no effect
+		*/
+
+	}
+}
+
+func waitForDuration(delay time.Duration) bool {
+	return WaitForDurationWithContext(context.Background(), delay)
+}
+
+func WaitForDurationWithContext(eventFlowCtx context.Context, delay time.Duration) bool {
+	reconnectTimer := time.NewTimer(delay)
+	logger.Debug("Started wait", logger.Fields{
+		"waitDelay": delay.String(),
+	})
+	select {
+	case <-reconnectTimer.C:
+		logger.Debug("Finished wait", logger.Fields{
+			"waitDelay": delay.String(),
+		})
+		return true
+
+	case <-eventFlowCtx.Done():
+		logger.Debug("Interrupt wait as connection resumed")
+		if !reconnectTimer.Stop() { //prevents memory leak
+			<-reconnectTimer.C
+		}
+		return true
 	}
 }
 

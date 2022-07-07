@@ -23,9 +23,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -77,9 +79,14 @@ type TaskHandler struct {
 	minDrainEventsFrequency time.Duration
 	maxDrainEventsFrequency time.Duration
 
-	state  dockerstate.TaskEngineState
-	client api.ECSClient
-	ctx    context.Context
+	state                               dockerstate.TaskEngineState
+	client                              api.ECSClient
+	ctx                                 context.Context
+	cfg                                 *config.Config
+	disconnectedModeTaskEventRetryDelay time.Duration
+	eventFlowCtx                        context.Context
+	eventFlowCtxCancel                  context.CancelFunc
+	eventFlowCtxLock                    sync.Mutex
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -103,19 +110,27 @@ type taskSendableEvents struct {
 func NewTaskHandler(ctx context.Context,
 	dataClient data.Client,
 	state dockerstate.TaskEngineState,
-	client api.ECSClient) *TaskHandler {
+	client api.ECSClient,
+	cfg *config.Config,
+	disconnectedModeTaskEventRetryDelay time.Duration) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
+
+	eventFlowCtx, eventFlowCtxCancel := context.WithCancel(context.Background())
 	taskHandler := &TaskHandler{
-		ctx:                       ctx,
-		tasksToEvents:             make(map[string]*taskSendableEvents),
-		submitSemaphore:           utils.NewSemaphore(concurrentEventCalls),
-		tasksToContainerStates:    make(map[string][]api.ContainerStateChange),
-		tasksToManagedAgentStates: make(map[string][]api.ManagedAgentStateChange),
-		dataClient:                dataClient,
-		state:                     state,
-		client:                    client,
-		minDrainEventsFrequency:   minDrainEventsFrequency,
-		maxDrainEventsFrequency:   maxDrainEventsFrequency,
+		ctx:                                 ctx,
+		tasksToEvents:                       make(map[string]*taskSendableEvents),
+		submitSemaphore:                     utils.NewSemaphore(concurrentEventCalls),
+		tasksToContainerStates:              make(map[string][]api.ContainerStateChange),
+		tasksToManagedAgentStates:           make(map[string][]api.ManagedAgentStateChange),
+		dataClient:                          dataClient,
+		state:                               state,
+		client:                              client,
+		minDrainEventsFrequency:             minDrainEventsFrequency,
+		maxDrainEventsFrequency:             maxDrainEventsFrequency,
+		cfg:                                 cfg,
+		disconnectedModeTaskEventRetryDelay: disconnectedModeTaskEventRetryDelay,
+		eventFlowCtx:                        eventFlowCtx,
+		eventFlowCtxCancel:                  eventFlowCtxCancel,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -334,7 +349,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		retry.RetryWithBackoff(backoff, func() error {
+		retry.RetryWithBackoffForTaskHandler(handler.cfg, taskARN, handler.disconnectedModeTaskEventRetryDelay, backoff, handler.eventFlowCtx, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -448,4 +463,24 @@ func handleInvalidParamException(err error, events *list.List, eventToSubmit *li
 		seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
 		events.Remove(eventToSubmit)
 	}
+}
+
+//will be called by acs handler while toggling disconnectModeEnabled true to false
+func (handler *TaskHandler) ResumeEventsFlow() {
+
+	logger.Debug("Resuming events flow")
+	handler.eventFlowCtxLock.Lock()
+	defer handler.eventFlowCtxLock.Unlock()
+
+	handler.eventFlowCtxCancel()
+}
+
+//will be called by acs handler while toggling disconnectModeEnabled false to true
+func (handler *TaskHandler) PauseEventsFlow() {
+
+	logger.Debug("Pausing events flow")
+	handler.eventFlowCtxLock.Lock()
+	defer handler.eventFlowCtxLock.Unlock()
+
+	handler.eventFlowCtx, handler.eventFlowCtxCancel = context.WithCancel(handler.ctx)
 }
