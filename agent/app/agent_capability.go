@@ -23,6 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -73,6 +75,7 @@ const (
 	capabilityExecConfigRelativePath                       = "config"
 	capabilityExecCertsRelativePath                        = "certs"
 	capabilityExternal                                     = "external"
+	capabilityServiceConnect                               = "service-connect-v1"
 )
 
 var (
@@ -114,6 +117,7 @@ var (
 		attributePrefix + appMeshAttributeSuffix,
 		attributePrefix + taskEIAAttributeSuffix,
 		attributePrefix + taskEIAWithOptimizedCPU,
+		attributePrefix + capabilityServiceConnect,
 	}
 	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
 	// for future proof and also align with externalUnsupportedCapabilities.
@@ -176,6 +180,7 @@ var (
 //	ecs.capability.fsxWindowsFileServer
 //	ecs.capability.execute-command
 //	ecs.capability.external
+//	ecs.capability.service-connect-v1
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -271,6 +276,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if err != nil {
 		return nil, err
 	}
+	// add service-connect capabilities if applicable
+	capabilities = agent.appendServiceConnectCapabilities(capabilities)
 
 	if agent.cfg.External.Enabled() {
 		// Add external specific capability; remove external unsupported capabilities.
@@ -436,6 +443,22 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	}
 
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
+}
+
+func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if loaded, _ := agent.serviceconnectLoader.IsLoaded(agent.dockerClient); !loaded {
+		_, err := agent.serviceconnectLoader.LoadImage(agent.ctx, agent.dockerClient)
+		if err != nil {
+			logger.Error("ServiceConnect Capability: Failed to load appnet Agent container. This container instance will not be able to support ServiceConnect tasks",
+				logger.Fields{
+					field.Error: err,
+				},
+			)
+			return capabilities
+		}
+	}
+
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityServiceConnect)
 }
 
 func defaultGetSubDirectories(path string) ([]string, error) {
