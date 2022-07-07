@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -44,6 +45,7 @@ import (
 )
 
 const (
+	disconnectTime = 5 * time.Minute
 	// heartbeatTimeout is the maximum time to wait between heartbeats
 	// without disconnecting
 	heartbeatTimeout = 1 * time.Minute
@@ -101,6 +103,7 @@ type session struct {
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
 	_inactiveInstanceReconnectDelay time.Duration
+	disconnectionTimer              *time.Timer
 }
 
 // sessionResources defines the resource creator interface for starting
@@ -194,6 +197,8 @@ func NewSession(
 // If the instance is deregistered, Start() would emit an event to the
 // deregister-instance event stream and sets the connection backoff time to 1 hour.
 func (acsSession *session) Start() error {
+	cfg := acsSession.agentConfig
+
 	// connectToACS channel is used to indicate the intent to connect to ACS
 	// It's processed by the select loop to connect to ACS
 	connectToACS := make(chan struct{}, 1)
@@ -223,15 +228,45 @@ func (acsSession *session) Start() error {
 					seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
 				}
 			}
+
 			if shouldReconnectWithoutBackoff(acsError) {
 				// If ACS closed the connection, there's no need to backoff,
 				// reconnect immediately
 				seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
+				// Check if this instance has ECS_DISCONNECT_CAPABLE turned on. This code block is only reached when
+				// ACS has already failed to connect.
+			} else if cfg.DisconnectCapable.Enabled() {
+				if acsSession.disconnectionTimer != nil {
+					timerCompleted := acsSession.checkDisconnectionTimer()
+					logger.Debug("Checking disconnectionTimer status", logger.Fields{
+						"timerCompleted": timerCompleted,
+					})
+					// If the timer has been completed, then set DisconnectModeEnabled to true.
+					if timerCompleted {
+						cfg.SetDisconnectModeEnabled(true)
+						logger.Debug("Turning Disconnection Mode on after timer is completed", logger.Fields{
+							"disconnectionMode": cfg.GetDisconnectModeEnabled(),
+						})
+						// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
+						// excessive connection attempts).
+					} else {
+						logger.Debug("Starting 1 minute timer to reconnect to ACS")
+						intervalComplete := acsSession.waitForDuration(1 * time.Minute)
+						if intervalComplete {
+							logger.Debug("Timer complete, reconnecting to ACS now")
+							sendEmptyMessageOnChannel(connectToACS)
+						}
+					}
+				} else {
+					logger.Debug("Starting disconnectionTimer to enable Disconnected Mode")
+					acsSession.startDisconnectionTimer()
+					sendEmptyMessageOnChannel(connectToACS)
+				}
 			} else {
 				// Disconnected unexpectedly from ACS, compute backoff duration to
-				// reconnect
+				// reconnect and Disconnect Mode is not capable
 				reconnectDelay := acsSession.computeReconnectDelay(isInactiveInstance)
 				seelog.Infof("Reconnecting to ACS in: %s", reconnectDelay.String())
 				waitComplete := acsSession.waitForDuration(reconnectDelay)
@@ -254,6 +289,22 @@ func (acsSession *session) Start() error {
 		}
 
 	}
+}
+
+func (acsSession *session) checkDisconnectionTimer() bool {
+	select {
+	case <-acsSession.disconnectionTimer.C:
+		return true
+	case <-time.After(1 * time.Second):
+		return false
+
+	}
+}
+
+// // TODO: start timer using NewTimer (could also use AfterFunc but less sure about that)
+func (acsSession *session) startDisconnectionTimer() {
+	acsSession.disconnectionTimer = time.NewTimer(time.Duration(disconnectTime))
+
 }
 
 // startSessionOnce creates a session with ACS and handles requests using the passed
@@ -358,8 +409,22 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-
 	seelog.Info("Connected to ACS endpoint")
+
+	// Once ACS successfully reconnects, set disconnectModeEnabled to FALSE
+	if cfg.DisconnectCapable.Enabled() {
+		if cfg.GetDisconnectModeEnabled() {
+			logger.Debug("Turning Disconnect Mode off after successful reconnection.")
+			cfg.SetDisconnectModeEnabled(false)
+			// If reconnection is successful when the disconnection timer has already started,
+			// then terminate the timer. This way the timer can be re-initalized when connection
+			// is lost again.
+		} else if acsSession.disconnectionTimer != nil {
+			logger.Debug("Terminating disconnectionTimer due to successful reconnection after unexpected disconnect.")
+			acsSession.disconnectionTimer = nil
+		}
+	}
+
 	// Start inactivity timer for closing the connection
 	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	// Any message from the server resets the disconnect timeout
