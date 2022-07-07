@@ -77,9 +77,11 @@ type TaskHandler struct {
 	minDrainEventsFrequency time.Duration
 	maxDrainEventsFrequency time.Duration
 
-	state  dockerstate.TaskEngineState
-	client api.ECSClient
-	ctx    context.Context
+	state            dockerstate.TaskEngineState
+	client           api.ECSClient
+	ctx              context.Context
+	pauseEventsFlow  chan bool
+	resumeEventsFlow chan bool
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -116,6 +118,8 @@ func NewTaskHandler(ctx context.Context,
 		client:                    client,
 		minDrainEventsFrequency:   minDrainEventsFrequency,
 		maxDrainEventsFrequency:   maxDrainEventsFrequency,
+		pauseEventsFlow:           make(chan bool, 1),
+		resumeEventsFlow:          make(chan bool, 1),
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -334,7 +338,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		retry.RetryWithBackoff(backoff, func() error {
+		retry.RetryWithBackoffNew(handler.pauseEventsFlow, handler.resumeEventsFlow, backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -373,7 +377,7 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 		// If a send event is not already in progress, trigger the
 		// submitTaskEvents to start sending changes to ECS
 		taskEvents.sending = true
-		go handler.submitTaskEvents(taskEvents, client, change.taskArn())
+		go handler.submitTaskEvents(handler.disconnectedModeBackOff, client, change.taskArn())
 	} else {
 		seelog.Debugf(
 			"TaskHandler: Not submitting change as the task is already being sent: %s",
@@ -448,4 +452,12 @@ func handleInvalidParamException(err error, events *list.List, eventToSubmit *li
 		seelog.Warnf("TaskHandler: Event is sent with invalid parameters; just removing: %s", event.toString())
 		events.Remove(eventToSubmit)
 	}
+}
+
+func (handler *TaskHandler) ResumeEventsFlow() {
+	handler.resumeEventsFlow <- true
+}
+
+func (handler *TaskHandler) PauseEventsFlow() {
+	handler.pauseEventsFlow <- true
 }

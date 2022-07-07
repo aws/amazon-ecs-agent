@@ -15,6 +15,7 @@ package retry
 
 import (
 	"context"
+	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -30,6 +31,10 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
+func RetryWithBackoffNew(pauseEventsFlow <-chan bool, resumeEventsFlow <-chan bool, backoff Backoff, fn func() error) error {
+	return RetryWithBackoffCtxNew(pauseEventsFlow, resumeEventsFlow, context.Background(), backoff, fn)
+}
+
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
 // If the context is done, nil will be returned
 // If the error is nil then the function will no longer be called
@@ -40,6 +45,31 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	for {
 		select {
 		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		err = fn()
+
+		retriableErr, isRetriableErr := err.(apierrors.Retriable)
+
+		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
+			return err
+		}
+
+		_time.Sleep(backoff.Duration())
+	}
+}
+
+func RetryWithBackoffCtxNew(pauseEventsFlow <-chan bool, resumeEventsFlow <-chan bool, ctx context.Context, backoff Backoff, fn func() error) error {
+	var err error
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-pauseEventsFlow:
+			backoff = time.Second * 15
+		case <-resumeEventsFlow:
 			return nil
 		default:
 		}
