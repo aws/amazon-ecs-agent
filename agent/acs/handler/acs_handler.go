@@ -368,10 +368,11 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	seelog.Info("Connected to ACS endpoint")
-	
+
 	if config.GetDisconnectModeEnabled() {
 		seelog.Infof("switching to normal mode")
 		config.SetDisconnectModeEnabled(false)
+		acsSession.taskHandler.ResumeEventsFlow()
 	}
 
 	seelog.Infof("disconnect mode is")
