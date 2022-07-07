@@ -64,32 +64,43 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 }
 
 func RetryWithBackoffCtxNew(resumeEventsFlow <-chan bool, ctx context.Context, backoff Backoff, fn func() error) error {
+
 	var err error
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-resumeEventsFlow:
-			return nil
 		default:
 		}
 
-		if !config.GetDisconnectModeEnabled() {
+		err = fn()
 
-			err = fn()
+		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
-			retriableErr, isRetriableErr := err.(apierrors.Retriable)
-
-			if err == nil || (isRetriableErr && !retriableErr.Retry()) {
-				return err
-			}
-
-			_time.Sleep(backoff.Duration())
-
-		} else {
-			logger.Debug("In disconnected mode, hence sleep for 15 min")
-			_time.Sleep(time.Minute * 15)
+		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
+			return err
 		}
+
+		if !config.GetDisconnectModeEnabled() {
+			waitForDuration(backoff.Duration(), resumeEventsFlow)
+		} else {
+			waitForDuration(10*time.Minute, resumeEventsFlow)
+		}
+	}
+}
+
+func waitForDuration(delay time.Duration, resumeEventsFlow <-chan bool) bool {
+	reconnectTimer := time.NewTimer(delay)
+	logger.Debug("Waiting for")
+	logger.Debug(delay.String())
+	select {
+	case <-reconnectTimer.C:
+		logger.Debug("Finished waiting for")
+		logger.Debug(delay.String())
+		return true
+	case <-resumeEventsFlow:
+		logger.Debug("Interrupt wait as connection resumed")
+		return true
 	}
 }
 
