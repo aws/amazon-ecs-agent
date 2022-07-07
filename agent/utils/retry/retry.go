@@ -18,6 +18,8 @@ import (
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 )
 
@@ -31,8 +33,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
-func RetryWithBackoffNew(pauseEventsFlow <-chan bool, resumeEventsFlow <-chan bool, backoff Backoff, fn func() error) error {
-	return RetryWithBackoffCtxNew(pauseEventsFlow, resumeEventsFlow, context.Background(), backoff, fn)
+func RetryWithBackoffNew(resumeEventsFlow <-chan bool, backoff Backoff, fn func() error) error {
+	return RetryWithBackoffCtxNew(resumeEventsFlow, context.Background(), backoff, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -61,28 +63,33 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxNew(pauseEventsFlow <-chan bool, resumeEventsFlow <-chan bool, ctx context.Context, backoff Backoff, fn func() error) error {
+func RetryWithBackoffCtxNew(resumeEventsFlow <-chan bool, ctx context.Context, backoff Backoff, fn func() error) error {
 	var err error
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-pauseEventsFlow:
-			backoff = time.Second * 15
 		case <-resumeEventsFlow:
 			return nil
 		default:
 		}
 
-		err = fn()
+		if !config.GetDisconnectModeEnabled() {
 
-		retriableErr, isRetriableErr := err.(apierrors.Retriable)
+			err = fn()
 
-		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
-			return err
+			retriableErr, isRetriableErr := err.(apierrors.Retriable)
+
+			if err == nil || (isRetriableErr && !retriableErr.Retry()) {
+				return err
+			}
+
+			_time.Sleep(backoff.Duration())
+
+		} else {
+			logger.Debug("In disconnected mode, hence sleep for 15 min")
+			_time.Sleep(time.Minute * 15)
 		}
-
-		_time.Sleep(backoff.Duration())
 	}
 }
 

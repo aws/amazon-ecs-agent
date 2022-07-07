@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -80,7 +81,6 @@ type TaskHandler struct {
 	state            dockerstate.TaskEngineState
 	client           api.ECSClient
 	ctx              context.Context
-	pauseEventsFlow  chan bool
 	resumeEventsFlow chan bool
 }
 
@@ -118,7 +118,6 @@ func NewTaskHandler(ctx context.Context,
 		client:                    client,
 		minDrainEventsFrequency:   minDrainEventsFrequency,
 		maxDrainEventsFrequency:   maxDrainEventsFrequency,
-		pauseEventsFlow:           make(chan bool, 1),
 		resumeEventsFlow:          make(chan bool, 1),
 	}
 	go taskHandler.startDrainEventsTicker()
@@ -338,7 +337,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		retry.RetryWithBackoffNew(handler.pauseEventsFlow, handler.resumeEventsFlow, backoff, func() error {
+		retry.RetryWithBackoffNew(handler.resumeEventsFlow, backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -377,7 +376,7 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 		// If a send event is not already in progress, trigger the
 		// submitTaskEvents to start sending changes to ECS
 		taskEvents.sending = true
-		go handler.submitTaskEvents(handler.disconnectedModeBackOff, client, change.taskArn())
+		go handler.submitTaskEvents(taskEvents, client, change.taskArn())
 	} else {
 		seelog.Debugf(
 			"TaskHandler: Not submitting change as the task is already being sent: %s",
@@ -455,9 +454,6 @@ func handleInvalidParamException(err error, events *list.List, eventToSubmit *li
 }
 
 func (handler *TaskHandler) ResumeEventsFlow() {
+	logger.Debug("Resumed connection, sending a message on resumeEventsFlow channel")
 	handler.resumeEventsFlow <- true
-}
-
-func (handler *TaskHandler) PauseEventsFlow() {
-	handler.pauseEventsFlow <- true
 }
