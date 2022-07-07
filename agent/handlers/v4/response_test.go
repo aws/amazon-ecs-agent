@@ -54,7 +54,7 @@ const (
 	volSource                = "/var/lib/volume1"
 	volDestination           = "/volume"
 	availabilityZone         = "us-west-2b"
-	vpcId                    = "test-vpc-id"
+	vpcID                    = "test-vpc-id"
 	containerInstanceArn     = "containerInstance-test"
 )
 
@@ -135,7 +135,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcId, containerInstanceArn, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, false)
 	require.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	require.NoError(t, err)

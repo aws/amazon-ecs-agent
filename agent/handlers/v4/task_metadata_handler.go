@@ -33,7 +33,7 @@ var TaskMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, ut
 var TaskWithTagsMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
 
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
-func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, vpcId, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
+func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, vpcID, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var taskArn, err = v3.GetTaskARNByRequest(r, state)
 		if err != nil {
@@ -47,7 +47,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		seelog.Infof("V4 taskMetadata handler: Writing response for task '%s'", taskArn)
 
-		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster, az, vpcId, containerInstanceArn, propagateTags)
+		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster, az, vpcID, containerInstanceArn, propagateTags)
 		if err != nil {
 			errResponseJson, err := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
