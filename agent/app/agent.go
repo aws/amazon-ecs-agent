@@ -87,14 +87,15 @@ const (
 	instanceIdBackoffMultiple = 1.3
 	instanceIdMaxRetryCount   = 3
 
-	targetLifecycleBackoffMin      = time.Second
-	targetLifecycleBackoffMax      = time.Second * 5
-	targetLifecycleBackoffJitter   = 0.2
-	targetLifecycleBackoffMultiple = 1.3
-	targetLifecycleMaxRetryCount   = 3
-	inServiceState                 = "InService"
-	asgLifecyclePollWait           = time.Minute
-	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
+	targetLifecycleBackoffMin           = time.Second
+	targetLifecycleBackoffMax           = time.Second * 5
+	targetLifecycleBackoffJitter        = 0.2
+	targetLifecycleBackoffMultiple      = 1.3
+	targetLifecycleMaxRetryCount        = 3
+	inServiceState                      = "InService"
+	asgLifecyclePollWait                = time.Minute
+	asgLifecyclePollMax                 = 120              // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
+	disconnectedModeTaskEventRetryDelay = 10 * time.Minute //this is the time delay between every submit task state change attempt in disconnected mode
 )
 
 var (
@@ -408,7 +409,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream := eventstream.NewEventStream(
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
-	taskHandler := eventhandler.NewTaskHandler(agent.ctx, agent.dataClient, state, client)
+
+	taskHandler := eventhandler.NewTaskHandler(agent.ctx, agent.dataClient, state, client, agent.cfg, disconnectedModeTaskEventRetryDelay)
 	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)

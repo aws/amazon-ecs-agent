@@ -20,9 +20,11 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/golang/mock/gomock"
@@ -36,7 +38,8 @@ func TestHandleEngineEvent(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client)
+	cfg := &config.Config{}
+	taskHandler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	attachmentHandler := NewAttachmentEventHandler(ctx, data.NewNoopClient(), client)
 	defer cancel()
 
