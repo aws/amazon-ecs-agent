@@ -744,7 +744,7 @@ func TestBuildCNIConfig(t *testing.T) {
 		},
 	})
 
-	cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+	cniConfig, err := testTask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 		MinSupportedCNIVersion: "latest",
 	})
 	assert.NoError(t, err)
