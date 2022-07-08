@@ -73,6 +73,7 @@ type Engine interface {
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 	GetPublishServiceConnectTickerInterval() int32
 	SetPublishServiceConnectTickerInterval(int32)
+	GetPublishMetricsTicker() *time.Ticker
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -97,6 +98,7 @@ type DockerStatsEngine struct {
 	taskToTaskStats                     map[string]*StatsTask
 	taskToServiceConnectStats           map[string]*ServiceConnectStats
 	publishServiceConnectTickerInterval int32
+	publishMetricsTicker                *time.Ticker
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -224,6 +226,7 @@ func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecseng
 	logger.Info("Initializing stats engine")
 	engine.cluster = cluster
 	engine.containerInstanceArn = containerInstanceArn
+	engine.publishMetricsTicker = time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 
 	var err error
 	engine.resolver, err = newDockerContainerMetadataResolver(taskEngine)
@@ -265,6 +268,9 @@ func (engine *DockerStatsEngine) waitToStop() {
 	logger.Debug("Event stream closed, stop listening to the event stream")
 	engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 	engine.removeAll()
+	if engine.publishMetricsTicker != nil {
+		engine.publishMetricsTicker.Stop()
+	}
 }
 
 // removeAll stops the periodic usage data collection for all containers
@@ -940,4 +946,8 @@ func (engine *DockerStatsEngine) SetPublishServiceConnectTickerInterval(publishS
 	defer engine.lock.Unlock()
 
 	engine.publishServiceConnectTickerInterval = publishServiceConnectTickerInterval
+}
+
+func (engine *DockerStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return engine.publishMetricsTicker
 }
