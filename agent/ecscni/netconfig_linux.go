@@ -176,7 +176,10 @@ func NewAppMeshConfig(appMesh *appmesh.AppMesh, cfg *Config) (string, *libcni.Ne
 // NewServiceConnectNetworkConfig creates a new ServiceConnect CNI network configuration
 func NewServiceConnectNetworkConfig(
 	scConfig *serviceconnect.Config,
-	enableIPv4, enableIPv6 bool,
+	redirectMode RedirectMode,
+	shouldIncludeRedirectIP bool,
+	enableIPv4 bool,
+	enableIPv6 bool,
 	cfg *Config) (string, *libcni.NetworkConfig, error) {
 	var ingressConfig []IngressConfigJSONEntry
 	for _, ic := range scConfig.IngressConfig {
@@ -192,11 +195,33 @@ func NewServiceConnectNetworkConfig(
 	var egressConfig *EgressConfigJSON
 	if scConfig.EgressConfig != nil {
 		egressConfig = &EgressConfigJSON{
-			ListenerPort: scConfig.EgressConfig.ListenerPort,
+			RedirectMode: string(redirectMode),
 			VIP: VIPConfigJSON{
 				IPv4CIDR: scConfig.EgressConfig.VIP.IPV4CIDR,
 				IPv6CIDR: scConfig.EgressConfig.VIP.IPV6CIDR,
 			},
+		}
+		switch redirectMode {
+		case NAT:
+			// NAT redirect mode is for awsvpc tasks, where the one and only pause container netns will have a NAT redirect rule.
+			egressConfig.ListenerPort = scConfig.EgressConfig.ListenerPort
+		case TPROXY: // bridge
+			// TPROXY redirect mode is used for bridge-mode tasks. There are two use cases:
+			// 1. SC pause container netns will set up TPROXY that requires the Egress port
+			// 2. Other task pause container netns will add a route for traffic destined for SC VIP-CIDR to go to SC container.
+			//    In that case the configuration requires the SC (pause) container IP.
+			if shouldIncludeRedirectIP {
+				scNetworkConfig := scConfig.NetworkConfig
+				egressConfig.RedirectIP = &RedirectIPJson{
+					IPv4: scNetworkConfig.SCPauseIPv4Addr,
+					IPv6: scNetworkConfig.SCPauseIPv6Addr,
+				}
+			} else {
+				// for sc pause container, pass egress listener port for setting up tproxy
+				egressConfig.ListenerPort = scConfig.EgressConfig.ListenerPort
+			}
+		default:
+			return "", nil, fmt.Errorf("NewServiceConnectNetworkConfig: unknown redirect mode %s", string(redirectMode))
 		}
 	}
 
@@ -212,6 +237,5 @@ func NewServiceConnectNetworkConfig(
 	if err != nil {
 		return "", nil, fmt.Errorf("NewServiceConnectNetworkConfig: construct the service connect network configuration failed: %w", err)
 	}
-
 	return defaultServiceConnectIfName, networkConfig, nil
 }
