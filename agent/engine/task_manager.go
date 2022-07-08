@@ -239,7 +239,7 @@ func (mtask *managedTask) overseeTask() {
 	logger.Info("Managed task has reached stopped; waiting for container cleanup", logger.Fields{
 		field.TaskID: mtask.GetID(),
 	})
-	mtask.engine.checkTearDownPauseContainerAwsvpc(mtask.Task)
+	mtask.engine.checkTearDownPauseContainer(mtask.Task)
 	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
@@ -754,7 +754,7 @@ func (mtask *managedTask) releaseIPInIPAM() {
 		field.TaskID: mtask.GetID(),
 	})
 
-	cfg, err := mtask.BuildCNIConfig(true, &ecscni.Config{
+	cfg, err := mtask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	})
 	if err != nil {

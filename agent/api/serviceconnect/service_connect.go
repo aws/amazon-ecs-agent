@@ -24,6 +24,8 @@ type Config struct {
 
 	// Admin configuration for operating with AppNet Agent
 	RuntimeConfig RuntimeConfig `json:"runtimeConfig"`
+	// NetworkConfig contains additional network information for setting up task network namespace
+	NetworkConfig NetworkConfig `json:"networkConfig"`
 }
 
 // RuntimeConfig contains the runtime information for administering AppNet Agent
@@ -73,4 +75,11 @@ type VIP struct {
 type DNSConfigEntry struct {
 	HostName string `json:"hostName"`
 	Address  string `json:"address"`
+}
+
+// NetworkConfig contains additional network information for setting up task network namespace.
+// This includes SC pause container IP address - used for bridge-mode CNI configuration
+type NetworkConfig struct {
+	SCPauseIPv4Addr string `json:"scPauseIPv4Addr,omitempty"`
+	SCPauseIPv6Addr string `json:"scPauseIPv6Addr,omitempty"`
 }
