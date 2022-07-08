@@ -93,41 +93,60 @@ func RetryWithBackoffCtxNew(eventFlowController *EventFlowController, taskARN st
 			return err
 		}
 
-		if !config.GetDisconnectModeEnabled() {
-			waitForDuration(backoff.Duration())
-		} else {
-			logger.Debug("acquire lock to create a channel")
-			eventFlowController.eventControlLock.Lock()
-			logger.Debug("acquired lock to create a channel")
-			if _, ok := eventFlowController.flowControl[taskARN]; !ok {
-				logger.Debug("creating channel for")
-				logger.Debug(taskARN)
-				eventFlowController.flowControl[taskARN] = make(chan bool, 1)
+		var taskChannel chan bool
+		logger.Debug("acquire lock to create a channel")
+		eventFlowController.eventControlLock.Lock()
+		logger.Debug("acquired lock to create a channel")
+		if _, ok := eventFlowController.flowControl[taskARN]; !ok {
+			logger.Debug("creating channel for")
+			logger.Debug(taskARN)
+
+			//Checking disconnectModeEnabled here ensures that we create channel only in disconnected mode
+			if config.GetDisconnectModeEnabled() {
+				taskChannel = make(chan bool, 1)
+				eventFlowController.flowControl[taskARN] = taskChannel
 			}
-			logger.Debug("releasing lock to create a channel")
-			eventFlowController.eventControlLock.Unlock()
-			logger.Debug("released lock to create a channel")
+		}
+		logger.Debug("releasing lock to create a channel")
+		eventFlowController.eventControlLock.Unlock()
+		logger.Debug("released lock to create a channel")
 
-			eventFlowController.eventControlLock.RLock()
-			taskChannel := eventFlowController.flowControl[taskARN]
-			eventFlowController.eventControlLock.RUnlock()
+		/*
+			If we switch to disconnected mode after executing the previous code block,
+			that means there is no channel initialized for the current ARN.
+			Hence we don't use this nil channel
 
+			If we were in disconnected mode up to this point and switch to normal mode here,
+			we call waitForDuration and not waitForDurationAndInterruptIfRequired.
+			Hence, message is sent on channel but it is never read.
+		*/
+		if config.GetDisconnectModeEnabled() && taskChannel != nil {
 			waitForDurationAndInterruptIfRequired(10*time.Minute, taskChannel)
-			logger.Debug("acquire lock to delete a channel")
-			eventFlowController.eventControlLock.Lock()
-			logger.Debug("acquired lock to delete a channel")
-			if _, ok := eventFlowController.flowControl[taskARN]; ok {
-				logger.Debug("closing channel for taskArn")
-				logger.Debug(taskARN)
-				close(eventFlowController.flowControl[taskARN])
-			}
+		} else {
+			waitForDuration(backoff.Duration())
+		}
+
+		/*
+			Note: If we were in disconnected mode up to this point and switch to normal mode here,
+			message is sent on channel but it is never read.
+			Hence, channel may have messages in it when it is closed and deleted from map
+		*/
+		logger.Debug("acquire lock to delete a channel")
+		eventFlowController.eventControlLock.Lock()
+		logger.Debug("acquired lock to delete a channel")
+		if _, ok := eventFlowController.flowControl[taskARN]; ok {
+			logger.Debug("closing channel for taskArn")
+			logger.Debug(taskARN)
+			close(eventFlowController.flowControl[taskARN])
 			logger.Debug("deleting channel for taskArn")
 			logger.Debug(taskARN)
 			delete(eventFlowController.flowControl, taskARN)
-			logger.Debug("releasing lock to delete a channel")
-			eventFlowController.eventControlLock.Unlock()
-			logger.Debug("released lock to delete a channel")
 		}
+
+		logger.Debug("releasing lock to delete a channel")
+		eventFlowController.eventControlLock.Unlock()
+		logger.Debug("released lock to delete a channel")
+
 	}
 }
 
@@ -140,7 +159,10 @@ func DoResumeEventsFlow(eventFlowController *EventFlowController) {
 		logger.Debug("resuming flow for arn")
 		logger.Debug(arn)
 		if len(eventFlowController.flowControl[arn]) == 0 {
-			eventFlowController.flowControl[arn] <- true
+			taskChannel := eventFlowController.flowControl[arn]
+			if taskChannel != nil {
+				eventFlowController.flowControl[arn] <- true
+			}
 		}
 	}
 	logger.Debug("releasing lock to resume events flow")
