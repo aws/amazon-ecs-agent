@@ -62,6 +62,8 @@ import (
 const (
 	// NetworkPauseContainerName is the internal name for the pause container
 	NetworkPauseContainerName = "~internal~ecs~pause"
+	// ServiceConnectPauseContainerNameFormat is the naming format for SC pause containers
+	ServiceConnectPauseContainerNameFormat = "~internal~ecs~pause-%s"
 
 	// NamespacePauseContainerName is the internal name for the IPC resource namespace and/or
 	// PID namespace sharing pause container
@@ -1457,7 +1459,7 @@ func (task *Task) addNetworkResourceProvisioningDependencyServiceConnectBridge(c
 		pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 		// The pause container name is used internally by task engine but still needs to be unique for every task,
 		// hence we are appending the corresponding application container name (which must already be unique within the task)
-		pauseContainer.Name = fmt.Sprintf("%s-%s", NetworkPauseContainerName, container.Name)
+		pauseContainer.Name = fmt.Sprintf(ServiceConnectPauseContainerNameFormat, container.Name)
 		pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 		pauseContainer.Essential = true
 		pauseContainer.Type = apicontainer.ContainerCNIPause
@@ -1487,7 +1489,7 @@ func (task *Task) addNetworkResourceProvisioningDependencyServiceConnectBridge(c
 // For a container with name "abc", the pause container will always be named "~internal~ecs~pause-abc"
 func (task *Task) GetBridgeModePauseContainerForTaskContainer(container *apicontainer.Container) (*apicontainer.Container, error) {
 	// "~internal~ecs~pause-$TASK_CONTAINER_NAME"
-	pauseContainerName := fmt.Sprintf("%s-%s", NetworkPauseContainerName, container.Name)
+	pauseContainerName := fmt.Sprintf(ServiceConnectPauseContainerNameFormat, container.Name)
 	pauseContainer, ok := task.ContainerByName(pauseContainerName)
 	if !ok {
 		return nil, fmt.Errorf("could not find pause container %s for task container %s", pauseContainerName, container.Name)
@@ -3164,6 +3166,18 @@ func (task *Task) GetServiceConnectContainer() *apicontainer.Container {
 	return c
 }
 
+// IsContainerServiceConnectPause checks whether a given container name is the name of the task service connect pause
+// container. We construct the name of SC pause container by taking SC container name from SC config, and using the
+// pause container naming pattern.
+func (task *Task) IsContainerServiceConnectPause(containerName string) bool {
+	scContainer := task.GetServiceConnectContainer()
+	if scContainer == nil {
+		return false
+	}
+	scPauseName := fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainer.Name)
+	return containerName == scPauseName
+}
+
 // IsServiceConnectEnabled returns true if Service Connect is enabled for this task.
 func (task *Task) IsServiceConnectEnabled() bool {
 	return task.GetServiceConnectContainer() != nil
@@ -3200,11 +3214,29 @@ func (task *Task) PopulateServiceConnectRuntimeConfig(serviceConnectConfig servi
 	task.ServiceConnectConfig.RuntimeConfig = serviceConnectConfig
 }
 
+// PopulateServiceConnectPauseIPConfig is called once we've started SC pause container and retrieved its container IPs.
+func (task *Task) PopulateServiceConnectNetworkConfig(ipv4Addr string, ipv6Addr string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.ServiceConnectConfig.NetworkConfig = serviceconnect.NetworkConfig{
+		SCPauseIPv4Addr: ipv4Addr,
+		SCPauseIPv6Addr: ipv6Addr,
+	}
+}
+
 func (task *Task) GetServiceConnectRuntimeConfig() serviceconnect.RuntimeConfig {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
 	return task.ServiceConnectConfig.RuntimeConfig
+}
+
+func (task *Task) GetServiceConnectNetworkConfig() serviceconnect.NetworkConfig {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ServiceConnectConfig.NetworkConfig
 }
 
 func (task *Task) SetServiceConnectConnectionDraining(draining bool) {
