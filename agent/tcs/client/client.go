@@ -54,7 +54,6 @@ var (
 type clientServer struct {
 	statsEngine              stats.Engine
 	doctor                   *doctor.Doctor
-	publishTicker            *time.Ticker
 	publishHealthTicker      *time.Ticker
 	pullInstanceStatusTicker *time.Ticker
 	ctx                      context.Context
@@ -79,7 +78,6 @@ func New(url string,
 	cs := &clientServer{
 		statsEngine:              statsEngine,
 		doctor:                   doctor,
-		publishTicker:            nil,
 		publishHealthTicker:      nil,
 		pullInstanceStatusTicker: nil,
 		publishMetricsInterval:   publishMetricsInterval,
@@ -112,7 +110,6 @@ func (cs *clientServer) Serve() error {
 	}
 
 	// Start the timer function to publish metrics to the backend.
-	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
 
@@ -127,9 +124,6 @@ func (cs *clientServer) Serve() error {
 
 // Close closes the underlying connection.
 func (cs *clientServer) Close() error {
-	if cs.publishTicker != nil {
-		cs.publishTicker.Stop()
-	}
 	if cs.publishHealthTicker != nil {
 		cs.publishHealthTicker.Stop()
 	}
@@ -170,7 +164,8 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 
 // publishMetrics invokes the PublishMetricsRequest on the clientserver object.
 func (cs *clientServer) publishMetrics() {
-	if cs.publishTicker == nil {
+	publishTicker := cs.statsEngine.GetPublishMetricsTicker()
+	if publishTicker == nil {
 		seelog.Debug("Skipping publishing metrics. Publish ticker is uninitialized")
 		return
 	}
@@ -178,7 +173,7 @@ func (cs *clientServer) publishMetrics() {
 	// don't simply range over the ticker since its channel doesn't ever get closed
 	for {
 		select {
-		case <-cs.publishTicker.C:
+		case <-publishTicker.C:
 			var includeServiceConnectStats bool
 			metricCounter := cs.statsEngine.GetPublishServiceConnectTickerInterval()
 			metricCounter++
@@ -316,7 +311,7 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 
 // publishHealthMetrics send the container health information to backend
 func (cs *clientServer) publishHealthMetrics() {
-	if cs.publishTicker == nil {
+	if cs.publishHealthTicker == nil {
 		seelog.Debug("Skipping publishing health metrics. Publish ticker is uninitialized")
 		return
 	}
