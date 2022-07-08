@@ -71,7 +71,6 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 		if cniNetworkConfig.Network.Type == ECSBridgePluginName {
 			bridgeResult = result
 		}
-
 		seelog.Debugf("[ECSCNI] Completed adding network %s type %s in the container namespace %s",
 			cniNetworkConfig.Network.Name,
 			cniNetworkConfig.Network.Type,
@@ -80,6 +79,10 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 
 	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", cfg.ContainerID)
 
+	if bridgeResult == nil {
+		// Not every netns setup involves ECS Bridge Plugin
+		return nil, nil
+	}
 	if _, err := bridgeResult.GetAsVersion(currentCNISpec); err != nil {
 		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
 			currentCNISpec, err, bridgeResult.Version())

@@ -47,7 +47,7 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 		return errors.Wrapf(err, "error occurred while inspecting container %v", container.Name)
 	}
 
-	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, containerInspectOutput, false)
+	cniConfig, err := engine.buildCNIConfigFromTaskContainerAwsvpc(task, containerInspectOutput, false)
 	if err != nil {
 		return errors.Wrap(err, "unable to build cni configuration")
 	}
