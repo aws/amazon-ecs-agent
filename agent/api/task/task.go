@@ -322,6 +322,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 
+	// initialize network mode so service connect validations are accurate
+	task.initNetworkMode()
+
 	// extract and validate attachments
 	if err := handleTaskAttachments(acsTask, task); err != nil {
 		return nil, err

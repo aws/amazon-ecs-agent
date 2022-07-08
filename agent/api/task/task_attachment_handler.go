@@ -25,7 +25,7 @@ import (
 // AttachmentHandler defines an interface to handel attachment received from ACS.
 type AttachmentHandler interface {
 	parseAttachment(acsAttachment *ecsacs.Attachment) error
-	validateAttachment(acsTask *ecsacs.Task) error
+	validateAttachment(acsTask *ecsacs.Task, networkMode string) error
 }
 
 // ServiceConnectAttachmentHandler defines a service connect type attachment handler.
@@ -56,10 +56,9 @@ func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachme
 }
 
 // attachment validator of service connect attachment handler.
-func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *ecsacs.Task) error {
+func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *ecsacs.Task, networkMode string) error {
 	config := scAttachment.scConfig
 	taskContainers := acsTask.Containers
-	networkMode := aws.StringValue(acsTask.NetworkMode)
 	ipv6Enabled := false
 	if acsTask.ElasticNetworkInterfaces != nil {
 		for _, eni := range acsTask.ElasticNetworkInterfaces {
@@ -99,7 +98,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 			}
 
 			// validate the service connect config parsed from the service connect attachment
-			if err := scHandler.(*ServiceConnectAttachmentHandler).validateAttachment(acsTask); err != nil {
+			if err := scHandler.(*ServiceConnectAttachmentHandler).validateAttachment(acsTask, task.NetworkMode); err != nil {
 				return fmt.Errorf("service connect config validation failed: %w", err)
 			}
 			task.ServiceConnectConfig = scHandler.(*ServiceConnectAttachmentHandler).scConfig
