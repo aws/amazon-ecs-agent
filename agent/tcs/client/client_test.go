@@ -127,6 +127,10 @@ func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
 }
 
+func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
@@ -147,6 +151,10 @@ func (*emptyStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
 
 func (*emptyStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
+}
+
+func (*emptyStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 }
 
 type idleStatsEngine struct{}
@@ -175,6 +183,10 @@ func (*idleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
 
 func (*idleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
+}
+
+func (*idleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 }
 
 type nonIdleStatsEngine struct {
@@ -211,6 +223,10 @@ func (*nonIdleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
 
 func (*nonIdleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
+}
+
+func (*nonIdleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 }
 
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
@@ -308,6 +324,10 @@ func (*serviceConnectStatsEngine) GetPublishServiceConnectTickerInterval() int32
 
 func (*serviceConnectStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
+}
+
+func (*serviceConnectStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 }
 
 func newServiceConnectStatsEngine(numTasks int) *serviceConnectStatsEngine {
@@ -566,6 +586,7 @@ func TestMetricsDisabled(t *testing.T) {
 	readed := make(chan struct{})
 
 	// stats engine should only be called for getting health metrics
+	mockStatsEngine.EXPECT().GetPublishMetricsTicker().Return(time.NewTicker(config.DefaultContainerMetricsPublishInterval)).MinTimes(1)
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
 		Cluster:           aws.String("TestMetricsDisabled"),
 		ContainerInstance: aws.String("container_instance"),

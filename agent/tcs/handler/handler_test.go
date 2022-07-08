@@ -88,6 +88,10 @@ func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
 }
 
+func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 // TestDisableMetrics tests the StartMetricsSession will return immediately if
 // the metrics was disabled
 func TestDisableMetrics(t *testing.T) {
