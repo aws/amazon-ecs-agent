@@ -15,6 +15,7 @@ package retry
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -25,6 +26,17 @@ import (
 
 var _time ttime.Time = &ttime.DefaultTime{}
 
+type EventFlowController struct {
+	eventControlLock sync.RWMutex
+	flowControl      map[string]chan bool
+}
+
+func NewEventFlowController() *EventFlowController {
+	return &EventFlowController{
+		flowControl: make(map[string]chan bool),
+	}
+}
+
 // RetryWithBackoff takes a Backoff and a function to call that returns an error
 // If the error is nil then the function will no longer be called
 // If the error is Retriable then that will be used to determine if it should be
@@ -33,8 +45,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
-func RetryWithBackoffNew(resumeEventsFlow <-chan bool, backoff Backoff, fn func() error) error {
-	return RetryWithBackoffCtxNew(resumeEventsFlow, context.Background(), backoff, fn)
+func RetryWithBackoffNew(eventFlowController *EventFlowController, taskARN string, backoff Backoff, fn func() error) error {
+	return RetryWithBackoffCtxNew(eventFlowController, taskARN, context.Background(), backoff, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -63,7 +75,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxNew(resumeEventsFlow <-chan bool, ctx context.Context, backoff Backoff, fn func() error) error {
+func RetryWithBackoffCtxNew(eventFlowController *EventFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
 
 	var err error
 	for {
@@ -82,14 +94,73 @@ func RetryWithBackoffCtxNew(resumeEventsFlow <-chan bool, ctx context.Context, b
 		}
 
 		if !config.GetDisconnectModeEnabled() {
-			waitForDuration(backoff.Duration(), resumeEventsFlow)
+			waitForDuration(backoff.Duration())
 		} else {
-			waitForDuration(10*time.Minute, resumeEventsFlow)
+			logger.Debug("acquire lock to create a channel")
+			eventFlowController.eventControlLock.Lock()
+			logger.Debug("acquired lock to create a channel")
+			if _, ok := eventFlowController.flowControl[taskARN]; !ok {
+				logger.Debug("creating channel for")
+				logger.Debug(taskARN)
+				eventFlowController.flowControl[taskARN] = make(chan bool, 1)
+			}
+			logger.Debug("releasing lock to create a channel")
+			eventFlowController.eventControlLock.Unlock()
+			logger.Debug("released lock to create a channel")
+
+			eventFlowController.eventControlLock.RLock()
+			taskChannel := eventFlowController.flowControl[taskARN]
+			eventFlowController.eventControlLock.RUnlock()
+
+			waitForDurationAndInterruptIfRequired(10*time.Minute, taskChannel)
+			logger.Debug("acquire lock to delete a channel")
+			eventFlowController.eventControlLock.Lock()
+			logger.Debug("acquired lock to delete a channel")
+			if _, ok := eventFlowController.flowControl[taskARN]; ok {
+				logger.Debug("closing channel for taskArn")
+				logger.Debug(taskARN)
+				close(eventFlowController.flowControl[taskARN])
+			}
+			logger.Debug("deleting channel for taskArn")
+			logger.Debug(taskARN)
+			delete(eventFlowController.flowControl, taskARN)
+			logger.Debug("releasing lock to delete a channel")
+			eventFlowController.eventControlLock.Unlock()
+			logger.Debug("released lock to delete a channel")
 		}
 	}
 }
 
-func waitForDuration(delay time.Duration, resumeEventsFlow <-chan bool) bool {
+func DoResumeEventsFlow(eventFlowController *EventFlowController) {
+	logger.Debug("acquire lock to resume events flow")
+	eventFlowController.eventControlLock.Lock()
+	logger.Debug("acquired lock to resume events flow")
+
+	for arn := range eventFlowController.flowControl {
+		logger.Debug("resuming flow for arn")
+		logger.Debug(arn)
+		if len(eventFlowController.flowControl[arn]) == 0 {
+			eventFlowController.flowControl[arn] <- true
+		}
+	}
+	logger.Debug("releasing lock to resume events flow")
+	eventFlowController.eventControlLock.Unlock()
+	logger.Debug("released lock to resume events flow")
+}
+
+func waitForDuration(delay time.Duration) bool {
+	reconnectTimer := time.NewTimer(delay)
+	logger.Debug("Waiting for")
+	logger.Debug(delay.String())
+	select {
+	case <-reconnectTimer.C:
+		logger.Debug("Finished waiting for")
+		logger.Debug(delay.String())
+		return true
+	}
+}
+
+func waitForDurationAndInterruptIfRequired(delay time.Duration, resumeEventsFlow <-chan bool) bool {
 	reconnectTimer := time.NewTimer(delay)
 	logger.Debug("Waiting for")
 	logger.Debug(delay.String())

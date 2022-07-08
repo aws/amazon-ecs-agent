@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -49,11 +48,6 @@ const (
 	submitStateBackoffJitterMultiple = 0.20
 	submitStateBackoffMultiple       = 1.3
 )
-
-type eventFlowController struct {
-	eventControlLock sync.RWMutex
-	flowControl      map[string]chan bool
-}
 
 // TaskHandler encapsulates the the map of a task arn to task and container events
 // associated with said task
@@ -86,7 +80,7 @@ type TaskHandler struct {
 	state               dockerstate.TaskEngineState
 	client              api.ECSClient
 	ctx                 context.Context
-	eventFlowController *eventFlowController
+	eventFlowController *retry.EventFlowController
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -104,12 +98,6 @@ type taskSendableEvents struct {
 	createdAt time.Time
 	// taskARN is the task arn that the event list is associated with
 	taskARN string
-}
-
-func NewEventFlowController() *eventFlowController {
-	return &eventFlowController{
-		flowControl: make(map[string]chan bool),
-	}
 }
 
 // NewTaskHandler returns a pointer to TaskHandler
@@ -130,7 +118,7 @@ func NewTaskHandler(ctx context.Context,
 		client:                    client,
 		minDrainEventsFrequency:   minDrainEventsFrequency,
 		maxDrainEventsFrequency:   maxDrainEventsFrequency,
-		eventFlowController:       NewEventFlowController(),
+		eventFlowController:       retry.NewEventFlowController(),
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -338,18 +326,6 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 	defer metrics.MetricsEngineGlobal.RecordECSClientMetric("SUBMIT_TASK_EVENTS")()
 	defer handler.removeTaskEvents(taskARN)
 
-	logger.Debug("acquire lock to create a channel")
-	handler.eventFlowController.eventControlLock.Lock()
-	logger.Debug("acquired lock to create a channel")
-	if _, ok := handler.eventFlowController.flowControl[taskARN]; !ok {
-		logger.Debug("creating channel for")
-		logger.Debug(taskARN)
-		handler.eventFlowController.flowControl[taskARN] = make(chan bool, 1)
-	}
-	logger.Debug("releasing lock to create a channel")
-	handler.eventFlowController.eventControlLock.Unlock()
-	logger.Debug("released lock to create a channel")
-
 	backoff := retry.NewExponentialBackoff(submitStateBackoffMin, submitStateBackoffMax,
 		submitStateBackoffJitterMultiple, submitStateBackoffMultiple)
 
@@ -361,10 +337,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		handler.eventFlowController.eventControlLock.RLock()
-		taskChannel := handler.eventFlowController.flowControl[taskARN]
-		handler.eventFlowController.eventControlLock.RUnlock()
-		retry.RetryWithBackoffNew(taskChannel, backoff, func() error {
+		retry.RetryWithBackoffNew(handler.eventFlowController, taskARN, backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -376,22 +349,6 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 			return err
 		})
 	}
-
-	logger.Debug("acquire lock to delete a channel")
-	handler.eventFlowController.eventControlLock.Lock()
-	logger.Debug("acquired lock to delete a channel")
-	if _, ok := handler.eventFlowController.flowControl[taskARN]; ok {
-		logger.Debug("closing channel for taskArn")
-		logger.Debug(taskARN)
-		close(handler.eventFlowController.flowControl[taskARN])
-	}
-	logger.Debug("deleting channel for taskArn")
-	logger.Debug(taskARN)
-	delete(handler.eventFlowController.flowControl, taskARN)
-	logger.Debug("releasing lock to delete a channel")
-	handler.eventFlowController.eventControlLock.Unlock()
-	logger.Debug("released lock to delete a channel")
-
 }
 
 func (handler *TaskHandler) removeTaskEvents(taskARN string) {
@@ -497,19 +454,5 @@ func handleInvalidParamException(err error, events *list.List, eventToSubmit *li
 }
 
 func (handler *TaskHandler) ResumeEventsFlow() {
-
-	logger.Debug("acquire lock to resume events flow")
-	handler.eventFlowController.eventControlLock.Lock()
-	logger.Debug("acquired lock to resume events flow")
-
-	for arn := range handler.eventFlowController.flowControl {
-		logger.Debug("resuming flow for arn")
-		logger.Debug(arn)
-		if len(handler.eventFlowController.flowControl[arn]) == 0 {
-			handler.eventFlowController.flowControl[arn] <- true
-		}
-	}
-	logger.Debug("releasing lock to resume events flow")
-	handler.eventFlowController.eventControlLock.Unlock()
-	logger.Debug("released lock to resume events flow")
+	retry.DoResumeEventsFlow(handler.eventFlowController)
 }
