@@ -454,6 +454,11 @@ func handleInvalidParamException(err error, events *list.List, eventToSubmit *li
 }
 
 func (handler *TaskHandler) ResumeEventsFlow() {
+	select {
+		case <- handler.resumeEventsFlow:
+			logger.Debug("Purge existing message in channel")
+		default:
+	}
 	logger.Debug("Resumed connection, sending a message on resumeEventsFlow channel")
-	handler.resumeEventsFlow <- true
+			handler.resumeEventsFlow <- true
 }
