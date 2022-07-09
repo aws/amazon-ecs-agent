@@ -80,7 +80,7 @@ type TaskHandler struct {
 	state               dockerstate.TaskEngineState
 	client              api.ECSClient
 	ctx                 context.Context
-	eventFlowController *retry.EventFlowController
+	eventFlowController *retry.TaskEventsFlowController
 }
 
 // taskSendableEvents is used to group all events for a task
