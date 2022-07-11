@@ -145,6 +145,12 @@ var testConfig = &config.Config{
 	AcceptInsecureCert: true,
 }
 
+var testConfigDisconnect = &config.Config{
+	Cluster:            "someCluster",
+	AcceptInsecureCert: true,
+	DisconnectCapable:  config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+}
+
 var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 type mockSessionResources struct {
@@ -198,7 +204,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -326,124 +332,78 @@ func TestShouldReconnectWithoutBackoffReturnsFalseForNonEOF(t *testing.T) {
 // TestHandlerReconnectsWithoutBackoffOnEOFError tests if the session handler reconnects
 // to ACS without any delay when the connection is closed with the io.EOF error
 func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
-	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
-
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
-
-	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
-	deregisterInstanceEventStream.StartListening()
-
-	mockBackoff := mock_retry.NewMockBackoff(ctrl)
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	gomock.InOrder(
-		mockWsClient.EXPECT().Connect().Return(io.EOF),
-		// The backoff.Reset() method is expected to be invoked when the connection
-		// is closed with io.EOF
-		mockBackoff.EXPECT().Reset(),
-		mockWsClient.EXPECT().Connect().Do(func() {
-			// cancel the context on the 2nd connect attempt, which should stop
-			// the test
-			cancel()
-		}).Return(io.EOF),
-		mockBackoff.EXPECT().Reset().AnyTimes(),
-	)
-	acsSession := session{
-		containerInstanceARN:            "myArn",
-		credentialsProvider:             testCreds,
-		agentConfig:                     testConfig,
-		taskEngine:                      taskEngine,
-		ecsClient:                       ecsClient,
-		deregisterInstanceEventStream:   deregisterInstanceEventStream,
-		dataClient:                      data.NewNoopClient(),
-		taskHandler:                     taskHandler,
-		backoff:                         mockBackoff,
-		ctx:                             ctx,
-		cancel:                          cancel,
-		resources:                       &mockSessionResources{mockWsClient},
-		latestSeqNumTaskManifest:        aws.Int64(10),
-		_heartbeatTimeout:               20 * time.Millisecond,
-		_heartbeatJitter:                10 * time.Millisecond,
-		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+	testCases := []struct {
+		Name   string
+		Config *config.Config
+	}{
+		{
+			Name:   "disconnect capable off",
+			Config: testConfig,
+		},
+		{
+			Name:   "disconnect capable on",
+			Config: testConfigDisconnect,
+		},
 	}
-	go func() {
-		acsSession.Start()
-	}()
+	for _, tc := range testCases {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	// Wait for context to be cancelled
-	select {
-	case <-ctx.Done():
-	}
-}
+		taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+		taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
-// TestHandlerReconnectsWithoutBackoffOnEOFError tests if the session handler reconnects
-// to ACS after a backoff duration when the connection is closed with non io.EOF error
-func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ecsClient := mock_api.NewMockECSClient(ctrl)
+		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
-	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+		ctx, cancel := context.WithCancel(context.Background())
+		taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+		deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+		deregisterInstanceEventStream.StartListening()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+		mockBackoff := mock_retry.NewMockBackoff(ctrl)
+		mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+		mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+		mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+		mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+		gomock.InOrder(
+			mockWsClient.EXPECT().Connect().Return(io.EOF),
+			// The backoff.Reset() method is expected to be invoked when the connection
+			// is closed with io.EOF
+			mockBackoff.EXPECT().Reset(),
+			mockWsClient.EXPECT().Connect().Do(func() {
+				// cancel the context on the 2nd connect attempt, which should stop
+				// the test
+				cancel()
+			}).Return(io.EOF),
+			mockBackoff.EXPECT().Reset().AnyTimes(),
+		)
+		acsSession := session{
+			containerInstanceARN:            "myArn",
+			credentialsProvider:             testCreds,
+			agentConfig:                     tc.Config,
+			taskEngine:                      taskEngine,
+			ecsClient:                       ecsClient,
+			deregisterInstanceEventStream:   deregisterInstanceEventStream,
+			dataClient:                      data.NewNoopClient(),
+			taskHandler:                     taskHandler,
+			backoff:                         mockBackoff,
+			ctx:                             ctx,
+			cancel:                          cancel,
+			resources:                       &mockSessionResources{mockWsClient},
+			latestSeqNumTaskManifest:        aws.Int64(10),
+			_heartbeatTimeout:               20 * time.Millisecond,
+			_heartbeatJitter:                10 * time.Millisecond,
+			_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+		}
+		go func() {
+			acsSession.Start()
+		}()
 
-	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
-	deregisterInstanceEventStream.StartListening()
-
-	mockBackoff := mock_retry.NewMockBackoff(ctrl)
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	gomock.InOrder(
-		mockWsClient.EXPECT().Connect().Return(fmt.Errorf("not EOF")),
-		// The backoff.Duration() method is expected to be invoked when
-		// the connection is closed with a non-EOF error code to compute
-		// the backoff. Also, no calls to backoff.Reset() are expected
-		// in this code path.
-		mockBackoff.EXPECT().Duration().Return(time.Millisecond),
-		mockWsClient.EXPECT().Connect().Do(func() {
-			cancel()
-		}).Return(io.EOF),
-		mockBackoff.EXPECT().Reset().AnyTimes(),
-	)
-	acsSession := session{
-		containerInstanceARN:          "myArn",
-		credentialsProvider:           testCreds,
-		agentConfig:                   testConfig,
-		taskEngine:                    taskEngine,
-		ecsClient:                     ecsClient,
-		deregisterInstanceEventStream: deregisterInstanceEventStream,
-		dataClient:                    data.NewNoopClient(),
-		taskHandler:                   taskHandler,
-		backoff:                       mockBackoff,
-		ctx:                           ctx,
-		cancel:                        cancel,
-		resources:                     &mockSessionResources{mockWsClient},
-		_heartbeatTimeout:             20 * time.Millisecond,
-		_heartbeatJitter:              10 * time.Millisecond,
-	}
-	go func() {
-		acsSession.Start()
-	}()
-
-	// Wait for context to be cancelled
-	select {
-	case <-ctx.Done():
+		// Wait for context to be cancelled
+		select {
+		case <-ctx.Done():
+		}
 	}
 }
 
@@ -460,7 +420,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 
@@ -519,7 +479,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
@@ -586,7 +546,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -641,7 +601,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -689,7 +649,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -756,7 +716,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 	defer cancel()
 
 	wait := sync.WaitGroup{}
@@ -811,7 +771,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	closeWS := make(chan bool)
 	server, serverIn, requests, errs, err := startMockAcsServer(t, closeWS)
@@ -903,7 +863,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 	closeWS := make(chan bool)
 	server, serverIn, requestsChan, errChan, err := startMockAcsServer(t, closeWS)
 	if err != nil {
@@ -1031,7 +991,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()

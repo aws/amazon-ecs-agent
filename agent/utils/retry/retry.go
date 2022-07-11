@@ -45,8 +45,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
-func RetryWithBackoffForTaskHandler(eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
-	return RetryWithBackoffCtxForTaskHandler(eventFlowController, taskARN, context.Background(), backoff, fn)
+func RetryWithBackoffForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
+	return RetryWithBackoffCtxForTaskHandler(cfg, eventFlowController, taskARN, context.Background(), backoff, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -75,7 +75,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxForTaskHandler(eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
+func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
 
 	var err error
 	for {
@@ -93,7 +93,7 @@ func RetryWithBackoffCtxForTaskHandler(eventFlowController *TaskEventsFlowContro
 			return err
 		}
 
-		taskChannel := eventFlowController.createChannelForTask(taskARN)
+		taskChannel := eventFlowController.createChannelForTask(cfg, taskARN)
 
 		/*
 			If we switch to disconnected mode after executing the previous code block,
@@ -104,7 +104,7 @@ func RetryWithBackoffCtxForTaskHandler(eventFlowController *TaskEventsFlowContro
 			we call waitForDuration and not waitForDurationAndInterruptIfRequired.
 			Hence, message is sent on channel but it is never read.
 		*/
-		if config.GetDisconnectModeEnabled() && taskChannel != nil {
+		if cfg.GetDisconnectModeEnabled() && taskChannel != nil {
 			waitForDurationAndInterruptIfRequired(10*time.Minute, taskChannel)
 		} else {
 			waitForDuration(backoff.Duration())
@@ -139,7 +139,7 @@ func (eventFlowController *TaskEventsFlowController) deleteChannelForTask(taskAR
 	logger.Debug("Released lock to delete a channel")
 }
 
-func (eventFlowController *TaskEventsFlowController) createChannelForTask(taskARN string) chan bool {
+func (eventFlowController *TaskEventsFlowController) createChannelForTask(cfg *config.Config, taskARN string) chan bool {
 
 	var taskChannel chan bool
 	logger.Debug("Acquiring lock to create a channel")
@@ -150,7 +150,7 @@ func (eventFlowController *TaskEventsFlowController) createChannelForTask(taskAR
 		logger.Debug(taskARN)
 
 		//Checking disconnectModeEnabled here ensures that we create channel only in disconnected mode
-		if config.GetDisconnectModeEnabled() {
+		if cfg.GetDisconnectModeEnabled() {
 			taskChannel = make(chan bool, 1)
 			eventFlowController.flowControl[taskARN] = taskChannel
 		}

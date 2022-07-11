@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -81,6 +82,7 @@ type TaskHandler struct {
 	client              api.ECSClient
 	ctx                 context.Context
 	eventFlowController *retry.TaskEventsFlowController
+	cfg                 *config.Config
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -104,7 +106,7 @@ type taskSendableEvents struct {
 func NewTaskHandler(ctx context.Context,
 	dataClient data.Client,
 	state dockerstate.TaskEngineState,
-	client api.ECSClient) *TaskHandler {
+	client api.ECSClient, cfg *config.Config) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 
 	taskHandler := &TaskHandler{
@@ -119,6 +121,7 @@ func NewTaskHandler(ctx context.Context,
 		minDrainEventsFrequency:   minDrainEventsFrequency,
 		maxDrainEventsFrequency:   maxDrainEventsFrequency,
 		eventFlowController:       retry.NewEventFlowController(),
+		cfg:                       cfg,
 	}
 	go taskHandler.startDrainEventsTicker()
 
