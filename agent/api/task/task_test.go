@@ -491,6 +491,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				ID: "eniID",
 			},
 		},
+		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
@@ -1500,6 +1501,7 @@ func TestTaskFromACS(t *testing.T) {
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
+		NetworkMode:         BridgeNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:        "myName",
@@ -1594,6 +1596,7 @@ func TestTaskFromACS(t *testing.T) {
 		Memory:              512,
 		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
@@ -4083,7 +4086,7 @@ func validateServiceConnectBridgeModePauseContainer(t *testing.T, task *Task) {
 	}, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies[0])
 }
 
-func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
+func TestTaskFromACS_InitNetworkMode(t *testing.T) {
 	for _, tc := range []struct {
 		inputNetworkMode        string
 		expectedTaskNetworkMode string
@@ -4110,6 +4113,7 @@ func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
 			DesiredStatus: strptr("RUNNING"),
 			Family:        strptr("myFamily"),
 			Version:       strptr("1"),
+			NetworkMode:   aws.String(tc.inputNetworkMode),
 			Containers: []*ecsacs.Container{
 				{
 					Name: aws.String("C1"),
@@ -4122,21 +4126,6 @@ func TestPostUnmarshalTaskNetworkModeInference(t *testing.T) {
 		seqNum := int64(42)
 		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 		assert.Nil(t, err, "Should be able to handle acs task")
-
-		// Setup
-		if tc.inputNetworkMode == AWSVPCNetworkMode {
-			// Inject a dummy ENI to signal this is an awsvpc task
-			task.ENIs = []*apieni.ENI{{}}
-		} else if tc.inputNetworkMode != "" {
-			// otherwise, if networkMode is bridge or host, inject it into container's docker host config
-			task.Containers[0].DockerConfig = apicontainer.DockerConfig{
-				HostConfig: aws.String(fmt.Sprintf(
-					`{"NetworkMode":"%s"}`, tc.inputNetworkMode)),
-			}
-		}
-
-		err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
-		assert.NoError(t, err)
 		assert.Equal(t, tc.expectedTaskNetworkMode, task.NetworkMode)
 		switch tc.inputNetworkMode {
 		case AWSVPCNetworkMode:

@@ -156,7 +156,7 @@ const (
 	serviceConnectListenerPortMappingEnvVar = "APPNET_LISTENER_PORT_MAPPING"
 	serviceConnectContainerMappingEnvVar    = "APPNET_CONTAINER_IP_MAPPING"
 	// ServiceConnectAttachmentType specifies attachment type for service connect
-	serviceConnectAttachmentType = "ServiceConnect"
+	serviceConnectAttachmentType = "serviceconnectdetail"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -322,6 +322,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 
+	task.initNetworkMode(acsTask.NetworkMode)
+
 	// extract and validate attachments
 	if err := handleTaskAttachments(acsTask, task); err != nil {
 		return nil, err
@@ -353,7 +355,6 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
 	dockerClient dockerapi.DockerClient, ctx context.Context, options ...Option) error {
 
-	task.initNetworkMode()
 	task.adjustForPlatform(cfg)
 
 	// TODO, add rudimentary plugin support and call any plugins that want to
@@ -459,69 +460,36 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 }
 
 // initNetworkMode initializes/infers the network mode for the task and assigns the result to this task's NetworkMode field.
-// This is necessary because ACS doesn't send the actual network mode declared in task def.
-// TODO [SC]: Instead of doing this, it's perhaps better/easier to just ask ACS to send network mode from task definition. Using this in the meantime to avoid being blocked.
-func (task *Task) initNetworkMode() {
-	if len(task.ENIs) > 0 {
+// ACS is streaming down this value with task payload. In case of docker bridge mode task, this value might be left empty
+// as it's the default task network mode.
+func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
+	switch aws.StringValue(acsTaskNetworkMode) {
+	case AWSVPCNetworkMode:
 		task.NetworkMode = AWSVPCNetworkMode
-		return
+	case HostNetworkMode:
+		task.NetworkMode = HostNetworkMode
+	case BridgeNetworkMode, "":
+		task.NetworkMode = BridgeNetworkMode
+	default:
+		logger.Warn("Unmapped task network mode", logger.Fields{
+			field.TaskID:      task.GetID(),
+			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+		})
 	}
-	for _, c := range task.Containers {
-		// ACS sets task def network mode to each and every customer container docker host config, so the presence
-		// of one container with a given network mode is enough to infer the task network mode
-		switch c.GetNetworkModeFromHostConfig() {
-		case BridgeNetworkMode:
-			task.NetworkMode = BridgeNetworkMode
-			return
-		case HostNetworkMode:
-			task.NetworkMode = HostNetworkMode
-			return
-		case "":
-			// the absence of a network mode means the default docker network mode is used, which, for ECS it's bridge.
-			// for future proofing, let's keep inspecting the rest of the containers for this particular case.
-			continue
-		}
-	}
-	// If we reached this part, it means none of the containers has network mode set, which means bridge mode (default)
-	task.NetworkMode = BridgeNetworkMode
+	logger.Info("Task network mode initialized", logger.Fields{
+		field.TaskID:      task.GetID(),
+		field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+	})
 }
 
 func (task *Task) initServiceConnectResources() error {
-	// TODO [SC]: ServiceConnectConfig will come from ACS. Adding this here for dev/testing purposes only Remove when
-	// ACS model is integrated
-	if task.ServiceConnectConfig == nil {
-		task.ServiceConnectConfig = &serviceconnect.Config{
-			ContainerName: "service-connect",
-		}
-	}
-	// TODO [SC]: End dev/testing purposes
 	if task.IsServiceConnectEnabled() {
-		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
-		task.initDummyServiceConnectConfig()
-		// TODO [SC]: End dev/testing purposes
 		if err := task.initServiceConnectEphemeralPorts(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-
-// TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
-func (task *Task) initDummyServiceConnectConfig() {
-	scContainer := task.GetServiceConnectContainer()
-	if _, ok := scContainer.Environment["SC_CONFIG"]; !ok {
-		// no SC_CONFIG :(
-		return
-	}
-	if err := json.Unmarshal([]byte(scContainer.Environment["SC_CONFIG"]), task.ServiceConnectConfig); err != nil {
-		logger.Error("Error parsing SC_CONFIG", logger.Fields{
-			field.Error: err,
-		})
-		return
-	}
-}
-
-// TODO [SC]: End dev/testing purposes
 
 func (task *Task) initServiceConnectEphemeralPorts() error {
 	var utilizedPorts []uint16
@@ -1356,7 +1324,7 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.Fi
 
 // IsNetworkModeAWSVPC checks if the task is configured to use the AWSVPC task networking feature.
 func (task *Task) IsNetworkModeAWSVPC() bool {
-	return len(task.ENIs) > 0
+	return task.NetworkMode == AWSVPCNetworkMode
 }
 
 // IsNetworkModeBridge checks if the task is configured to use the bridge network mode.
