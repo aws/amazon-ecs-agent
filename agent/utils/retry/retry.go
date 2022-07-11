@@ -205,6 +205,9 @@ func waitForDurationAndInterruptIfRequired(delay time.Duration, resumeEventsFlow
 		return true
 	case <-resumeEventsFlow:
 		logger.Debug("Interrupt wait as connection resumed")
+		if !reconnectTimer.Stop() { //prevents memory leak
+			<-reconnectTimer.C
+		}
 		return true
 	}
 }
