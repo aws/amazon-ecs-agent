@@ -416,6 +416,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		if cfg.GetDisconnectModeEnabled() {
 			logger.Debug("Turning DisconnectModeEnabled off after successful reconnection.")
 			cfg.SetDisconnectModeEnabled(false)
+			acsSession.taskHandler.ResumeEventsFlow()
 			// If reconnection is successful when the disconnection timer has already started,
 			// then terminate the timer. This way the timer can be re-initalized when connection
 			// is lost again.
