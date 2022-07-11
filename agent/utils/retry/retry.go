@@ -45,8 +45,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
-func RetryWithBackoffNew(eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
-	return RetryWithBackoffCtxNew(eventFlowController, taskARN, context.Background(), backoff, fn)
+func RetryWithBackoffForTaskHandler(eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
+	return RetryWithBackoffCtxForTaskHandler(eventFlowController, taskARN, context.Background(), backoff, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -75,7 +75,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxNew(eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
+func RetryWithBackoffCtxForTaskHandler(eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
 
 	var err error
 	for {
