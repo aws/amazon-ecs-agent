@@ -522,7 +522,6 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, serv
 			{Name: "test1"},
 			{Name: SCContainerName},
 		},
-		NetworkMode: netMode,
 	}
 	if serviceConnectEnabled {
 		t1.ServiceConnectConfig = &serviceconnect.Config{
