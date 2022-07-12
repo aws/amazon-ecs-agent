@@ -485,12 +485,36 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 }
 
 func (task *Task) initServiceConnectResources() error {
+	// TODO [SC]: ServiceConnectConfig will come from ACS. Adding this here for dev/testing purposes only Remove when
+	// ACS model is integrated
+	if task.ServiceConnectConfig == nil {
+		task.ServiceConnectConfig = &serviceconnect.Config{
+			ContainerName: "service-connect",
+		}
+	}
 	if task.IsServiceConnectEnabled() {
+		// TODO [SC]: initDummyServiceConnectConfig is for dev testing only, remove it when final SC model from ACS is in place
+		task.initDummyServiceConnectConfig()
 		if err := task.initServiceConnectEphemeralPorts(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// TODO [SC]: This is for dev testing only, remove it when final SC model from ACS is in place
+func (task *Task) initDummyServiceConnectConfig() {
+	scContainer := task.GetServiceConnectContainer()
+	if _, ok := scContainer.Environment["SC_CONFIG"]; !ok {
+		// no SC_CONFIG :(
+		return
+	}
+	if err := json.Unmarshal([]byte(scContainer.Environment["SC_CONFIG"]), task.ServiceConnectConfig); err != nil {
+		logger.Error("Error parsing SC_CONFIG", logger.Fields{
+			field.Error: err,
+		})
+		return
+	}
 }
 
 func (task *Task) initServiceConnectEphemeralPorts() error {
