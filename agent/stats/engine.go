@@ -765,27 +765,33 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				field.Error:     err,
 			})
 		} else {
-			// send network stats for default/bridge/nat/awsvpc network modes
-			if !task.IsNetworkModeAWSVPC() && container.containerMetadata.NetworkMode != hostNetworkMode &&
-				container.containerMetadata.NetworkMode != noneNetworkMode {
-				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
-				if err != nil {
-					// we log the error and still continue to publish cpu, memory stats
-					logger.Warn("Error getting network stats for container", logger.Fields{
-						field.Container: dockerID,
-						field.Error:     err,
-					})
-				} else {
-					containerMetric.NetworkStatsSet = networkStatsSet
-				}
-			} else if task.IsNetworkModeAWSVPC() {
-				taskStatsMap, taskExistsInTaskStats := engine.taskToTaskStats[taskArn]
-				if !taskExistsInTaskStats {
-					return nil, fmt.Errorf("task not found")
-				}
-				if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
-					seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
-				} else {
+			if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
+				logger.Warn("Could not map container ID to container, container", logger.Fields{
+					field.DockerId: dockerID,
+					field.Error:    err,
+				})
+			} else {
+				// send network stats for default/bridge/nat/awsvpc network modes
+				if task.IsNetworkModeBridge() {
+					if task.IsServiceConnectEnabled() && dockerContainer.Container.Type == apicontainer.ContainerCNIPause {
+						seelog.Debug("Skip adding network stats for pause container in Service Connect enabled task")
+					} else {
+						networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
+						if err != nil {
+							// we log the error and still continue to publish cpu, memory stats
+							logger.Warn("Error getting network stats for container", logger.Fields{
+								field.Container: dockerID,
+								field.Error:     err,
+							})
+						} else {
+							containerMetric.NetworkStatsSet = networkStatsSet
+						}
+					}
+				} else if task.IsNetworkModeAWSVPC() {
+					taskStatsMap, taskExistsInTaskStats := engine.taskToTaskStats[taskArn]
+					if !taskExistsInTaskStats {
+						return nil, fmt.Errorf("task not found")
+					}
 					// do not add network stats for pause container
 					if dockerContainer.Container.Type != apicontainer.ContainerCNIPause {
 						networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
