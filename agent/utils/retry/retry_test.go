@@ -60,15 +60,15 @@ func TestRetryWithBackoff(t *testing.T) {
 func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 	for _, tc := range []struct {
-		disconnectModeEnabled
-	}, {
+		disconnectModeEnabled bool
+	}{
 		{
 			disconnectModeEnabled: true
 		},
 		{
 			disconnectModeEnabled: true
 		}
-	}, {
+	}{
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
