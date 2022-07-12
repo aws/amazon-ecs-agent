@@ -470,6 +470,8 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 		task.NetworkMode = HostNetworkMode
 	case BridgeNetworkMode, "":
 		task.NetworkMode = BridgeNetworkMode
+	case networkModeNone:
+		task.NetworkMode = networkModeNone
 	default:
 		logger.Warn("Unmapped task network mode", logger.Fields{
 			field.TaskID:      task.GetID(),
@@ -478,7 +480,7 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 	}
 	logger.Info("Task network mode initialized", logger.Fields{
 		field.TaskID:      task.GetID(),
-		field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+		field.NetworkMode: task.NetworkMode,
 	})
 }
 
