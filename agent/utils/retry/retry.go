@@ -89,6 +89,7 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
+		//TODO: add logic to not return if unretriable error in disconnected mode
 		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
 			return err
 		}

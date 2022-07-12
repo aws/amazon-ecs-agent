@@ -57,6 +57,71 @@ func TestRetryWithBackoff(t *testing.T) {
 	})
 }
 
+func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
+
+	for _, tc := range []struct {
+		disconnectModeEnabled
+	}, {
+		{
+			disconnectModeEnabled: true
+		},
+		{
+			disconnectModeEnabled: true
+		}
+	}, {
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mocktime := mock_ttime.NewMockTime(ctrl)
+		_time = mocktime
+		defer func() { _time = &ttime.DefaultTime{} }()
+
+		t.Run("retries", func(t *testing.T) {
+			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(3)
+			counter := 3
+			config := Config{}
+			config.SetDisconnectModeEnabled(disconnectModeEnabled)
+			flowController := NewEventFlowController()
+			RetryWithBackoffCtxForTaskHandler(config, flowController, context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+				if counter == 0 {
+					return nil
+				}
+				counter--
+				return errors.New("err")
+			})
+			assert.Equal(t, 0, counter, "Counter didn't go to 0; didn't get retried enough")
+		})
+
+		t.Run("no retries", func(t *testing.T) {
+			// no sleeps
+			config.SetDisconnectModeEnabled(disconnectModeEnabled)
+			flowController := NewEventFlowController()
+			RetryWithBackoffCtxForTaskHandler(config, flowController, NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
+				return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
+			})
+		})
+
+		t.Run("cancel context", func(t *testing.T) {
+			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(2)
+			counter := 2
+			ctx, cancel := context.WithCancel(context.TODO())
+			config.SetDisconnectModeEnabled(disconnectModeEnabled)
+			flowController := NewEventFlowController()
+			RetryWithBackoffCtxForTaskHandler(config, flowController, ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+				counter--
+				if counter == 0 {
+					cancel()
+				}
+				return errors.New("err")
+			})
+			assert.Equal(t, 0, counter, "Counter not 0; went the wrong number of times")
+		})
+
+		//TODO: find how mock interruption of timer
+	}
+
+}
+
 func TestRetryWithBackoffCtx(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
