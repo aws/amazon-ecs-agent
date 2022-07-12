@@ -63,12 +63,12 @@ func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		disconnectModeEnabled bool
 	}{
 		{
-			disconnectModeEnabled: true
+			disconnectModeEnabled: true,
 		},
 		{
-			disconnectModeEnabled: true
-		}
-	}{
+			disconnectModeEnabled: false,
+		},
+	} {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
