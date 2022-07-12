@@ -233,7 +233,14 @@ func (acsSession *session) Start() error {
 					seelog.Debugf("Failed to write to deregister container instance event stream, err: %v", err)
 				}
 			}
-
+			if cfg.GetDisconnectModeEnabled() {
+				logger.Debug("Starting 5 minute timer to reconnect to ACS")
+				reconnectIntervalComplete := acsSession.waitForDuration(time.Duration(disconnectTimeout))
+				if reconnectIntervalComplete {
+					logger.Debug("5 minute timer complete, attempting to reconnect to ACS")
+					sendEmptyMessageOnChannel(connectToACS)
+				}
+			}
 			if shouldReconnectWithoutBackoff(acsError) {
 				// If ACS closed the connection, there's no need to backoff,
 				// reconnect immediately
@@ -255,6 +262,7 @@ func (acsSession *session) Start() error {
 							"disconnectionMode": cfg.GetDisconnectModeEnabled(),
 						})
 						acsSession.disconnectionTimer = nil
+						sendEmptyMessageOnChannel(connectToACS)
 						// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
 						// excessive connection attempts).
 					} else {
@@ -265,7 +273,7 @@ func (acsSession *session) Start() error {
 							sendEmptyMessageOnChannel(connectToACS)
 						}
 					}
-				} else {
+				} else if !cfg.GetDisconnectModeEnabled() {
 					logger.Debug("Starting disconnectionTimer to enable DisconnectModeEnabled")
 					acsSession.disconnectionTimer = time.NewTimer(time.Duration(disconnectTimeout))
 					sendEmptyMessageOnChannel(connectToACS)
@@ -416,7 +424,6 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		if cfg.GetDisconnectModeEnabled() {
 			logger.Debug("Turning DisconnectModeEnabled off after successful reconnection.")
 			cfg.SetDisconnectModeEnabled(false)
-			acsSession.taskHandler.ResumeEventsFlow()
 			// If reconnection is successful when the disconnection timer has already started,
 			// then terminate the timer. This way the timer can be re-initalized when connection
 			// is lost again.
