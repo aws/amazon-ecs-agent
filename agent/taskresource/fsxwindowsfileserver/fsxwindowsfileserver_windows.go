@@ -19,6 +19,7 @@ package fsxwindowsfileserver
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -547,8 +548,20 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 		}
 	}
 
+	f, err := os.CreateTemp("", "")
+	if err != nil {
+		return errors.Errorf("failed to create temporary file for fsxwindowsfileserver mapping with error: %v", err)
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+	written, err := f.WriteString(password)
+	if err != nil || written == 0 {
+		return errors.Errorf("failed to write password for fsxwindowsfileserver mapping with error: %v", err)
+	}
+	f.Close()
+
 	// formatting to keep powershell happy
-	creds := fmt.Sprintf("-Credential $(New-Object System.Management.Automation.PSCredential(\"%s\", $(ConvertTo-SecureString \"%s\" -AsPlainText -Force)))", username, password)
+	creds := fmt.Sprintf("-Credential $(New-Object System.Management.Automation.PSCredential(\"%s\", $(ConvertTo-SecureString \"(Get-Content '%s')\" -AsPlainText -Force)))", username, f.Name())
 	remotePathArg := fmt.Sprintf("-RemotePath \"%s\"", remotePath)
 
 	// New-SmbGlobalMapping cmdlet creates an SMB mapping between the container instance
