@@ -45,7 +45,7 @@ func TestLinuxTaskNetworkStatsSet(t *testing.T) {
 		{nil, "none", true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, false, tc.StatsEmpty)
 	}
 }
 
