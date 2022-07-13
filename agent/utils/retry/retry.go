@@ -91,11 +91,13 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
-		//TODO: add logic to not return if unretriable error in disconnected mode
-		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
+		//if unretriable error in disconnected mode, don't retutn
+		if err == nil || (!cfg.GetDisconnectModeEnabled() && isRetriableErr && !retriableErr.Retry()) {
 			eventFlowController.deleteChannelForTask(taskARN)
 			return err
 		}
+
+		//sleep(backoff)
 
 		/*
 			If we switch to disconnected mode after executing the previous code block,

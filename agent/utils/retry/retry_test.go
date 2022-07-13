@@ -97,10 +97,20 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		})
 
 		t.Run(fmt.Sprintf("no retries, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
-			// no sleeps
+			counter = 3
 			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, taskChannel, func() error {
+				if counter == 0 {
+					return nil
+				}
 				return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
+				counter--
 			})
+
+			if tc.disconnectModeEnabled {
+				assert.Equal(t, 0, counter, "Counter not 0; went the wrong number of times")
+			} else {
+				assert.Equal(t, 3, counter, "Counter not 3; went the wrong number of times")
+			}
 		})
 
 		t.Run(fmt.Sprintf("cancel context, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
