@@ -126,32 +126,47 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 func (eventFlowController *TaskEventsFlowController) deleteChannelForTask(taskARN string) {
 
-	logger.Debug("Acquiring lock to delete a channel")
+	logger.Debug("Acquiring lock: deleteChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock to delete a channel")
+	logger.Debug("Acquired lock: deleteChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	if _, ok := eventFlowController.flowControl[taskARN]; ok {
-		logger.Debug("Closing channel for taskArn")
-		logger.Debug(taskARN)
+		logger.Debug("Closing channel", logger.Fields{
+			"taskARN": taskARN,
+		})
 		close(eventFlowController.flowControl[taskARN])
-		logger.Debug("Deleting channel for taskArn")
-		logger.Debug(taskARN)
+		logger.Debug("Deleting channel", logger.Fields{
+			"taskARN": taskARN,
+		})
 		delete(eventFlowController.flowControl, taskARN)
 	}
 
-	logger.Debug("Releasing lock to delete a channel")
+	logger.Debug("Releasing lock: deleteChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock to delete a channel")
+	logger.Debug("Released lock: deleteChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 }
 
 func (eventFlowController *TaskEventsFlowController) createChannelForTask(cfg *config.Config, taskARN string) chan bool {
 
 	var taskChannel chan bool
-	logger.Debug("Acquiring lock to create a channel")
+	logger.Debug("Acquiring lock: createChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock to create a channel")
+	logger.Debug("Acquired lock: createChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	if _, ok := eventFlowController.flowControl[taskARN]; !ok {
-		logger.Debug("Creating channel for")
-		logger.Debug(taskARN)
+		logger.Debug("Creating channel", logger.Fields{
+			"taskARN": taskARN,
+		})
 
 		//Checking disconnectModeEnabled here ensures that we create channel only in disconnected mode
 		if cfg.GetDisconnectModeEnabled() {
@@ -159,9 +174,13 @@ func (eventFlowController *TaskEventsFlowController) createChannelForTask(cfg *c
 			eventFlowController.flowControl[taskARN] = taskChannel
 		}
 	}
-	logger.Debug("Releasing lock to create a channel")
+	logger.Debug("Releasing lock: createChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock to create a channel")
+	logger.Debug("Released lock: createChannelForTask", logger.Fields{
+		"taskARN": taskARN,
+	})
 
 	return taskChannel
 }
@@ -172,8 +191,9 @@ func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
 	logger.Debug("Acquired lock to resume events flow")
 
 	for arn := range eventFlowController.flowControl {
-		logger.Debug("Resuming task events flow for arn")
-		logger.Debug(arn)
+		logger.Debug("Resuming task events flow for a task", logger.Fields{
+			"taskARN": arn,
+		})
 		if len(eventFlowController.flowControl[arn]) == 0 {
 			taskChannel := eventFlowController.flowControl[arn]
 			if taskChannel != nil {
@@ -181,19 +201,21 @@ func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
 			}
 		}
 	}
-	logger.Debug("releasing lock to resume events flow")
+	logger.Debug("Releasing lock to resume events flow")
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("released lock to resume events flow")
+	logger.Debug("Released lock to resume events flow")
 }
 
 func waitForDuration(delay time.Duration) bool {
 	reconnectTimer := time.NewTimer(delay)
-	logger.Debug("Waiting for")
-	logger.Debug(delay.String())
+	logger.Debug("Started wait", logger.Fields{
+		"waitDelay": delay.String(),
+	})
 	select {
 	case <-reconnectTimer.C:
-		logger.Debug("Finished waiting for")
-		logger.Debug(delay.String())
+		logger.Debug("Finished wait", logger.Fields{
+			"waitDelay": delay.String(),
+		})
 		return true
 	default:
 		return false
@@ -202,12 +224,14 @@ func waitForDuration(delay time.Duration) bool {
 
 func waitForDurationAndInterruptIfRequired(delay time.Duration, resumeEventsFlow <-chan bool) bool {
 	reconnectTimer := time.NewTimer(delay)
-	logger.Debug("Waiting for")
-	logger.Debug(delay.String())
+	logger.Debug("Started wait", logger.Fields{
+		"waitDelay": delay.String(),
+	})
 	select {
 	case <-reconnectTimer.C:
-		logger.Debug("Finished waiting for")
-		logger.Debug(delay.String())
+		logger.Debug("Finished wait", logger.Fields{
+			"waitDelay": delay.String(),
+		})
 		return true
 	case <-resumeEventsFlow:
 		logger.Debug("Interrupt wait as connection resumed")
