@@ -119,7 +119,7 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		if tc.disconnectModeEnabled {
 			t.Run(fmt.Sprintf("interrupt timer, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 				counter := 3
-				RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
+				RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 5*time.Second, taskChannel, func() error {
 					if counter == 0 {
 						return nil
 					}
