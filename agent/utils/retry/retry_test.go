@@ -96,17 +96,17 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 			assert.Equal(t, 0, counter, "Counter didn't go to 0; didn't get retried enough")
 		})
 
-		t.Run("no retries", func(t *testing.T) {
+		t.Run(fmt.Sprintf("no retries, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			// no sleeps
 			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, taskChannel, func() error {
 				return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
 			})
 		})
 
-		t.Run("cancel context", func(t *testing.T) {
+		t.Run(fmt.Sprintf("cancel context, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			counter := 2
 			ctx, cancel := context.WithCancel(context.TODO())
-			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
+			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
 				counter--
 				if counter == 0 {
 					cancel()
@@ -117,9 +117,8 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		})
 
 		if tc.disconnectModeEnabled {
-			t.Run("cancel context", func(t *testing.T) {
+			t.Run(fmt.Sprintf("interrupt timer, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 				counter := 3
-				ctx, cancel := context.WithCancel(context.TODO())
 				RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
 					if counter == 0 {
 						return nil
