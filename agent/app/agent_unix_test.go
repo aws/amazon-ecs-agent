@@ -65,7 +65,7 @@ func resetGetpid() {
 
 func TestDoStartTaskENIHappyPath(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
@@ -425,7 +425,7 @@ func TestInitializeTaskENIDependenciesQueryCNICapabilitiesError(t *testing.T) {
 
 func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockControl := mock_control.NewMockControl(ctrl)
@@ -517,7 +517,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 
 func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -565,7 +565,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 
 func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
@@ -675,7 +675,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 
 func TestDoStartGPUManagerInitError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -721,7 +721,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 
 func TestDoStartTaskENIPauseError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _, execCmdMgr := setup(t)
+		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)

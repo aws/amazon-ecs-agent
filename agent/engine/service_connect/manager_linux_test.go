@@ -17,11 +17,14 @@
 package serviceconnect
 
 import (
+	"io/fs"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/golang/mock/gomock"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
@@ -60,7 +63,7 @@ func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 }
 
 func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
-	scTask, pauseContainer, _ := getAWSVPCTask(t)
+	scTask, pauseContainer, serviceConnectContainer := getAWSVPCTask(t)
 
 	expectedPauseExtraHosts := []string{
 		"host1.my.corp:169.254.1.1",
@@ -71,6 +74,7 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 		name               string
 		container          *apicontainer.Container
 		expectedExtraHosts []string
+		needsImage         bool
 	}
 	testcases := []testCase{
 		{
@@ -82,19 +86,31 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 	// Add test cases for other containers expecting no modifications
 	for _, container := range scTask.Containers {
 		if container != pauseContainer {
-			testcases = append(testcases, testCase{name: container.Name, container: container})
+			testcases = append(testcases, testCase{name: container.Name, container: container, needsImage: container == serviceConnectContainer})
 		}
 	}
 	scManager := NewManager()
-
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockLoader := mock_serviceconnect.NewMockLoader(ctrl)
+			origMkdir := mkdirAllAndChown
+			if tc.needsImage {
+				mkdirAllAndChown = func(path string, perm fs.FileMode, uid, gid int) error {
+					return nil
+				}
+				mockLoader.EXPECT().GetLoadedImageName().Return("container_image:tag", nil)
+			}
+
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, mockLoader)
 			if err != nil {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.expectedExtraHosts, hostConfig.ExtraHosts)
+			mkdirAllAndChown = origMkdir
 		})
 	}
 }
