@@ -47,8 +47,7 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 
 func RetryWithBackoffForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
 	delay := 10 * time.Minute
-	taskChannel := eventFlowController.createChannelForTask(cfg, taskARN)
-	return RetryWithBackoffCtxForTaskHandler(cfg, eventFlowController, taskARN, context.Background(), backoff, delay, taskChannel, fn)
+	return RetryWithBackoffCtxForTaskHandler(cfg, eventFlowController, taskARN, context.Background(), backoff, delay, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -77,7 +76,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, delay time.Duration, taskChannel <-chan bool, fn func() error) error {
+func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, delay time.Duration, fn func() error) error {
 
 	var err error
 	for {
@@ -93,11 +92,10 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 		//if unretriable error in disconnected mode, don't retutn
 		if err == nil || (!cfg.GetDisconnectModeEnabled() && isRetriableErr && !retriableErr.Retry()) {
-			eventFlowController.deleteChannelForTask(taskARN)
 			return err
 		}
 
-		//sleep(backoff)
+		taskChannel := eventFlowController.createChannelForTask(cfg, taskARN)
 
 		/*
 			If we switch to disconnected mode after executing the previous code block,
@@ -109,7 +107,7 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 			Hence, message is sent on channel but it is never read.
 		*/
 		if cfg.GetDisconnectModeEnabled() && taskChannel != nil {
-			waitForDurationAndInterruptIfRequired(delay, taskChannel)
+			WaitForDurationAndInterruptIfRequired(delay, taskChannel)
 		} else {
 			waitForDuration(backoff.Duration())
 		}
@@ -222,7 +220,7 @@ func waitForDuration(delay time.Duration) bool {
 	}
 }
 
-func waitForDurationAndInterruptIfRequired(delay time.Duration, resumeEventsFlow <-chan bool) bool {
+func WaitForDurationAndInterruptIfRequired(delay time.Duration, resumeEventsFlow <-chan bool) bool {
 	reconnectTimer := time.NewTimer(delay)
 	logger.Debug("Started wait", logger.Fields{
 		"waitDelay": delay.String(),
