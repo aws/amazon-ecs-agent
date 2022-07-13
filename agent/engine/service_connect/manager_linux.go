@@ -19,24 +19,29 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
 	defaultRelayPathContainer  = "/var/run/ecs/relay/"
-	defaultRelayPathHost       = "/var/run/ecs/service_connect/instance/relay/"
+	defaultRelayPathHost       = "/var/run/ecs/service_connect/relay/"
 	defaultRelayFileName       = "envoy_xds.sock"
-	defaultRelayENV            = "APPMESH_XDS_ENDPOINT"
+	defaultEndpointENV         = "APPMESH_XDS_ENDPOINT"
 	defaultStatusPathContainer = "/var/run/ecs/"
 	// Expected to have task.GetID() appended to form actual host path
 	defaultStatusPathHostRoot = "/var/run/ecs/service_connect/"
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_ADMIN_UDS_PATH"
 
+	relayEnableENV = "APPNET_ENABLE_RELAY_MODE_FOR_XDS"
+	relayEnableOn  = "1"
+	upstreamENV    = "APPNET_RELAY_LISTENER_UDS_PATH"
+	regionENV      = "AWS_REGION"
 	agentAuthENV   = "ENVOY_ENABLE_IAM_AUTH_FOR_XDS"
 	agentAuthOff   = "0"
 	agentModeENV   = "APPNET_AGENT_ADMIN_MODE"
@@ -56,7 +61,7 @@ type manager struct {
 	// Filename without Path which Relay will create and Envoy in the container will connect to
 	relayFileName string
 	// Environment variable to set on Container with contents of relayPathContainer/relayFileName
-	relayENV string
+	endpointENV string
 	// Path to where statusFileName exists which Envoy in the container will create for status endpoint
 	statusPathContainer string
 	// PathRoot to be appended with TaskID statusPathHostRoot/task.GetID() where statusFileName exists on Host
@@ -77,7 +82,7 @@ func NewManager() Manager {
 		relayPathContainer:  defaultRelayPathContainer,
 		relayPathHost:       defaultRelayPathHost,
 		relayFileName:       defaultRelayFileName,
-		relayENV:            defaultRelayENV,
+		endpointENV:         defaultEndpointENV,
 		statusPathContainer: defaultStatusPathContainer,
 		statusPathHostRoot:  defaultStatusPathHostRoot,
 		statusFileName:      defaultStatusFileName,
@@ -87,7 +92,7 @@ func NewManager() Manager {
 	}
 }
 
-func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, serviceConnectoader serviceconnect.Loader) error {
 	if task.IsNetworkModeBridge() {
 		err := m.initServiceConnectContainerMapping(task, container, hostConfig)
 		if err != nil {
@@ -101,12 +106,13 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	m.initAgentEnvironment(container)
 
 	// Setup runtime configuration
-	var config serviceconnect.RuntimeConfig
+	var config apiserviceconnect.RuntimeConfig
 	config.AdminSocketPath = adminPath
 	config.StatsRequest = m.adminStatsRequest
 	config.DrainRequest = m.adminDrainRequest
 
 	task.PopulateServiceConnectRuntimeConfig(config)
+	container.Image, _ = serviceConnectoader.GetLoadedImageName()
 	return nil
 }
 
@@ -137,7 +143,7 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	// Create host directories if they don't exist
 	for _, path := range []string{statusPathHost, m.relayPathHost} {
-		err := mkdirAllAndChown(path, 0700, serviceconnect.AppNetUID, os.Getegid())
+		err := mkdirAllAndChown(path, 0700, apiserviceconnect.AppNetUID, os.Getegid())
 		if err != nil {
 			return "", err
 		}
@@ -150,10 +156,24 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 	scEnv := map[string]string{
-		m.relayENV:   unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
-		m.statusENV:  filepath.Join(m.statusPathContainer, m.statusFileName),
-		agentModeENV: agentModeValue,
-		agentAuthENV: agentAuthOff,
+		m.endpointENV: unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
+		m.statusENV:   filepath.Join(m.statusPathContainer, m.statusFileName),
+		agentModeENV:  agentModeValue,
+		agentAuthENV:  agentAuthOff,
+	}
+
+	container.MergeEnvironmentVariables(scEnv)
+}
+
+func (m *manager) initRelayEnvironment(config *config.Config, container *apicontainer.Container) {
+	scEnv := map[string]string{
+		m.statusENV:    filepath.Join(m.statusPathContainer, m.statusFileName),
+		upstreamENV:    filepath.Join(m.relayPathContainer, m.relayFileName),
+		regionENV:      config.AWSRegion,
+		agentModeENV:   agentModeValue,
+		relayEnableENV: relayEnableOn,
+		// TODO: get programmatically when available
+		m.endpointENV: "ecs-sc-gamma.us-west-2.api.aws",
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
@@ -166,7 +186,7 @@ func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, contain
 
 // DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
 // recognize.
-func DNSConfigToDockerExtraHostsFormat(dnsConfigs []serviceconnect.DNSConfigEntry) []string {
+func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apiserviceconnect.DNSConfigEntry) []string {
 	var hosts []string
 	for _, dnsConf := range dnsConfigs {
 		if len(dnsConf.Address) > 0 {
@@ -177,7 +197,7 @@ func DNSConfigToDockerExtraHostsFormat(dnsConfigs []serviceconnect.DNSConfigEntr
 	return hosts
 }
 
-func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, serviceConnectLoader serviceconnect.Loader) error {
 	var err error
 	// Add SC VIPs to pause container's known hosts
 	if container.Type == apicontainer.ContainerCNIPause {
@@ -185,7 +205,46 @@ func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontain
 			DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 	if container == task.GetServiceConnectContainer() {
-		m.augmentAgentContainer(task, container, hostConfig)
+		m.augmentAgentContainer(task, container, hostConfig, serviceConnectLoader)
 	}
 	return err
+}
+
+func (m *manager) CreateInstanceTask(cfg *config.Config, serviceConnectLoader serviceconnect.Loader) (*apitask.Task, error) {
+	imageName, err := serviceConnectLoader.GetLoadedImageName()
+	if err != nil {
+		return nil, err
+	}
+	task := &apitask.Task{
+		Arn: "arn:::::/service-connect-relay",
+		Containers: []*apicontainer.Container{{
+			Name:              "instance-service-connect-relay",
+			Image:             imageName,
+			NetworkModeUnsafe: "host",
+			ContainerArn:      "arn:::::/instance-service-connect-relay",
+			Type:              apicontainer.ContainerServiceConnectRelay,
+		}},
+		LaunchType:  "EC2",
+		NetworkMode: "host",
+	}
+
+	m.initRelayEnvironment(cfg, task.Containers[0])
+
+	return task, nil
+}
+
+func (m *manager) AugmentInstanceContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+	adminPath, err := m.initAgentDirectoryMounts("relay", container, hostConfig)
+	if err != nil {
+		return err
+	}
+
+	// Setup runtime configuration
+	var config apiserviceconnect.RuntimeConfig
+	config.AdminSocketPath = adminPath
+	config.StatsRequest = m.adminStatsRequest
+	config.DrainRequest = m.adminDrainRequest
+
+	task.PopulateServiceConnectRuntimeConfig(config)
+	return nil
 }
