@@ -186,9 +186,9 @@ func (eventFlowController *TaskEventsFlowController) createChannelForTask(cfg *c
 }
 
 func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
-	logger.Debug("Acquiring lock to resume events flow")
+	logger.Debug("Acquiring lock: DoResumeEventsFlow")
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock to resume events flow")
+	logger.Debug("Acquired lock: DoResumeEventsFlow")
 
 	for arn := range eventFlowController.flowControl {
 		logger.Debug("Resuming task events flow for a task", logger.Fields{
@@ -201,9 +201,9 @@ func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
 			}
 		}
 	}
-	logger.Debug("Releasing lock to resume events flow")
+	logger.Debug("Releasing lock: DoResumeEventsFlow")
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock to resume events flow")
+	logger.Debug("Released lock: DoResumeEventsFlow")
 }
 
 func waitForDuration(delay time.Duration) bool {
