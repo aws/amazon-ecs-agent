@@ -73,7 +73,7 @@ func setup(t *testing.T) *testHelper {
 	credentialsManager := credentials.NewManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
-	latestSeqNumberTaskManifest := int64(10)m
+	latestSeqNumberTaskManifest := int64(10)
 
 	handler := newPayloadRequestHandler(
 		ctx,

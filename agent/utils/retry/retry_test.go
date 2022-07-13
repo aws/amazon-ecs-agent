@@ -83,7 +83,6 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		taskChannel := make(chan bool, 1)
 
 		t.Run("retries", func(t *testing.T) {
-			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(3)
 			counter := 3
 			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1, 200*Millisecond, taskChannel), func() error {
 				if counter == 0 {
@@ -103,7 +102,6 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		})
 
 		t.Run("cancel context", func(t *testing.T) {
-			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(2)
 			counter := 2
 			ctx, cancel := context.WithCancel(context.TODO())
 			RetryWithBackoffCtxForTaskHandler(config, flowController, ctx, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1, 200*time.Millisecond, taskChannel), func() error {
