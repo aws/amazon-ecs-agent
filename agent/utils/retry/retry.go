@@ -193,6 +193,8 @@ func waitForDuration(delay time.Duration) bool {
 		logger.Debug("Finished waiting for")
 		logger.Debug(delay.String())
 		return true
+	default:
+		return false
 	}
 }
 
