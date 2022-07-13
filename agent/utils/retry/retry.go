@@ -46,7 +46,9 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 }
 
 func RetryWithBackoffForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, backoff Backoff, fn func() error) error {
-	return RetryWithBackoffCtxForTaskHandler(cfg, eventFlowController, taskARN, context.Background(), backoff, fn)
+	delay := 10 * time.Minute
+	taskChannel := eventFlowController.createChannelForTask(cfg, taskARN)
+	return RetryWithBackoffCtxForTaskHandler(cfg, eventFlowController, taskARN, context.Background(), backoff, delay, taskChannel, fn)
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
@@ -75,7 +77,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, fn func() error) error {
+func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *TaskEventsFlowController, taskARN string, ctx context.Context, backoff Backoff, delay time.Duration, taskChannel <-chan bool, fn func() error) error {
 
 	var err error
 	for {
@@ -91,10 +93,9 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 		//TODO: add logic to not return if unretriable error in disconnected mode
 		if err == nil || (isRetriableErr && !retriableErr.Retry()) {
+			eventFlowController.deleteChannelForTask(taskARN)
 			return err
 		}
-
-		taskChannel := eventFlowController.createChannelForTask(cfg, taskARN)
 
 		/*
 			If we switch to disconnected mode after executing the previous code block,
@@ -106,7 +107,7 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 			Hence, message is sent on channel but it is never read.
 		*/
 		if cfg.GetDisconnectModeEnabled() && taskChannel != nil {
-			waitForDurationAndInterruptIfRequired(10*time.Minute, taskChannel)
+			waitForDurationAndInterruptIfRequired(delay, taskChannel)
 		} else {
 			waitForDuration(backoff.Duration())
 		}

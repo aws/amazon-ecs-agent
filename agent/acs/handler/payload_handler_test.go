@@ -72,8 +72,8 @@ func setup(t *testing.T) *testHelper {
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	credentialsManager := credentials.NewManager()
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
-	latestSeqNumberTaskManifest := int64(10)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	latestSeqNumberTaskManifest := int64(10)m
 
 	handler := newPayloadRequestHandler(
 		ctx,
@@ -976,7 +976,7 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	}
 
 	mockECSACSClient := mock_api.NewMockECSClient(tester.ctrl)
-	taskHandler := eventhandler.NewTaskHandler(tester.ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), mockECSACSClient)
+	taskHandler := eventhandler.NewTaskHandler(tester.ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), mockECSACSClient, nil)
 	tester.payloadHandler.taskHandler = taskHandler
 
 	wait := &sync.WaitGroup{}

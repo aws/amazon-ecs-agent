@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
@@ -57,7 +58,7 @@ func TestRetryWithBackoff(t *testing.T) {
 	})
 }
 
-func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
+func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 	for _, tc := range []struct {
 		disconnectModeEnabled bool
@@ -76,13 +77,15 @@ func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		_time = mocktime
 		defer func() { _time = &ttime.DefaultTime{} }()
 
+		cfg := config.Config{}
+		cfg.SetDisconnectModeEnabled(tc.disconnectModeEnabled)
+		flowController := NewEventFlowController()
+		taskChannel := make(chan bool, 1)
+
 		t.Run("retries", func(t *testing.T) {
 			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(3)
 			counter := 3
-			config := Config{}
-			config.SetDisconnectModeEnabled(disconnectModeEnabled)
-			flowController := NewEventFlowController()
-			RetryWithBackoffCtxForTaskHandler(config, flowController, context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1, 200*Millisecond, taskChannel), func() error {
 				if counter == 0 {
 					return nil
 				}
@@ -94,9 +97,7 @@ func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 		t.Run("no retries", func(t *testing.T) {
 			// no sleeps
-			config.SetDisconnectModeEnabled(disconnectModeEnabled)
-			flowController := NewEventFlowController()
-			RetryWithBackoffCtxForTaskHandler(config, flowController, NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), func() error {
+			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2, 200*time.Millisecond, taskChannel), func() error {
 				return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
 			})
 		})
@@ -105,9 +106,7 @@ func RetryWithBackoffCtxForTaskHandler(t *testing.T) {
 			mocktime.EXPECT().NewTimer(100 * time.Millisecond).Times(2)
 			counter := 2
 			ctx, cancel := context.WithCancel(context.TODO())
-			config.SetDisconnectModeEnabled(disconnectModeEnabled)
-			flowController := NewEventFlowController()
-			RetryWithBackoffCtxForTaskHandler(config, flowController, ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), func() error {
+			RetryWithBackoffCtxForTaskHandler(config, flowController, ctx, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1, 200*time.Millisecond, taskChannel), func() error {
 				counter--
 				if counter == 0 {
 					cancel()
