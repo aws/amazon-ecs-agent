@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	agentName = "appnet-agent"
-	agentTag  = "tag"
+	agentImageName = "appnet-agent:testtag"
+	agentName      = "appnet-agent"
+	agentTag       = "testtag"
 )
 
 var defaultConfig = config.DefaultConfig()
@@ -53,10 +54,10 @@ func TestGetAppnetAgentContainerImageInspectImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), agentName+":"+agentTag).Return(
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), agentImageName).Return(
 		types.ImageInspect{}, nil, errors.New("error"))
 
-	_, err = getAgentContainerImage(agentName, agentTag, client)
+	_, err = getAgentContainerImage(agentImageName, client)
 	assert.Error(t, err)
 }
 
@@ -75,9 +76,9 @@ func TestGetAgentContainerHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), agentName+":"+agentTag).Return(types.ImageInspect{}, nil, nil)
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), agentImageName).Return(types.ImageInspect{}, nil, nil)
 
-	_, err = getAgentContainerImage(agentName, agentTag, client)
+	_, err = getAgentContainerImage(agentImageName, client)
 	assert.NoError(t, err)
 }
 

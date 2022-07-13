@@ -289,7 +289,7 @@ func TestHandler_Execute_AgentStops(t *testing.T) {
 
 func TestDoStartTaskLimitsFail(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()

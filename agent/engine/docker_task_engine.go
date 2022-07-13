@@ -49,6 +49,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
+	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
@@ -142,10 +143,11 @@ type DockerTaskEngine struct {
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 
-	client       dockerapi.DockerClient
-	dataClient   data.Client
-	cniClient    ecscni.CNIClient
-	appnetClient api.AppnetClient
+	client               dockerapi.DockerClient
+	dataClient           data.Client
+	cniClient            ecscni.CNIClient
+	appnetClient         api.AppnetClient
+	serviceConnectLoader serviceconnect.Loader
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -164,6 +166,7 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               engineserviceconnect.Manager
+	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -199,7 +202,8 @@ func NewDockerTaskEngine(cfg *config.Config,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
-	execCmdMgr execcmd.Manager) *DockerTaskEngine {
+	execCmdMgr execcmd.Manager,
+	serviceConnectLoader serviceconnect.Loader) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -216,6 +220,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
+		serviceConnectLoader:       serviceConnectLoader,
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             engineserviceconnect.NewManager(),
@@ -954,6 +959,25 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		return
 	}
 
+	// Check if ServiceConnect is Needed
+	if task.IsServiceConnectEnabled() {
+		if engine.serviceconnectRelay == nil {
+			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg, engine.serviceConnectLoader)
+
+			if err != nil {
+				logger.Error("Unable to start relay for task in the engine", logger.Fields{
+					field.TaskID: task.GetID(),
+					field.Error:  err,
+				})
+				task.SetKnownStatus(apitaskstatus.TaskStopped)
+				task.SetDesiredStatus(apitaskstatus.TaskStopped)
+				engine.emitTaskEvent(task, err.Error())
+				return
+			}
+			engine.AddTask(engine.serviceconnectRelay)
+		}
+	}
+
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
 
@@ -1295,7 +1319,13 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Add Service Connect modifications if needed
 	if task.IsServiceConnectEnabled() {
-		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig)
+		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig, engine.serviceConnectLoader)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
+		}
+	}
+	if container.Type == apicontainer.ContainerServiceConnectRelay {
+		err := engine.serviceconnectManager.AugmentInstanceContainer(task, container, hostConfig)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
 		}
