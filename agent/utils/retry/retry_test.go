@@ -116,7 +116,21 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 			assert.Equal(t, 0, counter, "Counter not 0; went the wrong number of times")
 		})
 
-		//TODO: find how mock interruption of timer
+		if tc.disconnectModeEnabled {
+			t.Run("cancel context", func(t *testing.T) {
+				counter := 3
+				ctx, cancel := context.WithCancel(context.TODO())
+				RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
+					if counter == 0 {
+						return nil
+					}
+					counter--
+					taskChannel <- true
+					return errors.New("err")
+				})
+				assert.Equal(t, 0, counter, "Counter not 0; went the wrong number of times")
+			})
+		}
 	}
 
 }
