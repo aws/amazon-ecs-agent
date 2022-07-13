@@ -19,6 +19,8 @@ package retry
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -82,9 +84,9 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		flowController := NewEventFlowController()
 		taskChannel := make(chan bool, 1)
 
-		t.Run("retries", func(t *testing.T) {
+		t.Run(fmt.Sprintf("retries, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			counter := 3
-			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
+			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
 				if counter == 0 {
 					return nil
 				}
@@ -96,7 +98,7 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 		t.Run("no retries", func(t *testing.T) {
 			// no sleeps
-			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", Context.TODO(), NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, taskChannel, func() error {
+			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", context.TODO(), NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, taskChannel, func() error {
 				return apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("can't retry"))
 			})
 		})
@@ -104,7 +106,7 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		t.Run("cancel context", func(t *testing.T) {
 			counter := 2
 			ctx, cancel := context.WithCancel(context.TODO())
-			RetryWithBackoffCtxForTaskHandler(config, flowController, "myArn", ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
+			RetryWithBackoffCtxForTaskHandler(cfg, flowController, "myArn", ctx, NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, taskChannel, func() error {
 				counter--
 				if counter == 0 {
 					cancel()
