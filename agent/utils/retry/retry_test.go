@@ -145,7 +145,7 @@ func TestWaitForDurationAndInterruptIfRequired(t *testing.T) {
 		},
 	} {
 
-		t.Run(fmt.Sprintf("interrupt timer %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("interrupt timer %s", strconv.FormatBool(tc.interruptTimer)), func(t *testing.T) {
 			taskChannel := make(chan bool, 1)
 			if tc.interruptTimer {
 				interruptAfter := time.NewTimer(200 * time.Millisecond)
