@@ -792,7 +792,7 @@ func TestDiscoverServiceConnectEndpointError(t *testing.T) {
 	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("Error getting endpoint"))
 	_, err := client.DiscoverServiceConnectEndpoint("containerInstance")
 	if err == nil {
-		t.Error("Expected error getting service conneect endpoint, didn't get any")
+		t.Error("Expected error getting service connect endpoint, didn't get any")
 	}
 }
 
