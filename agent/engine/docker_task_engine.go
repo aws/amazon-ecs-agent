@@ -975,6 +975,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 				return
 			}
 			engine.AddTask(engine.serviceconnectRelay)
+			logger.Info("docker_task_engine: Added AppNet Relay task to engine")
 		}
 	}
 
