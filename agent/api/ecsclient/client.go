@@ -584,6 +584,18 @@ func (client *APIECSClient) DiscoverTelemetryEndpoint(containerInstanceArn strin
 	return aws.StringValue(resp.TelemetryEndpoint), nil
 }
 
+func (client *APIECSClient) DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error) {
+	resp, err := client.discoverPollEndpoint(containerInstanceArn)
+	if err != nil {
+		return "", err
+	}
+	if resp.ServiceConnectEndpoint == nil {
+		return "", errors.New("No ServiceConnect endpoint returned; nil")
+	}
+
+	return aws.StringValue(resp.ServiceConnectEndpoint), nil
+}
+
 func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*ecs.DiscoverPollEndpointOutput, error) {
 	// Try getting an entry from the cache
 	cachedEndpoint, expired, found := client.pollEndpointCache.Get(containerInstanceArn)
@@ -591,9 +603,10 @@ func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*
 		// Cache hit and not expired. Return the output.
 		if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
 			logger.Info("Using cached DiscoverPollEndpoint", logger.Fields{
-				"endpoint":             aws.StringValue(output.Endpoint),
-				"telemetryEndpoint":    aws.StringValue(output.TelemetryEndpoint),
-				"containerInstanceARN": containerInstanceArn,
+				"endpoint":               aws.StringValue(output.Endpoint),
+				"telemetryEndpoint":      aws.StringValue(output.TelemetryEndpoint),
+				"serviceConnectEndpoint": aws.StringValue(output.ServiceConnectEndpoint),
+				"containerInstanceARN":   containerInstanceArn,
 			})
 			return output, nil
 		}
@@ -611,9 +624,10 @@ func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*
 		if expired {
 			if output, ok := cachedEndpoint.(*ecs.DiscoverPollEndpointOutput); ok {
 				logger.Info("Error calling DiscoverPollEndpoint. Using cached-but-expired endpoint as a fallback.", logger.Fields{
-					"endpoint":             aws.StringValue(output.Endpoint),
-					"telemetryEndpoint":    aws.StringValue(output.TelemetryEndpoint),
-					"containerInstanceARN": containerInstanceArn,
+					"endpoint":               aws.StringValue(output.Endpoint),
+					"telemetryEndpoint":      aws.StringValue(output.TelemetryEndpoint),
+					"serviceConnectEndpoint": aws.StringValue(output.ServiceConnectEndpoint),
+					"containerInstanceARN":   containerInstanceArn,
 				})
 				return output, nil
 			}
