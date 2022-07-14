@@ -133,6 +133,7 @@ func TestWaitForDurationAndInterruptIfRequired(t *testing.T) {
 
 	for _, tc := range []struct {
 		interruptTimer bool
+		delay          time.Duration
 	}{
 		{
 			interruptTimer: true,
