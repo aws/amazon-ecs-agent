@@ -83,6 +83,7 @@ type TaskHandler struct {
 	ctx                 context.Context
 	eventFlowController *retry.TaskEventsFlowController
 	cfg                 *config.Config
+	delay               time.Duration
 }
 
 // taskSendableEvents is used to group all events for a task
@@ -106,7 +107,7 @@ type taskSendableEvents struct {
 func NewTaskHandler(ctx context.Context,
 	dataClient data.Client,
 	state dockerstate.TaskEngineState,
-	client api.ECSClient, cfg *config.Config) *TaskHandler {
+	client api.ECSClient, cfg *config.Config, delay time.Duration) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 
 	taskHandler := &TaskHandler{
@@ -122,6 +123,7 @@ func NewTaskHandler(ctx context.Context,
 		maxDrainEventsFrequency:   maxDrainEventsFrequency,
 		eventFlowController:       retry.NewEventFlowController(),
 		cfg:                       cfg,
+		delay:                     delay,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -340,7 +342,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		retry.RetryWithBackoffForTaskHandler(handler.cfg, handler.eventFlowController, taskARN, backoff, func() error {
+		retry.RetryWithBackoffForTaskHandler(handler.cfg, handler.eventFlowController, taskARN, handler.delay, backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")

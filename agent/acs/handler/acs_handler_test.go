@@ -204,7 +204,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -356,7 +356,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 		ctx, cancel := context.WithCancel(context.Background())
-		taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+		taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 		deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 		deregisterInstanceEventStream.StartListening()
@@ -420,7 +420,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 
@@ -479,7 +479,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
@@ -546,7 +546,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -601,7 +601,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -649,7 +649,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
@@ -716,7 +716,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 	defer cancel()
 
 	wait := sync.WaitGroup{}
@@ -771,7 +771,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	closeWS := make(chan bool)
 	server, serverIn, requests, errs, err := startMockAcsServer(t, closeWS)
@@ -863,7 +863,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 	closeWS := make(chan bool)
 	server, serverIn, requestsChan, errChan, err := startMockAcsServer(t, closeWS)
 	if err != nil {
@@ -991,7 +991,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil, nil, 200*time.Millisecond)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
