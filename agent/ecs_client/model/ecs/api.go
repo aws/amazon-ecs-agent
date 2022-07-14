@@ -7404,6 +7404,9 @@ type DiscoverPollEndpointOutput struct {
 	// The endpoint for the Amazon ECS agent to poll.
 	Endpoint *string `locationName:"endpoint" type:"string"`
 
+	// The endpoint for the ServiceConnect Relay to connect to.
+	ServiceConnectEndpoint *string `locationName:"serviceConnectEndpoint" type:"string"`
+
 	// The telemetry endpoint for the Amazon ECS agent.
 	TelemetryEndpoint *string `locationName:"telemetryEndpoint" type:"string"`
 }
@@ -7421,6 +7424,12 @@ func (s DiscoverPollEndpointOutput) GoString() string {
 // SetEndpoint sets the Endpoint field's value.
 func (s *DiscoverPollEndpointOutput) SetEndpoint(v string) *DiscoverPollEndpointOutput {
 	s.Endpoint = &v
+	return s
+}
+
+// SetServiceConnectEndpoint sets the ServiceConnectEndpoint field's value.
+func (s *DiscoverPollEndpointOutput) SetServiceConnectEndpoint(v string) *DiscoverPollEndpointOutput {
+	s.ServiceConnectEndpoint = &v
 	return s
 }
 
