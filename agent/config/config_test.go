@@ -35,6 +35,7 @@ import (
 
 func TestDefaultValueOfDisconnectModeEnabled(t *testing.T) {
 	conf := Config{Cluster: "Foo"}
+
 	assert.False(t, conf.GetDisconnectModeEnabled(), "Wrong default value for disconnectModeEnabled, expected value is false")
 }
 
