@@ -13,4 +13,4 @@
 
 package serviceconnect
 
-//go:generate mockgen -destination=mock/manager.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine/service_connect Manager
+//go:generate mockgen -destination=mock/manager.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect Manager
