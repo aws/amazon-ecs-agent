@@ -20,6 +20,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
