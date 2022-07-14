@@ -54,7 +54,7 @@ import (
 	mock_execcmdagent "github.com/aws/amazon-ecs-agent/agent/engine/execcmd/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	mock_service_connect "github.com/aws/amazon-ecs-agent/agent/engine/service_connect/mock"
+	mock_engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
@@ -166,7 +166,7 @@ func setCreatedContainerName(name string) {
 func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Controller,
 	*mock_dockerapi.MockDockerClient, *mock_ttime.MockTime, TaskEngine,
 	*mock_credentials.MockManager, *mock_engine.MockImageManager, *mock_containermetadata.MockManager,
-	*mock_service_connect.MockManager, *mock_serviceconnect.MockLoader) {
+	*mock_engineserviceconnect.MockManager, *mock_serviceconnect.MockLoader) {
 	ctrl := gomock.NewController(t)
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -185,7 +185,7 @@ func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Contr
 	taskEngine.(*DockerTaskEngine).ctx = ctx
 	taskEngine.(*DockerTaskEngine).stopContainerBackoffMin = time.Millisecond
 	taskEngine.(*DockerTaskEngine).stopContainerBackoffMax = time.Millisecond * 2
-	serviceConnectManager := mock_service_connect.NewMockManager(ctrl)
+	serviceConnectManager := mock_engineserviceconnect.NewMockManager(ctrl)
 	taskEngine.(*DockerTaskEngine).serviceconnectManager = serviceConnectManager
 	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, serviceConnectManager, serviceConnectLoader
 }
