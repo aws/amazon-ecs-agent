@@ -48,6 +48,9 @@ type ECSClient interface {
 	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact Telemetry Service
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
+	// DiscoverServiceConnectEndpoint takes a ContainerInstanceARN and returns the
+	// endpoint at which this Agent should contact ServiceConnect
+	DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
 	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 	// UpdateContainerInstancesState updates the given container Instance ID with
