@@ -54,7 +54,8 @@ func TestSendsEventsOneContainer(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -85,7 +86,8 @@ func TestSendsEventsOneEventRetries(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -110,7 +112,8 @@ func TestSendsEventsInvalidParametersEventsRemoved(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -138,7 +141,8 @@ func TestSendsEventsConcurrentLimit(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	completeStateChange := make(chan bool, concurrentEventCalls+1)
@@ -176,7 +180,8 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -210,7 +215,8 @@ func TestSendsEventsTaskDifferences(t *testing.T) {
 	dataClient := data.NewNoopClient()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, dataClient, dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, dataClient, dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	taskARNA := "taskarnA"
@@ -259,7 +265,8 @@ func TestSendsEventsDedupe(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	taskARNA := "taskarnA"
@@ -305,7 +312,8 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	taskARN2 := "taskarn2"
@@ -397,7 +405,8 @@ func TestENISentStatusChange(t *testing.T) {
 	events := list.New()
 	events.PushBack(sendableTaskEvent)
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 	handler.submitTaskEvents(&taskSendableEvents{
 		events: events,
@@ -591,7 +600,8 @@ func TestSendContainerAndManagedAgentEvents(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -625,7 +635,8 @@ func TestSendManagedAgentEventsTaskDifferences(t *testing.T) {
 	dataClient := data.NewNoopClient()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewTaskHandler(ctx, dataClient, dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	handler := NewTaskHandler(ctx, dataClient, dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	defer cancel()
 
 	taskARNA := "taskarnA"

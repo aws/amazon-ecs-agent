@@ -37,7 +37,8 @@ func TestHandleEngineEvent(t *testing.T) {
 	client := mock_api.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, nil, 200*time.Millisecond)
+	cfg := &config.Config{}
+	taskHandler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client, cfg, 200*time.Millisecond)
 	attachmentHandler := NewAttachmentEventHandler(ctx, data.NewNoopClient(), client)
 	defer cancel()
 
