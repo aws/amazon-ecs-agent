@@ -1148,6 +1148,7 @@
       "type":"structure",
       "members":{
         "endpoint":{"shape":"String"},
+        "serviceConnectEndpoint":{"shape": "String"},
         "telemetryEndpoint":{"shape":"String"}
       }
     },
