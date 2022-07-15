@@ -126,10 +126,14 @@ func TestSendsEventsInvalidParametersEventsRemoved(t *testing.T) {
 	handler.AddStateChangeEvent(taskEvent, client)
 
 	wg.Wait()
-	// Require the lock to wait for submitFirstEvent to be finished
-	handler.tasksToEvents[taskARN].lock.Lock()
-	assert.Equal(t, 0, handler.tasksToEvents[taskARN].events.Len())
-	handler.tasksToEvents[taskARN].lock.Unlock()
+	/* If removeTaskEvents acquires lock before the following block is executed,
+	there will not be any entry for the taskARN in handler.tasksToEvents
+	*/
+	if handler.tasksToEvents[taskARN] != nil {
+		handler.tasksToEvents[taskARN].lock.Lock()
+		assert.Equal(t, 0, handler.tasksToEvents[taskARN].events.Len())
+		handler.tasksToEvents[taskARN].lock.Unlock()
+	}
 }
 
 func TestSendsEventsConcurrentLimit(t *testing.T) {
