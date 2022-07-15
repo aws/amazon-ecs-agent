@@ -31,8 +31,8 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
-	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
+	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,7 +73,7 @@ func TestCapabilities(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
@@ -226,7 +226,7 @@ func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribut
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
@@ -283,7 +283,7 @@ func TestCapabilitiesECR(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -333,7 +333,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -380,7 +380,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -428,7 +428,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -476,7 +476,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -513,7 +513,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
@@ -608,7 +608,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
@@ -646,7 +646,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -692,7 +692,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -737,7 +737,7 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -799,7 +799,7 @@ func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
 			client := mock_dockerapi.NewMockDockerClient(ctrl)
 			versionList := []dockerclient.DockerVersion{tc.dockerVersion}
 			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 			mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 			mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -852,7 +852,7 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -896,7 +896,7 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -931,7 +931,7 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -971,7 +971,7 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -1081,7 +1081,7 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 			client := mock_dockerapi.NewMockDockerClient(ctrl)
 			versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 			mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 			mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
@@ -1135,7 +1135,7 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,

@@ -1,3 +1,6 @@
+//go:build linux || windows
+// +build linux windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,4 +16,14 @@
 
 package pause
 
-//go:generate mockgen -destination=mocks/load_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/pause Loader
+import (
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
+
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+)
+
+// This method is used to inspect the presence of the pause image. If the image has not been loaded then we return false.
+func (*pauseLoader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	return loader.IsImageLoaded(config.DefaultPauseContainerImageName+":"+config.DefaultPauseContainerTag, dockerClient)
+}
