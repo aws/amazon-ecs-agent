@@ -1940,17 +1940,21 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 	// TODO. We can do an early return here by determining which kind of task it is
 	// Example: Does this task have ENIs in its payload, what is its networking mode etc
 	if container.IsInternal() {
-		// If it's an internal container, set the network mode to none for awsvpc, set to bridge if task is using
+		// If it's a CNI pause container, set the network mode to none for awsvpc, set to bridge if task is using
 		// bridge mode and this is an SC-enabled task.
-		// Currently, internal containers are either for creating empty host
-		// volumes or for creating the 'pause' container. Both of these
-		// only need the network mode to be set to "none"
+		// If it's a ServiceConnect relay container, the container is internally managed, and should keep its "host"
+		// network mode by design
+		// Other internal containers are either for creating empty host volumes or for creating the 'pause' container.
+		// Both of these only need the network mode to be set to "none"
 		if container.Type == apicontainer.ContainerCNIPause {
 			if task.IsNetworkModeAWSVPC() {
 				return true, networkModeNone
 			} else if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
 				return true, BridgeNetworkMode
 			}
+		}
+		if container.Type == apicontainer.ContainerServiceConnectRelay {
+			return false, ""
 		}
 		return true, networkModeNone
 	}
