@@ -107,7 +107,9 @@ type taskSendableEvents struct {
 func NewTaskHandler(ctx context.Context,
 	dataClient data.Client,
 	state dockerstate.TaskEngineState,
-	client api.ECSClient, cfg *config.Config, delay time.Duration) *TaskHandler {
+	client api.ECSClient,
+	cfg *config.Config,
+	delay time.Duration) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 
 	taskHandler := &TaskHandler{

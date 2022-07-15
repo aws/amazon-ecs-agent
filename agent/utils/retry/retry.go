@@ -28,7 +28,7 @@ var _time ttime.Time = &ttime.DefaultTime{}
 
 type TaskEventsFlowController struct {
 	flowControl      map[string]chan bool
-	eventControlLock sync.RWMutex
+	eventControlLock sync.Mutex
 }
 
 func NewEventFlowController() *TaskEventsFlowController {
@@ -89,7 +89,7 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 		retriableErr, isRetriableErr := err.(apierrors.Retriable)
 
-		//if unretriable error in disconnected mode, don't retutn
+		//if unretriable error in disconnected mode, don't return
 		if err == nil || (!cfg.GetDisconnectModeEnabled() && isRetriableErr && !retriableErr.Retry()) {
 			return err
 		}
@@ -123,70 +123,38 @@ func RetryWithBackoffCtxForTaskHandler(cfg *config.Config, eventFlowController *
 
 func (eventFlowController *TaskEventsFlowController) deleteChannelForTask(taskARN string) {
 
-	logger.Debug("Acquiring lock: deleteChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock: deleteChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	if _, ok := eventFlowController.flowControl[taskARN]; ok {
-		logger.Debug("Closing channel", logger.Fields{
+
+		logger.Debug("Closing and deleting channel for task", logger.Fields{
 			"taskARN": taskARN,
 		})
 		close(eventFlowController.flowControl[taskARN])
-		logger.Debug("Deleting channel", logger.Fields{
-			"taskARN": taskARN,
-		})
 		delete(eventFlowController.flowControl, taskARN)
 	}
-
-	logger.Debug("Releasing lock: deleteChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock: deleteChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 }
 
 func (eventFlowController *TaskEventsFlowController) createChannelForTask(cfg *config.Config, taskARN string) chan bool {
 
 	var taskChannel chan bool
-	logger.Debug("Acquiring lock: createChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock: createChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	if _, ok := eventFlowController.flowControl[taskARN]; !ok {
-		logger.Debug("Creating channel", logger.Fields{
-			"taskARN": taskARN,
-		})
-
 		//Checking disconnectModeEnabled here ensures that we create channel only in disconnected mode
 		if cfg.GetDisconnectModeEnabled() {
+			logger.Debug("Creating channel for task", logger.Fields{
+				"taskARN": taskARN,
+			})
 			taskChannel = make(chan bool, 1)
 			eventFlowController.flowControl[taskARN] = taskChannel
 		}
 	}
-	logger.Debug("Releasing lock: createChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock: createChannelForTask", logger.Fields{
-		"taskARN": taskARN,
-	})
-
 	return taskChannel
 }
 
 func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
-	logger.Debug("Acquiring lock: DoResumeEventsFlow")
 	eventFlowController.eventControlLock.Lock()
-	logger.Debug("Acquired lock: DoResumeEventsFlow")
-
 	for arn := range eventFlowController.flowControl {
 		logger.Debug("Resuming task events flow for a task", logger.Fields{
 			"taskARN": arn,
@@ -198,9 +166,7 @@ func DoResumeEventsFlow(eventFlowController *TaskEventsFlowController) {
 			}
 		}
 	}
-	logger.Debug("Releasing lock: DoResumeEventsFlow")
 	eventFlowController.eventControlLock.Unlock()
-	logger.Debug("Released lock: DoResumeEventsFlow")
 }
 
 func waitForDuration(delay time.Duration) bool {
