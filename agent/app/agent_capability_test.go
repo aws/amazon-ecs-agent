@@ -1156,7 +1156,7 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 
 	mockServiceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 	mockServiceConnectLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
-	mockServiceConnectLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, errors.New("No File")).AnyTimes()
+	mockServiceConnectLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("No File")).AnyTimes()
 
 	// Scan() and ListPluginsWithFilters() are tested with
 	// AnyTimes() because they are not called in windows.

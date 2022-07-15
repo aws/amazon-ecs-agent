@@ -14,13 +14,7 @@
 package serviceconnect
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
-	"github.com/docker/docker/api/types"
+	utilsloader "github.com/aws/amazon-ecs-agent/agent/utils/loader"
 )
 
 var (
@@ -31,12 +25,12 @@ var (
 // Loader defines an interface for loading the appnetAgent container image. This is mostly
 // to facilitate mocking and testing of the LoadImage method
 type Loader interface {
-	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
-	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
+	utilsloader.Loader
+
 	GetLoadedImageName() (string, error)
 }
 
-type loader struct {
+type agentLoader struct {
 	AgentContainerImageName   string
 	AgentContainerTag         string
 	AgentContainerTarballPath string
@@ -44,39 +38,9 @@ type loader struct {
 
 // New creates a new AppNet Agent image loader
 func New() Loader {
-	return &loader{
+	return &agentLoader{
 		AgentContainerImageName:   defaultAgentContainerImageName,
 		AgentContainerTag:         defaultAgentContainerTag,
 		AgentContainerTarballPath: defaultAgentContainerTarballPath,
 	}
-}
-
-// This function uses the DockerClient to inspect the image with the given name and tag.
-func getAgentContainerImage(imageName string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	logger.Debug("Inspecting appnet agent container image:", logger.Fields{
-		field.Image: imageName,
-	})
-
-	image, err := dockerClient.InspectImage(imageName)
-	if err != nil {
-		return nil, fmt.Errorf("appnet agent container load: failed to inspect image: %s; %w", imageName, err)
-	}
-
-	return image, nil
-}
-
-// Common function for linux and windows to check if the container appnet Agent image has been loaded
-func (agent *loader) isImageLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	imageName, _ := agent.GetLoadedImageName()
-	image, err := getAgentContainerImage(imageName, dockerClient)
-
-	if err != nil {
-		return false, err
-	}
-
-	if image == nil || image.ID == "" {
-		return false, nil
-	}
-
-	return true, nil
 }
