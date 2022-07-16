@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -108,13 +108,13 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:                  ctx,
-		cfg:                  conf,
-		dockerClient:         client,
-		cniClient:            cniClient,
-		credentialProvider:   aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:          mockMobyPlugins,
-		serviceconnectLoader: serviceconnect.New(),
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: serviceconnect.NewManager(),
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -205,13 +205,13 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:                  ctx,
-		cfg:                  conf,
-		dockerClient:         client,
-		cniClient:            cniClient,
-		credentialProvider:   aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:          mockMobyPlugins,
-		serviceconnectLoader: serviceconnect.New(),
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: serviceconnect.NewManager(),
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
