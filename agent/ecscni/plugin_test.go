@@ -29,7 +29,7 @@ import (
 const (
 	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated.
 	currentECSCNIVersion = "2020.09.0"
-	currentECSCNIGitHash = "c6b225f4ca84010e26dce19ec82955473746c7ac"
+	currentECSCNIGitHash = "db5864722987c34ba309e6e7a7628fd1ccad1520"
 	currentVPCCNIGitHash = "199bfc65cced4951cbb6a38e6e828afa8c2b023c"
 )
 
