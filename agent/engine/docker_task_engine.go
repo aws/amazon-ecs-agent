@@ -44,12 +44,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
-	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
@@ -164,7 +163,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
-	serviceconnectManager               engineserviceconnect.Manager
+	serviceconnectManager               serviceconnect.Manager
 	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
@@ -202,7 +201,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,
-	serviceConnectLoader serviceconnect.Loader) *DockerTaskEngine {
+	serviceConnectManager serviceconnect.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -221,7 +220,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		appnetClient:               appnet.Client(),
 
 		metadataManager:                   metadataManager,
-		serviceconnectManager:             engineserviceconnect.NewManager(serviceConnectLoader),
+		serviceconnectManager:             serviceConnectManager,
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
@@ -973,6 +972,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 				return
 			}
 			engine.AddTask(engine.serviceconnectRelay)
+			logger.Info("docker_task_engine: Added AppNet Relay task to engine")
 		}
 	}
 

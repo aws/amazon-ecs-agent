@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -136,6 +137,7 @@ type ecsAgent struct {
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 pause.Loader
 	serviceconnectLoader        serviceconnect.Loader
+	serviceconnectManager       engineserviceconnect.Manager
 	eniWatcher                  *watcher.ENIWatcher
 	cniClient                   ecscni.CNIClient
 	vpc                         string
@@ -215,6 +217,8 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
+	serviceConnectLoader := serviceconnect.New()
+
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
@@ -231,7 +235,8 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
-		serviceconnectLoader:        serviceconnect.New(),
+		serviceconnectLoader:        serviceConnectLoader,
+		serviceconnectManager:       engineserviceconnect.NewManager(serviceConnectLoader),
 		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
 		metadataManager:             metadataManager,
 		terminationHandler:          sighandlers.StartDefaultTerminationHandler,
@@ -307,7 +312,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
-		containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, agent.serviceconnectLoader)
+		containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, agent.serviceconnectManager)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -492,7 +497,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
 	execCmdMgr execcmd.Manager,
-	serviceConnectloader serviceconnect.Loader) (engine.TaskEngine, string, error) {
+	serviceConnectManager engineserviceconnect.Manager) (engine.TaskEngine, string, error) {
 
 	containerChangeEventStream.StartListening()
 
@@ -500,10 +505,10 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectloader), "", nil
+			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectManager), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, serviceConnectloader)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, serviceConnectManager)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -525,7 +530,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state, agent.metadataManager,
-			agent.resourceFields, execCmdMgr, serviceConnectloader), currentEC2InstanceID, nil
+			agent.resourceFields, execCmdMgr, serviceConnectManager), currentEC2InstanceID, nil
 	}
 
 	if savedData.cluster != "" {
