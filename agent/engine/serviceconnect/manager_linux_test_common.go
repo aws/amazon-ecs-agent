@@ -167,22 +167,23 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		}
 	}
 	scManager := &manager{
-		relayPathContainer:  "/not/var/run",
-		relayPathHost:       filepath.Join(tempDir, "relay"),
-		relayFileName:       "relay_file_of_holiness",
-		endpointENV:         "ReLaYgOeShErE",
-		statusPathContainer: "/some/other/run",
-		statusPathHostRoot:  filepath.Join(tempDir, "status"),
-		statusFileName:      "status_file_of_holiness",
-		statusENV:           "StAtUsGoEsHeRe",
-		adminStatsRequest:   "/give?stats",
-		adminDrainRequest:   "/do?drain",
+		relayPathContainer:   "/not/var/run",
+		relayPathHost:        filepath.Join(tempDir, "relay"),
+		relayFileName:        "relay_file_of_holiness",
+		endpointENV:          "ReLaYgOeShErE",
+		statusPathContainer:  "/some/other/run",
+		statusPathHostRoot:   filepath.Join(tempDir, "status"),
+		statusFileName:       "status_file_of_holiness",
+		statusENV:            "StAtUsGoEsHeRe",
+		adminStatsRequest:    "/give?stats",
+		adminDrainRequest:    "/do?drain",
+		serviceConnectLoader: loader,
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, loader)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
 			if err != nil {
 				t.Fatal(err)
 			}

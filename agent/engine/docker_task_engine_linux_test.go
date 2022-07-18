@@ -79,7 +79,7 @@ func init() {
 func TestResourceContainerProgression(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -248,7 +248,7 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 func TestResourceContainerProgressionFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
@@ -305,7 +305,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _, _ := mocks(
+			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _ := mocks(
 				t, ctx, &metadataConfig)
 			defer ctrl.Finish()
 
@@ -519,7 +519,7 @@ func TestCreateFirelensContainer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			mockTime.EXPECT().Now().AnyTimes()
@@ -545,7 +545,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	config := defaultConfig
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &config)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &config)
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
@@ -587,7 +587,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -724,7 +724,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -870,7 +870,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 func TestContainersWithServiceConnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -935,7 +935,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	// Pause container will be launched first
 	gomock.InOrder(
 		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().CreateContainer(
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
@@ -959,7 +959,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(3)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(3)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(3)
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: scContainerID})
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
@@ -1052,7 +1052,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1113,7 +1113,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	// SCPause.RUNNING (verified in the InOrder block down below)
 
 	// For both pause containers
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 	dockerClient.EXPECT().CreateContainer(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1191,7 +1191,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
@@ -1283,7 +1283,7 @@ func verifyServiceConnectPauseContainerBridgeMode(t *testing.T, ctx interface{},
 func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)

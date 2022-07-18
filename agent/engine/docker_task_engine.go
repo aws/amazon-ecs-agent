@@ -143,11 +143,10 @@ type DockerTaskEngine struct {
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 
-	client               dockerapi.DockerClient
-	dataClient           data.Client
-	cniClient            ecscni.CNIClient
-	appnetClient         api.AppnetClient
-	serviceConnectLoader serviceconnect.Loader
+	client       dockerapi.DockerClient
+	dataClient   data.Client
+	cniClient    ecscni.CNIClient
+	appnetClient api.AppnetClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -220,10 +219,9 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
-		serviceConnectLoader:       serviceConnectLoader,
 
 		metadataManager:                   metadataManager,
-		serviceconnectManager:             engineserviceconnect.NewManager(),
+		serviceconnectManager:             engineserviceconnect.NewManager(serviceConnectLoader),
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
@@ -962,7 +960,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 	// Check if ServiceConnect is Needed
 	if task.IsServiceConnectEnabled() {
 		if engine.serviceconnectRelay == nil {
-			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg, engine.serviceConnectLoader)
+			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg)
 
 			if err != nil {
 				logger.Error("Unable to start relay for task in the engine", logger.Fields{
@@ -975,7 +973,6 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 				return
 			}
 			engine.AddTask(engine.serviceconnectRelay)
-			logger.Info("docker_task_engine: Added AppNet Relay task to engine")
 		}
 	}
 
@@ -1320,7 +1317,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Add Service Connect modifications if needed
 	if task.IsServiceConnectEnabled() {
-		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig, engine.serviceConnectLoader)
+		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
 		}

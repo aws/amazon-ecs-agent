@@ -57,7 +57,6 @@ import (
 	mock_engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -166,7 +165,7 @@ func setCreatedContainerName(name string) {
 func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Controller,
 	*mock_dockerapi.MockDockerClient, *mock_ttime.MockTime, TaskEngine,
 	*mock_credentials.MockManager, *mock_engine.MockImageManager, *mock_containermetadata.MockManager,
-	*mock_engineserviceconnect.MockManager, *mock_serviceconnect.MockLoader) {
+	*mock_engineserviceconnect.MockManager) {
 	ctrl := gomock.NewController(t)
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -177,17 +176,16 @@ func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Contr
 	imageManager := mock_engine.NewMockImageManager(ctrl)
 	metadataManager := mock_containermetadata.NewMockManager(ctrl)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
-	serviceConnectLoader := mock_serviceconnect.NewMockLoader(ctrl)
 
 	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream,
-		imageManager, dockerstate.NewTaskEngineState(), metadataManager, nil, execCmdMgr, serviceConnectLoader)
+		imageManager, dockerstate.NewTaskEngineState(), metadataManager, nil, execCmdMgr, nil)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 	taskEngine.(*DockerTaskEngine).ctx = ctx
 	taskEngine.(*DockerTaskEngine).stopContainerBackoffMin = time.Millisecond
 	taskEngine.(*DockerTaskEngine).stopContainerBackoffMax = time.Millisecond * 2
 	serviceConnectManager := mock_engineserviceconnect.NewMockManager(ctrl)
 	taskEngine.(*DockerTaskEngine).serviceconnectManager = serviceConnectManager
-	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, serviceConnectManager, serviceConnectLoader
+	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, serviceConnectManager
 }
 
 func mockSetupNSResult() *current.Result {
@@ -241,7 +239,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _, _ := mocks(
+			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _ := mocks(
 				t, ctx, &metadataConfig)
 			execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 			taskEngine.(*DockerTaskEngine).execCmdMgr = execCmdMgr
@@ -353,7 +351,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 func TestRemoveEvents(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -428,7 +426,7 @@ func TestRemoveEvents(t *testing.T) {
 func TestStartTimeoutThenStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -481,7 +479,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 func TestSteadyStatePoll(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
@@ -557,7 +555,7 @@ func TestSteadyStatePoll(t *testing.T) {
 func TestStopWithPendingStops(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -606,7 +604,7 @@ func TestStopWithPendingStops(t *testing.T) {
 func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, privateTaskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	dataClient, cleanup := newTestDataClient(t)
 	defer cleanup()
@@ -655,7 +653,7 @@ func TestCreateContainerMetadata(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, privateTaskEngine, _, _, metadataManager, _, _ := mocks(t, ctx, &config.Config{})
+			ctrl, client, _, privateTaskEngine, _, _, metadataManager, _ := mocks(t, ctx, &config.Config{})
 			defer ctrl.Finish()
 
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -678,7 +676,7 @@ func TestCreateContainerMetadata(t *testing.T) {
 func TestCreateContainerMergesLabels(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	testTask := &apitask.Task{
@@ -716,7 +714,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 func TestCreateContainerAddV3EndpointIDToState(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, privateTaskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -760,7 +758,7 @@ func TestCreateContainerAddV3EndpointIDToState(t *testing.T) {
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -827,7 +825,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -900,7 +898,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -953,7 +951,7 @@ func TestGetTaskByArn(t *testing.T) {
 	defer cancel()
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
@@ -983,7 +981,7 @@ func TestGetTaskByArn(t *testing.T) {
 func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	dataClient, cleanup := newTestDataClient(t)
@@ -1038,7 +1036,7 @@ func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testin
 func TestProvisionContainerResourcesAwsvpcInspectError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1065,7 +1063,7 @@ func TestProvisionContainerResourcesAwsvpcInspectError(t *testing.T) {
 func TestProvisionContainerResourcesAwsvpcMissingCNIResponseError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1106,7 +1104,7 @@ func TestProvisionContainerResourcesAwsvpcMissingCNIResponseError(t *testing.T) 
 func TestStopPauseContainerCleanupCalledAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1169,7 +1167,7 @@ func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
 
 	delayedChan := make(chan time.Duration, 1)
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &cfg)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &cfg)
 	taskEngine.(*DockerTaskEngine).handleDelay = func(d time.Duration) {
 		delayedChan <- d
 	}
@@ -1223,7 +1221,7 @@ func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -1279,7 +1277,7 @@ func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 func TestTaskWithCircularDependency(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().ContainerEvents(gomock.Any())
@@ -1305,7 +1303,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 func TestCreateContainerOnAgentRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, _, _, _, _ := mocks(t, ctx, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, _, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -1329,7 +1327,7 @@ func TestCreateContainerOnAgentRestart(t *testing.T) {
 func TestPullCNIImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, privateTaskEngine, _, _, _, _, _ := mocks(t, ctx, &config.Config{})
+	ctrl, _, _, privateTaskEngine, _, _, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 
@@ -1346,7 +1344,7 @@ func TestPullCNIImage(t *testing.T) {
 func TestPullNormalImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &config.Config{})
+	ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine._time = nil
@@ -1388,7 +1386,7 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullOnceBehavior})
+			ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullOnceBehavior})
 			defer ctrl.Finish()
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 			taskEngine._time = nil
@@ -1418,7 +1416,7 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 func TestPullImageWithImagePullPreferCachedBehaviorWithCachedImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
+	ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine._time = nil
@@ -1443,7 +1441,7 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithCachedImage(t *testing.T)
 func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
+	ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine._time = nil
@@ -1469,7 +1467,7 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing
 func TestUpdateContainerReference(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &config.Config{})
+	ctrl, _, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine._time = nil
@@ -1583,7 +1581,7 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 				DependentContainersPullUpfront: tc.ImagePullUpfront,
 				ImagePullBehavior:              tc.ImagePullBehavior,
 			}
-			ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, cfg)
+			ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, cfg)
 			defer ctrl.Finish()
 
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
@@ -1629,7 +1627,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, _, _ := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, _ := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 
 	var metadataUpdateWG sync.WaitGroup
@@ -1674,7 +1672,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _, _ := mocks(
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _ := mocks(
 		t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
@@ -1721,7 +1719,7 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _, _ := mocks(
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _ := mocks(
 		t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
@@ -1795,7 +1793,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 func TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, mockTime, taskEngine, _, _, _, _, _ := mocks(
+	ctrl, _, mockTime, taskEngine, _, _, _, _ := mocks(
 		t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
@@ -1827,7 +1825,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource(t *testing.T)
 func TestNewTaskTransitionOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
@@ -1871,7 +1869,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, _, _ := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
@@ -1930,7 +1928,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 func TestPullStartedStoppedAtWasSetCorrectly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	testTask := &apitask.Task{
@@ -1977,7 +1975,7 @@ func TestPullStartedStoppedAtWasSetCorrectly(t *testing.T) {
 func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	testTask := &apitask.Task{
@@ -2074,7 +2072,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, _, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			testTask := &apitask.Task{
@@ -2132,7 +2130,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 func TestHandleDockerHealthEvent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	state := taskEngine.(*DockerTaskEngine).State()
@@ -2210,7 +2208,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
-			ctrl, client, _, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, _, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 			dockerContainer := &apicontainer.DockerContainer{
 				DockerID:   dockerID,
@@ -2281,7 +2279,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 func TestContainerProgressParallize(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -2423,7 +2421,7 @@ func TestContainerProgressParallize(t *testing.T) {
 func TestSynchronizeResource(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
@@ -2461,7 +2459,7 @@ func TestSynchronizeResource(t *testing.T) {
 func TestSynchronizeENIAttachment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
@@ -2496,7 +2494,7 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	dataClient, cleanup := newTestDataClient(t)
@@ -2633,7 +2631,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			// sample test
@@ -2926,7 +2924,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
@@ -2967,7 +2965,7 @@ func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
@@ -3119,7 +3117,7 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
@@ -3147,7 +3145,7 @@ func TestStartExecAgent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	nowTime := time.Now()
-	ctrl, client, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
@@ -3261,7 +3259,7 @@ func TestStartExecAgent(t *testing.T) {
 func TestMonitorExecAgentRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
@@ -3369,7 +3367,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 func TestMonitorExecAgentProcesses(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	nowTime := time.Now()
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
@@ -3464,7 +3462,7 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
@@ -3507,7 +3505,7 @@ func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
 func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
@@ -3581,7 +3579,7 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, _, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	execAgentPID := "1234"
 	testTask := &apitask.Task{
@@ -3638,7 +3636,7 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, engine, _, _, _, _, _ := mocks(t, ctx, &config.Config{})
+			ctrl, client, _, engine, _, _, _, _ := mocks(t, ctx, &config.Config{})
 			defer ctrl.Finish()
 			taskEngine, _ := engine.(*DockerTaskEngine)
 			stateChangeEvents := engine.StateChangeEvents()
