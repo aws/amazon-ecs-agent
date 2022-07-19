@@ -245,33 +245,19 @@ func (acsSession *session) Start() error {
 			} else if cfg.DisconnectCapable.Enabled() {
 				// Check if this instance has ECS_DISCONNECT_CAPABLE turned on. This code block is only reached when
 				// ACS has already failed to connect.
-				if acsSession.disconnectionTimer != nil {
-					timerCompleted := acsSession.checkDisconnectionTimer()
-					logger.Debug("Checking disconnectionTimer status", logger.Fields{
-						"timerCompleted": timerCompleted,
-					})
-					if timerCompleted {
-						// If the timer has been completed, then set DisconnectModeEnabled to true.
-						cfg.SetDisconnectModeEnabled(true)
-						logger.Debug("Turning DisconnectModeEnabled on after timer is completed", logger.Fields{
-							"disconnectionMode": cfg.GetDisconnectModeEnabled(),
-						})
-						acsSession.disconnectionTimer = nil
+				if cfg.GetDisconnectModeEnabled() {
+					// If DisconnectModeEnabled is turned on, then attempt reconnection to ACS every five minutes to
+					// eventually regain connection and turn off DisconnectModeEnabled.
+					logger.Debug("Starting disconnectTimeout timer to reconnect to ACS", logger.Fields{
+						"disconnectTimeout": disconnectTimeout.String()})
+					reconnectIntervalComplete := acsSession.waitForDuration(time.Duration(disconnectTimeout))
+					if reconnectIntervalComplete {
+						logger.Debug("disconnectTimeout timer complete, attempting to reconnect to ACS", logger.Fields{
+							"disconnectTimeout": disconnectTimeout.String()})
 						sendEmptyMessageOnChannel(connectToACS)
-					} else {
-						// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
-						// excessive connection attempts).
-						logger.Debug("Starting 1 minute wait to reconnect to ACS")
-						intervalComplete := acsSession.waitForDuration(reconnectToACSTimeout)
-						if intervalComplete {
-							logger.Debug("Done waiting: reconnecting to ACS")
-							sendEmptyMessageOnChannel(connectToACS)
-						}
 					}
 				} else {
-					logger.Debug("Starting disconnectionTimer to enable DisconnectModeEnabled")
-					acsSession.disconnectionTimer = time.NewTimer(time.Duration(disconnectTimeout))
-					sendEmptyMessageOnChannel(connectToACS)
+					acsSession.startDisconnectMode()
 				}
 			} else {
 				// Disconnected unexpectedly from ACS, compute backoff duration to
@@ -300,6 +286,45 @@ func (acsSession *session) Start() error {
 	}
 }
 
+// startDisconnectMode contains the logic necessary to turn disconnectModeEnabled on if the instance
+// has DisconnectMode capability, and network connection has been lost.
+func (acsSession *session) startDisconnectMode() {
+	connectToACS := make(chan struct{}, 1)
+	cfg := acsSession.agentConfig
+	if acsSession.disconnectionTimer != nil {
+		timerCompleted := acsSession.checkDisconnectionTimer()
+		logger.Debug("Checking disconnectionTimer status", logger.Fields{
+			"timerCompleted": timerCompleted,
+		})
+		if timerCompleted {
+			// If the timer has been completed, then set DisconnectModeEnabled to true.
+			cfg.SetDisconnectModeEnabled(true)
+			logger.Debug("Turning DisconnectModeEnabled on after timer is completed", logger.Fields{
+				"disconnectionMode": cfg.GetDisconnectModeEnabled(),
+			})
+			acsSession.disconnectionTimer = nil
+			sendEmptyMessageOnChannel(connectToACS)
+		} else {
+			// If the timer has not been completed, then attempt to connect to ACS every minute (to avoid
+			// excessive connection attempts).
+			logger.Debug("Starting reconnectToACSTimeout wait to reconnect to ACS", logger.Fields{
+				"reconnectToACSTimeout": reconnectToACSTimeout.String(),
+			})
+			intervalCompleted := acsSession.waitForDuration(reconnectToACSTimeout)
+			if intervalCompleted {
+				logger.Debug("Done waiting: reconnecting to ACS")
+				sendEmptyMessageOnChannel(connectToACS)
+			}
+		}
+	} else {
+		logger.Debug("Starting disconnectionTimer to enable DisconnectModeEnabled")
+		acsSession.disconnectionTimer = time.NewTimer(time.Duration(disconnectTimeout))
+		sendEmptyMessageOnChannel(connectToACS)
+	}
+}
+
+// checkDisconnectionTimer returns true if the acsSession's disconnectionTimer has been completed, or
+// returns the default false if the timer is still ongoing.
 func (acsSession *session) checkDisconnectionTimer() bool {
 	select {
 	case <-acsSession.disconnectionTimer.C:
