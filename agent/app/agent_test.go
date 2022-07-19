@@ -45,6 +45,7 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_execcmdagent "github.com/aws/amazon-ecs-agent/agent/engine/execcmd/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
@@ -90,7 +91,7 @@ func setup(t *testing.T) (*gomock.Controller,
 	*mock_factory.MockStateManager,
 	*mock_factory.MockSaveableOption,
 	*mock_execcmdagent.MockManager,
-	*mock_serviceconnect.MockLoader) {
+	*mock_engineserviceconnect.MockManager) {
 
 	ctrl := gomock.NewController(t)
 
@@ -103,7 +104,7 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_factory.NewMockStateManager(ctrl),
 		mock_factory.NewMockSaveableOption(ctrl),
 		mock_execcmdagent.NewMockManager(ctrl),
-		mock_serviceconnect.NewMockLoader(ctrl)
+		mock_engineserviceconnect.NewMockManager(ctrl)
 }
 
 func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {

@@ -24,7 +24,6 @@ import (
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	config "github.com/aws/amazon-ecs-agent/agent/config"
-	serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	container0 "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -67,30 +66,30 @@ func (mr *MockManagerMockRecorder) AugmentInstanceContainer(arg0, arg1, arg2 int
 }
 
 // AugmentTaskContainer mocks base method
-func (m *MockManager) AugmentTaskContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig, arg3 serviceconnect.Loader) error {
+func (m *MockManager) AugmentTaskContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AugmentTaskContainer", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AugmentTaskContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AugmentTaskContainer indicates an expected call of AugmentTaskContainer
-func (mr *MockManagerMockRecorder) AugmentTaskContainer(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) AugmentTaskContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AugmentTaskContainer", reflect.TypeOf((*MockManager)(nil).AugmentTaskContainer), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AugmentTaskContainer", reflect.TypeOf((*MockManager)(nil).AugmentTaskContainer), arg0, arg1, arg2)
 }
 
 // CreateInstanceTask mocks base method
-func (m *MockManager) CreateInstanceTask(arg0 *config.Config, arg1 serviceconnect.Loader) (*task.Task, error) {
+func (m *MockManager) CreateInstanceTask(arg0 *config.Config) (*task.Task, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateInstanceTask", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateInstanceTask", arg0)
 	ret0, _ := ret[0].(*task.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateInstanceTask indicates an expected call of CreateInstanceTask
-func (mr *MockManagerMockRecorder) CreateInstanceTask(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) CreateInstanceTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceTask", reflect.TypeOf((*MockManager)(nil).CreateInstanceTask), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceTask", reflect.TypeOf((*MockManager)(nil).CreateInstanceTask), arg0)
 }
