@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -43,12 +42,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
-	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
@@ -142,11 +140,10 @@ type DockerTaskEngine struct {
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
 
-	client               dockerapi.DockerClient
-	dataClient           data.Client
-	cniClient            ecscni.CNIClient
-	appnetClient         api.AppnetClient
-	serviceConnectLoader serviceconnect.Loader
+	client       dockerapi.DockerClient
+	dataClient   data.Client
+	cniClient    ecscni.CNIClient
+	appnetClient api.AppnetClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -164,7 +161,7 @@ type DockerTaskEngine struct {
 	imageManager                        ImageManager
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
-	serviceconnectManager               engineserviceconnect.Manager
+	serviceconnectManager               serviceconnect.Manager
 	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
@@ -202,7 +199,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,
-	serviceConnectLoader serviceconnect.Loader) *DockerTaskEngine {
+	serviceConnectManager serviceconnect.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -219,10 +216,9 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
-		serviceConnectLoader:       serviceConnectLoader,
 
 		metadataManager:                   metadataManager,
-		serviceconnectManager:             engineserviceconnect.NewManager(),
+		serviceconnectManager:             serviceConnectManager,
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
@@ -961,7 +957,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 	// Check if ServiceConnect is Needed
 	if task.IsServiceConnectEnabled() {
 		if engine.serviceconnectRelay == nil {
-			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg, engine.serviceConnectLoader)
+			engine.serviceconnectRelay, err = engine.serviceconnectManager.CreateInstanceTask(engine.cfg)
 
 			if err != nil {
 				logger.Error("Unable to start relay for task in the engine", logger.Fields{
@@ -1319,7 +1315,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Add Service Connect modifications if needed
 	if task.IsServiceConnectEnabled() {
-		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig, engine.serviceConnectLoader)
+		err := engine.serviceconnectManager.AugmentTaskContainer(task, container, hostConfig)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NewNamedError(err)}
 		}

@@ -29,14 +29,14 @@ import (
 type manager struct {
 }
 
-func NewManager() Manager {
+func NewManager(serviceConnectLoader serviceconnect.Loader) Manager {
 	return &manager{}
 }
 
-func (m *manager) AugmentTaskContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig, serviceconnect.Loader) error {
+func (m *manager) AugmentTaskContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig) error {
 	return fmt.Errorf("ServiceConnect is only supported on linux")
 }
-func (m *manager) CreateInstanceTask(config *config.Config, appnetAgentLoader serviceconnect.Loader) (*apitask.Task, error) {
+func (m *manager) CreateInstanceTask(config *config.Config) (*apitask.Task, error) {
 	return nil, fmt.Errorf("ServiceConnect is only supported on linux")
 }
 func (m *manager) AugmentInstanceContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig) error {
