@@ -89,7 +89,6 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 			testcases = append(testcases, testCase{name: container.Name, container: container, needsImage: container == serviceConnectContainer})
 		}
 	}
-	scManager := NewManager()
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
@@ -105,7 +104,8 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 			}
 
 			hostConfig := &dockercontainer.HostConfig{}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig, mockLoader)
+			scManager := NewManager(mockLoader)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
 			if err != nil {
 				t.Fatal(err)
 			}
