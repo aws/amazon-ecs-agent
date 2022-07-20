@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/docker/docker/api/types"
 )
 
@@ -30,20 +32,20 @@ var (
 )
 
 // LoadImage returns UnsupportedPlatformError on the unsupported platform
-func (*loader) LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, NewUnsupportedPlatformError(fmt.Errorf(
+func (*agentLoader) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+	return nil, loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container load: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
 
-func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return false, NewUnsupportedPlatformError(fmt.Errorf(
+func (*agentLoader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	return false, loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container isloaded: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
 
-func (*loader) GetLoadedImageName() (string, error) {
-	return "", NewUnsupportedPlatformError(fmt.Errorf(
+func (*agentLoader) GetLoadedImageName() (string, error) {
+	return "", loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container get image name: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }

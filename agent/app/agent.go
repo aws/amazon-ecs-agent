@@ -61,6 +61,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -135,7 +136,7 @@ type ecsAgent struct {
 	credentialProvider          *aws_credentials.Credentials
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
-	pauseLoader                 pause.Loader
+	pauseLoader                 loader.Loader
 	serviceconnectLoader        serviceconnect.Loader
 	serviceconnectManager       engineserviceconnect.Manager
 	eniWatcher                  *watcher.ENIWatcher
@@ -342,7 +343,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
 		if loadPauseErr != nil {
-			if pause.IsNoSuchFileError(loadPauseErr) || pause.UnsupportedPlatform(loadPauseErr) {
+			if loader.IsNoSuchFileError(loadPauseErr) || loader.IsUnsupportedPlatform(loadPauseErr) {
 				return exitcodes.ExitTerminal
 			} else {
 				return exitcodes.ExitError
