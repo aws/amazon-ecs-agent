@@ -447,7 +447,7 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 
 func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if loaded, _ := agent.serviceconnectLoader.IsLoaded(agent.dockerClient); !loaded {
-		_, err := agent.serviceconnectLoader.LoadImage(agent.ctx, agent.dockerClient)
+		_, err := agent.serviceconnectLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient)
 		if err != nil {
 			logger.Error("ServiceConnect Capability: Failed to load appnet Agent container. This container instance will not be able to support ServiceConnect tasks",
 				logger.Fields{

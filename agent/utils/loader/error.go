@@ -11,20 +11,17 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package pause
+package loader
 
-// https://golang.org/src/syscall/zerrors_linux_386.go#L1382
-const noSuchFile = "no such file or directory"
-
-// UnsupportedPlatformError indicates an error when loading pause container
+// UnsupportedPlatformError indicates an error when loading appnet container
 // image on an unsupported OS platform
 type UnsupportedPlatformError struct {
 	error
 }
 
-// UnsupportedPlatform returns true if the error is of UnsupportedPlatformError
+// IsUnsupportedPlatform returns true if the error is of UnsupportedPlatformError
 // type
-func UnsupportedPlatform(err error) bool {
+func IsUnsupportedPlatform(err error) bool {
 	_, ok := err.(UnsupportedPlatformError)
 	return ok
 }

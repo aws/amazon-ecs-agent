@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package pause
+package loader
 
 import (
 	"errors"
@@ -33,7 +33,7 @@ func TestUnsupportedPlatform(t *testing.T) {
 
 	for err, expected := range testCases {
 		t.Run(fmt.Sprintf("returns %t for type %s", expected, reflect.TypeOf(err)), func(t *testing.T) {
-			assert.Equal(t, expected, UnsupportedPlatform(err))
+			assert.Equal(t, expected, IsUnsupportedPlatform(err))
 		})
 	}
 }
