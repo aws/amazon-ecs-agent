@@ -357,7 +357,6 @@ get-deps-init:
 
 amazon-linux-sources.tgz:
 	./scripts/update-version.sh
-	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
