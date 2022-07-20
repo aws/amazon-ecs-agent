@@ -1,5 +1,5 @@
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build linux || windows
+// +build linux windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,25 +17,13 @@
 package pause
 
 import (
-	"context"
-	"fmt"
-	"runtime"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
-	"github.com/docker/docker/api/types"
 )
 
-// LoadImage returns UnsupportedPlatformError on the unsupported platform
-func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, loader.NewUnsupportedPlatformError(fmt.Errorf(
-		"pause container load: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
-}
-
+// This method is used to inspect the presence of the pause image. If the image has not been loaded then we return false.
 func (*pauseLoader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return false, loader.NewUnsupportedPlatformError(fmt.Errorf(
-		"pause container isloaded: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return loader.IsImageLoaded(config.DefaultPauseContainerImageName+":"+config.DefaultPauseContainerTag, dockerClient)
 }

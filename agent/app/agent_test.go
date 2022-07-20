@@ -46,12 +46,12 @@ import (
 	mock_execcmdagent "github.com/aws/amazon-ecs-agent/agent/engine/execcmd/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
-	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/serviceconnect/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
@@ -214,7 +214,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -267,7 +267,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -409,7 +409,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	containermetadata := mock_containermetadata.NewMockManager(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -514,7 +514,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -568,7 +568,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -633,7 +633,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -696,7 +696,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
@@ -742,7 +742,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
@@ -789,7 +789,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Cluster = testCluster
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	ec2MetadataClient.EXPECT().InstanceID().Return(testEC2InstanceID, nil)
 
@@ -906,7 +906,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -956,7 +956,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1008,7 +1008,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1059,7 +1059,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1110,7 +1110,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1158,7 +1158,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1207,7 +1207,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1256,7 +1256,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -1303,7 +1303,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
