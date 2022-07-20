@@ -49,6 +49,16 @@ const (
 	submitStateBackoffMax            = 30 * time.Second
 	submitStateBackoffJitterMultiple = 0.20
 	submitStateBackoffMultiple       = 1.3
+
+	// throttlingLimit is the sustained throttling limit for Agent Modifying API Calls
+	// such as submitting task state changes.
+
+	throttlingLimit  = 120
+	initialTaskCount = 0
+
+	//throttlingTimeOut is the time that the code must wait before sending events,
+	// and how long the period to increase taskCount is before it resets.
+	throttlingTimeOut = time.Minute
 )
 
 // TaskHandler encapsulates the the map of a task arn to task and container events
@@ -76,9 +86,10 @@ type TaskHandler struct {
 	// time over which a call to SubmitTaskStateChange is made.
 	// The actual duration is randomly distributed between these
 	// two
-	minDrainEventsFrequency time.Duration
-	maxDrainEventsFrequency time.Duration
-
+	minDrainEventsFrequency             time.Duration
+	maxDrainEventsFrequency             time.Duration
+	taskCount                           int
+	taskCountTimer                      *time.Timer
 	state                               dockerstate.TaskEngineState
 	client                              api.ECSClient
 	ctx                                 context.Context
@@ -130,6 +141,7 @@ func NewTaskHandler(ctx context.Context,
 		disconnectedModeTaskEventRetryDelay: disconnectedModeTaskEventRetryDelay,
 		eventFlowCtx:                        nil,
 		eventFlowCtxCancel:                  nil,
+		taskCount:                           initialTaskCount,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -342,6 +354,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 
 	// Mirror events.sending, but without the need to lock since this is local
 	// to our goroutine
+	cfg := handler.cfg
 	done := false
 	// TODO: wire in the context here. Else, we have go routine leaks in tests
 	for !done {
@@ -359,6 +372,31 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 			done, err = taskEvents.submitFirstEvent(handler, backoff)
 			return err
 		})
+		if !cfg.GetDisconnectModeEnabled() {
+			if handler.taskCount == 0 {
+				logger.Debug("Starting taskCountTimer here.")
+				handler.taskCountTimer = time.NewTimer(time.Duration(throttlingTimeOut))
+			}
+			handler.taskCount++
+			logger.Debug("Increasing taskCount by 1", logger.Fields{
+				"taskCount": handler.taskCount,
+			})
+			if handler.taskCountTimer != nil && handler.checkTaskCountTimer() {
+				logger.Debug("Restarting taskCount timer.")
+				handler.taskCountTimer = nil
+				handler.taskCount = 0
+			}
+		}
+	}
+}
+
+func (handler *TaskHandler) checkTaskCountTimer() bool {
+	logger.Debug("Checking TaskCount Timer")
+	select {
+	case <-handler.taskCountTimer.C:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -404,13 +442,20 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	seelog.Debug("TaskHandler: Acquiring lock for sending event...")
 	taskEvents.lock.Lock()
 	defer taskEvents.lock.Unlock()
-
 	seelog.Debugf("TaskHandler: Acquired lock, processing event list: : %s", taskEvents.toStringUnsafe())
+	cfg := handler.cfg
 
 	if taskEvents.events.Len() == 0 {
 		seelog.Debug("TaskHandler: No events left; not retrying more")
 		taskEvents.sending = false
 		return true, nil
+	}
+	//Pause sending task events here in order if the queue has gotten long
+	if handler.taskCount >= throttlingLimit && cfg.DisconnectCapable.Enabled() {
+		logger.Debug("Reached throttlingLimit for sending task events, starting sleep for throttlingTimeOut.")
+		time.Sleep(throttlingTimeOut)
+		logger.Debug("Sleep completed: resuming sending task events.")
+		handler.taskCount = 0
 	}
 
 	eventToSubmit := taskEvents.events.Front()
