@@ -53,7 +53,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -137,7 +136,6 @@ type ecsAgent struct {
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
-	serviceconnectLoader        serviceconnect.Loader
 	serviceconnectManager       engineserviceconnect.Manager
 	eniWatcher                  *watcher.ENIWatcher
 	cniClient                   ecscni.CNIClient
@@ -218,8 +216,6 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
-	serviceConnectLoader := serviceconnect.New()
-
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
@@ -236,8 +232,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
-		serviceconnectLoader:        serviceConnectLoader,
-		serviceconnectManager:       engineserviceconnect.NewManager(serviceConnectLoader),
+		serviceconnectManager:       engineserviceconnect.NewManager(),
 		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
 		metadataManager:             metadataManager,
 		terminationHandler:          sighandlers.StartDefaultTerminationHandler,

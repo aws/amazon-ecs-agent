@@ -17,19 +17,24 @@
 package serviceconnect
 
 import (
+	"context"
 	"fmt"
+	"runtime"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
+
+	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 type manager struct {
 }
 
-func NewManager(serviceConnectLoader serviceconnect.Loader) Manager {
+func NewManager() Manager {
 	return &manager{}
 }
 
@@ -41,4 +46,22 @@ func (m *manager) CreateInstanceTask(config *config.Config) (*apitask.Task, erro
 }
 func (m *manager) AugmentInstanceContainer(*apitask.Task, *apicontainer.Container, *dockercontainer.HostConfig) error {
 	return fmt.Errorf("ServiceConnect is only supported on linux")
+}
+
+func (*manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+	return nil, loader.NewUnsupportedPlatformError(fmt.Errorf(
+		"appnetAgent container load: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}
+
+func (*manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	return false, loader.NewUnsupportedPlatformError(fmt.Errorf(
+		"appnetAgent container isloaded: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}
+
+func (*manager) GetLoadedImageName() (string, error) {
+	return "", loader.NewUnsupportedPlatformError(fmt.Errorf(
+		"appnetAgent container get image name: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
 }
