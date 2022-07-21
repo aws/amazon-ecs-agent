@@ -73,11 +73,6 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return errors.New("agent is not started with an init system"), true
 	}
 
-	// Set VPC and Subnet IDs for the instance
-	if err, ok := agent.setVPCSubnet(); err != nil {
-		return err, ok
-	}
-
 	// Validate that the CNI plugins exist in the expected path and that
 	// they possess the right capabilities
 	if err := agent.verifyCNIPluginsCapabilities(); err != nil {
