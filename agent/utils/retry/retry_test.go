@@ -84,7 +84,8 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 		t.Run(fmt.Sprintf("retries, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			counter := 3
-			RetryWithBackoffCtxForTaskHandler(context.TODO(), context.TODO(), cfg, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, func() error {
+			eventFlwCtx := context.TODO()
+			RetryWithBackoffCtxForTaskHandler(context.TODO(), &eventFlwCtx, cfg, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, func() error {
 				if counter == 0 {
 					return nil
 				}
@@ -96,7 +97,8 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 
 		t.Run(fmt.Sprintf("no retries, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			counter := 3
-			RetryWithBackoffCtxForTaskHandler(context.TODO(), context.TODO(), cfg, "myArn", NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, func() error {
+			eventFlwCtx := context.TODO()
+			RetryWithBackoffCtxForTaskHandler(context.TODO(), &eventFlwCtx, cfg, "myArn", NewExponentialBackoff(10*time.Second, 20*time.Second, 0, 2), 200*time.Millisecond, func() error {
 				if counter == 0 {
 					return nil
 				}
@@ -114,7 +116,8 @@ func TestRetryWithBackoffCtxForTaskHandler(t *testing.T) {
 		t.Run(fmt.Sprintf("cancel context, disconnected %s", strconv.FormatBool(tc.disconnectModeEnabled)), func(t *testing.T) {
 			counter := 2
 			ctx, cancel := context.WithCancel(context.TODO())
-			RetryWithBackoffCtxForTaskHandler(ctx, context.TODO(), cfg, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, func() error {
+			eventFlwCtx := context.TODO()
+			RetryWithBackoffCtxForTaskHandler(ctx, &eventFlwCtx, cfg, "myArn", NewExponentialBackoff(100*time.Millisecond, 100*time.Millisecond, 0, 1), 200*time.Millisecond, func() error {
 				counter--
 				if counter == 0 {
 					cancel()
@@ -154,7 +157,7 @@ func TestWaitForDurationWithContext(t *testing.T) {
 					eventFlowCtxCancel()
 				}()
 			}
-			interrupt := WaitForDurationWithContext(eventFlowCtx, tc.delay)
+			interrupt := WaitForDurationWithContext(&eventFlowCtx, tc.delay)
 			assert.True(t, interrupt, "Timer not interrupted")
 		})
 

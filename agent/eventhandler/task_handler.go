@@ -115,7 +115,6 @@ func NewTaskHandler(ctx context.Context,
 	disconnectedModeTaskEventRetryDelay time.Duration) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 
-	eventFlowCtx, eventFlowCtxCancel := context.WithCancel(context.Background())
 	taskHandler := &TaskHandler{
 		ctx:                                 ctx,
 		tasksToEvents:                       make(map[string]*taskSendableEvents),
@@ -129,8 +128,8 @@ func NewTaskHandler(ctx context.Context,
 		maxDrainEventsFrequency:             maxDrainEventsFrequency,
 		cfg:                                 cfg,
 		disconnectedModeTaskEventRetryDelay: disconnectedModeTaskEventRetryDelay,
-		eventFlowCtx:                        eventFlowCtx,
-		eventFlowCtxCancel:                  eventFlowCtxCancel,
+		eventFlowCtx:                        nil,
+		eventFlowCtxCancel:                  nil,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -349,7 +348,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		retry.RetryWithBackoffForTaskHandler(handler.cfg, taskARN, handler.disconnectedModeTaskEventRetryDelay, backoff, handler.eventFlowCtx, func() error {
+		retry.RetryWithBackoffForTaskHandler(handler.cfg, taskARN, handler.disconnectedModeTaskEventRetryDelay, backoff, &handler.eventFlowCtx, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -472,7 +471,9 @@ func (handler *TaskHandler) ResumeEventsFlow() {
 	handler.eventFlowCtxLock.Lock()
 	defer handler.eventFlowCtxLock.Unlock()
 
-	handler.eventFlowCtxCancel()
+	if handler.eventFlowCtx != nil {
+		handler.eventFlowCtxCancel()
+	}
 }
 
 //will be called by acs handler while toggling disconnectModeEnabled false to true
