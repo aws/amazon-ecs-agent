@@ -39,7 +39,7 @@ func TestLinuxTaskNetworkStatsSet(t *testing.T) {
 		NetworkMode string
 		StatsEmpty  bool
 	}{
-		{[]*apieni.ENI{{ID: "ec2Id"}}, "", true},
+		{[]*apieni.ENI{{ID: "ec2Id"}}, "awsvpc", true},
 		{nil, "host", true},
 		{nil, "bridge", false},
 		{nil, "none", true},
@@ -72,6 +72,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 		Arn:               "t1",
 		Family:            "f1",
 		ENIs:              []*apieni.ENI{{ID: "ec2Id"}},
+		NetworkMode:       apitask.AWSVPCNetworkMode,
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{
 			{Name: "test"},
