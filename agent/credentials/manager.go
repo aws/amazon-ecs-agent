@@ -68,7 +68,7 @@ type IAMRoleCredentials struct {
 type TaskIAMRoleCredentials struct {
 	ARN                string
 	IAMRoleCredentials IAMRoleCredentials
-	lock               sync.RWMutex
+	lock               *sync.RWMutex
 }
 
 // GetIAMRoleCredentials returns the IAM role credentials in the task IAM role struct
