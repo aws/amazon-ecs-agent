@@ -329,26 +329,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
 	}
 
-	// Set VPC and Subnet IDs for the instance
-	instanceNotLaunchedInVPC := false
-	err, terminal := agent.setVPCSubnet()
-	switch err {
-	case nil:
-		// Do nothing as there was no error
-	case instanceNotLaunchedInVPCError:
-		// We have ascertained that the EC2 Instance is not running in a VPC
-		logger.Info("Instance was not launched in a VPC")
-		instanceNotLaunchedInVPC = true
-	default:
-		// Encountered an error initializing VPC and Subnet.
-		// Exit with the appropriate error code
-		seelog.Criticalf("Unable to initialize VPC and Subnet: %v", err)
-		if terminal {
-			return exitcodes.ExitTerminal
-		}
-		return exitcodes.ExitError
-	}
-
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled.Enabled() {
@@ -361,29 +341,45 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			}
 		}
 
-		if instanceNotLaunchedInVPC {
+		err, terminal := agent.initializeTaskENIDependencies(state, taskEngine)
+		switch err {
+		case nil:
+			// No error, we can proceed with the rest of initialization
+			// Set vpc and subnet id attributes
+			vpcSubnetAttributes = agent.constructVPCSubnetAttributes()
+		case instanceNotLaunchedInVPCError:
 			// We have ascertained that the EC2 Instance is not running in a VPC
 			// No need to stop the ECS Agent in this case; all we need to do is
 			// to not update the config to disable the TaskENIEnabled flag and
 			// move on
 			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
 			agent.cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
-		} else {
-			err, terminal := agent.initializeTaskENIDependencies(state, taskEngine)
-			switch err {
-			case nil:
-				// No error, we can proceed with the rest of initialization
-				// Set vpc and subnet id attributes
-				vpcSubnetAttributes = agent.constructVPCSubnetAttributes()
-			default:
-				// Encountered an error initializing dependencies for dealing with
-				// ENIs for Tasks. Exit with the appropriate error code
-				seelog.Criticalf("Unable to initialize Task ENI dependencies: %v", err)
-				if terminal {
-					return exitcodes.ExitTerminal
-				}
-				return exitcodes.ExitError
+		default:
+			// Encountered an error initializing dependencies for dealing with
+			// ENIs for Tasks. Exit with the appropriate error code
+			seelog.Criticalf("Unable to initialize Task ENI dependencies: %v", err)
+			if terminal {
+				return exitcodes.ExitTerminal
 			}
+			return exitcodes.ExitError
+		}
+	} else if !agent.cfg.External.Enabled() {
+		// Set VPC and Subnet IDs for the EC2 instance
+		err, terminal := agent.setVPCSubnet()
+		switch err {
+		case nil:
+			// No error so do nothing
+		case instanceNotLaunchedInVPCError:
+			// We have ascertained that the EC2 Instance is not running in a VPC
+			// No need to stop the ECS Agent in this case
+			logger.Info("Unable to detect VPC ID for the instance as it was not launched in VPC mode.")
+		default:
+			// Encountered an error initializing VPC ID and Subnet
+			seelog.Criticalf("Unable to detect VPC ID and Subnet: %v", err)
+			if terminal {
+				return exitcodes.ExitTerminal
+			}
+			return exitcodes.ExitError
 		}
 	}
 
