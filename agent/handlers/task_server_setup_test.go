@@ -127,6 +127,7 @@ var (
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		NetworkMode:         apitask.AWSVPCNetworkMode,
 		ENIs: []*apieni.ENI{
 			{
 				IPV4Addresses: []*apieni.ENIIPV4Address{
@@ -153,6 +154,7 @@ var (
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskStatusNone,
+		NetworkMode:         apitask.AWSVPCNetworkMode,
 		ENIs: []*apieni.ENI{
 			{
 				IPV4Addresses: []*apieni.ENIIPV4Address{

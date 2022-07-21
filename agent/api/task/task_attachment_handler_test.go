@@ -175,6 +175,7 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 				NetworkMode: stringToPointer(AWSVPCNetworkMode),
 			}
 			testTask := &Task{}
+			testTask.NetworkMode = AWSVPCNetworkMode
 			err := handleTaskAttachments(testAcsTask, testTask)
 			if tc.shouldReturnError {
 				assert.NotNil(t, err, "Should return error")

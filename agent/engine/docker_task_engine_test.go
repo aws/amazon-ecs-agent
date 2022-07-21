@@ -1000,6 +1000,7 @@ func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testin
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	volRes := &taskresourcevolume.VolumeResource{}
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
 		"dockerVolume": {volRes},
@@ -1048,6 +1049,7 @@ func TestProvisionContainerResourcesAwsvpcInspectError(t *testing.T) {
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
 		DockerID:   containerID,
@@ -1075,6 +1077,7 @@ func TestProvisionContainerResourcesAwsvpcMissingCNIResponseError(t *testing.T) 
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
 		DockerID:   containerID,
@@ -1117,6 +1120,7 @@ func TestStopPauseContainerCleanupCalledAwsvpc(t *testing.T) {
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
 		ProxyIngressPort: proxyIngressPort,
@@ -1182,6 +1186,7 @@ func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
 		DockerID:   containerID,
@@ -1234,6 +1239,7 @@ func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
 		ProxyIngressPort: proxyIngressPort,
@@ -2790,9 +2796,10 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 		require.NoError(t, err)
 		return &apitask.Task{
-			Arn:     taskARN,
-			Version: taskVersion,
-			Family:  taskFamily,
+			Arn:         taskARN,
+			Version:     taskVersion,
+			Family:      taskFamily,
+			NetworkMode: networkMode,
 			Containers: []*apicontainer.Container{
 				{
 					Name: taskName,
@@ -2832,9 +2839,10 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 		require.NoError(t, err)
 		return &apitask.Task{
-			Arn:     taskARN,
-			Version: taskVersion,
-			Family:  taskFamily,
+			Arn:         taskARN,
+			Version:     taskVersion,
+			Family:      taskFamily,
+			NetworkMode: networkMode,
 			ENIs: []*apieni.ENI{
 				{
 					IPV4Addresses: []*apieni.ENIIPV4Address{

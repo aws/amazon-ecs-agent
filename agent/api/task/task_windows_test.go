@@ -731,6 +731,7 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 // TestBuildCNIConfig tests if the generated CNI config is correct
 func TestBuildCNIConfig(t *testing.T) {
 	testTask := &Task{}
+	testTask.NetworkMode = AWSVPCNetworkMode
 	testTask.AddTaskENI(&apieni.ENI{
 		ID:                           "TestBuildCNIConfig",
 		MacAddress:                   mac,

@@ -35,4 +35,5 @@ const (
 	Image         = "image"
 	Volume        = "volume"
 	Time          = "time"
+	NetworkMode   = "networkMode"
 )

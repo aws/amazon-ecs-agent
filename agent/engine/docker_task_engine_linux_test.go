@@ -550,6 +550,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 
 	testTask := testdata.LoadTask("sleep5")
 	testTask.AddTaskENI(mockENI)
+	testTask.NetworkMode = apitask.AWSVPCNetworkMode
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
 		ProxyIngressPort: proxyIngressPort,
@@ -627,6 +628,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
 				sleepTask.AddTaskENI(mockENI)
+				sleepTask.NetworkMode = apitask.AWSVPCNetworkMode
 				sleepTask.SetAppMesh(&appmesh.AppMesh{
 					IgnoredUID:       ignoredUID,
 					ProxyIngressPort: proxyIngressPort,
@@ -739,6 +741,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.AddTaskENI(mockENI)
+	sleepTask.NetworkMode = apitask.AWSVPCNetworkMode
 
 	sleepTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
@@ -1061,6 +1064,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).serviceconnectRelay = &apitask.Task{Arn: "arn::::::/task"}
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5PortMappings")
+	sleepTask.NetworkMode = apitask.BridgeNetworkMode
 	sleepContainer := sleepTask.Containers[0]
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
