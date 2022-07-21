@@ -218,9 +218,11 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 		Arn:                 "t1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+		NetworkMode:         apitask.BridgeNetworkMode,
 	}
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
-	assert.Equal(t, addedTask, expectedTask, "added task is not expected")
+	assert.Equal(t, expectedTask, addedTask, "added task is not expected")
 }
 
 func newTestDataClient(t *testing.T) (data.Client, func()) {
@@ -278,8 +280,10 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 	expectedTask := &apitask.Task{
 		Arn:                "t1",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		NetworkMode:        apitask.BridgeNetworkMode,
 	}
-	assert.Equal(t, addedTask, expectedTask, "received task is not expected")
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
+	assert.Equal(t, expectedTask, addedTask, "received task is not expected")
 }
 
 // TestHandlePayloadMessageCredentialsAckedWhenTaskAdded tests if the handler generates
@@ -455,8 +459,10 @@ func TestPayloadBufferHandler(t *testing.T) {
 	expectedTask := &apitask.Task{
 		Arn:                taskArn,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		NetworkMode:        apitask.BridgeNetworkMode,
 	}
-	assert.Equal(t, addedTask, expectedTask, "received task is not expected")
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
+	assert.Equal(t, expectedTask, addedTask, "received task is not expected")
 }
 
 // TestPayloadBufferHandlerWithCredentials tests if the async payloadBufferHandler routine
@@ -687,8 +693,10 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	expectedTask := &apitask.Task{
 		Arn:                expectedTaskArn,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		NetworkMode:        apitask.BridgeNetworkMode,
 	}
 	expectedTask.SetCredentialsID(expectedTaskCredentials.CredentialsID)
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	if !reflect.DeepEqual(addedTask, expectedTask) {
 		return fmt.Errorf("Mismatch between expected and added tasks, expected: %v, added: %v", expectedTask, addedTask)

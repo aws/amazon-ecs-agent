@@ -102,6 +102,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
+		NetworkMode: AWSVPCNetworkMode,
 	}
 	cfg := &config.Config{
 		PauseContainerImageName: "pause-container-image-name",
@@ -130,7 +131,8 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs: []*apieni.ENI{{}},
+		ENIs:        []*apieni.ENI{{}},
+		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -176,7 +178,8 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs: []*apieni.ENI{{}},
+		ENIs:        []*apieni.ENI{{}},
+		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -212,7 +215,8 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) 
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs: []*apieni.ENI{{}},
+		ENIs:        []*apieni.ENI{{}},
+		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -1283,6 +1287,7 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			testTask := &Task{}
+			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.AddTaskENI(getTestENI())
 			testTask.SetAppMesh(&appmesh.AppMesh{
 				IgnoredUID:       ignoredUID,
@@ -1333,6 +1338,7 @@ func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			testTask := &Task{}
 			testTask.AddTaskENI(getTestENI())
+			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.ServiceConnectConfig = &serviceconnect.Config{
 				ContainerName: scContainerName,
 				IngressConfig: []serviceconnect.IngressConfigEntry{{ListenerPort: scListenerPort}},
@@ -1380,6 +1386,7 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			testTask := &Task{}
+			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.AddTaskENI(&apieni.ENI{
 				ID:                           "TestBuildCNIConfigTrunkBranchENI",
 				MacAddress:                   mac,
