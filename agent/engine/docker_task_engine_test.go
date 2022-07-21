@@ -1237,6 +1237,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any())
 
 	task := testdata.LoadTask("circular_dependency")
+
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 
