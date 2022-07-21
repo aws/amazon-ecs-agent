@@ -33,7 +33,7 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 	return RetryWithBackoffCtx(context.Background(), backoff, fn)
 }
 
-func RetryWithBackoffForTaskHandler(cfg *config.Config, taskARN string, delay time.Duration, backoff Backoff, eventFlowCtx context.Context, fn func() error) error {
+func RetryWithBackoffForTaskHandler(cfg *config.Config, taskARN string, delay time.Duration, backoff Backoff, eventFlowCtx *context.Context, fn func() error) error {
 	return RetryWithBackoffCtxForTaskHandler(context.Background(), eventFlowCtx, cfg, taskARN, backoff, delay, fn)
 }
 
@@ -63,7 +63,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	}
 }
 
-func RetryWithBackoffCtxForTaskHandler(ctx context.Context, eventFlowCtx context.Context, cfg *config.Config, taskARN string, backoff Backoff, delay time.Duration, fn func() error) error {
+func RetryWithBackoffCtxForTaskHandler(ctx context.Context, eventFlowCtx *context.Context, cfg *config.Config, taskARN string, backoff Backoff, delay time.Duration, fn func() error) error {
 
 	var err error
 	for {
@@ -89,7 +89,7 @@ func RetryWithBackoffCtxForTaskHandler(ctx context.Context, eventFlowCtx context
 			If we were in disconnected mode up to this point and switch to normal mode here,
 			eventFlowCtx is cancelled, and we enter else block
 		*/
-		if cfg.GetDisconnectModeEnabled() {
+		if cfg.GetDisconnectModeEnabled() && *eventFlowCtx != nil {
 
 			/*
 				If we switch to normal mode while we are in this portion before calling WaitForDurationAndInterruptIfRequired,
@@ -117,10 +117,11 @@ func RetryWithBackoffCtxForTaskHandler(ctx context.Context, eventFlowCtx context
 }
 
 func waitForDuration(delay time.Duration) bool {
-	return WaitForDurationWithContext(context.Background(), delay)
+	backgroundCtx := context.Background()
+	return WaitForDurationWithContext(&backgroundCtx, delay)
 }
 
-func WaitForDurationWithContext(eventFlowCtx context.Context, delay time.Duration) bool {
+func WaitForDurationWithContext(eventFlowCtx *context.Context, delay time.Duration) bool {
 	reconnectTimer := time.NewTimer(delay)
 	logger.Debug("Started wait", logger.Fields{
 		"waitDelay": delay.String(),
@@ -132,7 +133,7 @@ func WaitForDurationWithContext(eventFlowCtx context.Context, delay time.Duratio
 		})
 		return true
 
-	case <-eventFlowCtx.Done():
+	case <-(*eventFlowCtx).Done():
 		logger.Debug("Interrupt wait as connection resumed")
 		if !reconnectTimer.Stop() { //prevents memory leak
 			<-reconnectTimer.C
