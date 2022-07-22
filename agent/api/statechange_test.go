@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -191,6 +193,100 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 				assert.Equal(t, expectedEvent, event)
 			} else {
 				assert.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestNewUncheckedContainerStateChangeEvent_SCBridge(t *testing.T) {
+	testContainerName := "c1"
+	tests := []struct {
+		name                       string
+		addPauseContainer          bool
+		pauseContainerName         string
+		pauseContainerPortBindings []apicontainer.PortBinding
+		err                        error
+	}{
+		{
+			name:                       "should fail to resolve pause container - pause container name doesn't match",
+			addPauseContainer:          true,
+			pauseContainerName:         "invalid-pause-container-name",
+			pauseContainerPortBindings: []apicontainer.PortBinding{{}},
+			err:                        fmt.Errorf("error resolving pause container for bridge mode SC container: %s", testContainerName),
+		},
+		{
+			name:               "should use pause container port mapping",
+			addPauseContainer:  true,
+			pauseContainerName: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, testContainerName),
+			pauseContainerPortBindings: []apicontainer.PortBinding{{
+				ContainerPort: 1,
+				HostPort:      2,
+				BindIP:        "1.2.3.4",
+				Protocol:      3,
+			}},
+			err: nil,
+		},
+		{
+			name:              "should fail to resolve pause container - no pause container available",
+			addPauseContainer: false,
+			err:               fmt.Errorf("error resolving pause container for bridge mode SC container: %s", testContainerName),
+		},
+	}
+	steadyStateStatus := apicontainerstatus.ContainerRunning
+	exitCode := 1
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &apitask.Task{
+				Arn:         "arn:123",
+				NetworkMode: apitask.BridgeNetworkMode,
+				ServiceConnectConfig: &serviceconnect.Config{
+					ContainerName: "service-connect",
+				},
+				Containers: []*apicontainer.Container{
+					{
+						Name:                    testContainerName,
+						RuntimeID:               "222",
+						KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
+						SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
+						Type:                    apicontainer.ContainerNormal,
+						SteadyStateStatusUnsafe: &steadyStateStatus,
+						KnownExitCodeUnsafe:     &exitCode,
+						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
+							ContainerPort: 8080, // we get this from task definition
+						}},
+						ImageDigest: "image",
+					},
+					{
+						Name: "service-connect",
+					},
+				}}
+			if tc.addPauseContainer {
+				task.Containers = append(task.Containers, &apicontainer.Container{
+					Name:                    tc.pauseContainerName,
+					Type:                    apicontainer.ContainerCNIPause,
+					KnownPortBindingsUnsafe: tc.pauseContainerPortBindings,
+				})
+			}
+
+			expectedEvent := ContainerStateChange{
+				TaskArn:       "arn:123",
+				ContainerName: testContainerName,
+				RuntimeID:     "222",
+				Status:        apicontainerstatus.ContainerRunning,
+				ExitCode:      &exitCode,
+				PortBindings:  tc.pauseContainerPortBindings,
+				ImageDigest:   "image",
+				Reason:        "reason",
+				Container:     task.Containers[0],
+			}
+
+			event, err := newUncheckedContainerStateChangeEvent(task, task.Containers[0], "reason")
+			if tc.err == nil {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedEvent, event)
+			} else {
+				assert.Error(t, err)
+				assert.Equal(t, tc.err, err)
 			}
 		})
 	}
