@@ -1,3 +1,4 @@
+.DS_Store
 misc/certs/ca-certificates.crt
 out/
 coverage/
