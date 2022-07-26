@@ -17,6 +17,7 @@
 package credentialspec
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -82,37 +83,39 @@ type CredentialSpecResource struct {
 	s3ClientCreator s3factory.S3ClientCreator
 	// credentialSpecResourceLocation is the location for all the tasks' credentialspec artifacts
 	credentialSpecResourceLocation string
-	// required for processing credentialspecs
-	// Example item := credentialspec:file://credentialspec.json
-	requiredCredentialSpecs []string
 	// map to transform credentialspec values, key is a input credentialspec
 	// Examples:
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
 	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
 	CredSpecMap map[string]string
+	// The essential map of credentialspecs needed for the containers. It stores the map with the credentialSpecARN as
+	// the key container name as the value.
+	// Example item := arn:aws:ssm:us-east-1:XXXXXXXXXXXXX:parameter/x/y/c:container-sql
+	// This stores the map of a credential spec to corresponding container name
+	credentialSpecContainerMap map[string]string
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
 
 // NewCredentialSpecResource creates a new CredentialSpecResource object
 func NewCredentialSpecResource(taskARN, region string,
-	credentialSpecs []string,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
-	s3ClientCreator s3factory.S3ClientCreator) (*CredentialSpecResource, error) {
+	s3ClientCreator s3factory.S3ClientCreator,
+	credentialSpecContainerMap map[string]string) (*CredentialSpecResource, error) {
 
 	s := &CredentialSpecResource{
-		taskARN:                 taskARN,
-		region:                  region,
-		requiredCredentialSpecs: credentialSpecs,
-		credentialsManager:      credentialsManager,
-		executionCredentialsID:  executionCredentialsID,
-		ssmClientCreator:        ssmClientCreator,
-		s3ClientCreator:         s3ClientCreator,
-		CredSpecMap:             make(map[string]string),
-		ioutil:                  ioutilwrapper.NewIOUtil(),
+		taskARN:                    taskARN,
+		region:                     region,
+		credentialsManager:         credentialsManager,
+		executionCredentialsID:     executionCredentialsID,
+		ssmClientCreator:           ssmClientCreator,
+		s3ClientCreator:            s3ClientCreator,
+		CredSpecMap:                make(map[string]string),
+		ioutil:                     ioutilwrapper.NewIOUtil(),
+		credentialSpecContainerMap: credentialSpecContainerMap,
 	}
 
 	err := s.setCredentialSpecResourceLocation()
@@ -283,14 +286,6 @@ func (cs *CredentialSpecResource) GetCreatedAt() time.Time {
 	return cs.createdAt
 }
 
-// getRequiredCredentialSpecs returns the requiredCredentialSpecs field of credentialspec task resource
-func (cs *CredentialSpecResource) getRequiredCredentialSpecs() []string {
-	cs.lock.RLock()
-	defer cs.lock.RUnlock()
-
-	return cs.requiredCredentialSpecs
-}
-
 // getExecutionCredentialsID returns the execution role's credential ID
 func (cs *CredentialSpecResource) getExecutionCredentialsID() string {
 	cs.lock.RLock()
@@ -317,7 +312,7 @@ func (cs *CredentialSpecResource) Create() error {
 		iamCredentials = executionCredentials.GetIAMRoleCredentials()
 	}
 
-	for _, credSpecStr := range cs.requiredCredentialSpecs {
+	for credSpecStr := range cs.credentialSpecContainerMap {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
 		if len(credSpecSplit) != 2 {
 			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
@@ -446,29 +441,48 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 
 	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
 
-	ssmParam := filepath.Base(parsedARN.Resource)
-	ssmParams := []string{ssmParam}
-
+	// An SSM ARN is in the form of arn:aws:ssm:us-west-2:123456789012:parameter/a/b. The parsed ARN value
+	// would be parameter/a/b. The following code gets the SSM parameter by passing "/a/b" value to the
+	// GetParametersFromSSM method to retrieve the value in the parameter.
+	ssmParam := strings.SplitAfterN(parsedARN.Resource, "parameter", 2)
+	if len(ssmParam) != 2 {
+		err := fmt.Errorf("the provided SSM parameter:%s is in an invalid format", parsedARN.Resource)
+		cs.setTerminalReason(err.Error())
+		return err
+	}
+	ssmParams := []string{ssmParam[1]}
 	ssmParamMap, err := ssm.GetParametersFromSSM(ssmParams, ssmClient)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err
 	}
 
-	ssmParamData := ssmParamMap[ssmParam]
+	ssmParamData := ssmParamMap[ssmParam[1]]
 	taskArnSplit := strings.Split(cs.taskARN, "/")
 	length := len(taskArnSplit)
 	if length < 2 {
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
-	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParam)
+
+	taskId := taskArnSplit[length-1]
+	containerName := cs.credentialSpecContainerMap[originalCredentialspec]
+
+	// We compose a string that is a concatenation of the task_id, container name and the ARN of the credential spec
+	// SSM parameter. This concatenated string is hashed using the SHA-256 hashing scheme to generate a fixed length
+	// checksum string of 64 characters. This helps with resolving collisions within a host or a task using the same SSM
+	// parameter.
+	credSpecFileNameHashFormat := fmt.Sprintf("%s%s%s", taskId, containerName, credentialspecSSMARN)
+	hashFunction := sha256.New()
+	hashFunction.Write([]byte(credSpecFileNameHashFormat))
+	customCredSpecFileName := fmt.Sprintf("%x", hashFunction.Sum(nil))
+
+	localCredSpecFilePath := filepath.Join(cs.credentialSpecResourceLocation, customCredSpecFileName)
 	err = cs.writeSSMFile(ssmParamData, localCredSpecFilePath)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err
 	}
-
-	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", filepath.Base(localCredSpecFilePath))
+	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", customCredSpecFileName)
 	cs.updateCredSpecMapping(originalCredentialspec, dockerHostconfigSecOptCredSpec)
 
 	return nil
@@ -563,19 +577,20 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 		if err != nil {
 			seelog.Warnf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
 		}
+
 		delete(cs.CredSpecMap, key)
 	}
 }
 
 // CredentialSpecResourceJSON is the json representation of the credentialspec resource
 type CredentialSpecResourceJSON struct {
-	TaskARN                 string                `json:"taskARN"`
-	CreatedAt               *time.Time            `json:"createdAt,omitempty"`
-	DesiredStatus           *CredentialSpecStatus `json:"desiredStatus"`
-	KnownStatus             *CredentialSpecStatus `json:"knownStatus"`
-	RequiredCredentialSpecs []string              `json:"credentialSpecResources"`
-	CredSpecMap             map[string]string     `json:"CredSpecMap"`
-	ExecutionCredentialsID  string                `json:"executionCredentialsID"`
+	TaskARN                    string                `json:"taskARN"`
+	CreatedAt                  *time.Time            `json:"createdAt,omitempty"`
+	DesiredStatus              *CredentialSpecStatus `json:"desiredStatus"`
+	KnownStatus                *CredentialSpecStatus `json:"knownStatus"`
+	CredentialSpecContainerMap map[string]string     `json:"CredentialSpecContainerMap"`
+	CredSpecMap                map[string]string     `json:"CredSpecMap"`
+	ExecutionCredentialsID     string                `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serialises the CredentialSpecResourceJSON struct to JSON
@@ -597,13 +612,13 @@ func (cs *CredentialSpecResource) MarshalJSON() ([]byte, error) {
 			s := CredentialSpecStatus(knownState)
 			return &s
 		}(),
-		RequiredCredentialSpecs: cs.getRequiredCredentialSpecs(),
-		CredSpecMap:             cs.getCredSpecMap(),
-		ExecutionCredentialsID:  cs.getExecutionCredentialsID(),
+		CredentialSpecContainerMap: cs.credentialSpecContainerMap,
+		CredSpecMap:                cs.getCredSpecMap(),
+		ExecutionCredentialsID:     cs.getExecutionCredentialsID(),
 	})
 }
 
-// UnmarshalJSON deserialises the raw JSON to a CredentialSpecResourceJSON struct
+// UnmarshalJSON deserializes the raw JSON to a CredentialSpecResourceJSON struct
 func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 	temp := CredentialSpecResourceJSON{}
 
@@ -620,8 +635,8 @@ func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 	if temp.CreatedAt != nil && !temp.CreatedAt.IsZero() {
 		cs.SetCreatedAt(*temp.CreatedAt)
 	}
-	if temp.RequiredCredentialSpecs != nil {
-		cs.requiredCredentialSpecs = temp.RequiredCredentialSpecs
+	if temp.CredentialSpecContainerMap != nil {
+		cs.credentialSpecContainerMap = temp.CredentialSpecContainerMap
 	}
 	if temp.CredSpecMap != nil {
 		cs.CredSpecMap = temp.CredSpecMap

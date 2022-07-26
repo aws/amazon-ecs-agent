@@ -23,7 +23,6 @@ phases:
           ;;
         esac
 
-      # Set up proper go version using goenv utility (pre-installed in CodeBuild). Need to use this because default images come with 1.14.x
       - GOVERSION="$(cat GO_VERSION)"
       - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
 

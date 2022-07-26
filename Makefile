@@ -55,7 +55,10 @@ static-with-pause:
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
-	GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
+	# Agent and its dependencies on Go 1.18.x are not compatible with Mac (Darwin).
+	# Mac is not a supported target platform for Agent, so commenting out 
+	# cross-platform build step for Mac temporarily.
+	# GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
@@ -340,8 +343,8 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
-	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.2.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
@@ -351,13 +354,12 @@ get-deps-init:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
-	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	go get golang.org/x/tools/cmd/goimports
-	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.2.1
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 
 amazon-linux-sources.tgz:
 	./scripts/update-version.sh
-	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service

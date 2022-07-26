@@ -1,3 +1,8 @@
+1.62.0-1
+Ray Allan <fierlion@amazon.com>
+2022-07-27T10:00:00-08:00
+Update golang version 1.18.3
+
 1.61.3-1
 Mythri Garaga Manjunatha <mythr@amazon.com>
 2022-06-15T10:00:00-08:00

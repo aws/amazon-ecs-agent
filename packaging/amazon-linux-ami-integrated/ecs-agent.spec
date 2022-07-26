@@ -39,8 +39,7 @@ Source3:        amazon-ecs-volume-plugin.service
 Source4:        amazon-ecs-volume-plugin.socket
 Source5:        amazon-ecs-volume-plugin.conf
 
-# TODO need to update this once golang 1.17.x is available in Koji
-BuildRequires:  golang >= 1.13.0, golang < 1.16.15
+BuildRequires:  golang >= 1.18.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -160,7 +159,6 @@ required routes among its preparation steps.
 
 %build
 # each of these should build for arm and amd arch
-./scripts/build-pause
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
 ./scripts/build-integrated true "" false true
@@ -715,4 +713,3 @@ fi
 
 * Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
 - Naive update functionality
-

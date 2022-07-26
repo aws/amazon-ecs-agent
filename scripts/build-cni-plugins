@@ -37,6 +37,8 @@ esac
 if [ "$architecture" == "amd64" ]; then export GOARCH=amd64; fi
 if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
 
+goversion=`go version | cut -d' ' -f3 | cut -c 3-`
+
 # this script assumes we've run the get-cni-sources make target to update the cni submodules
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -52,6 +54,12 @@ ln -s "${ROOT}/amazon-vpc-cni-plugins" "${GITPATH}"
 cd ${GITPATH}/amazon-ecs-cni-plugins && GO111MODULE=auto make plugins
 mkdir -p ${ROOT}/misc/plugins && cp -a ./bin/plugins/. ${ROOT}/misc/plugins/
 make clean
-cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor" make aws-appmesh vpc-branch-eni
+
+# buildvcs=false excludes version control information in golang >= 1.18. This is required for compiling agent with included repositories
+if [[ $goversion < "1.18" ]]; then
+	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor" make aws-appmesh vpc-branch-eni
+else
+	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor -buildvcs=false" make aws-appmesh vpc-branch-eni
+fi
 cp -a ./build/linux_${GOARCH}/. ${ROOT}/misc/plugins/
 make clean

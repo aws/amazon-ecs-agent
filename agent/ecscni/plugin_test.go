@@ -29,14 +29,14 @@ import (
 const (
 	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated.
 	currentECSCNIVersion = "2020.09.0"
-	currentECSCNIGitHash = "55b2ae77ee0bf22321b14f2d4ebbcc04f77322e1"
+	currentECSCNIGitHash = "db5864722987c34ba309e6e7a7628fd1ccad1520"
 	currentVPCCNIGitHash = "199bfc65cced4951cbb6a38e6e828afa8c2b023c"
 )
 
 // Asserts that CNI plugin version matches the expected version
 func TestCNIPluginVersionNumber(t *testing.T) {
 	versionStr := getCNIVersionString(t)
-	assert.Equal(t, versionStr, currentECSCNIVersion)
+	assert.Equal(t, currentECSCNIVersion, versionStr)
 }
 
 // Asserts that CNI plugin version is upgraded when new commits are made to CNI plugin submodule
