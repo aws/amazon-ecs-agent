@@ -22,6 +22,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	api "github.com/aws/amazon-ecs-agent/agent/api"
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	config "github.com/aws/amazon-ecs-agent/agent/config"
@@ -140,4 +141,16 @@ func (m *MockManager) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 
 func (mr *MockManagerMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockManager)(nil).LoadImage), arg0, arg1, arg2)
+}
+
+// SetECSClient mocks base method
+func (m *MockManager) SetECSClient(arg0 api.ECSClient, arg1 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetECSClient", arg0, arg1)
+}
+
+// SetECSClient indicates an expected call of SetECSClient
+func (mr *MockManagerMockRecorder) SetECSClient(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetECSClient", reflect.TypeOf((*MockManager)(nil).SetECSClient), arg0, arg1)
 }
