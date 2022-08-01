@@ -163,7 +163,7 @@ required routes among its preparation steps.
 ./scripts/build-cni-plugins
 ./scripts/build-integrated true "" false true
 ./scripts/build-agent-image
-./scripts/gobuild.sh
+./scripts/gobuild.sh %{gobuild_tag}
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
