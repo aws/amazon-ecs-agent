@@ -274,6 +274,7 @@ func (agent *ecsAgent) start() int {
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
 	agent.initializeResourceFields(credentialsManager)
+	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager())
 }
 

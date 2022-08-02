@@ -14,6 +14,7 @@
 package serviceconnect
 
 import (
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -28,4 +29,5 @@ type Manager interface {
 	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	CreateInstanceTask(config *config.Config) (*apitask.Task, error)
 	AugmentInstanceContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
+	SetECSClient(client api.ECSClient, containerInstanceARN string)
 }
