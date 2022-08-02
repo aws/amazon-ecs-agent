@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -58,6 +59,9 @@ func (*manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 	return false, loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container isloaded: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
+}
+
+func (m *manager) SetECSClient(api.ECSClient, string) {
 }
 
 func (*manager) GetLoadedImageName() (string, error) {

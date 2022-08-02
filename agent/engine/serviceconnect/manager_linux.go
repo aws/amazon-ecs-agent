@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -94,6 +95,9 @@ type manager struct {
 	AgentContainerImageName   string
 	AgentContainerTag         string
 	AgentContainerTarballPath string
+
+	ecsClient            api.ECSClient
+	containerInstanceARN string
 }
 
 func NewManager() Manager {
@@ -113,6 +117,11 @@ func NewManager() Manager {
 		AgentContainerTag:         defaultAgentContainerTag,
 		AgentContainerTarballPath: defaultAgentContainerTarballPath,
 	}
+}
+
+func (m *manager) SetECSClient(client api.ECSClient, containerInstanceARN string) {
+	m.ecsClient = client
+	m.containerInstanceARN = containerInstanceARN
 }
 
 func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
@@ -189,14 +198,26 @@ func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 }
 
 func (m *manager) initRelayEnvironment(config *config.Config, container *apicontainer.Container) {
+	endpoint := fmt.Sprintf("https://ecs-sc.%s.api.aws", config.AWSRegion)
+	if m.ecsClient != nil {
+		discoveredEndpoint, err := m.ecsClient.DiscoverServiceConnectEndpoint(m.containerInstanceARN)
+		if err != nil {
+			logger.Error("Failed to retrieve service connect endpoint from DiscoverPollEndpoint, failing back to default", logger.Fields{
+				field.Error:        err,
+				field.ManagedAgent: "service-connect",
+				"endpoint":         endpoint,
+			})
+		} else {
+			endpoint = discoveredEndpoint
+		}
+	}
 	scEnv := map[string]string{
 		m.statusENV:    filepath.Join(m.statusPathContainer, m.statusFileName),
 		upstreamENV:    filepath.Join(m.relayPathContainer, m.relayFileName),
 		regionENV:      config.AWSRegion,
 		agentModeENV:   agentModeValue,
 		relayEnableENV: relayEnableOn,
-		// TODO: get programmatically when available
-		m.endpointENV: "https://ecs-sc-gamma.us-west-2.api.aws",
+		m.endpointENV:  endpoint,
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
