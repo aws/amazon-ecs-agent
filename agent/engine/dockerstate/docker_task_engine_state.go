@@ -30,6 +30,9 @@ import (
 type TaskEngineState interface {
 	// AllTasks returns all of the tasks
 	AllTasks() []*apitask.Task
+	// AllExternalTasks returns all tasks with IsInternal==false (i.e. customer-initiated tasks).
+	// Currently, ServiceConnect AppNet Relay task is the only internal task.
+	AllExternalTasks() []*apitask.Task
 	// AllENIAttachments returns all of the eni attachments
 	AllENIAttachments() []*apieni.ENIAttachment
 	// AllImageStates returns all of the image.ImageStates
@@ -148,17 +151,28 @@ func (state *DockerTaskEngineState) AllTasks() []*apitask.Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allTasksUnsafe()
+	return state.allTasksUnsafe(false)
 }
 
-func (state *DockerTaskEngineState) allTasksUnsafe() []*apitask.Task {
+func (state *DockerTaskEngineState) allTasksUnsafe(excludeInternal bool) []*apitask.Task {
 	ret := make([]*apitask.Task, len(state.tasks))
 	ndx := 0
 	for _, task := range state.tasks {
+		if excludeInternal && task.IsInternal {
+			continue
+		}
 		ret[ndx] = task
 		ndx++
 	}
-	return ret
+	return ret[:ndx]
+}
+
+// AllExternalTasks returns all tasks with IsInternal==false (i.e. all customer-initiated tasks)
+func (state *DockerTaskEngineState) AllExternalTasks() []*apitask.Task {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allTasksUnsafe(true)
 }
 
 // AllImageStates returns all of the image.ImageStates

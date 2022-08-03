@@ -38,7 +38,7 @@ func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 	toSave := savedState{
-		Tasks:          state.allTasksUnsafe(),
+		Tasks:          state.allTasksUnsafe(false),
 		IdToContainer:  state.idToContainer,
 		IdToTask:       state.idToTask,
 		ImageStates:    state.allImageStatesUnsafe(),

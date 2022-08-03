@@ -292,6 +292,8 @@ type Task struct {
 	ServiceConnectConnectionDrainingUnsafe bool `json:"ServiceConnectConnectionDraining,omitempty"`
 
 	NetworkMode string `json:"NetworkMode,omitempty"`
+
+	IsInternal bool `json:"IsInternal,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
