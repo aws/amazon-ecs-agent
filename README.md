@@ -220,8 +220,6 @@ The agent also supports the following flags:
 
 ## Building and Running from Source
 
-**Running the Amazon ECS Container Agent outside of Amazon EC2 is not supported.**
-
 ### Docker Image (on Linux)
 
 The Amazon ECS Container Agent may be built by typing `make` with the [Docker
