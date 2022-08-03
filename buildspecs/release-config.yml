@@ -34,6 +34,7 @@ phases:
           "releaseDate" : "$RELEASE_DATE",
           "agentStagingConfig": {
             "releaseGitSha": "$GIT_COMMIT_SHA",
+            "releaseGitShortSha": "$GIT_COMMIT_SHORT_SHA",
             "gitFarmRepoName": "MadisonContainerAgentExternal",
             "gitHubRepoName": "aws/amazon-ecs-agent",
             "gitFarmStageBranch": "v${AGENT_VERSION}-stage",
