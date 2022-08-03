@@ -1043,16 +1043,8 @@ Resources:
               Configuration:
                 ProjectName: !Ref SigningCodeBuildProject
                 PrimarySource: Buildspecs
-                # This project takes the following names as env vars
-                # - Commit sha
-                # - AMD tar
-                # - AMD rpm
-                # - ECS Anywhere install script (From AMD Project)
-                # - Ubuntu AMD deb
-                # - Ubuntu ARM deb
-                # - ARM tar
-                # - ARM rpm
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_TAR","value":"#{AmdBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_AMD_RPM","value":"#{AmdBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_AMD_DEB","value":"#{UbuntuAmdBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_UBUNTU_ARM_DEB","value":"#{UbuntuArmBuildVariables.ECS_AGENT_DEB}", "type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_TAR","value":"#{ArmBuildVariables.ECS_AGENT_TAR}","type":"PLAINTEXT"},{"name":"ECS_AGENT_ARM_RPM","value":"#{ArmBuildVariables.ECS_AGENT_RPM}","type":"PLAINTEXT"}]'
+                # Agent version and git short sha env variables to generate file names for signing
+                EnvironmentVariables: '[{"name":"AGENT_VERSION","value":"#{AmdBuildVariables.AGENT_VERSION}","type":"PLAINTEXT"},{"name":"GIT_COMMIT_SHORT_SHA","value":"#{AmdBuildVariables.GIT_COMMIT_SHORT_SHA}","type":"PLAINTEXT"},{"name":"INIT_VERSION","value":"#{AmdBuildVariables.INIT_VERSION}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: SignedArtifact
               RunOrder: 1
@@ -1060,6 +1052,8 @@ Resources:
         - Name: ReleaseConfig
           Actions:
             - Name: MakeJSON
+              # SourceArtifact as input to access the github repository
+              # To run git short sha command in buildspec
               InputArtifacts:
                 - Name: Buildspecs
                 - Name: SignedArtifact
@@ -1071,7 +1065,7 @@ Resources:
               Configuration:
                 ProjectName: !Ref MakeJSONCodeBuildProject
                 PrimarySource: Buildspecs
-                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"AGENT_VERSION","value":"#{AmdBuildVariables.AGENT_VERSION}","type":"PLAINTEXT"}]'
+                EnvironmentVariables: '[{"name":"GIT_COMMIT_SHA","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},{"name":"AGENT_VERSION","value":"#{AmdBuildVariables.AGENT_VERSION}","type":"PLAINTEXT"},{"name":"GIT_COMMIT_SHORT_SHA","value":"#{AmdBuildVariables.GIT_COMMIT_SHORT_SHA}","type":"PLAINTEXT"}]'
               OutputArtifacts:
                 - Name: JSONArtifact
               RunOrder: 1
@@ -1083,6 +1077,8 @@ Resources:
                 - Name: Buildspecs
                 - Name: SignedArtifact
                 - Name: JSONArtifact
+                - Name: AmdBuildArtifact
+                - Name: ArmBuildArtifact
               ActionTypeId:
                 Category: Build
                 Owner: AWS

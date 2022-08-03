@@ -41,6 +41,21 @@ phases:
   build:
     on-failure: ABORT
     commands:
+      # Generate file names for signing from agent version and git short sha
+      - ECS_AGENT_AMD_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - ECS_AGENT_AMD_LATEST_TAR="ecs-agent-latest.tar"
+      - ECS_AGENT_AMD_GITSHORTSHA_TAR="ecs-agent-${GIT_COMMIT_SHORT_SHA}.tar"
+      - ECS_AGENT_AMD_RPM="amazon-ecs-init-${INIT_VERSION}.x86_64.rpm"
+      - ECS_AGENT_UBUNTU_AMD_DEB="amazon-ecs-init-${INIT_VERSION}.amd64.deb"
+
+      - ECS_AGENT_ARM_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+      - ECS_AGENT_ARM_LATEST_TAR="ecs-agent-arm64-latest.tar"
+      - ECS_AGENT_ARM_GITSHORTSHA_TAR="ecs-agent-arm64-${GIT_COMMIT_SHORT_SHA}.tar"
+      - ECS_AGENT_ARM_RPM="amazon-ecs-init-${INIT_VERSION}.aarch64.rpm"
+      - ECS_AGENT_UBUNTU_ARM_DEB="amazon-ecs-init-${INIT_VERSION}.arm64.deb"
+
+      - ECS_ANYWHERE_SCRIPT="ecs-anywhere-install-${INIT_VERSION}.sh"
+      - ECS_ANYWHERE_LATEST_SCRIPT="ecs-anywhere-install-latest.sh"
       # Get the private key from secrets manager, jq parse it, turn it into raw output, pipe to file
       - aws secretsmanager get-secret-value --secret-id $PRIVATE_KEY_ARN | jq -r '.SecretString' > private.gpg
       # import the key into the keychain, the private key comes with the public key built in
@@ -50,14 +65,24 @@ phases:
       # Sign the amd tar and rpm (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_TAR" $ECS_AGENT_AMD_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_TAR
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_LATEST_TAR" $ECS_AGENT_AMD_LATEST_TAR
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_LATEST_TAR
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_GITSHORTSHA_TAR" $ECS_AGENT_AMD_GITSHORTSHA_TAR
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_GITSHORTSHA_TAR
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_RPM" $ECS_AGENT_AMD_RPM
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_RPM
       # Sign ECS Anywhere Script
-      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/scripts/ecs-anywhere-install.sh" ecs-anywhere-install.sh
-      - source /tmp/functions.sh && sign_file ecs-anywhere-install.sh
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/scripts/ecs-anywhere-install.sh" $ECS_ANYWHERE_SCRIPT
+      - source /tmp/functions.sh && sign_file $ECS_ANYWHERE_SCRIPT
+      - cp $ECS_ANYWHERE_SCRIPT $ECS_ANYWHERE_LATEST_SCRIPT
+      - source /tmp/functions.sh && sign_file $ECS_ANYWHERE_LATEST_SCRIPT
       # Sign the arm tar and rpm (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_TAR" $ECS_AGENT_ARM_TAR
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_TAR
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_LATEST_TAR" $ECS_AGENT_ARM_LATEST_TAR
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_LATEST_TAR
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_GITSHORTSHA_TAR" $ECS_AGENT_ARM_GITSHORTSHA_TAR
+      - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_GITSHORTSHA_TAR
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_RPM" $ECS_AGENT_ARM_RPM
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_RPM
       # Sign the amd deb (this is a secondary source so we have to do some copying)
@@ -75,15 +100,25 @@ artifacts:
   files:
     - $ECS_AGENT_AMD_TAR
     - '$ECS_AGENT_AMD_TAR.asc'
+    - $ECS_AGENT_AMD_LATEST_TAR
+    - '$ECS_AGENT_AMD_LATEST_TAR.asc'
+    - $ECS_AGENT_AMD_GITSHORTSHA_TAR
+    - '$ECS_AGENT_AMD_GITSHORTSHA_TAR.asc'
     - $ECS_AGENT_AMD_RPM
     - '$ECS_AGENT_AMD_RPM.asc'
     - $ECS_AGENT_ARM_TAR
     - '$ECS_AGENT_ARM_TAR.asc'
+    - $ECS_AGENT_ARM_LATEST_TAR
+    - '$ECS_AGENT_ARM_LATEST_TAR.asc'
+    - $ECS_AGENT_ARM_GITSHORTSHA_TAR
+    - '$ECS_AGENT_ARM_GITSHORTSHA_TAR.asc'
     - $ECS_AGENT_ARM_RPM
     - '$ECS_AGENT_ARM_RPM.asc'
     - $ECS_AGENT_UBUNTU_AMD_DEB
     - '$ECS_AGENT_UBUNTU_AMD_DEB.asc'
     - $ECS_AGENT_UBUNTU_ARM_DEB
     - '$ECS_AGENT_UBUNTU_ARM_DEB.asc'
-    - 'ecs-anywhere-install.sh'
-    - 'ecs-anywhere-install.sh.asc'
+    - $ECS_ANYWHERE_SCRIPT
+    - '$ECS_ANYWHERE_SCRIPT.asc'
+    - $ECS_ANYWHERE_LATEST_SCRIPT
+    - '$ECS_ANYWHERE_LATEST_SCRIPT.asc'
