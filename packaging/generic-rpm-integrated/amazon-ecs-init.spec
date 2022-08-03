@@ -19,7 +19,7 @@
 %global agent_image ecs-agent-v%{version}.tar
 
 Name:           amazon-ecs-init
-Version:        1.62.0
+Version:        1.62.1
 Release:        1
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -95,6 +95,9 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %systemd_postun_with_restart amazon-ecs-volume-plugin
 
 %changelog
+* Wed Aug 03 2022 Ray Allan <fierlion@amazon.com> - 1.62.1-1
+- Fix bug in cgroup mount for rpm builds
+
 * Wed Jul 27 2022 Ray Allan <fierlion@amazon.com> - 1.62.0-1
 - Update golang version 1.18.3
 

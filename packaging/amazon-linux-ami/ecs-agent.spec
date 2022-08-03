@@ -33,7 +33,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.62.0
+Version:        1.62.1
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -279,6 +279,9 @@ fi
 %endif
 
 %changelog
+* Wed Aug 03 2022 Ray Allan <fierlion@amazon.com> - 1.62.1-1
+- Fix bug in cgroup mount for rpm builds
+
 * Wed Jul 27 2022 Ray Allan <fierlion@amazon.com> - 1.62.0-1
 - Update golang version 1.18.3
 
