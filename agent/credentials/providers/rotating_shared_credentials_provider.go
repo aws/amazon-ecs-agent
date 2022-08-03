@@ -45,7 +45,7 @@ func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
 		RotationInterval: defaultRotationInterval,
 		sharedCredentialsProvider: &credentials.SharedCredentialsProvider{
 			Filename: defaultRotatingCredentialsFilename,
-			Profile:  "default",
+			Profile:  "",
 		},
 	}
 }

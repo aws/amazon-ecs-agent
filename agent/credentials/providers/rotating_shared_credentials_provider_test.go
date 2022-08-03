@@ -29,7 +29,7 @@ import (
 func TestNewRotatingSharedCredentialsProvider(t *testing.T) {
 	p := NewRotatingSharedCredentialsProvider()
 	require.Equal(t, time.Minute, p.RotationInterval)
-	require.Equal(t, "default", p.sharedCredentialsProvider.Profile)
+	require.Equal(t, "", p.sharedCredentialsProvider.Profile)
 	require.Equal(t, defaultRotatingCredentialsFilename, p.sharedCredentialsProvider.Filename)
 }
 
