@@ -26,7 +26,7 @@ phases:
     commands:
       - echo "Building agent deb"
       - AGENT_VERSION=$(cat VERSION)
-      - ECS_AGENT_DEB="amazon-ecs-init_${AGENT_VERSION}-1_${architecture}.deb"
+      - ECS_AGENT_DEB="amazon-ecs-init-${AGENT_VERSION}-1.${architecture}.deb"
       - ECS_AGENT_DEB_TAR="amazon-ecs-init_${AGENT_VERSION}-1.debian.tar.xz"
       - echo $(pwd)
 
@@ -47,6 +47,7 @@ phases:
       - which go
       - go version
       - make generic-deb-integrated
+      - mv amazon-ecs-init_${AGENT_VERSION}-1_${architecture}.deb $ECS_AGENT_DEB
 
 artifacts:
   files:

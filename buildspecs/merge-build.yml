@@ -4,9 +4,10 @@ env:
   git-credential-helper: yes
   exported-variables:
     - CODEBUILD_BUILD_ID
-    - ECS_AGENT_TAR
     - ECS_AGENT_RPM
     - AGENT_VERSION
+    - INIT_VERSION
+    - GIT_COMMIT_SHORT_SHA
 
 phases:
   install:
@@ -47,11 +48,18 @@ phases:
       # Read init version from changelog, using this as the source because of possible scenario of '-2', '-3'.. init suffix releases
       - INIT_VERSION=$(head -n 1 scripts/changelog/CHANGELOG_MASTER)
       - INIT_VERSION=$(echo $INIT_VERSION | tr -d '[:space:]')
+
+      # Git short sha - used to name artifacts and make release json
+      # This variable is exported
+      - GIT_COMMIT_SHORT_SHA=$(git rev-parse --short HEAD)
+
+      # Different names of under which tar is released
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
+      - ECS_AGENT_LATEST_TAR="ecs-agent-latest.tar"
+      - ECS_AGENT_GITSHORTSHA_TAR="ecs-agent-${GIT_COMMIT_SHORT_SHA}.tar"
+
+      # RPM
       - ECS_AGENT_RPM="amazon-ecs-init-${INIT_VERSION}.x86_64.rpm"
-      - echo $(pwd)
-      - RELEASE_DATE=$(git show -s --format=%cd --date=format:'%Y%m%d')
-      - echo $RELEASE_DATE
 
       # Directory/GOPATH restructuring needed for CodePipeline
       - cd ../..
@@ -67,16 +75,58 @@ phases:
       - make generic-rpm-integrated
       - ls
 
-      # Rename artifacts for architecture
+      # Rename artifacts for arm architecture
       - |
         if [[ $architecture == "arm64" ]] ; then
           mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
           ECS_AGENT_RPM="amazon-ecs-init-${INIT_VERSION}.aarch64.rpm"
           ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          ECS_AGENT_LATEST_TAR="ecs-agent-arm64-latest.tar"
+          ECS_AGENT_GITSHORTSHA_TAR="ecs-agent-arm64-${GIT_COMMIT_SHORT_SHA}.tar"
         fi
+
+      # Make copies of agent under different names; Same tar - different names
+      - cp $ECS_AGENT_TAR $ECS_AGENT_LATEST_TAR
+      - cp $ECS_AGENT_TAR $ECS_AGENT_GITSHORTSHA_TAR
+
+      # md5 file names
+      - ECS_AGENT_TAR_MD5="${ECS_AGENT_TAR}.md5"
+      - ECS_AGENT_LATEST_TAR_MD5="${ECS_AGENT_LATEST_TAR}.md5"
+      - ECS_AGENT_GITSHORTSHA_TAR_MD5="${ECS_AGENT_GITSHORTSHA_TAR}.md5"
+
+      # Create md5 file names
+      - md5sum $ECS_AGENT_TAR | awk '{print $1}' > $ECS_AGENT_TAR_MD5
+      - md5sum $ECS_AGENT_LATEST_TAR | awk '{print $1}' > $ECS_AGENT_LATEST_TAR_MD5
+      - md5sum $ECS_AGENT_GITSHORTSHA_TAR | awk '{print $1}' > $ECS_AGENT_GITSHORTSHA_TAR_MD5
+
+      # json file names 
+      - ECS_AGENT_TAR_JSON="${ECS_AGENT_TAR}.json"
+      - ECS_AGENT_LATEST_TAR_JSON="${ECS_AGENT_LATEST_TAR}.json"
+      - ECS_AGENT_GITSHORTSHA_TAR_JSON="${ECS_AGENT_GITSHORTSHA_TAR}.json"
+
+      # Create jsons
+      - echo "{\"agentVersion\":\"v${AGENT_VERSION}\"}" | tee $ECS_AGENT_TAR_JSON $ECS_AGENT_LATEST_TAR_JSON $ECS_AGENT_GITSHORTSHA_TAR_JSON
+
 
 artifacts:
   files:
+    # tars
     - $ECS_AGENT_TAR
+    - $ECS_AGENT_LATEST_TAR
+    - $ECS_AGENT_GITSHORTSHA_TAR
+
+    # md5
+    - $ECS_AGENT_TAR_MD5
+    - $ECS_AGENT_LATEST_TAR_MD5
+    - $ECS_AGENT_GITSHORTSHA_TAR_MD5
+
+    # json
+    - $ECS_AGENT_TAR_JSON
+    - $ECS_AGENT_LATEST_TAR_JSON
+    - $ECS_AGENT_GITSHORTSHA_TAR_JSON
+
+    # rpm
     - $ECS_AGENT_RPM
+
+    # ECS Anywhere install script
     - 'scripts/ecs-anywhere-install.sh'

@@ -20,3 +20,19 @@ phases:
           echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
           aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
         done
+
+      # copy amd md5 and json files
+      - cd $CODEBUILD_SRC_DIR_AmdBuildArtifact
+      - |
+        for filename in  *.md5 *.json; do
+          echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
+          aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
+        done
+ 
+      # copy amd md5 and json files
+      - cd $CODEBUILD_SRC_DIR_ArmBuildArtifact
+      - |
+        for filename in  *.md5 *.json; do
+          echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
+          aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
+        done
