@@ -1,3 +1,9 @@
+amazon-ecs-init (1.62.1-1) stable; urgency=medium
+
+  * Fix bug in cgroup mount for rpm builds
+
+ -- Ray Allan <fierlion@amazon.com>  Wed, 03 Aug 2022 18:00:00 +0000
+
 amazon-ecs-init (1.62.0-1) stable; urgency=medium
 
   * Update golang version 1.18.3

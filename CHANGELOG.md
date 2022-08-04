@@ -1,4 +1,8 @@
 # Changelog
+## 1.62.1
+* Bug - Fix an issue with cgroup mount [#3324](https://github.com/aws/amazon-ecs-agent/pull/3324)
+* Enhancement - Build changes - Add GitShortSha to config, Add md5, json file creation [#3327](https://github.com/aws/amazon-ecs-agent/pull/3327)
+
 ## 1.62.0
 * Enhancement - Update golang version to 1.18.3 [#3301](https://github.com/aws/amazon-ecs-agent/pull/3301)
 * Enhancement - Update windows golang version to 1.18.3 [#3317](https://github.com/aws/amazon-ecs-agent/pull/3317)
