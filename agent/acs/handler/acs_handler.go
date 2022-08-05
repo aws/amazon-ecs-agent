@@ -257,7 +257,7 @@ func (acsSession *session) Start() error {
 						sendEmptyMessageOnChannel(connectToACS)
 					}
 				} else {
-					acsSession.startDisconnectMode()
+					acsSession.startDisconnectMode(connectToACS)
 				}
 			} else {
 				// Disconnected unexpectedly from ACS, compute backoff duration to
@@ -288,8 +288,7 @@ func (acsSession *session) Start() error {
 
 // startDisconnectMode contains the logic necessary to turn disconnectModeEnabled on if the instance
 // has DisconnectMode capability, and network connection has been lost.
-func (acsSession *session) startDisconnectMode() {
-	connectToACS := make(chan struct{}, 1)
+func (acsSession *session) startDisconnectMode(connectToACS chan<- struct{}) {
 	cfg := acsSession.agentConfig
 	if acsSession.disconnectionTimer != nil {
 		timerCompleted := acsSession.checkDisconnectionTimer()
@@ -297,11 +296,12 @@ func (acsSession *session) startDisconnectMode() {
 			"timerCompleted": timerCompleted,
 		})
 		if timerCompleted {
-			// If the timer has been completed, then set DisconnectModeEnabled to true.
+			// If the timer has been completed, then set DisconnectModeEnabled to true and pause task event flow.
 			cfg.SetDisconnectModeEnabled(true)
 			logger.Debug("Turning DisconnectModeEnabled on after timer is completed", logger.Fields{
 				"disconnectionMode": cfg.GetDisconnectModeEnabled(),
 			})
+			acsSession.taskHandler.PauseEventsFlow()
 			acsSession.disconnectionTimer = nil
 			sendEmptyMessageOnChannel(connectToACS)
 		} else {
@@ -443,6 +443,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 			// Once ACS successfully reconnects, set disconnectModeEnabled to FALSE
 			logger.Debug("Turning DisconnectModeEnabled off after successful reconnection.")
 			cfg.SetDisconnectModeEnabled(false)
+			acsSession.taskHandler.ResumeEventsFlow()
 		} else if acsSession.disconnectionTimer != nil {
 			// If reconnection is successful when the disconnection timer has already started,
 			// then terminate the timer. This way the timer can be re-initalized when connection

@@ -49,6 +49,17 @@ const (
 	submitStateBackoffMax            = 30 * time.Second
 	submitStateBackoffJitterMultiple = 0.20
 	submitStateBackoffMultiple       = 1.3
+
+	// throttlingLimit is the sustained throttling limit for Agent Modifying API Calls
+	// such as submitting task state changes. The count starts at 0, so that is the initalTaskEventCount
+	// See here: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/request-throttling.html
+	throttlingLimit       = 120
+	initialTaskEventCount = 0
+
+	//throttlingTimeOut is the time that the code must wait before sending events,
+	// and how long the period to increase taskEventCount is before it resets. The
+	// amount of tokens for Agent Modifying API Calls resets after one minute.
+	throttlingTimeOut = time.Minute
 )
 
 // TaskHandler encapsulates the the map of a task arn to task and container events
@@ -76,9 +87,10 @@ type TaskHandler struct {
 	// time over which a call to SubmitTaskStateChange is made.
 	// The actual duration is randomly distributed between these
 	// two
-	minDrainEventsFrequency time.Duration
-	maxDrainEventsFrequency time.Duration
-
+	minDrainEventsFrequency             time.Duration
+	maxDrainEventsFrequency             time.Duration
+	taskEventCount                      int
+	taskEventCountTimer                 *time.Timer
 	state                               dockerstate.TaskEngineState
 	client                              api.ECSClient
 	ctx                                 context.Context
@@ -130,6 +142,7 @@ func NewTaskHandler(ctx context.Context,
 		disconnectedModeTaskEventRetryDelay: disconnectedModeTaskEventRetryDelay,
 		eventFlowCtx:                        nil,
 		eventFlowCtxCancel:                  nil,
+		taskEventCount:                      initialTaskEventCount,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -362,6 +375,17 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 	}
 }
 
+//checktaskEventCountTimer returns the status of the taskEventCountTimer,
+// to ensure taskEventCount is being reset every minute
+func (handler *TaskHandler) checktaskEventCountTimer() bool {
+	select {
+	case <-handler.taskEventCountTimer.C:
+		return true
+	default:
+		return false
+	}
+}
+
 func (handler *TaskHandler) removeTaskEvents(taskARN string) {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
@@ -378,7 +402,7 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 
 	taskEvents.lock.Lock()
 	defer taskEvents.lock.Unlock()
-
+	cfg := handler.cfg
 	// Add event to the queue
 	seelog.Debugf("TaskHandler: Adding event: %s", change.toString())
 	taskEvents.events.PushBack(change)
@@ -387,6 +411,38 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 		// If a send event is not already in progress, trigger the
 		// submitTaskEvents to start sending changes to ECS
 		taskEvents.sending = true
+
+		//If network connection is successfully up, keep track of how many
+		// task events are being sent in order to avoid hitting the throttlingLimit.
+		if cfg.DisconnectCapable.Enabled() && !cfg.GetDisconnectModeEnabled() {
+			if handler.taskEventCount == 0 {
+				logger.Debug("Connection to ACS active and taskEventCount at 0. Starting to increment taskEventCount and initializing taskEventCountTimer to avoid SubmitTaskStateChange request throttling.")
+				handler.taskEventCountTimer = time.NewTimer(time.Duration(throttlingTimeOut))
+			}
+			handler.taskEventCount++
+
+			//If the taskEventCounter is initialized and has completed regardless of the current
+			//taskEventCount, then restart the taskEventCountTimer and reset the taskEventCount to
+			// 0. This ensures that only the task event changes sent within one minute are being
+			//counted to avoid hitting throttling limits, because the limit resets after one minute.
+			if handler.taskEventCountTimer != nil && handler.checktaskEventCountTimer() {
+				logger.Debug("taskEventCountTimer for one minute completed. Terminating taskEventCountTimer and resetting taskEventCount to 0.")
+				handler.taskEventCountTimer = nil
+				handler.taskEventCount = 0
+			}
+
+		}
+
+		//Pause sending task events here for one minute if the taskEventCount has hit the
+		// throttlingLimit.
+		if handler.taskEventCount >= throttlingLimit && cfg.DisconnectCapable.Enabled() {
+			logger.Debug("Reached throttlingLimit for sending task events, starting thottlingTimeOut sleep for throttlingTimeOut.", logger.Fields{
+				"throttlingLimit": throttlingLimit, "throttlingTimeOut": throttlingTimeOut})
+			time.Sleep(throttlingTimeOut)
+			logger.Debug("Sleep completed: resuming sending task events.")
+			handler.taskEventCount = 0
+		}
+
 		go handler.submitTaskEvents(taskEvents, client, change.taskArn())
 	} else {
 		seelog.Debugf(
@@ -404,7 +460,6 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 	seelog.Debug("TaskHandler: Acquiring lock for sending event...")
 	taskEvents.lock.Lock()
 	defer taskEvents.lock.Unlock()
-
 	seelog.Debugf("TaskHandler: Acquired lock, processing event list: : %s", taskEvents.toStringUnsafe())
 
 	if taskEvents.events.Len() == 0 {
