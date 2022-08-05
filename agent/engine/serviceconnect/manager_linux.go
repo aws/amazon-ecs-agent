@@ -281,6 +281,7 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 		LaunchType:         "EC2",
 		NetworkMode:        apitask.HostNetworkMode,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		IsInternal:         true,
 	}
 	m.initRelayEnvironment(cfg, task.Containers[0])
 

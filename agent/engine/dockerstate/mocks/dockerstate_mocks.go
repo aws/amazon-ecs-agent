@@ -137,6 +137,20 @@ func (mr *MockTaskEngineStateMockRecorder) AllENIAttachments() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllENIAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).AllENIAttachments))
 }
 
+// AllExternalTasks mocks base method
+func (m *MockTaskEngineState) AllExternalTasks() []*task.Task {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllExternalTasks")
+	ret0, _ := ret[0].([]*task.Task)
+	return ret0
+}
+
+// AllExternalTasks indicates an expected call of AllExternalTasks
+func (mr *MockTaskEngineStateMockRecorder) AllExternalTasks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllExternalTasks", reflect.TypeOf((*MockTaskEngineState)(nil).AllExternalTasks))
+}
+
 // AllImageStates mocks base method
 func (m *MockTaskEngineState) AllImageStates() []*image.ImageState {
 	m.ctrl.T.Helper()

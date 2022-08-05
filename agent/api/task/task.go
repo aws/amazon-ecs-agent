@@ -295,6 +295,8 @@ type Task struct {
 	ServiceConnectConnectionDrainingUnsafe bool `json:"ServiceConnectConnectionDraining,omitempty"`
 
 	NetworkMode string `json:"NetworkMode,omitempty"`
+
+	IsInternal bool `json:"IsInternal,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -1696,7 +1698,8 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	// TODO [SC] - Move this as well as 'dockerExposedPorts' SC-specific logic into a separate file
-	if task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer() {
+	if (task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer()) ||
+		container.Type == apicontainer.ContainerServiceConnectRelay {
 		containerConfig.User = strconv.Itoa(serviceconnect.AppNetUID)
 	}
 
