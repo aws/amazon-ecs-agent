@@ -1000,9 +1000,9 @@ func TestContainersWithServiceConnect(t *testing.T) {
 
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(3)
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(3)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(3)
+	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(4)
 
 	serviceConnectCreate, _, scStop := setupMockSCTaskContainer("service-connect", sleepTask.Containers[2], scContainerID, 1337, containerNetNS, serviceConnectManager, dockerClient, nil)
@@ -1195,10 +1195,11 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	// For SC and sleep container - those calls can happen in parallel
+	// Note that SC container won't trigger image-related calls as AppNet container images are cached and managed by Agent
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
+	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(1)
+	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(1)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(1)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 
 	cleanup := make(chan time.Time)

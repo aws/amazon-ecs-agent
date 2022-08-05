@@ -1015,8 +1015,12 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
-	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
-		// pause images are managed at startup
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause, apicontainer.ContainerServiceConnectRelay:
+		// pause images and AppNet relay image are managed at startup
+		return dockerapi.DockerContainerMetadata{}
+	}
+	// AppNet Agent container image is also managed at start up (it uses the same image as AppNet Relay container)
+	if task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer() {
 		return dockerapi.DockerContainerMetadata{}
 	}
 
