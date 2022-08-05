@@ -151,10 +151,26 @@ func (state *DockerTaskEngineState) AllTasks() []*apitask.Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.allTasksUnsafe(false)
+	return state.allTasksUnsafe()
 }
 
-func (state *DockerTaskEngineState) allTasksUnsafe(excludeInternal bool) []*apitask.Task {
+func (state *DockerTaskEngineState) allTasksUnsafe() []*apitask.Task {
+	return state.getFilteredTasksUnsafe(false)
+}
+
+// AllExternalTasks returns all tasks with IsInternal==false (i.e. all customer-initiated tasks)
+func (state *DockerTaskEngineState) AllExternalTasks() []*apitask.Task {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allExternalTasksUnsafe()
+}
+
+func (state *DockerTaskEngineState) allExternalTasksUnsafe() []*apitask.Task {
+	return state.getFilteredTasksUnsafe(true)
+}
+
+func (state *DockerTaskEngineState) getFilteredTasksUnsafe(excludeInternal bool) []*apitask.Task {
 	ret := make([]*apitask.Task, len(state.tasks))
 	ndx := 0
 	for _, task := range state.tasks {
@@ -165,14 +181,6 @@ func (state *DockerTaskEngineState) allTasksUnsafe(excludeInternal bool) []*apit
 		ndx++
 	}
 	return ret[:ndx]
-}
-
-// AllExternalTasks returns all tasks with IsInternal==false (i.e. all customer-initiated tasks)
-func (state *DockerTaskEngineState) AllExternalTasks() []*apitask.Task {
-	state.lock.RLock()
-	defer state.lock.RUnlock()
-
-	return state.allTasksUnsafe(true)
 }
 
 // AllImageStates returns all of the image.ImageStates
