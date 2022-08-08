@@ -43,7 +43,6 @@ const (
 
 var (
 	// Injection point for UTs
-	performAppnetRequest     = doPerformAppnetRequest
 	oneSecondBackoffNoJitter = retry.NewExponentialBackoff(time.Second, time.Second, 0, 1)
 )
 
@@ -56,12 +55,6 @@ func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
 		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
 	}
 	return net.Dial(unixNetworkName, udsPath)
-}
-
-var udsHttpClient = http.Client{
-	Transport: &http.Transport{
-		DialContext: udsDialContext,
-	},
 }
 
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
@@ -92,8 +85,13 @@ func (cl *client) DrainInboundConnections(config serviceconnect.RuntimeConfig) e
 	})
 }
 
-func doPerformAppnetRequest(method, udsPath, url string) (*http.Response, error) {
+func performAppnetRequest(method, udsPath, url string) (*http.Response, error) {
 	ctx := context.WithValue(context.Background(), udsAddressKey, udsPath)
 	req, _ := http.NewRequestWithContext(ctx, method, url, nil)
+	udsHttpClient := http.Client{
+		Transport: &http.Transport{
+			DialContext: udsDialContext,
+		},
+	}
 	return udsHttpClient.Do(req)
 }
