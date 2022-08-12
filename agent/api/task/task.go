@@ -161,6 +161,9 @@ type Task struct {
 	Family string
 	// Version is the version of the task definition
 	Version string
+	// ServiceName is the name of the service to which the task belongs.
+	// It is empty if the task does not belong to any service.
+	ServiceName string
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
 	// Associations are the available associations for the task.
