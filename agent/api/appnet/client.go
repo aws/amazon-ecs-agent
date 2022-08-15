@@ -13,14 +13,42 @@
 
 package appnet
 
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+)
+
+type appnetClientCtxKey int
+
 type client struct {
+	udsHttpClient http.Client
 }
 
-// This client is a singleton. No need to create multiple clients since the only thing that veries between requests is
-// the Appnet's admin UDS
-var defaultClient = &client{}
+const (
+	udsAddressKey   appnetClientCtxKey = iota
+	unixNetworkName                    = "unix"
+)
 
 // Client retrieves the singleton Appnet client
 func Client() *client {
-	return defaultClient
+	return &client{
+		udsHttpClient: http.Client{
+			Transport: &http.Transport{
+				DialContext: udsDialContext,
+			},
+		},
+	}
+}
+
+func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
+	udsPath, ok := ctx.Value(udsAddressKey).(string)
+	if !ok {
+		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
+	}
+	if udsPath == "" {
+		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
+	}
+	return net.Dial(unixNetworkName, udsPath)
 }
