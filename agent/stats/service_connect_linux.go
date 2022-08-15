@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -31,9 +32,10 @@ import (
 )
 
 type ServiceConnectStats struct {
-	stats []*ecstcs.GeneralMetricsWrapper
-	sent  bool
-	lock  sync.RWMutex
+	stats        []*ecstcs.GeneralMetricsWrapper
+	appnetClient api.AppnetClient
+	sent         bool
+	lock         sync.RWMutex
 }
 
 const (
@@ -47,12 +49,14 @@ var directionToMetricType = map[string]string{
 }
 
 func newServiceConnectStats() (*ServiceConnectStats, error) {
-	return &ServiceConnectStats{}, nil
+	return &ServiceConnectStats{
+		appnetClient: appnet.Client(),
+	}, nil
 }
 
 // TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
-	stats, err := appnet.Client().GetStats(task.GetServiceConnectRuntimeConfig())
+	stats, err := sc.appnetClient.GetStats(task.GetServiceConnectRuntimeConfig())
 	if err != nil {
 		logger.Error("Error retrieving Service Connect stats for task", logger.Fields{
 			field.TaskID: task.GetID(),

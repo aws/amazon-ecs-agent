@@ -18,8 +18,6 @@ package appnet
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"net/http"
 	"time"
 
@@ -31,36 +29,15 @@ import (
 	prometheus "github.com/prometheus/client_model/go"
 )
 
-const (
-	unixNetworkName = "unix"
-)
-
-type appnetClientCtxKey int
-
-const (
-	udsAddressKey appnetClientCtxKey = iota
-)
-
 var (
 	// Injection point for UTs
 	oneSecondBackoffNoJitter = retry.NewExponentialBackoff(time.Second, time.Second, 0, 1)
 )
 
-func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
-	udsPath, ok := ctx.Value(udsAddressKey).(string)
-	if !ok {
-		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
-	}
-	if udsPath == "" {
-		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
-	}
-	return net.Dial(unixNetworkName, udsPath)
-}
-
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
 func (cl *client) GetStats(config serviceconnect.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
-	resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.StatsRequest)
+	resp, err := cl.performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.StatsRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +49,7 @@ func (cl *client) GetStats(config serviceconnect.RuntimeConfig) (map[string]*pro
 // This function expects an Appnet-agent-hosted HTTP server listening on the UDS path passed in config.
 func (cl *client) DrainInboundConnections(config serviceconnect.RuntimeConfig) error {
 	return retry.RetryNWithBackoff(oneSecondBackoffNoJitter, 3, func() error {
-		resp, err := performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.DrainRequest)
+		resp, err := cl.performAppnetRequest(http.MethodGet, config.AdminSocketPath, config.DrainRequest)
 		if err != nil {
 			logger.Warn("Error invoking Appnet's DrainInboundConnections", logger.Fields{
 				"adminSocketPath": config.AdminSocketPath,
@@ -85,13 +62,9 @@ func (cl *client) DrainInboundConnections(config serviceconnect.RuntimeConfig) e
 	})
 }
 
-func performAppnetRequest(method, udsPath, url string) (*http.Response, error) {
+func (cl *client) performAppnetRequest(method, udsPath, url string) (*http.Response, error) {
 	ctx := context.WithValue(context.Background(), udsAddressKey, udsPath)
 	req, _ := http.NewRequestWithContext(ctx, method, url, nil)
-	udsHttpClient := http.Client{
-		Transport: &http.Transport{
-			DialContext: udsDialContext,
-		},
-	}
-	return udsHttpClient.Do(req)
+	httpClient := cl.udsHttpClient
+	return httpClient.Do(req)
 }
