@@ -1280,6 +1280,37 @@ func TestV3ContainerAssociation(t *testing.T) {
 	assert.Equal(t, expectedAssociationResponse, string(res))
 }
 
+func TestV3BridgeTaskMetadataAllowMissingContainerNetwork(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerByID(containerID).Return(nil, false),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+	)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v2.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
+}
+
 func TestV4TaskMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
