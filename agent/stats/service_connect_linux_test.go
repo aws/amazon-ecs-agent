@@ -24,6 +24,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -136,7 +137,9 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 		ts.Listener = l
 		ts.Start()
 
-		serviceConnectStats := &ServiceConnectStats{}
+		serviceConnectStats := &ServiceConnectStats{
+			appnetClient: appnet.Client(),
+		}
 		serviceConnectStats.retrieveServiceConnectStats(t1)
 
 		sortMetrics(serviceConnectStats.GetStats())
