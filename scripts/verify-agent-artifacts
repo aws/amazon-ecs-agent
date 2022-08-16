@@ -16,7 +16,7 @@
 
 AGENT_VERSION="${1:-}"
 BUCKET_NAME="${2:-}"
-SHA=$(git rev-parse --short HEAD)
+SHA=$(git rev-parse --short=8 HEAD)
 
 usage() {
 	echo "Usage: ${0} AGENT_VERSION BUCKET_NAME"
