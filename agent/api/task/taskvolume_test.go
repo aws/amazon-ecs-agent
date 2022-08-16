@@ -91,6 +91,7 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"Arn": "test",
 		"Family": "",
 		"Version": "",
+		"ServiceName": "",
 		"Containers": null,
 		"associations": null,
 		"resources": null,
