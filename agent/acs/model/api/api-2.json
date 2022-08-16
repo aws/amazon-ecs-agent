@@ -723,7 +723,8 @@
         "pidMode":{"shape":"String"},
         "ipcMode":{"shape":"String"},
         "proxyConfiguration":{"shape":"ProxyConfiguration"},
-        "launchType":{"shape":"String"}
+        "launchType":{"shape":"String"},
+        "serviceName":{"shape":"String"}
       }
     },
     "TaskList":{

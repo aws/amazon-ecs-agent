@@ -1631,6 +1631,8 @@ type Task struct {
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 
+	ServiceName *string `locationName:"serviceName" type:"string"`
+
 	TaskDefinitionAccountId *string `locationName:"taskDefinitionAccountId" type:"string"`
 
 	Version *string `locationName:"version" type:"string"`
