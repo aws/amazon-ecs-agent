@@ -27,11 +27,15 @@ phases:
       - RELEASE_DATE=$(date +'%Y%m%d')
 
       # Prepare agent.json config file
+      # TODO initStagingConfig.release version configurable
       - |
         cat << EOF > agent.json
         {
           "agentReleaseVersion" : "$AGENT_VERSION",
           "releaseDate" : "$RELEASE_DATE",
+          "initStagingConfig" {
+            "release": "1"
+          },
           "agentStagingConfig": {
             "releaseGitSha": "$GIT_COMMIT_SHA",
             "releaseGitShortSha": "$GIT_COMMIT_SHORT_SHA",
