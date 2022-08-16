@@ -365,7 +365,7 @@ bin/dep:
 # init targets
 sources.tgz:
 	./scripts/update-version.sh
-	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami/ecs.service ecs.service
 	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
@@ -380,7 +380,7 @@ sources: prepare-sources sources.tgz
 
 .srpm-done: sources.tgz
 	test -e SOURCES || ln -s . SOURCES
-	rpmbuild --define "%_topdir $(PWD)" -bs ecs-init.spec
+	rpmbuild --define "%_topdir $(PWD)" -bs ecs-agent.spec
 	find SRPMS/ -type f -exec cp {} . \;
 	touch .srpm-done
 
@@ -388,25 +388,25 @@ srpm: .srpm-done
 
 .rpm-done: sources.tgz
 	test -e SOURCES || ln -s . SOURCES
-	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-agent.spec
 	find RPMS/ -type f -exec cp {} . \;
 	touch .rpm-done
 
 rpm: .rpm-done
 
-sources-with-agent.tgz: get-cni-sources
+amazon-linux-sources.tgz: get-cni-sources
 	./scripts/update-version.sh
-	cp packaging/amazon-linux-ami-integrated/ecs-init.spec ecs-init.spec
+	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
-	tar -czf ./sources-with-agent.tgz ecs-init scripts agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins misc agent-container VERSION
+	tar -czf ./sources.tgz ecs-init scripts agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins misc agent-container VERSION
 
-.rpm-with-agent-done: sources-with-agent.tgz
+.rpm-with-agent-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
-	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-agent.spec
 	find RPMS/ -type f -exec cp {} . \;
 	touch .rpm-with-agent-done
 
@@ -432,7 +432,7 @@ dockerfree-certs:
 dockerfree-cni-plugins: get-cni-sources
 	GOOS=linux GOARCH=amd64 ./scripts/build-cni-plugins
 
-dockerfree-agent-image: dockerfree-pause dockerfree-certs dockerfree-cni-plugins static-with-pause
+dockerfree-agent-image: dockerfree-certs dockerfree-cni-plugins static-with-pause
 	GOOS=linux GOARCH=amd64 ./scripts/build-agent-image
 
 dockerfree-all: dockerfree-agent-image rpm

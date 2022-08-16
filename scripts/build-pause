@@ -29,4 +29,4 @@ install -m 0644 pause-config.json image/config.json
 sed -i "s/~~digest~~/${DIGEST}/" image/config.json
 install -m 0644 pause-manifest.json image/manifest.json
 install -m 0644 pause-repositories image/repositories
-tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf ./amazon-ecs-pause.tar -C image .
+tar --mtime="@1492525740" --owner=0 --group=0 --numeric-owner -cf ./pause-image-tar-files/amazon-ecs-pause-${GOARCH}.tar -C image .

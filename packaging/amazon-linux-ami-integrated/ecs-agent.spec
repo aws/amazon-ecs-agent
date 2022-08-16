@@ -26,8 +26,8 @@ License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 # TODO: add back aarch64
 ExclusiveArch:  x86_64
- 
-Source0:        sources-with-agent.tgz
+
+Source0:        sources.tgz
 Source1:        ecs.conf
 Source2:        ecs.service
 Source3:        amazon-ecs-volume-plugin.service
@@ -35,7 +35,6 @@ Source4:        amazon-ecs-volume-plugin.socket
 Source5:        amazon-ecs-volume-plugin.conf
 
 BuildRequires:  golang >= 1.7
-BuildRequires:  glibc-static
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -55,7 +54,6 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/build-pause
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
 ./scripts/build true "" false true
@@ -164,4 +162,3 @@ if [ -e %{running_semaphore} ]; then
 	rm %{running_semaphore} >/dev/null 2>&1 || :
 fi
 %endif
-
