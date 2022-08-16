@@ -51,7 +51,7 @@ phases:
 
       # Git short sha - used to name artifacts and make release json
       # This variable is exported
-      - GIT_COMMIT_SHORT_SHA=$(git rev-parse --short HEAD)
+      - GIT_COMMIT_SHORT_SHA=$(git rev-parse --short=8 HEAD)
 
       # Different names of under which tar is released
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
