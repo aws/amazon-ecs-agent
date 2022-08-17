@@ -26,7 +26,7 @@
 %global agent_image ecs-agent-v%{version}.tar
 
 Name:           ecs-init
-Version:        1.62.1
+Version:        1.62.2
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -272,6 +272,30 @@ fi
 %endif
 
 %changelog
+* Wed Aug 17 2022 Yash Kulshrestha <kulshres@amazon.com> - 1.62.2-1
+- Cache Agent version 1.62.2
+
+* Wed Aug 03 2022 Ray Allan <fierlion@amazon.com> - 1.62.1-1
+- Fix bug in cgroup mount for rpm builds
+
+* Wed Jul 27 2022 Ray Allan <fierlion@amazon.com> - 1.62.0-1
+- Update golang version 1.18.3
+
+* Wed Jun 15 2022 Mythri Garaga Manjunatha <mythr@amazon.com> - 1.61.3-1
+- Cache Agent version 1.61.3
+
+* Tue May 03 2022 Anuj Singh <singholt@amazon.com> - 1.61.1-1
+- Cache Agent version 1.61.1
+- Install script no longer fails on systems using cgroups v2
+- Add GO111MODULE=on to honnef.co/go/tools/cmd/staticcheck
+
+* Tue Apr 05 2022 Cameron Sparr <cssparr@amazon.com> - 1.61.0-1
+- Cache Agent version 1.61.0
+- Check ipv4 routes for default network interface instead of defaulting to eth0
+
+* Wed Mar 23 2022 Ray Allan <fierlion@amazon.com> - 1.60.1-1
+- Cache Agent version 1.60.1
+
 * Wed Mar 02 2022 Chien Han Lin <chilinn@amazon.com> - 1.60.0-1
 - Cache Agent version 1.60.0
 - Add volume plugin to rpm/deb package
