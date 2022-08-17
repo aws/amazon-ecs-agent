@@ -55,10 +55,7 @@ static-with-pause:
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
-	# Agent and its dependencies on Go 1.18.x are not compatible with Mac (Darwin).
-	# Mac is not a supported target platform for Agent, so commenting out
-	# cross-platform build step for Mac temporarily.
-	# GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
+	GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
