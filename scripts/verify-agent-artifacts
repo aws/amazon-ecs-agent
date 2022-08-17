@@ -15,6 +15,7 @@
 # limitations under the License.
 
 AGENT_VERSION="${1:-}"
+INIT_VERSION="${AGENT_VERSION}-1"
 BUCKET_NAME="${2:-}"
 SHA=$(git rev-parse --short=8 HEAD)
 
@@ -66,7 +67,18 @@ ecs-agent-arm64-v${AGENT_VERSION}.tar.asc
 ecs-agent-arm64-${SHA}.tar
 ecs-agent-arm64-${SHA}.tar.md5
 ecs-agent-arm64-${SHA}.tar.json
-ecs-agent-arm64-${SHA}.tar.asc"
+ecs-agent-arm64-${SHA}.tar.asc
+ecs-anywhere-install-latest.sh
+ecs-anywhere-install-${INIT_VERSION}.sh
+amazon-ecs-init-${INIT_VERSION}.x86_64.rpm
+amazon-ecs-init-${INIT_VERSION}.aarch64.rpm
+amazon-ecs-init-${INIT_VERSION}.amd64.deb
+amazon-ecs-init-${INIT_VERSION}.arm64.deb
+ecs-init-${INIT_VERSION}.amzn2.aarch64.rpm
+ecs-init-${INIT_VERSION}.amzn2.x86_64.rpm
+ecs-init-${INIT_VERSION}.amzn2022.aarch64.rpm
+ecs-init-${INIT_VERSION}.amzn2022.x86_64.rpm"
+
 
 # verify the files actually exist:
 for f in $files; do
