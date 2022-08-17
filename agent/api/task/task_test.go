@@ -901,11 +901,12 @@ func TestInitializeContainersV1AgentAPIEndpoint(t *testing.T) {
 
 	// Assert that v3 endpoint id is set and the endpoint is injected to env of each container
 	for _, container := range task.Containers {
-		assert.Equal(t, container.GetV3EndpointID(), "new-uuid")
-		assert.Equal(t, container.Environment,
+		assert.Equal(t, "new-uuid", container.GetV3EndpointID())
+		assert.Equal(t,
 			map[string]string{
 				apicontainer.AgentAPIURIEnvVarNameV1: "http://169.254.170.2/api/v1/new-uuid",
-			})
+			},
+			container.Environment)
 	}
 }
 
