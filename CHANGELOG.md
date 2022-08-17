@@ -1,4 +1,9 @@
 # Changelog
+
+## 1.62.2
+* Enhancement - Load ServiceName from ACS Task Payload. [#3342](https://github.com/aws/amazon-ecs-agent/pull/3342)
+* Bug - Update healthcheck and ports in dockerfree build. [#3343](https://github.com/aws/amazon-ecs-agent/pull/3343)
+
 ## 1.62.1
 * Bug - Fix an issue with cgroup mount [#3324](https://github.com/aws/amazon-ecs-agent/pull/3324)
 * Enhancement - Build changes - Add GitShortSha to config, Add md5, json file creation [#3327](https://github.com/aws/amazon-ecs-agent/pull/3327)
@@ -7,7 +12,6 @@
 * Enhancement - Update golang version to 1.18.3 [#3301](https://github.com/aws/amazon-ecs-agent/pull/3301)
 * Enhancement - Update windows golang version to 1.18.3 [#3317](https://github.com/aws/amazon-ecs-agent/pull/3317)
 
-# Changelog
 ## 1.61.3
 * Enhancement - Add command and error logging for FSx file mapping when calling out to PowerShell [#3240](https://github.com/aws/amazon-ecs-agent/pull/3240)
 * Enhancement - Update README.md with missing environment variables [#3244](https://github.com/aws/amazon-ecs-agent/pull/3244)
