@@ -1,3 +1,9 @@
+amazon-ecs-init (1.62.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.62.2
+
+ -- Yash Kulshrestha <kulshres@amazon.com>  Wed, 17 Aug 2022 18:00:00 +0000
+
 amazon-ecs-init (1.62.1-1) stable; urgency=medium
 
   * Fix bug in cgroup mount for rpm builds
