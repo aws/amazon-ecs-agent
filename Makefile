@@ -335,8 +335,8 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
-	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.3.1
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
@@ -346,9 +346,9 @@ get-deps-init:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	go get golang.org/x/tools/cmd/goimports
-	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
+	GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@v0.3.1
 
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)
