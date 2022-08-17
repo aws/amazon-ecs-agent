@@ -11,6 +11,7 @@
 ## 1.62.0
 * Enhancement - Update golang version to 1.18.3 [#3301](https://github.com/aws/amazon-ecs-agent/pull/3301)
 * Enhancement - Update windows golang version to 1.18.3 [#3317](https://github.com/aws/amazon-ecs-agent/pull/3317)
+* Bugfix - amazon-ecs-cni-plugins: Always run DeleteVeth on cleanup, fixes veth "exchange full" errors [#3311](https://github.com/aws/amazon-ecs-agent/pull/3311)
 
 ## 1.61.3
 * Enhancement - Add command and error logging for FSx file mapping when calling out to PowerShell [#3240](https://github.com/aws/amazon-ecs-agent/pull/3240)
