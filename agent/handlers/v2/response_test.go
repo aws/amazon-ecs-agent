@@ -54,7 +54,6 @@ const (
 	volSource            = "/var/lib/volume1"
 	volDestination       = "/volume"
 	availabilityZone     = "us-west-2b"
-	vpcID                = "test-vpc-id"
 	containerInstanceArn = "containerInstance-test"
 	hostIp               = "0.0.0.0"
 )
@@ -128,7 +127,7 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, false, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, false)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -144,7 +143,7 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 	// verify that 'v4' response without log driver or options returns blank fields as well
-	taskResponse, err = NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, false, true)
+	taskResponse, err = NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -227,7 +226,7 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, false, true)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -337,7 +336,6 @@ func TestTaskResponseMarshal(t *testing.T) {
 		"DesiredStatus":    "RUNNING",
 		"KnownStatus":      "RUNNING",
 		"AvailabilityZone": availabilityZone,
-		"VpcId":            vpcID,
 		"Containers": []interface{}{
 			map[string]interface{}{
 				"DockerId":   containerID,
@@ -454,7 +452,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		}, nil),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, true, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, false)
 	assert.NoError(t, err)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)
@@ -673,7 +671,7 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, taskTagsError),
 	)
 
-	taskWithTagsResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, true, true)
+	taskWithTagsResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskWithTagsResponse)
 	assert.NoError(t, err)

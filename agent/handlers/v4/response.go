@@ -30,6 +30,7 @@ import (
 type TaskResponse struct {
 	*v2.TaskResponse
 	Containers []ContainerResponse `json:"Containers,omitempty"`
+	VPCID      string              `json:"VpcId,omitempty"`
 }
 
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
@@ -87,7 +88,7 @@ func NewTaskResponse(
 	propagateTags bool,
 ) (*TaskResponse, error) {
 	// Construct the v2 response first.
-	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, vpcID,
+	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az,
 		containerInstanceARN, propagateTags, true)
 	if err != nil {
 		return nil, err
@@ -110,6 +111,7 @@ func NewTaskResponse(
 	return &TaskResponse{
 		TaskResponse: v2Resp,
 		Containers:   containers,
+		VPCID:        vpcID,
 	}, nil
 }
 

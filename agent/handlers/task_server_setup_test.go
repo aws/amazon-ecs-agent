@@ -274,7 +274,6 @@ var (
 		PullStoppedAt:      aws.Time(now.UTC()),
 		ExecutionStoppedAt: aws.Time(now.UTC()),
 		AvailabilityZone:   availabilityzone,
-		VPCID:              vpcID,
 	}
 	expectedAssociationsResponse = v3.AssociationsResponse{
 		Associations: []string{associationName},
@@ -368,7 +367,6 @@ var (
 		PullStoppedAt:      aws.Time(now.UTC()),
 		ExecutionStoppedAt: aws.Time(now.UTC()),
 		AvailabilityZone:   availabilityzone,
-		VPCID:              vpcID,
 	}
 	attachmentIndexVar          = attachmentIndex
 	expectedV4ContainerResponse = v4.ContainerResponse{
@@ -447,10 +445,10 @@ var (
 			PullStoppedAt:      aws.Time(now.UTC()),
 			ExecutionStoppedAt: aws.Time(now.UTC()),
 			AvailabilityZone:   availabilityzone,
-			VPCID:              vpcID,
 			LaunchType:         "EC2",
 		},
 		Containers: []v4.ContainerResponse{expectedV4ContainerResponse},
+		VPCID:      vpcID,
 	}
 	expectedV4PulledTaskResponse = v4.TaskResponse{
 		TaskResponse: &v2.TaskResponse{
@@ -469,10 +467,10 @@ var (
 			PullStoppedAt:      aws.Time(now.UTC()),
 			ExecutionStoppedAt: aws.Time(now.UTC()),
 			AvailabilityZone:   availabilityzone,
-			VPCID:              vpcID,
 			LaunchType:         "EC2",
 		},
 		Containers: []v4.ContainerResponse{expectedV4ContainerResponse, expectedV4PulledContainerResponse},
+		VPCID:      vpcID,
 	}
 	expectedV4BridgeContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedBridgeContainerResponse,
@@ -507,10 +505,10 @@ var (
 			PullStoppedAt:      aws.Time(now.UTC()),
 			ExecutionStoppedAt: aws.Time(now.UTC()),
 			AvailabilityZone:   availabilityzone,
-			VPCID:              vpcID,
 			LaunchType:         "EC2",
 		},
 		Containers: []v4.ContainerResponse{expectedV4BridgeContainerResponse},
+		VPCID:      vpcID,
 	}
 )
 
