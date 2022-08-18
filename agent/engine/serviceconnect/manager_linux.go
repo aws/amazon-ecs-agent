@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -261,7 +262,19 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 	}
 	containerRunning := apicontainerstatus.ContainerRunning
 	dockerHostConfig := dockercontainer.HostConfig{NetworkMode: apitask.HostNetworkMode}
+	dockerConfig := dockercontainer.Config{
+		Healthcheck: &dockercontainer.HealthConfig{
+			Test:     []string{"CMD-SHELL", "/health_check.sh"},
+			Interval: 5 * time.Second,
+			Timeout:  2 * time.Second,
+			Retries:  3,
+		},
+	}
 	rawHostConfig, err := json.Marshal(&dockerHostConfig)
+	if err != nil {
+		return nil, err
+	}
+	rawConfig, err := json.Marshal(&dockerConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +289,11 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			Essential:                 true,
 			SteadyStateStatusUnsafe:   &containerRunning,
-			DockerConfig:              apicontainer.DockerConfig{HostConfig: aws.String(string(rawHostConfig))},
+			DockerConfig: apicontainer.DockerConfig{
+				Config:     aws.String(string(rawConfig)),
+				HostConfig: aws.String(string(rawHostConfig)),
+			},
+			HealthCheckType: "DOCKER",
 		}},
 		LaunchType:         "EC2",
 		NetworkMode:        apitask.HostNetworkMode,
