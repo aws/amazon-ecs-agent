@@ -13,12 +13,8 @@ import (
 	"github.com/cihub/seelog"
 )
 
-const (
-	putTaskProtectionRequestType = "v1/PutTaskProtection"
-)
-
 // Returns endpoint path for PutTaskProtection API
-func PutTaskProtectionPath() string {
+func TaskProtectionPath() string {
 	return fmt.Sprintf(
 		"/api/v1/%s/task/protection",
 		utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx))
@@ -35,6 +31,8 @@ type taskProtectionRequest struct {
 func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 	cluster string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		putTaskProtectionRequestType := "v1/PutTaskProtection"
+
 		var request taskProtectionRequest
 		jsonDecoder := json.NewDecoder(r.Body)
 		jsonDecoder.DisallowUnknownFields()
@@ -88,6 +86,26 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 	}
 
 	return task, nil
+}
+
+// GetTaskProtectionHandler returns a handler function for GetTaskProtection API
+func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
+	cluster string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		getTaskProtectionRequestType := "api/v1/GetTaskProtection"
+
+		task, err := getTaskFromRequest(state, r)
+		if err != nil {
+			writeJSONResponse(w, http.StatusInternalServerError,
+				fmt.Sprintf("Failed to find task: %v", err), getTaskProtectionRequestType)
+			return
+		}
+
+		// TODO: Call ECS
+		seelog.Infof("Would have called ECS.GetTaskProtection(%s, %s, %s)",
+			cluster, task.ServiceName, task)
+		writeJSONResponse(w, http.StatusOK, "Ok", getTaskProtectionRequestType)
+	}
 }
 
 // Writes the provided response to the ResponseWriter and handles any errors

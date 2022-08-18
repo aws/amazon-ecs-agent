@@ -159,9 +159,14 @@ func v4HandlersSetup(muxRouter *mux.Router,
 func v1AgentAPIHandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngineState, cluster string) {
 	muxRouter.
 		HandleFunc(
-			agentAPIV1TaskProtection.PutTaskProtectionPath(),
+			agentAPIV1TaskProtection.TaskProtectionPath(),
 			agentAPIV1TaskProtection.PutTaskProtectionHandler(state, cluster)).
 		Methods("PUT")
+	muxRouter.
+		HandleFunc(
+			agentAPIV1TaskProtection.TaskProtectionPath(),
+			agentAPIV1TaskProtection.GetTaskProtectionHandler(state, cluster)).
+		Methods("GET")
 }
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, and IAM Role Credentials
