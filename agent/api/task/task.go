@@ -385,6 +385,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
+	task.initializeContainersV1AgentAPIEndpoint(utils.NewDynamicUUIDProvider())
 	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		logger.Error("Could not provision network resource", logger.Fields{
 			field.TaskID: task.GetID(),
@@ -818,12 +819,8 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 // initializeContainersV3MetadataEndpoint generates an v3 endpoint id for each container, constructs the
 // v3 metadata endpoint, and injects it as an environment variable
 func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	task.initializeV3EndpointIDForAllContainers(uuidProvider)
 	for _, container := range task.Containers {
-		v3EndpointID := container.GetV3EndpointID()
-		if v3EndpointID == "" { // if container's v3 endpoint has not been set
-			container.SetV3EndpointID(uuidProvider.New())
-		}
-
 		container.InjectV3MetadataEndpoint()
 	}
 }
@@ -832,13 +829,30 @@ func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUID
 // (they are the same) for each container, constructs the v4 metadata endpoint,
 // and injects it as an environment variable
 func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	task.initializeV3EndpointIDForAllContainers(uuidProvider)
+	for _, container := range task.Containers {
+		container.InjectV4MetadataEndpoint()
+	}
+}
+
+// For each container of the task, initializeContainersV1AgentAPIEndpoint initializes
+// its V3EndpointID (if not already initialized), and injects V1 Agent API Endpoint
+// into the container.
+func (task *Task) initializeContainersV1AgentAPIEndpoint(uuidProvider utils.UUIDProvider) {
+	task.initializeV3EndpointIDForAllContainers(uuidProvider)
+	for _, container := range task.Containers {
+		container.InjectV1AgentAPIEndpoint()
+	}
+}
+
+// Initializes V3EndpointID for all containers of the task if not already initialized.
+// The ID is generated using the passed in UUIDProvider.
+func (task *Task) initializeV3EndpointIDForAllContainers(uuidProvider utils.UUIDProvider) {
 	for _, container := range task.Containers {
 		v3EndpointID := container.GetV3EndpointID()
 		if v3EndpointID == "" { // if container's v3 endpoint has not been set
 			container.SetV3EndpointID(uuidProvider.New())
 		}
-
-		container.InjectV4MetadataEndpoint()
 	}
 }
 

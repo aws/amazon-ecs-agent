@@ -64,6 +64,13 @@ const (
 	// MetadataURIFormat defines the URI format for v4 metadata endpoint
 	MetadataURIFormatV4 = "http://169.254.170.2/v4/%s"
 
+	// AgentAPIURIEnvVarNameV1 defines the name of the environment
+	// variable injected into containers that contains the Agent API V1 endpoint.
+	AgentAPIURIEnvVarNameV1 = "ECS_AGENT_API_URI_V1"
+
+	// AgentAPIURIFormatV1 defines the URI format for v1 Agent API Endpoint
+	AgentAPIURIFormatV1 = "http://169.254.170.2/api/v1/%s"
+
 	// SecretProviderSSM is to show secret provider being SSM
 	SecretProviderSSM = "ssm"
 
@@ -932,6 +939,22 @@ func (c *Container) InjectV4MetadataEndpoint() {
 
 	c.Environment[MetadataURIEnvVarNameV4] =
 		fmt.Sprintf(MetadataURIFormatV4, c.V3EndpointID)
+}
+
+// InjectV1AgentAPIEndpoint injects the v1 Agent API endpoint into the container
+// as an environment variable.
+func (c *Container) InjectV1AgentAPIEndpoint() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ensureEnvironmentIsInitialized()
+	c.Environment[AgentAPIURIEnvVarNameV1] = fmt.Sprintf(AgentAPIURIFormatV1, c.V3EndpointID)
+}
+
+// Initializes Environment Map if it is nil
+func (c *Container) ensureEnvironmentIsInitialized() {
+	if c.Environment == nil {
+		c.Environment = make(map[string]string)
+	}
 }
 
 // ShouldCreateWithSSMSecret returns true if this container needs to get secret
