@@ -11,7 +11,6 @@ type taskProtectionType string
 const (
 	TaskProtectionTypeScaleIn  taskProtectionType = "SCALE_IN"
 	TaskProtectionTypeDisabled taskProtectionType = "DISABLED"
-	// TODO Check if DISABLED_PERMANENTLY protection type is to be supported
 )
 
 // Converts a string to taskProtectionType
