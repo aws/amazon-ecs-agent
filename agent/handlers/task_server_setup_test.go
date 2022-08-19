@@ -1870,6 +1870,11 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 }
 
+// Tests that Agent API v1 GetTaskProtection handler is registered correctly
+func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
+	testAgentAPIV1TaskProtectionHandler(t, nil, "GET")
+}
+
 // Tests that Agent API v1 PutTaskProtection handler is registered successfully
 func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
 	requestBody := map[string]interface{}{"protectionType": "SCALE_IN"}
