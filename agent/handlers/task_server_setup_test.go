@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -1831,4 +1832,46 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		})
 	}
+}
+
+// Helper function for testing Agent API v1 Task Protection hanlders
+func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, method string) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
+		clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate,
+		"", containerInstanceArn)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+	)
+
+	var requestReader io.Reader = nil
+	if requestBody != nil {
+		requestBodyJSON, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+		requestReader = bytes.NewReader(requestBodyJSON)
+	}
+
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest(method, fmt.Sprintf("/api/v1/%s/task/protection", v3EndpointID),
+		requestReader)
+	req.RemoteAddr = remoteIP + ":" + remotePort
+	server.Handler.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}
+
+// Tests that Agent API v1 PutTaskProtection handler is registered successfully
+func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
+	requestBody := map[string]interface{}{"protectionType": "SCALE_IN"}
+	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")
 }
