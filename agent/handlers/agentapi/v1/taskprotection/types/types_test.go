@@ -21,64 +21,95 @@ import (
 )
 
 // Helper function for testing taskProtectionTypeFromString
-func testTaskProtectionTypeFromString(t *testing.T, input string, expected taskProtectionType) {
-	output, err := taskProtectionTypeFromString(input)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, output)
+func TestTaskProtectionTypeFromString(t *testing.T) {
+	testcases := []struct {
+		name     string
+		input    string
+		expected taskProtectionType
+		err      *string
+	}{
+		{
+			name:     "Scale-in upper",
+			input:    "SCALE_IN",
+			expected: TaskProtectionTypeScaleIn,
+		},
+		{
+			name:     "Scale-in lower",
+			input:    "scale_in",
+			expected: TaskProtectionTypeScaleIn,
+		},
+		{
+			name:     "Disabled upper",
+			input:    "DISABLED",
+			expected: TaskProtectionTypeDisabled,
+		},
+		{
+			name:     "Disabled lower",
+			input:    "disabled",
+			expected: TaskProtectionTypeDisabled,
+		},
+		{
+			name:     "Invalid input",
+			input:    "invalid",
+			expected: "",
+			err:      utils.Strptr("unknown task protection type: invalid"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := taskProtectionTypeFromString(tc.input)
+			if tc.err != nil {
+				assert.EqualError(t, err, *tc.err)
+			}
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
 }
 
-func TestTaskProtectionTypeFromStringScaleIn(t *testing.T) {
-	testTaskProtectionTypeFromString(t, "SCALE_IN", TaskProtectionTypeScaleIn)
-}
+func TestNewTaskProtection(t *testing.T) {
+	testcases := []struct {
+		name              string
+		protectionTypeStr string
+		timeoutMinutes    *int
+		expected          *taskProtection
+		err               *string
+	}{
+		{
+			name:              "Task protection type invalid",
+			protectionTypeStr: "bad",
+			timeoutMinutes:    nil,
+			err:               utils.Strptr("protection type is invalid: unknown task protection type: bad"),
+		},
+		{
+			name:              "Task protection timeout invalid",
+			protectionTypeStr: string(TaskProtectionTypeScaleIn),
+			timeoutMinutes:    utils.IntPtr(-3),
+			err:               utils.Strptr("protection timeout must be greater than zero"),
+		},
+		{
+			name:              "nil timeout happy",
+			protectionTypeStr: string(TaskProtectionTypeScaleIn),
+			expected:          &taskProtection{protectionType: TaskProtectionTypeScaleIn},
+		},
+		{
+			name:              "non-nil timeout happy",
+			protectionTypeStr: string(TaskProtectionTypeDisabled),
+			timeoutMinutes:    utils.IntPtr(5),
+			expected: &taskProtection{
+				protectionType:           TaskProtectionTypeDisabled,
+				protectionTimeoutMinutes: utils.IntPtr(5),
+			},
+		},
+	}
 
-func TestTaskProtectionTypeFromStringScaleInLower(t *testing.T) {
-	testTaskProtectionTypeFromString(t, "scale_in", TaskProtectionTypeScaleIn)
-}
-
-func TestTaskProtectionTypeFromStringDisabled(t *testing.T) {
-	testTaskProtectionTypeFromString(t, "DISABLED", TaskProtectionTypeDisabled)
-}
-
-func TestTaskProtectionTypeFromStringDisabledLower(t *testing.T) {
-	testTaskProtectionTypeFromString(t, "disabled", TaskProtectionTypeDisabled)
-}
-
-func TestTaskProtectionTypeFromStringError(t *testing.T) {
-	_, err := taskProtectionTypeFromString("unknown")
-	assert.EqualError(t, err, "unknown task protection type: unknown")
-}
-
-// Helper function for testing newTaskProtection
-func testNewTaskProtectionError(t *testing.T, protectionTypeStr string, timeoutMinutes *int, expectedErr string) {
-	protection, err := NewTaskProtection(protectionTypeStr, timeoutMinutes)
-	assert.EqualError(t, err, expectedErr)
-	assert.Nil(t, protection)
-}
-
-// Tests newTaskProtection when protection type is invalid
-func TestNewTaskProtectionTypeInvalid(t *testing.T) {
-	testNewTaskProtectionError(t, "bad", nil,
-		"protection type is invalid: unknown task protection type: bad")
-}
-
-// Tests newTaskProtection when timeout is invalid
-func TestNewTaskProtectionTimeoutInvalid(t *testing.T) {
-	testNewTaskProtectionError(t, string(TaskProtectionTypeScaleIn), utils.IntPtr(-3),
-		"protection timeout must be greater than zero")
-}
-
-// Tests that newTaskProtection can accept nil timeout
-func TestNewTaskProtectionNilTimeout(t *testing.T) {
-	protection, err := NewTaskProtection(string(TaskProtectionTypeScaleIn), nil)
-	assert.NoError(t, err)
-	assert.Equal(t, protection,
-		&taskProtection{protectionType: TaskProtectionTypeScaleIn, protectionTimeoutMinutes: nil})
-}
-
-// Tests newTaskProtection happy path
-func TestNewTaskProtectionHappy(t *testing.T) {
-	protection, err := NewTaskProtection(string(TaskProtectionTypeScaleIn), utils.IntPtr(5))
-	assert.NoError(t, err)
-	assert.Equal(t, protection,
-		&taskProtection{protectionType: TaskProtectionTypeScaleIn, protectionTimeoutMinutes: utils.IntPtr(5)})
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := NewTaskProtection(tc.protectionTypeStr, tc.timeoutMinutes)
+			if tc.err != nil {
+				assert.EqualError(t, err, *tc.err)
+			}
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
 }
