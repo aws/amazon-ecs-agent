@@ -1836,6 +1836,7 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 
 // Helper function for testing Agent API v1 Task Protection hanlders
 func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, method string) {
+	// Prepare dependency mocks
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1844,16 +1845,18 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
-		clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate,
-		"", containerInstanceArn)
-
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 
+	// Set up the server
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
+		clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate,
+		"", containerInstanceArn)
+
+	// Prepare the request
 	var requestReader io.Reader = nil
 	if requestBody != nil {
 		requestBodyJSON, err := json.Marshal(requestBody)
@@ -1861,12 +1864,13 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 		requestReader = bytes.NewReader(requestBodyJSON)
 	}
 
+	// Send request and record response
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest(method, fmt.Sprintf("/api/v1/%s/task/protection", v3EndpointID),
 		requestReader)
-	req.RemoteAddr = remoteIP + ":" + remotePort
 	server.Handler.ServeHTTP(recorder, req)
 
+	// assert that response was OK
 	assert.Equal(t, http.StatusOK, recorder.Code)
 }
 
@@ -1875,7 +1879,7 @@ func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
 	testAgentAPIV1TaskProtectionHandler(t, nil, "GET")
 }
 
-// Tests that Agent API v1 PutTaskProtection handler is registered successfully
+// Tests that Agent API v1 PutTaskProtection handler is registered correctly
 func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
 	requestBody := map[string]interface{}{"protectionType": "SCALE_IN"}
 	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")

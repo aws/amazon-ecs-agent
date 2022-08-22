@@ -1,3 +1,16 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package handlers
 
 import (
@@ -44,6 +57,7 @@ func testPutTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineStat
 	assert.NoError(t, err, "Expected response must be JSON encodable")
 
 	// Assert response
+	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 	assert.Equal(t, expectedResponseCode, rr.Code)
 	responseBody, err := io.ReadAll(rr.Body)
 	assert.NoError(t, err, "Failed to read response body")
@@ -117,8 +131,6 @@ func TestPutTaskProtectionHandlerUnknownFieldsInRequest(t *testing.T) {
 // TestPutTaskProtectionHandlerTaskARNNotFound tests PutTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
 	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
 
 	ctrl := gomock.NewController(t)
@@ -135,8 +147,6 @@ func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -153,8 +163,6 @@ func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 // behavior when request and state both are good.
 func TestPutTaskProtectionHandlerHappy(t *testing.T) {
 	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
 
 	taskARN := "taskARN"
 	task := task.Task{
@@ -198,9 +206,6 @@ func testGetTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineStat
 // TestGetTaskProtectionHandlerTaskARNNotFound tests GetTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -214,9 +219,6 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 // TestGetTaskProtectionHandlerTaskNotFound tests GetTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
@@ -231,9 +233,6 @@ func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
 // TestGetTaskProtectionHandlerHappy tests GetTaskProtection handler's
 // behavior when request and state both are good.
 func TestGetTaskProtectionHandlerHappy(t *testing.T) {
-	muxVars := make(map[string]string)
-	muxVars[v3.V3EndpointIDMuxName] = "endpointID"
-
 	taskARN := "taskARN"
 	task := task.Task{
 		Arn:         taskARN,
