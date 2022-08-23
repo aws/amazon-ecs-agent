@@ -35,8 +35,8 @@ func TaskProtectionPath() string {
 
 // Task protection request received from customers pending validation
 type taskProtectionRequest struct {
-	protectionType           string
-	protectionTimeoutMinutes *int
+	ProtectionType           string
+	ProtectionTimeoutMinutes *int
 }
 
 // PutTaskProtectionHandler returns an HTTP request handler function for
@@ -56,14 +56,14 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		if request.protectionType == "" {
+		if request.ProtectionType == "" {
 			writeJSONResponse(w, http.StatusBadRequest,
 				"Invalid request: protection type is missing or empty",
 				putTaskProtectionRequestType)
 			return
 		}
 
-		taskProtection, err := types.NewTaskProtection(request.protectionType, request.protectionTimeoutMinutes)
+		taskProtection, err := types.NewTaskProtection(request.ProtectionType, request.ProtectionTimeoutMinutes)
 		if err != nil {
 			writeJSONResponse(w, http.StatusBadRequest,
 				fmt.Sprintf("Invalid request: %v", err),
