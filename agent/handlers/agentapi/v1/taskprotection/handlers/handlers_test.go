@@ -69,7 +69,7 @@ func testPutTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineStat
 func TestPutTaskProtectionHandlerInvalidRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	request := taskProtectionRequest{ProtectionType: "badProtectionType"}
+	request := taskProtectionRequest{protectionType: "badProtectionType"}
 	testPutTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
 		"endpointID", request,
 		"Invalid request: protection type is invalid: unknown task protection type: badProtectionType",
@@ -115,7 +115,7 @@ func TestPutTaskProtectionHandlerUnknownFieldsInRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeScaleIn)}
+	request := taskProtectionRequest{protectionType: string(types.TaskProtectionTypeScaleIn)}
 	requestJSON, err := json.Marshal(request)
 	assert.NoError(t, err)
 
@@ -131,7 +131,7 @@ func TestPutTaskProtectionHandlerUnknownFieldsInRequest(t *testing.T) {
 // TestPutTaskProtectionHandlerTaskARNNotFound tests PutTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
-	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := taskProtectionRequest{protectionType: string(types.TaskProtectionTypeDisabled)}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -146,7 +146,7 @@ func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 // TestPutTaskProtectionHandlerTaskNotFound tests PutTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
-	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := taskProtectionRequest{protectionType: string(types.TaskProtectionTypeDisabled)}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -162,7 +162,7 @@ func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 // TestPutTaskProtectionHandlerHappy tests PutTaskProtection handler's
 // behavior when request and state both are good.
 func TestPutTaskProtectionHandlerHappy(t *testing.T) {
-	request := taskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := taskProtectionRequest{protectionType: string(types.TaskProtectionTypeDisabled)}
 
 	taskARN := "taskARN"
 	task := task.Task{
