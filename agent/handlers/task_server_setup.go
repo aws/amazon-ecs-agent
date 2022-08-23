@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	agentAPIV1TaskProtection "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
 	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -70,6 +71,8 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
 
 	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
+
+	v1AgentAPIHandlersSetup(muxRouter, state, cluster)
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
@@ -150,6 +153,20 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	muxRouter.HandleFunc(v4.ContainerAssociationsPath, v4.ContainerAssociationsHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPathWithSlash, v4.ContainerAssociationHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPath, v4.ContainerAssociationHandler(state))
+}
+
+// v1AgentAPIHandlersSetup adds handlers for Agent API V1
+func v1AgentAPIHandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngineState, cluster string) {
+	muxRouter.
+		HandleFunc(
+			agentAPIV1TaskProtection.TaskProtectionPath(),
+			agentAPIV1TaskProtection.PutTaskProtectionHandler(state, cluster)).
+		Methods("PUT")
+	muxRouter.
+		HandleFunc(
+			agentAPIV1TaskProtection.TaskProtectionPath(),
+			agentAPIV1TaskProtection.GetTaskProtectionHandler(state, cluster)).
+		Methods("GET")
 }
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, and IAM Role Credentials

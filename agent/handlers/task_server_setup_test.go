@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -39,6 +40,8 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	v1_task_protection "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
+	v1_task_protection_types "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -1831,4 +1834,57 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		})
 	}
+}
+
+// Helper function for testing Agent API v1 Task Protection hanlders
+func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, method string) {
+	// Prepare dependency mocks
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+	)
+
+	// Set up the server
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
+		clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate,
+		"", containerInstanceArn)
+
+	// Prepare the request
+	var requestReader io.Reader = nil
+	if requestBody != nil {
+		requestBodyJSON, err := json.Marshal(requestBody)
+		assert.NoError(t, err)
+		requestReader = bytes.NewReader(requestBodyJSON)
+	}
+
+	// Send request and record response
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest(method, fmt.Sprintf("/api/v1/%s/task/protection", v3EndpointID),
+		requestReader)
+	server.Handler.ServeHTTP(recorder, req)
+
+	// assert that response was OK
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}
+
+// Tests that Agent API v1 GetTaskProtection handler is registered correctly
+func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
+	testAgentAPIV1TaskProtectionHandler(t, nil, "GET")
+}
+
+// Tests that Agent API v1 PutTaskProtection handler is registered correctly
+func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
+	requestBody := v1_task_protection.TaskProtectionRequest{
+		ProtectionType: string(v1_task_protection_types.TaskProtectionTypeScaleIn),
+	}
+	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")
 }
