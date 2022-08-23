@@ -23,7 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
-	"github.com/cihub/seelog"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	loggerfield "github.com/aws/amazon-ecs-agent/agent/logger/field"
 )
 
 // Returns endpoint path for PutTaskProtection API
@@ -50,7 +51,9 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 		jsonDecoder := json.NewDecoder(r.Body)
 		jsonDecoder.DisallowUnknownFields()
 		if err := jsonDecoder.Decode(&request); err != nil {
-			seelog.Errorf("PutTaskProtection: failed to decode request: %v", err)
+			logger.Error("PutTaskProtection: failed to decode request", logger.Fields{
+				loggerfield.Error: err,
+			})
 			writeJSONResponse(w, http.StatusBadRequest,
 				"Failed to decode request", putTaskProtectionRequestType)
 			return
@@ -79,9 +82,13 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 		}
 
 		// TODO: Call ECS
-		seelog.Infof("Would have called ECS.PutTaskProtection(%s, %s, %s, %s, %v)\n",
-			cluster, task.ServiceName, task.Arn, taskProtection.GetProtectionType(),
-			taskProtection.GetProtectionTimeoutMinutes())
+		logger.Info("Would have called ECS.PutTaskProtection with fields", logger.Fields{
+			"cluster":                  cluster,
+			"serviceName":              task.ServiceName,
+			"taskId":                   task.Arn,
+			"protectionType":           taskProtection.GetProtectionType(),
+			"protectionTimeoutMinutes": taskProtection.GetProtectionTimeoutMinutes(),
+		})
 		writeJSONResponse(w, http.StatusOK, "Ok", putTaskProtectionRequestType)
 	}
 }
@@ -115,8 +122,11 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
 		}
 
 		// TODO: Call ECS
-		seelog.Infof("Would have called ECS.GetTaskProtection(%s, %s, %s)",
-			cluster, task.ServiceName, task)
+		logger.Info("Would have called ECS.PutTaskProtection with fields:", logger.Fields{
+			"cluster":     cluster,
+			"serviceName": task.ServiceName,
+			"taskId":      task.Arn,
+		})
 		writeJSONResponse(w, http.StatusOK, "Ok", getTaskProtectionRequestType)
 	}
 }
@@ -126,8 +136,10 @@ func writeJSONResponse(w http.ResponseWriter, responseCode int, response interfa
 	requestType string) {
 	bytes, err := json.Marshal(response)
 	if err != nil {
-		seelog.Errorf("Agent API V1 failed to marshal response '%v' as JSON: %v",
-			response, err)
+		logger.Error("Agent API V1 Task Protection: failed to marshal response as JSON", logger.Fields{
+			"response": response,
+			"error":    err,
+		})
 		utils.WriteJSONToResponse(w, http.StatusInternalServerError, []byte(`{}`),
 			requestType)
 	} else {
