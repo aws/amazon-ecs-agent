@@ -44,7 +44,7 @@ type taskProtectionRequest struct {
 func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 	cluster string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		putTaskProtectionRequestType := "v1/PutTaskProtection"
+		putTaskProtectionRequestType := "api/v1/PutTaskProtection"
 
 		var request taskProtectionRequest
 		jsonDecoder := json.NewDecoder(r.Body)
