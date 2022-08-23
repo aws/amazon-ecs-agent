@@ -34,7 +34,7 @@ func TaskProtectionPath() string {
 }
 
 // Task protection request received from customers pending validation
-type taskProtectionRequest struct {
+type TaskProtectionRequest struct {
 	ProtectionType           string
 	ProtectionTimeoutMinutes *int
 }
@@ -46,7 +46,7 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 	return func(w http.ResponseWriter, r *http.Request) {
 		putTaskProtectionRequestType := "api/v1/PutTaskProtection"
 
-		var request taskProtectionRequest
+		var request TaskProtectionRequest
 		jsonDecoder := json.NewDecoder(r.Body)
 		jsonDecoder.DisallowUnknownFields()
 		if err := jsonDecoder.Decode(&request); err != nil {

@@ -40,6 +40,8 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	agentAPIV1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
+	agentAPIV1Types "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -1881,6 +1883,8 @@ func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
 
 // Tests that Agent API v1 PutTaskProtection handler is registered correctly
 func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
-	requestBody := map[string]interface{}{"protectionType": "SCALE_IN"}
+	requestBody := agentAPIV1.TaskProtectionRequest{
+		ProtectionType: string(agentAPIV1Types.TaskProtectionTypeScaleIn),
+	}
 	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")
 }
