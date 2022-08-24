@@ -889,5 +889,5 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 	require.NoError(t, err)
 
 	// Windows docker exec takes longer than Linux
-	time.Sleep(4 * time.Second)
+	time.Sleep(8 * time.Second)
 }
