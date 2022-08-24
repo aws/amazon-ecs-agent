@@ -26,6 +26,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// main function
 func main() {
 	logger.InitSeelog()
 	os.Exit(app.Run(os.Args[1:]))
