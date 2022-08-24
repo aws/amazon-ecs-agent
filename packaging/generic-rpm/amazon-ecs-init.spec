@@ -117,6 +117,9 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 * Wed Jun 15 2022 Mythri Garaga Manjunatha <mythr@amazon.com> - 1.61.3-1
 - Cache Agent version 1.61.3
 
+* Wed Jun 01 2022 Utsa Bhattacharjya <utsa@amazon.com> - 1.61.2-1
+- Cache Agent version 1.61.2
+
 * Tue May 03 2022 Anuj Singh <singholt@amazon.com> - 1.61.1-1
 - Cache Agent version 1.61.1
 - Install script no longer fails on systems using cgroups v2
@@ -570,3 +573,4 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 
 * Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
 - Naive update functionality
+
