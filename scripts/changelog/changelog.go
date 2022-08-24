@@ -16,14 +16,15 @@ type Change struct {
 }
 
 const (
-	CHANGE_TEMPLATE  = "./CHANGELOG_MASTER"
-	TOP_LEVEL        = "../../CHANGELOG.md"
-	AMAZON_LINUX_RPM = "../../packaging/amazon-linux-ami/ecs-agent.spec"
-	GENERIC_RPM      = "../../packaging/generic-rpm/amazon-ecs-init.spec"
-	GENERIC_RPM_INT  = "../../packaging/generic-rpm-integrated/amazon-ecs-init.spec"
-	SUSE             = "../../packaging/suse/amazon-ecs-init.changes"
-	UBUNTU           = "../../packaging/generic-deb/debian/changelog"
-	GENERIC_DEB_INT  = "../../packaging/generic-deb-integrated/debian/changelog"
+	CHANGE_TEMPLATE      = "./CHANGELOG_MASTER"
+	TOP_LEVEL            = "../../CHANGELOG.md"
+	AMAZON_LINUX_RPM     = "../../packaging/amazon-linux-ami/ecs-agent.spec"
+	AMAZON_LINUX_RPM_INT = "../../packaging/amazon-linux-ami-integrated/ecs-agent.spec"
+	GENERIC_RPM          = "../../packaging/generic-rpm/amazon-ecs-init.spec"
+	GENERIC_RPM_INT      = "../../packaging/generic-rpm-integrated/amazon-ecs-init.spec"
+	SUSE                 = "../../packaging/suse/amazon-ecs-init.changes"
+	UBUNTU               = "../../packaging/generic-deb/debian/changelog"
+	GENERIC_DEB_INT      = "../../packaging/generic-deb-integrated/debian/changelog"
 
 	AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
 	DEBIAN_TIME_FMT       = "Mon, 02 Jan 2006 15:04:05 -0700"
@@ -79,7 +80,7 @@ func main() {
 	rewriteChangelog(GENERIC_DEB_INT, ubuntuChangeString)
 	rewriteChangelog(SUSE, suseChangeString)
 
-	rpmSpecs := []string{AMAZON_LINUX_RPM, GENERIC_RPM, GENERIC_RPM_INT}
+	rpmSpecs := []string{AMAZON_LINUX_RPM, AMAZON_LINUX_RPM_INT, GENERIC_RPM, GENERIC_RPM_INT}
 	for _, spec := range rpmSpecs {
 		// Get everything before the %changelog section, so that the change logs
 		// in rpmChangeString are appended after it.
