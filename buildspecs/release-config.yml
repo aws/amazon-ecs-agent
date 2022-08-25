@@ -33,7 +33,7 @@ phases:
         {
           "agentReleaseVersion" : "$AGENT_VERSION",
           "releaseDate" : "$RELEASE_DATE",
-          "initStagingConfig" {
+          "initStagingConfig": {
             "release": "1"
           },
           "agentStagingConfig": {
