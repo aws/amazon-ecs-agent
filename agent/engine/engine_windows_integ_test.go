@@ -837,7 +837,10 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 			require.NotEqual(t, -1, pidPos, "PID title not found in the container top response")
 			for _, proc := range top.Processes {
 				matched, _ := regexp.MatchString(execCmdAgentProcessRegex, proc[cmdPos])
-				if matched {
+				// Process we are checking to be stopped might still be running.
+				// expectedPid matches the pid of the process in that case, so wait if that's
+				// the case.
+				if matched && (checkIsRunning || expectedPid != proc[pidPos]) {
 					res <- proc[pidPos]
 					return
 				}
@@ -846,7 +849,7 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(time.Second * 4):
+			case <-time.After(time.Second * 1):
 			}
 		}
 	}()
@@ -887,7 +890,4 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 		Detach: true,
 	})
 	require.NoError(t, err)
-
-	// Windows docker exec takes longer than Linux
-	time.Sleep(4 * time.Second)
 }
