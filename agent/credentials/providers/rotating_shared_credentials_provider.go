@@ -15,6 +15,7 @@ package providers
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -22,6 +23,8 @@ import (
 )
 
 const (
+	ALTERNATE_CREDENTIAL_PROFILE_ENV_VAR = "ECS_ALTERNATE_CREDENTIAL_PROFILE"
+	DEFAULT_CREDENTIAL_PROFILE           = "default"
 	// defaultRotationInterval is how frequently to expire and re-retrieve the credentials from file.
 	defaultRotationInterval = time.Minute
 	// RotatingSharedCredentialsProviderName is the name of this provider
@@ -41,11 +44,17 @@ type RotatingSharedCredentialsProvider struct {
 // NewRotatingSharedCredentials returns a rotating shared credentials provider
 // with default values set.
 func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
+	var credentialProfile = DEFAULT_CREDENTIAL_PROFILE
+	if alternateCredentialProfile := os.Getenv(ALTERNATE_CREDENTIAL_PROFILE_ENV_VAR); alternateCredentialProfile != "" {
+		seelog.Infof("Overriding %s credential profile; using: %s.", DEFAULT_CREDENTIAL_PROFILE, alternateCredentialProfile)
+		credentialProfile = alternateCredentialProfile
+	}
+
 	return &RotatingSharedCredentialsProvider{
 		RotationInterval: defaultRotationInterval,
 		sharedCredentialsProvider: &credentials.SharedCredentialsProvider{
 			Filename: defaultRotatingCredentialsFilename,
-			Profile:  "default",
+			Profile:  credentialProfile,
 		},
 	}
 }
