@@ -34,8 +34,8 @@ func TestNewRotatingSharedCredentialsProvider(t *testing.T) {
 }
 
 func TestNewRotatingSharedCredentialsProviderExternal(t *testing.T) {
-	os.Setenv("EXTERNAL_CREDENTIAL_ENV_VAR", "external")
-	defer os.Unsetenv("EXTERNAL_CREDENTIAL_ENV_VAR")
+	os.Setenv("ECS_EXTERNAL_CREDENTIAL_PROFILE", "external")
+	defer os.Unsetenv("ECS_EXTERNAL_CREDENTIAL_PROFILE")
 	p := NewRotatingSharedCredentialsProvider()
 	require.Equal(t, time.Minute, p.RotationInterval)
 	require.Equal(t, "external", p.sharedCredentialsProvider.Profile)
