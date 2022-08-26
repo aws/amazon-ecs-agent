@@ -1,6 +1,7 @@
+//go:build !linux && !freebsd
 // +build !linux,!freebsd
 
-package system
+package system // import "github.com/docker/docker/pkg/system"
 
 import "syscall"
 
