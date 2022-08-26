@@ -44,8 +44,7 @@ type RotatingSharedCredentialsProvider struct {
 // NewRotatingSharedCredentials returns a rotating shared credentials provider
 // with default values set.
 func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
-	var credentialProfile String
-	credentialProfile = DEFAULT_CREDENTIAL_PROFILE
+	var credentialProfile = DEFAULT_CREDENTIAL_PROFILE
         if externalCredentialProfile := os.Getenv(EXTERNAL_CREDENTIAL_ENV_VAR); externalCredentialProfile != "" {
 		credentialProfile = externalCredentialProfile
 	}
