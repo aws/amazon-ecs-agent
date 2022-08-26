@@ -24,7 +24,7 @@ import (
 
 const (
 	EXTERNAL_CREDENTIAL_PROFILE_ENV_VAR = "ECS_EXTERNAL_CREDENTIAL_PROFILE"
-	DEFAULT_CREDENTIAL_PROFILE = "default"
+	DEFAULT_CREDENTIAL_PROFILE          = "default"
 	// defaultRotationInterval is how frequently to expire and re-retrieve the credentials from file.
 	defaultRotationInterval = time.Minute
 	// RotatingSharedCredentialsProviderName is the name of this provider
@@ -45,7 +45,7 @@ type RotatingSharedCredentialsProvider struct {
 // with default values set.
 func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
 	var credentialProfile = DEFAULT_CREDENTIAL_PROFILE
-        if externalCredentialProfile := os.Getenv("EXTERNAL_CREDENTIAL_ENV_VAR"); externalCredentialProfile != "" {
+	if externalCredentialProfile := os.Getenv("EXTERNAL_CREDENTIAL_ENV_VAR"); externalCredentialProfile != "" {
 		credentialProfile = externalCredentialProfile
 	}
 
