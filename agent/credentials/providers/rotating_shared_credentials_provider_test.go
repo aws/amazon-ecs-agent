@@ -33,6 +33,15 @@ func TestNewRotatingSharedCredentialsProvider(t *testing.T) {
 	require.Equal(t, defaultRotatingCredentialsFilename, p.sharedCredentialsProvider.Filename)
 }
 
+func TestNewRotatingSharedCredentialsProviderExternal(t *testing.T) {
+        os.Setenv("EXTERNAL_CREDENTIAL_ENV_VAR", "external")
+	defer os.Unsetenv("EXTERNAL_CREDENTIAL_ENV_VAR")
+	p := NewRotatingSharedCredentialsProvider()
+	require.Equal(t, time.Minute, p.RotationInterval)
+	require.Equal(t, "external", p.sharedCredentialsProvider.Profile)
+	require.Equal(t, defaultRotatingCredentialsFilename, p.sharedCredentialsProvider.Filename)
+}
+
 func TestRotatingSharedCredentialsProvider_RetrieveFail_BadPath(t *testing.T) {
 	p := NewRotatingSharedCredentialsProvider()
 	p.sharedCredentialsProvider.Filename = "/foo/bar/baz/bad/path"
