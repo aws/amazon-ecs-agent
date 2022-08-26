@@ -39,6 +39,7 @@ const (
 	cluster                  = "default"
 	family                   = "sleep"
 	version                  = "1"
+	serviceName              = "someService"
 	containerID              = "cid"
 	containerName            = "sleepy"
 	imageName                = "busybox"
@@ -69,6 +70,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
+		ServiceName:         serviceName,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		ENIs: []*apieni.ENI{
@@ -135,7 +137,8 @@ func TestNewTaskContainerResponses(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster,
+		availabilityZone, vpcID, containerInstanceArn, task.ServiceName, false)
 	require.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	require.NoError(t, err)
@@ -144,6 +147,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	assert.Equal(t, eniIPv6Address, taskResponse.Containers[0].Networks[0].IPv6Addresses[0])
 	assert.Equal(t, ipv6SubnetCIDRBlock, taskResponse.Containers[0].Networks[0].IPv6SubnetCIDRBlock)
 	assert.Equal(t, subnetGatewayIPV4Address, taskResponse.Containers[0].Networks[0].SubnetGatewayIPV4Address)
+	assert.Equal(t, serviceName, taskResponse.ServiceName)
 
 	gomock.InOrder(
 		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),

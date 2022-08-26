@@ -31,6 +31,7 @@ type TaskResponse struct {
 	*v2.TaskResponse
 	Containers []ContainerResponse `json:"Containers,omitempty"`
 	VPCID      string              `json:"VpcId,omitempty"`
+	ServiceName string              `json:"ServiceName,omitempty"`
 }
 
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
@@ -85,6 +86,7 @@ func NewTaskResponse(
 	az string,
 	vpcID string,
 	containerInstanceARN string,
+	serviceName string,
 	propagateTags bool,
 ) (*TaskResponse, error) {
 	// Construct the v2 response first.
@@ -112,6 +114,7 @@ func NewTaskResponse(
 		TaskResponse: v2Resp,
 		Containers:   containers,
 		VPCID:        vpcID,
+		ServiceName:  serviceName,
 	}, nil
 }
 
