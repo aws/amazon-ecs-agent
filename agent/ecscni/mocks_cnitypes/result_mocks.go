@@ -19,10 +19,11 @@
 package mock_types
 
 import (
-	types "github.com/containernetworking/cni/pkg/types"
-	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
+
+	types "github.com/containernetworking/cni/pkg/types"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockResult is a mock of Result interface
