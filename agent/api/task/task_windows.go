@@ -278,7 +278,7 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 
 		// IfName is expected by the plugin but is not used.
 		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           eni.ID,
+			IfName:           ecscni.DefaultENIName,
 			CNINetworkConfig: netconf,
 		})
 	}

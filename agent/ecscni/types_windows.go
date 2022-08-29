@@ -35,6 +35,8 @@ const (
 	// NetworkName has to be non-empty field for network config.
 	// We do not actually make use of the field, hence passing in a placeholder string to fulfill the API spec
 	defaultNetworkName = "network-name"
+	// DefaultENIName is the name of eni interface name in the container namespace
+	DefaultENIName = "eth0"
 )
 
 var (
