@@ -33,6 +33,7 @@ func newNetworkConfig(netcfg interface{}, plugin string, cniVersion string) (*li
 		Network: &cnitypes.NetConf{
 			Type:       plugin,
 			CNIVersion: cniVersion,
+			Name:       defaultNetworkName,
 		},
 		Bytes: configBytes,
 	}

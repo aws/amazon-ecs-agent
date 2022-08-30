@@ -8,9 +8,9 @@ require (
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v1.0.4-0.20220221221032-e710ed6ebb1a
-	github.com/containerd/containerd v1.4.12 // indirect
+	github.com/containerd/containerd v1.4.13 // indirect
 	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
-	github.com/containernetworking/cni v0.7.1
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.8.6
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
 	github.com/didip/tollbooth v3.0.2+incompatible
@@ -18,6 +18,7 @@ require (
 	github.com/docker/docker v0.0.0-20200531234253-77e06fda0c94
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
+	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/golang/mock v1.1.1
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/gorilla/mux v1.8.0
@@ -27,14 +28,15 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
-	github.com/opencontainers/runtime-spec v1.0.2
+	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v0.0.0-20150603214016-ca53cad383ca
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.4
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/stretchr/testify v1.7.0
-	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
+	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
@@ -42,6 +44,7 @@ require (
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
 	golang.org/x/tools v0.1.5
 	google.golang.org/grpc v1.38.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
