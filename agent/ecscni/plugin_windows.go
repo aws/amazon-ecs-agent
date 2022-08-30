@@ -117,8 +117,7 @@ func (client *cniClient) doSetupNS(ctx context.Context, cfg *Config) (*current.R
 	curResult, ok := ecsBridgeResult.(*current.Result)
 	if !ok {
 		return nil, errors.Errorf(
-			"cni setup: unable to convert result to expected version '%s'",
-			ecsBridgeResult.String())
+			"cni setup: unable to convert result to expected version '%v'", ecsBridgeResult)
 	}
 
 	return curResult, nil

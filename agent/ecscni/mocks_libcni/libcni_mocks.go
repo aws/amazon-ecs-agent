@@ -136,6 +136,22 @@ func (mr *MockCNIMockRecorder) DelNetworkList(arg0, arg1, arg2 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelNetworkList", reflect.TypeOf((*MockCNI)(nil).DelNetworkList), arg0, arg1, arg2)
 }
 
+// GetNetworkCachedConfig mocks base method
+func (m *MockCNI) GetNetworkCachedConfig(arg0 *libcni.NetworkConfig, arg1 *libcni.RuntimeConf) ([]byte, *libcni.RuntimeConf, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkCachedConfig", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*libcni.RuntimeConf)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetworkCachedConfig indicates an expected call of GetNetworkCachedConfig
+func (mr *MockCNIMockRecorder) GetNetworkCachedConfig(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkCachedConfig", reflect.TypeOf((*MockCNI)(nil).GetNetworkCachedConfig), arg0, arg1)
+}
+
 // GetNetworkCachedResult mocks base method
 func (m *MockCNI) GetNetworkCachedResult(arg0 *libcni.NetworkConfig, arg1 *libcni.RuntimeConf) (types.Result, error) {
 	m.ctrl.T.Helper()
@@ -149,6 +165,22 @@ func (m *MockCNI) GetNetworkCachedResult(arg0 *libcni.NetworkConfig, arg1 *libcn
 func (mr *MockCNIMockRecorder) GetNetworkCachedResult(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkCachedResult", reflect.TypeOf((*MockCNI)(nil).GetNetworkCachedResult), arg0, arg1)
+}
+
+// GetNetworkListCachedConfig mocks base method
+func (m *MockCNI) GetNetworkListCachedConfig(arg0 *libcni.NetworkConfigList, arg1 *libcni.RuntimeConf) ([]byte, *libcni.RuntimeConf, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkListCachedConfig", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*libcni.RuntimeConf)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetworkListCachedConfig indicates an expected call of GetNetworkListCachedConfig
+func (mr *MockCNIMockRecorder) GetNetworkListCachedConfig(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkListCachedConfig", reflect.TypeOf((*MockCNI)(nil).GetNetworkListCachedConfig), arg0, arg1)
 }
 
 // GetNetworkListCachedResult mocks base method

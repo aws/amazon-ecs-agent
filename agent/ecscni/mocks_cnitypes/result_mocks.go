@@ -92,20 +92,6 @@ func (mr *MockResultMockRecorder) PrintTo(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintTo", reflect.TypeOf((*MockResult)(nil).PrintTo), arg0)
 }
 
-// String mocks base method
-func (m *MockResult) String() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "String")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// String indicates an expected call of String
-func (mr *MockResultMockRecorder) String() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockResult)(nil).String))
-}
-
 // Version mocks base method
 func (m *MockResult) Version() string {
 	m.ctrl.T.Helper()
