@@ -14,6 +14,7 @@
 package eni
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/cihub/seelog"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -89,8 +91,8 @@ const (
 )
 
 var (
-	// netInterfaces is the Interfaces() method of net package.
-	netInterfaces = net.Interfaces
+	interfaceWrapper = netwrapper.New()
+	netInterfaces    = interfaceWrapper.GetAllNetworkInterfaces
 )
 
 // GetIPV4Addresses returns the list of IPv4 addresses assigned to the ENI.
@@ -208,11 +210,19 @@ func (eni *ENI) GetLinkName() string {
 			return ""
 		}
 		// Iterate over the list and find the interface with the ENI's MAC address.
+		eniMac, err := net.ParseMAC(eni.MacAddress)
+		if err != nil {
+			seelog.Errorf("Failed to parse ENI MAC: %s with error: %v", eni.MacAddress, err)
+			return ""
+		}
 		for _, iface := range ifaces {
-			if strings.EqualFold(eni.MacAddress, iface.HardwareAddr.String()) {
+			if bytes.EqualFold(eniMac, iface.HardwareAddr) {
 				eni.LinkName = iface.Name
 				break
 			}
+		}
+		if eni.LinkName == "" {
+			seelog.Errorf("Failed to find LinkName for MAC %s", eni.MacAddress)
 		}
 	}
 

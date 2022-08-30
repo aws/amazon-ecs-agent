@@ -45,7 +45,7 @@ func (utils *utils) getAllNetworkInterfaces() ([]net.Interface, error) {
 	log.Info("Running Powershell command to fetch all the network adapters")
 
 	// This command returns a JSON array of all the network interfaces on the instance.
-	cmd := "Get-NetAdapter | select ifAlias, ifIndex, MacAddress, ActiveMaximumTransmissionUnit | ConvertTo-Json"
+	cmd := "Get-NetAdapter -Physical | select ifAlias, ifIndex, MacAddress, ActiveMaximumTransmissionUnit | ConvertTo-Json"
 	out, err := execCommand("Powershell", "-C", cmd).Output()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to execute Get-NetAdapter for retrieving all interfaces")
@@ -56,7 +56,12 @@ func (utils *utils) getAllNetworkInterfaces() ([]net.Interface, error) {
 	var data winAdapters
 	err = json.Unmarshal(out, &data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal the json of network adapters")
+		var singleAdapter windowsNetworkAdapter
+		err2 := json.Unmarshal(out, &singleAdapter)
+		if err2 != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal the json of network adapters")
+		}
+		data = append(data, singleAdapter)
 	}
 
 	// This is an error condition since the instance would have at least 1 ENI.
