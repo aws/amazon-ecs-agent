@@ -38,7 +38,7 @@ const (
 	ipv4              = "10.0.0.2"
 	ipv4Block         = "/24"
 	ipv4Gateway       = "10.0.0.1"
-	mac               = "1.2.3.4"
+	mac               = "00:00:00:00:00:00"
 	ipv6              = "f0:234:23"
 	ipv6Block         = "/64"
 	ignoredUID        = "1337"

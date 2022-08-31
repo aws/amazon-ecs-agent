@@ -81,7 +81,7 @@ const (
 	credentialsID               = "credsid"
 	ipv4                        = "10.0.0.1"
 	gatewayIPv4                 = "10.0.0.2/20"
-	mac                         = "1.2.3.4"
+	mac                         = "00:00:00:00:00:00"
 	ipv6                        = "f0:234:23"
 	dockerContainerName         = "docker-container-name"
 	containerPid                = 123
