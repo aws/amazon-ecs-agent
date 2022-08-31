@@ -299,10 +299,10 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 
 	event := <-stateChangeEvents
 	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
-		t.Fatal("Expected container to stop first")
 		if verifyExitCode {
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
 		}
+		t.Fatal("Expected container to stop first")
 	}
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
