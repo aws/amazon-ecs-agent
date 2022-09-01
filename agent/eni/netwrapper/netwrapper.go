@@ -36,5 +36,5 @@ func (utils *utils) FindInterfaceByIndex(index int) (*net.Interface, error) {
 }
 
 func (utils *utils) GetAllNetworkInterfaces() ([]net.Interface, error) {
-	return utils.getAllNetworkInterfaces()
+	return net.Interfaces()
 }
