@@ -101,8 +101,9 @@ type Config struct {
 	// on the instance
 	DisableDockerHealthCheck BooleanDefaultFalse
 
-	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
-	// other than containers managed by ECS
+	// ReservedMemory specifies Reduction, in MiB, of the memory capacity of the instance
+	// that is reported to Amazon ECS. Used by Amazon ECS when placing tasks on container instances.
+	// This doesn't reserve memory usage on the instance
 	ReservedMemory uint16
 
 	// DockerStopTimeout specifies the amount of time before a SIGKILL is issued to
