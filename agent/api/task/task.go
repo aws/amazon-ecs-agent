@@ -1857,7 +1857,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 				hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
 			}
 
-			if task.shouldEnableIPv6() {
+			if task.ShouldEnableIPv6() {
 				// By default, the disable ipv6 setting is turned on, so need to turn it off to enable it.
 				enableIPv6SysctlSetting(hostConfig)
 			}
@@ -2081,7 +2081,7 @@ func (task *Task) generateENIExtraHosts() []string {
 	return extraHosts
 }
 
-func (task *Task) shouldEnableIPv4() bool {
+func (task *Task) ShouldEnableIPv4() bool {
 	eni := task.GetPrimaryENI()
 	if eni == nil {
 		return false
@@ -2089,7 +2089,7 @@ func (task *Task) shouldEnableIPv4() bool {
 	return len(eni.GetIPV4Addresses()) > 0
 }
 
-func (task *Task) shouldEnableIPv6() bool {
+func (task *Task) ShouldEnableIPv6() bool {
 	eni := task.GetPrimaryENI()
 	if eni == nil {
 		return false

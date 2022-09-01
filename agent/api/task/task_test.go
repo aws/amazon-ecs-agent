@@ -3666,9 +3666,9 @@ func TestShouldEnableIPv6(t *testing.T) {
 	task := &Task{
 		ENIs: []*apieni.ENI{getTestENI()},
 	}
-	assert.True(t, task.shouldEnableIPv6())
+	assert.True(t, task.ShouldEnableIPv6())
 	task.ENIs[0].IPV6Addresses = nil
-	assert.False(t, task.shouldEnableIPv6())
+	assert.False(t, task.ShouldEnableIPv6())
 }
 
 func getTestENI() *apieni.ENI {

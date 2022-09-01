@@ -51,14 +51,15 @@ const (
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_ADMIN_UDS_PATH"
 
-	relayEnableENV = "APPNET_ENABLE_RELAY_MODE_FOR_XDS"
-	relayEnableOn  = "1"
-	upstreamENV    = "APPNET_RELAY_LISTENER_UDS_PATH"
-	regionENV      = "AWS_REGION"
-	agentAuthENV   = "ENVOY_ENABLE_IAM_AUTH_FOR_XDS"
-	agentAuthOff   = "0"
-	agentModeENV   = "APPNET_AGENT_ADMIN_MODE"
-	agentModeValue = "uds"
+	relayEnableENV              = "APPNET_ENABLE_RELAY_MODE_FOR_XDS"
+	relayEnableOn               = "1"
+	upstreamENV                 = "APPNET_RELAY_LISTENER_UDS_PATH"
+	regionENV                   = "AWS_REGION"
+	agentAuthENV                = "ENVOY_ENABLE_IAM_AUTH_FOR_XDS"
+	agentAuthOff                = "0"
+	agentModeENV                = "APPNET_AGENT_ADMIN_MODE"
+	agentModeValue              = "uds"
+	agentSupportedIPFamiliesENV = "APPNET_SUPPORTED_IP_FAMILIES"
 
 	unixRequestPrefix        = "unix://"
 	httpRequestPrefix        = "http://localhost"
@@ -68,6 +69,10 @@ const (
 	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.interface-v1.tar"
 	defaultAgentContainerImageName   = "appnet_agent"
 	defaultAgentContainerTag         = "service_connect.v1"
+
+	supportIPv4Only  = "IPv4_ONLY"
+	supportIPv6Only  = "IPv6_ONLY"
+	supportDualStack = "ALL"
 )
 
 type manager struct {
@@ -136,7 +141,7 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	if err != nil {
 		return err
 	}
-	m.initAgentEnvironment(container)
+	m.initAgentEnvironment(container, getSupportedIPFamilies(task))
 
 	// Setup runtime configuration
 	var config apiserviceconnect.RuntimeConfig
@@ -147,6 +152,20 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	task.PopulateServiceConnectRuntimeConfig(config)
 	container.Image, _ = m.GetLoadedImageName()
 	return nil
+}
+
+func getSupportedIPFamilies(task *apitask.Task) string {
+	if task.IsNetworkModeBridge() {
+		return supportIPv4Only
+	}
+	// awsvpc mode
+	if task.ShouldEnableIPv4() && task.ShouldEnableIPv6() {
+		return supportDualStack
+	} else if task.ShouldEnableIPv4() {
+		return supportIPv4Only
+	} else {
+		return supportIPv6Only
+	}
 }
 
 func getBindMountMapping(hostDir, containerDir string) string {
@@ -187,12 +206,13 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 	return filepath.Join(statusPathHost, m.statusFileName), nil
 }
 
-func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
+func (m *manager) initAgentEnvironment(container *apicontainer.Container, supportedIPFamilies string) {
 	scEnv := map[string]string{
-		m.endpointENV: unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
-		m.statusENV:   filepath.Join(m.statusPathContainer, m.statusFileName),
-		agentModeENV:  agentModeValue,
-		agentAuthENV:  agentAuthOff,
+		m.endpointENV:               unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
+		m.statusENV:                 filepath.Join(m.statusPathContainer, m.statusFileName),
+		agentModeENV:                agentModeValue,
+		agentAuthENV:                agentAuthOff,
+		agentSupportedIPFamiliesENV: supportedIPFamilies,
 	}
 
 	container.MergeEnvironmentVariables(scEnv)

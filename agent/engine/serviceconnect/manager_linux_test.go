@@ -20,6 +20,11 @@ import (
 	"io/fs"
 	"testing"
 
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -56,6 +61,35 @@ func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
 	for _, tc := range tt {
 		res := DNSConfigToDockerExtraHostsFormat(tc.dnsConfigs)
 		assert.Equal(t, tc.expectedRestult, res, "Wrong docker host config ")
+	}
+}
+
+func TestGetSupportedIPFamilies(t *testing.T) {
+	tt := []struct {
+		task            *apitask.Task
+		expectedRestult string
+	}{
+		{
+			task:            getTask(apitask.AWSVPCNetworkMode, true, true),
+			expectedRestult: supportDualStack,
+		},
+		{
+			task:            getTask(apitask.AWSVPCNetworkMode, true, false),
+			expectedRestult: supportIPv4Only,
+		},
+		{
+			task:            getTask(apitask.AWSVPCNetworkMode, false, true),
+			expectedRestult: supportIPv6Only,
+		},
+		{
+			task:            getTask(apitask.BridgeNetworkMode, false, false),
+			expectedRestult: supportIPv4Only,
+		},
+	}
+
+	for _, tc := range tt {
+		res := getSupportedIPFamilies(tc.task)
+		assert.Equal(t, tc.expectedRestult, res, "Wrong supported IP families ")
 	}
 }
 
@@ -112,4 +146,38 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 
 func TestAgentContainerModificationsForServiceConnect_NonPrivileged(t *testing.T) {
 	testAgentContainerModificationsForServiceConnect(t, false)
+}
+
+func getTask(networkMode string, enableIPv4, enableIPv6 bool) *apitask.Task {
+	task := testdata.LoadTask("sleep5TwoContainers")
+	task.NetworkMode = networkMode
+	if task.IsNetworkModeBridge() {
+		return task
+	}
+
+	task.AddTaskENI(
+		&apieni.ENI{
+			ID:                       "eni-id",
+			MacAddress:               mac,
+			SubnetGatewayIPV4Address: gatewayIPv4,
+		})
+
+	if enableIPv4 {
+		task.ENIs[0].IPV4Addresses = []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		}
+	}
+
+	if enableIPv6 {
+		task.ENIs[0].IPV6Addresses = []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		}
+	}
+
+	return task
 }

@@ -134,6 +134,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		"StAtUsGoEsHeRe":                "/some/other/run/status_file_of_holiness",
 		"APPNET_AGENT_ADMIN_MODE":       "uds",
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
+		"APPNET_SUPPORTED_IP_FAMILIES":  "ALL",
 	}
 
 	type testCase struct {

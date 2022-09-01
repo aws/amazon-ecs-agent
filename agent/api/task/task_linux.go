@@ -341,8 +341,8 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 			task.ServiceConnectConfig,
 			ecscni.NAT,
 			false,
-			task.shouldEnableIPv4(),
-			task.shouldEnableIPv6(),
+			task.ShouldEnableIPv4(),
+			task.ShouldEnableIPv6(),
 			cniConfig)
 		if err != nil {
 			return nil, err
