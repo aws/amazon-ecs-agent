@@ -2,6 +2,7 @@ name: Windows
 
 on: [pull_request]
 
+permissions: read-all
 jobs:
   windows-unit-tests:
     name: Windows unit tests
@@ -11,13 +12,21 @@ jobs:
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
+        id: get-go-version
         run:  |
           cd "$Env:GITHUB_WORKSPACE"
           cd "src/github.com/aws/amazon-ecs-agent"
-          echo "GO_VERSION_WINDOWS=$(type GO_VERSION_WINDOWS)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+          $ErrorActionPreference = "Stop"
+          $go_version_win = $(type GO_VERSION_WINDOWS)
+          $go_version_re = "^\d+\.{1,2}\d+$"
+          if (-Not ($go_version_win.Length -le 10 -or $go_version_win -match $go_version_re) ) {
+            echo "invalid GO version"
+            exit 1
+          }
+          Write-Output "::set-output name=GO_VERSION_WINDOWS::$go_version_win"
       - uses: actions/setup-go@v2
         with:
-          go-version: ${{ env.GO_VERSION_WINDOWS }}
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}
       - uses: actions/checkout@v2
         with:
           submodules: true
