@@ -38,7 +38,9 @@ usage() {
   --certs-file
         (optional) TLS certs for execute command feature. Defaults to searching for certs in known possible locations.
   --no-start
-        (optional) if this flag is provided, SSM agent, docker and ECS agent will not be started by the script despite being installed."
+        (optional) if this flag is provided, SSM agent, docker and ECS agent will not be started by the script despite being installed.
+  --custom-attribute
+        (optional) pass a dictionary of custom attributes to apply to container instances. Shorthand Syntax: Key=string,Value=string"
 }
 
 # required:
@@ -54,6 +56,7 @@ DEB_URL=""
 RPM_URL=""
 ECS_ENDPOINT=""
 CERTS_FILE=""
+CUSTOM_ATTRIBUTES=""
 # Whether to check signature for the downloaded amazon-ecs-init package. true unless --skip-gpg-check
 # specified. --skip-gpg-check is mostly for testing purpose (so that we can test a custom build of ecs init package
 # without having to sign it).
@@ -114,6 +117,18 @@ while :; do
         check-option-value "$1" "$2"
         CERTS_FILE="$2"
         shift 2
+        ;;
+    --custom-attribute)
+        CUSTOM_ATTRIBUTE="$2"
+        shift 2
+        if [[ "$CUSTOM_ATTRIBUTE" == "Key="*",Value="* ]]; then
+            KEY=$(echo "$CUSTOM_ATTRIBUTE"| cut -d',' -f 1)
+            VALUE=$(echo "$CUSTOM_ATTRIBUTE"| cut -d',' -f 2)
+            CUSTOM_ATTRIBUTES+="\"$(echo "$KEY"| cut -d'=' -f 2)\":\"$(echo "$VALUE"| cut -d'=' -f 2)\","
+        else
+            echo "invalid custom attribute syntax: [$1]"
+            fail
+        fi
         ;;
     --skip-registration)
         SKIP_REGISTRATION=true
@@ -512,6 +527,10 @@ install-ecs-agent() {
         echo "/etc/ecs/ecs.config already exists, preserving existing config and appending cluster name."
     fi
     echo "ECS_CLUSTER=$ECS_CLUSTER" >>/etc/ecs/ecs.config
+
+    if [ -n "$CUSTOM_ATTRIBUTES" ]; then
+        echo "ECS_INSTANCE_ATTRIBUTES={${CUSTOM_ATTRIBUTES%?}}" >>/etc/ecs/ecs.config
+    fi
 
     if [ ! -f "/var/lib/ecs/ecs.config" ]; then
         touch /var/lib/ecs/ecs.config
