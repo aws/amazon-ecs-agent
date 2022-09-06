@@ -50,6 +50,34 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
+func TestCredentialsFetcherUnixSocketWithoutCredentialsFetcherHost(t *testing.T) {
+
+	// Make sure that the env variable is not set
+	os.Unsetenv("CREDENTIALS_FETCHER_HOST")
+
+	credentialsFetcherUnixSocketSourcePath, fromEnv := CredentialsFetcherUnixSocket()
+
+	if credentialsFetcherUnixSocketSourcePath != "/var/credentials-fetcher/socket/credentials_fetcher.sock" {
+		t.Error("CredentialsFetcherUnixSocket() should be \"/var/credentials-fetcher/socket\"")
+	}
+	if fromEnv {
+		t.Error("CredentialsFetcherUnixSocket() should return the default instead of reading from CREDENTIALS_FETCHER_HOST when CREDENTIALS_FETCHER_HOST isn't set")
+	}
+}
+
+func TestCredentialsFetcherUnixSocketWithCredentialsFetcherHost(t *testing.T) {
+	os.Setenv("CREDENTIALS_FETCHER_HOST", "unix:///foo/bar")
+	defer os.Unsetenv("CREDENTIALS_FETCHER_HOST")
+
+	credentialsFetcherUnixSocketSourcePath, fromEnv := CredentialsFetcherUnixSocket()
+	if credentialsFetcherUnixSocketSourcePath != "/foo/bar" {
+		t.Error("CredentialsFetcherUnixSocket() should be \"/foo/bar\"")
+	}
+	if !fromEnv {
+		t.Error("CredentialsFetcherUnixSocket() should read from environment variable CREDENTIALS_FETCHER_HOST, when CREDENTIALS_FETCHER_HOST is set")
+	}
+}
+
 func TestGetAgentPartitionBucketRegion(t *testing.T) {
 	testCases := []struct {
 		region      string

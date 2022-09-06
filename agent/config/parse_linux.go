@@ -18,10 +18,19 @@ package config
 
 import (
 	"errors"
+	"os"
 	"strings"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 func parseGMSACapability() bool {
+	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
+	if envStatus {
+		// returns true if the container instance is domain joined
+		// this env variable is set in ecs-init module
+		return utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
+	}
 	return false
 }
 
