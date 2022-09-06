@@ -1,4 +1,6 @@
+//go:build test
 // +build test
+
 // Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -815,6 +817,56 @@ func TestGetHostConfigExternal(t *testing.T) {
 	hostConfig = client.getHostConfig(map[string]string{})
 	assert.NotContains(t, hostConfig.Binds, credsBind)
 	assert.NotEmpty(t, hostConfig.CapAdd)
+}
+
+func TestGetCredentialsFetcherSocketBind(t *testing.T) {
+	testCases := []struct {
+		name                                 string
+		credentialsFetcherHostFromEnv        string
+		credentialsFetcherHostFromConfigFile string
+		expectedBind                         string
+	}{
+		{
+			name:                                 "No Credentials Fetcher host from env",
+			credentialsFetcherHostFromEnv:        "",
+			credentialsFetcherHostFromConfigFile: "dummy",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Invalid Credentials Fetcher host from env",
+			credentialsFetcherHostFromEnv:        "invalid",
+			credentialsFetcherHostFromConfigFile: "dummy",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher from env, no Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
+			credentialsFetcherHostFromConfigFile: "",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher from env, invalid Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
+			credentialsFetcherHostFromConfigFile: "invalid",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher host from env, Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+			credentialsFetcherHostFromConfigFile: "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock.1:/var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("CREDENTIALS_FETCHER_HOST", tc.credentialsFetcherHostFromEnv)
+			defer os.Unsetenv("CREDENTIALS_FETCHER_HOST")
+
+			bind, _ := getCredentialsFetcherSocketBind(map[string]string{"CREDENTIALS_FETCHER_HOST": tc.credentialsFetcherHostFromConfigFile})
+			assert.Equal(t, tc.expectedBind, bind)
+		})
+	}
 }
 
 func TestStartAgentWithExecBinds(t *testing.T) {

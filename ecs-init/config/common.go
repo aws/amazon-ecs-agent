@@ -93,6 +93,12 @@ const (
 
 	// DefaultRegionEnvVar is the environment variable for specifying the default AWS region to use.
 	DefaultRegionEnvVar = "AWS_DEFAULT_REGION"
+
+	// ECSGMSASupportEnvVar indicates that the gMSA is supported
+	ECSGMSASupportEnvVar = "ECS_GMSA_SUPPORTED"
+
+	// CredentialsFetcherHostEnvVar is the environment variable that specifies the location of the Docker daemon socket.
+	CredentialsFetcherHostEnvVar = "CREDENTIALS_FETCHER_HOST"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -210,6 +216,15 @@ func DockerUnixSocket() (string, bool) {
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated
 	// outside the container, eg: Docker daemon restart
 	return "/var/run", false
+}
+
+// CredentialsFetcherUnixSocket returns the credentials fetcher daemon socket endpoint and whether it's read from CredentialsFetcherEnvVar
+func CredentialsFetcherUnixSocket() (string, bool) {
+	if credentialsFetcherHost := os.Getenv(CredentialsFetcherHostEnvVar); strings.HasPrefix(credentialsFetcherHost, UnixSocketPrefix) {
+		return strings.TrimPrefix(credentialsFetcherHost, UnixSocketPrefix), true
+	}
+
+	return "/var/credentials-fetcher/socket/credentials_fetcher.sock", false
 }
 
 // CgroupMountpoint returns the cgroup mountpoint for the system
