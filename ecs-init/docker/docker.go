@@ -16,16 +16,17 @@ package docker
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
-	"github.com/aws/amazon-ecs-agent/ecs-init/config"
-	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -49,7 +50,11 @@ const (
 	// in case /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint   = "/var/run"
 	defaultDockerSocketPath = "/var/run/docker.sock"
-
+	// this socket is exposed by credentials-fetcher (daemon for gMSA support on Linux)
+	// defaultCredentialsFetcherSocketPath is set to /var/credentials-fetcher/socket/credentials_fetcher.sock
+	// in case path is not passed in the env variable
+	defaultCredentialsFetcherEndpoint   = "/var/credentials-fetcher/socket"
+	defaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
 	// networkMode specifies the networkmode to create the agent container
 	networkMode = "host"
 	// usernsMode specifies the userns mode to create the agent container
@@ -308,6 +313,11 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables["ECS_ENABLE_TASK_ENI"] = "false"
 	}
 
+	if isDomainJoined() {
+		// set the environment variable to true if the container instance is domain joined
+		envVariables["ECS_DOMAIN_JOINED_LINUX_INSTANCE"] = "true"
+	}
+
 	var env []string
 	for envKey, envValue := range envVariables {
 		env = append(env, envKey+"="+envValue)
@@ -427,12 +437,22 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 				binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
 			}
 		}
+
+		if key == config.ECSGMSASupportEnvVar && val == "true" {
+			// only bind if the env variable gmsa support is set to true and the path to bind exists
+			credentialsfetcherSocketBind, volumeExists := getCredentialsFetcherSocketBind(envVarsFromFiles)
+			if volumeExists {
+				binds = append(binds, credentialsfetcherSocketBind)
+			}
+		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
 
 	// only add bind mounts when the src file/directory exists on host; otherwise docker API create an empty directory on host
 	binds = append(binds, getCapabilityExecBinds()...)
+
+	fmt.Println(binds)
 
 	return createHostConfig(binds)
 }
@@ -457,6 +477,31 @@ func getDockerSocketBind(envVarsFromFiles map[string]string) string {
 	}
 
 	return dockerUnixSocketSourcePath + ":" + dockerEndpointAgent
+}
+
+// getCredentialsFetcherSocketBind returns the bind for CredentialsFetcher socket and also whether the bind exists.
+// Value for the bind is as follow:
+// 1. CREDENTIALS_FETCHER_HOST (as in os.Getenv) set: source CREDENTIALS_FETCHER_HOST (as in os.Getenv, trim unix:// prefix),
+//   dest CREDENTIALS_FETCHER_HOST (as in /etc/ecs/ecs.config, trim unix:// prefix)
+func getCredentialsFetcherSocketBind(envVarsFromFiles map[string]string) (string, bool) {
+	CredentialsFetcherEndpointAgent := defaultCredentialsFetcherSocketPath
+	CredentialsFetcherUnixSocketSourcePath, fromEnv := config.CredentialsFetcherUnixSocket()
+	if fromEnv {
+		if credentialsFetcherEndpointConfig, ok := envVarsFromFiles[config.CredentialsFetcherHostEnvVar]; ok && strings.HasPrefix(credentialsFetcherEndpointConfig, config.UnixSocketPrefix) {
+			CredentialsFetcherEndpointAgent = strings.TrimPrefix(credentialsFetcherEndpointConfig, config.UnixSocketPrefix)
+		} else {
+			CredentialsFetcherEndpointAgent = defaultCredentialsFetcherSocketPath
+		}
+	}
+
+	// check whether the path to the mount exists
+	_, err := os.Stat(CredentialsFetcherUnixSocketSourcePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return CredentialsFetcherUnixSocketSourcePath + ":" + CredentialsFetcherEndpointAgent, false
+		}
+	}
+	return CredentialsFetcherUnixSocketSourcePath + ":" + CredentialsFetcherEndpointAgent, true
 }
 
 // getDockerPluginDirBinds returns the binds for Docker plugin directories.
@@ -496,6 +541,37 @@ func getCapabilityExecBinds() []string {
 	}
 
 	return binds
+}
+
+// isDomainJoined is used to validate if container instance is part of a valid active directory.
+func isDomainJoined() bool {
+	realmPathByte, err := exec.Command("bash", "-c", "which realm").Output()
+	if err != nil {
+		log.Errorf("realmd is not installed on the instance")
+		return false
+	}
+
+	realmPathString := strings.TrimSpace(string(realmPathByte))
+	if len(realmPathString) == 0 {
+		log.Errorf("could not path of realm on the instance")
+		return false
+	}
+
+	realmCommmand := realmPathString + " list | grep 'realm-name'"
+	realmName, err := exec.Command("bash", "-c", realmCommmand).Output()
+
+	if err != nil {
+		log.Errorf("failed to read realm info")
+		return false
+	}
+	realmNameTrimmed := strings.TrimSpace(string(realmName))
+
+	if len(realmNameTrimmed) == 0 {
+		log.Errorf("couldn't not find realm name")
+		return false
+	}
+
+	return true
 }
 
 func defaultIsPathValid(path string, shouldBeDirectory bool) bool {
