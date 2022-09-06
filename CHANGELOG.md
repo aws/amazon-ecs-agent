@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.63.0
+* Feature - Add configurable default profile ECS_ALTERNATE_CREDENTIAL_PROFILE. [#3365](https://github.com/aws/amazon-ecs-agent/pull/3365)
+* Enhancement - Update ECS_RESERVED_MEMORY description in README. [#3363](https://github.com/aws/amazon-ecs-agent/pull/3363)
+* Enhancement - Update dependencies to include security patches reported by dependabot for agent [#3367](https://github.com/aws/amazon-ecs-agent/pull/3367)
+* Enhancement - Update dependencies to include security patches reported by dependabot for ecs-init. [#3277](https://github.com/aws/amazon-ecs-agent/pull/3277)
+* Enhancement - Reduce the flakiness of TestExecCommandAgent. [#3355](https://github.com/aws/amazon-ecs-agent/pull/3355)
+* Bug - Add appmesh path to agent container image config. [#3378](https://github.com/aws/amazon-ecs-agent/pull/3378)
+* Bug - Fix cgroupv2 mem usage calculation to match docker cli. [#3370](https://github.com/aws/amazon-ecs-agent/pull/3370)
+* Bug - Fix json syntax in release-config. [#3359](https://github.com/aws/amazon-ecs-agent/pull/3359)
+* Bug - Update validation script with more comprehensive set of files. [#3358](https://github.com/aws/amazon-ecs-agent/pull/3358)
+* Bug - Update changelog generation to add missing spec file. [#3356](https://github.com/aws/amazon-ecs-agent/pull/3356)
+* Bug - Fix format string for ecs-init. [#3282](https://github.com/aws/amazon-ecs-agent/pull/3282)
+
 ## 1.62.2
 * Enhancement - Load ServiceName from ACS Task Payload. [#3342](https://github.com/aws/amazon-ecs-agent/pull/3342)
 * Bug - Update healthcheck and ports in dockerfree build. [#3343](https://github.com/aws/amazon-ecs-agent/pull/3343)
