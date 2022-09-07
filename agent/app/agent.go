@@ -363,6 +363,24 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			}
 			return exitcodes.ExitError
 		}
+	} else if !agent.cfg.External.Enabled() {
+		// Set VPC and Subnet IDs for the EC2 instance
+		err, terminal := agent.setVPCSubnet()
+		switch err {
+		case nil:
+			// No error so do nothing
+		case instanceNotLaunchedInVPCError:
+			// We have ascertained that the EC2 Instance is not running in a VPC
+			// No need to stop the ECS Agent in this case
+			logger.Info("Unable to detect VPC ID for the instance as it was not launched in VPC mode.")
+		default:
+			// Encountered an error initializing VPC ID and Subnet
+			seelog.Criticalf("Unable to detect VPC ID and Subnet: %v", err)
+			if terminal {
+				return exitcodes.ExitTerminal
+			}
+			return exitcodes.ExitError
+		}
 	}
 
 	// Register the container instance
@@ -813,9 +831,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", agent.vpc)
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.vpc)
 	}
 
 	// Start sending events to the backend
