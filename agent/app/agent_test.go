@@ -214,6 +214,9 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
+	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
@@ -261,6 +264,9 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
+	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
@@ -338,18 +344,22 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 }
 
 func TestDoStartHappyPath(t *testing.T) {
-	testDoStartHappyPathWithConditions(t, false, false)
+	testDoStartHappyPathWithConditions(t, false, false, false)
 }
 
 func TestDoStartWarmPoolsEnabled(t *testing.T) {
-	testDoStartHappyPathWithConditions(t, false, true)
+	testDoStartHappyPathWithConditions(t, false, true, false)
 }
 
 func TestDoStartWarmPoolsBlackholed(t *testing.T) {
-	testDoStartHappyPathWithConditions(t, true, true)
+	testDoStartHappyPathWithConditions(t, true, true, false)
 }
 
-func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPoolsEnv bool) {
+func TestDoStartHappyPathExternal(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, false, false, true)
+}
+
+func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPoolsEnv bool, isExternalLaunchType bool) {
 	ctrl, credentialsManager, _, imageManager, client,
 		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
 	defer ctrl.Finish()
@@ -362,6 +372,13 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+
+	if !isExternalLaunchType {
+		// VPC and Subnet should not be initizalied for external launch type
+		ec2MetadataClient.EXPECT().PrimaryENIMAC().Return("mac", nil)
+		ec2MetadataClient.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
+		ec2MetadataClient.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
+	}
 
 	if blackholed {
 		if warmPoolsEnv {
@@ -424,6 +441,9 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	if warmPoolsEnv {
 		cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	}
+	if isExternalLaunchType {
+		cfg.External = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	}
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1250,6 +1270,9 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
+	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
