@@ -167,7 +167,7 @@ func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 // behavior when request and state both are good.
 func TestPutTaskProtectionHandlerHappy(t *testing.T) {
 	request := TaskProtectionRequest{
-		ProtectionEnabled: utils.BoolPtr(false),
+		ProtectionEnabled: utils.BoolPtr(true),
 		ExpiresInMinutes:  utils.IntPtr(5),
 	}
 

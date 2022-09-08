@@ -82,12 +82,10 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 		}
 
 		// TODO: Call ECS
-		logger.Info("Would have called ECS.PutTaskProtection with fields", logger.Fields{
-			"cluster":           cluster,
-			"serviceName":       task.ServiceName,
-			"taskId":            task.Arn,
-			"protectionEnabled": taskProtection.GetProtectionEnabled(),
-			"expiresInMinutes":  taskProtection.GetExpiresInMinutes(),
+		logger.Info("PutTaskProtection endpoint was called", logger.Fields{
+			loggerfield.Cluster:        cluster,
+			loggerfield.TaskARN:        task.Arn,
+			loggerfield.TaskProtection: taskProtection,
 		})
 		writeJSONResponse(w, http.StatusOK, "Ok", putTaskProtectionRequestType)
 	}
@@ -122,10 +120,9 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
 		}
 
 		// TODO: Call ECS
-		logger.Info("Would have called ECS.PutTaskProtection with fields:", logger.Fields{
-			"cluster":     cluster,
-			"serviceName": task.ServiceName,
-			"taskId":      task.Arn,
+		logger.Info("GetTaskProtection endpoint was called", logger.Fields{
+			loggerfield.Cluster: cluster,
+			loggerfield.TaskARN: task.Arn,
 		})
 		writeJSONResponse(w, http.StatusOK, "Ok", getTaskProtectionRequestType)
 	}

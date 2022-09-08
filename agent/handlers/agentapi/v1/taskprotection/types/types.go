@@ -14,6 +14,7 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -22,6 +23,23 @@ import (
 type taskProtection struct {
 	protectionEnabled bool
 	expiresInMinutes  *int
+}
+
+// Custom JSON marshal function to marshal unexported fields for logging purposes
+func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
+	jsonBytes, err := json.Marshal(struct {
+		ProtectionEnabled bool
+		ExpiresInMinutes  *int
+	}{
+		ProtectionEnabled: taskProtection.protectionEnabled,
+		ExpiresInMinutes:  taskProtection.expiresInMinutes,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonBytes, nil
 }
 
 // Creates a taskProtection value after validating the arguments
