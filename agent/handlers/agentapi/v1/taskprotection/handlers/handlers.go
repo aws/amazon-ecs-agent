@@ -15,6 +15,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -74,10 +75,9 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		task, err := getTaskFromRequest(state, r)
+		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, http.StatusInternalServerError,
-				fmt.Sprintf("Failed to find task: %v", err), putTaskProtectionRequestType)
+			writeJSONResponse(w, responseCode, err.Error(), putTaskProtectionRequestType)
 			return
 		}
 
@@ -92,18 +92,24 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 }
 
 // Helper function for finding task for the request
-func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*apitask.Task, error) {
+func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*apitask.Task, int, error) {
 	taskARN, err := v3.GetTaskARNByRequest(r, state)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get task ARN from request: %w", err)
+		logger.Error("Failed to find task ARN for task protection request", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, http.StatusBadRequest, errors.New("Invalid request: no task was found")
 	}
 
 	task, found := state.TaskByArn(taskARN)
 	if !found {
-		return nil, fmt.Errorf("could not find task from task ARN '%v'", taskARN)
+		logger.Error("No task was found for taskARN for task protection request", logger.Fields{
+			loggerfield.TaskARN: taskARN,
+		})
+		return nil, http.StatusInternalServerError, errors.New("Failed to find a task for the request")
 	}
 
-	return task, nil
+	return task, http.StatusOK, nil
 }
 
 // GetTaskProtectionHandler returns a handler function for GetTaskProtection API
@@ -112,10 +118,9 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
 	return func(w http.ResponseWriter, r *http.Request) {
 		getTaskProtectionRequestType := "api/v1/GetTaskProtection"
 
-		task, err := getTaskFromRequest(state, r)
+		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, http.StatusInternalServerError,
-				fmt.Sprintf("Failed to find task: %v", err), getTaskProtectionRequestType)
+			writeJSONResponse(w, responseCode, err.Error(), getTaskProtectionRequestType)
 			return
 		}
 

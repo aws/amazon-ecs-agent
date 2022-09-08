@@ -143,8 +143,8 @@ func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq("endpointID")).Return("", false)
 
 	testPutTaskProtectionHandler(t, mockState, "endpointID", request,
-		"Failed to find task: unable to get task ARN from request: unable to get task Arn from v3 endpoint ID: endpointID",
-		http.StatusInternalServerError)
+		"Invalid request: no task was found",
+		http.StatusBadRequest)
 }
 
 // TestPutTaskProtectionHandlerTaskNotFound tests PutTaskProtection handler's
@@ -159,7 +159,7 @@ func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq("taskARN")).Return(nil, false)
 
 	testPutTaskProtectionHandler(t, mockState, "endpointID", request,
-		"Failed to find task: could not find task from task ARN 'taskARN'",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
@@ -219,8 +219,8 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq("endpointID")).Return("", false)
 
 	testGetTaskProtectionHandler(t, mockState, "endpointID",
-		"Failed to find task: unable to get task ARN from request: unable to get task Arn from v3 endpoint ID: endpointID",
-		http.StatusInternalServerError)
+		"Invalid request: no task was found",
+		http.StatusBadRequest)
 }
 
 // TestGetTaskProtectionHandlerTaskNotFound tests GetTaskProtection handler's
@@ -233,7 +233,7 @@ func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq("taskARN")).Return(nil, false)
 
 	testGetTaskProtectionHandler(t, mockState, "endpointID",
-		"Failed to find task: could not find task from task ARN 'taskARN'",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
