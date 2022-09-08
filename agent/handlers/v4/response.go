@@ -29,8 +29,8 @@ import (
 // with the v2 task response object.
 type TaskResponse struct {
 	*v2.TaskResponse
-	Containers []ContainerResponse `json:"Containers,omitempty"`
-	VPCID      string              `json:"VpcId,omitempty"`
+	Containers  []ContainerResponse `json:"Containers,omitempty"`
+	VPCID       string              `json:"VpcId,omitempty"`
 	ServiceName string              `json:"ServiceName,omitempty"`
 }
 
