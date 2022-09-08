@@ -45,9 +45,12 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			return
 		}
 
+		task, _ := state.TaskByArn(taskArn)
+
 		seelog.Infof("V4 taskMetadata handler: Writing response for task '%s'", taskArn)
 
-		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster, az, vpcID, containerInstanceArn, propagateTags)
+		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster,
+			az, vpcID, containerInstanceArn, task.ServiceName, propagateTags)
 		if err != nil {
 			errResponseJson, err := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
@@ -56,8 +59,6 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJson, utils.RequestTypeTaskMetadata)
 			return
 		}
-
-		task, _ := state.TaskByArn(taskArn)
 		// for non-awsvpc task mode
 		if !task.IsNetworkModeAWSVPC() {
 			// fill in non-awsvpc network details for container responses here

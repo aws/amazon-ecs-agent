@@ -1471,8 +1471,8 @@ func TestV4BridgeTaskMetadata(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
 		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
 		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
 		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 	)
@@ -1506,8 +1506,8 @@ func TestV4BridgeTaskMetadataAllowMissingContainerNetwork(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
 		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
 		state.EXPECT().ContainerByID(containerID).Return(nil, false),
 		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 	)
