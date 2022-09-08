@@ -14,54 +14,38 @@
 package types
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 )
-
-// Protection type to set on the task
-type taskProtectionType string
-
-const (
-	TaskProtectionTypeScaleIn  taskProtectionType = "SCALE_IN"
-	TaskProtectionTypeDisabled taskProtectionType = "DISABLED"
-)
-
-// Converts a string to taskProtectionType
-func taskProtectionTypeFromString(s string) (taskProtectionType, error) {
-	switch p := strings.ToUpper(s); p {
-	case string(TaskProtectionTypeScaleIn):
-		return TaskProtectionTypeScaleIn, nil
-	case string(TaskProtectionTypeDisabled):
-		return TaskProtectionTypeDisabled, nil
-	default:
-		return "", fmt.Errorf("unknown task protection type: %v", s)
-	}
-}
 
 // Protection for a Task
 type taskProtection struct {
-	protectionType           taskProtectionType
-	protectionTimeoutMinutes *int
+	protectionEnabled bool
+	expiresInMinutes  *int
 }
 
 // Creates a taskProtection value after validating the arguments
-func NewTaskProtection(protectionType string, timeoutMinutes *int) (*taskProtection, error) {
-	ptype, err := taskProtectionTypeFromString(protectionType)
-	if err != nil {
-		return nil, fmt.Errorf("protection type is invalid: %w", err)
+func NewTaskProtection(protectionEnabled bool, expiresInMinutes *int) (*taskProtection, error) {
+	if protectionEnabled {
+		if expiresInMinutes == nil {
+			return nil, errors.New("expiration duration is required for enabled task protection")
+		}
+
+		if *expiresInMinutes <= 0 {
+			return nil, fmt.Errorf("expiration duration must be greater than zero minutes for enabled task protection")
+		}
 	}
 
-	if timeoutMinutes != nil && *timeoutMinutes <= 0 {
-		return nil, fmt.Errorf("protection timeout must be greater than zero")
-	}
-
-	return &taskProtection{protectionType: ptype, protectionTimeoutMinutes: timeoutMinutes}, nil
+	return &taskProtection{
+		protectionEnabled: protectionEnabled,
+		expiresInMinutes:  expiresInMinutes,
+	}, nil
 }
 
-func (taskProtection *taskProtection) GetProtectionType() taskProtectionType {
-	return taskProtection.protectionType
+func (taskProtection *taskProtection) GetProtectionEnabled() bool {
+	return taskProtection.protectionEnabled
 }
 
-func (taskProtection *taskProtection) GetProtectionTimeoutMinutes() *int {
-	return taskProtection.protectionTimeoutMinutes
+func (taskProtection *taskProtection) GetExpiresInMinutes() *int {
+	return taskProtection.expiresInMinutes
 }

@@ -36,8 +36,8 @@ func TaskProtectionPath() string {
 
 // Task protection request received from customers pending validation
 type TaskProtectionRequest struct {
-	ProtectionType           string
-	ProtectionTimeoutMinutes *int
+	ProtectionEnabled *bool
+	ExpiresInMinutes  *int
 }
 
 // PutTaskProtectionHandler returns an HTTP request handler function for
@@ -59,14 +59,14 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		if request.ProtectionType == "" {
+		if request.ProtectionEnabled == nil {
 			writeJSONResponse(w, http.StatusBadRequest,
-				"Invalid request: protection type is missing or empty",
+				"Invalid request: does not contain 'ProtectionEnabled' field",
 				putTaskProtectionRequestType)
 			return
 		}
 
-		taskProtection, err := types.NewTaskProtection(request.ProtectionType, request.ProtectionTimeoutMinutes)
+		taskProtection, err := types.NewTaskProtection(*request.ProtectionEnabled, request.ExpiresInMinutes)
 		if err != nil {
 			writeJSONResponse(w, http.StatusBadRequest,
 				fmt.Sprintf("Invalid request: %v", err),
@@ -83,11 +83,11 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 
 		// TODO: Call ECS
 		logger.Info("Would have called ECS.PutTaskProtection with fields", logger.Fields{
-			"cluster":                  cluster,
-			"serviceName":              task.ServiceName,
-			"taskId":                   task.Arn,
-			"protectionType":           taskProtection.GetProtectionType(),
-			"protectionTimeoutMinutes": taskProtection.GetProtectionTimeoutMinutes(),
+			"cluster":           cluster,
+			"serviceName":       task.ServiceName,
+			"taskId":            task.Arn,
+			"protectionEnabled": taskProtection.GetProtectionEnabled(),
+			"expiresInMinutes":  taskProtection.GetExpiresInMinutes(),
 		})
 		writeJSONResponse(w, http.StatusOK, "Ok", putTaskProtectionRequestType)
 	}

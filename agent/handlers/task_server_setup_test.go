@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	v1_task_protection "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
-	v1_task_protection_types "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -50,6 +49,7 @@ import (
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	agentutils "github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -1884,7 +1884,7 @@ func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
 // Tests that Agent API v1 PutTaskProtection handler is registered correctly
 func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
 	requestBody := v1_task_protection.TaskProtectionRequest{
-		ProtectionType: string(v1_task_protection_types.TaskProtectionTypeScaleIn),
+		ProtectionEnabled: agentutils.BoolPtr(false),
 	}
 	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")
 }
