@@ -30,7 +30,7 @@ import (
 type TaskResponse struct {
 	*v2.TaskResponse
 	Containers  []ContainerResponse `json:"Containers,omitempty"`
-	VPCID       string              `json:"VpcId,omitempty"`
+	VPCID       string              `json:"VPCID,omitempty"`
 	ServiceName string              `json:"ServiceName,omitempty"`
 }
 
