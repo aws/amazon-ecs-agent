@@ -134,6 +134,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		"StAtUsGoEsHeRe":                "/some/other/run/status_file_of_holiness",
 		"APPNET_AGENT_ADMIN_MODE":       "uds",
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
+		"ECS_CONTAINER_INSTANCE_ARN":    "fake_container_instance",
 	}
 
 	type testCase struct {
@@ -174,6 +175,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 
 		AgentContainerImageName: "container",
 		AgentContainerTag:       "tag",
+
+		containerInstanceARN: "fake_container_instance",
 	}
 
 	for _, tc := range testcases {

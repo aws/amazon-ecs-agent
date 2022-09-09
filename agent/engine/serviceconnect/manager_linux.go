@@ -60,6 +60,8 @@ const (
 	agentModeENV   = "APPNET_AGENT_ADMIN_MODE"
 	agentModeValue = "uds"
 
+	containerInstanceArnENV = "ECS_CONTAINER_INSTANCE_ARN"
+
 	unixRequestPrefix        = "unix://"
 	httpRequestPrefix        = "http://localhost"
 	defaultAdminStatsRequest = httpRequestPrefix + "/stats/prometheus?usedonly&filter=metrics_extension&delta"
@@ -189,10 +191,11 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 	scEnv := map[string]string{
-		m.endpointENV: unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
-		m.statusENV:   filepath.Join(m.statusPathContainer, m.statusFileName),
-		agentModeENV:  agentModeValue,
-		agentAuthENV:  agentAuthOff,
+		m.endpointENV:           unixRequestPrefix + filepath.Join(m.relayPathContainer, m.relayFileName),
+		m.statusENV:             filepath.Join(m.statusPathContainer, m.statusFileName),
+		agentModeENV:            agentModeValue,
+		agentAuthENV:            agentAuthOff,
+		containerInstanceArnENV: m.containerInstanceARN,
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
