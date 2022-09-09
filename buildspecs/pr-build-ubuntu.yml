@@ -44,7 +44,14 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
         
       - apt-get update -y | tee -a $BUILD_LOG
-      - apt-get install -y make dpkg-dev devscripts debhelper golang | tee -a $BUILD_LOG
+      - apt-get install -y make dpkg-dev devscripts debhelper | tee -a $BUILD_LOG
+      - apt-get install software-properties-common -y
+      - add-apt-repository ppa:longsleep/golang-backports -y
+      - apt-get -y install golang-1.18-go
+      - export GOROOT=/usr/lib/go-1.18 > ~/.bashrc
+      - export GOPATH=$HOME/go-1.18 > ~/.bashrc
+      - export PATH=$PATH:$GOROOT/bin:$GOPATH/bin > ~/.bashrc
+      - . ~/.bashrc
       - which go
       - go version
       - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG

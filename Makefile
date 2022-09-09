@@ -393,6 +393,17 @@ generic-rpm-integrated: .generic-rpm-integrated-done
 VERSION = $(shell cat ecs-init/ECSVERSION)
 
 .generic-deb-integrated-done: get-cni-sources
+	apt-get purge golang* -y
+	apt autoremove golang* -y
+	apt update -y
+	apt install software-properties-common -y
+	add-apt-repository ppa:longsleep/golang-backports --yes
+	apt update -y
+	apt-get -y install golang-1.18-go
+	export GOROOT=/usr/lib/go-1.18 > ~/.bashrc
+	export GOPATH=$HOME/go-1.18 > ~/.bashrc
+	export PATH=$PATH:$GOROOT/bin:$GOPATH/bin > ~/.bashrc
+	. ~/.bashrc
 	mkdir -p BUILDROOT
 	./scripts/update-version.sh
 	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
