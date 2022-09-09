@@ -13,7 +13,7 @@
 
 package serviceconnect
 
-const AppNetUID = 1337
+const AppNetUID = 20000 // arbitrarily selected
 
 // Config represents the Service Connect configuration for a task.
 type Config struct {
