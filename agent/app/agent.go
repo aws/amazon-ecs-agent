@@ -274,7 +274,6 @@ func (agent *ecsAgent) start() int {
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
 	agent.initializeResourceFields(credentialsManager)
-	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager())
 }
 
@@ -378,6 +377,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
+	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
 
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {
