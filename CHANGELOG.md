@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.63.1
+* Feature - Add VPC ID to TMDE v4 Task Responses. [#3288](https://github.com/aws/amazon-ecs-agent/pull/3288) [#3385](https://github.com/aws/amazon-ecs-agent/pull/3385)
+* Feature - Add ServiceName to TMDE v4 Task Responses. [#3362](https://github.com/aws/amazon-ecs-agent/pull/3362)
+* Enhancement - Add codeowners file and update token permission to read only for workflow. [#3374](https://github.com/aws/amazon-ecs-agent/pull/3374)
+* Enhancement - Dependabot ecs-init fixes. [#3388](https://github.com/aws/amazon-ecs-agent/pull/3388)
+
 ## 1.63.0
 * Feature - Add configurable default profile ECS_ALTERNATE_CREDENTIAL_PROFILE. [#3365](https://github.com/aws/amazon-ecs-agent/pull/3365)
 * Enhancement - Update ECS_RESERVED_MEMORY description in README. [#3363](https://github.com/aws/amazon-ecs-agent/pull/3363)
