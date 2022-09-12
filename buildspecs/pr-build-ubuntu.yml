@@ -42,14 +42,7 @@ phases:
       # Building agent deb
       - GO111MODULE=auto
       - DEBIAN_FRONTEND=noninteractive
-
       - apt-get update -y | tee -a $BUILD_LOG
-      - apt-get install curl -y
-      - curl -LO https://get.golang.org/$(uname)/go_installer
-      - chmod +x go_installer
-      - ./go_installer
-      - rm go_installer
-      - . /home/ubuntu/.bash_profile
       - apt-get install -y make dpkg-dev devscripts debhelper golang | tee -a $BUILD_LOG
       - which go
       - go version
