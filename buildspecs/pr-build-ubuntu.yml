@@ -44,7 +44,7 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
         
       - apt-get update -y | tee -a $BUILD_LOG
-      - apt-get install -y make dpkg-dev devscripts debhelper golang | tee -a $BUILD_LOG
+      - apt-get install -y make dpkg-dev devscripts debhelper golang-1.18 | tee -a $BUILD_LOG
       - which go
       - go version
       - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG

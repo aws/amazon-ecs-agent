@@ -43,7 +43,7 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
 
       - apt-get update -y
-      - apt-get install -y make dpkg-dev devscripts debhelper golang
+      - apt-get install -y make dpkg-dev devscripts debhelper golang-1.18
       - which go
       - go version
       - make generic-deb-integrated
