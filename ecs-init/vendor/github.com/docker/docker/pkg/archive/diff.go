@@ -1,4 +1,4 @@
-package archive
+package archive // import "github.com/docker/docker/pkg/archive"
 
 import (
 	"archive/tar"
@@ -10,10 +10,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/pools"
 	"github.com/docker/docker/pkg/system"
+	"github.com/sirupsen/logrus"
 )
 
 // UnpackLayer unpack `layer` to a `dest`. The stream `layer` can be
@@ -33,10 +33,7 @@ func UnpackLayer(dest string, layer io.Reader, options *TarOptions) (size int64,
 	if options.ExcludePatterns == nil {
 		options.ExcludePatterns = []string{}
 	}
-	remappedRootUID, remappedRootGID, err := idtools.GetRootUIDGID(options.UIDMaps, options.GIDMaps)
-	if err != nil {
-		return 0, err
-	}
+	idMapping := idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps)
 
 	aufsTempdir := ""
 	aufsHardlinks := make(map[string]*tar.Header)
@@ -195,28 +192,11 @@ func UnpackLayer(dest string, layer io.Reader, options *TarOptions) (size int64,
 				srcData = tmpFile
 			}
 
-			// if the options contain a uid & gid maps, convert header uid/gid
-			// entries using the maps such that lchown sets the proper mapped
-			// uid/gid after writing the file. We only perform this mapping if
-			// the file isn't already owned by the remapped root UID or GID, as
-			// that specific uid/gid has no mapping from container -> host, and
-			// those files already have the proper ownership for inside the
-			// container.
-			if srcHdr.Uid != remappedRootUID {
-				xUID, err := idtools.ToHost(srcHdr.Uid, options.UIDMaps)
-				if err != nil {
-					return 0, err
-				}
-				srcHdr.Uid = xUID
+			if err := remapIDs(idMapping, srcHdr); err != nil {
+				return 0, err
 			}
-			if srcHdr.Gid != remappedRootGID {
-				xGID, err := idtools.ToHost(srcHdr.Gid, options.GIDMaps)
-				if err != nil {
-					return 0, err
-				}
-				srcHdr.Gid = xGID
-			}
-			if err := createTarFile(path, dest, srcHdr, srcData, true, nil, options.InUserNS); err != nil {
+
+			if err := createTarFile(path, dest, srcHdr, srcData, !options.NoLchown, nil, options.InUserNS); err != nil {
 				return 0, err
 			}
 
@@ -260,17 +240,21 @@ func applyLayerHandler(dest string, layer io.Reader, options *TarOptions, decomp
 	dest = filepath.Clean(dest)
 
 	// We need to be able to set any perms
-	oldmask, err := system.Umask(0)
-	if err != nil {
-		return 0, err
-	}
-	defer system.Umask(oldmask) // ignore err, ErrNotSupportedPlatform
-
-	if decompress {
-		layer, err = DecompressStream(layer)
+	if runtime.GOOS != "windows" {
+		oldmask, err := system.Umask(0)
 		if err != nil {
 			return 0, err
 		}
+		defer system.Umask(oldmask)
+	}
+
+	if decompress {
+		decompLayer, err := DecompressStream(layer)
+		if err != nil {
+			return 0, err
+		}
+		defer decompLayer.Close()
+		layer = decompLayer
 	}
 	return UnpackLayer(dest, layer, options)
 }

@@ -1,23 +1,28 @@
-package archive
+package archive // import "github.com/docker/docker/pkg/archive"
 
 import (
 	"archive/tar"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/docker/docker/pkg/system"
+	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 )
 
-func getWhiteoutConverter(format WhiteoutFormat) tarWhiteoutConverter {
+func getWhiteoutConverter(format WhiteoutFormat, inUserNS bool) (tarWhiteoutConverter, error) {
 	if format == OverlayWhiteoutFormat {
-		return overlayWhiteoutConverter{}
+		if inUserNS {
+			return nil, errors.New("specifying OverlayWhiteoutFormat is not allowed in userns")
+		}
+		return overlayWhiteoutConverter{}, nil
 	}
-	return nil
+	return nil, nil
 }
 
-type overlayWhiteoutConverter struct{}
+type overlayWhiteoutConverter struct {
+}
 
 func (overlayWhiteoutConverter) ConvertWrite(hdr *tar.Header, path string, fi os.FileInfo) (wo *tar.Header, err error) {
 	// convert whiteouts to AUFS format
@@ -61,13 +66,16 @@ func (overlayWhiteoutConverter) ConvertWrite(hdr *tar.Header, path string, fi os
 	return
 }
 
-func (overlayWhiteoutConverter) ConvertRead(hdr *tar.Header, path string) (bool, error) {
+func (c overlayWhiteoutConverter) ConvertRead(hdr *tar.Header, path string) (bool, error) {
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 
 	// if a directory is marked as opaque by the AUFS special file, we need to translate that to overlay
 	if base == WhiteoutOpaqueDir {
-		err := syscall.Setxattr(dir, "trusted.overlay.opaque", []byte{'y'}, 0)
+		err := unix.Setxattr(dir, "trusted.overlay.opaque", []byte{'y'}, 0)
+		if err != nil {
+			return false, errors.Wrapf(err, "setxattr(%q, trusted.overlay.opaque=y)", dir)
+		}
 		// don't write the file itself
 		return false, err
 	}
@@ -77,8 +85,8 @@ func (overlayWhiteoutConverter) ConvertRead(hdr *tar.Header, path string) (bool,
 		originalBase := base[len(WhiteoutPrefix):]
 		originalPath := filepath.Join(dir, originalBase)
 
-		if err := syscall.Mknod(originalPath, syscall.S_IFCHR, 0); err != nil {
-			return false, err
+		if err := unix.Mknod(originalPath, unix.S_IFCHR, 0); err != nil {
+			return false, errors.Wrapf(err, "failed to mknod(%q, S_IFCHR, 0)", originalPath)
 		}
 		if err := os.Chown(originalPath, hdr.Uid, hdr.Gid); err != nil {
 			return false, err

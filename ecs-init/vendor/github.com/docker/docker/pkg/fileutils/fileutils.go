@@ -1,4 +1,4 @@
-package fileutils
+package fileutils // import "github.com/docker/docker/pkg/fileutils"
 
 import (
 	"errors"
@@ -9,11 +9,9 @@ import (
 	"regexp"
 	"strings"
 	"text/scanner"
-
-	"github.com/Sirupsen/logrus"
 )
 
-// PatternMatcher allows checking paths agaist a list of patterns
+// PatternMatcher allows checking paths against a list of patterns
 type PatternMatcher struct {
 	patterns   []*Pattern
 	exclusions bool
@@ -89,10 +87,6 @@ func (pm *PatternMatcher) Matches(file string) (bool, error) {
 		}
 	}
 
-	if matched {
-		logrus.Debugf("Skipping excluded path: %s", file)
-	}
-
 	return matched, nil
 }
 
@@ -106,7 +100,7 @@ func (pm *PatternMatcher) Patterns() []*Pattern {
 	return pm.patterns
 }
 
-// Pattern defines a single regexp used used to filter file paths.
+// Pattern defines a single regexp used to filter file paths.
 type Pattern struct {
 	cleanedPattern string
 	dirs           []string

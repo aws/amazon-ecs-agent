@@ -1,11 +1,13 @@
-package system
+// +build !darwin,!windows
+
+package system // import "github.com/docker/docker/pkg/system"
 
 import (
 	"os"
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/pkg/mount"
+	"github.com/moby/sys/mount"
 	"github.com/pkg/errors"
 )
 
@@ -20,13 +22,13 @@ import (
 // These types of errors do not need to be returned since it's ok for the dir to
 // be gone we can just retry the remove operation.
 //
-// This should not return a `os.ErrNotExist` kind of error under any cirucmstances
+// This should not return a `os.ErrNotExist` kind of error under any circumstances
 func EnsureRemoveAll(dir string) error {
 	notExistErr := make(map[string]bool)
 
 	// track retries
 	exitOnErr := make(map[string]int)
-	maxRetry := 5
+	maxRetry := 50
 
 	// Attempt to unmount anything beneath this dir first
 	mount.RecursiveUnmount(dir)
@@ -34,7 +36,7 @@ func EnsureRemoveAll(dir string) error {
 	for {
 		err := os.RemoveAll(dir)
 		if err == nil {
-			return err
+			return nil
 		}
 
 		pe, ok := err.(*os.PathError)
@@ -63,12 +65,8 @@ func EnsureRemoveAll(dir string) error {
 			return err
 		}
 
-		if mounted, _ := mount.Mounted(pe.Path); mounted {
-			if e := mount.Unmount(pe.Path); e != nil {
-				if mounted, _ := mount.Mounted(pe.Path); mounted {
-					return errors.Wrapf(e, "error while removing %s", dir)
-				}
-			}
+		if e := mount.Unmount(pe.Path); e != nil {
+			return errors.Wrapf(e, "error while removing %s", dir)
 		}
 
 		if exitOnErr[pe.Path] == maxRetry {
