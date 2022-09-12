@@ -1,15 +1,14 @@
-package system // import "github.com/docker/docker/pkg/system"
+package system
 
 import "syscall"
 
 // fromStatT converts a syscall.Stat_t type to a system.Stat_t type
 func fromStatT(s *syscall.Stat_t) (*StatT, error) {
 	return &StatT{size: s.Size,
-		mode: s.Mode,
+		mode: uint32(s.Mode),
 		uid:  s.Uid,
 		gid:  s.Gid,
-		// the type is 32bit on mips
-		rdev: uint64(s.Rdev), // nolint: unconvert
+		rdev: uint64(s.Rdev),
 		mtim: s.Mtim}, nil
 }
 

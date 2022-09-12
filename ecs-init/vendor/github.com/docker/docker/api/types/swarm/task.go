@@ -1,10 +1,6 @@
-package swarm // import "github.com/docker/docker/api/types/swarm"
+package swarm
 
-import (
-	"time"
-
-	"github.com/docker/docker/api/types/swarm/runtime"
-)
+import "time"
 
 // TaskState represents the state of a task.
 type TaskState string
@@ -36,10 +32,6 @@ const (
 	TaskStateFailed TaskState = "failed"
 	// TaskStateRejected REJECTED
 	TaskStateRejected TaskState = "rejected"
-	// TaskStateRemove REMOVE
-	TaskStateRemove TaskState = "remove"
-	// TaskStateOrphaned ORPHANED
-	TaskStateOrphaned TaskState = "orphaned"
 )
 
 // Task represents a task.
@@ -55,25 +47,11 @@ type Task struct {
 	Status              TaskStatus          `json:",omitempty"`
 	DesiredState        TaskState           `json:",omitempty"`
 	NetworksAttachments []NetworkAttachment `json:",omitempty"`
-	GenericResources    []GenericResource   `json:",omitempty"`
-
-	// JobIteration is the JobIteration of the Service that this Task was
-	// spawned from, if the Service is a ReplicatedJob or GlobalJob. This is
-	// used to determine which Tasks belong to which run of the job. This field
-	// is absent if the Service mode is Replicated or Global.
-	JobIteration *Version `json:",omitempty"`
 }
 
 // TaskSpec represents the spec of a task.
 type TaskSpec struct {
-	// ContainerSpec, NetworkAttachmentSpec, and PluginSpec are mutually exclusive.
-	// PluginSpec is only used when the `Runtime` field is set to `plugin`
-	// NetworkAttachmentSpec is used if the `Runtime` field is set to
-	// `attachment`.
-	ContainerSpec         *ContainerSpec         `json:",omitempty"`
-	PluginSpec            *runtime.PluginSpec    `json:",omitempty"`
-	NetworkAttachmentSpec *NetworkAttachmentSpec `json:",omitempty"`
-
+	ContainerSpec ContainerSpec             `json:",omitempty"`
 	Resources     *ResourceRequirements     `json:",omitempty"`
 	RestartPolicy *RestartPolicy            `json:",omitempty"`
 	Placement     *Placement                `json:",omitempty"`
@@ -91,49 +69,15 @@ type TaskSpec struct {
 	Runtime RuntimeType `json:",omitempty"`
 }
 
-// Resources represents resources (CPU/Memory) which can be advertised by a
-// node and requested to be reserved for a task.
+// Resources represents resources (CPU/Memory).
 type Resources struct {
-	NanoCPUs         int64             `json:",omitempty"`
-	MemoryBytes      int64             `json:",omitempty"`
-	GenericResources []GenericResource `json:",omitempty"`
-}
-
-// Limit describes limits on resources which can be requested by a task.
-type Limit struct {
 	NanoCPUs    int64 `json:",omitempty"`
 	MemoryBytes int64 `json:",omitempty"`
-	Pids        int64 `json:",omitempty"`
-}
-
-// GenericResource represents a "user defined" resource which can
-// be either an integer (e.g: SSD=3) or a string (e.g: SSD=sda1)
-type GenericResource struct {
-	NamedResourceSpec    *NamedGenericResource    `json:",omitempty"`
-	DiscreteResourceSpec *DiscreteGenericResource `json:",omitempty"`
-}
-
-// NamedGenericResource represents a "user defined" resource which is defined
-// as a string.
-// "Kind" is used to describe the Kind of a resource (e.g: "GPU", "FPGA", "SSD", ...)
-// Value is used to identify the resource (GPU="UUID-1", FPGA="/dev/sdb5", ...)
-type NamedGenericResource struct {
-	Kind  string `json:",omitempty"`
-	Value string `json:",omitempty"`
-}
-
-// DiscreteGenericResource represents a "user defined" resource which is defined
-// as an integer
-// "Kind" is used to describe the Kind of a resource (e.g: "GPU", "FPGA", "SSD", ...)
-// Value is used to count the resource (SSD=5, HDD=3, ...)
-type DiscreteGenericResource struct {
-	Kind  string `json:",omitempty"`
-	Value int64  `json:",omitempty"`
 }
 
 // ResourceRequirements represents resources requirements.
 type ResourceRequirements struct {
-	Limits       *Limit     `json:",omitempty"`
+	Limits       *Resources `json:",omitempty"`
 	Reservations *Resources `json:",omitempty"`
 }
 
@@ -141,7 +85,6 @@ type ResourceRequirements struct {
 type Placement struct {
 	Constraints []string              `json:",omitempty"`
 	Preferences []PlacementPreference `json:",omitempty"`
-	MaxReplicas uint64                `json:",omitempty"`
 
 	// Platforms stores all the platforms that the image can run on.
 	// This field is used in the platform filter for scheduling. If empty,
@@ -184,19 +127,19 @@ const (
 
 // TaskStatus represents the status of a task.
 type TaskStatus struct {
-	Timestamp       time.Time        `json:",omitempty"`
-	State           TaskState        `json:",omitempty"`
-	Message         string           `json:",omitempty"`
-	Err             string           `json:",omitempty"`
-	ContainerStatus *ContainerStatus `json:",omitempty"`
-	PortStatus      PortStatus       `json:",omitempty"`
+	Timestamp       time.Time       `json:",omitempty"`
+	State           TaskState       `json:",omitempty"`
+	Message         string          `json:",omitempty"`
+	Err             string          `json:",omitempty"`
+	ContainerStatus ContainerStatus `json:",omitempty"`
+	PortStatus      PortStatus      `json:",omitempty"`
 }
 
 // ContainerStatus represents the status of a container.
 type ContainerStatus struct {
-	ContainerID string
-	PID         int
-	ExitCode    int
+	ContainerID string `json:",omitempty"`
+	PID         int    `json:",omitempty"`
+	ExitCode    int    `json:",omitempty"`
 }
 
 // PortStatus represents the port status of a task's host ports whose

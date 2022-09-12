@@ -1,10 +1,10 @@
-package registry // import "github.com/docker/docker/api/types/registry"
+package registry
 
 import (
 	"encoding/json"
 	"net"
 
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // ServiceConfig stores daemon registry services configuration.

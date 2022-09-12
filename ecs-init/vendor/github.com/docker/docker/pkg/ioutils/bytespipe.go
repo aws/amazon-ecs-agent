@@ -1,4 +1,4 @@
-package ioutils // import "github.com/docker/docker/pkg/ioutils"
+package ioutils
 
 import (
 	"errors"
@@ -128,9 +128,8 @@ func (bp *BytesPipe) Read(p []byte) (n int, err error) {
 	bp.mu.Lock()
 	if bp.bufLen == 0 {
 		if bp.closeErr != nil {
-			err := bp.closeErr
 			bp.mu.Unlock()
-			return 0, err
+			return 0, bp.closeErr
 		}
 		bp.wait.Wait()
 		if bp.bufLen == 0 && bp.closeErr != nil {

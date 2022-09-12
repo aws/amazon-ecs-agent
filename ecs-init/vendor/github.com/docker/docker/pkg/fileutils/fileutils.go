@@ -1,4 +1,4 @@
-package fileutils // import "github.com/docker/docker/pkg/fileutils"
+package fileutils
 
 import (
 	"errors"
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"text/scanner"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
-// PatternMatcher allows checking paths against a list of patterns
+// PatternMatcher allows checking paths agaist a list of patterns
 type PatternMatcher struct {
 	patterns   []*Pattern
 	exclusions bool
@@ -106,7 +106,7 @@ func (pm *PatternMatcher) Patterns() []*Pattern {
 	return pm.patterns
 }
 
-// Pattern defines a single regexp used to filter file paths.
+// Pattern defines a single regexp used used to filter file paths.
 type Pattern struct {
 	cleanedPattern string
 	dirs           []string

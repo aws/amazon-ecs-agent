@@ -1,20 +1,16 @@
-//go:build !windows
 // +build !windows
 
-package archive // import "github.com/docker/docker/pkg/archive"
+package archive
 
 import (
 	"archive/tar"
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 
-	"github.com/containerd/containerd/sys"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/system"
-	"golang.org/x/sys/unix"
+	rsystem "github.com/opencontainers/runc/libcontainer/system"
 )
 
 // fixVolumePathPrefix does platform specific processing to ensure that if
@@ -28,14 +24,14 @@ func fixVolumePathPrefix(srcPath string) string {
 // can't use filepath.Join(srcPath,include) because this will clean away
 // a trailing "." or "/" which may be important.
 func getWalkRoot(srcPath string, include string) string {
-	return strings.TrimSuffix(srcPath, string(filepath.Separator)) + string(filepath.Separator) + include
+	return srcPath + string(filepath.Separator) + include
 }
 
 // CanonicalTarNameForPath returns platform-specific filepath
 // to canonical posix-style path for tar archival. p is relative
 // path.
-func CanonicalTarNameForPath(p string) string {
-	return p // already unix-style
+func CanonicalTarNameForPath(p string) (string, error) {
+	return p, nil // already unix-style
 }
 
 // chmodTarEntry is used to adjust the file permissions used in tar header based
@@ -48,13 +44,16 @@ func chmodTarEntry(perm os.FileMode) os.FileMode {
 func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (err error) {
 	s, ok := stat.(*syscall.Stat_t)
 
-	if ok {
-		// Currently go does not fill in the major/minors
-		if s.Mode&unix.S_IFBLK != 0 ||
-			s.Mode&unix.S_IFCHR != 0 {
-			hdr.Devmajor = int64(unix.Major(uint64(s.Rdev))) // nolint: unconvert
-			hdr.Devminor = int64(unix.Minor(uint64(s.Rdev))) // nolint: unconvert
-		}
+	if !ok {
+		err = errors.New("cannot convert stat value to syscall.Stat_t")
+		return
+	}
+
+	// Currently go does not fill in the major/minors
+	if s.Mode&syscall.S_IFBLK != 0 ||
+		s.Mode&syscall.S_IFCHR != 0 {
+		hdr.Devmajor = int64(major(uint64(s.Rdev)))
+		hdr.Devminor = int64(minor(uint64(s.Rdev)))
 	}
 
 	return
@@ -63,41 +62,52 @@ func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (
 func getInodeFromStat(stat interface{}) (inode uint64, err error) {
 	s, ok := stat.(*syscall.Stat_t)
 
-	if ok {
-		inode = s.Ino
+	if !ok {
+		err = errors.New("cannot convert stat value to syscall.Stat_t")
+		return
 	}
+
+	inode = uint64(s.Ino)
 
 	return
 }
 
-func getFileUIDGID(stat interface{}) (idtools.Identity, error) {
+func getFileUIDGID(stat interface{}) (int, int, error) {
 	s, ok := stat.(*syscall.Stat_t)
 
 	if !ok {
-		return idtools.Identity{}, errors.New("cannot convert stat value to syscall.Stat_t")
+		return -1, -1, errors.New("cannot convert stat value to syscall.Stat_t")
 	}
-	return idtools.Identity{UID: int(s.Uid), GID: int(s.Gid)}, nil
+	return int(s.Uid), int(s.Gid), nil
+}
+
+func major(device uint64) uint64 {
+	return (device >> 8) & 0xfff
+}
+
+func minor(device uint64) uint64 {
+	return (device & 0xff) | ((device >> 12) & 0xfff00)
 }
 
 // handleTarTypeBlockCharFifo is an OS-specific helper function used by
 // createTarFile to handle the following types of header: Block; Char; Fifo
 func handleTarTypeBlockCharFifo(hdr *tar.Header, path string) error {
+	if rsystem.RunningInUserNS() {
+		// cannot create a device if running in user namespace
+		return nil
+	}
+
 	mode := uint32(hdr.Mode & 07777)
 	switch hdr.Typeflag {
 	case tar.TypeBlock:
-		mode |= unix.S_IFBLK
+		mode |= syscall.S_IFBLK
 	case tar.TypeChar:
-		mode |= unix.S_IFCHR
+		mode |= syscall.S_IFCHR
 	case tar.TypeFifo:
-		mode |= unix.S_IFIFO
+		mode |= syscall.S_IFIFO
 	}
 
-	err := system.Mknod(path, mode, int(system.Mkdev(hdr.Devmajor, hdr.Devminor)))
-	if errors.Is(err, syscall.EPERM) && sys.RunningInUserNS() {
-		// In most cases, cannot create a device if running in user namespace
-		err = nil
-	}
-	return err
+	return system.Mknod(path, mode, int(system.Mkdev(hdr.Devmajor, hdr.Devminor)))
 }
 
 func handleLChmod(hdr *tar.Header, path string, hdrInfo os.FileInfo) error {
