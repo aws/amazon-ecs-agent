@@ -103,7 +103,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 
 	task, found := state.TaskByArn(taskARN)
 	if !found {
-		logger.Error("No task was found for taskARN for task protection request", logger.Fields{
+		logger.Critical("No task was found for taskARN for task protection request", logger.Fields{
 			loggerfield.TaskARN: taskARN,
 		})
 		return nil, http.StatusInternalServerError, errors.New("Failed to find a task for the request")
