@@ -15,6 +15,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -36,8 +37,8 @@ func TaskProtectionPath() string {
 
 // Task protection request received from customers pending validation
 type TaskProtectionRequest struct {
-	ProtectionType           string
-	ProtectionTimeoutMinutes *int
+	ProtectionEnabled *bool
+	ExpiresInMinutes  *int
 }
 
 // PutTaskProtectionHandler returns an HTTP request handler function for
@@ -59,14 +60,14 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		if request.ProtectionType == "" {
+		if request.ProtectionEnabled == nil {
 			writeJSONResponse(w, http.StatusBadRequest,
-				"Invalid request: protection type is missing or empty",
+				"Invalid request: does not contain 'ProtectionEnabled' field",
 				putTaskProtectionRequestType)
 			return
 		}
 
-		taskProtection, err := types.NewTaskProtection(request.ProtectionType, request.ProtectionTimeoutMinutes)
+		taskProtection, err := types.NewTaskProtection(*request.ProtectionEnabled, request.ExpiresInMinutes)
 		if err != nil {
 			writeJSONResponse(w, http.StatusBadRequest,
 				fmt.Sprintf("Invalid request: %v", err),
@@ -74,38 +75,41 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		task, err := getTaskFromRequest(state, r)
+		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, http.StatusInternalServerError,
-				fmt.Sprintf("Failed to find task: %v", err), putTaskProtectionRequestType)
+			writeJSONResponse(w, responseCode, err.Error(), putTaskProtectionRequestType)
 			return
 		}
 
 		// TODO: Call ECS
-		logger.Info("Would have called ECS.PutTaskProtection with fields", logger.Fields{
-			"cluster":                  cluster,
-			"serviceName":              task.ServiceName,
-			"taskId":                   task.Arn,
-			"protectionType":           taskProtection.GetProtectionType(),
-			"protectionTimeoutMinutes": taskProtection.GetProtectionTimeoutMinutes(),
+		logger.Info("PutTaskProtection endpoint was called", logger.Fields{
+			loggerfield.Cluster:        cluster,
+			loggerfield.TaskARN:        task.Arn,
+			loggerfield.TaskProtection: taskProtection,
 		})
 		writeJSONResponse(w, http.StatusOK, "Ok", putTaskProtectionRequestType)
 	}
 }
 
 // Helper function for finding task for the request
-func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*apitask.Task, error) {
+func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*apitask.Task, int, error) {
 	taskARN, err := v3.GetTaskARNByRequest(r, state)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get task ARN from request: %w", err)
+		logger.Error("Failed to find task ARN for task protection request", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, http.StatusBadRequest, errors.New("Invalid request: no task was found")
 	}
 
 	task, found := state.TaskByArn(taskARN)
 	if !found {
-		return nil, fmt.Errorf("could not find task from task ARN '%v'", taskARN)
+		logger.Critical("No task was found for taskARN for task protection request", logger.Fields{
+			loggerfield.TaskARN: taskARN,
+		})
+		return nil, http.StatusInternalServerError, errors.New("Failed to find a task for the request")
 	}
 
-	return task, nil
+	return task, http.StatusOK, nil
 }
 
 // GetTaskProtectionHandler returns a handler function for GetTaskProtection API
@@ -114,18 +118,16 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
 	return func(w http.ResponseWriter, r *http.Request) {
 		getTaskProtectionRequestType := "api/v1/GetTaskProtection"
 
-		task, err := getTaskFromRequest(state, r)
+		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, http.StatusInternalServerError,
-				fmt.Sprintf("Failed to find task: %v", err), getTaskProtectionRequestType)
+			writeJSONResponse(w, responseCode, err.Error(), getTaskProtectionRequestType)
 			return
 		}
 
 		// TODO: Call ECS
-		logger.Info("Would have called ECS.PutTaskProtection with fields:", logger.Fields{
-			"cluster":     cluster,
-			"serviceName": task.ServiceName,
-			"taskId":      task.Arn,
+		logger.Info("GetTaskProtection endpoint was called", logger.Fields{
+			loggerfield.Cluster: cluster,
+			loggerfield.TaskARN: task.Arn,
 		})
 		writeJSONResponse(w, http.StatusOK, "Ok", getTaskProtectionRequestType)
 	}

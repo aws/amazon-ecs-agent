@@ -20,92 +20,44 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Helper function for testing taskProtectionTypeFromString
-func TestTaskProtectionTypeFromString(t *testing.T) {
-	testcases := []struct {
-		name     string
-		input    string
-		expected taskProtectionType
-		err      *string
-	}{
-		{
-			name:     "Scale-in upper",
-			input:    "SCALE_IN",
-			expected: TaskProtectionTypeScaleIn,
-		},
-		{
-			name:     "Scale-in lower",
-			input:    "scale_in",
-			expected: TaskProtectionTypeScaleIn,
-		},
-		{
-			name:     "Disabled upper",
-			input:    "DISABLED",
-			expected: TaskProtectionTypeDisabled,
-		},
-		{
-			name:     "Disabled lower",
-			input:    "disabled",
-			expected: TaskProtectionTypeDisabled,
-		},
-		{
-			name:     "Invalid input",
-			input:    "invalid",
-			expected: "",
-			err:      utils.Strptr("unknown task protection type: invalid"),
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			actual, err := taskProtectionTypeFromString(tc.input)
-			if tc.err != nil {
-				assert.EqualError(t, err, *tc.err)
-			}
-			assert.Equal(t, tc.expected, actual)
-		})
-	}
-}
-
 func TestNewTaskProtection(t *testing.T) {
 	testcases := []struct {
 		name              string
-		protectionTypeStr string
-		timeoutMinutes    *int
+		protectionEnabled bool
+		expiresInMinutes  *int
 		expected          *taskProtection
 		err               *string
 	}{
 		{
-			name:              "Task protection type invalid",
-			protectionTypeStr: "bad",
-			timeoutMinutes:    nil,
-			err:               utils.Strptr("protection type is invalid: unknown task protection type: bad"),
-		},
-		{
 			name:              "Task protection timeout invalid",
-			protectionTypeStr: string(TaskProtectionTypeScaleIn),
-			timeoutMinutes:    utils.IntPtr(-3),
-			err:               utils.Strptr("protection timeout must be greater than zero"),
+			protectionEnabled: true,
+			expiresInMinutes:  utils.IntPtr(-3),
+			err:               utils.Strptr("expiration duration must be greater than zero minutes for enabled task protection"),
 		},
 		{
-			name:              "nil timeout happy",
-			protectionTypeStr: string(TaskProtectionTypeScaleIn),
-			expected:          &taskProtection{protectionType: TaskProtectionTypeScaleIn},
+			name:              "nil timeout not allowed for enabled protection",
+			protectionEnabled: true,
+			err:               utils.Strptr("expiration duration is required for enabled task protection"),
+		},
+		{
+			name:              "nil timeout allowed for disabled protection",
+			protectionEnabled: false,
+			expected:          &taskProtection{protectionEnabled: false},
 		},
 		{
 			name:              "non-nil timeout happy",
-			protectionTypeStr: string(TaskProtectionTypeDisabled),
-			timeoutMinutes:    utils.IntPtr(5),
+			protectionEnabled: true,
+			expiresInMinutes:  utils.IntPtr(3),
 			expected: &taskProtection{
-				protectionType:           TaskProtectionTypeDisabled,
-				protectionTimeoutMinutes: utils.IntPtr(5),
+				protectionEnabled: true,
+				expiresInMinutes:  utils.IntPtr(3),
 			},
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := NewTaskProtection(tc.protectionTypeStr, tc.timeoutMinutes)
+			actual, err := NewTaskProtection(tc.protectionEnabled, tc.expiresInMinutes)
 			if tc.err != nil {
 				assert.EqualError(t, err, *tc.err)
 			}

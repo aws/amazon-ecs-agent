@@ -24,8 +24,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -64,28 +64,31 @@ func testPutTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineStat
 	assert.Equal(t, string(expectedResponseJSON), string(responseBody))
 }
 
-// TestPutTaskProtectionHandlerInvalidRequest tests PutTaskProtection handler
-// with a bad HTTP request
-func TestPutTaskProtectionHandlerInvalidRequest(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	request := TaskProtectionRequest{ProtectionType: "badProtectionType"}
-	testPutTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
-		"endpointID", request,
-		"Invalid request: protection type is invalid: unknown task protection type: badProtectionType",
-		http.StatusBadRequest)
-}
-
-// TestPutTaskProtectionHandlerInvalidJSONRequest tests PutTaskProtection handler
-// with a bad ProtectionTimeoutMinutes type
-func TestPutTaskProtectionHandlerInvalidTimeoutType(t *testing.T) {
+// TestPutTaskProtectionHandlerInvalidExpiry tests PutTaskProtection handler
+// with an invalid expiration value
+func TestPutTaskProtectionHandlerInvalidExpiry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	testPutTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
 		"endpointID",
-		map[string]string{
-			"ProtectionType":           string(types.TaskProtectionTypeScaleIn),
-			"ProtectionTimeoutMinutes": "badType",
+		&TaskProtectionRequest{
+			ProtectionEnabled: utils.BoolPtr(true),
+			ExpiresInMinutes:  utils.IntPtr(-4),
+		},
+		"Invalid request: expiration duration must be greater than zero minutes for enabled task protection",
+		http.StatusBadRequest)
+}
+
+// TestPutTaskProtectionHandlerInvalidExpiryType tests PutTaskProtection handler
+// with a bad expiry type
+func TestPutTaskProtectionHandlerInvalidExpiryType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	testPutTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
+		"endpointID",
+		map[string]interface{}{
+			"ProtectionEnabled": true,
+			"ExpiresInMinutes":  "badType",
 		},
 		"Failed to decode request",
 		http.StatusBadRequest)
@@ -106,7 +109,8 @@ func TestPutTaskProtectionHandlerNoBody(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	testPutTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
-		"endpointID", nil, "Invalid request: protection type is missing or empty", http.StatusBadRequest)
+		"endpointID", nil, "Invalid request: does not contain 'ProtectionEnabled' field",
+		http.StatusBadRequest)
 }
 
 // TestPutTaskProtectionHandlerUnknownFieldsInRequest tests that PutTaskProtection handler
@@ -115,7 +119,7 @@ func TestPutTaskProtectionHandlerUnknownFieldsInRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	request := TaskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeScaleIn)}
+	request := TaskProtectionRequest{ProtectionEnabled: utils.BoolPtr(false)}
 	requestJSON, err := json.Marshal(request)
 	assert.NoError(t, err)
 
@@ -131,7 +135,7 @@ func TestPutTaskProtectionHandlerUnknownFieldsInRequest(t *testing.T) {
 // TestPutTaskProtectionHandlerTaskARNNotFound tests PutTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
-	request := TaskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := TaskProtectionRequest{ProtectionEnabled: utils.BoolPtr(false)}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -139,14 +143,14 @@ func TestPutTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq("endpointID")).Return("", false)
 
 	testPutTaskProtectionHandler(t, mockState, "endpointID", request,
-		"Failed to find task: unable to get task ARN from request: unable to get task Arn from v3 endpoint ID: endpointID",
-		http.StatusInternalServerError)
+		"Invalid request: no task was found",
+		http.StatusBadRequest)
 }
 
 // TestPutTaskProtectionHandlerTaskNotFound tests PutTaskProtection handler's
 // behavior when task ARN was not found for the request.
 func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
-	request := TaskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := TaskProtectionRequest{ProtectionEnabled: utils.BoolPtr(false)}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -155,14 +159,17 @@ func TestPutTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq("taskARN")).Return(nil, false)
 
 	testPutTaskProtectionHandler(t, mockState, "endpointID", request,
-		"Failed to find task: could not find task from task ARN 'taskARN'",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
 // TestPutTaskProtectionHandlerHappy tests PutTaskProtection handler's
 // behavior when request and state both are good.
 func TestPutTaskProtectionHandlerHappy(t *testing.T) {
-	request := TaskProtectionRequest{ProtectionType: string(types.TaskProtectionTypeDisabled)}
+	request := TaskProtectionRequest{
+		ProtectionEnabled: utils.BoolPtr(true),
+		ExpiresInMinutes:  utils.IntPtr(5),
+	}
 
 	taskARN := "taskARN"
 	task := task.Task{
@@ -212,8 +219,8 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq("endpointID")).Return("", false)
 
 	testGetTaskProtectionHandler(t, mockState, "endpointID",
-		"Failed to find task: unable to get task ARN from request: unable to get task Arn from v3 endpoint ID: endpointID",
-		http.StatusInternalServerError)
+		"Invalid request: no task was found",
+		http.StatusBadRequest)
 }
 
 // TestGetTaskProtectionHandlerTaskNotFound tests GetTaskProtection handler's
@@ -226,7 +233,7 @@ func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq("taskARN")).Return(nil, false)
 
 	testGetTaskProtectionHandler(t, mockState, "endpointID",
-		"Failed to find task: could not find task from task ARN 'taskARN'",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
