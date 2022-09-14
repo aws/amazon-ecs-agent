@@ -116,6 +116,10 @@ const (
 	// The specified platform version does not exist.
 	ErrCodePlatformUnknownException = "PlatformUnknownException"
 
+	// ErrCodeResourceNotFoundException for service response error code
+	// "ResourceNotFoundException".
+	ErrCodeResourceNotFoundException = "ResourceNotFoundException"
+
 	// ErrCodeServerException for service response error code
 	// "ServerException".
 	//
@@ -175,6 +179,7 @@ var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
 	"NoUpdateAvailableException":                     newErrorNoUpdateAvailableException,
 	"PlatformTaskDefinitionIncompatibilityException": newErrorPlatformTaskDefinitionIncompatibilityException,
 	"PlatformUnknownException":                       newErrorPlatformUnknownException,
+	"ResourceNotFoundException":                      newErrorResourceNotFoundException,
 	"ServerException":                                newErrorServerException,
 	"ServiceNotActiveException":                      newErrorServiceNotActiveException,
 	"ServiceNotFoundException":                       newErrorServiceNotFoundException,
