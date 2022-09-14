@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pborman/uuid"
+
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -265,24 +267,32 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 	}
 	containerRunning := apicontainerstatus.ContainerRunning
 	dockerHostConfig := dockercontainer.HostConfig{NetworkMode: apitask.HostNetworkMode}
-	dockerConfig := dockercontainer.Config{
-		Healthcheck: &dockercontainer.HealthConfig{
-			Test:     []string{"CMD-SHELL", "/health_check.sh"},
-			Interval: 5 * time.Second,
-			Timeout:  2 * time.Second,
-			Retries:  3,
-		},
-	}
 	rawHostConfig, err := json.Marshal(&dockerHostConfig)
 	if err != nil {
 		return nil, err
 	}
-	rawConfig, err := json.Marshal(&dockerConfig)
+	// Configure AppNet relay container health check.
+	// For AppNet Agent container, the health check configuration is part of task payload,
+	// however for relay we need to create it ourselves.
+	healthConfig := dockercontainer.HealthConfig{
+		Test:     []string{"CMD-SHELL", "/health_check.sh"},
+		Interval: 5 * time.Second,
+		Timeout:  2 * time.Second,
+		Retries:  3,
+	}
+	rawHealthConfig, err := json.Marshal(&healthConfig)
 	if err != nil {
 		return nil, err
 	}
+	// The raw host config needs to be created this way - if we marshal the entire config object
+	// directly, and the object only contains healthcheck, all other fields will be written as empty/nil
+	// in the result string. This will override the configurations that comes with the container image
+	// (CMD for example)
+	rawConfig := fmt.Sprintf("{\"Healthcheck\":%s}", string(rawHealthConfig))
+
+	// Create an internal task for AppNet Relay container
 	task := &apitask.Task{
-		Arn:                 "arn:::::/service-connect-relay",
+		Arn:                 fmt.Sprintf("%s-%s", "arn:::::/service-connect-relay", uuid.NewUUID()),
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{{
 			Name:                      "instance-service-connect-relay",
@@ -293,7 +303,7 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 			Essential:                 true,
 			SteadyStateStatusUnsafe:   &containerRunning,
 			DockerConfig: apicontainer.DockerConfig{
-				Config:     aws.String(string(rawConfig)),
+				Config:     aws.String(rawConfig),
 				HostConfig: aws.String(string(rawHostConfig)),
 			},
 			HealthCheckType: "DOCKER",
