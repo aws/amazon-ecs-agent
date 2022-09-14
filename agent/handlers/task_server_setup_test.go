@@ -1862,7 +1862,7 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
 		clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate,
-		"", containerInstanceArn)
+		"", vpcID, containerInstanceArn)
 
 	// Prepare the request
 	var requestReader io.Reader = nil
