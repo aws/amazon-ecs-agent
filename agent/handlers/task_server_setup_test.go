@@ -1872,7 +1872,7 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 
 	// Send request and record response
 	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest(method, fmt.Sprintf("/api/v1/%s/task/protection", v3EndpointID),
+	req, _ := http.NewRequest(method, fmt.Sprintf("/api/%s/task-protection/v1/state", v3EndpointID),
 		requestReader)
 	server.Handler.ServeHTTP(recorder, req)
 
