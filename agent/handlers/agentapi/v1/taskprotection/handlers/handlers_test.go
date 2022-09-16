@@ -33,7 +33,7 @@ import (
 
 // Tests the path for PutTaskProtection API
 func TestTaskProtectionPath(t *testing.T) {
-	assert.Equal(t, "/api/v1/{v3EndpointIDMuxName:[^/]*}/task/protection", TaskProtectionPath())
+	assert.Equal(t, "/api/{v3EndpointIDMuxName:[^/]*}/task-protection/v1/state", TaskProtectionPath())
 }
 
 // Helper function for running tests for PutTaskProtection handler
