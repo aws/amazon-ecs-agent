@@ -1132,7 +1132,7 @@ func TestInitializeContainersV1AgentAPIEndpoint(t *testing.T) {
 		assert.Equal(t, "new-uuid", container.GetV3EndpointID())
 		assert.Equal(t,
 			map[string]string{
-				apicontainer.AgentAPIURIEnvVarNameV1: "http://169.254.170.2/api/v1/new-uuid",
+				apicontainer.AgentURIEnvVarName: "http://169.254.170.2/api/new-uuid",
 			},
 			container.Environment)
 	}

@@ -136,7 +136,7 @@ func removeEndpointConfigFromEnvironment(container *apicontainer.Container) {
 	if container.Environment != nil {
 		delete(container.Environment, apicontainer.MetadataURIEnvironmentVariableName)
 		delete(container.Environment, apicontainer.MetadataURIEnvVarNameV4)
-		delete(container.Environment, apicontainer.AgentAPIURIEnvVarNameV1)
+		delete(container.Environment, apicontainer.AgentURIEnvVarName)
 	}
 	if len(container.Environment) == 0 {
 		container.Environment = nil
