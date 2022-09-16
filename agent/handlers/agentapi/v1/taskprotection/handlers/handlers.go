@@ -31,7 +31,7 @@ import (
 // Returns endpoint path for PutTaskProtection API
 func TaskProtectionPath() string {
 	return fmt.Sprintf(
-		"/api/v1/%s/task/protection",
+		"/api/%s/task-protection/v1/state",
 		utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx))
 }
 
