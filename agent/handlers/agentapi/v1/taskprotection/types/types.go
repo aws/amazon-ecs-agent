@@ -15,7 +15,6 @@ package types
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 )
 
@@ -44,14 +43,8 @@ func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
 
 // Creates a taskProtection value after validating the arguments
 func NewTaskProtection(protectionEnabled bool, expiresInMinutes *int) (*taskProtection, error) {
-	if protectionEnabled {
-		if expiresInMinutes == nil {
-			return nil, errors.New("expiration duration is required for enabled task protection")
-		}
-
-		if *expiresInMinutes <= 0 {
-			return nil, fmt.Errorf("expiration duration must be greater than zero minutes for enabled task protection")
-		}
+	if protectionEnabled && expiresInMinutes != nil && *expiresInMinutes <= 0 {
+		return nil, fmt.Errorf("expiration duration must be greater than zero minutes for enabled task protection")
 	}
 
 	return &taskProtection{
