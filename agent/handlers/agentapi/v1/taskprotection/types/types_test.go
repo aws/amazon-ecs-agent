@@ -35,9 +35,9 @@ func TestNewTaskProtection(t *testing.T) {
 			err:               utils.Strptr("expiration duration must be greater than zero minutes for enabled task protection"),
 		},
 		{
-			name:              "nil timeout not allowed for enabled protection",
+			name:              "nil timeout allowed for enabled protection",
 			protectionEnabled: true,
-			err:               utils.Strptr("expiration duration is required for enabled task protection"),
+			expected:          &taskProtection{protectionEnabled: true},
 		},
 		{
 			name:              "nil timeout allowed for disabled protection",
