@@ -21,7 +21,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/types"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/logger"

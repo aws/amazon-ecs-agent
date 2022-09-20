@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	agentAPIV1TaskProtection "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
+	agentAPITaskProtectionV1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
 	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -161,13 +161,13 @@ func v4HandlersSetup(muxRouter *mux.Router,
 func v1AgentAPIHandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngineState, cluster string) {
 	muxRouter.
 		HandleFunc(
-			agentAPIV1TaskProtection.TaskProtectionPath(),
-			agentAPIV1TaskProtection.PutTaskProtectionHandler(state, cluster)).
+			agentAPITaskProtectionV1.TaskProtectionPath(),
+			agentAPITaskProtectionV1.PutTaskProtectionHandler(state, cluster)).
 		Methods("PUT")
 	muxRouter.
 		HandleFunc(
-			agentAPIV1TaskProtection.TaskProtectionPath(),
-			agentAPIV1TaskProtection.GetTaskProtectionHandler(state, cluster)).
+			agentAPITaskProtectionV1.TaskProtectionPath(),
+			agentAPITaskProtectionV1.GetTaskProtectionHandler(state, cluster)).
 		Methods("GET")
 }
 
