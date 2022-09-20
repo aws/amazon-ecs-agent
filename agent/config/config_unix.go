@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build linux
+// +build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/containerd/cgroups"
 	"os"
 	"time"
 
@@ -134,4 +135,10 @@ func (cfg *Config) platformString() string {
 
 func getConfigFileName() (string, error) {
 	return utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName), nil
+}
+
+func init() {
+	if cgroups.Mode() == cgroups.Unified {
+		CgroupV2 = true
+	}
 }

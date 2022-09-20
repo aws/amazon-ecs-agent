@@ -19,8 +19,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
-	github.com/golang/mock v1.1.1
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
@@ -38,13 +37,12 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
-	golang.org/x/text v0.3.6 // indirect
-	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
+	golang.org/x/sys v0.0.0-20220913175220-63ea55921009
 	golang.org/x/tools v0.1.5
-	google.golang.org/grpc v1.38.0 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/genproto v0.0.0-20220913154956-18f8339a66a5 // indirect
+	google.golang.org/grpc v1.49.0
+	google.golang.org/protobuf v1.28.1
 	gotest.tools v2.2.0+incompatible // indirect
 )
 

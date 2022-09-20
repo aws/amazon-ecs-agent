@@ -23,7 +23,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseGMSACapability(t *testing.T) {
+func TestParseGMSACapabilitySupported(t *testing.T) {
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	os.Setenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE", "True")
+	defer os.Unsetenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE")
+
+	os.Setenv("CREDENTIALS_FETCHER_HOST_DIR", "/var/run")
+	defer os.Unsetenv("CREDENTIALS_FETCHER_HOST_DIR")
+
+	assert.True(t, parseGMSACapability())
+}
+
+func TestParseGMSACapabilityNonDomainJoined(t *testing.T) {
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	os.Setenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE", "False")
+	defer os.Unsetenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE")
+
+	assert.False(t, parseGMSACapability())
+}
+
+func TestParseGMSACapabilityUnsupported(t *testing.T) {
 	os.Setenv("ECS_GMSA_SUPPORTED", "False")
 	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
 

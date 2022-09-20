@@ -7,7 +7,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	httpaws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -27,9 +27,20 @@ import (
 func parseGMSACapability() bool {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	if envStatus {
-		// returns true if the container instance is domain joined
+
+		// check if the credentials fetcher socket is created and exists
 		// this env variable is set in ecs-init module
-		return utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
+		if credentialsfetcherHostDir := os.Getenv("CREDENTIALS_FETCHER_HOST_DIR"); credentialsfetcherHostDir != "" {
+			_, err := os.Stat(credentialsfetcherHostDir)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return false
+				}
+			}
+			// returns true if the container instance is domain joined
+			// this env variable is set in ecs-init module
+			return utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
+		}
 	}
 	return false
 }

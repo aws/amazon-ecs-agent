@@ -1,5 +1,5 @@
-//go:build linux && unit
-// +build linux,unit
+//go:build linux
+// +build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -1366,4 +1366,52 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
 		})
 	}
+}
+
+func TestRequiresCredentialSpecResource(t *testing.T) {
+	container1 := &apicontainer.Container{}
+	task1 := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container1},
+	}
+
+	container2 := getContainer(`[{"name": "credspecArn", "valueFrom": "credentialspec:$$$TEST_ASM_ARN$$$"}]`)
+	task2 := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container2},
+	}
+
+	testCases := []struct {
+		name           string
+		task           *Task
+		expectedOutput bool
+	}{
+		{
+			name:           "missing_credentialspec",
+			task:           task1,
+			expectedOutput: false,
+		},
+		{
+			name:           "valid_credentialspec",
+			task:           task2,
+			expectedOutput: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.task.requiresCredentialSpecResource())
+		})
+	}
+
+}
+
+func getContainer(secretString string) *apicontainer.Container {
+	c := &apicontainer.Container{
+		Name: "c",
+	}
+
+	_ = json.Unmarshal([]byte(secretString), &c.Secrets)
+
+	return c
 }

@@ -300,6 +300,11 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables["SSL_CERT_DIR"] = certDir
 	}
 
+	// env variable is only available if the gmsa is enabled on linux
+	if credentialsFetcherHost := config.HostCredentialsFetcherPath(); credentialsFetcherHost != "" {
+		envVariables["CREDENTIALS_FETCHER_HOST_DIR"] = credentialsFetcherHost
+	}
+
 	// merge in platform-specific environment variables
 	for envKey, envValue := range getPlatformSpecificEnvVariables() {
 		envVariables[envKey] = envValue
@@ -499,6 +504,7 @@ func getCredentialsFetcherSocketBind(envVarsFromFiles map[string]string) (string
 			return CredentialsFetcherUnixSocketSourcePath + ":" + CredentialsFetcherEndpointAgent, false
 		}
 	}
+
 	return CredentialsFetcherUnixSocketSourcePath + ":" + CredentialsFetcherEndpointAgent, true
 }
 

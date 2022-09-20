@@ -240,6 +240,14 @@ func HostCertsDirPath() string {
 	return hostCertsDirPath
 }
 
+// HostCredentialsFetcherPath() returns the daemon socket lacation
+func HostCredentialsFetcherPath() string {
+	if credentialsFetcherHost, _ := CredentialsFetcherUnixSocket(); len(credentialsFetcherHost) > 0 {
+		return credentialsFetcherHost
+	}
+	return ""
+}
+
 // HostPKIDirPath() returns the CA store path on the host
 func HostPKIDirPath() string {
 	if _, err := os.Stat(hostPKIDirPath); err != nil {
