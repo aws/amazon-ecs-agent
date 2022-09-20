@@ -40,7 +40,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	v1_task_protection "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/v1/taskprotection/handlers"
+	task_protection_v1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -1841,7 +1841,7 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 }
 
 // Helper function for testing Agent API v1 Task Protection hanlders
-func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, method string) {
+func testagentAPITaskProtectionV1Handler(t *testing.T, requestBody interface{}, method string) {
 	// Prepare dependency mocks
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1882,13 +1882,13 @@ func testAgentAPIV1TaskProtectionHandler(t *testing.T, requestBody interface{}, 
 
 // Tests that Agent API v1 GetTaskProtection handler is registered correctly
 func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
-	testAgentAPIV1TaskProtectionHandler(t, nil, "GET")
+	testagentAPITaskProtectionV1Handler(t, nil, "GET")
 }
 
 // Tests that Agent API v1 PutTaskProtection handler is registered correctly
 func TestAgentAPIV1PutTaskProtectionHandler(t *testing.T) {
-	requestBody := v1_task_protection.TaskProtectionRequest{
+	requestBody := task_protection_v1.TaskProtectionRequest{
 		ProtectionEnabled: agentutils.BoolPtr(false),
 	}
-	testAgentAPIV1TaskProtectionHandler(t, requestBody, "PUT")
+	testagentAPITaskProtectionV1Handler(t, requestBody, "PUT")
 }
