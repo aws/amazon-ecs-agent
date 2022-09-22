@@ -18,7 +18,6 @@ package docker
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -945,13 +944,13 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 }
 
 func TestDefaultIsPathValid(t *testing.T) {
-	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	rootDir, err := os.MkdirTemp(os.TempDir(), testTempDirPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(rootDir)
 
-	file, err := ioutil.TempFile(rootDir, "file")
+	file, err := os.CreateTemp(rootDir, "file")
 	if err != nil {
 		t.Fatal(err)
 	}

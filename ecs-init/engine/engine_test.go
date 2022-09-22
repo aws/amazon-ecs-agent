@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 
@@ -79,7 +79,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -117,7 +117,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
@@ -152,7 +152,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -431,7 +431,7 @@ func TestReloadCacheNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -456,7 +456,7 @@ func TestReloadCacheCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()

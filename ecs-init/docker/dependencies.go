@@ -16,10 +16,10 @@ package docker
 //go:generate mockgen.sh $GOPACKAGE $GOFILE
 
 import (
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
@@ -142,7 +142,7 @@ type _standardFS struct{}
 var standardFS = &_standardFS{}
 
 func (s *_standardFS) ReadFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 func isNetworkError(err error) bool {
