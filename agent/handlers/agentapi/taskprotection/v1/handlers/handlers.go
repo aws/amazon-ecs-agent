@@ -19,51 +19,73 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/types"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/aws-sdk-go/aws"
+	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
-// Returns endpoint path for PutTaskProtection API
+const (
+	ExpectedProtectionResponseLength = 1
+)
+
+// TaskProtectionPath Returns endpoint path for UpdateTaskProtection API
 func TaskProtectionPath() string {
 	return fmt.Sprintf(
 		"/api/%s/task-protection/v1/state",
 		utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx))
 }
 
-// Task protection request received from customers pending validation
+// TaskProtectionRequest is the Task protection request received from customers pending validation
 type TaskProtectionRequest struct {
 	ProtectionEnabled *bool
-	ExpiresInMinutes  *int
+	ExpiresInMinutes  *int64
 }
 
-// PutTaskProtectionHandler returns an HTTP request handler function for
-// PutTaskProtection API
-func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
-	cluster string) func(http.ResponseWriter, *http.Request) {
+type TaskProtectionClientFactoryInterface interface {
+	getECSClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error)
+}
+
+type TaskProtectionClientFactory struct {
+	Region             string
+	Endpoint           string
+	AcceptInsecureCert bool
+}
+
+// UpdateTaskProtectionHandler returns an HTTP request handler function for
+// UpdateTaskProtection API
+func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState,
+	credentialsManager credentials.Manager, factory TaskProtectionClientFactoryInterface, cluster string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		putTaskProtectionRequestType := "api/v1/PutTaskProtection"
+		updateTaskProtectionRequestType := "api/UpdateTaskProtection/v1"
 
 		var request TaskProtectionRequest
 		jsonDecoder := json.NewDecoder(r.Body)
 		jsonDecoder.DisallowUnknownFields()
 		if err := jsonDecoder.Decode(&request); err != nil {
-			logger.Error("PutTaskProtection: failed to decode request", logger.Fields{
+			logger.Error("UpdateTaskProtection: failed to decode request", logger.Fields{
 				loggerfield.Error: err,
 			})
 			writeJSONResponse(w, http.StatusBadRequest,
-				"Failed to decode request", putTaskProtectionRequestType)
+				"Failed to decode request", updateTaskProtectionRequestType)
 			return
 		}
 
 		if request.ProtectionEnabled == nil {
 			writeJSONResponse(w, http.StatusBadRequest,
 				"Invalid request: does not contain 'ProtectionEnabled' field",
-				putTaskProtectionRequestType)
+				updateTaskProtectionRequestType)
 			return
 		}
 
@@ -71,23 +93,112 @@ func PutTaskProtectionHandler(state dockerstate.TaskEngineState,
 		if err != nil {
 			writeJSONResponse(w, http.StatusBadRequest,
 				fmt.Sprintf("Invalid request: %v", err),
-				putTaskProtectionRequestType)
+				updateTaskProtectionRequestType)
 			return
 		}
 
 		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, responseCode, err.Error(), putTaskProtectionRequestType)
+			writeJSONResponse(w, responseCode, err.Error(), updateTaskProtectionRequestType)
 			return
 		}
 
-		// TODO: Call ECS
-		logger.Info("PutTaskProtection endpoint was called", logger.Fields{
+		ecsClient, responseCode, err := factory.getECSClient(credentialsManager, task)
+		if err != nil {
+			writeJSONResponse(w, responseCode, err.Error(), updateTaskProtectionRequestType)
+			return
+		}
+
+		logger.Info("UpdateTaskProtection endpoint was called", logger.Fields{
 			loggerfield.Cluster:        cluster,
 			loggerfield.TaskARN:        task.Arn,
 			loggerfield.TaskProtection: taskProtection,
 		})
-		writeJSONResponse(w, http.StatusOK, "Ok", putTaskProtectionRequestType)
+
+		response, err := ecsClient.UpdateTaskProtection(&ecs.UpdateTaskProtectionInput{
+			Cluster:           aws.String(cluster),
+			ExpiresInMinutes:  taskProtection.GetExpiresInMinutes(),
+			ProtectionEnabled: aws.Bool(taskProtection.GetProtectionEnabled()),
+			Tasks:             aws.StringSlice([]string{task.Arn}),
+		})
+
+		logger.Debug("updateTaskProtection response:", logger.Fields{
+			loggerfield.TaskProtection: response.ProtectedTasks,
+			loggerfield.Error:          err,
+			loggerfield.Reason:         response.Failures,
+		})
+
+		if err != nil {
+			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
+			logger.Info(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
+			writeJSONResponse(w, statusCode, err.Error(), updateTaskProtectionRequestType)
+			return
+		}
+
+		// there are no exceptions but there are failures when setting protection in scheduler
+		if len(response.Failures) > 0 {
+			writeJSONResponse(w, http.StatusBadRequest, response.Failures[0], updateTaskProtectionRequestType)
+			return
+		}
+		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
+			msg := fmt.Sprintf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
+			logger.Error(msg)
+			writeJSONResponse(w, http.StatusInternalServerError, msg, updateTaskProtectionRequestType)
+			return
+		}
+		writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], updateTaskProtectionRequestType)
+	}
+}
+
+// Helper function for retrieving credential from credentials manager and create ecs client
+func (factory TaskProtectionClientFactory) getECSClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error) {
+	taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
+	if !ok {
+		return nil, http.StatusUnauthorized, errors.New("invalid Request: no task IAM role credentials available for task")
+	}
+	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
+	cfg := aws.NewConfig().
+		WithCredentials(awscreds.NewStaticCredentials(taskCredential.AccessKeyID,
+			taskCredential.SecretAccessKey,
+			taskCredential.SessionToken)).
+		WithRegion(factory.Region).
+		WithHTTPClient(httpclient.New(ecsclient.RoundtripTimeout, factory.AcceptInsecureCert)).
+		WithEndpoint(factory.Endpoint)
+
+	ecsClient := ecs.New(session.Must(session.NewSession()), cfg)
+	return ecsClient, http.StatusOK, nil
+}
+
+// Helper function to parse exception type from error since it is unmarshalled in ecs client
+// see newClient method in agent/ecs_client/model/ecs/service.go
+func getExceptionTypeAndStatusCode(err error) (string, int) {
+	errorType := ""
+	// typical error format: InvalidParameterException: <Exception Message>
+	for i := range err.Error() {
+		if err.Error()[i] == ' ' {
+			errorType = err.Error()[0 : i-1] // trim colon
+			break
+		}
+	}
+
+	switch errorType {
+	case ecs.ErrCodeServerException:
+		return errorType, http.StatusInternalServerError
+	case ecs.ErrCodeAccessDeniedException,
+		ecs.ErrCodeClientException,
+		ecs.ErrCodeClusterNotFoundException,
+		ecs.ErrCodeInvalidParameterException,
+		ecs.ErrCodeResourceNotFoundException,
+		ecs.ErrCodeUnsupportedFeatureException:
+		return errorType, http.StatusBadRequest
+	case "":
+		logger.Critical("malformed error: empty error string", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return errorType, http.StatusInternalServerError
+	default:
+		logger.Error(fmt.Sprintf("errorType %s is not recognizable", errorType))
+		return errorType, http.StatusInternalServerError
 	}
 }
 
@@ -98,7 +209,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 		logger.Error("Failed to find task ARN for task protection request", logger.Fields{
 			loggerfield.Error: err,
 		})
-		return nil, http.StatusBadRequest, errors.New("Invalid request: no task was found")
+		return nil, http.StatusBadRequest, errors.New("invalid request: no task was found")
 	}
 
 	task, found := state.TaskByArn(taskARN)
@@ -106,7 +217,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 		logger.Critical("No task was found for taskARN for task protection request", logger.Fields{
 			loggerfield.TaskARN: taskARN,
 		})
-		return nil, http.StatusInternalServerError, errors.New("Failed to find a task for the request")
+		return nil, http.StatusInternalServerError, errors.New("failed to find a task for the request")
 	}
 
 	return task, http.StatusOK, nil
@@ -114,9 +225,10 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 
 // GetTaskProtectionHandler returns a handler function for GetTaskProtection API
 func GetTaskProtectionHandler(state dockerstate.TaskEngineState,
-	cluster string) func(http.ResponseWriter, *http.Request) {
+	credentialsManager credentials.Manager,
+	cluster string, region string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		getTaskProtectionRequestType := "api/v1/GetTaskProtection"
+		getTaskProtectionRequestType := "api/GetTaskProtection/v1"
 
 		task, responseCode, err := getTaskFromRequest(state, r)
 		if err != nil {
@@ -138,7 +250,7 @@ func writeJSONResponse(w http.ResponseWriter, responseCode int, response interfa
 	requestType string) {
 	bytes, err := json.Marshal(response)
 	if err != nil {
-		logger.Error("Agent API V1 Task Protection: failed to marshal response as JSON", logger.Fields{
+		logger.Error("Agent API Task Protection V1: failed to marshal response as JSON", logger.Fields{
 			"response": response,
 			"error":    err,
 		})

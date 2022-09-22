@@ -21,14 +21,14 @@ import (
 // Protection for a Task
 type taskProtection struct {
 	protectionEnabled bool
-	expiresInMinutes  *int
+	expiresInMinutes  *int64
 }
 
 // Custom JSON marshal function to marshal unexported fields for logging purposes
 func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
 	jsonBytes, err := json.Marshal(struct {
 		ProtectionEnabled bool
-		ExpiresInMinutes  *int
+		ExpiresInMinutes  *int64
 	}{
 		ProtectionEnabled: taskProtection.protectionEnabled,
 		ExpiresInMinutes:  taskProtection.expiresInMinutes,
@@ -42,7 +42,7 @@ func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
 }
 
 // Creates a taskProtection value after validating the arguments
-func NewTaskProtection(protectionEnabled bool, expiresInMinutes *int) (*taskProtection, error) {
+func NewTaskProtection(protectionEnabled bool, expiresInMinutes *int64) (*taskProtection, error) {
 	if protectionEnabled && expiresInMinutes != nil && *expiresInMinutes <= 0 {
 		return nil, fmt.Errorf("expiration duration must be greater than zero minutes for enabled task protection")
 	}
@@ -57,6 +57,6 @@ func (taskProtection *taskProtection) GetProtectionEnabled() bool {
 	return taskProtection.protectionEnabled
 }
 
-func (taskProtection *taskProtection) GetExpiresInMinutes() *int {
+func (taskProtection *taskProtection) GetExpiresInMinutes() *int64 {
 	return taskProtection.expiresInMinutes
 }

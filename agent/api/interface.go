@@ -69,3 +69,10 @@ type ECSSubmitStateSDK interface {
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
 	SubmitAttachmentStateChanges(*ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error)
 }
+
+// ECSTaskProtectionSDK is an interface with customized ecs client that
+// implements the UpdateTaskProtection and GetTaskProtection
+type ECSTaskProtectionSDK interface {
+	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
+	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
+}

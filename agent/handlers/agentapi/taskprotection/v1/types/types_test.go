@@ -24,14 +24,14 @@ func TestNewTaskProtection(t *testing.T) {
 	testcases := []struct {
 		name              string
 		protectionEnabled bool
-		expiresInMinutes  *int
+		expiresInMinutes  *int64
 		expected          *taskProtection
 		err               *string
 	}{
 		{
 			name:              "Task protection timeout invalid",
 			protectionEnabled: true,
-			expiresInMinutes:  utils.IntPtr(-3),
+			expiresInMinutes:  utils.Int64Ptr(-3),
 			err:               utils.Strptr("expiration duration must be greater than zero minutes for enabled task protection"),
 		},
 		{
@@ -47,10 +47,10 @@ func TestNewTaskProtection(t *testing.T) {
 		{
 			name:              "non-nil timeout happy",
 			protectionEnabled: true,
-			expiresInMinutes:  utils.IntPtr(3),
+			expiresInMinutes:  utils.Int64Ptr(3),
 			expected: &taskProtection{
 				protectionEnabled: true,
-				expiresInMinutes:  utils.IntPtr(3),
+				expiresInMinutes:  utils.Int64Ptr(3),
 			},
 		},
 	}
