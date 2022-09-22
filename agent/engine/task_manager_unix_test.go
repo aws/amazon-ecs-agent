@@ -287,7 +287,7 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 	}
 }
 
-//TestEFSNextStateWithTransitionDependencies verifies the dependencies are resolved correctly for task resource
+// TestEFSNextStateWithTransitionDependencies verifies the dependencies are resolved correctly for task resource
 func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 	testCases := []struct {
 		name                         string

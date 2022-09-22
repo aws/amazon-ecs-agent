@@ -214,20 +214,21 @@ type DockerClient interface {
 
 // DockerGoClient wraps the underlying go-dockerclient and docker/docker library.
 // It exists primarily for the following four purposes:
-// 1) Provide an abstraction over inputs and outputs,
-//    a) Inputs: Trims them down to what we actually need (largely unchanged tbh)
-//    b) Outputs: Unifies error handling and the common 'start->inspect'
-//       pattern by having a consistent error output. This error output
-//       contains error data with a given Name that aims to be presentable as a
-//       'reason' in state changes. It also filters out the information about a
-//       container that is of interest, such as network bindings, while
-//       ignoring the rest.
-// 2) Timeouts: It adds timeouts everywhere, mostly as a reaction to
-//    pull-related issues in the Docker daemon.
-// 3) Versioning: It abstracts over multiple client versions to allow juggling
-//    appropriately there.
-// 4) Allows for both the go-dockerclient client and Docker SDK client to live
-//    side-by-side until migration to the Docker SDK is complete.
+//  1. Provide an abstraction over inputs and outputs,
+//     a) Inputs: Trims them down to what we actually need (largely unchanged tbh)
+//     b) Outputs: Unifies error handling and the common 'start->inspect'
+//     pattern by having a consistent error output. This error output
+//     contains error data with a given Name that aims to be presentable as a
+//     'reason' in state changes. It also filters out the information about a
+//     container that is of interest, such as network bindings, while
+//     ignoring the rest.
+//  2. Timeouts: It adds timeouts everywhere, mostly as a reaction to
+//     pull-related issues in the Docker daemon.
+//  3. Versioning: It abstracts over multiple client versions to allow juggling
+//     appropriately there.
+//  4. Allows for both the go-dockerclient client and Docker SDK client to live
+//     side-by-side until migration to the Docker SDK is complete.
+//
 // Implements DockerClient
 // TODO Remove clientfactory field once all API calls are migrated to sdkclientFactory
 type dockerGoClient struct {

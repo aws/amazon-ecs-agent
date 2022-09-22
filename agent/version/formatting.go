@@ -22,9 +22,9 @@ import (
 // PrintVersions prints the version information on stdout as a multi-line
 // string. The output will look similar to the following:
 //
-//    Amazon ECS Agent:
-//        Version: 0.0.3
-//        Commit: 4bdc7fc
+//	Amazon ECS Agent:
+//	    Version: 0.0.3
+//	    Commit: 4bdc7fc
 func PrintVersion() int {
 	cleanliness := ""
 	if GitDirty {
