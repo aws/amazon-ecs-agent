@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
@@ -53,10 +54,7 @@ type TaskProtectionRequest struct {
 	ExpiresInMinutes  *int64
 }
 
-type TaskProtectionClientFactoryInterface interface {
-	getECSClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error)
-}
-
+// TaskProtectionClientFactory implements TaskProtectionClientFactoryInterface
 type TaskProtectionClientFactory struct {
 	Region             string
 	Endpoint           string
@@ -103,7 +101,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
-		ecsClient, responseCode, err := factory.getECSClient(credentialsManager, task)
+		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, responseCode, err.Error(), updateTaskProtectionRequestType)
 			return
@@ -122,12 +120,6 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState,
 			Tasks:             aws.StringSlice([]string{task.Arn}),
 		})
 
-		logger.Debug("updateTaskProtection response:", logger.Fields{
-			loggerfield.TaskProtection: response.ProtectedTasks,
-			loggerfield.Error:          err,
-			loggerfield.Reason:         response.Failures,
-		})
-
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
 			logger.Info(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
@@ -135,15 +127,19 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState,
 			return
 		}
 
+		logger.Debug("updateTaskProtection response:", logger.Fields{
+			loggerfield.TaskProtection: response.ProtectedTasks,
+			loggerfield.Reason:         response.Failures,
+		})
+
 		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.Failures) > 0 {
 			writeJSONResponse(w, http.StatusBadRequest, response.Failures[0], updateTaskProtectionRequestType)
 			return
 		}
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
-			msg := fmt.Sprintf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
-			logger.Error(msg)
-			writeJSONResponse(w, http.StatusInternalServerError, msg, updateTaskProtectionRequestType)
+			logger.Error(fmt.Sprintf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks)))
+			writeJSONResponse(w, http.StatusInternalServerError, "An unexpected failure occurred.", updateTaskProtectionRequestType)
 			return
 		}
 		writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], updateTaskProtectionRequestType)
@@ -151,10 +147,10 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState,
 }
 
 // Helper function for retrieving credential from credentials manager and create ecs client
-func (factory TaskProtectionClientFactory) getECSClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error) {
+func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error) {
 	taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
 	if !ok {
-		return nil, http.StatusUnauthorized, errors.New("invalid Request: no task IAM role credentials available for task")
+		return nil, http.StatusBadRequest, errors.New("invalid Request: no task IAM role credentials available for task")
 	}
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
@@ -169,36 +165,26 @@ func (factory TaskProtectionClientFactory) getECSClient(credentialsManager crede
 	return ecsClient, http.StatusOK, nil
 }
 
-// Helper function to parse exception type from error since it is unmarshalled in ecs client
-// see newClient method in agent/ecs_client/model/ecs/service.go
+// Helper function to parse error and get http status code
 func getExceptionTypeAndStatusCode(err error) (string, int) {
-	errorType := ""
-	// typical error format: InvalidParameterException: <Exception Message>
-	for i := range err.Error() {
-		if err.Error()[i] == ' ' {
-			errorType = err.Error()[0 : i-1] // trim colon
-			break
+	if aerr, ok := err.(awserr.Error); ok {
+		switch aerr.Code() {
+		case ecs.ErrCodeServerException:
+			return aerr.Code(), http.StatusInternalServerError
+		case ecs.ErrCodeAccessDeniedException,
+			ecs.ErrCodeClientException,
+			ecs.ErrCodeClusterNotFoundException,
+			ecs.ErrCodeInvalidParameterException,
+			ecs.ErrCodeResourceNotFoundException,
+			ecs.ErrCodeUnsupportedFeatureException:
+			return aerr.Code(), http.StatusBadRequest
+		default:
+			logger.Error(fmt.Sprintf("errorType %s is not in expected exception types", aerr.Code()))
+			return aerr.Code(), http.StatusInternalServerError
 		}
-	}
-
-	switch errorType {
-	case ecs.ErrCodeServerException:
-		return errorType, http.StatusInternalServerError
-	case ecs.ErrCodeAccessDeniedException,
-		ecs.ErrCodeClientException,
-		ecs.ErrCodeClusterNotFoundException,
-		ecs.ErrCodeInvalidParameterException,
-		ecs.ErrCodeResourceNotFoundException,
-		ecs.ErrCodeUnsupportedFeatureException:
-		return errorType, http.StatusBadRequest
-	case "":
-		logger.Critical("malformed error: empty error string", logger.Fields{
-			loggerfield.Error: err,
-		})
-		return errorType, http.StatusInternalServerError
-	default:
-		logger.Error(fmt.Sprintf("errorType %s is not recognizable", errorType))
-		return errorType, http.StatusInternalServerError
+	} else {
+		logger.Error(fmt.Sprintf("non aws error received: %v", err))
+		return "", http.StatusInternalServerError
 	}
 }
 
