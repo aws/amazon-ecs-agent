@@ -2,7 +2,7 @@ Source: amazon-ecs-init
 Section: misc
 Priority: optional
 Maintainer: ecs-agent-dev <ecs-agent-dev@amazon.com>
-Build-Depends: debhelper (>= 9.20160709~), golang-go (>= 1.7)
+Build-Depends: debhelper (>= 9.20160709~), wget, ca-certificates
 Standards-Version: 4.3.0
 Homepage: https://aws.amazon.com/ecs
 Vcs-Git: git://github.com/aws/amazon-ecs-agent.git
