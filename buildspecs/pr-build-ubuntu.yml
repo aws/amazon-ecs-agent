@@ -31,7 +31,6 @@ phases:
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
       - cd ../../../..
-      - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
       - |
         if [[ $GITHUBUSERNAME != "aws" ]] ; then
@@ -44,9 +43,7 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
         
       - apt-get update -y | tee -a $BUILD_LOG
-      - apt-get install -y make dpkg-dev devscripts debhelper golang | tee -a $BUILD_LOG
-      - which go
-      - go version
+      - apt-get install -y make dpkg-dev wget devscripts debhelper | tee -a $BUILD_LOG
       - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG
       - ls | tee -a $BUILD_LOG
 

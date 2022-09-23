@@ -20,6 +20,10 @@ export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
 export GOPATH="${TOPWD}:${BUILDDIR}"
 export GO111MODULE="auto"
 
+# we need to make sure we've got the correct golang version installed
+# if it's already installed the script will set env vars and exit
+source ./scripts/install-golang.sh
+
 if [ -d "${TOPWD}/.git" ]; then
     version=$(cat "${TOPWD}/ecs-init/ECSVERSION")
     git_hash=$(git rev-parse --short=8 HEAD)
