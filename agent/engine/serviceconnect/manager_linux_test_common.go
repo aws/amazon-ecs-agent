@@ -128,6 +128,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 	expectedBinds := []string{
 		fmt.Sprintf("%s/status/%s:%s", tempDir, scTask.GetID(), "/some/other/run"),
 		fmt.Sprintf("%s/relay:%s", tempDir, "/not/var/run"),
+		fmt.Sprintf("%s/log/%s:%s", tempDir, scTask.GetID(), "/some/other/log"),
 	}
 	expectedENVs := map[string]string{
 		"ReLaYgOeShErE":                 "unix:///not/var/run/relay_file_of_holiness",
@@ -135,6 +136,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		"APPNET_AGENT_ADMIN_MODE":       "uds",
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
 		"ECS_CONTAINER_INSTANCE_ARN":    "fake_container_instance",
+		"APPNET_ENVOY_LOG_DESTINATION":  "/some/other/log",
 	}
 
 	type testCase struct {
@@ -177,6 +179,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		AgentContainerTag:       "tag",
 
 		containerInstanceARN: "fake_container_instance",
+		logPathContainer:     "/some/other/log",
+		logPathHostRoot:      filepath.Join(tempDir, "log"),
 	}
 
 	for _, tc := range testcases {
