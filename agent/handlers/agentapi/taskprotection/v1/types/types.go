@@ -62,6 +62,9 @@ func (taskProtection *taskProtection) GetExpiresInMinutes() *int {
 }
 
 func (taskProtection *taskProtection) String() string {
-	jsonBytes, _ := taskProtection.MarshalJSON()
+	jsonBytes, err := taskProtection.MarshalJSON()
+	if err != nil {
+		return fmt.Sprintf("failed to get String representation of taskProtection type: %v", err)
+	}
 	return string(jsonBytes)
 }
