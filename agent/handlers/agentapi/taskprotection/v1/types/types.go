@@ -60,3 +60,8 @@ func (taskProtection *taskProtection) GetProtectionEnabled() bool {
 func (taskProtection *taskProtection) GetExpiresInMinutes() *int {
 	return taskProtection.expiresInMinutes
 }
+
+func (taskProtection *taskProtection) String() string {
+	jsonBytes, _ := taskProtection.MarshalJSON()
+	return string(jsonBytes)
+}

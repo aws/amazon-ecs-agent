@@ -14,6 +14,7 @@
 package types
 
 import (
+	"log"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
