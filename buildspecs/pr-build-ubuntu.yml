@@ -50,6 +50,14 @@ phases:
       - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG
       - ls | tee -a $BUILD_LOG
 
+      # make wraps error codes to output stream
+      # Need to check if artifacts successfully built
+      - |
+        if [[ (! -f $ECS_AGENT_DEB) || (! -f $ECS_AGENT_DEB_TAR) ]] ; then
+          echo "Artifacts not found, failing"
+          exit 1
+        fi
+
   post_build:
     commands:
 
