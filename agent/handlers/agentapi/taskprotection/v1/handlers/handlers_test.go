@@ -199,7 +199,7 @@ func TestUpdateTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return("", false)
 
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil, request,
-		"invalid request: no task was found",
+		"Invalid request: no task was found",
 		http.StatusBadRequest)
 }
 
@@ -215,7 +215,7 @@ func TestUpdateTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(nil, false)
 
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil, request,
-		"failed to find a task for the request",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
@@ -245,7 +245,7 @@ func TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, false)
 
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, factory, request,
-		"invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
+		"Invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
 }
 
 // TestUpdateTaskProtectionHandler_PostCall tests UpdateTaskProtection handler's
@@ -372,7 +372,7 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return("", false)
 
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
-		"invalid request: no task was found",
+		"Invalid request: no task was found",
 		http.StatusBadRequest)
 }
 
@@ -386,7 +386,7 @@ func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(nil, false)
 
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
-		"failed to find a task for the request",
+		"Failed to find a task for the request",
 		http.StatusInternalServerError)
 }
 
@@ -412,7 +412,7 @@ func TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, false)
 
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, factory,
-		"invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
+		"Invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
 }
 
 // TestGetTaskProtectionHandler_PostCall tests GetTaskProtection handler's

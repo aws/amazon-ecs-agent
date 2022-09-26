@@ -150,7 +150,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error) {
 	taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
 	if !ok {
-		return nil, http.StatusBadRequest, errors.New("invalid Request: no task IAM role credentials available for task")
+		return nil, http.StatusBadRequest, errors.New("Invalid Request: no task IAM role credentials available for task")
 	}
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
@@ -195,7 +195,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 		logger.Error("Failed to find task ARN for task protection request", logger.Fields{
 			loggerfield.Error: err,
 		})
-		return nil, http.StatusBadRequest, errors.New("invalid request: no task was found")
+		return nil, http.StatusBadRequest, errors.New("Invalid request: no task was found")
 	}
 
 	task, found := state.TaskByArn(taskARN)
@@ -203,7 +203,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 		logger.Critical("No task was found for taskARN for task protection request", logger.Fields{
 			loggerfield.TaskARN: taskARN,
 		})
-		return nil, http.StatusInternalServerError, errors.New("failed to find a task for the request")
+		return nil, http.StatusInternalServerError, errors.New("Failed to find a task for the request")
 	}
 
 	return task, http.StatusOK, nil
