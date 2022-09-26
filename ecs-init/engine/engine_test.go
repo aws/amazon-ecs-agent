@@ -1,4 +1,6 @@
+//go:build test
 // +build test
+
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -18,7 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 
@@ -77,7 +79,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -115,7 +117,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
@@ -150,7 +152,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -429,7 +431,7 @@ func TestReloadCacheNotCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()
@@ -454,7 +456,7 @@ func TestReloadCacheCached(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cachedAgentBuffer := ioutil.NopCloser(&bytes.Buffer{})
+	cachedAgentBuffer := io.NopCloser(&bytes.Buffer{})
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	defer getDockerClientMock(mockDocker)()

@@ -16,7 +16,6 @@ package volumes
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -94,7 +93,7 @@ var saveStateToDisk = saveState
 func saveState(b []byte) error {
 	// Make our temp-file on the same volume as our data-file to ensure we can
 	// actually move it atomically; cross-device renaming will error out
-	tmpfile, err := ioutil.TempFile(PluginStatePath, "tmp_ecs_volume_plugin")
+	tmpfile, err := os.CreateTemp(PluginStatePath, "tmp_ecs_volume_plugin")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %v", err)
 	}
@@ -154,5 +153,5 @@ func (s *StateManager) load(a interface{}) error {
 var readStateFile = readFile
 
 func readFile() ([]byte, error) {
-	return ioutil.ReadFile(PluginStateFileAbsPath)
+	return os.ReadFile(PluginStateFileAbsPath)
 }

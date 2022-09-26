@@ -312,7 +312,9 @@ func (cs *ClientServerImpl) Disconnect(...interface{}) error {
 // argument *must* be a pointer to a recognized 'ecsacs' struct.
 // E.g. if you desired to handle messages from acs of type 'FooMessage', you
 // would pass the following handler in:
-//     func(message *ecsacs.FooMessage)
+//
+//	func(message *ecsacs.FooMessage)
+//
 // This function will panic if the passed in function does not have one pointer
 // argument or the argument is not a recognized type.
 // Additionally, the request handler will block processing of further messages

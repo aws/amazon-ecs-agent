@@ -432,11 +432,12 @@ func (firelens *FirelensResource) Create() error {
 var mkdirAll = os.MkdirAll
 
 // createDirectories creates two directories:
-//  - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
-//    will be mounted to the firelens container at an expected path.
-//  - $(DATA_DIR)/firelens/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
-//    the firelens container and it will generate a socket file under this directory. Containers that use firelens to
-//    send logs will then use this socket to send logs to the firelens container.
+//   - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
+//     will be mounted to the firelens container at an expected path.
+//   - $(DATA_DIR)/firelens/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
+//     the firelens container and it will generate a socket file under this directory. Containers that use firelens to
+//     send logs will then use this socket to send logs to the firelens container.
+//
 // Note: socket path has a limit of at most 108 characters on Linux. If using default data dir, the
 // resulting socket path will be 79 characters (/var/lib/ecs/data/firelens/<task-id>/socket/fluent.sock) which is fine.
 // However if ECS_HOST_DATA_DIR is specified to be a longer path, we will exceed the limit and fail. I don't really

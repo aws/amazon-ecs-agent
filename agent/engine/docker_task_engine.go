@@ -1709,7 +1709,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 }
 
 // checkTearDownPauseContainer idempotently tears down the pause container network when the pause container's known
-//or desired status is stopped.
+// or desired status is stopped.
 func (engine *DockerTaskEngine) checkTearDownPauseContainer(task *apitask.Task) {
 	if !task.IsNetworkModeAWSVPC() {
 		return

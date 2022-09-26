@@ -15,7 +15,6 @@ package gpu
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -219,5 +218,5 @@ func WriteToFile(filename string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filename, data, perm)
+	return os.WriteFile(filename, data, perm)
 }

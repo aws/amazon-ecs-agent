@@ -31,10 +31,11 @@ const (
 )
 
 // A GenericMetricsClient records 3 metrics:
-// 1) A Prometheus summary vector representing call durations for different API calls
-// 2) A durations guage vector that updates the last recorded duration for the API call
-// 	  allowing for a time series view in the Prometheus browser
-// 3) A counter vector that increments call counts for each API call
+//  1. A Prometheus summary vector representing call durations for different API calls
+//  2. A durations guage vector that updates the last recorded duration for the API call
+//     allowing for a time series view in the Prometheus browser
+//  3. A counter vector that increments call counts for each API call
+//
 // The outstandingCalls map allows Fired CallStarts to be matched with Fired CallEnds
 type GenericMetrics struct {
 	durationVec      *prometheus.SummaryVec

@@ -71,7 +71,7 @@ type BooleanDefaultFalse struct {
 	Value Conditional
 }
 
-/// Enabled is a convenience function for when consumers don't care if the value is implicit or explicit
+// / Enabled is a convenience function for when consumers don't care if the value is implicit or explicit
 func (b BooleanDefaultFalse) Enabled() bool {
 	return b.Value == ExplicitlyEnabled
 }

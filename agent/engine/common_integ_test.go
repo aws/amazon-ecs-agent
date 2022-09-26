@@ -212,13 +212,14 @@ func waitForTaskCleanup(t *testing.T, taskEngine TaskEngine, taskArn string, sec
 // Organized first by EventType (Task or Container),
 // then by StatusType (i.e. RUNNING, STOPPED, etc)
 // then by Task/Container identifying string (TaskARN or ContainerName)
-//                   EventType
-//                  /         \
-//          TaskEvent         ContainerEvent
-//        /          \           /        \
-//    RUNNING      STOPPED   RUNNING      STOPPED
-//    /    \        /    \      |             |
-//  ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
+//
+//	                 EventType
+//	                /         \
+//	        TaskEvent         ContainerEvent
+//	      /          \           /        \
+//	  RUNNING      STOPPED   RUNNING      STOPPED
+//	  /    \        /    \      |             |
+//	ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
 type EventSet map[statechange.EventType]statusToName
 
 // Type definition for mapping a Status to a TaskARN/ContainerName

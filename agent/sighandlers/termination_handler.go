@@ -13,9 +13,12 @@
 
 // Package sighandlers handle signals and behave appropriately.
 // SIGTERM:
-//   Flush state to disk and exit
+//
+//	Flush state to disk and exit
+//
 // SIGUSR1:
-//   Print a dump of goroutines to the logger and DON'T exit
+//
+//	Print a dump of goroutines to the logger and DON'T exit
 package sighandlers
 
 import (
