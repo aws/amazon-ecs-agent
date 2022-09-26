@@ -44,11 +44,11 @@ const (
 	ecsMaxTaskReasonLength      = 1024
 	ecsMaxRuntimeIDLength       = 255
 	pollEndpointCacheTTL        = 12 * time.Hour
-	roundtripTimeout            = 5 * time.Second
 	azAttrName                  = "ecs.availability-zone"
 	cpuArchAttrName             = "ecs.cpu-architecture"
 	osTypeAttrName              = "ecs.os-type"
 	osFamilyAttrName            = "ecs.os-family"
+	RoundtripTimeout            = 5 * time.Second
 )
 
 // APIECSClient implements ECSClient
@@ -70,7 +70,7 @@ func NewECSClient(
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
+	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, config.AcceptInsecureCert)
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}
