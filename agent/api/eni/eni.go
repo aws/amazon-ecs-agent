@@ -214,6 +214,12 @@ func (eni *ENI) GetLinkName() string {
 				break
 			}
 		}
+		// If the ENI is not matched by MAC address above, we will fail to
+		// assign the LinkName. Log that here since CNI will fail with the empty
+		// name.
+		if eni.LinkName == "" {
+			seelog.Errorf("Failed to find LinkName for MAC %s", eni.MacAddress)
+		}
 	}
 
 	return eni.LinkName

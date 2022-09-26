@@ -39,7 +39,7 @@ func NewSSMClientCreator() SSMClientCreator {
 
 type ssmClientCreator struct{}
 
-//SSM Client will automatically retry 3 times when has throttling error
+// SSM Client will automatically retry 3 times when has throttling error
 func (*ssmClientCreator) NewSSMClient(region string,
 	creds credentials.IAMRoleCredentials) ssmclient.SSMClient {
 	cfg := aws.NewConfig().

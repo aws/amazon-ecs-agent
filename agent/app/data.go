@@ -46,20 +46,20 @@ type savedData struct {
 // load from boltdb, and if it doesn't get anything, it tries to load from state file and then save data it loaded to
 // boltdb. Behavior of three cases are considered:
 //
-// 1. Agent starts from fresh instance (no previous state):
-//    (1) Try to load from boltdb, get nothing;
-//    (2) Try to load from state file, get nothing;
-//    (3) Return empty data.
+//  1. Agent starts from fresh instance (no previous state):
+//     (1) Try to load from boltdb, get nothing;
+//     (2) Try to load from state file, get nothing;
+//     (3) Return empty data.
 //
-// 2. Agent starts with previous state stored in boltdb:
-//    (1) Try to load from boltdb, get the data;
-//    (2) Return loaded data.
+//  2. Agent starts with previous state stored in boltdb:
+//     (1) Try to load from boltdb, get the data;
+//     (2) Return loaded data.
 //
-// 3. Agent starts with previous state stored in state file (i.e. it was just upgraded from an old agent that uses state file):
-//    (1) Try to load from boltdb, get nothing;
-//    (2) Try to load from state file, get something;
-//    (3) Save loaded data to boltdb;
-//    (4) Return loaded data.
+//  3. Agent starts with previous state stored in state file (i.e. it was just upgraded from an old agent that uses state file):
+//     (1) Try to load from boltdb, get nothing;
+//     (2) Try to load from state file, get something;
+//     (3) Save loaded data to boltdb;
+//     (4) Return loaded data.
 func (agent *ecsAgent) loadData(containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,

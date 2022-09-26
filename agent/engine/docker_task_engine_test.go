@@ -1446,12 +1446,13 @@ func TestUpdateContainerReference(t *testing.T) {
 // TestPullAndUpdateContainerReference checks whether a container is added to task engine state when
 // Test # | Image availability  | DependentContainersPullUpfront | ImagePullBehavior
 // -----------------------------------------------------------------------------------
-//     1  |       remote        |              enabled           |      default
-//     2  |       remote        |              disabled          |      default
-//     3  |       local         |              enabled           |      default
-//     4  |       local         |              enabled           |       once
-//     5  |       local         |              enabled           |    prefer-cached
-//     6  |       local         |              enabled           |       always
+//
+//	1  |       remote        |              enabled           |      default
+//	2  |       remote        |              disabled          |      default
+//	3  |       local         |              enabled           |      default
+//	4  |       local         |              enabled           |       once
+//	5  |       local         |              enabled           |    prefer-cached
+//	6  |       local         |              enabled           |       always
 func TestPullAndUpdateContainerReference(t *testing.T) {
 	testcases := []struct {
 		Name                 string

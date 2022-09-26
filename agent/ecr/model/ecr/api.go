@@ -41,14 +41,13 @@ const opGetAuthorizationToken = "GetAuthorizationToken"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the GetAuthorizationTokenRequest method.
+//	req, resp := client.GetAuthorizationTokenRequest(params)
 //
-//    // Example sending a request using the GetAuthorizationTokenRequest method.
-//    req, resp := client.GetAuthorizationTokenRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 func (c *ECR) GetAuthorizationTokenRequest(input *GetAuthorizationTokenInput) (req *request.Request, output *GetAuthorizationTokenOutput) {
 	op := &request.Operation{
 		Name:       opGetAuthorizationToken,
@@ -75,10 +74,10 @@ func (c *ECR) GetAuthorizationTokenRequest(input *GetAuthorizationTokenInput) (r
 // API operation GetAuthorizationToken for usage and error information.
 //
 // Returned Error Types:
-//   * ServerException
 //
-//   * InvalidParameterException
+//   - ServerException
 //
+//   - InvalidParameterException
 func (c *ECR) GetAuthorizationToken(input *GetAuthorizationTokenInput) (*GetAuthorizationTokenOutput, error) {
 	req, out := c.GetAuthorizationTokenRequest(input)
 	return out, req.Send()

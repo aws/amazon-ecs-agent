@@ -138,7 +138,7 @@ func TestIsInternal(t *testing.T) {
 }
 
 // TestSetupExecutionRoleFlag tests whether or not the container appropriately
-//sets the flag for using execution roles
+// sets the flag for using execution roles
 func TestSetupExecutionRoleFlag(t *testing.T) {
 	testCases := []struct {
 		container *Container

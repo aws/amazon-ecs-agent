@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Sep 12, 18:00:00 UTC 2022 - chilinn@amazon.com - 1.63.1-1
+
+- Cache Agent version 1.63.1
+- Dependabot ecs-init fixes
+-------------------------------------------------------------------
 Tue Sep 06, 18:00:00 UTC 2022 - chilinn@amazon.com - 1.63.0-1
 
 - Cache Agent version 1.63.0
