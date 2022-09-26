@@ -45,6 +45,10 @@ gocyclo:
 
 GOFMTFILES:=$(shell find ./ecs-init -not -path './ecs-init/vendor/*' -type f -iregex '.*\.go')
 
+.PHONY: goimports
+goimports:
+	goimports -w $(GOFMTFILES)
+
 .PHONY: importcheck
 importcheck:
 	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))

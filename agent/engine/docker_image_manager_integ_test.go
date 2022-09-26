@@ -47,15 +47,16 @@ const (
 )
 
 // Deletion of images in the order of LRU time: Happy path
-//  a. This includes starting up agent, pull images, start containers,
-//    account them in image manager,  stop containers, remove containers, account this in image manager,
-//  b. Simulate the pulled time (so that it passes the minimum age criteria
-//    for getting chosen for deletion )
-//  c. Start image cleanup , ensure that ONLY the top 2 eligible LRU images
-//    are removed from the instance,  and those deleted images’ image states are removed from image manager.
-//  d. Ensure images that do not pass the ‘minimumAgeForDeletion’ criteria are not removed.
-//  e. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
-//  f. Ensure that that if not eligible, image is not deleted from the instance and image reference in ImageManager is not removed.
+//
+//	a. This includes starting up agent, pull images, start containers,
+//	  account them in image manager,  stop containers, remove containers, account this in image manager,
+//	b. Simulate the pulled time (so that it passes the minimum age criteria
+//	  for getting chosen for deletion )
+//	c. Start image cleanup , ensure that ONLY the top 2 eligible LRU images
+//	  are removed from the instance,  and those deleted images’ image states are removed from image manager.
+//	d. Ensure images that do not pass the ‘minimumAgeForDeletion’ criteria are not removed.
+//	e. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
+//	f. Ensure that that if not eligible, image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupHappyCase(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip(`Skipping this test because of error: level=error time=2020-05-27T20:20:03Z msg="Error removing` +
@@ -164,9 +165,10 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 }
 
 // Test that images not falling in the image deletion eligibility criteria are not removed:
-//  a. Ensure images that do not pass the ‘minimumAgeForDeletion’ criteria are not removed.
-//  b. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
-//  c. Ensure that the image is not deleted from the instance and image reference in ImageManager is not removed.
+//
+//	a. Ensure images that do not pass the ‘minimumAgeForDeletion’ criteria are not removed.
+//	b. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
+//	c. Ensure that the image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupThreshold(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second

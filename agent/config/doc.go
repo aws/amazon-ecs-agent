@@ -15,7 +15,7 @@
 Package config handles loading configuration data, warning on missing data,
 and setting sane defaults.
 
-Configuration Sources
+# Configuration Sources
 
 Configuration data is loaded from two sources currently: the environment and
 a json config file.

@@ -47,7 +47,7 @@ const (
 	defaultNetworkName = "network-name"
 )
 
-//IPAMNetworkConfig is the config format accepted by the plugin
+// IPAMNetworkConfig is the config format accepted by the plugin
 type IPAMNetworkConfig struct {
 	Name       string     `json:"name,omitempty"`
 	Type       string     `json:"type,omitempty"`

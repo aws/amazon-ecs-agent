@@ -115,10 +115,11 @@ type resourceTransition struct {
 // block and it is expected that the managedTask listen to those channels
 // almost constantly.
 // The general operation should be:
-//  1) Listen to the channels
-//  2) On an event, update the status of the task and containers (known/desired)
-//  3) Figure out if any action needs to be done. If so, do it
-//  4) GOTO 1
+//  1. Listen to the channels
+//  2. On an event, update the status of the task and containers (known/desired)
+//  3. Figure out if any action needs to be done. If so, do it
+//  4. GOTO 1
+//
 // Item '3' obviously might lead to some duration where you are not listening
 // to the channels. However, this can be solved by kicking off '3' as a
 // goroutine and then only communicating the result back via the channels

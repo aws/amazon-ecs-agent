@@ -1,4 +1,6 @@
+//go:build test
 // +build test
+
 // Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -16,7 +18,6 @@ package docker
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -943,13 +944,13 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 }
 
 func TestDefaultIsPathValid(t *testing.T) {
-	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	rootDir, err := os.MkdirTemp(os.TempDir(), testTempDirPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(rootDir)
 
-	file, err := ioutil.TempFile(rootDir, "file")
+	file, err := os.CreateTemp(rootDir, "file")
 	if err != nil {
 		t.Fatal(err)
 	}

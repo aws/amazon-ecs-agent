@@ -439,9 +439,9 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 
 // getDockerSocketBind returns the bind for Docker socket.
 // Value for the bind is as follow:
-// 1. DOCKER_HOST (as in os.Getenv) not set: source /var/run, dest /var/run
-// 2. DOCKER_HOST (as in os.Getenv) set: source DOCKER_HOST (as in os.Getenv, trim unix:// prefix),
-//   dest DOCKER_HOST (as in /etc/ecs/ecs.config, trim unix:// prefix)
+//  1. DOCKER_HOST (as in os.Getenv) not set: source /var/run, dest /var/run
+//  2. DOCKER_HOST (as in os.Getenv) set: source DOCKER_HOST (as in os.Getenv, trim unix:// prefix),
+//     dest DOCKER_HOST (as in /etc/ecs/ecs.config, trim unix:// prefix)
 //
 // On AL2, the value from os.Getenv is the same as the one from /etc/ecs/ecs.config, but on AL1 they might be different, which
 // is why I distinguish the two.
