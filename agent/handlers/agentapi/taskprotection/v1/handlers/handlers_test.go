@@ -63,7 +63,7 @@ func TestTaskProtectionPath(t *testing.T) {
 }
 
 // TestGetECSClientHappyCase tests newTaskProtectionClient uses credential in credentials manager and
-// returns a ECS client with correct status code and error
+// returns an ECS client with correct status code and error
 func TestGetECSClientHappyCase(t *testing.T) {
 	testTask := task.Task{
 		Arn:         testTaskArn,
@@ -480,27 +480,14 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			ecsResponse: &ecs.GetTaskProtectionOutput{
 				Failures: []*ecs.Failure{},
 				ProtectedTasks: []*ecs.ProtectedTask{{
-					ProtectionEnabled: aws.Bool(true),
-					ExpirationDate:    aws.Time(time.UnixMilli(0)),
+					ProtectionEnabled: aws.Bool(false),
+					ExpirationDate:    nil,
 					TaskArn:           aws.String(testTaskArn),
 				}},
 			},
 			expectedResponse: ecs.ProtectedTask{
-				ProtectionEnabled: aws.Bool(true),
-				ExpirationDate:    aws.Time(time.UnixMilli(0)),
-				TaskArn:           aws.String(testTaskArn),
-			},
-			expectedStatusCode: http.StatusOK,
-		},
-		{
-			name:     "SuccessWithNoProtectionTasks",
-			ecsError: nil,
-			ecsResponse: &ecs.GetTaskProtectionOutput{
-				Failures:       []*ecs.Failure{},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedResponse: ecs.ProtectedTask{
 				ProtectionEnabled: aws.Bool(false),
+				ExpirationDate:    nil,
 				TaskArn:           aws.String(testTaskArn),
 			},
 			expectedStatusCode: http.StatusOK,

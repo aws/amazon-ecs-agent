@@ -101,17 +101,17 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			return
 		}
 
-		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
-		if err != nil {
-			writeJSONResponse(w, responseCode, err.Error(), updateTaskProtectionRequestType)
-			return
-		}
-
 		logger.Info("UpdateTaskProtection endpoint was called", logger.Fields{
 			loggerfield.Cluster:        cluster,
 			loggerfield.TaskARN:        task.Arn,
 			loggerfield.TaskProtection: taskProtection,
 		})
+
+		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
+		if err != nil {
+			writeJSONResponse(w, responseCode, err.Error(), updateTaskProtectionRequestType)
+			return
+		}
 
 		response, err := ecsClient.UpdateTaskProtection(&ecs.UpdateTaskProtectionInput{
 			Cluster:           aws.String(cluster),
@@ -122,7 +122,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
-			logger.Info(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
+			logger.Error(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
 			writeJSONResponse(w, statusCode, err.Error(), updateTaskProtectionRequestType)
 			return
 		}
@@ -221,16 +221,16 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			return
 		}
 
+		logger.Info("GetTaskProtection endpoint was called", logger.Fields{
+			loggerfield.Cluster: cluster,
+			loggerfield.TaskARN: task.Arn,
+		})
+
 		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, responseCode, err.Error(), getTaskProtectionRequestType)
 			return
 		}
-
-		logger.Info("GetTaskProtection endpoint was called", logger.Fields{
-			loggerfield.Cluster: cluster,
-			loggerfield.TaskARN: task.Arn,
-		})
 
 		response, err := ecsClient.GetTaskProtection(&ecs.GetTaskProtectionInput{
 			Cluster: aws.String(cluster),
@@ -239,7 +239,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
-			logger.Info(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
+			logger.Error(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
 			writeJSONResponse(w, statusCode, err.Error(), getTaskProtectionRequestType)
 			return
 		}
@@ -255,20 +255,17 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			return
 		}
 
-		/**
-		 * handling different response scenarios
-		 * if protection is enabled, response contains a protectedTask with ProtectionEnabled value true
-		 * if protection expires for requested task, response contains a protectedTask with ProtectionEnabled value false
-		 * if protection is never set or specifically unset by user, response will be empty
-		 */
+		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.ProtectedTasks) > 0 {
 			writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], getTaskProtectionRequestType)
-		} else {
-			writeJSONResponse(w, http.StatusOK, ecs.ProtectedTask{
-				ProtectionEnabled: aws.Bool(false),
-				TaskArn:           aws.String(task.Arn),
-			}, getTaskProtectionRequestType)
+			return
 		}
+		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
+			logger.Error(fmt.Sprintf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks)))
+			writeJSONResponse(w, http.StatusInternalServerError, "An unexpected failure occurred.", getTaskProtectionRequestType)
+			return
+		}
+		writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], getTaskProtectionRequestType)
 	}
 }
 
