@@ -2783,3 +2783,26 @@ func (task *Task) UpdateTaskENIsLinkName() {
 		eni.GetLinkName()
 	}
 }
+
+// requiresCredentialSpecResource returns true if at least one container in the task
+// needs a valid credentialspec resource
+func (task *Task) requiresCredentialSpecResource() bool {
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			return true
+		}
+	}
+	return false
+}
+
+// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
+func (task *Task) getAllCredentialSpecRequirements() map[string]string {
+	reqsContainerMap := make(map[string]string)
+	for _, container := range task.Containers {
+		credentialSpec, err := container.GetCredentialSpec()
+		if err == nil && credentialSpec != "" {
+			reqsContainerMap[credentialSpec] = container.Name
+		}
+	}
+	return reqsContainerMap
+}

@@ -127,17 +127,6 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 	return errors.New("unsupported platform")
 }
 
-// requiresCredentialSpecResource returns true if at least one container in the task
-// needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
-	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
-			return true
-		}
-	}
-	return false
-}
-
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
@@ -160,18 +149,6 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	}
 
 	return nil
-}
-
-// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() map[string]string {
-	reqsContainerMap := make(map[string]string)
-	for _, container := range task.Containers {
-		credentialSpec, err := container.GetCredentialSpec()
-		if err == nil && credentialSpec != "" {
-			reqsContainerMap[credentialSpec] = container.Name
-		}
-	}
-	return reqsContainerMap
 }
 
 // GetCredentialSpecResource retrieves credentialspec resource from resource map

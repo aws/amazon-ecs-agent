@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -225,21 +227,37 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	return int64(containerCPU)
 }
 
-// requiresCredentialSpecResource returns true if at least one container in the task
-// needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
-	return false
-}
-
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
-	return errors.New("task credentialspec is only supported on windows")
+	credspecContainerMapping := task.getAllCredentialSpecRequirements()
+	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping)
+	if err != nil {
+		return err
+	}
+
+	task.AddResource(credentialspec.ResourceName, credentialspecResource)
+
+	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			container.BuildResourceDependency(credentialspecResource.GetName(),
+				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+
+	return nil
 }
 
 // GetCredentialSpecResource retrieves credentialspec resource from resource map
 func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
-	return []taskresource.TaskResource{}, false
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[credentialspec.ResourceName]
+	return res, ok
 }
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
