@@ -200,10 +200,6 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attr
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
 }
 
-func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	return capabilities
-}
-
 func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+taskENIIPv6AttributeSuffix)
 }

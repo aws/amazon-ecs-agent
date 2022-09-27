@@ -297,6 +297,14 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Att
 	return capabilities
 }
 
+func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if agent.cfg.GMSACapable {
+		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
+	}
+
+	return capabilities
+}
+
 func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	knownVersions := make(map[dockerclient.DockerVersion]struct{})
 	// Determine known API versions. Known versions are used exclusively for logging-driver enablement, since none of
