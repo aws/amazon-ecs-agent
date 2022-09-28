@@ -35,7 +35,6 @@ if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
 
 export GOROOT=/usr/local/go
 export PATH=$PATH:$GOROOT/bin
-echo "Running install-golang"
 
 # if golang isn't installed then we'll install it
 if [ -d "$GOROOT" ]; then
@@ -46,7 +45,7 @@ else
     tmpdir=$(mktemp -d)
     GOLANG_TAR="go${GO_VERSION}.linux-${GOARCH}.tar.gz"
     wget -O ${tmpdir}/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR}
-    tar -C /usr/local -xzf ${tmpdir}/${GOLANG_TAR}
+    sudo tar -C /usr/local -xzf ${tmpdir}/${GOLANG_TAR}
     which go
     go version
 fi

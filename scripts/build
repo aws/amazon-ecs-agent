@@ -82,7 +82,7 @@ else
 fi
 
 # run build from our temporary linked srcpath
-cd ${SRCPATH}/amazon-ecs-agent && ls
+cd ${SRCPATH}/amazon-ecs-agent
 if [[ "${TARGET_OS}" == "windows" ]]; then
     go build -ldflags "${LDFLAGS} -s" -o $build_artifact ./agent/
 elif [[ "${static}" == "true" ]]; then
