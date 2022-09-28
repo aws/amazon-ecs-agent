@@ -122,7 +122,10 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
-			logger.Error(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
+			logger.Error("Got an exception when calling UpdateTaskProtection.", logger.Fields{
+				"ExceptionType":   exceptionType,
+				loggerfield.Error: err,
+			})
 			writeJSONResponse(w, statusCode, err.Error(), updateTaskProtectionRequestType)
 			return
 		}
@@ -239,7 +242,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
-			logger.Error("ECS throws an exception.", logger.Fields{
+			logger.Error("Got an exception when calling GetTaskProtection.", logger.Fields{
 				"ExceptionType":   exceptionType,
 				loggerfield.Error: err,
 			})
@@ -258,11 +261,6 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			return
 		}
 
-		// there are no exceptions but there are failures when setting protection in scheduler
-		if len(response.ProtectedTasks) > 0 {
-			writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], getTaskProtectionRequestType)
-			return
-		}
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
 			logger.Error(fmt.Sprintf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks)))
 			writeJSONResponse(w, http.StatusInternalServerError, "An unexpected failure occurred.", getTaskProtectionRequestType)
