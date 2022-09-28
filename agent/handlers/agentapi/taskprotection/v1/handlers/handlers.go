@@ -239,7 +239,10 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		if err != nil {
 			exceptionType, statusCode := getExceptionTypeAndStatusCode(err)
-			logger.Error(fmt.Sprintf("ECS throws an exception with type %s", exceptionType))
+			logger.Error("ECS throws an exception.", logger.Fields{
+				"ExceptionType":   exceptionType,
+				loggerfield.Error: err,
+			})
 			writeJSONResponse(w, statusCode, err.Error(), getTaskProtectionRequestType)
 			return
 		}
@@ -275,8 +278,8 @@ func writeJSONResponse(w http.ResponseWriter, responseCode int, response interfa
 	bytes, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Agent API Task Protection V1: failed to marshal response as JSON", logger.Fields{
-			"response": response,
-			"error":    err,
+			"response":        response,
+			loggerfield.Error: err,
 		})
 		utils.WriteJSONToResponse(w, http.StatusInternalServerError, []byte(`{}`),
 			requestType)
