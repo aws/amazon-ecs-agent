@@ -173,7 +173,7 @@ func agentAPIV1HandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngine
 	muxRouter.
 		HandleFunc(
 			agentAPITaskProtectionV1.TaskProtectionPath(),
-			agentAPITaskProtectionV1.GetTaskProtectionHandler(state, credentialsManager, cluster, region)).
+			agentAPITaskProtectionV1.GetTaskProtectionHandler(state, credentialsManager, factory, cluster)).
 		Methods("GET")
 }
 
