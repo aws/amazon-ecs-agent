@@ -61,6 +61,8 @@ const (
 	agentAuthOff   = "0"
 	agentModeENV   = "APPNET_AGENT_ADMIN_MODE"
 	agentModeValue = "uds"
+	envoyModeENV   = "ENVOY_ADMIN_MODE"
+	envoyModeValue = "uds"
 
 	containerInstanceArnENV = "ECS_CONTAINER_INSTANCE_ARN"
 
@@ -222,6 +224,7 @@ func (m *manager) initRelayEnvironment(config *config.Config, container *apicont
 		upstreamENV:    filepath.Join(m.relayPathContainer, m.relayFileName),
 		regionENV:      config.AWSRegion,
 		agentModeENV:   agentModeValue,
+		envoyModeENV:   envoyModeValue,
 		relayEnableENV: relayEnableOn,
 		m.endpointENV:  endpoint,
 	}
