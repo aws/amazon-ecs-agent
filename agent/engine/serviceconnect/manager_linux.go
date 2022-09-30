@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -56,7 +57,7 @@ const (
 	// logging
 	defaultLogPathHostRoot              = "/var/log/ecs/service_connect/"
 	defaultLogPathContainer             = "/var/log/"
-	defaultLogPathECSAgentRoot          = "/log/service_connect/" // "/log" for ECS Agent is "/var/log/ecs" on host
+	defaultECSAgentLogPathForSC         = "/%s/service_connect/" // %s will be substituted with ECS Agent container log path
 	defaultAppnetEnvoyLogDestinationENV = "APPNET_ENVOY_LOG_DESTINATION"
 
 	relayEnableENV = "APPNET_ENABLE_RELAY_MODE_FOR_XDS"
@@ -80,6 +81,9 @@ const (
 	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.interface-v1.tar"
 	defaultAgentContainerImageName   = "appnet_agent"
 	defaultAgentContainerTag         = "service_connect.v1"
+
+	ecsAgentLogFileENV              = "ECS_LOGFILE"
+	defaultECSAgentLogPathContainer = "/log"
 )
 
 type manager struct {
@@ -133,7 +137,7 @@ func NewManager() Manager {
 		adminDrainRequest:   defaultAdminDrainRequest,
 		logPathContainer:    defaultLogPathContainer,
 		logPathHostRoot:     defaultLogPathHostRoot,
-		logPathECSAgentRoot: defaultLogPathECSAgentRoot,
+		logPathECSAgentRoot: fmt.Sprintf(defaultECSAgentLogPathForSC, getECSAgentLogPathContainer()),
 
 		AgentContainerImageName:   defaultAgentContainerImageName,
 		AgentContainerTag:         defaultAgentContainerTag,
@@ -388,4 +392,13 @@ func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error
 
 func (agent *manager) GetLoadedImageName() (string, error) {
 	return fmt.Sprintf("%s:%s", agent.AgentContainerImageName, agent.AgentContainerTag), nil
+}
+
+// getECSAgentLogPathContainer returns the directory path for ECS_LOGFILE env value if exists, otherwise returns "/log"
+func getECSAgentLogPathContainer() string {
+	ecsLogFilePath := os.Getenv(ecsAgentLogFileENV)
+	if ecsLogFilePath == "" {
+		return defaultECSAgentLogPathContainer
+	}
+	return path.Dir(ecsLogFilePath)
 }
