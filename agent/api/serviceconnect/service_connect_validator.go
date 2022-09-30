@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -29,7 +30,7 @@ const (
 	invalidEgressConfigFormat = `no service connect %s in the egress config. %s`
 	portCollisionFormat       = `%s port collision detected in the ingress config with the %s port=%d, and listener name=%s`
 	invalidIngressPortFormat  = `the %s port=%d in the ingress config is not valid: %w`
-	warningIngressPortFormat  = `Service connect config validation: %s port should not exist for %s mode in the ingress config`
+	warningIngressPortFormat  = `%s port should not exist for %s mode in the ingress config`
 	invalidDnsEntryFormat     = `no %s in the DNS config hostname=%s, address=%s`
 )
 
@@ -297,6 +298,8 @@ func validatePort(port uint16) error {
 }
 
 // ValidateSCConfig validates service connect container name, config, egress config, and ingress config.
+// Only log wanring messages instead of returning an error when ingress, egress and dns configs validations failed
+// as the ACS payload from ECS backend is single source of truth to Agent.
 func ValidateServiceConnectConfig(scConfig *Config,
 	taskContainers []*ecsacs.Container,
 	taskNetworkMode string,
@@ -307,19 +310,33 @@ func ValidateServiceConnectConfig(scConfig *Config,
 
 	// egress config and ingress config should not both be nil/empty
 	if scConfig.EgressConfig == nil && len(scConfig.IngressConfig) == 0 {
-		return fmt.Errorf("egress config and ingress config should not both be nil/empty")
+		logger.Warn("Service connect egress config is nil and ingress config is empty. Will proceed anyway.", logger.Fields{
+			field.Container: scConfig.ContainerName,
+		})
 	}
 
 	if err := validateEgressConfig(scConfig.EgressConfig, ipv6Enabled); err != nil {
-		return err
+		logger.Warn("Service connect egress config validation warnings. Will proceed anyway.", logger.Fields{
+			field.Container: scConfig.ContainerName,
+			"IPv6Enabled":   ipv6Enabled,
+			field.Error:     err,
+		})
 	}
 
 	if err := validateDnsConfig(scConfig.DNSConfig, scConfig.EgressConfig, ipv6Enabled); err != nil {
-		return err
+		logger.Warn("Service connect DNS config validation warnings. Will proceed anyway.", logger.Fields{
+			field.Container: scConfig.ContainerName,
+			"IPv6Enabled":   ipv6Enabled,
+			field.Error:     err,
+		})
 	}
 
 	if err := validateIngressConfig(scConfig.IngressConfig, taskNetworkMode); err != nil {
-		return err
+		logger.Warn("Service connect ingress config validation warnings. Will proceed anyway.", logger.Fields{
+			field.Container:   scConfig.ContainerName,
+			field.NetworkMode: taskNetworkMode,
+			field.Error:       err,
+		})
 	}
 
 	return nil

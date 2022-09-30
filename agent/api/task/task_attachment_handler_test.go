@@ -94,34 +94,18 @@ func TestNewAttachmentHandlers(t *testing.T) {
 
 func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 	tt := []struct {
-		testName                 string
-		testServiceConnectConfig string
-		shouldReturnError        bool
+		testName          string
+		testContainerName string
+		shouldReturnError bool
 	}{
 		{
-			testName: "AWSVPC IPv6 enabled without error",
-			testServiceConnectConfig: constructTestServiceConnectConfig(
-				testIngressPort,
-				testInboundListener,
-				testOutboundListener,
-				testIPv4CIDR,
-				testIPv6CIDR,
-				testHost,
-				testIPv6,
-			),
+			testName:          "AWSVPC IPv6 enabled without error",
+			testContainerName: testSCContainerName,
 			shouldReturnError: false,
 		},
 		{
-			testName: "AWSVPC IPv6 enabled with error",
-			testServiceConnectConfig: constructTestServiceConnectConfig(
-				testIngressPort,
-				testInboundListener,
-				testOutboundListener,
-				"",
-				testIPv6CIDR,
-				testHost,
-				testIPv6,
-			),
+			testName:          "AWSVPC IPv6 enabled with error",
+			testContainerName: "",
 			shouldReturnError: true,
 		},
 	}
@@ -149,12 +133,22 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 		},
 	}
 
+	testServiceConnectConfig := constructTestServiceConnectConfig(
+		testIngressPort,
+		testInboundListener,
+		testOutboundListener,
+		testIPv4CIDR,
+		testIPv6CIDR,
+		testHost,
+		testIPv6,
+	)
+
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
 			testAcsTask := &ecsacs.Task{
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
 				Containers: []*ecsacs.Container{
-					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
+					getTestcontainerFromACS(tc.testContainerName, AWSVPCNetworkMode),
 				},
 				Attachments: []*ecsacs.Attachment{
 					{
@@ -162,11 +156,11 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
 								Name:  stringToPointer(serviceconnect.GetServiceConnectConfigKey()),
-								Value: stringToPointer(tc.testServiceConnectConfig),
+								Value: stringToPointer(testServiceConnectConfig),
 							},
 							{
 								Name:  stringToPointer(serviceconnect.GetServiceConnectContainerNameKey()),
-								Value: stringToPointer(testSCContainerName),
+								Value: stringToPointer(tc.testContainerName),
 							},
 						},
 						AttachmentType: stringToPointer(serviceConnectAttachmentType),
