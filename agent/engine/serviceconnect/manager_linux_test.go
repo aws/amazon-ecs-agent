@@ -18,6 +18,7 @@ package serviceconnect
 
 import (
 	"io/fs"
+	"os"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -112,4 +113,43 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 
 func TestAgentContainerModificationsForServiceConnect_NonPrivileged(t *testing.T) {
 	testAgentContainerModificationsForServiceConnect(t, false)
+}
+
+func TestGetECSAgentLogPathContainer(t *testing.T) {
+	oldVal := os.Getenv(ecsAgentLogFileENV)
+	defer func() {
+		if oldVal != "" {
+			os.Setenv(ecsAgentLogFileENV, oldVal)
+		}
+	}()
+
+	type testCase struct {
+		envVal   string
+		expected string
+	}
+	testcases := []testCase{
+		{
+			envVal:   "/log/ecs-agent.log",
+			expected: "/log",
+		},
+		{
+			envVal:   "/some/path/to/log/ecs-agent.log",
+			expected: "/some/path/to/log",
+		},
+		{
+			envVal:   "",
+			expected: "/log",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			if tc.envVal == "" {
+				os.Unsetenv(ecsAgentLogFileENV)
+			} else {
+				os.Setenv(ecsAgentLogFileENV, tc.envVal)
+			}
+			actualPath := getECSAgentLogPathContainer()
+			assert.Equal(t, tc.expected, actualPath)
+		})
+	}
 }

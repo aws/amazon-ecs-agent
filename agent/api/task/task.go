@@ -1726,10 +1726,13 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 }
 
 // dockerExposedPorts returns the container ports that need to be exposed for a container
-// 1. For bridge-mode ServiceConnect-enabled tasks:
-//   1a. Pause containers need to expose the port(s) for their associated task container. In particular, SC pause container
+//  1. For bridge-mode ServiceConnect-enabled tasks:
+//     1a. Pause containers need to expose the port(s) for their associated task container. In particular, SC pause container
+//
 // needs to expose all listener ports for SC container
-//   1b. Other containers (customer-defined task containers as well as SC container) will not expose any ports as they are
+//
+//	1b. Other containers (customer-defined task containers as well as SC container) will not expose any ports as they are
+//
 // already exposed through pause container
 // 2. For all other tasks, we expose the application container ports.
 func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerExposedPorts nat.PortSet, err error) {

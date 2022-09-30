@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -53,6 +54,12 @@ const (
 	defaultStatusFileName     = "appnet_admin.sock"
 	defaultStatusENV          = "APPNET_AGENT_ADMIN_UDS_PATH"
 
+	// logging
+	defaultLogPathHostRoot              = "/var/log/ecs/service_connect/"
+	defaultLogPathContainer             = "/var/log/"
+	defaultECSAgentLogPathForSC         = "/%s/service_connect/" // %s will be substituted with ECS Agent container log path
+	defaultAppnetEnvoyLogDestinationENV = "APPNET_ENVOY_LOG_DESTINATION"
+
 	relayEnableENV = "APPNET_ENABLE_RELAY_MODE_FOR_XDS"
 	relayEnableOn  = "1"
 	upstreamENV    = "APPNET_RELAY_LISTENER_UDS_PATH"
@@ -74,6 +81,9 @@ const (
 	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.interface-v1.tar"
 	defaultAgentContainerImageName   = "appnet_agent"
 	defaultAgentContainerTag         = "service_connect.v1"
+
+	ecsAgentLogFileENV              = "ECS_LOGFILE"
+	defaultECSAgentLogPathContainer = "/log"
 )
 
 type manager struct {
@@ -93,6 +103,12 @@ type manager struct {
 	statusFileName string
 	// Environment variable to set on Container with contents of statusPathContainer/statusFileName
 	statusENV string
+	// Path to where AppNet log file will be written to inside container
+	logPathContainer string
+	// Path to where AppNet log file will be written to on host
+	logPathHostRoot string
+	// Path to create logging dir for AppNet, from ECS Agent point of view (b/c "/log" for ECS Agent is "/var/log/ecs" on host)
+	logPathECSAgentRoot string
 
 	// Http path + params to make a statistics request of AppNetAgent
 	adminStatsRequest string
@@ -119,6 +135,9 @@ func NewManager() Manager {
 		statusENV:           defaultStatusENV,
 		adminStatsRequest:   defaultAdminStatsRequest,
 		adminDrainRequest:   defaultAdminDrainRequest,
+		logPathContainer:    defaultLogPathContainer,
+		logPathHostRoot:     defaultLogPathHostRoot,
+		logPathECSAgentRoot: fmt.Sprintf(defaultECSAgentLogPathForSC, getECSAgentLogPathContainer()),
 
 		AgentContainerImageName:   defaultAgentContainerImageName,
 		AgentContainerTag:         defaultAgentContainerTag,
@@ -190,6 +209,18 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
+
+	// create logging directory and bind mount, if customer has not configured a logging driver
+	if container.GetLogDriver() == "" {
+		logPathHost := filepath.Join(m.logPathHostRoot, taskId)
+		logPathECSAgent := filepath.Join(m.logPathECSAgentRoot, taskId)
+		err := mkdirAllAndChown(logPathECSAgent, 0700, apiserviceconnect.AppNetUID, os.Getegid())
+		if err != nil {
+			return "", err
+		}
+		hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(logPathHost, m.logPathContainer))
+	}
+
 	return filepath.Join(statusPathHost, m.statusFileName), nil
 }
 
@@ -200,6 +231,9 @@ func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 		agentModeENV:            agentModeValue,
 		agentAuthENV:            agentAuthOff,
 		containerInstanceArnENV: m.containerInstanceARN,
+	}
+	if container.GetLogDriver() == "" {
+		scEnv[defaultAppnetEnvoyLogDestinationENV] = m.logPathContainer
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
@@ -220,13 +254,14 @@ func (m *manager) initRelayEnvironment(config *config.Config, container *apicont
 		}
 	}
 	scEnv := map[string]string{
-		m.statusENV:    filepath.Join(m.statusPathContainer, m.statusFileName),
-		upstreamENV:    filepath.Join(m.relayPathContainer, m.relayFileName),
-		regionENV:      config.AWSRegion,
-		agentModeENV:   agentModeValue,
-		envoyModeENV:   envoyModeValue,
-		relayEnableENV: relayEnableOn,
-		m.endpointENV:  endpoint,
+		m.statusENV:                         filepath.Join(m.statusPathContainer, m.statusFileName),
+		upstreamENV:                         filepath.Join(m.relayPathContainer, m.relayFileName),
+		regionENV:                           config.AWSRegion,
+		envoyModeENV:                        envoyModeValue,
+		agentModeENV:                        agentModeValue,
+		relayEnableENV:                      relayEnableOn,
+		m.endpointENV:                       endpoint,
+		defaultAppnetEnvoyLogDestinationENV: m.logPathContainer,
 	}
 
 	container.MergeEnvironmentVariables(scEnv)
@@ -357,4 +392,13 @@ func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error
 
 func (agent *manager) GetLoadedImageName() (string, error) {
 	return fmt.Sprintf("%s:%s", agent.AgentContainerImageName, agent.AgentContainerTag), nil
+}
+
+// getECSAgentLogPathContainer returns the directory path for ECS_LOGFILE env value if exists, otherwise returns "/log"
+func getECSAgentLogPathContainer() string {
+	ecsLogFilePath := os.Getenv(ecsAgentLogFileENV)
+	if ecsLogFilePath == "" {
+		return defaultECSAgentLogPathContainer
+	}
+	return path.Dir(ecsLogFilePath)
 }
