@@ -16,15 +16,17 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 )
 
-// Protection for a Task
+// taskProtection is type of Protection for a Task
 type taskProtection struct {
 	protectionEnabled bool
 	expiresInMinutes  *int64
 }
 
-// Custom JSON marshal function to marshal unexported fields for logging purposes
+// MarshalJSON is custom JSON marshal function to marshal unexported fields for logging purposes
 func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
 	jsonBytes, err := json.Marshal(struct {
 		ProtectionEnabled bool
@@ -41,7 +43,7 @@ func (taskProtection *taskProtection) MarshalJSON() ([]byte, error) {
 	return jsonBytes, nil
 }
 
-// Creates a taskProtection value after validating the arguments
+// NewTaskProtection creates a taskProtection value after validating the arguments
 func NewTaskProtection(protectionEnabled bool, expiresInMinutes *int64) (*taskProtection, error) {
 	if protectionEnabled && expiresInMinutes != nil && *expiresInMinutes <= 0 {
 		return nil, fmt.Errorf("expiration duration must be greater than zero minutes for enabled task protection")
@@ -65,6 +67,45 @@ func (taskProtection *taskProtection) String() string {
 	jsonBytes, err := taskProtection.MarshalJSON()
 	if err != nil {
 		return fmt.Sprintf("failed to get string representation of taskProtection type: %v", err)
+	}
+	return string(jsonBytes)
+}
+
+// TaskProtectionResponse is response type for all Update/GetTaskProtection requests
+type TaskProtectionResponse struct {
+	Protection *ecs.ProtectedTask `json:"protection,omitempty"`
+	Failure    *ecs.Failure       `json:"failure,omitempty"`
+}
+
+// MarshalJSON is custom JSON marshal function to marshal unexported fields for logging purposes
+func (taskProtectionResponse *TaskProtectionResponse) MarshalJSON() ([]byte, error) {
+	jsonBytes, err := json.Marshal(struct {
+		Protection ecs.ProtectedTask
+		Failure    ecs.Failure
+	}{
+		Protection: *taskProtectionResponse.Protection,
+		Failure:    *taskProtectionResponse.Failure,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonBytes, nil
+}
+
+// NewTaskProtectionResponse creates a taskProtection value after validating the arguments
+func NewTaskProtectionResponse(protection *ecs.ProtectedTask, failure *ecs.Failure) TaskProtectionResponse {
+	return TaskProtectionResponse{
+		Protection: protection,
+		Failure:    failure,
+	}
+}
+
+func (taskProtectionResponse *TaskProtectionResponse) String() string {
+	jsonBytes, err := taskProtectionResponse.MarshalJSON()
+	if err != nil {
+		return fmt.Sprintf("failed to get string representation of taskProtectionResponse type: %v", err)
 	}
 	return string(jsonBytes)
 }

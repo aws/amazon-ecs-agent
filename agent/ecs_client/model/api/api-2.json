@@ -1266,7 +1266,8 @@
       "type":"structure",
       "members":{
         "arn":{"shape":"String"},
-        "reason":{"shape":"String"}
+        "reason":{"shape":"String"},
+        "detail":{"shape":"String"}
       }
     },
     "Failures":{

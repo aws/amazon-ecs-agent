@@ -7888,6 +7888,8 @@ type Failure struct {
 	// The Amazon Resource Name (ARN) of the failed resource.
 	Arn *string `locationName:"arn" type:"string"`
 
+	Detail *string `locationName:"detail" type:"string"`
+
 	// The reason for the failure.
 	Reason *string `locationName:"reason" type:"string"`
 }
@@ -7905,6 +7907,12 @@ func (s Failure) GoString() string {
 // SetArn sets the Arn field's value.
 func (s *Failure) SetArn(v string) *Failure {
 	s.Arn = &v
+	return s
+}
+
+// SetDetail sets the Detail field's value.
+func (s *Failure) SetDetail(v string) *Failure {
+	s.Detail = &v
 	return s
 }
 
