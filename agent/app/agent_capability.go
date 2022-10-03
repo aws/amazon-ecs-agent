@@ -457,8 +457,18 @@ func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attr
 			return capabilities
 		}
 	}
-
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityServiceConnect)
+	loadedVer, _ := agent.serviceconnectManager.GetLoadedAppnetVersion()
+	supportedAppnetInterfaceVerToCapabilities, _ := agent.serviceconnectManager.GetCapabilitiesForAppnetInterfaceVersion(loadedVer)
+	if supportedAppnetInterfaceVerToCapabilities == nil {
+		logger.Warn("ServiceConnect Capability: No service connect capabilities were found for Appnet version:", logger.Fields{
+			field.Image: loadedVer,
+		},
+		)
+	}
+	for _, serviceConnectCapability := range supportedAppnetInterfaceVerToCapabilities {
+		capabilities = appendNameOnlyAttribute(capabilities, serviceConnectCapability)
+	}
+	return capabilities
 }
 
 func defaultGetSubDirectories(path string) ([]string, error) {

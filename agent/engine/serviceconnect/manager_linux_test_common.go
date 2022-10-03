@@ -123,7 +123,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 	}()
 	scTask, _, serviceConnectContainer := getAWSVPCTask(t)
 
-	expectedImage := "container:tag"
+	expectedImage := "container:interface-v1"
 
 	expectedBinds := []string{
 		fmt.Sprintf("%s/status/%s:%s", tempDir, scTask.GetID(), "/some/other/run"),
@@ -175,8 +175,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		adminStatsRequest:   "/give?stats",
 		adminDrainRequest:   "/do?drain",
 
-		AgentContainerImageName: "container",
-		AgentContainerTag:       "tag",
+		agentContainerImageName: "container",
+		appnetInterfaceVersion:  "v1",
 
 		containerInstanceARN: "fake_container_instance",
 		logPathContainer:     "/some/other/log",
@@ -205,13 +205,13 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		})
 	}
 
-	assert.Equal(t, serviceConnectContainer.Image, expectedImage)
-	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
-	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest, "/give?stats")
-	assert.Equal(t, scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest, "/do?drain")
+	assert.Equal(t, expectedImage, serviceConnectContainer.Image)
+	assert.Equal(t, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"), scTask.ServiceConnectConfig.RuntimeConfig.AdminSocketPath)
+	assert.Equal(t, "/give?stats", scTask.ServiceConnectConfig.RuntimeConfig.StatsRequest)
+	assert.Equal(t, "/do?drain", scTask.ServiceConnectConfig.RuntimeConfig.DrainRequest)
 
 	config := scTask.GetServiceConnectRuntimeConfig()
-	assert.Equal(t, config.AdminSocketPath, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"))
-	assert.Equal(t, config.StatsRequest, "/give?stats")
-	assert.Equal(t, config.DrainRequest, "/do?drain")
+	assert.Equal(t, fmt.Sprintf("%s/status/%s/%s", tempDir, scTask.GetID(), "status_file_of_holiness"), config.AdminSocketPath)
+	assert.Equal(t, "/give?stats", config.StatsRequest)
+	assert.Equal(t, "/do?drain", config.DrainRequest)
 }

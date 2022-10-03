@@ -98,6 +98,36 @@ func (mr *MockManagerMockRecorder) CreateInstanceTask(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceTask", reflect.TypeOf((*MockManager)(nil).CreateInstanceTask), arg0)
 }
 
+// GetCapabilitiesForAppnetInterfaceVersion mocks base method
+func (m *MockManager) GetCapabilitiesForAppnetInterfaceVersion(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCapabilitiesForAppnetInterfaceVersion", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCapabilitiesForAppnetInterfaceVersion indicates an expected call of GetCapabilitiesForAppnetInterfaceVersion
+func (mr *MockManagerMockRecorder) GetCapabilitiesForAppnetInterfaceVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapabilitiesForAppnetInterfaceVersion", reflect.TypeOf((*MockManager)(nil).GetCapabilitiesForAppnetInterfaceVersion), arg0)
+}
+
+// GetLoadedAppnetVersion mocks base method
+func (m *MockManager) GetLoadedAppnetVersion() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLoadedAppnetVersion")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLoadedAppnetVersion indicates an expected call of GetLoadedAppnetVersion
+func (mr *MockManagerMockRecorder) GetLoadedAppnetVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadedAppnetVersion", reflect.TypeOf((*MockManager)(nil).GetLoadedAppnetVersion))
+}
+
 // GetLoadedImageName mocks base method
 func (m *MockManager) GetLoadedImageName() (string, error) {
 	m.ctrl.T.Helper()
