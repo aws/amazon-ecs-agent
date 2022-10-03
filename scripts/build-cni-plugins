@@ -37,11 +37,15 @@ esac
 if [ "$architecture" == "amd64" ]; then export GOARCH=amd64; fi
 if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
 
-goversion=`go version | cut -d' ' -f3 | cut -c 3-`
-
 # this script assumes we've run the get-cni-sources make target to update the cni submodules
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
+
+# we need to make sure we've got the correct golang version installed
+# if it's already installed the script will set env vars and exit
+source ./scripts/install-golang.sh
+
+goversion=`go version | cut -d' ' -f3 | cut -c 3-`
 
 export BUILDDIR="$(mktemp -d)"
 export GITPATH="${BUILDDIR}/src/github.com/aws"
