@@ -30,4 +30,6 @@ type Manager interface {
 	CreateInstanceTask(config *config.Config) (*apitask.Task, error)
 	AugmentInstanceContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	SetECSClient(client api.ECSClient, containerInstanceARN string)
+	GetLoadedAppnetVersion() (string, error)
+	GetCapabilitiesForAppnetInterfaceVersion(appnetVersion string) ([]string, error)
 }

@@ -74,6 +74,8 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -161,6 +163,8 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -233,6 +237,8 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -305,6 +311,8 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -392,6 +400,8 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -467,6 +477,8 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -537,6 +549,8 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, errors.New("mock error"))
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -606,6 +620,8 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -683,6 +699,8 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -734,6 +752,8 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -782,6 +802,8 @@ func TestCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -858,6 +880,8 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,

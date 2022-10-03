@@ -98,8 +98,8 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 
 			hostConfig := &dockercontainer.HostConfig{}
 			scManager := &manager{
-				AgentContainerImageName: "container_image",
-				AgentContainerTag:       "tag",
+				agentContainerImageName: "container_image",
+				agentContainerTag:       "tag",
 			}
 			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
 			if err != nil {
@@ -150,6 +150,35 @@ func TestGetECSAgentLogPathContainer(t *testing.T) {
 			}
 			actualPath := getECSAgentLogPathContainer()
 			assert.Equal(t, tc.expected, actualPath)
+
+		})
+	}
+}
+
+func TestGetSupportedAppnetInterfaceVerToCapabilities(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		appNetAgentVersion   string
+		expectedCapabilities []string
+	}{
+		{
+			name:                 "test supported service connect capabilities for AppNet agent version v1",
+			appNetAgentVersion:   "",
+			expectedCapabilities: nil,
+		},
+		{
+			name:                 "test supported service connect capabilities for AppNet agent version v1",
+			appNetAgentVersion:   "v1",
+			expectedCapabilities: []string{"ecs.capability.service-connect-v1"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			scManager := &manager{}
+			scCapabilities, err := scManager.GetCapabilitiesForAppnetInterfaceVersion(tc.appNetAgentVersion)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedCapabilities, scCapabilities)
 		})
 	}
 }
