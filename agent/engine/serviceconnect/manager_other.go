@@ -69,3 +69,15 @@ func (*manager) GetLoadedImageName() (string, error) {
 		"appnetAgent container get image name: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
+
+func (*manager) GetLoadedAppnetVersion() (string, error) {
+	return "", loader.NewUnsupportedPlatformError(fmt.Errorf(
+		"appnetAgent container get loaded appnet version: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}
+
+func (*manager) GetCapabilitiesForAppnetInterfaceVersion(string) ([]string, error) {
+	return make([]string, 0), loader.NewUnsupportedPlatformError(fmt.Errorf(
+		"appnetAgent container get capabilities for appnet version: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}
