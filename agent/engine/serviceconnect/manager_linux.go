@@ -78,9 +78,9 @@ const (
 	defaultAdminStatsRequest = httpRequestPrefix + "/stats/prometheus?usedonly&filter=metrics_extension&delta"
 	defaultAdminDrainRequest = httpRequestPrefix + "/drain_listeners?inboundonly"
 
-	defaultAgentContainerTarballPath = "/managed-agents/serviceconnect/appnet_agent.interface-v1.tar"
-	defaultAgentContainerImageName   = "appnet_agent"
-	defaultAgentContainerTag         = "service_connect.v1"
+	defaultAgentContainerImageName         = "ecs-service-connect-agent"
+	defaultAgentContainerTagFormat         = "interface-%s"
+	defaultAgentContainerTarballPathFormat = "/managed-agents/serviceconnect/ecs-service-connect-agent.interface-%s.tar"
 
 	ecsAgentLogFileENV              = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer = "/log"
@@ -115,9 +115,9 @@ type manager struct {
 	// Http path + params to make a drain request of AppNetAgent
 	adminDrainRequest string
 
-	AgentContainerImageName   string
-	AgentContainerTag         string
-	AgentContainerTarballPath string
+	agentContainerImageName string
+	agentContainerTag       string
+	appnetInterfaceVersion  string
 
 	ecsClient            api.ECSClient
 	containerInstanceARN string
@@ -139,9 +139,7 @@ func NewManager() Manager {
 		logPathHostRoot:     defaultLogPathHostRoot,
 		logPathECSAgentRoot: fmt.Sprintf(defaultECSAgentLogPathForSC, getECSAgentLogPathContainer()),
 
-		AgentContainerImageName:   defaultAgentContainerImageName,
-		AgentContainerTag:         defaultAgentContainerTag,
-		AgentContainerTarballPath: defaultAgentContainerTarballPath,
+		agentContainerImageName: defaultAgentContainerImageName,
 	}
 }
 
@@ -372,17 +370,40 @@ func (m *manager) AugmentInstanceContainer(task *apitask.Task, container *apicon
 	return nil
 }
 
-// LoadImage helps load the AppNetAgent container image for the agent
-func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	logger.Debug("Loading appnet agent container tarball:", logger.Fields{
-		field.Image: agent.AgentContainerTarballPath,
-	})
-	if err := loader.LoadFromFile(ctx, agent.AgentContainerTarballPath, dockerClient); err != nil {
-		return nil, err
-	}
+func (agent *manager) setLoadedAppnetVerion(appnetInterfaceVersion string) {
+	agent.appnetInterfaceVersion = appnetInterfaceVersion
+}
 
-	imageName, _ := agent.GetLoadedImageName()
-	return loader.GetContainerImage(imageName, dockerClient)
+// LoadImage helps load the AppNetAgent container image for the agent latest supported
+// AppNet interface version by looking for the AppNet agent tar name from supported list
+// of AppNet versions from highest to lowest version when loading AppNet image
+func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+	var loadErr error
+	for _, supportedAppnetInterfaceVersion := range getSupportedAppnetInterfaceVersions() {
+		agentContainerTarballPath := fmt.Sprintf(defaultAgentContainerTarballPathFormat, supportedAppnetInterfaceVersion)
+		if _, err := os.Stat(agentContainerTarballPath); err != nil {
+			logger.Warn(fmt.Sprintf("AppNet agent container tarball unavailable: %s", agentContainerTarballPath), logger.Fields{
+				field.Error: err,
+			})
+			continue
+		}
+		logger.Debug(fmt.Sprintf("Loading appnet agent container tarball: %s", agentContainerTarballPath))
+		if loadErr = loader.LoadFromFile(ctx, agentContainerTarballPath, dockerClient); loadErr != nil {
+			logger.Warn(fmt.Sprintf("Unable to load appnet agent container tarball: %s", agentContainerTarballPath),
+				logger.Fields{
+					field.Error: loadErr,
+				})
+			continue
+		}
+		agent.setLoadedAppnetVerion(supportedAppnetInterfaceVersion)
+		imageName, _ := agent.GetLoadedImageName()
+		logger.Info(fmt.Sprintf("Successfully loaded appnet agent container tarball: %s", agentContainerTarballPath),
+			logger.Fields{
+				field.Image: imageName,
+			})
+		return loader.GetContainerImage(imageName, dockerClient)
+	}
+	return nil, loadErr
 }
 
 func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
@@ -391,7 +412,12 @@ func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error
 }
 
 func (agent *manager) GetLoadedImageName() (string, error) {
-	return fmt.Sprintf("%s:%s", agent.AgentContainerImageName, agent.AgentContainerTag), nil
+	agent.agentContainerTag = fmt.Sprintf(defaultAgentContainerTagFormat, agent.appnetInterfaceVersion)
+	return fmt.Sprintf("%s:%s", agent.agentContainerImageName, agent.agentContainerTag), nil
+}
+
+func (agent *manager) GetLoadedAppnetVersion() (string, error) {
+	return agent.appnetInterfaceVersion, nil
 }
 
 // getECSAgentLogPathContainer returns the directory path for ECS_LOGFILE env value if exists, otherwise returns "/log"
@@ -401,4 +427,18 @@ func getECSAgentLogPathContainer() string {
 		return defaultECSAgentLogPathContainer
 	}
 	return path.Dir(ecsLogFilePath)
+}
+
+// GetCapabilitiesForAppnetInterfaceVersion returns service connect capabilities
+// supported by ECS Agent to register for a selected AppNet version.
+// Suppose we decide to register ecs.service-connect.v2 capability for new AppNet version (ex: 1.24.0.0),
+// now if ecs.service-connect.*v1* is continuously being supported by 1.24.0.0,
+// we will then register multiple capabilities.
+//
+//	{
+//	   "v1": ["ecs.capability.service-connect-v1"],
+//	   "v2": ["ecs.capability.service-connect-v2", "ecs.capability.service-connect-v2"]
+//	}
+func (agent *manager) GetCapabilitiesForAppnetInterfaceVersion(appnetVersion string) ([]string, error) {
+	return supportedAppnetInterfaceVerToCapability[appnetVersion], nil
 }

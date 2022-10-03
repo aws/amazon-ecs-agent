@@ -109,6 +109,8 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 
@@ -449,6 +451,8 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 
 	gomock.InOrder(
@@ -536,6 +540,8 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 
 	mockControl.EXPECT().Init().Return(errors.New("test error"))
@@ -606,6 +612,8 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 
 	gomock.InOrder(
@@ -697,6 +705,8 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 
 	cfg := getTestConfig()
