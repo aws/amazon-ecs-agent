@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/pkg/errors"
 	prometheus "github.com/prometheus/client_model/go"
 )
 
@@ -42,6 +43,9 @@ func (cl *client) GetStats(config serviceconnect.RuntimeConfig) (map[string]*pro
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Wrapf(err, "received non-OK HTTP status %v from Service Connect stats endpoint", resp.StatusCode)
+	}
 	return parseServiceConnectStats(resp.Body)
 }
 
