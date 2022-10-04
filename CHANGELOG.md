@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.64.0
+* Feature - Add service connect feature. This feature enables ECS Service to be discoverable and ECS will leverage the container port mappings, service name and default application namespace associated with the cluster and the service to register your service for discovery and to enable discovery of dependencies through DNS lookup [#3414](https://github.com/aws/amazon-ecs-agent/pull/3414)
+* Bugfix: Bump Go to 1.19.1 for CVE-2022-27664 [#3398](https://github.com/aws/amazon-ecs-agent/pull/3398)
+
 ## 1.63.1
 * Feature - Add VPC ID to TMDE v4 Task Responses. [#3288](https://github.com/aws/amazon-ecs-agent/pull/3288) [#3385](https://github.com/aws/amazon-ecs-agent/pull/3385)
 * Feature - Add ServiceName to TMDE v4 Task Responses. [#3362](https://github.com/aws/amazon-ecs-agent/pull/3362)
