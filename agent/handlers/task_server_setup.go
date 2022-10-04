@@ -177,7 +177,7 @@ func agentAPIV1HandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngine
 		Methods("GET")
 }
 
-// ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, and IAM Role Credentials
+// ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, IAM Role Credentials, and Agent APIs
 // for tasks being managed by the agent.
 func ServeTaskHTTPEndpoint(
 	ctx context.Context,
