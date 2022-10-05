@@ -272,7 +272,7 @@ fi
 %endif
 
 %changelog
-* Tue Oct 04 2022 Utsa Bhattacharjya <utsa@amazon.com> - 1.64.0-0
+* Tue Oct 04 2022 Utsa Bhattacharjya <utsa@amazon.com> - 1.64.0-1
 - Cache Agent version 1.64.0
 
 * Mon Sep 12 2022 Chien Han Lin <chilinn@amazon.com> - 1.63.1-1
