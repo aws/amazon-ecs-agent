@@ -1391,14 +1391,13 @@ const opGetTaskProtection = "GetTaskProtection"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the GetTaskProtectionRequest method.
+//	req, resp := client.GetTaskProtectionRequest(params)
 //
-//    // Example sending a request using the GetTaskProtectionRequest method.
-//    req, resp := client.GetTaskProtectionRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 func (c *ECS) GetTaskProtectionRequest(input *GetTaskProtectionInput) (req *request.Request, output *GetTaskProtectionOutput) {
 	op := &request.Operation{
 		Name:       opGetTaskProtection,
@@ -1425,30 +1424,30 @@ func (c *ECS) GetTaskProtectionRequest(input *GetTaskProtectionInput) (req *requ
 // API operation GetTaskProtection for usage and error information.
 //
 // Returned Error Types:
-//   * AccessDeniedException
-//   You do not have authorization to perform the requested action.
 //
-//   * ClientException
-//   These errors are usually caused by a client action, such as using an action
-//   or resource on behalf of a user that doesn't have permissions to use the
-//   action or resource, or specifying an identifier that is not valid.
+//   - AccessDeniedException
+//     You do not have authorization to perform the requested action.
 //
-//   * ClusterNotFoundException
-//   The specified cluster could not be found. You can view your available clusters
-//   with ListClusters. Amazon ECS clusters are region-specific.
+//   - ClientException
+//     These errors are usually caused by a client action, such as using an action
+//     or resource on behalf of a user that doesn't have permissions to use the
+//     action or resource, or specifying an identifier that is not valid.
 //
-//   * InvalidParameterException
-//   The specified parameter is invalid. Review the available parameters for the
-//   API request.
+//   - ClusterNotFoundException
+//     The specified cluster could not be found. You can view your available clusters
+//     with ListClusters. Amazon ECS clusters are region-specific.
 //
-//   * ResourceNotFoundException
+//   - InvalidParameterException
+//     The specified parameter is invalid. Review the available parameters for the
+//     API request.
 //
-//   * ServerException
-//   These errors are usually caused by a server issue.
+//   - ResourceNotFoundException
 //
-//   * UnsupportedFeatureException
-//   The specified task is not supported in this region.
+//   - ServerException
+//     These errors are usually caused by a server issue.
 //
+//   - UnsupportedFeatureException
+//     The specified task is not supported in this region.
 func (c *ECS) GetTaskProtection(input *GetTaskProtectionInput) (*GetTaskProtectionOutput, error) {
 	req, out := c.GetTaskProtectionRequest(input)
 	return out, req.Send()
@@ -3913,14 +3912,13 @@ const opUpdateTaskProtection = "UpdateTaskProtection"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the UpdateTaskProtectionRequest method.
+//	req, resp := client.UpdateTaskProtectionRequest(params)
 //
-//    // Example sending a request using the UpdateTaskProtectionRequest method.
-//    req, resp := client.UpdateTaskProtectionRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 func (c *ECS) UpdateTaskProtectionRequest(input *UpdateTaskProtectionInput) (req *request.Request, output *UpdateTaskProtectionOutput) {
 	op := &request.Operation{
 		Name:       opUpdateTaskProtection,
@@ -3947,30 +3945,30 @@ func (c *ECS) UpdateTaskProtectionRequest(input *UpdateTaskProtectionInput) (req
 // API operation UpdateTaskProtection for usage and error information.
 //
 // Returned Error Types:
-//   * AccessDeniedException
-//   You do not have authorization to perform the requested action.
 //
-//   * ClientException
-//   These errors are usually caused by a client action, such as using an action
-//   or resource on behalf of a user that doesn't have permissions to use the
-//   action or resource, or specifying an identifier that is not valid.
+//   - AccessDeniedException
+//     You do not have authorization to perform the requested action.
 //
-//   * ClusterNotFoundException
-//   The specified cluster could not be found. You can view your available clusters
-//   with ListClusters. Amazon ECS clusters are region-specific.
+//   - ClientException
+//     These errors are usually caused by a client action, such as using an action
+//     or resource on behalf of a user that doesn't have permissions to use the
+//     action or resource, or specifying an identifier that is not valid.
 //
-//   * InvalidParameterException
-//   The specified parameter is invalid. Review the available parameters for the
-//   API request.
+//   - ClusterNotFoundException
+//     The specified cluster could not be found. You can view your available clusters
+//     with ListClusters. Amazon ECS clusters are region-specific.
 //
-//   * ResourceNotFoundException
+//   - InvalidParameterException
+//     The specified parameter is invalid. Review the available parameters for the
+//     API request.
 //
-//   * ServerException
-//   These errors are usually caused by a server issue.
+//   - ResourceNotFoundException
 //
-//   * UnsupportedFeatureException
-//   The specified task is not supported in this region.
+//   - ServerException
+//     These errors are usually caused by a server issue.
 //
+//   - UnsupportedFeatureException
+//     The specified task is not supported in this region.
 func (c *ECS) UpdateTaskProtection(input *UpdateTaskProtectionInput) (*UpdateTaskProtectionOutput, error) {
 	req, out := c.UpdateTaskProtectionRequest(input)
 	return out, req.Send()
