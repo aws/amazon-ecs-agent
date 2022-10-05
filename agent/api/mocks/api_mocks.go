@@ -24,6 +24,7 @@ import (
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	gomock "github.com/golang/mock/gomock"
 	go0 "github.com/prometheus/client_model/go"
+
 	reflect "reflect"
 )
 
