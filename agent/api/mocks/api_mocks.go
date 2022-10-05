@@ -19,13 +19,13 @@
 package mock_api
 
 import (
+	reflect "reflect"
+
 	api "github.com/aws/amazon-ecs-agent/agent/api"
 	serviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	gomock "github.com/golang/mock/gomock"
 	go0 "github.com/prometheus/client_model/go"
-
-	reflect "reflect"
 )
 
 // MockECSSDK is a mock of ECSSDK interface
