@@ -42,7 +42,7 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
 
       - apt-get update -y
-      - apt-get install -y make dpkg-dev devscripts debhelper
+      - apt-get install -y make dpkg-dev devscripts debhelper wget
       - make generic-deb-integrated
       - mv amazon-ecs-init_${AGENT_VERSION}-1_${architecture}.deb $ECS_AGENT_DEB
 
