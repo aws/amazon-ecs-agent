@@ -19,11 +19,13 @@ package s3
 import (
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	s3sdk "github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -36,6 +38,15 @@ const (
 	testKey     = "testkey"
 	testTimeout = 1 * time.Second
 )
+
+type mockGetObjectValue struct {
+	s3iface.S3API
+	Resp s3sdk.GetObjectOutput
+}
+
+func (m mockGetObjectValue) GetObject(input *s3sdk.GetObjectInput) (*s3sdk.GetObjectOutput, error) {
+	return &m.Resp, nil
+}
 
 func TestDownloadFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -77,4 +88,20 @@ func TestParseS3ARN(t *testing.T) {
 func TestParseS3ARNInvalid(t *testing.T) {
 	_, _, err := ParseS3ARN("arn:aws:xxx:::xxx")
 	assert.Error(t, err)
+}
+
+func TestGetObject(t *testing.T) {
+	expectedValue := "testdata"
+	s3Client := createS3Interface(expectedValue)
+	actualValue, err := GetObject(testBucket, testKey, s3Client)
+	assert.NoError(t, err)
+	assert.Equal(t, actualValue, expectedValue)
+}
+
+func createS3Interface(value string) mockGetObjectValue {
+	return mockGetObjectValue{
+		Resp: s3sdk.GetObjectOutput{
+			Body: io.NopCloser(strings.NewReader(value)),
+		},
+	}
 }

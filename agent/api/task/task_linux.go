@@ -232,7 +232,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	resourceFields *taskresource.ResourceFields) error {
 	credspecContainerMapping := task.getAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping)
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.ASMClientCreator, resourceFields.S3ClientCreator, credspecContainerMapping)
 	if err != nil {
 		return err
 	}

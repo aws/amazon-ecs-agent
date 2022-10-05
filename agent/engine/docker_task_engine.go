@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1340,10 +1339,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 		containerCredSpec, err := container.GetCredentialSpec()
 		if err == nil && containerCredSpec != "" {
-			// on indows CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
+			// on windows CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
 			// on linux CredentialSpec mapping: input := ssm/asm arn, output := /var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz
 			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
-			if runtime.GOOS == "windows" {
+			if config.OSType == "windows" {
 				if err != nil || desiredCredSpecInjection == "" {
 					missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec mapping"}
 					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
@@ -1385,7 +1384,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 				if len(hostConfig.SecurityOpt) != 0 {
 					for idx, opt := range hostConfig.SecurityOpt {
-						// security opt is not available for linux on docker
+						// credentialspec security opt is not supported by docker on linux
 						if strings.HasPrefix(opt, "credentialspec:") {
 							hostConfig.SecurityOpt = remove(hostConfig.SecurityOpt, idx)
 						}

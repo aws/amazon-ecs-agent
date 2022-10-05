@@ -23,6 +23,7 @@ import (
 
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3 "github.com/aws/amazon-ecs-agent/agent/s3"
+	s3iface "github.com/aws/aws-sdk-go/service/s3/s3iface"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -47,6 +48,20 @@ func NewMockS3ClientCreator(ctrl *gomock.Controller) *MockS3ClientCreator {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockS3ClientCreator) EXPECT() *MockS3ClientCreatorMockRecorder {
 	return m.recorder
+}
+
+// NewS3Client mocks base method
+func (m *MockS3ClientCreator) NewS3Client(arg0 string, arg1 credentials.IAMRoleCredentials) s3iface.S3API {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewS3Client", arg0, arg1)
+	ret0, _ := ret[0].(s3iface.S3API)
+	return ret0
+}
+
+// NewS3Client indicates an expected call of NewS3Client
+func (mr *MockS3ClientCreatorMockRecorder) NewS3Client(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3Client", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3Client), arg0, arg1)
 }
 
 // NewS3ClientForBucket mocks base method

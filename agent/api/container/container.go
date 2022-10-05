@@ -80,10 +80,6 @@ const (
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
 	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
-
-	// DockerContainerMinimumMemoryInBytes is the minimum amount of
-	// memory to be allocated to a docker container
-	DockerContainerMinimumMemoryInBytes = 256 * 1024 * 1024 // 256MB
 )
 
 var (

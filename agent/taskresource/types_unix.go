@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 )
 
@@ -31,5 +32,6 @@ type ResourceFields struct {
 	*ResourceFieldsCommon
 	Ctx              context.Context
 	DockerClient     dockerapi.DockerClient
+	S3ClientCreator  s3factory.S3ClientCreator
 	NvidiaGPUManager gpu.GPUManager
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -163,6 +164,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		Ctx:              agent.ctx,
 		DockerClient:     agent.dockerClient,
 		NvidiaGPUManager: gpu.NewNvidiaGPUManager(),
+		S3ClientCreator:  s3factory.NewS3ClientCreator(),
 	}
 }
 

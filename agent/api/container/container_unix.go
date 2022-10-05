@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,7 +14,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package s3
+package container
 
-//go:generate mockgen -destination=mocks/s3_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/s3 S3Client
-//go:generate mockgen -destination=mocks/api/s3api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/aws-sdk-go/service/s3/s3iface S3API
+const (
+	// DockerContainerMinimumMemoryInBytes is the minimum amount of
+	// memory to be allocated to a docker container
+	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
+)

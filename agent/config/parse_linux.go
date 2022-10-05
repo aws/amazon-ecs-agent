@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/cihub/seelog"
 )
 
 func parseGMSACapability() bool {
@@ -34,12 +35,18 @@ func parseGMSACapability() bool {
 			_, err := os.Stat(credentialsfetcherHostDir)
 			if err != nil {
 				if os.IsNotExist(err) {
+					seelog.Debug("credentials fetcher socket doesn't exist to support linux gmsa")
 					return false
 				}
 			}
 			// returns true if the container instance is domain joined
 			// this env variable is set in ecs-init module
-			return utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
+			isDomainJoined := utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
+
+			if !isDomainJoined {
+				seelog.Debug("Unable to determine valid domain join")
+			}
+			return isDomainJoined
 		}
 	}
 	return false

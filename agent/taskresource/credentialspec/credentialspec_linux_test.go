@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build linux && unit
+// +build linux,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,26 +17,28 @@
 package credentialspec
 
 import (
+	"io"
+	"strings"
 	"sync"
+	"testing"
 
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mockasmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mockasmiface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mockcredentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
+	mock_s3iface "github.com/aws/amazon-ecs-agent/agent/s3/mocks/api"
 	mockfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mockssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
+	s3sdk "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/ssm"
-
-	"testing"
-
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,8 +51,8 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	credSpecMapData := map[string]string{
-		"ssmARN": "/var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz",
-		"asmARN": "/var/credentials-fetcher/krbdir/123456/ccname_webapp02_xyz",
+		"ssmARN": "/var/credentials-fetcher/krbdir/123456/webapp01",
+		"asmARN": "/var/credentials-fetcher/krbdir/123456/webapp02",
 	}
 
 	credentialsFetcherInfoMap := map[string]ServiceAccountInfo{
@@ -118,9 +120,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 		knownStatusUnsafe:          resourcestatus.ResourceCreated,
 		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
 		CredSpecMap:                map[string]string{},
-		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 		taskARN:                    taskARN,
 		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 	}
 
 	cs.Initialize(&taskresource.ResourceFields{
@@ -140,7 +142,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 			},
 		},
 	}
-	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz"
+	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
@@ -208,6 +210,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		CredSpecMap:                map[string]string{},
 		taskARN:                    taskARN,
 		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -257,9 +260,9 @@ func TestHandleASMCredentialSpecFile(t *testing.T) {
 		knownStatusUnsafe:          resourcestatus.ResourceCreated,
 		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
 		CredSpecMap:                map[string]string{},
-		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 		taskARN:                    taskARN,
 		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 	}
 
 	cs.Initialize(&taskresource.ResourceFields{
@@ -270,13 +273,14 @@ func TestHandleASMCredentialSpecFile(t *testing.T) {
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
+
 	asmClientOutput := &secretsmanager.GetSecretValueOutput{
 		ARN:          aws.String("arn:aws:secretsmanager:us-west-2:618112483929:secret:test-8mJ3EJ"),
 		Name:         aws.String("test"),
 		VersionId:    aws.String("f3b693da-0204-4a02-8b94-ddfbe964ebcb"),
 		SecretString: aws.String(testData),
 	}
-	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz"
+	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
 		asmClientCreater.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient),
@@ -344,6 +348,7 @@ func TestHandleASMCredentialSpecFileGetASMSecretValueErr(t *testing.T) {
 		CredSpecMap:                map[string]string{},
 		taskARN:                    taskARN,
 		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -368,6 +373,138 @@ func TestHandleASMCredentialSpecFileGetASMSecretValueErr(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mockcredentials.NewMockManager(ctrl)
+	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+	mockS3Client := mock_s3iface.NewMockS3API(ctrl)
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
+
+	containerName := "webapp"
+
+	credentialSpecS3ARN := "arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+	s3CredentialSpec := "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+
+	credentialSpecContainerMap := map[string]string{
+		credentialSpecS3ARN: containerName,
+	}
+
+	cs := &CredentialSpecResource{
+		knownStatusUnsafe:          resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+		CredSpecMap:                map[string]string{},
+		taskARN:                    taskARN,
+		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
+	}
+	cs.Initialize(&taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+		S3ClientCreator: s3ClientCreator,
+	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
+	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
+
+	s3GetObjectResponse := &s3sdk.GetObjectOutput{
+		Body: io.NopCloser(strings.NewReader(testData)),
+	}
+	gomock.InOrder(
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any()).Return(mockS3Client),
+		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
+	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials, &wg, errorEvents)
+	wg.Wait()
+	close(errorEvents)
+
+	err := <-errorEvents
+	assert.NoError(t, err)
+
+	cs.CredSpecMap[credentialSpecS3ARN] = expectedKerberosTicketPath
+	actualKerberosTicketPath, err := cs.GetTargetMapping(credentialSpecS3ARN)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedKerberosTicketPath, actualKerberosTicketPath)
+}
+
+func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mockcredentials.NewMockManager(ctrl)
+	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+	mockS3Client := mock_s3iface.NewMockS3API(ctrl)
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
+
+	credentialSpecS3ARN := "arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+	s3CredentialSpec := "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+
+	credentialSpecContainerMap := map[string]string{credentialSpecS3ARN: "webapp"}
+
+	cs := &CredentialSpecResource{
+		knownStatusUnsafe:          resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+		CredSpecMap:                map[string]string{},
+		taskARN:                    taskARN,
+		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
+	}
+	cs.Initialize(&taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+		S3ClientCreator: s3ClientCreator,
+	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	gomock.InOrder(
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any()).Return(mockS3Client),
+		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
+	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials, &wg, errorEvents)
+	wg.Wait()
+	close(errorEvents)
+
+	err := <-errorEvents
+	assert.Error(t, err)
+}
+
+func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
+	credentialSpecSSMARN := "arn:aws:s3:::contoso_webapp01.json"
+	ssmCredentialSpec := "credentialspec:arn:aws:s3:::contoso_webapp01.json"
+
+	cs := &CredentialSpecResource{
+		terminalReason: "failed",
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errorEvents := make(chan error, 1)
+	go cs.handleS3CredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
+
+	wg.Wait()
+	close(errorEvents)
+
+	err := <-errorEvents
+	assert.Error(t, err)
+}
+
 func TestGetName(t *testing.T) {
 	cs := &CredentialSpecResource{}
 
@@ -376,10 +513,10 @@ func TestGetName(t *testing.T) {
 
 func TestGetTargetMapping(t *testing.T) {
 	inputCredSpec := "credentialspec:ssmARN"
-	outputKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz"
+	outputKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	credSpecMapData := map[string]string{
-		"credentialspec:ssmARN": "/var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz",
+		"credentialspec:ssmARN": "/var/credentials-fetcher/krbdir/123456/webapp01",
 	}
 	credentialsFetcherInfoMap := map[string]ServiceAccountInfo{
 		"credentialspec:ssmARN": {serviceAccountName: "webapp01", domainName: "contoso.com"},

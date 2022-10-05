@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,7 +14,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package s3
+package credentialspec
 
-//go:generate mockgen -destination=mocks/s3_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/s3 S3Client
-//go:generate mockgen -destination=mocks/api/s3api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/aws-sdk-go/service/s3/s3iface S3API
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGetResourceName(t *testing.T) {
+	cs := &CredentialSpecResource{}
+
+	assert.Equal(t, ResourceName, cs.GetName())
+}
