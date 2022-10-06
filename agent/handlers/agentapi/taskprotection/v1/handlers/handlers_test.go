@@ -140,11 +140,6 @@ func testUpdateTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineS
 	assert.Equal(t, string(expectedResponseJSON), string(responseBody))
 }
 
-func generateTaskArnPtr() *string {
-	taskArnString := testTaskArn
-	return &taskArnString
-}
-
 func generateRequestIdPtr() *string {
 	requestIdString := testRequestID
 	return &requestIdString
@@ -231,45 +226,21 @@ func TestUpdateTaskProtectionHandlerTaskNotFound(t *testing.T) {
 		expectedResponse, http.StatusInternalServerError)
 }
 
-// TestUpdateTaskProtectionHandler_InputValidationsFieldError tests UpdateTaskProtection handler's
-// behavior with different invalid inputs with error in specific fields
-func TestUpdateTaskProtectionHandler_InputValidationsFieldError(t *testing.T) {
-	testCases := []struct {
-		name          string
-		request       interface{}
-		expectedError *types.ErrorResponse
-	}{
-		{
-			name:          "EmptyRequest",
-			request:       nil,
-			expectedError: &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeInvalidParameterException, Message: "Invalid request: does not contain 'ProtectionEnabled' field"},
-		},
-		{
-			name: "InvalidExpiry",
-			request: &TaskProtectionRequest{
-				ProtectionEnabled: utils.BoolPtr(true),
-				ExpiresInMinutes:  utils.Int64Ptr(-4),
-			},
-			expectedError: &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeInvalidParameterException, Message: "Invalid request: expiration duration must be greater than zero minutes for enabled task protection"},
-		},
+// TestUpdateTaskProtectionHandler_EmptyRequest tests UpdateTaskProtection handler's behavior with empty inputs
+func TestUpdateTaskProtectionHandler_EmptyRequest(t *testing.T) {
+	expectedError := &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "Invalid request: does not contain 'ProtectionEnabled' field"}
+	testTask := task.Task{
+		Arn:         testTaskArn,
+		ServiceName: testServiceName,
 	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			testTask := task.Task{
-				Arn:         testTaskArn,
-				ServiceName: testServiceName,
-			}
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
-			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
-			expectedResponse := types.TaskProtectionResponse{Error: tc.expectedError}
-			testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
-				tc.request, expectedResponse, http.StatusBadRequest)
-		})
-	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
+	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
+	expectedResponse := types.TaskProtectionResponse{Error: expectedError}
+	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
+		nil, expectedResponse, http.StatusBadRequest)
 }
 
 // TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound tests UpdateTaskProtection handler's
@@ -299,7 +270,7 @@ func TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 
 	expectedResponse := types.TaskProtectionResponse{
 		Error: &types.ErrorResponse{
-			Arn:     generateTaskArnPtr(),
+			Arn:     testTaskArn,
 			Code:    ecs.ErrCodeAccessDeniedException,
 			Message: "Invalid Request: no task IAM role credentials available for task",
 		},
@@ -327,7 +298,7 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "RequestFailure_ServerException",
 			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeServerException, "error message", nil), http.StatusInternalServerError, testRequestID),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedRequestId:  generateRequestIdPtr(),
 		},
@@ -335,7 +306,7 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "RequestFailure_OtherExceptions",
 			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil), http.StatusBadRequest, testRequestID),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedRequestId:  generateRequestIdPtr(),
 		},
@@ -343,14 +314,14 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "NonRequestFailureAwsError",
 			ecsError:           awserr.New(ecs.ErrCodeInvalidParameterException, "error message", nil),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name:               "NonAwsError",
 			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
@@ -577,7 +548,7 @@ func TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 
 	expectedResponse := types.TaskProtectionResponse{
 		Error: &types.ErrorResponse{
-			Arn:     generateTaskArnPtr(),
+			Arn:     testTaskArn,
 			Code:    ecs.ErrCodeAccessDeniedException,
 			Message: "Invalid Request: no task IAM role credentials available for task",
 		},
@@ -605,7 +576,7 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "RequestFailure_ServerException",
 			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeServerException, "error message", nil), http.StatusInternalServerError, testRequestID),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedRequestId:  generateRequestIdPtr(),
 		},
@@ -613,7 +584,7 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "RequestFailure_OtherExceptions",
 			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil), http.StatusBadRequest, testRequestID),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedRequestId:  generateRequestIdPtr(),
 		},
@@ -621,14 +592,14 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			name:               "NonRequestFailureAwsError",
 			ecsError:           awserr.New(ecs.ErrCodeInvalidParameterException, "error message", nil),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name:               "NonAwsError",
 			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedError:      &types.ErrorResponse{Arn: generateTaskArnPtr(), Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{

@@ -80,7 +80,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 				loggerfield.Error: err,
 			})
 			writeJSONResponse(w, http.StatusBadRequest, nil, nil,
-				generateErrorResponse(nil, ecs.ErrCodeInvalidParameterException, "UpdateTaskProtection: failed to decode request"),
+				generateErrorResponse("", ecs.ErrCodeInvalidParameterException, "UpdateTaskProtection: failed to decode request"),
 				nil, updateTaskProtectionRequestType)
 			return
 		}
@@ -88,25 +88,19 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		task, responseCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
 			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(nil, errorCode, err.Error()), nil,
+				generateErrorResponse("", errorCode, err.Error()), nil,
 				updateTaskProtectionRequestType)
 			return
 		}
 
 		if request.ProtectionEnabled == nil {
 			writeJSONResponse(w, http.StatusBadRequest, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeInvalidParameterException, "Invalid request: does not contain 'ProtectionEnabled' field"),
+				generateErrorResponse(task.Arn, ecs.ErrCodeInvalidParameterException, "Invalid request: does not contain 'ProtectionEnabled' field"),
 				nil, updateTaskProtectionRequestType)
 			return
 		}
 
-		taskProtection, err := types.NewTaskProtection(*request.ProtectionEnabled, request.ExpiresInMinutes)
-		if err != nil {
-			writeJSONResponse(w, http.StatusBadRequest, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeInvalidParameterException, err.Error()), nil,
-				updateTaskProtectionRequestType)
-			return
-		}
+		taskProtection := types.NewTaskProtection(*request.ProtectionEnabled, request.ExpiresInMinutes)
 
 		logger.Info("UpdateTaskProtection endpoint was called", logger.Fields{
 			loggerfield.Cluster:        cluster,
@@ -117,7 +111,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
+				generateErrorResponse(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -142,7 +136,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(&task.Arn, exceptionType, errorMsg), reqId, updateTaskProtectionRequestType)
+			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(task.Arn, exceptionType, errorMsg), reqId, updateTaskProtectionRequestType)
 			return
 		}
 
@@ -160,7 +154,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
 			writeJSONResponse(w, http.StatusInternalServerError, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
+				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -177,7 +171,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 		task, responseCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
 			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(nil, errorCode, err.Error()), nil,
+				generateErrorResponse("", errorCode, err.Error()), nil,
 				getTaskProtectionRequestType)
 			return
 		}
@@ -190,7 +184,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
+				generateErrorResponse(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
 				getTaskProtectionRequestType)
 			return
 		}
@@ -213,7 +207,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(&task.Arn, exceptionType, errorMsg), reqId, getTaskProtectionRequestType)
+			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(task.Arn, exceptionType, errorMsg), reqId, getTaskProtectionRequestType)
 			return
 		}
 
@@ -232,7 +226,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
 			writeJSONResponse(w, http.StatusInternalServerError, nil, nil,
-				generateErrorResponse(&task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
+				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
 				getTaskProtectionRequestType)
 			return
 		}
@@ -302,7 +296,7 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 }
 
 // generateErrorResponse generates an error in *type.ErrorResponse format for Agent input validations failures and exceptions
-func generateErrorResponse(arn *string, code string, message string) *types.ErrorResponse {
+func generateErrorResponse(arn string, code string, message string) *types.ErrorResponse {
 	retErr := types.ErrorResponse{
 		Arn:     arn,
 		Code:    code,
@@ -327,7 +321,7 @@ func handleFailure(failureReason string) int {
 // Writes the provided response to the ResponseWriter and handles any errors
 func writeJSONResponse(w http.ResponseWriter, responseCode int, protectedTask *ecs.ProtectedTask, failure *ecs.Failure,
 	errResp *types.ErrorResponse, requestID *string, requestType string) {
-	response := types.NewTaskProtectionResponse(requestID, protectedTask, failure, errResp)
+	response := types.TaskProtectionResponse{RequestID: requestID, Protection: protectedTask, Failure: failure, Error: errResp}
 	bytes, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Agent API Task Protection V1: failed to marshal response as JSON", logger.Fields{
