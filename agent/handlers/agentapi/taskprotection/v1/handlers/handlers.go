@@ -40,7 +40,7 @@ import (
 const (
 	ExpectedProtectionResponseLength           = 1
 	ProtectionFailureReasonMissing             = "MISSING"
-	ProtectionFailureReasonNotManagedByService = "NOT_MANAGED_BY_SERVICE"
+	ProtectionFailureReasonNotManagedByService = "INVALID"
 	ProtectionFailureReasonTaskState           = "TASK_STOPPING_OR_STOPPED"
 	ProtectionFailureReasonBlockedDeployment   = "DEPLOYMENT_BLOCKED"
 )
@@ -80,7 +80,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 				loggerfield.Error: err,
 			})
 			writeJSONResponse(w, http.StatusBadRequest,
-				types.NewTaskProtectionResponseError(generateErrorResponse("", ecs.ErrCodeInvalidParameterException,
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr("", ecs.ErrCodeInvalidParameterException,
 					"UpdateTaskProtection: failed to decode request"), nil),
 				updateTaskProtectionRequestType)
 			return
@@ -89,14 +89,14 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		task, statusCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
 			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(generateErrorResponse("", errorCode, err.Error()), nil),
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr("", errorCode, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
 
 		if request.ProtectionEnabled == nil {
 			writeJSONResponse(w, http.StatusBadRequest,
-				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, ecs.ErrCodeInvalidParameterException,
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeInvalidParameterException,
 					"Invalid request: does not contain 'ProtectionEnabled' field"), nil),
 				updateTaskProtectionRequestType)
 			return
@@ -113,7 +113,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, err.Error()), nil),
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -138,7 +138,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, errorMsg), reqId),
+			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, errorMsg), reqId),
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -150,14 +150,14 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason), types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
+			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason, task.Arn), types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
 			return
 		}
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
 			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
-				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
+				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -174,7 +174,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 		task, statusCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
 			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(generateErrorResponse("", errorCode, err.Error()), nil),
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr("", errorCode, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -187,7 +187,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
 			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, err.Error()), nil),
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -210,7 +210,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, errorMsg), reqId),
+			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, errorMsg), reqId),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -222,7 +222,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		// there are no exceptions but there are failures when getting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason), types.NewTaskProtectionResponseFailure(response.Failures[0]), getTaskProtectionRequestType)
+			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason, task.Arn), types.NewTaskProtectionResponseFailure(response.Failures[0]), getTaskProtectionRequestType)
 			return
 		}
 
@@ -230,7 +230,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
 			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
-				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
+				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -299,25 +299,18 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 	return task, http.StatusOK, "", nil
 }
 
-// generateErrorResponse generates an error in *type.ErrorResponse format for Agent input validations failures and exceptions
-func generateErrorResponse(arn string, code string, message string) *types.ErrorResponse {
-	retErr := types.ErrorResponse{
-		Arn:     arn,
-		Code:    code,
-		Message: message,
-	}
-	return &retErr
-}
-
 // getStatusCodeForFailure generates a http status code based on failure type. Reference: https://www.rfc-editor.org/rfc/rfc9110.html
-func getStatusCodeForFailure(failureReason string) int {
+func getStatusCodeForFailure(failureReason string, taskArn string) int {
 	switch failureReason {
 	case ProtectionFailureReasonMissing:
 		return http.StatusNotFound
 	case ProtectionFailureReasonNotManagedByService, ProtectionFailureReasonBlockedDeployment, ProtectionFailureReasonTaskState:
 		return http.StatusConflict
 	default:
-		logger.Error(fmt.Sprintf("Unrecognizable failure reason %s", failureReason))
+		// Once this happens, fixes are required ASAP. It might impact all users.
+		logger.Error(fmt.Sprintf("Unrecognizable failure reason %s. This means a mismatch between scheduler's failure reasons and agent's handler. A fix is required ASAP.", failureReason), logger.Fields{
+			loggerfield.TaskARN: taskArn,
+		})
 		return http.StatusInternalServerError
 	}
 }

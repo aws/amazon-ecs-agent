@@ -96,3 +96,12 @@ type ErrorResponse struct {
 	Code    string
 	Message string
 }
+
+// NewErrorResponsePtr creates a *ErrorResponse for Agent input validations failures and exceptions
+func NewErrorResponsePtr(arn string, code string, message string) *ErrorResponse {
+	return &ErrorResponse{
+		Arn:     arn,
+		Code:    code,
+		Message: message,
+	}
+}
