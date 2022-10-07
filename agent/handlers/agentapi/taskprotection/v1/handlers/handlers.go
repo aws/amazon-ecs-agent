@@ -38,11 +38,7 @@ import (
 )
 
 const (
-	ExpectedProtectionResponseLength           = 1
-	ProtectionFailureReasonMissing             = "MISSING"
-	ProtectionFailureReasonNotManagedByService = "INVALID"
-	ProtectionFailureReasonTaskState           = "TASK_STOPPING_OR_STOPPED"
-	ProtectionFailureReasonBlockedDeployment   = "DEPLOYMENT_BLOCKED"
+	ExpectedProtectionResponseLength = 1
 )
 
 // TaskProtectionPath Returns endpoint path for UpdateTaskProtection API
@@ -150,14 +146,28 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason, task.Arn), types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
+			if len(response.Failures) != ExpectedProtectionResponseLength {
+				err := fmt.Errorf("expect at most %v failure in response, get %v", ExpectedProtectionResponseLength, len(response.Failures))
+				logger.Error("Unexpected number of failures", logger.Fields{
+					loggerfield.Error:   err,
+					loggerfield.TaskARN: task.Arn,
+				})
+				writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
+					types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, "Unexpected error occurred"), nil),
+					updateTaskProtectionRequestType)
+				return
+			}
+			writeJSONResponse(w, http.StatusOK, types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
 			return
 		}
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
-			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
-			logger.Error(err.Error())
+			err := fmt.Errorf("expect %v protectedTask in response when no failure, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
+			logger.Error("Unexpected number of protections", logger.Fields{
+				loggerfield.Error:   err,
+				loggerfield.TaskARN: task.Arn,
+			})
 			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
-				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
+				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, "Unexpected error occurred"), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -222,15 +232,29 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		// there are no exceptions but there are failures when getting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason, task.Arn), types.NewTaskProtectionResponseFailure(response.Failures[0]), getTaskProtectionRequestType)
+			if len(response.Failures) != ExpectedProtectionResponseLength {
+				err := fmt.Errorf("expect at most %v failure in response, get %v", ExpectedProtectionResponseLength, len(response.Failures))
+				logger.Error("Unexpected number of failures", logger.Fields{
+					loggerfield.Error:   err,
+					loggerfield.TaskARN: task.Arn,
+				})
+				writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
+					types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, "Unexpected error occurred"), nil),
+					getTaskProtectionRequestType)
+				return
+			}
+			writeJSONResponse(w, http.StatusOK, types.NewTaskProtectionResponseFailure(response.Failures[0]), getTaskProtectionRequestType)
 			return
 		}
 
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
-			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
-			logger.Error(err.Error())
+			err := fmt.Errorf("expect %v protectedTask in response when no failure, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
+			logger.Error("Unexpected number of protections", logger.Fields{
+				loggerfield.Error:   err,
+				loggerfield.TaskARN: task.Arn,
+			})
 			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
-				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
+				types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeServerException, "Unexpected error occurred"), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -297,22 +321,6 @@ func getTaskFromRequest(state dockerstate.TaskEngineState, r *http.Request) (*ap
 	}
 
 	return task, http.StatusOK, "", nil
-}
-
-// getStatusCodeForFailure generates a http status code based on failure type. Reference: https://www.rfc-editor.org/rfc/rfc9110.html
-func getStatusCodeForFailure(failureReason string, taskArn string) int {
-	switch failureReason {
-	case ProtectionFailureReasonMissing:
-		return http.StatusNotFound
-	case ProtectionFailureReasonNotManagedByService, ProtectionFailureReasonBlockedDeployment, ProtectionFailureReasonTaskState:
-		return http.StatusConflict
-	default:
-		// Once this happens, fixes are required ASAP. It might impact all users.
-		logger.Error(fmt.Sprintf("Unrecognizable failure reason %s. This means a mismatch between scheduler's failure reasons and agent's handler. A fix is required ASAP.", failureReason), logger.Fields{
-			loggerfield.TaskARN: taskArn,
-		})
-		return http.StatusInternalServerError
-	}
 }
 
 // Writes the provided response to the ResponseWriter and handles any errors

@@ -58,6 +58,7 @@ const (
 	testExpiresInMinutes       = 5
 	testProtectionEnabled      = true
 	testRequestID              = "requestID"
+	testFailureReason          = "failureReason"
 )
 
 // Tests the path for UpdateTaskProtection API
@@ -326,68 +327,20 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "Failure_ReasonBlockedDeployment",
+			name:     "Failure",
 			ecsError: nil,
 			ecsResponse: &ecs.UpdateTaskProtectionOutput{
 				Failures: []*ecs.Failure{{
 					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonBlockedDeployment),
+					Reason: aws.String(testFailureReason),
 				}},
 				ProtectedTasks: []*ecs.ProtectedTask{},
 			},
 			expectedFailure: &ecs.Failure{
 				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonBlockedDeployment),
+				Reason: aws.String(testFailureReason),
 			},
-			expectedStatusCode: http.StatusConflict,
-		},
-		{
-			name:     "Failure_ReasonMissing",
-			ecsError: nil,
-			ecsResponse: &ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonMissing),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonMissing),
-			},
-			expectedStatusCode: http.StatusNotFound,
-		},
-		{
-			name:     "Failure_ReasonNotInService",
-			ecsError: nil,
-			ecsResponse: &ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonNotManagedByService),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonNotManagedByService),
-			},
-			expectedStatusCode: http.StatusConflict,
-		},
-		{
-			name:     "Failure_ReasonTaskStopped",
-			ecsError: nil,
-			ecsResponse: &ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonTaskState),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonTaskState),
-			},
-			expectedStatusCode: http.StatusConflict,
+			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:     "SuccessProtected",
@@ -604,68 +557,20 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "Failure_ReasonBlockedDeployment",
+			name:     "Failure",
 			ecsError: nil,
 			ecsResponse: &ecs.GetTaskProtectionOutput{
 				Failures: []*ecs.Failure{{
 					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonBlockedDeployment),
+					Reason: aws.String(testFailureReason),
 				}},
 				ProtectedTasks: []*ecs.ProtectedTask{},
 			},
 			expectedFailure: &ecs.Failure{
 				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonBlockedDeployment),
+				Reason: aws.String(testFailureReason),
 			},
-			expectedStatusCode: http.StatusConflict,
-		},
-		{
-			name:     "Failure_ReasonMissing",
-			ecsError: nil,
-			ecsResponse: &ecs.GetTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonMissing),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonMissing),
-			},
-			expectedStatusCode: http.StatusNotFound,
-		},
-		{
-			name:     "Failure_ReasonNotInService",
-			ecsError: nil,
-			ecsResponse: &ecs.GetTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonNotManagedByService),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonNotManagedByService),
-			},
-			expectedStatusCode: http.StatusConflict,
-		},
-		{
-			name:     "Failure_ReasonTaskStopped",
-			ecsError: nil,
-			ecsResponse: &ecs.GetTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
-					Arn:    aws.String(testTaskArn),
-					Reason: aws.String(ProtectionFailureReasonTaskState),
-				}},
-				ProtectedTasks: []*ecs.ProtectedTask{},
-			},
-			expectedFailure: &ecs.Failure{
-				Arn:    aws.String(testTaskArn),
-				Reason: aws.String(ProtectionFailureReasonTaskState),
-			},
-			expectedStatusCode: http.StatusConflict,
+			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:     "SuccessProtected",
