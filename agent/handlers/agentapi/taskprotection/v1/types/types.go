@@ -75,6 +75,21 @@ type TaskProtectionResponse struct {
 	Error      *ErrorResponse     `json:"error,omitempty"`
 }
 
+// NewTaskProtectionResponseProtection creates a TaskProtectionResponse when it is a successful response (has protection)
+func NewTaskProtectionResponseProtection(protection *ecs.ProtectedTask) TaskProtectionResponse {
+	return TaskProtectionResponse{Protection: protection}
+}
+
+// NewTaskProtectionResponseFailure creates a TaskProtectionResponse when there is a failed response with failure
+func NewTaskProtectionResponseFailure(failure *ecs.Failure) TaskProtectionResponse {
+	return TaskProtectionResponse{Failure: failure}
+}
+
+// NewTaskProtectionResponseError creates a TaskProtectionResponse when there is an error response with optional requestID
+func NewTaskProtectionResponseError(error *ErrorResponse, requestID *string) TaskProtectionResponse {
+	return TaskProtectionResponse{RequestID: requestID, Error: error}
+}
+
 // ErrorResponse is the type for all Update/GetTaskProtection request errors
 type ErrorResponse struct {
 	Arn     string `json:"Arn,omitempty"`

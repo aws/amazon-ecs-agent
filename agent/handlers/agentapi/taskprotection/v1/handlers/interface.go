@@ -7,5 +7,5 @@ import (
 )
 
 type TaskProtectionClientFactoryInterface interface {
-	newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error)
+	newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, string, error)
 }

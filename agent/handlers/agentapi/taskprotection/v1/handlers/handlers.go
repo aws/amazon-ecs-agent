@@ -79,24 +79,26 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			logger.Error("UpdateTaskProtection: failed to decode request", logger.Fields{
 				loggerfield.Error: err,
 			})
-			writeJSONResponse(w, http.StatusBadRequest, nil, nil,
-				generateErrorResponse("", ecs.ErrCodeInvalidParameterException, "UpdateTaskProtection: failed to decode request"),
-				nil, updateTaskProtectionRequestType)
+			writeJSONResponse(w, http.StatusBadRequest,
+				types.NewTaskProtectionResponseError(generateErrorResponse("", ecs.ErrCodeInvalidParameterException,
+					"UpdateTaskProtection: failed to decode request"), nil),
+				updateTaskProtectionRequestType)
 			return
 		}
 
-		task, responseCode, errorCode, err := getTaskFromRequest(state, r)
+		task, statusCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse("", errorCode, err.Error()), nil,
+			writeJSONResponse(w, statusCode,
+				types.NewTaskProtectionResponseError(generateErrorResponse("", errorCode, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
 
 		if request.ProtectionEnabled == nil {
-			writeJSONResponse(w, http.StatusBadRequest, nil, nil,
-				generateErrorResponse(task.Arn, ecs.ErrCodeInvalidParameterException, "Invalid request: does not contain 'ProtectionEnabled' field"),
-				nil, updateTaskProtectionRequestType)
+			writeJSONResponse(w, http.StatusBadRequest,
+				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, ecs.ErrCodeInvalidParameterException,
+					"Invalid request: does not contain 'ProtectionEnabled' field"), nil),
+				updateTaskProtectionRequestType)
 			return
 		}
 
@@ -108,10 +110,10 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			loggerfield.TaskProtection: taskProtection,
 		})
 
-		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
+		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
-			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
+			writeJSONResponse(w, statusCode,
+				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
@@ -124,19 +126,20 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		})
 
 		if err != nil {
-			exceptionType, errorMsg, statusCode, reqId := getExceptionTypeAndStatusCode(err)
+			errorCode, errorMsg, statusCode, reqId := getErrorCodeAndStatusCode(err)
 			var requestIdString = ""
 			if reqId != nil {
 				requestIdString = *reqId
 			}
 			logger.Error("Got an exception when calling UpdateTaskProtection.", logger.Fields{
 				loggerfield.Error:  err,
-				"ExceptionType":    exceptionType,
+				"ErrorCode":        errorCode,
 				"ExceptionMessage": errorMsg,
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(task.Arn, exceptionType, errorMsg), reqId, updateTaskProtectionRequestType)
+			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, errorMsg), reqId),
+				updateTaskProtectionRequestType)
 			return
 		}
 
@@ -147,18 +150,18 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, handleFailure(*response.Failures[0].Reason), nil, response.Failures[0], nil, nil, updateTaskProtectionRequestType)
+			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason), types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
 			return
 		}
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
-			writeJSONResponse(w, http.StatusInternalServerError, nil, nil,
-				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
+			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
+				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
-		writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], nil, nil, nil, updateTaskProtectionRequestType)
+		writeJSONResponse(w, http.StatusOK, types.NewTaskProtectionResponseProtection(response.ProtectedTasks[0]), updateTaskProtectionRequestType)
 	}
 }
 
@@ -168,10 +171,10 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 	return func(w http.ResponseWriter, r *http.Request) {
 		getTaskProtectionRequestType := "api/GetTaskProtection/v1"
 
-		task, responseCode, errorCode, err := getTaskFromRequest(state, r)
+		task, statusCode, errorCode, err := getTaskFromRequest(state, r)
 		if err != nil {
-			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse("", errorCode, err.Error()), nil,
+			writeJSONResponse(w, statusCode,
+				types.NewTaskProtectionResponseError(generateErrorResponse("", errorCode, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -181,10 +184,10 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			loggerfield.TaskARN: task.Arn,
 		})
 
-		ecsClient, responseCode, err := factory.newTaskProtectionClient(credentialsManager, task)
+		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
 		if err != nil {
-			writeJSONResponse(w, responseCode, nil, nil,
-				generateErrorResponse(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil,
+			writeJSONResponse(w, statusCode,
+				types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
@@ -195,19 +198,20 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 		})
 
 		if err != nil {
-			exceptionType, errorMsg, statusCode, reqId := getExceptionTypeAndStatusCode(err)
+			errorCode, errorMsg, statusCode, reqId := getErrorCodeAndStatusCode(err)
 			var requestIdString = ""
 			if reqId != nil {
 				requestIdString = *reqId
 			}
 			logger.Error("Got an exception when calling UpdateTaskProtection.", logger.Fields{
 				loggerfield.Error:  err,
-				"ExceptionType":    exceptionType,
+				"ErrorCode":        errorCode,
 				"ExceptionMessage": errorMsg,
 				"StatusCode":       statusCode,
 				"RequestId":        requestIdString,
 			})
-			writeJSONResponse(w, statusCode, nil, nil, generateErrorResponse(task.Arn, exceptionType, errorMsg), reqId, getTaskProtectionRequestType)
+			writeJSONResponse(w, statusCode, types.NewTaskProtectionResponseError(generateErrorResponse(task.Arn, errorCode, errorMsg), reqId),
+				getTaskProtectionRequestType)
 			return
 		}
 
@@ -218,27 +222,27 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		// there are no exceptions but there are failures when getting protection in scheduler
 		if len(response.Failures) > 0 {
-			writeJSONResponse(w, handleFailure(*response.Failures[0].Reason), nil, response.Failures[0], nil, nil, getTaskProtectionRequestType)
+			writeJSONResponse(w, getStatusCodeForFailure(*response.Failures[0].Reason), types.NewTaskProtectionResponseFailure(response.Failures[0]), getTaskProtectionRequestType)
 			return
 		}
 
 		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
 			err := fmt.Errorf("expect %v protectedTask in response, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error(err.Error())
-			writeJSONResponse(w, http.StatusInternalServerError, nil, nil,
-				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil,
+			writeJSONResponse(w, http.StatusInternalServerError, types.NewTaskProtectionResponseError(
+				generateErrorResponse(task.Arn, ecs.ErrCodeServerException, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
-		writeJSONResponse(w, http.StatusOK, response.ProtectedTasks[0], nil, nil, nil, getTaskProtectionRequestType)
+		writeJSONResponse(w, http.StatusOK, types.NewTaskProtectionResponseProtection(response.ProtectedTasks[0]), getTaskProtectionRequestType)
 	}
 }
 
 // Helper function for retrieving credential from credentials manager and create ecs client
-func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, error) {
+func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, string, error) {
 	taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
 	if !ok {
-		return nil, http.StatusForbidden, errors.New("Invalid Request: no task IAM role credentials available for task")
+		return nil, http.StatusForbidden, ecs.ErrCodeAccessDeniedException, errors.New("Invalid Request: no task IAM role credentials available for task")
 	}
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
@@ -250,12 +254,12 @@ func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsMa
 		WithEndpoint(factory.Endpoint)
 
 	ecsClient := ecs.New(session.Must(session.NewSession()), cfg)
-	return ecsClient, http.StatusOK, nil
+	return ecsClient, http.StatusOK, "", nil
 }
 
-// Helper function to parse error to get ExceptionType, ExceptionMessage, HttpStatusCode, RequestID.
+// Helper function to parse error to get ErrorCode, ExceptionMessage, HttpStatusCode, RequestID.
 // RequestID will be empty if the request is not able to reach AWS
-func getExceptionTypeAndStatusCode(err error) (string, string, int, *string) {
+func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 	msg := err.Error()
 	// The error is a Generic AWS Error with Code, Message, and original error (if any)
 	if awsErr, ok := err.(awserr.Error); ok {
@@ -265,7 +269,7 @@ func getExceptionTypeAndStatusCode(err error) (string, string, int, *string) {
 			reqId := reqErr.RequestID()
 			return awsErr.Code(), msg, reqErr.StatusCode(), &reqId
 		} else {
-			logger.Error(fmt.Sprintf("got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever exceptionType. Original err: %v.", err))
+			logger.Error(fmt.Sprintf("got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.", err))
 			return awsErr.Code(), msg, http.StatusInternalServerError, nil
 		}
 	} else {
@@ -305,8 +309,8 @@ func generateErrorResponse(arn string, code string, message string) *types.Error
 	return &retErr
 }
 
-// handleFailure generates a http status code based on failure type. Reference: https://www.rfc-editor.org/rfc/rfc9110.html
-func handleFailure(failureReason string) int {
+// getStatusCodeForFailure generates a http status code based on failure type. Reference: https://www.rfc-editor.org/rfc/rfc9110.html
+func getStatusCodeForFailure(failureReason string) int {
 	switch failureReason {
 	case ProtectionFailureReasonMissing:
 		return http.StatusNotFound
@@ -319,9 +323,7 @@ func handleFailure(failureReason string) int {
 }
 
 // Writes the provided response to the ResponseWriter and handles any errors
-func writeJSONResponse(w http.ResponseWriter, responseCode int, protectedTask *ecs.ProtectedTask, failure *ecs.Failure,
-	errResp *types.ErrorResponse, requestID *string, requestType string) {
-	response := types.TaskProtectionResponse{RequestID: requestID, Protection: protectedTask, Failure: failure, Error: errResp}
+func writeJSONResponse(w http.ResponseWriter, statusCode int, response types.TaskProtectionResponse, requestType string) {
 	bytes, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Agent API Task Protection V1: failed to marshal response as JSON", logger.Fields{
@@ -331,6 +333,6 @@ func writeJSONResponse(w http.ResponseWriter, responseCode int, protectedTask *e
 		utils.WriteJSONToResponse(w, http.StatusInternalServerError, []byte(`{}`),
 			requestType)
 	} else {
-		utils.WriteJSONToResponse(w, responseCode, bytes, requestType)
+		utils.WriteJSONToResponse(w, statusCode, bytes, requestType)
 	}
 }
