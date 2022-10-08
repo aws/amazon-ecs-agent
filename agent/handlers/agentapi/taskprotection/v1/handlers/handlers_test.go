@@ -69,11 +69,6 @@ func TestTaskProtectionPath(t *testing.T) {
 // TestGetECSClientHappyCase tests newTaskProtectionClient uses credential in credentials manager and
 // returns an ECS client with correct status code and error
 func TestGetECSClientHappyCase(t *testing.T) {
-	testTask := task.Task{
-		Arn:         testTaskArn,
-		ServiceName: testServiceName,
-	}
-	testTask.SetCredentialsID(testTaskCredentialsId)
 
 	testIAMRoleCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
@@ -89,16 +84,11 @@ func TestGetECSClientHappyCase(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockManager := mock_credentials.NewMockManager(ctrl)
-	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(testIAMRoleCredentials, true)
 
-	ret, statusCode, errorCode, err := factory.newTaskProtectionClient(mockManager, &testTask)
+	ret := factory.newTaskProtectionClient(testIAMRoleCredentials)
 	_, ok := ret.(api.ECSTaskProtectionSDK)
 
 	// Assert response
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, statusCode)
-	assert.Equal(t, "", errorCode)
 	assert.True(t, ok)
 }
 
@@ -402,8 +392,8 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
-			mockFactory.EXPECT().newTaskProtectionClient(mockManager, &testTask).Return(
-				mockECSClient, http.StatusOK, "", nil)
+			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
+			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
 			mockECSClient.EXPECT().UpdateTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
 
 			expectedResponse := types.TaskProtectionResponse{
@@ -628,8 +618,8 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
-			mockFactory.EXPECT().newTaskProtectionClient(mockManager, &testTask).Return(
-				mockECSClient, http.StatusOK, "", nil)
+			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
+			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
 			mockECSClient.EXPECT().GetTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
 
 			expectedResponse := types.TaskProtectionResponse{

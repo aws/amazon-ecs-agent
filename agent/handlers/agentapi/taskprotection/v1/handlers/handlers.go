@@ -106,13 +106,18 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			loggerfield.TaskProtection: taskProtection,
 		})
 
-		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
-		if err != nil {
-			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, err.Error()), nil),
+		taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
+		if !ok {
+			err = fmt.Errorf("Invalid Request: no task IAM role credentials available for task")
+			logger.Error(err.Error(), logger.Fields{
+				loggerfield.TaskARN: task.Arn,
+			})
+			writeJSONResponse(w, http.StatusForbidden,
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil),
 				updateTaskProtectionRequestType)
 			return
 		}
+		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
 
 		response, err := ecsClient.UpdateTaskProtection(&ecs.UpdateTaskProtectionInput{
 			Cluster:           aws.String(cluster),
@@ -146,7 +151,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 
 		// there are no exceptions but there are failures when setting protection in scheduler
 		if len(response.Failures) > 0 {
-			if len(response.Failures) != ExpectedProtectionResponseLength {
+			if len(response.Failures) > ExpectedProtectionResponseLength {
 				err := fmt.Errorf("expect at most %v failure in response, get %v", ExpectedProtectionResponseLength, len(response.Failures))
 				logger.Error("Unexpected number of failures", logger.Fields{
 					loggerfield.Error:   err,
@@ -160,7 +165,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 			writeJSONResponse(w, http.StatusOK, types.NewTaskProtectionResponseFailure(response.Failures[0]), updateTaskProtectionRequestType)
 			return
 		}
-		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
+		if len(response.ProtectedTasks) > ExpectedProtectionResponseLength {
 			err := fmt.Errorf("expect %v protectedTask in response when no failure, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error("Unexpected number of protections", logger.Fields{
 				loggerfield.Error:   err,
@@ -194,13 +199,18 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			loggerfield.TaskARN: task.Arn,
 		})
 
-		ecsClient, statusCode, errorCode, err := factory.newTaskProtectionClient(credentialsManager, task)
-		if err != nil {
-			writeJSONResponse(w, statusCode,
-				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, errorCode, err.Error()), nil),
+		taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
+		if !ok {
+			err = fmt.Errorf("Invalid Request: no task IAM role credentials available for task")
+			logger.Error(err.Error(), logger.Fields{
+				loggerfield.TaskARN: task.Arn,
+			})
+			writeJSONResponse(w, http.StatusForbidden,
+				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(task.Arn, ecs.ErrCodeAccessDeniedException, err.Error()), nil),
 				getTaskProtectionRequestType)
 			return
 		}
+		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
 
 		response, err := ecsClient.GetTaskProtection(&ecs.GetTaskProtectionInput{
 			Cluster: aws.String(cluster),
@@ -232,7 +242,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 
 		// there are no exceptions but there are failures when getting protection in scheduler
 		if len(response.Failures) > 0 {
-			if len(response.Failures) != ExpectedProtectionResponseLength {
+			if len(response.Failures) > ExpectedProtectionResponseLength {
 				err := fmt.Errorf("expect at most %v failure in response, get %v", ExpectedProtectionResponseLength, len(response.Failures))
 				logger.Error("Unexpected number of failures", logger.Fields{
 					loggerfield.Error:   err,
@@ -247,7 +257,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			return
 		}
 
-		if len(response.ProtectedTasks) != ExpectedProtectionResponseLength {
+		if len(response.ProtectedTasks) > ExpectedProtectionResponseLength {
 			err := fmt.Errorf("expect %v protectedTask in response when no failure, get %v", ExpectedProtectionResponseLength, len(response.ProtectedTasks))
 			logger.Error("Unexpected number of protections", logger.Fields{
 				loggerfield.Error:   err,
@@ -263,11 +273,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 }
 
 // Helper function for retrieving credential from credentials manager and create ecs client
-func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsManager credentials.Manager, task *apitask.Task) (api.ECSTaskProtectionSDK, int, string, error) {
-	taskRoleCredential, ok := credentialsManager.GetTaskCredentials(task.GetCredentialsID())
-	if !ok {
-		return nil, http.StatusForbidden, ecs.ErrCodeAccessDeniedException, errors.New("Invalid Request: no task IAM role credentials available for task")
-	}
+func (factory TaskProtectionClientFactory) newTaskProtectionClient(taskRoleCredential credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
 		WithCredentials(awscreds.NewStaticCredentials(taskCredential.AccessKeyID,
@@ -278,7 +284,7 @@ func (factory TaskProtectionClientFactory) newTaskProtectionClient(credentialsMa
 		WithEndpoint(factory.Endpoint)
 
 	ecsClient := ecs.New(session.Must(session.NewSession()), cfg)
-	return ecsClient, http.StatusOK, "", nil
+	return ecsClient
 }
 
 // Helper function to parse error to get ErrorCode, ExceptionMessage, HttpStatusCode, RequestID.
