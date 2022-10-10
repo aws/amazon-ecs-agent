@@ -16,6 +16,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/types"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
@@ -45,7 +47,7 @@ const (
 	testSessionToken           = "sessionToken"
 	testCluster                = "cluster"
 	testRegion                 = "region"
-	testEndpoint               = "endpoint"
+	testECSEndpoint            = "endpoint"
 	testTaskCredentialsId      = "taskCredentialsId"
 	testV3EndpointId           = "endpointId"
 	testTaskArn                = "taskArn"
@@ -55,6 +57,8 @@ const (
 	expiresInMinutesFieldName  = "ExpiresInMinutes"
 	testExpiresInMinutes       = 5
 	testProtectionEnabled      = true
+	testRequestID              = "requestID"
+	testFailureReason          = "failureReason"
 )
 
 // Tests the path for UpdateTaskProtection API
@@ -65,11 +69,6 @@ func TestTaskProtectionPath(t *testing.T) {
 // TestGetECSClientHappyCase tests newTaskProtectionClient uses credential in credentials manager and
 // returns an ECS client with correct status code and error
 func TestGetECSClientHappyCase(t *testing.T) {
-	testTask := task.Task{
-		Arn:         testTaskArn,
-		ServiceName: testServiceName,
-	}
-	testTask.SetCredentialsID(testTaskCredentialsId)
 
 	testIAMRoleCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{
@@ -80,20 +79,16 @@ func TestGetECSClientHappyCase(t *testing.T) {
 	}
 
 	factory := TaskProtectionClientFactory{
-		Region: testRegion, Endpoint: testEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
+		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
 	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockManager := mock_credentials.NewMockManager(ctrl)
-	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(testIAMRoleCredentials, true)
 
-	ret, statusCode, err := factory.newTaskProtectionClient(mockManager, &testTask)
+	ret := factory.newTaskProtectionClient(testIAMRoleCredentials)
 	_, ok := ret.(api.ECSTaskProtectionSDK)
 
 	// Assert response
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, statusCode)
 	assert.True(t, ok)
 }
 
@@ -137,13 +132,18 @@ func testUpdateTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineS
 	assert.Equal(t, string(expectedResponseJSON), string(responseBody))
 }
 
-// TestUpdateTaskProtectionHandler_InputValidations tests UpdateTaskProtection handler's
-// behavior with different invalid inputs
-func TestUpdateTaskProtectionHandler_InputValidations(t *testing.T) {
+func generateRequestIdPtr() *string {
+	requestIdString := testRequestID
+	return &requestIdString
+}
+
+// TestUpdateTaskProtectionHandler_InputValidationsDecodeError tests UpdateTaskProtection handler's
+// behavior with different invalid inputs with decode error
+func TestUpdateTaskProtectionHandler_InputValidationsDecodeError(t *testing.T) {
 	testCases := []struct {
-		name             string
-		request          interface{}
-		expectedResponse string
+		name          string
+		request       interface{}
+		expectedError *types.ErrorResponse
 	}{
 		{
 			name: "InvalidTypes",
@@ -151,30 +151,17 @@ func TestUpdateTaskProtectionHandler_InputValidations(t *testing.T) {
 				protectionEnabledFieldName: true,
 				expiresInMinutesFieldName:  "badType",
 			},
-			expectedResponse: "Failed to decode request",
+			expectedError: &types.ErrorResponse{Code: ecs.ErrCodeInvalidParameterException, Message: "UpdateTaskProtection: failed to decode request"},
 		},
 		{
-			name: "InvalidExpiry",
-			request: &TaskProtectionRequest{
-				ProtectionEnabled: utils.BoolPtr(true),
-				ExpiresInMinutes:  utils.Int64Ptr(-4),
-			},
-			expectedResponse: "Invalid request: expiration duration must be greater than zero minutes for enabled task protection",
+			name:          "UnknownFieldsInRequest",
+			request:       getRequestWithUnknownFields(t),
+			expectedError: &types.ErrorResponse{Code: ecs.ErrCodeInvalidParameterException, Message: "UpdateTaskProtection: failed to decode request"},
 		},
 		{
-			name:             "InvalidJSONRequest",
-			request:          "",
-			expectedResponse: "Failed to decode request",
-		},
-		{
-			name:             "EmptyRequest",
-			request:          nil,
-			expectedResponse: "Invalid request: does not contain 'ProtectionEnabled' field",
-		},
-		{
-			name:             "UnknownFieldsInRequest",
-			request:          getRequestWithUnknownFields(t),
-			expectedResponse: "Failed to decode request",
+			name:          "InvalidJSONRequest",
+			request:       "",
+			expectedError: &types.ErrorResponse{Code: ecs.ErrCodeInvalidParameterException, Message: "UpdateTaskProtection: failed to decode request"},
 		},
 	}
 
@@ -182,8 +169,9 @@ func TestUpdateTaskProtectionHandler_InputValidations(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			expectedResponse := types.TaskProtectionResponse{Error: tc.expectedError}
 			testUpdateTaskProtectionHandler(t, mock_dockerstate.NewMockTaskEngineState(ctrl),
-				testEndpoint, nil, nil, tc.request, tc.expectedResponse, http.StatusBadRequest)
+				testV3EndpointId, nil, nil, tc.request, expectedResponse, http.StatusBadRequest)
 		})
 	}
 }
@@ -198,9 +186,14 @@ func TestUpdateTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return("", false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Code:    ecs.ErrCodeResourceNotFoundException,
+			Message: "Invalid request: no task was found",
+		},
+	}
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil, request,
-		"Invalid request: no task was found",
-		http.StatusBadRequest)
+		expectedResponse, http.StatusNotFound)
 }
 
 // TestUpdateTaskProtectionHandlerTaskNotFound tests UpdateTaskProtection handler's
@@ -214,9 +207,32 @@ func TestUpdateTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(nil, false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Code:    ecs.ErrCodeServerException,
+			Message: "Failed to find a task for the request",
+		},
+	}
+
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil, request,
-		"Failed to find a task for the request",
-		http.StatusInternalServerError)
+		expectedResponse, http.StatusInternalServerError)
+}
+
+// TestUpdateTaskProtectionHandler_EmptyRequest tests UpdateTaskProtection handler's behavior with empty inputs
+func TestUpdateTaskProtectionHandler_EmptyRequest(t *testing.T) {
+	expectedError := &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "Invalid request: does not contain 'ProtectionEnabled' field"}
+	testTask := task.Task{
+		Arn:         testTaskArn,
+		ServiceName: testServiceName,
+	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
+	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
+	expectedResponse := types.TaskProtectionResponse{Error: expectedError}
+	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
+		nil, expectedResponse, http.StatusBadRequest)
 }
 
 // TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound tests UpdateTaskProtection handler's
@@ -233,7 +249,7 @@ func TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	testTask.SetCredentialsID(testTaskCredentialsId)
 
 	factory := TaskProtectionClientFactory{
-		Region: testRegion, Endpoint: testEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
+		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
 	}
 
 	ctrl := gomock.NewController(t)
@@ -244,8 +260,16 @@ func TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
 	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Arn:     testTaskArn,
+			Code:    ecs.ErrCodeAccessDeniedException,
+			Message: "Invalid Request: no task IAM role credentials available for task",
+		},
+	}
+
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, factory, request,
-		"Invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
+		expectedResponse, http.StatusForbidden)
 }
 
 // TestUpdateTaskProtectionHandler_PostCall tests UpdateTaskProtection handler's
@@ -255,23 +279,42 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 		name               string
 		ecsError           error
 		ecsResponse        *ecs.UpdateTaskProtectionOutput
-		expectedResponse   interface{}
+		expectedProtection *ecs.ProtectedTask
+		expectedFailure    *ecs.Failure
+		expectedError      *types.ErrorResponse
+		expectedRequestId  *string
 		expectedStatusCode int
 		time               time.Time
 	}{
 		{
-			name:               "ServerException",
-			ecsError:           awserr.New(ecs.ErrCodeServerException, "error message", nil),
+			name:               "RequestFailure_ServerException",
+			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeServerException, "error message", nil), http.StatusInternalServerError, testRequestID),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedResponse:   "ServerException: error message",
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedRequestId:  generateRequestIdPtr(),
+		},
+		{
+			name:               "RequestFailure_OtherExceptions",
+			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil), http.StatusBadRequest, testRequestID),
+			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedRequestId:  generateRequestIdPtr(),
+		},
+		{
+			name:               "NonRequestFailureAwsError",
+			ecsError:           awserr.New(ecs.ErrCodeInvalidParameterException, "error message", nil),
+			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
-			name:               "OtherExceptions",
-			ecsError:           awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil),
+			name:               "NonAwsError",
+			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
-			expectedResponse:   "AccessDeniedException: error message",
-			expectedStatusCode: http.StatusBadRequest,
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name:     "Failure",
@@ -279,18 +322,18 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			ecsResponse: &ecs.UpdateTaskProtectionOutput{
 				Failures: []*ecs.Failure{{
 					Arn:    aws.String(testTaskArn),
-					Reason: aws.String("Failure Reason"),
+					Reason: aws.String(testFailureReason),
 				}},
 				ProtectedTasks: []*ecs.ProtectedTask{},
 			},
-			expectedResponse: ecs.Failure{
+			expectedFailure: &ecs.Failure{
 				Arn:    aws.String(testTaskArn),
-				Reason: aws.String("Failure Reason"),
+				Reason: aws.String(testFailureReason),
 			},
-			expectedStatusCode: http.StatusBadRequest,
+			expectedStatusCode: http.StatusOK,
 		},
 		{
-			name:     "Success",
+			name:     "SuccessProtected",
 			ecsError: nil,
 			ecsResponse: &ecs.UpdateTaskProtectionOutput{
 				Failures: []*ecs.Failure{},
@@ -300,9 +343,27 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 					TaskArn:           aws.String(testTaskArn),
 				}},
 			},
-			expectedResponse: ecs.ProtectedTask{
+			expectedProtection: &ecs.ProtectedTask{
 				ProtectionEnabled: aws.Bool(true),
 				ExpirationDate:    aws.Time(time.UnixMilli(0)),
+				TaskArn:           aws.String(testTaskArn),
+			},
+			expectedStatusCode: http.StatusOK,
+		},
+		{
+			name:     "SuccessNotProtected",
+			ecsError: nil,
+			ecsResponse: &ecs.UpdateTaskProtectionOutput{
+				Failures: []*ecs.Failure{},
+				ProtectedTasks: []*ecs.ProtectedTask{{
+					ProtectionEnabled: aws.Bool(false),
+					ExpirationDate:    nil,
+					TaskArn:           aws.String(testTaskArn),
+				}},
+			},
+			expectedProtection: &ecs.ProtectedTask{
+				ProtectionEnabled: aws.Bool(false),
+				ExpirationDate:    nil,
 				TaskArn:           aws.String(testTaskArn),
 			},
 			expectedStatusCode: http.StatusOK,
@@ -331,11 +392,18 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
-			mockFactory.EXPECT().newTaskProtectionClient(mockManager, &testTask).Return(
-				mockECSClient, http.StatusOK, nil)
+			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
+			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
 			mockECSClient.EXPECT().UpdateTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
 
-			testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, mockFactory, request, tc.expectedResponse, tc.expectedStatusCode)
+			expectedResponse := types.TaskProtectionResponse{
+				Protection: tc.expectedProtection,
+				Failure:    tc.expectedFailure,
+				Error:      tc.expectedError,
+				RequestID:  tc.expectedRequestId,
+			}
+
+			testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, mockFactory, request, expectedResponse, tc.expectedStatusCode)
 		})
 	}
 }
@@ -371,9 +439,14 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return("", false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Code:    ecs.ErrCodeResourceNotFoundException,
+			Message: "Invalid request: no task was found",
+		},
+	}
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
-		"Invalid request: no task was found",
-		http.StatusBadRequest)
+		expectedResponse, http.StatusNotFound)
 }
 
 // TestGetTaskProtectionHandlerTaskNotFound tests GetTaskProtection handler's
@@ -385,9 +458,15 @@ func TestGetTaskProtectionHandlerTaskNotFound(t *testing.T) {
 	mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(nil, false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Code:    ecs.ErrCodeServerException,
+			Message: "Failed to find a task for the request",
+		},
+	}
+
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
-		"Failed to find a task for the request",
-		http.StatusInternalServerError)
+		expectedResponse, http.StatusInternalServerError)
 }
 
 // TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound tests GetTaskProtection handler's
@@ -400,7 +479,7 @@ func TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	testTask.SetCredentialsID(testTaskCredentialsId)
 
 	factory := TaskProtectionClientFactory{
-		Region: testRegion, Endpoint: testEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
+		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
 	}
 
 	ctrl := gomock.NewController(t)
@@ -411,8 +490,16 @@ func TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
 	mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, false)
 
+	expectedResponse := types.TaskProtectionResponse{
+		Error: &types.ErrorResponse{
+			Arn:     testTaskArn,
+			Code:    ecs.ErrCodeAccessDeniedException,
+			Message: "Invalid Request: no task IAM role credentials available for task",
+		},
+	}
+
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, factory,
-		"Invalid Request: no task IAM role credentials available for task", http.StatusBadRequest)
+		expectedResponse, http.StatusForbidden)
 }
 
 // TestGetTaskProtectionHandler_PostCall tests GetTaskProtection handler's
@@ -422,23 +509,42 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 		name               string
 		ecsError           error
 		ecsResponse        *ecs.GetTaskProtectionOutput
-		expectedResponse   interface{}
+		expectedProtection *ecs.ProtectedTask
+		expectedFailure    *ecs.Failure
+		expectedError      *types.ErrorResponse
+		expectedRequestId  *string
 		expectedStatusCode int
 		time               time.Time
 	}{
 		{
-			name:               "ServerException",
-			ecsError:           awserr.New(ecs.ErrCodeServerException, "error message", nil),
+			name:               "RequestFailure_ServerException",
+			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeServerException, "error message", nil), http.StatusInternalServerError, testRequestID),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedResponse:   "ServerException: error message",
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedRequestId:  generateRequestIdPtr(),
+		},
+		{
+			name:               "RequestFailure_OtherExceptions",
+			ecsError:           awserr.NewRequestFailure(awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil), http.StatusBadRequest, testRequestID),
+			ecsResponse:        &ecs.GetTaskProtectionOutput{},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeAccessDeniedException, Message: "error message"},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedRequestId:  generateRequestIdPtr(),
+		},
+		{
+			name:               "NonRequestFailureAwsError",
+			ecsError:           awserr.New(ecs.ErrCodeInvalidParameterException, "error message", nil),
+			ecsResponse:        &ecs.GetTaskProtectionOutput{},
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeInvalidParameterException, Message: "error message"},
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
-			name:               "OtherExceptions",
-			ecsError:           awserr.New(ecs.ErrCodeAccessDeniedException, "error message", nil),
+			name:               "NonAwsError",
+			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
-			expectedResponse:   "AccessDeniedException: error message",
-			expectedStatusCode: http.StatusBadRequest,
+			expectedError:      &types.ErrorResponse{Arn: testTaskArn, Code: ecs.ErrCodeServerException, Message: "error message"},
+			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name:     "Failure",
@@ -446,15 +552,15 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			ecsResponse: &ecs.GetTaskProtectionOutput{
 				Failures: []*ecs.Failure{{
 					Arn:    aws.String(testTaskArn),
-					Reason: aws.String("Failure Reason"),
+					Reason: aws.String(testFailureReason),
 				}},
 				ProtectedTasks: []*ecs.ProtectedTask{},
 			},
-			expectedResponse: ecs.Failure{
+			expectedFailure: &ecs.Failure{
 				Arn:    aws.String(testTaskArn),
-				Reason: aws.String("Failure Reason"),
+				Reason: aws.String(testFailureReason),
 			},
-			expectedStatusCode: http.StatusBadRequest,
+			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:     "SuccessProtected",
@@ -467,7 +573,7 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 					TaskArn:           aws.String(testTaskArn),
 				}},
 			},
-			expectedResponse: ecs.ProtectedTask{
+			expectedProtection: &ecs.ProtectedTask{
 				ProtectionEnabled: aws.Bool(true),
 				ExpirationDate:    aws.Time(time.UnixMilli(0)),
 				TaskArn:           aws.String(testTaskArn),
@@ -485,7 +591,7 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 					TaskArn:           aws.String(testTaskArn),
 				}},
 			},
-			expectedResponse: ecs.ProtectedTask{
+			expectedProtection: &ecs.ProtectedTask{
 				ProtectionEnabled: aws.Bool(false),
 				ExpirationDate:    nil,
 				TaskArn:           aws.String(testTaskArn),
@@ -512,11 +618,18 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
-			mockFactory.EXPECT().newTaskProtectionClient(mockManager, &testTask).Return(
-				mockECSClient, http.StatusOK, nil)
+			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
+			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
 			mockECSClient.EXPECT().GetTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
 
-			testGetTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, mockFactory, tc.expectedResponse, tc.expectedStatusCode)
+			expectedResponse := types.TaskProtectionResponse{
+				Protection: tc.expectedProtection,
+				Failure:    tc.expectedFailure,
+				Error:      tc.expectedError,
+				RequestID:  tc.expectedRequestId,
+			}
+
+			testGetTaskProtectionHandler(t, mockState, testV3EndpointId, mockManager, mockFactory, expectedResponse, tc.expectedStatusCode)
 		})
 	}
 }
