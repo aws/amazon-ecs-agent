@@ -115,7 +115,7 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 			testName: "AWSVPC IPv6 enabled with error",
 			testServiceConnectConfig: constructTestServiceConnectConfig(
 				testIngressPort,
-				testInboundListener,
+				"",
 				testOutboundListener,
 				"",
 				testIPv6CIDR,

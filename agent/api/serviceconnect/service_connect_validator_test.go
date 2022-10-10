@@ -253,25 +253,16 @@ func TestValidateServiceConnectConfigWithEmptyConfig(t *testing.T) {
 		testName                 string
 		testEgressConfigIsEmpty  bool
 		testIngressConfigIsEmpty bool
-		shouldError              bool
 	}{
 		{
 			testName:                 "AWSVPC default case with the empty egress config and dns config",
 			testEgressConfigIsEmpty:  true,
 			testIngressConfigIsEmpty: false,
-			shouldError:              false,
 		},
 		{
 			testName:                 "AWSVPC default case with the empty ingress config",
 			testEgressConfigIsEmpty:  false,
 			testIngressConfigIsEmpty: true,
-			shouldError:              false,
-		},
-		{
-			testName:                 "AWSVPC default case with the empty ingress config and engress config",
-			testEgressConfigIsEmpty:  true,
-			testIngressConfigIsEmpty: true,
-			shouldError:              true,
 		},
 	}
 
@@ -298,11 +289,7 @@ func TestValidateServiceConnectConfigWithEmptyConfig(t *testing.T) {
 				testIngressConfig,
 			)
 			err := ValidateServiceConnectConfig(testServiceConnectConfig, testTaskContainers, AWSVPCNetworkMode, false)
-			if tc.shouldError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -345,24 +332,6 @@ func TestValidateServiceConnectConfigWithError(t *testing.T) {
 			testIngressConfigEntry: getTestIngressConfigEntry(AWSVPCNetworkMode, testInboundListenerName, false, uint16(0), testAwsVpcDefaultInterceptPort, aws.Uint16(0)),
 		},
 		{
-			testName:               "AWSVPC default case with no IPv4 CIDR in the egress config when Ipv6 is not enabled",
-			testNetworkMode:        AWSVPCNetworkMode,
-			testIsIPv6Enabled:      false,
-			testContainerName:      testServiceConnectContainerName,
-			testEgressConfig:       getTestEgressConfig(testOutboundListenerName, "", ""),
-			testDnsConfigEntry:     getTestDnsConfigEntry(testHostName, testIPv4Address),
-			testIngressConfigEntry: getTestIngressConfigEntry(AWSVPCNetworkMode, testInboundListenerName, false, uint16(0), testAwsVpcDefaultInterceptPort, aws.Uint16(0)),
-		},
-		{
-			testName:               "AWSVPC default case with no IPv6 CIDR in the egress config when IPv6 is enabled",
-			testNetworkMode:        AWSVPCNetworkMode,
-			testIsIPv6Enabled:      true,
-			testContainerName:      testServiceConnectContainerName,
-			testEgressConfig:       getTestEgressConfig(testOutboundListenerName, testIPv4Cidr, ""),
-			testDnsConfigEntry:     getTestDnsConfigEntry(testHostName, testIPv6Address),
-			testIngressConfigEntry: getTestIngressConfigEntry(AWSVPCNetworkMode, testInboundListenerName, false, uint16(0), testAwsVpcDefaultInterceptPort, aws.Uint16(0)),
-		},
-		{
 			testName:               "AWSVPC override case with the invalid IPv4 CIDR in the egress config",
 			testNetworkMode:        AWSVPCNetworkMode,
 			testIsIPv6Enabled:      false,
@@ -379,15 +348,6 @@ func TestValidateServiceConnectConfigWithError(t *testing.T) {
 			testEgressConfig:       getTestEgressConfig(testOutboundListenerName, testIPv4Cidr, "999999999"),
 			testDnsConfigEntry:     getTestDnsConfigEntry(testHostName, testIPv6Address),
 			testIngressConfigEntry: getTestIngressConfigEntry(AWSVPCNetworkMode, "", true, testListenerPort, aws.Uint16(0), aws.Uint16(0)),
-		},
-		{
-			testName:               "Bridge default case with the egress config but no dns config",
-			testNetworkMode:        BridgeNetworkMode,
-			testIsIPv6Enabled:      false,
-			testContainerName:      testServiceConnectContainerName,
-			testEgressConfig:       getTestEgressConfig(testOutboundListenerName, "", testIPv6Cidr),
-			testDnsConfigEntry:     DNSConfigEntry{},
-			testIngressConfigEntry: getTestIngressConfigEntry(BridgeNetworkMode, "", false, testBridgeDefaultListenerPort, aws.Uint16(0), aws.Uint16(0)),
 		},
 		{
 			testName:               "Bridge override case with no the invalid address in dns config when IPv6 is enabled",

@@ -24,40 +24,47 @@ import (
 )
 
 const (
-	BridgeNetworkMode         = "bridge"
-	AWSVPCNetworkMode         = "awsvpc"
-	invalidEgressConfigFormat = `no service connect %s in the egress config. %s`
-	portCollisionFormat       = `%s port collision detected in the ingress config with the %s port=%d, and listener name=%s`
-	invalidIngressPortFormat  = `the %s port=%d in the ingress config is not valid: %w`
-	warningIngressPortFormat  = `Service connect config validation: %s port should not exist for %s mode in the ingress config`
-	invalidDnsEntryFormat     = `no %s in the DNS config hostname=%s, address=%s`
+	BridgeNetworkMode              = "bridge"
+	AWSVPCNetworkMode              = "awsvpc"
+	missingContainerInTaskFormat   = `service connect container name=%s does not exist in the task`
+	duplicateContainerInTaskFormat = `found %d duplicate service connect container name=%s in the task`
+	invalidCidrFormat              = `CIDR=%s is not a valid %s CIDR`
+	portCollisionFormat            = `%s port collision detected in the ingress config with %s port=%d, and listener name=%s`
+	invalidDnsAddressFormat        = `hostname=%s, address=%s in the DNS config is not valid: %w`
+	noScSupportNetworkModeFormat   = `service connect does not support for %s newtork mode`
+	missingListenerInIngressFormat = `missing listener name in the ingress config with intercept port=%d`
+	invalidPortRangeFormat         = `port=%d is not a valid port. A valid port ranges from 1 through 65535`
+	invalidIpAddressFormat         = `address=%s is not a valid IP address`
+	invalidIngressPortFormat       = `%s port=%d in the ingress config is not valid: %w`
+	warningIngressPortFormat       = `Service connect config: %s port should not exist in the ingress config for %s network mode`
+	missingDnsEntryFormat          = `missing %s in the DNS config with hostname=%s, and address=%s`
 )
 
-// validateContainerName validates the service connect container name.
+// validateContainerName validates the service connect container name exists in the task and no duplication.
 func validateContainerName(scContainerName string, taskContainers []*ecsacs.Container) error {
 	// service connect container name is required
 	if scContainerName == "" {
 		return fmt.Errorf("missing service connect container name")
 	}
 
-	// validate the specified service connect container name exists in the task definition
-	numOfFoundSCContainer := 0
+	// validate the specified service connect container name exists in the task
+	numOfFoundScContainer := 0
 	for _, container := range taskContainers {
 		if aws.StringValue(container.Name) == scContainerName {
-			numOfFoundSCContainer += 1
+			numOfFoundScContainer += 1
 		}
 	}
 
-	if numOfFoundSCContainer == 0 {
-		return fmt.Errorf("service connect container name=%s does not exist in the task", scContainerName)
-	} else if numOfFoundSCContainer > 1 {
-		return fmt.Errorf("found %d duplicate service connect container name=%s exist in the task", numOfFoundSCContainer, scContainerName)
+	if numOfFoundScContainer == 0 {
+		return fmt.Errorf(missingContainerInTaskFormat, scContainerName)
+	} else if numOfFoundScContainer > 1 {
+		return fmt.Errorf(duplicateContainerInTaskFormat, numOfFoundScContainer, scContainerName)
 	}
 
 	return nil
 }
 
-// validateEgressConfig validates the service connect egress config.
+// validateEgressConfig validates the listener name, IPv4 CIDR format and IPv6 CIDR format in the service connect egress config.
 func validateEgressConfig(scEgressConfig *EgressConfig, ipv6Enabled bool) error {
 	// egress config can be empty for the first service since there are no other tasks that it can talk to
 	if scEgressConfig == nil {
@@ -66,32 +73,21 @@ func validateEgressConfig(scEgressConfig *EgressConfig, ipv6Enabled bool) error 
 
 	// ListenerName is required if the egress config exists
 	if scEgressConfig.ListenerName == "" {
-		return fmt.Errorf(invalidEgressConfigFormat, "listener name", "")
-	}
-
-	// VIP is required if the egress config exists
-	// IPV4CIDR should be always required because an IPv6-only mode is not supoorted at this moment
-	if scEgressConfig.VIP.IPV4CIDR == "" {
-		return fmt.Errorf(invalidEgressConfigFormat, "VIP IPv4CIDR", "")
-	}
-
-	// IPV6CIDR is required when IPv6 is enabled
-	if ipv6Enabled && scEgressConfig.VIP.IPV6CIDR == "" {
-		return fmt.Errorf(invalidEgressConfigFormat, "VIP IPv6CIDR", "It must not be empty when the task is IPv6 enabled")
+		return fmt.Errorf("missing listener name in the egress config")
 	}
 
 	// validate IPV4CIDR if it exists
 	if scEgressConfig.VIP.IPV4CIDR != "" {
-		trimmedIpv4cidr := strings.TrimSpace(scEgressConfig.VIP.IPV4CIDR)
-		if err := validateCIDR(trimmedIpv4cidr, "IPv4"); err != nil {
+		trimmedIpv4Cidr := strings.TrimSpace(scEgressConfig.VIP.IPV4CIDR)
+		if err := validateCIDR(trimmedIpv4Cidr, "IPv4"); err != nil {
 			return err
 		}
 	}
 
 	// validate IPV6CIDR if it exists
 	if scEgressConfig.VIP.IPV6CIDR != "" {
-		trimmedIpv6cidr := strings.TrimSpace(scEgressConfig.VIP.IPV6CIDR)
-		if err := validateCIDR(trimmedIpv6cidr, "IPv6"); err != nil {
+		trimmedIpv6Cidr := strings.TrimSpace(scEgressConfig.VIP.IPV6CIDR)
+		if err := validateCIDR(trimmedIpv6Cidr, "IPv6"); err != nil {
 			return err
 		}
 	}
@@ -108,7 +104,7 @@ func validateCIDR(cidr, protocol string) error {
 		}
 	}
 
-	return fmt.Errorf("cidr=%s is not a valid %s CIDR", cidr, protocol)
+	return fmt.Errorf(invalidCidrFormat, cidr, protocol)
 }
 
 // getProtocol returns validity of the given IP based on the target protocol.
@@ -128,27 +124,22 @@ func getProtocol(ip net.IP, protocol string) bool {
 	return false
 }
 
-// validateDnsConfig validates the service connnect DNS config.
-func validateDnsConfig(scDnsConfligList []DNSConfigEntry, scEgressConfig *EgressConfig, ipv6Enabled bool) error {
-	// DNS config associates to egress config
-	if len(scDnsConfligList) == 0 && scEgressConfig != nil {
-		return fmt.Errorf("no service connect DNS config. The DNS config is required when the egress config exists")
-	}
-
+// validateDnsConfig validates hostnames and addresses in the service connnect DNS config.
+func validateDnsConfig(scDnsConfligList []DNSConfigEntry) error {
 	for _, dnsEntry := range scDnsConfligList {
 		// HostName is required
 		if dnsEntry.HostName == "" {
-			return fmt.Errorf(invalidDnsEntryFormat, "hostname", dnsEntry.HostName, dnsEntry.Address)
+			return fmt.Errorf(missingDnsEntryFormat, "hostname", dnsEntry.HostName, dnsEntry.Address)
 		}
 
 		// Address is required
 		if dnsEntry.Address == "" {
-			return fmt.Errorf(invalidDnsEntryFormat, "address", dnsEntry.HostName, dnsEntry.Address)
+			return fmt.Errorf(missingDnsEntryFormat, "address", dnsEntry.HostName, dnsEntry.Address)
 		}
 
 		// validate the address is a valid IPv4/IPv6 address
 		if err := validateAddress(dnsEntry.Address); err != nil {
-			return fmt.Errorf("invalid address in the DNS config hostname=%s, address=%s: %w", dnsEntry.HostName, dnsEntry.Address, err)
+			return fmt.Errorf(invalidDnsAddressFormat, dnsEntry.HostName, dnsEntry.Address, err)
 		}
 	}
 
@@ -158,7 +149,7 @@ func validateDnsConfig(scDnsConfligList []DNSConfigEntry, scEgressConfig *Egress
 // validateAddress validates the passed address is a valid IPv4/IPv6 address.
 func validateAddress(address string) error {
 	if ip := net.ParseIP(address); ip == nil {
-		return fmt.Errorf("address=%s is not a valid IP address", address)
+		return fmt.Errorf(invalidIpAddressFormat, address)
 	}
 	return nil
 }
@@ -176,7 +167,7 @@ func validateIngressConfig(scIngressConfigList []IngressConfigEntry, taskNetwork
 			return err
 		}
 	default:
-		return fmt.Errorf("service connect does not support for %s newtork mode", taskNetworkMode)
+		return fmt.Errorf(noScSupportNetworkModeFormat, taskNetworkMode)
 	}
 
 	return nil
@@ -215,7 +206,7 @@ func validateIngressConfigEntry(scIngressConfigList []IngressConfigEntry, networ
 			if err := validateInterceptPort(interceptPortValue, entry.ListenerName, interceptAndListenerPortsMap); err != nil {
 				return err
 			}
-			// Save the listener port value
+			// save the listener port value
 			interceptAndListenerPortsMap[interceptPortValue] = true
 		}
 
@@ -225,7 +216,7 @@ func validateIngressConfigEntry(scIngressConfigList []IngressConfigEntry, networ
 			if err := validateListenerPort(listenerPortValue, entry.ListenerName, interceptAndListenerPortsMap); err != nil {
 				return err
 			}
-			// Save the listener port value
+			// save the listener port value
 			interceptAndListenerPortsMap[listenerPortValue] = true
 		}
 
@@ -235,7 +226,7 @@ func validateIngressConfigEntry(scIngressConfigList []IngressConfigEntry, networ
 			if err := validateHostPort(hostPortValue, entry.ListenerName, hostPortsMap); err != nil {
 				return err
 			}
-			// Save the host port value
+			// save the host port value
 			hostPortsMap[hostPortValue] = true
 		}
 	}
@@ -250,7 +241,7 @@ func validateInterceptPort(interceptPortValue uint16, listenerName string, inter
 	}
 
 	if listenerName == "" {
-		return fmt.Errorf("no listener name in the ingress config with the intercept port=%d", interceptPortValue)
+		return fmt.Errorf(missingListenerInIngressFormat, interceptPortValue)
 	}
 
 	if present := interceptAndListenerPortsMap[interceptPortValue]; present {
@@ -293,10 +284,13 @@ func validatePort(port uint16) error {
 		return nil
 	}
 
-	return fmt.Errorf("the port=%d is an invalid port. A valid port ranges from 1 through 65535", port)
+	return fmt.Errorf(invalidPortRangeFormat, port)
 }
 
-// ValidateSCConfig validates service connect container name, config, egress config, and ingress config.
+// ValidateServiceConnectConfig validates service connect container name,
+// fields in egress config, dns config and ingress config when
+// 1) fields consumed and proceeded by ECS Agent
+// 2) fields with a global standard, e.g. CIDR format
 func ValidateServiceConnectConfig(scConfig *Config,
 	taskContainers []*ecsacs.Container,
 	taskNetworkMode string,
@@ -305,16 +299,11 @@ func ValidateServiceConnectConfig(scConfig *Config,
 		return err
 	}
 
-	// egress config and ingress config should not both be nil/empty
-	if scConfig.EgressConfig == nil && len(scConfig.IngressConfig) == 0 {
-		return fmt.Errorf("egress config and ingress config should not both be nil/empty")
-	}
-
 	if err := validateEgressConfig(scConfig.EgressConfig, ipv6Enabled); err != nil {
 		return err
 	}
 
-	if err := validateDnsConfig(scConfig.DNSConfig, scConfig.EgressConfig, ipv6Enabled); err != nil {
+	if err := validateDnsConfig(scConfig.DNSConfig); err != nil {
 		return err
 	}
 
