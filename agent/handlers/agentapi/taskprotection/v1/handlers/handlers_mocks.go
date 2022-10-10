@@ -22,7 +22,6 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -51,17 +50,15 @@ func (m *MockTaskProtectionClientFactoryInterface) EXPECT() *MockTaskProtectionC
 }
 
 // newTaskProtectionClient mocks base method
-func (m *MockTaskProtectionClientFactoryInterface) newTaskProtectionClient(arg0 credentials.Manager, arg1 *task.Task) (api.ECSTaskProtectionSDK, int, error) {
+func (m *MockTaskProtectionClientFactoryInterface) newTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "newTaskProtectionClient", arg0, arg1)
+	ret := m.ctrl.Call(m, "newTaskProtectionClient", arg0)
 	ret0, _ := ret[0].(api.ECSTaskProtectionSDK)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	return ret0
 }
 
 // newTaskProtectionClient indicates an expected call of newTaskProtectionClient
-func (mr *MockTaskProtectionClientFactoryInterfaceMockRecorder) newTaskProtectionClient(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockTaskProtectionClientFactoryInterfaceMockRecorder) newTaskProtectionClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "newTaskProtectionClient", reflect.TypeOf((*MockTaskProtectionClientFactoryInterface)(nil).newTaskProtectionClient), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "newTaskProtectionClient", reflect.TypeOf((*MockTaskProtectionClientFactoryInterface)(nil).newTaskProtectionClient), arg0)
 }
