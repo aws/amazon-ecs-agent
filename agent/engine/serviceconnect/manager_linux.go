@@ -387,9 +387,9 @@ func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerCli
 			})
 			continue
 		}
-		logger.Debug(fmt.Sprintf("Loading appnet agent container tarball: %s", agentContainerTarballPath))
+		logger.Debug(fmt.Sprintf("Loading Appnet agent container tarball: %s", agentContainerTarballPath))
 		if loadErr = loader.LoadFromFile(ctx, agentContainerTarballPath, dockerClient); loadErr != nil {
-			logger.Warn(fmt.Sprintf("Unable to load appnet agent container tarball: %s", agentContainerTarballPath),
+			logger.Warn(fmt.Sprintf("Unable to load Appnet agent container tarball: %s", agentContainerTarballPath),
 				logger.Fields{
 					field.Error: loadErr,
 				})
@@ -397,7 +397,7 @@ func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerCli
 		}
 		agent.setLoadedAppnetVerion(supportedAppnetInterfaceVersion)
 		imageName, _ := agent.GetLoadedImageName()
-		logger.Info(fmt.Sprintf("Successfully loaded appnet agent container tarball: %s", agentContainerTarballPath),
+		logger.Info(fmt.Sprintf("Successfully loaded Appnet agent container tarball: %s", agentContainerTarballPath),
 			logger.Fields{
 				field.Image: imageName,
 			})
@@ -441,4 +441,9 @@ func getECSAgentLogPathContainer() string {
 //	}
 func (agent *manager) GetCapabilitiesForAppnetInterfaceVersion(appnetVersion string) ([]string, error) {
 	return supportedAppnetInterfaceVerToCapability[appnetVersion], nil
+}
+
+// GetAppnetContainerTarballDir returns Appnet agent tarball path's directory
+func (agent *manager) GetAppnetContainerTarballDir() string {
+	return filepath.Dir(defaultAgentContainerTarballPathFormat)
 }

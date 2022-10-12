@@ -32,4 +32,5 @@ type Manager interface {
 	SetECSClient(client api.ECSClient, containerInstanceARN string)
 	GetLoadedAppnetVersion() (string, error)
 	GetCapabilitiesForAppnetInterfaceVersion(appnetVersion string) ([]string, error)
+	GetAppnetContainerTarballDir() string
 }

@@ -98,6 +98,20 @@ func (mr *MockManagerMockRecorder) CreateInstanceTask(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceTask", reflect.TypeOf((*MockManager)(nil).CreateInstanceTask), arg0)
 }
 
+// GetAppnetContainerTarballDir mocks base method
+func (m *MockManager) GetAppnetContainerTarballDir() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppnetContainerTarballDir")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAppnetContainerTarballDir indicates an expected call of GetAppnetContainerTarballDir
+func (mr *MockManagerMockRecorder) GetAppnetContainerTarballDir() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppnetContainerTarballDir", reflect.TypeOf((*MockManager)(nil).GetAppnetContainerTarballDir))
+}
+
 // GetCapabilitiesForAppnetInterfaceVersion mocks base method
 func (m *MockManager) GetCapabilitiesForAppnetInterfaceVersion(arg0 string) ([]string, error) {
 	m.ctrl.T.Helper()

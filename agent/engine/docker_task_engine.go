@@ -281,6 +281,7 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
 	go engine.startPeriodicExecAgentsMonitoring(derivedCtx)
+	go engine.watchAppNetImage(derivedCtx)
 	return nil
 }
 

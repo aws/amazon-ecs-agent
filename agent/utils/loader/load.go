@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -35,7 +37,7 @@ type Loader interface {
 // GetContainerImage This function uses the DockerClient to inspect the image with the given name and tag.
 func GetContainerImage(imageName string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	logger.Debug("Inspecting container image: ", logger.Fields{
-		imageName: imageName,
+		field.Image: imageName,
 	})
 
 	image, err := dockerClient.InspectImage(imageName)

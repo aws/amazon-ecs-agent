@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,7 +82,7 @@ func init() {
 func TestResourceContainerProgression(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -105,6 +106,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	// events are processed
 	containerEventsWG := sync.WaitGroup{}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	gomock.InOrder(
 		// Ensure that the resource is created first
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
@@ -250,7 +252,7 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 func TestResourceContainerProgressionFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
@@ -267,6 +269,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepTask.AddResource("cgroup", cgroupResource)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	gomock.InOrder(
 		// resource creation failure
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
@@ -307,7 +310,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _ := mocks(
+			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, serviceConnectManager := mocks(
 				t, ctx, &metadataConfig)
 			defer ctrl.Finish()
 
@@ -328,6 +331,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			containerEventsWG := sync.WaitGroup{}
 
 			client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+			serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 			containerName := make(chan string)
 			go func() {
 				name := <-containerName
@@ -590,7 +594,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -616,6 +620,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	containerEventsWG := sync.WaitGroup{}
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	// We cannot rely on the order of pulls between images as they can still be downloaded in
 	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
 	// Hence, do not enforce the order of invocation of these calls
@@ -728,7 +733,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -758,6 +763,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	})
 
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	sleepContainerID1 := containerID + "1"
 	sleepContainerID2 := containerID + "2"
@@ -985,6 +991,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	sleepTask.AddTaskENI(mockENI)
 
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	sleepContainerID1 := containerID + "1"
 	sleepContainerID2 := containerID + "2"
@@ -1136,6 +1143,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	})
 
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	sleepContainerID := containerID + "1"
 	scContainerID := "serviceConnectID"
@@ -1363,4 +1371,24 @@ func TestProvisionContainerResourcesBridgeModeWithServiceConnect(t *testing.T) {
 		)
 		require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, cont).Error)
 	}
+}
+
+func TestWatchAppNetImage(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	tempServiceConnectAppnetAgenTarballDir := t.TempDir()
+
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().Return(tempServiceConnectAppnetAgenTarballDir).AnyTimes()
+	serviceConnectManager.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	watcherCtx, watcherCancel := context.WithTimeout(context.Background(), time.Second)
+	defer watcherCancel()
+	go taskEngine.(*DockerTaskEngine).watchAppNetImage(watcherCtx)
+	_, err := os.CreateTemp(tempServiceConnectAppnetAgenTarballDir, "agent.tar")
+	assert.NoError(t, err)
+
+	<-watcherCtx.Done()
 }

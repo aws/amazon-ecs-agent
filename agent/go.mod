@@ -18,6 +18,7 @@ require (
 	github.com/docker/docker v0.0.0-20200531234253-77e06fda0c94
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
+	github.com/fsnotify/fsnotify v1.5.4
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/golang/mock v1.1.1
 	github.com/google/go-cmp v0.5.6 // indirect
@@ -34,13 +35,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.4
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/prometheus/common v0.4.1
+	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
 	golang.org/x/tools v0.1.5
