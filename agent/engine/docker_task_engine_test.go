@@ -239,7 +239,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, _ := mocks(
+			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager, serviceConnectManager := mocks(
 				t, ctx, &metadataConfig)
 			execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 			taskEngine.(*DockerTaskEngine).execCmdMgr = execCmdMgr
@@ -262,6 +262,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			containerEventsWG := sync.WaitGroup{}
 
 			client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+			serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 			containerName := make(chan string)
 			go func() {
 				name := <-containerName
@@ -351,7 +352,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 func TestRemoveEvents(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -360,6 +361,7 @@ func TestRemoveEvents(t *testing.T) {
 	// events are processed
 	containerEventsWG := sync.WaitGroup{}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	client.EXPECT().StopContainer(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	containerName := make(chan string)
 	go func() {
@@ -426,7 +428,7 @@ func TestRemoveEvents(t *testing.T) {
 func TestStartTimeoutThenStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -434,6 +436,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any())
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
@@ -479,7 +482,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 func TestSteadyStatePoll(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
@@ -489,6 +492,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	containerName := make(chan string)
 	go func() {
 		<-containerName
@@ -555,7 +559,7 @@ func TestSteadyStatePoll(t *testing.T) {
 func TestStopWithPendingStops(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 	testTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -567,6 +571,7 @@ func TestStopWithPendingStops(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -758,12 +763,13 @@ func TestCreateContainerAddV3EndpointIDToState(t *testing.T) {
 func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerStopTimeoutError := dockerapi.DockerContainerMetadata{
@@ -825,12 +831,13 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerEventsWG := sync.WaitGroup{}
@@ -898,7 +905,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	sleepTask := testdata.LoadTask("sleep5")
@@ -906,6 +913,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	containerStoppingError := dockerapi.DockerContainerMetadata{
 		Error: dockerapi.CannotStopContainerError{errors.New("Error stopping container")},
 	}
@@ -951,13 +959,14 @@ func TestGetTaskByArn(t *testing.T) {
 	defer cancel()
 	// Need a mock client as AddTask not only adds a task to the engine, but
 	// also causes the engine to progress the task.
-	ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).AnyTimes()
@@ -1283,10 +1292,11 @@ func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 func TestTaskWithCircularDependency(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	client.EXPECT().ContainerEvents(gomock.Any())
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	task := testdata.LoadTask("circular_dependency")
 
@@ -1634,7 +1644,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, _ := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, serviceConnectManager := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 
 	var metadataUpdateWG sync.WaitGroup
@@ -1657,6 +1667,10 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	state.AddContainer(dockerContainer, task)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	_, watcherCancel := context.WithTimeout(context.Background(), time.Second)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().Do(func() {
+		watcherCancel()
+	}).AnyTimes()
 	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(gomock.Any())
 
@@ -1832,13 +1846,14 @@ func TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource(t *testing.T)
 func TestNewTaskTransitionOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
@@ -1876,11 +1891,12 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, _ := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, conf)
 	defer ctrl.Finish()
 
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	err := privateTaskEngine.Init(ctx)
 	assert.NoError(t, err)
@@ -1911,7 +1927,6 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 		DockerID: containerID,
 	}).Times(3)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
-
 	// start the two tasks
 	taskEngine.synchronizeState()
 
@@ -2286,7 +2301,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 func TestContainerProgressParallize(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, testTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, testTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -2374,6 +2389,7 @@ func TestContainerProgressParallize(t *testing.T) {
 				eventStream <- event
 			}()
 		})
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	taskEngine.Init(ctx)
 	taskEngine.AddTask(testTask)
@@ -2428,12 +2444,13 @@ func TestContainerProgressParallize(t *testing.T) {
 func TestSynchronizeResource(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
@@ -2466,13 +2483,14 @@ func TestSynchronizeResource(t *testing.T) {
 func TestSynchronizeENIAttachment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
@@ -2501,13 +2519,14 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
 	dataClient, cleanup := newTestDataClient(t)
 	defer cleanup()
 
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)

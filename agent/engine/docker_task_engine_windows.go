@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -64,4 +65,14 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 	}
 
 	return nil
+}
+
+func (engine *DockerTaskEngine) watchAppNetImage(ctx context.Context) {
+}
+
+func (engine *DockerTaskEngine) reloadAppNetImage() error {
+	return nil
+}
+
+func (engine *DockerTaskEngine) restartInstanceTask() {
 }

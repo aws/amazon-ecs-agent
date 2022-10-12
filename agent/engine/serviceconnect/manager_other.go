@@ -81,3 +81,7 @@ func (*manager) GetCapabilitiesForAppnetInterfaceVersion(string) ([]string, erro
 		"appnetAgent container get capabilities for appnet version: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
+
+func (*manager) GetAppnetContainerTarballDir() string {
+	return ""
+}

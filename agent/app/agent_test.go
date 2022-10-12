@@ -423,6 +423,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()

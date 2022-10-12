@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -38,4 +39,19 @@ func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
 // On non-windows platform, we will not invoke CNI plugins for non-pause containers
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
 	return nil
+}
+
+// watchAppNetImage is a file watcher, if there is any change/update to AppNet image
+// we reload the image and restart the relay instance task with updated AppNet image.
+func (engine *DockerTaskEngine) watchAppNetImage(ctx context.Context) {
+}
+
+// reloadAppNetImage reloads the new AppNet image for service connect
+func (engine *DockerTaskEngine) reloadAppNetImage() error {
+	return nil
+}
+
+// restartInstanceTask stop the running internal relay task and starts a new one
+// with updated AppNet image
+func (engine *DockerTaskEngine) restartInstanceTask() {
 }

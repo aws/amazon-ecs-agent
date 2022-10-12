@@ -112,6 +112,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 
 	gomock.InOrder(
@@ -454,6 +455,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
@@ -615,6 +617,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
