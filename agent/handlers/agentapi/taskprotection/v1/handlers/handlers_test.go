@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -310,6 +311,17 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
+			name:        "Agent timeout",
+			ecsError:    awserr.New(request.CanceledErrorCode, "request cancelled", nil),
+			ecsResponse: &ecs.UpdateTaskProtectionOutput{},
+			expectedError: &types.ErrorResponse{
+				Arn:     testTaskArn,
+				Code:    request.CanceledErrorCode,
+				Message: ecsCallTimedOutError,
+			},
+			expectedStatusCode: http.StatusGatewayTimeout,
+		},
+		{
 			name:               "NonAwsError",
 			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.UpdateTaskProtectionOutput{},
@@ -394,7 +406,9 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
 			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
 			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
-			mockECSClient.EXPECT().UpdateTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
+			mockECSClient.EXPECT().
+				UpdateTaskProtectionWithContext(gomock.Any(), gomock.Any()).
+				Return(tc.ecsResponse, tc.ecsError)
 
 			expectedResponse := types.TaskProtectionResponse{
 				Protection: tc.expectedProtection,
@@ -540,6 +554,17 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
+			name:        "Agent timeout",
+			ecsError:    awserr.New(request.CanceledErrorCode, "request cancelled", nil),
+			ecsResponse: &ecs.GetTaskProtectionOutput{},
+			expectedError: &types.ErrorResponse{
+				Arn:     testTaskArn,
+				Code:    request.CanceledErrorCode,
+				Message: ecsCallTimedOutError,
+			},
+			expectedStatusCode: http.StatusGatewayTimeout,
+		},
+		{
 			name:               "NonAwsError",
 			ecsError:           fmt.Errorf("error message"),
 			ecsResponse:        &ecs.GetTaskProtectionOutput{},
@@ -620,7 +645,9 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 			mockState.EXPECT().TaskByArn(gomock.Eq(testTaskArn)).Return(&testTask, true)
 			mockManager.EXPECT().GetTaskCredentials(gomock.Eq(testTaskCredentialsId)).Return(credentials.TaskIAMRoleCredentials{}, true)
 			mockFactory.EXPECT().newTaskProtectionClient(gomock.Eq(credentials.TaskIAMRoleCredentials{})).Return(mockECSClient)
-			mockECSClient.EXPECT().GetTaskProtection(gomock.Any()).Return(tc.ecsResponse, tc.ecsError)
+			mockECSClient.EXPECT().
+				GetTaskProtectionWithContext(gomock.Any(), gomock.Any()).
+				Return(tc.ecsResponse, tc.ecsError)
 
 			expectedResponse := types.TaskProtectionResponse{
 				Protection: tc.expectedProtection,

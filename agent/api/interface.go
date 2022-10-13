@@ -16,6 +16,8 @@ package api
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	prometheus "github.com/prometheus/client_model/go"
 )
 
@@ -88,5 +90,9 @@ type AppnetClient interface {
 // implements the UpdateTaskProtection and GetTaskProtection
 type ECSTaskProtectionSDK interface {
 	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
+	UpdateTaskProtectionWithContext(ctx aws.Context, input *ecs.UpdateTaskProtectionInput,
+		opts ...request.Option) (*ecs.UpdateTaskProtectionOutput, error)
 	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
+	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
+		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
 }
