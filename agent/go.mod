@@ -34,13 +34,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.4
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/prometheus/common v0.4.1
+	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
 	golang.org/x/tools v0.1.5
@@ -71,6 +71,5 @@ replace (
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
 	golang.org/x/net => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 	golang.org/x/tools => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
 )
