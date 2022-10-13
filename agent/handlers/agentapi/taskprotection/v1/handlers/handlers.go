@@ -14,10 +14,12 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -34,11 +36,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const (
 	ExpectedProtectionResponseLength = 1
+
+	// timeout for ECS SDK calls
+	// must be lower than server write timeout
+	ecsCallTimeout       = 4 * time.Second
+	ecsCallTimedOutError = "Timed out calling ECS Task Protection API"
 )
 
 // TaskProtectionPath Returns endpoint path for UpdateTaskProtection API
@@ -119,7 +127,9 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 		}
 		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
 
-		response, err := ecsClient.UpdateTaskProtection(&ecs.UpdateTaskProtectionInput{
+		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
+		defer cancel()
+		response, err := ecsClient.UpdateTaskProtectionWithContext(ctx, &ecs.UpdateTaskProtectionInput{
 			Cluster:           aws.String(cluster),
 			ExpiresInMinutes:  taskProtection.GetExpiresInMinutes(),
 			ProtectionEnabled: aws.Bool(taskProtection.GetProtectionEnabled()),
@@ -210,9 +220,12 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 				getTaskProtectionRequestType)
 			return
 		}
+
 		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
 
-		response, err := ecsClient.GetTaskProtection(&ecs.GetTaskProtectionInput{
+		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
+		defer cancel()
+		response, err := ecsClient.GetTaskProtectionWithContext(ctx, &ecs.GetTaskProtectionInput{
 			Cluster: aws.String(cluster),
 			Tasks:   aws.StringSlice([]string{task.Arn}),
 		})
@@ -223,7 +236,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			if reqId != nil {
 				requestIdString = *reqId
 			}
-			logger.Error("Got an exception when calling UpdateTaskProtection.", logger.Fields{
+			logger.Error("Got an exception when calling GetTaskProtection.", logger.Fields{
 				loggerfield.Error:  err,
 				"ErrorCode":        errorCode,
 				"ExceptionMessage": errorMsg,
@@ -298,6 +311,8 @@ func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 		if reqErr, ok := err.(awserr.RequestFailure); ok {
 			reqId := reqErr.RequestID()
 			return awsErr.Code(), msg, reqErr.StatusCode(), &reqId
+		} else if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
+			return aerr.Code(), ecsCallTimedOutError, http.StatusGatewayTimeout, nil
 		} else {
 			logger.Error(fmt.Sprintf("got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.", err))
 			return awsErr.Code(), msg, http.StatusInternalServerError, nil
