@@ -44,8 +44,7 @@ func TestGetInterfaceMACByIndex(t *testing.T) {
 
 	ctx := context.TODO()
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 	hardwareAddr, err := net.ParseMAC(macAddress)
 
 	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
@@ -68,8 +67,7 @@ func TestGetInterfaceMACByIndexEmptyAddress(t *testing.T) {
 
 	ctx := context.TODO()
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 
 	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		&net.Interface{
@@ -91,8 +89,7 @@ func TestGetInterfaceMACByIndexRetries(t *testing.T) {
 
 	ctx := context.TODO()
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 	hardwareAddr, err := net.ParseMAC(macAddress)
 	emptyaddr := make([]byte, 0)
 
@@ -123,8 +120,7 @@ func TestGetInterfaceMACByIndexContextTimeout(t *testing.T) {
 
 	ctx := context.TODO()
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 
 	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		&net.Interface{
@@ -146,8 +142,7 @@ func TestGetInterfaceMACByIndexWithGolangNetError(t *testing.T) {
 
 	ctx := context.TODO()
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 
 	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		nil, errors.New("unable to retrieve interface"))
@@ -164,8 +159,7 @@ func TestGetAllNetworkInterfaces(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 
 	expectedIface := make([]net.Interface, 1)
 
@@ -191,8 +185,7 @@ func TestGetAllNetworkInterfacesError(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-	netUtils := New()
-	netUtils.SetNetWrapper(mocknetwrapper)
+	netUtils := &networkUtils{netWrapper: mocknetwrapper}
 
 	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(
 		nil, errors.New("error occurred while fetching interfaces"),
