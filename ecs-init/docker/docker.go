@@ -122,9 +122,7 @@ const (
 	containerResourcesRootDir = "/managed-agents"
 
 	execCapabilityName     = "execute-command"
-	execBinRelativePath    = "bin"
 	execConfigRelativePath = "config"
-	execCertsRelativePath  = "certs"
 
 	execAgentLogRelativePath = "/exec"
 )
@@ -437,7 +435,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	binds = append(binds, getDockerPluginDirBinds()...)
 
 	// only add bind mounts when the src file/directory exists on host; otherwise docker API create an empty directory on host
-	binds = append(binds, getCapabilityExecBinds()...)
+	binds = append(binds, getCapabilityBinds()...)
 
 	return createHostConfig(binds)
 }
@@ -473,31 +471,24 @@ func getDockerPluginDirBinds() []string {
 	return pluginBinds
 }
 
-func getCapabilityExecBinds() []string {
-	hostResourcesDir := filepath.Join(hostResourcesRootDir, execCapabilityName)
-	containerResourcesDir := filepath.Join(containerResourcesRootDir, execCapabilityName)
+func getCapabilityBinds() []string {
+	var binds = []string{}
 
-	var binds []string
-
-	// bind mount the entire /host/dependency/path/execute-command/bin folder
-	hostBinDir := filepath.Join(hostResourcesDir, execBinRelativePath)
-	if isPathValid(hostBinDir, true) {
+	// bind mount the entire /host/dependency/path/ folder
+	// as readonly to support all managed dependencies
+	if isPathValid(hostResourcesRootDir, true) {
 		binds = append(binds,
-			hostBinDir+":"+filepath.Join(containerResourcesDir, execBinRelativePath)+readOnly)
+			hostResourcesRootDir+":"+containerResourcesRootDir+readOnly)
 	}
 
 	// bind mount the entire /host/dependency/path/execute-command/config folder
 	// in read-write mode to allow ecs-agent to write config files to host file system
 	// (docker will) create the config folder if it does not exist
-	hostConfigDir := filepath.Join(hostResourcesDir, execConfigRelativePath)
-	binds = append(binds,
-		hostConfigDir+":"+filepath.Join(containerResourcesDir, execConfigRelativePath))
-
-	// bind mount the entire /host/dependency/path/execute-command/certs folder
-	hostCertsDir := filepath.Join(hostResourcesDir, execCertsRelativePath)
-	if isPathValid(hostCertsDir, true) {
+	hostConfigDir := filepath.Join(hostResourcesRootDir, execCapabilityName, execConfigRelativePath)
+	// Check that execute-command folder is present not config folder
+	if isPathValid(filepath.Dir(hostConfigDir), true) {
 		binds = append(binds,
-			hostCertsDir+":"+filepath.Join(containerResourcesDir, execCertsRelativePath)+readOnly)
+			hostConfigDir+":"+filepath.Join(containerResourcesRootDir, execCapabilityName, execConfigRelativePath))
 	}
 
 	return binds
