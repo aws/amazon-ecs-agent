@@ -22,6 +22,7 @@ import (
 	"net"
 	"syscall"
 	"testing"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -32,9 +33,13 @@ import (
 )
 
 const (
-	interfaceIndex = 9
-	macAddress     = "02:22:ea:8c:81:dc"
-	validDnsServer = "10.0.0.2"
+	deviceName            = "Ethernet 2"
+	ifaceLUID      uint64 = 1689399649632256
+	RxBytes        uint64 = 1000
+	TxBytes        uint64 = 5000
+	interfaceIndex        = 9
+	macAddress            = "02:22:ea:8c:81:dc"
+	validDnsServer        = "10.0.0.2"
 )
 
 // This is a success test. We receive the appropriate MAC address corresponding to the interface index.
@@ -229,4 +234,77 @@ func TestGetDNSServerAddressList(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dnsServerList, 1)
 	assert.EqualValues(t, dnsServerList[0], validDnsServer)
+}
+
+// TestGetMIBIfEntryFromLUID tests the GetMIBIfEntryFromLUID method.
+func TestGetMIBIfEntryFromLUID(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	netUtils := &networkUtils{}
+
+	// Dummy function which is representative of system call (GetIfEntry2Ex)
+	netUtils.funcGetIfEntry2Ex = func(a ...uintptr) (uintptr, uintptr, error) {
+		row := (*MibIfRow2)(unsafe.Pointer(a[1]))
+		row.interfaceIndex = interfaceIndex
+		row.OutOctets = TxBytes
+		row.InOctets = RxBytes
+		return uintptr(0), uintptr(0), nil
+	}
+
+	ifRow, err := netUtils.GetMIBIfEntryFromLUID(ifaceLUID)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(interfaceIndex), ifRow.interfaceIndex)
+	assert.Equal(t, TxBytes, ifRow.OutOctets)
+	assert.Equal(t, RxBytes, ifRow.InOctets)
+}
+
+// TestGetMIBIfEntryFromLUIDError tests the GetMIBIfEntryFromLUID method in error case.
+func TestGetMIBIfEntryFromLUIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	netUtils := &networkUtils{}
+
+	// Dummy function which is representative of system call (GetIfEntry2Ex)
+	netUtils.funcGetIfEntry2Ex = func(a ...uintptr) (uintptr, uintptr, error) {
+		// Return an error code.
+		return uintptr(1), uintptr(0), nil
+	}
+
+	_, err := netUtils.GetMIBIfEntryFromLUID(ifaceLUID)
+	assert.Error(t, err)
+}
+
+// TestConvertInterfaceAliasToLUID tests ConvertInterfaceAliasToLUID method.
+func TestConvertInterfaceAliasToLUID(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	netUtils := &networkUtils{}
+	// Dummy function which is representative of system call (GetIfEntry2Ex)
+	netUtils.funcConvertInterfaceAliasToLuid = func(a ...uintptr) (uintptr, uintptr, error) {
+		luid := (*uint64)(unsafe.Pointer(a[1]))
+		*luid = ifaceLUID
+		return uintptr(0), uintptr(0), nil
+	}
+
+	luid, err := netUtils.ConvertInterfaceAliasToLUID(deviceName)
+	assert.NoError(t, err)
+	assert.Equal(t, ifaceLUID, luid)
+}
+
+// TestConvertInterfaceAliasToLUID tests ConvertInterfaceAliasToLUID method in case of error.
+func TestConvertInterfaceAliasToLUIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	netUtils := &networkUtils{}
+	// Dummy function which is representative of system call (GetIfEntry2Ex)
+	netUtils.funcConvertInterfaceAliasToLuid = func(a ...uintptr) (uintptr, uintptr, error) {
+		return uintptr(1), uintptr(0), nil
+	}
+
+	_, err := netUtils.ConvertInterfaceAliasToLUID(deviceName)
+	assert.Error(t, err)
 }
