@@ -18,7 +18,6 @@ package watcher
 
 import (
 	"context"
-
 	"net"
 	"sync"
 	"testing"
@@ -30,9 +29,9 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper"
 	mock_iphelperwrapper "github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
-	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
+	mock_networkutils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -82,7 +81,6 @@ func constructInterfaceList() []net.Interface {
 // newTestWatcher is used to create a watcher for testing purpose
 func newTestWatcher(ctx context.Context, primaryMAC string, state dockerstate.TaskEngineState,
 	stateChangeEvents chan<- statechange.Event, eniMonitor iphelperwrapper.InterfaceMonitor) (*ENIWatcher, error) {
-	derivedContext, cancel := context.WithCancel(ctx)
 
 	notificationChannel := make(chan int)
 	err := eniMonitor.Start(notificationChannel)
@@ -90,6 +88,7 @@ func newTestWatcher(ctx context.Context, primaryMAC string, state dockerstate.Ta
 		return nil, errors.Wrapf(err, "error occurred while instantiating watcher")
 	}
 
+	derivedContext, cancel := context.WithCancel(ctx)
 	return &ENIWatcher{
 		ctx:              derivedContext,
 		cancel:           cancel,
@@ -98,7 +97,6 @@ func newTestWatcher(ctx context.Context, primaryMAC string, state dockerstate.Ta
 		primaryMAC:       primaryMAC,
 		interfaceMonitor: eniMonitor,
 		notifications:    notificationChannel,
-		netutils:         networkutils.New(),
 	}, nil
 }
 
@@ -164,13 +162,11 @@ func TestReconcileOnce(t *testing.T) {
 		}, true)
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
 	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
-	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(constructInterfaceList(), nil)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
+	mockNetworkUtils.EXPECT().GetAllNetworkInterfaces().Return(constructInterfaceList(), nil)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	waitForEvents.Add(2)
 
@@ -204,13 +200,11 @@ func TestReconcileOnceNetUtilsError(t *testing.T) {
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
 	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
-	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("Error while retrieving interfaces"))
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
+	mockNetworkUtils.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("Error while retrieving interfaces"))
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	err := watcher.Init()
 	assert.Error(t, err)
@@ -227,13 +221,11 @@ func TestReconcileOnceEmptyInterfaceList(t *testing.T) {
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
 	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
-	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(make([]net.Interface, 0), nil)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
+	mockNetworkUtils.EXPECT().GetAllNetworkInterfaces().Return(make([]net.Interface, 0), nil)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	err := watcher.Init()
 	assert.NoError(t, err)
@@ -252,17 +244,12 @@ func TestEventHandlerSuccess(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
 
-	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
-		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
-			Index:        interfaceIndex1,
-			Name:         interfacename1,
-			HardwareAddr: mac1,
-		}, nil),
+		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress: macAddress1,
@@ -271,9 +258,7 @@ func TestEventHandlerSuccess(t *testing.T) {
 	)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
@@ -310,17 +295,16 @@ func TestEventHandlerGetInterfaceByMACError(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
 
 	gomock.InOrder(
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
-		mocknetwrapper.EXPECT().FindInterfaceByIndex(gomock.Any()).Return(nil, errors.New("Error while retrieving details")),
+		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(
+			"", errors.New("Error while retrieving details")),
 	)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
@@ -348,17 +332,12 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
 
-	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
-		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
-			Index:        interfaceIndex1,
-			Name:         interfacename1,
-			HardwareAddr: mac1,
-		}, nil),
+		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress:       macAddress1,
@@ -367,9 +346,7 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 	)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
@@ -397,25 +374,18 @@ func TestEventHandlerUnmanagedENI(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
 
-	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
-		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
-			Index:        interfaceIndex1,
-			Name:         interfacename1,
-			HardwareAddr: mac1,
-		}, nil),
+		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(nil, false).AnyTimes(),
 	)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
@@ -443,17 +413,12 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	mockNetworkUtils := mock_networkutils.NewMockNetworkUtils(mockCtrl)
 
-	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
-		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
-			Index:        interfaceIndex1,
-			Name:         interfacename1,
-			HardwareAddr: mac1,
-		}, nil),
+		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress: macAddress1,
@@ -463,9 +428,7 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 	)
 
 	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.New()
-	netutils.SetNetWrapper(mocknetwrapper)
-	watcher.SetNetworkUtils(netutils)
+	watcher.netutils = mockNetworkUtils
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1

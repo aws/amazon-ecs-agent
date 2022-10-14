@@ -25,14 +25,16 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
-
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/windows"
 )
+
+//go:generate mockgen -destination=mocks/$GOFILE -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/networkutils NetworkUtils
 
 // NetworkUtils is the interface used for accessing network related functionality on Windows.
 // The methods declared in this package may or may not add any additional logic over the actual networking api calls.
@@ -40,7 +42,6 @@ type NetworkUtils interface {
 	GetInterfaceMACByIndex(int, context.Context, time.Duration) (string, error)
 	GetAllNetworkInterfaces() ([]net.Interface, error)
 	GetDNSServerAddressList(macAddress string) ([]string, error)
-	SetNetWrapper(netWrapper netwrapper.NetWrapper)
 }
 
 type networkUtils struct {
@@ -118,11 +119,6 @@ func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	return utils.netWrapper.GetAllNetworkInterfaces()
 }
 
-// SetNetWrapper is used to inject netWrapper instance. This will be handy while testing to inject mocks.
-func (utils *networkUtils) SetNetWrapper(netWrapper netwrapper.NetWrapper) {
-	utils.netWrapper = netWrapper
-}
-
 // GetDNSServerAddressList returns the DNS server addresses of the queried interface.
 func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string, error) {
 	addresses, err := funcGetAdapterAddresses()
@@ -141,7 +137,7 @@ func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string,
 
 	dnsServerAddressList := make([]string, 0)
 	for firstDnsNode != nil {
-		dnsServerAddressList = append(dnsServerAddressList, utils.parseSocketAddress(firstDnsNode.Address))
+		dnsServerAddressList = append(dnsServerAddressList, firstDnsNode.Address.IP().String())
 		firstDnsNode = firstDnsNode.Next
 	}
 
@@ -156,18 +152,6 @@ func (utils *networkUtils) parseMACAddress(adapterAddress *windows.IpAdapterAddr
 		return hardwareAddr
 	}
 	return hardwareAddr
-}
-
-// parseSocketAddress parses the SocketAddress into its string representation.
-// This method needs to be deprecated in favour of IP() method of SocketAdress introduced in Go 1.13+.
-// The method details have been taken from https://github.com/golang/sys/blob/release-branch.go1.13/windows/types_windows.go
-func (utils *networkUtils) parseSocketAddress(addr windows.SocketAddress) string {
-	var ipAddr string
-	if uintptr(addr.SockaddrLength) >= unsafe.Sizeof(syscall.RawSockaddrInet4{}) && addr.Sockaddr.Addr.Family == syscall.AF_INET {
-		ip := net.IP((*syscall.RawSockaddrInet4)(unsafe.Pointer(addr.Sockaddr)).Addr[:])
-		ipAddr = ip.String()
-	}
-	return ipAddr
 }
 
 // getAdapterAddresses returns a list of IP adapter and address
