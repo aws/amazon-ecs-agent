@@ -18,6 +18,7 @@ package credentialspec
 
 import (
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -540,4 +541,98 @@ func TestGetTargetMappingErr(t *testing.T) {
 	targetKerberosTicketPath, err := cs.GetTargetMapping("testcredspec")
 	assert.Error(t, err)
 	assert.Empty(t, targetKerberosTicketPath)
+}
+
+func TestUpdateTargetMapping(t *testing.T) {
+	inputCredSpec := "credentialspec:ssmARN"
+	credSpecData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
+
+	credSpecMapData := map[string]string{
+		"credentialspec:ssmARN": "/var/credentials-fetcher/krbdir/123456/webapp01",
+	}
+	credentialsFetcherInfoMap := map[string]ServiceAccountInfo{
+		"credentialspec:ssmARN": {serviceAccountName: "webapp01", domainName: "contoso.com"},
+	}
+
+	cs := &CredentialSpecResource{
+		CredSpecMap:           credSpecMapData,
+		ServiceAccountInfoMap: credentialsFetcherInfoMap,
+	}
+
+	cs.updateCredSpecMapping(inputCredSpec, credSpecData)
+
+	expectedOutput := ServiceAccountInfo{
+		serviceAccountName: "WebApp01",
+		domainName:         "contoso.com",
+	}
+
+	assert.Equal(t, cs.ServiceAccountInfoMap[inputCredSpec], expectedOutput)
+}
+
+func TestSkipCredentialFetcherInvocation(t *testing.T) {
+	os.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	defer os.Unsetenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mockcredentials.NewMockManager(ctrl)
+	ssmClientCreator := mockfactory.NewMockSSMClientCreator(ctrl)
+	mockSSMClient := mockssmiface.NewMockSSMClient(ctrl)
+	taskRoleCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			CredentialsID: "test-cred-id",
+		},
+	}
+
+	containerName := "webapp"
+
+	credentialSpecSSMARN := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
+
+	credentialSpecContainerMap := map[string]string{
+		credentialSpecSSMARN: containerName,
+	}
+
+	cs := &CredentialSpecResource{
+		knownStatusUnsafe:          resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+		CredSpecMap:                map[string]string{},
+		taskARN:                    taskARN,
+		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
+	}
+
+	cs.Initialize(&taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
+	ssmClientOutput := &ssm.GetParametersOutput{
+		InvalidParameters: []*string{},
+		Parameters: []*ssm.Parameter{
+			{
+				Name:  aws.String("/test"),
+				Value: aws.String(testData),
+			},
+		},
+	}
+	expectedKerberosTicketPath := "/tmp/tgt"
+
+	gomock.InOrder(
+		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(taskRoleCredentials, true).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+	)
+
+	err := cs.Create()
+
+	assert.NoError(t, err)
+
+	cs.CredSpecMap[credentialSpecSSMARN] = expectedKerberosTicketPath
+
+	actualKerberosTicketPath, err := cs.GetTargetMapping(credentialSpecSSMARN)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedKerberosTicketPath, actualKerberosTicketPath)
 }

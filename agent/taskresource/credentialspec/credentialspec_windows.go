@@ -25,12 +25,13 @@ import (
 	"sync"
 	"time"
 
-	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
@@ -77,9 +78,6 @@ type CredentialSpecResource struct {
 	// s3ClientCreator is a factory interface that creates new S3 clients. This is
 	// needed mostly for testing.
 	s3ClientCreator s3factory.S3ClientCreator
-	// asmClientCreator is a factory interface that creates new secrets manager clients. This is
-	// needed mostly for testing.
-	asmClientCreator asmfactory.ClientCreator
 	// credentialSpecResourceLocation is the location for all the tasks' credentialspec artifacts
 	credentialSpecResourceLocation string
 	// map to transform credentialspec values, key is a input credentialspec
@@ -124,6 +122,16 @@ func NewCredentialSpecResource(taskARN, region string,
 
 	s.initStatusToTransition()
 	return s, nil
+}
+
+func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
+	_ status.TaskStatus,
+	_ status.TaskStatus) {
+
+	cs.credentialsManager = resourceFields.CredentialsManager
+	cs.ssmClientCreator = resourceFields.SSMClientCreator
+	cs.s3ClientCreator = resourceFields.S3ClientCreator
+	cs.initStatusToTransition()
 }
 
 // Create is used to create all the credentialspec resources for a given task

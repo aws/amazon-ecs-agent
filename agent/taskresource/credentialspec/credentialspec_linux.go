@@ -21,15 +21,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/cihub/seelog"
 
@@ -38,6 +42,13 @@ import (
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient"
 	"github.com/pkg/errors"
+)
+
+const (
+	// envSkipCredentialsFetcherInvocation is an environment setting that can be used to skip
+	// credentials fetcher daemon invocation. This is useful for integration and
+	// functional-tests but should not be set for any non-test use-case.
+	envSkipCredentialsFetcherInvocation = "ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
 )
 
 // CredentialSpecResource is the abstraction for credentialspec resources
@@ -141,6 +152,17 @@ func NewCredentialSpecResource(taskARN, region string,
 	return s, nil
 }
 
+func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
+	_ status.TaskStatus,
+	_ status.TaskStatus) {
+
+	cs.credentialsManager = resourceFields.CredentialsManager
+	cs.ssmClientCreator = resourceFields.SSMClientCreator
+	cs.asmClientCreator = resourceFields.ASMClientCreator
+	cs.s3ClientCreator = resourceFields.S3ClientCreator
+	cs.initStatusToTransition()
+}
+
 // Create is used to retrieve credentialspec resources for a given task
 func (cs *CredentialSpecResource) Create() error {
 	var iamCredentials credentials.IAMRoleCredentials
@@ -195,6 +217,19 @@ func (cs *CredentialSpecResource) Create() error {
 	}
 
 	seelog.Infof("credentials fetcher daemon request: %v", cs.credentialsFetcherRequest)
+
+	// Check if skip credential fetcher invocation check override is present
+	skipSkipCredentialsFetcherInvocationCheck := utils.ParseBool(os.Getenv(envSkipCredentialsFetcherInvocation), false)
+	if skipSkipCredentialsFetcherInvocationCheck {
+		seelog.Debug("Skipping credential fetcher invocation based on environment override")
+		// assign temporary variable for test
+		cs.leaseid = "12345"
+		for k := range cs.ServiceAccountInfoMap {
+			cs.CredSpecMap[k] = "/tmp/tgt"
+		}
+		return nil
+	}
+
 	// Create kerberos tickets for the gMSA service accounts on the host location /var/credentials-fetcher/krbdir
 	if len(cs.credentialsFetcherRequest) > 0 {
 		//set up server connection to communicate with credentials fetcher daemon

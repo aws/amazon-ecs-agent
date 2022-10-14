@@ -28,6 +28,12 @@ import (
 func parseGMSACapability() bool {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	if envStatus {
+		// Check if domain join check override is present
+		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
+		if skipDomainJoinCheck {
+			seelog.Debug("Skipping domain join validation based on environment override")
+			return true
+		}
 
 		// check if the credentials fetcher socket is created and exists
 		// this env variable is set in ecs-init module

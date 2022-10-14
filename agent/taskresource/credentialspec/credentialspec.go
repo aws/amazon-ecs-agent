@@ -19,8 +19,6 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -31,17 +29,6 @@ func (cs *CredentialSpecResource) initStatusToTransition() {
 		resourcestatus.ResourceStatus(CredentialSpecCreated): cs.Create,
 	}
 	cs.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
-}
-
-func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
-	_ status.TaskStatus,
-	_ status.TaskStatus) {
-
-	cs.credentialsManager = resourceFields.CredentialsManager
-	cs.ssmClientCreator = resourceFields.SSMClientCreator
-	cs.asmClientCreator = resourceFields.ASMClientCreator
-	cs.s3ClientCreator = resourceFields.S3ClientCreator
-	cs.initStatusToTransition()
 }
 
 // GetTerminalReason returns an error string to propagate up through to task

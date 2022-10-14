@@ -52,3 +52,12 @@ func TestParseGMSACapabilityUnsupported(t *testing.T) {
 
 	assert.False(t, parseGMSACapability())
 }
+
+func TestSkipDomainJoinCheckParseGMSACapability(t *testing.T) {
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+	os.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	defer os.Unsetenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION")
+
+	assert.True(t, parseGMSACapability())
+}
