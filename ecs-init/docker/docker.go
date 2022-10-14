@@ -79,6 +79,11 @@ const (
 	// For more information on setns, please read this manpage:
 	// http://man7.org/linux/man-pages/man2/setns.2.html
 	CapSysAdmin = "SYS_ADMIN"
+	// CapChown to start agent with CAP_CHOWN capability
+	// This is needed for the ECS Agent to invoke the chown call when
+	// configuring the files for configuration or administration.
+	// http://man7.org/linux/man-pages/man2/chown.2.html
+	CapChown = "CAP_CHOWN"
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
 	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
