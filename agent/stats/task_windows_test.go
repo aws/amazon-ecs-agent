@@ -1,4 +1,5 @@
 //go:build windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,15 +18,14 @@ package stats
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"os/exec"
 	"testing"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
+	mock_networkutils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
 	dockerstats "github.com/docker/docker/api/types"
@@ -34,33 +34,27 @@ import (
 )
 
 const (
-	networkAdapterStatisticsResult = `ifAlias                  : Ethernet 3
-InterfaceAlias           : Ethernet 3
-InterfaceDescription     : Amazon Elastic Network Adapter #2
-Name                     : Ethernet 3
-Source                   : 2
-OutboundDiscardedPackets : 30
-OutboundPacketErrors     : 20
-ReceivedBroadcastBytes   : 247548
-ReceivedBroadcastPackets : 5894
-ReceivedBytes            : 249578
-ReceivedDiscardedPackets : 10
-ReceivedMulticastBytes   : 0
-ReceivedMulticastPackets : 0
-ReceivedPacketErrors     : 4
-ReceivedUnicastBytes     : 2030
-ReceivedUnicastPackets   : 8
-SentBroadcastBytes       : 2858
-SentBroadcastPackets     : 26
-SentBytes                : 256478
-SentMulticastBytes       : 5995
-SentMulticastPackets     : 65
-SentUnicastBytes         : 247624
-SentUnicastPackets       : 5895
-SupportedStatistics      : 4163583`
+	deviceName        = "Ethernet 3"
+	ifaceLUID  uint64 = 1689399649632256
 )
 
-var expectedNetworkStats = dockerstats.NetworkStats{
+// Result from GetIfEntry2Ex Win32 API call.
+var ifRowResult = &networkutils.MibIfRow2{
+	InterfaceLUID: ifaceLUID,
+	InOctets:      249578,
+	InUcastPkts:   8,
+	InNUcastPkts:  5894,
+	InErrors:      4,
+	InDiscards:    10,
+	OutOctets:     256478,
+	OutUcastPkts:  5895,
+	OutNUcastPkts: 91,
+	OutErrors:     20,
+	OutDiscards:   30,
+}
+
+// Expected output from the stats collection module.
+var expectedNetworkStats = &dockerstats.NetworkStats{
 	RxBytes:    249578,
 	RxPackets:  5902,
 	RxErrors:   4,
@@ -73,31 +67,14 @@ var expectedNetworkStats = dockerstats.NetworkStats{
 	InstanceID: "",
 }
 
-// Supporting methods for network stats test.
-func fakeExecCommandForNetworkStats(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestNetworkStatsProcess", "--", command}
-	cs = append(cs, args...)
-	cmd := exec.Command(os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-	return cmd
-}
-
-// TestNetworkStatsProcess is invoked from fakeExecCommand to return the network stats.
-func TestNetworkStatsProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	fmt.Fprintf(os.Stdout, networkAdapterStatisticsResult)
-	os.Exit(0)
-}
-
+// TestTaskStatsCollection tests the network statistics collection.
 func TestTaskStatsCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
-	execCommand = fakeExecCommandForNetworkStats
+	mockNetUtils := mock_networkutils.NewMockNetworkUtils(ctrl)
 
 	containerPID := "23"
 	taskId := "task1"
@@ -108,7 +85,7 @@ func TestTaskStatsCollection(t *testing.T) {
 			TaskMetadata: &TaskMetadata{
 				TaskArn:          taskId,
 				ContainerPID:     containerPID,
-				DeviceName:       []string{"Ethernet 3"},
+				DeviceName:       []string{deviceName},
 				NumberContainers: numberOfContainers,
 			},
 			Ctx:                   ctx,
@@ -116,6 +93,8 @@ func TestTaskStatsCollection(t *testing.T) {
 			Resolver:              resolver,
 			metricPublishInterval: time.Second,
 		},
+		netUtils:      mockNetUtils,
+		interfaceLUID: []uint64{ifaceLUID},
 	}
 
 	testTask := &apitask.Task{
@@ -126,6 +105,7 @@ func TestTaskStatsCollection(t *testing.T) {
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 	}
 	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(testTask, nil).AnyTimes()
+	mockNetUtils.EXPECT().GetMIBIfEntryFromLUID(ifaceLUID).Return(ifRowResult, nil).AnyTimes()
 
 	taskStats.StartStatsCollection()
 	time.Sleep(checkPointSleep)

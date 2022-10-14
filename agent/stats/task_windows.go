@@ -1,4 +1,5 @@
 //go:build windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,66 +18,43 @@ package stats
 
 import (
 	"context"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 
 	dockerstats "github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
-const (
-	receivedBroadcastPackets = "ReceivedBroadcastPackets"
-	receivedMulticastPackets = "ReceivedMulticastPackets"
-	receivedUnicastPackets   = "ReceivedUnicastPackets"
-	sentBroadcastPackets     = "SentBroadcastPackets"
-	sentMulticastPackets     = "SentMulticastPackets"
-	sentUnicastPackets       = "SentUnicastPackets"
-	receivedBytes            = "ReceivedBytes"
-	receivedPacketErrors     = "ReceivedPacketErrors"
-	receivedDiscardedPackets = "ReceivedDiscardedPackets"
-	sentBytes                = "SentBytes"
-	outboundPacketErrors     = "OutboundPacketErrors"
-	outboundDiscardedPackets = "OutboundDiscardedPackets"
-)
-
-var (
-	// Making it visible for unit testing
-	execCommand = exec.Command
-	// Fields to be extracted from the stats returned by cmdlet.
-	networkStatKeys = []string{
-		receivedBroadcastPackets,
-		receivedMulticastPackets,
-		receivedUnicastPackets,
-		sentBroadcastPackets,
-		sentMulticastPackets,
-		sentUnicastPackets,
-		receivedBytes,
-		receivedPacketErrors,
-		receivedDiscardedPackets,
-		sentBytes,
-		outboundDiscardedPackets,
-		outboundPacketErrors,
-	}
-)
-
 type StatsTask struct {
 	*statsTaskCommon
+	interfaceLUID []uint64
+	netUtils      networkutils.NetworkUtils
 }
 
 func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContainers int,
 	resolver resolver.ContainerMetadataResolver, publishInterval time.Duration, taskENIs task.TaskENIs) (*StatsTask, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+
+	// Instantiate an instance of network utils.
+	// This interface would be used to invoke Windows networking APIs.
+	netUtils := networkutils.New()
 
 	devices := make([]string, len(taskENIs))
+	ifaceLUID := make([]uint64, len(taskENIs))
+	// Find and store the device name along with the interface LUID.
 	for index, device := range taskENIs {
 		devices[index] = device.LinkName
+
+		interfaceLUID, err := netUtils.ConvertInterfaceAliasToLUID(device.LinkName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to initialise stats task container")
+		}
+		ifaceLUID[index] = interfaceLUID
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsTask{
 		statsTaskCommon: &statsTaskCommon{
 			TaskMetadata: &TaskMetadata{
@@ -90,86 +68,53 @@ func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContain
 			Resolver:              resolver,
 			metricPublishInterval: publishInterval,
 		},
+		interfaceLUID: ifaceLUID,
+		netUtils:      netUtils,
 	}, nil
 }
 
+// retrieveNetworkStatistics retrieves the network statistics for the task devices by querying
+// the Windows networking APIs.
 func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.NetworkStats, error) {
 	if len(taskStat.TaskMetadata.DeviceName) == 0 {
 		return nil, errors.Errorf("unable to find any device name associated with the task %s", taskStat.TaskMetadata.TaskArn)
 	}
 
 	networkStats := make(map[string]dockerstats.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
-	for _, device := range taskStat.TaskMetadata.DeviceName {
-		networkAdaptorStatistics, err := taskStat.getNetworkAdaptorStatistics(device)
+	for index, device := range taskStat.TaskMetadata.DeviceName {
+		numberOfContainers := taskStat.TaskMetadata.NumberContainers
+
+		// Query the MIB_IF_ROW2 for the given interface LUID which would contain network statistics.
+		ifaceLUID := taskStat.interfaceLUID[index]
+		ifRow, err := taskStat.netUtils.GetMIBIfEntryFromLUID(ifaceLUID)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to retrieve network stats")
 		}
+
+		// Parse the retrieved network statistics.
+		networkAdaptorStatistics := taskStat.parseNetworkStatsPerContainerFromIfRow(ifRow, numberOfContainers)
 		networkStats[device] = *networkAdaptorStatistics
 	}
 
 	return networkStats, nil
 }
 
-// getNetworkAdaptorStatistics returns the network statistics per container for the given network interface.
-func (taskStat *StatsTask) getNetworkAdaptorStatistics(device string) (*dockerstats.NetworkStats, error) {
-	// Ref: https://docs.microsoft.com/en-us/powershell/module/netadapter/get-netadapterstatistics?view=windowsserver2019-ps
-	// The Get-NetAdapterStatistics cmdlet gets networking statistics from a network adapter.
-	// The statistics include broadcast, multicast, discards, and errors.
-	cmd := "Get-NetAdapterStatistics -Name \"" + device + "\" | Format-List -Property *"
-	out, err := execCommand("powershell", "-Command", cmd).CombinedOutput()
+// parseNetworkStatsPerContainerFromIfRow parses the network statistics from MibIfRow2 row into
+// docker network stats. The stats are averaged over all the task containers.
+func (taskStat *StatsTask) parseNetworkStatsPerContainerFromIfRow(
+	iface *networkutils.MibIfRow2,
+	numberOfContainers int,
+) *dockerstats.NetworkStats {
 
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to run Get-NetAdapterStatistics for %s", device)
-	}
-	str := string(out)
+	stats := &dockerstats.NetworkStats{}
+	stats.RxBytes = iface.InOctets / uint64(numberOfContainers)
+	stats.RxPackets = (iface.InNUcastPkts + iface.InUcastPkts) / uint64(numberOfContainers)
+	stats.RxErrors = iface.InErrors / uint64(numberOfContainers)
+	stats.RxDropped = iface.InDiscards / uint64(numberOfContainers)
+	stats.TxBytes = iface.OutOctets / uint64(numberOfContainers)
+	stats.TxPackets = (iface.OutNUcastPkts + iface.OutUcastPkts) / uint64(numberOfContainers)
+	stats.TxErrors = iface.OutErrors / uint64(numberOfContainers)
+	stats.TxDropped = iface.OutDiscards / uint64(numberOfContainers)
 
-	// Extract rawStats from the cmdlet output.
-	lines := strings.Split(str, "\n")
-	rawStats := make(map[string]string)
-	for _, line := range lines {
-		// populate all the network metrics in a map
-		kv := strings.Split(line, ":")
-		if len(kv) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(kv[0])
-		value := strings.TrimSpace(kv[1])
-		rawStats[key] = value
-	}
-
-	// Parse the required fields from the generated map.
-	parsedStats := make(map[string]uint64)
-	for _, key := range networkStatKeys {
-		value, err := taskStat.getMapValue(rawStats, key)
-		if err != nil {
-			return nil, err
-		}
-		parsedStats[key] = value
-	}
-
-	numberOfContainers := uint64(taskStat.TaskMetadata.NumberContainers)
-
-	return &dockerstats.NetworkStats{
-		RxBytes:   parsedStats[receivedBytes] / numberOfContainers,
-		RxPackets: (parsedStats[receivedBroadcastPackets] + parsedStats[receivedMulticastPackets] + parsedStats[receivedUnicastPackets]) / numberOfContainers,
-		RxErrors:  parsedStats[receivedPacketErrors] / numberOfContainers,
-		RxDropped: parsedStats[receivedDiscardedPackets] / numberOfContainers,
-		TxBytes:   parsedStats[sentBytes] / numberOfContainers,
-		TxPackets: (parsedStats[sentBroadcastPackets] + parsedStats[sentMulticastPackets] + parsedStats[sentUnicastPackets]) / numberOfContainers,
-		TxErrors:  parsedStats[outboundPacketErrors] / numberOfContainers,
-		TxDropped: parsedStats[outboundDiscardedPackets] / numberOfContainers,
-	}, nil
-}
-
-// getMapValue retrieves the value of the key from the given map.
-func (taskStat *StatsTask) getMapValue(m map[string]string, key string) (uint64, error) {
-	v, ok := m[key]
-	if !ok {
-		return 0, errors.Errorf("failed to find key: %s in output", key)
-	}
-	val, err := strconv.ParseUint(v, 10, 64)
-	if err != nil {
-		return 0, errors.Errorf("failed to parse network stats for %s with value: %s", key, v)
-	}
-	return val, nil
+	return stats
 }

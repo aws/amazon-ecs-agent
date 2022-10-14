@@ -39,9 +39,18 @@ import (
 // NetworkUtils is the interface used for accessing network related functionality on Windows.
 // The methods declared in this package may or may not add any additional logic over the actual networking api calls.
 type NetworkUtils interface {
+	// GetInterfaceMACByIndex returns the MAC address of the device with given interface index.
+	// We will retry with the given timeout and context before erroring out.
 	GetInterfaceMACByIndex(int, context.Context, time.Duration) (string, error)
+	// GetAllNetworkInterfaces returns all the network interfaces in the host namespace.
 	GetAllNetworkInterfaces() ([]net.Interface, error)
+	// GetDNSServerAddressList returns the DNS Server list associated to the interface with
+	// the given MAC address.
 	GetDNSServerAddressList(macAddress string) ([]string, error)
+	// ConvertInterfaceAliasToLUID converts an interface alias to it's LUID.
+	ConvertInterfaceAliasToLUID(interfaceAlias string) (uint64, error)
+	// GetMIBIfEntryFromLUID returns the MIB_IF_ROW2 for the interface with the given LUID.
+	GetMIBIfEntryFromLUID(ifaceLUID uint64) (*MibIfRow2, error)
 }
 
 type networkUtils struct {
@@ -54,14 +63,25 @@ type networkUtils struct {
 	ctx     context.Context
 	// A wrapper over Golang's net package
 	netWrapper netwrapper.NetWrapper
+	// funcConvertInterfaceAliasToLuid is the system call to ConvertInterfaceAliasToLuid Win32 API.
+	funcConvertInterfaceAliasToLuid func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
+	// funcGetIfEntry2Ex is the system call to GetIfEntry2Ex Win32 API.
+	funcGetIfEntry2Ex func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
 }
 
 var funcGetAdapterAddresses = getAdapterAddresses
 
 // New creates a new network utils.
 func New() NetworkUtils {
+	// We would be using GetIfTable2Ex, GetIfEntry2Ex, and FreeMibTable Win32 APIs from IP Helper.
+	moduleIPHelper := windows.NewLazySystemDLL("iphlpapi.dll")
+	procConvertInterfaceAliasToLuid := moduleIPHelper.NewProc("ConvertInterfaceAliasToLuid")
+	procGetIfEntry2Ex := moduleIPHelper.NewProc("GetIfEntry2Ex")
+
 	return &networkUtils{
-		netWrapper: netwrapper.New(),
+		netWrapper:                      netwrapper.New(),
+		funcConvertInterfaceAliasToLuid: procConvertInterfaceAliasToLuid.Call,
+		funcGetIfEntry2Ex:               procGetIfEntry2Ex.Call,
 	}
 }
 
@@ -142,6 +162,39 @@ func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string,
 	}
 
 	return dnsServerAddressList, nil
+}
+
+// ConvertInterfaceAliasToLUID returns the LUID of the interface with given interface alias.
+// Internally, it would invoke ConvertInterfaceAliasToLuid Win32 API to perform the conversion.
+func (utils *networkUtils) ConvertInterfaceAliasToLUID(interfaceAlias string) (uint64, error) {
+	var luid uint64
+	alias := windows.StringToUTF16Ptr(interfaceAlias)
+
+	// ConvertInterfaceAliasToLuid function converts alias into LUID.
+	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-convertinterfacealiastoluid
+	retVal, _, _ := utils.funcConvertInterfaceAliasToLuid(uintptr(unsafe.Pointer(alias)), uintptr(unsafe.Pointer(&luid)))
+	if retVal != 0 {
+		return 0, errors.Errorf("error occured while calling ConvertInterfaceAliasToLuid: %s", syscall.Errno(retVal))
+	}
+
+	return luid, nil
+}
+
+// GetMIBIfEntryFromLUID returns the MIB_IF_ROW2 object for the interface with given LUID.
+// Internally, this would invoke GetIfEntry2Ex Win32 API to retrieve the specific row.
+func (utils *networkUtils) GetMIBIfEntryFromLUID(ifaceLUID uint64) (*MibIfRow2, error) {
+	row := &MibIfRow2{
+		InterfaceLUID: ifaceLUID,
+	}
+
+	// GetIfEntry2Ex function retrieves the MIB-II interface for the given interface index..
+	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getifentry2ex
+	retVal, _, _ := utils.funcGetIfEntry2Ex(uintptr(0), uintptr(unsafe.Pointer(row)))
+	if retVal != 0 {
+		return nil, errors.Errorf("error occured while calling GetIfEntry2Ex: %s", syscall.Errno(retVal))
+	}
+
+	return row, nil
 }
 
 // parseMACAddress parses the physical address of windows.IpAdapterAddresses into net.HardwareAddr.
