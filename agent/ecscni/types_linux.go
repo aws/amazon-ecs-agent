@@ -32,7 +32,8 @@ const (
 	// defaultServiceConnectIfName is the default ifname used for invoking ServiceConnect CNI plugin.
 	// Even though the actual SC netns configuration does not require IfName, we still need to pass in a placeholder
 	// value because IfName is a mandatory field to invoke any CNI plugin.
-	defaultServiceConnectIfName = "ecs-serviceconnect"
+	// Additionally, the API spec requires that ifName length to be <= 15 chars.
+	defaultServiceConnectIfName = "ecs-sc"
 	// ECSIPAMPluginName is the binary of the ipam plugin
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
