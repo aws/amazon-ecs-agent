@@ -151,15 +151,6 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	return nil
 }
 
-// GetCredentialSpecResource retrieves credentialspec resource from resource map
-func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
-	task.lock.RLock()
-	defer task.lock.RUnlock()
-
-	res, ok := task.ResourcesMapUnsafe[credentialspec.ResourceName]
-	return res, ok
-}
-
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	return
 }

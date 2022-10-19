@@ -18,6 +18,7 @@ package credentialspec
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -499,6 +500,115 @@ func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
 	errorEvents := make(chan error, 1)
 	go cs.handleS3CredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
+	wg.Wait()
+	close(errorEvents)
+
+	err := <-errorEvents
+	assert.Error(t, err)
+}
+
+func TestHandleCredentialSpecFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	testCredSpecFilePath := "/tmp/webapp01.json"
+	credentialsManager := mockcredentials.NewMockManager(ctrl)
+
+	credentialSpecARN := "file:///tmp/webapp01.json"
+	CredentialSpec := "credentialspec:file:///tmp/webapp01.json"
+
+	testCredSpecData := []byte(`{
+    "CmsPlugins":  [
+                       "ActiveDirectory"
+                   ],
+    "DomainJoinConfig":  {
+                             "Sid":  "S-1-5-21-975084816-3050680612-2826754290",
+                             "MachineAccountName":  "WebApp01",
+                             "Guid":  "92a07e28-bd9f-4bf3-b1f7-0894815a5257",
+                             "DnsTreeName":  "contoso.com",
+                             "DnsName":  "contoso.com",
+                             "NetBiosName":  "contoso"
+                         },
+    "ActiveDirectoryConfig":  {
+                                  "GroupManagedServiceAccounts":  [
+                                                                      {
+                                                                          "Name":  "WebApp01",
+                                                                          "Scope":  "contoso.com"
+                                                                      }
+                                                                  ]
+                              }
+}`)
+
+	writeErr := ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
+	assert.NoError(t, writeErr)
+
+	credentialSpecContainerMap := map[string]string{credentialSpecARN: "webapp"}
+
+	cs := &CredentialSpecResource{
+		knownStatusUnsafe:          resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+		CredSpecMap:                map[string]string{},
+		taskARN:                    taskARN,
+		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
+	}
+	cs.Initialize(&taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
+	go cs.handleCredentialspecFile(CredentialSpec, &wg, errorEvents)
+	wg.Wait()
+	close(errorEvents)
+
+	err := <-errorEvents
+	assert.NoError(t, err)
+
+	expectedOutput := ServiceAccountInfo{
+		serviceAccountName: "WebApp01",
+		domainName:         "contoso.com",
+	}
+
+	assert.Equal(t, cs.ServiceAccountInfoMap[CredentialSpec], expectedOutput)
+
+	// Cleanup the test file
+	err = os.Remove(testCredSpecFilePath)
+	assert.NoError(t, err)
+}
+
+func TestHandleCredentialSpecFileErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mockcredentials.NewMockManager(ctrl)
+
+	credentialSpecARN := "/tmp/webapp01.json"
+	CredentialSpec := "credentialspec:/tmp/webapp01.json"
+
+	credentialSpecContainerMap := map[string]string{credentialSpecARN: "webapp"}
+
+	cs := &CredentialSpecResource{
+		knownStatusUnsafe:          resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+		CredSpecMap:                map[string]string{},
+		taskARN:                    taskARN,
+		credentialSpecContainerMap: credentialSpecContainerMap,
+		ServiceAccountInfoMap:      map[string]ServiceAccountInfo{},
+	}
+	cs.Initialize(&taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
+	go cs.handleCredentialspecFile(CredentialSpec, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 

@@ -107,9 +107,6 @@ const (
 	stopContainerBackoffJitter     = 0.2
 	stopContainerBackoffMultiplier = 1.3
 	stopContainerMaxRetryCount     = 5
-
-	defaultKerberosTicketBindPath = "/var/credentials-fetcher/krbdir"
-	readOnly                      = ":ro"
 )
 
 var newExponentialBackoff = retry.NewExponentialBackoff
@@ -1342,55 +1339,18 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			// on windows CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
 			// on linux CredentialSpec mapping: input := ssm/asm arn, output := /var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz
 			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
-			if config.OSType == "windows" {
-				if err != nil || desiredCredSpecInjection == "" {
-					missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec mapping"}
-					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
-				}
-
-				// Inject containers' hostConfig.SecurityOpt with the credentialspec resource
-				logger.Info("Injecting container with credentialspec", logger.Fields{
-					field.TaskID:     task.GetID(),
-					field.Container:  container.Name,
-					"credentialSpec": desiredCredSpecInjection,
-				})
-				if len(hostConfig.SecurityOpt) == 0 {
-					hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
-				} else {
-					for idx, opt := range hostConfig.SecurityOpt {
-						if strings.HasPrefix(opt, "credentialspec:") {
-							hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
-						}
-					}
-				}
-			} else {
-				if err != nil || desiredCredSpecInjection == "" {
-					missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid kerberos path mapping"}
-					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
-				}
-
-				// Inject containers' hostConfig.BindMount with the kerberos ticket location
-				logger.Info("Bind mount kerberos tickets with container", logger.Fields{
-					field.TaskID:           task.GetID(),
-					field.Container:        container.Name,
-					"kerberos ticket path": desiredCredSpecInjection,
-				})
-				bindMountKerberosTickets := desiredCredSpecInjection + ":" + defaultKerberosTicketBindPath + readOnly
-				if len(hostConfig.Binds) == 0 {
-					hostConfig.Binds = []string{bindMountKerberosTickets}
-				} else {
-					hostConfig.Binds = append(hostConfig.Binds, bindMountKerberosTickets)
-				}
-
-				if len(hostConfig.SecurityOpt) != 0 {
-					for idx, opt := range hostConfig.SecurityOpt {
-						// credentialspec security opt is not supported by docker on linux
-						if strings.HasPrefix(opt, "credentialspec:") {
-							hostConfig.SecurityOpt = remove(hostConfig.SecurityOpt, idx)
-						}
-					}
-				}
+			if err != nil || desiredCredSpecInjection == "" {
+				missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid mapping associated with credentialspec"}
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
 			}
+
+			logger.Info("Bind mount kerberos tickets with container", logger.Fields{
+				field.TaskID:                          task.GetID(),
+				field.Container:                       container.Name,
+				"credentialSpec/kerberos ticket path": desiredCredSpecInjection,
+			})
+
+			engine.updateCredentialSpecMapping(desiredCredSpecInjection, hostConfig)
 
 		} else {
 			emptyErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec: " + err.Error()}

@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -85,7 +86,7 @@ type CredentialSpecResource struct {
 	ServiceAccountInfoMap map[string]ServiceAccountInfo
 	// This stores the identifier associated with the kerberos tickets created for the task
 	leaseid string
-	// map to transform credentialspec values, key is a input credentialspec
+	// map to transform credentialspec values, key is an input credentialspec
 	// Examples:
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
@@ -180,7 +181,13 @@ func (cs *CredentialSpecResource) Create() error {
 			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
 			continue
 		}
+
 		credSpecValue := credSpecSplit[1]
+		if strings.HasPrefix(credSpecValue, "file://") {
+			wg.Add(1)
+			go cs.handleCredentialspecFile(credSpecStr, &wg, errorEvents)
+			continue
+		}
 
 		parsedARN, err := arn.Parse(credSpecValue)
 		if err != nil {
@@ -188,17 +195,18 @@ func (cs *CredentialSpecResource) Create() error {
 			return err
 		}
 		parsedARNService := parsedARN.Service
-		if parsedARNService == "s3" {
+		switch parsedARNService {
+		case "s3":
 			wg.Add(1)
-			cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
-		} else if parsedARNService == "secretsmanager" {
+			go cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+		case "secretsmanager":
 			wg.Add(1)
-			cs.handleASMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
-		} else if parsedARNService == "ssm" {
+			go cs.handleASMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+		case "ssm":
 			wg.Add(1)
 			go cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
-		} else {
-			err = errors.New("unsupported credentialspec ARN, only secretsmanager/ssm ARNs are valid")
+		default:
+			err = errors.New("unsupported credentialspec ARN, only secretsmanager/s3/ssm ARNs are valid")
 			cs.setTerminalReason(err.Error())
 			return err
 		}
@@ -222,14 +230,26 @@ func (cs *CredentialSpecResource) Create() error {
 	skipSkipCredentialsFetcherInvocationCheck := utils.ParseBool(os.Getenv(envSkipCredentialsFetcherInvocation), false)
 	if skipSkipCredentialsFetcherInvocationCheck {
 		seelog.Debug("Skipping credential fetcher invocation based on environment override")
+		testKrbFilePath := "/tmp/tgt"
+		os.Create(testKrbFilePath)
 		// assign temporary variable for test
 		cs.leaseid = "12345"
 		for k := range cs.ServiceAccountInfoMap {
-			cs.CredSpecMap[k] = "/tmp/tgt"
+			cs.CredSpecMap[k] = testKrbFilePath
 		}
 		return nil
 	}
 
+	err := cs.handleKerberosTicketCreation()
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (cs *CredentialSpecResource) handleKerberosTicketCreation() error {
 	// Create kerberos tickets for the gMSA service accounts on the host location /var/credentials-fetcher/krbdir
 	if len(cs.credentialsFetcherRequest) > 0 {
 		//set up server connection to communicate with credentials fetcher daemon
@@ -262,8 +282,40 @@ func (cs *CredentialSpecResource) Create() error {
 			}
 		}
 	}
-
 	return nil
+}
+
+func (cs *CredentialSpecResource) handleCredentialspecFile(credentialspec string, wg *sync.WaitGroup, errorEvents chan error) {
+	defer wg.Done()
+
+	credSpecSplit := strings.SplitAfterN(credentialspec, "credentialspec:", 2)
+	if len(credSpecSplit) != 2 {
+		seelog.Errorf("Invalid credentialspec: %s", credentialspec)
+		err := errors.New("invalid credentialspec file specification")
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
+	credSpecFile := credSpecSplit[1]
+
+	if !strings.HasPrefix(credSpecFile, "file://") {
+		err := errors.New("invalid credentialspec file specification")
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
+
+	fileName := strings.SplitAfterN(credSpecFile, "file://", 2)
+	data, err := ioutil.ReadFile(fileName[1])
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
+
+	credSpecData := string(data)
+
+	cs.updateCredSpecMapping(credentialspec, credSpecData)
 }
 
 func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialspec, credentialspecS3ARN string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
@@ -401,7 +453,6 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecC
 
 	// Unmarshal or Decode the JSON to the interface.
 	err := json.Unmarshal([]byte(credSpecContent), &credentialSpec)
-	seelog.Infof("%v", credentialSpec)
 
 	if err != nil {
 		seelog.Debugf("Error unmarshalling credentialspec data %s", credSpecContent)

@@ -17,16 +17,21 @@
 package engine
 
 import (
+	"strings"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
 	// Constants for CNI timeout during setup and cleanup.
 	cniSetupTimeout   = 1 * time.Minute
 	cniCleanupTimeout = 30 * time.Second
+
+	defaultKerberosTicketBindPath = "/var/credentials-fetcher/krbdir"
+	readOnly                      = ":ro"
 )
 
 // updateTaskENIDependencies updates the task's dependencies for awsvpc networking mode.
@@ -38,4 +43,24 @@ func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
 // On non-windows platform, we will not invoke CNI plugins for non-pause containers
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
 	return nil
+}
+
+// updateCredentialSpecMapping is used to map the bind location of kerberos ticket to the target location on the application container
+func (engine *DockerTaskEngine) updateCredentialSpecMapping(desiredCredSpecInjection string, hostConfig *dockercontainer.HostConfig) {
+	// Inject containers' hostConfig.BindMount with the kerberos ticket location
+	bindMountKerberosTickets := desiredCredSpecInjection + ":" + defaultKerberosTicketBindPath + readOnly
+	if len(hostConfig.Binds) == 0 {
+		hostConfig.Binds = []string{bindMountKerberosTickets}
+	} else {
+		hostConfig.Binds = append(hostConfig.Binds, bindMountKerberosTickets)
+	}
+
+	if len(hostConfig.SecurityOpt) != 0 {
+		for idx, opt := range hostConfig.SecurityOpt {
+			// credentialspec security opt is not supported by docker on linux
+			if strings.HasPrefix(opt, "credentialspec:") {
+				hostConfig.SecurityOpt = remove(hostConfig.SecurityOpt, idx)
+			}
+		}
+	}
 }

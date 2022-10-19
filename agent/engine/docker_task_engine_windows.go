@@ -17,13 +17,15 @@
 package engine
 
 import (
+	"strings"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	dockercontainer "github.com/docker/docker/api/types/container"
+
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
-
 	"github.com/pkg/errors"
 )
 
@@ -64,4 +66,17 @@ func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, co
 	}
 
 	return nil
+}
+
+// updateCredentialSpecMapping is used to map the credentialspec local file location to docker security opts
+func (engine *DockerTaskEngine) updateCredentialSpecMapping(desiredCredSpecInjection string, hostConfig *dockercontainer.HostConfig) {
+	if len(hostConfig.SecurityOpt) == 0 {
+		hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
+	} else {
+		for idx, opt := range hostConfig.SecurityOpt {
+			if strings.HasPrefix(opt, "credentialspec:") {
+				hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
+			}
+		}
+	}
 }
