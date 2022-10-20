@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.65.0
+* Feature - ECS Agent changes to support task scale in protection feature. ECS Agent API Endpoint is also introduced with this feature. This feature allows a user to update and get task protection state of a task from a task container by calling ECS Agent API Endpoint, which protects the task from being terminated in a scale-in event [#3427](https://github.com/aws/amazon-ecs-agent/pull/3427) Github feature request - [#125](https://github.com/aws/containers-roadmap/issues/125)
+* Enhancement - Update service connect config validator to validate fields with a global standard, or consumed and proceeded by ECS Agent for service connect [#3424](https://github.com/aws/amazon-ecs-agent/pull/3424)
+* Enhancement - ServiceConnect AppNet version handling; init bootstrap; CNI interface name update for service connect [#3436](https://github.com/aws/amazon-ecs-agent/pull/3436)
+* Enhancement - Add file watcher for Appnet agent image update for service connect [#3435](https://github.com/aws/amazon-ecs-agent/pull/3435)
+* Enhancement - Change method for retrieving Windows network statistics in case of awsvpc network mode for Windows [#3425](https://github.com/aws/amazon-ecs-agent/pull/3425)
+* Bug - Fix minor unreachable code caused by t.Fatal [#3372](https://github.com/aws/amazon-ecs-agent/pull/3372)
+
 ## 1.64.0
 * Feature - Add service connect feature. This feature enables ECS Service to be discoverable and ECS will leverage the container port mappings, service name and default application namespace associated with the cluster and the service to register your service for discovery and to enable discovery of dependencies through DNS lookup [#3414](https://github.com/aws/amazon-ecs-agent/pull/3414)
 * Bugfix: Bump Go to 1.19.1 for CVE-2022-27664 [#3398](https://github.com/aws/amazon-ecs-agent/pull/3398)
