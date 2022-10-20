@@ -429,12 +429,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 				field.TaskID: task.GetID(),
 				field.Error:  err,
 			})
+
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
 
 	if err := task.initializeEnvfilesResource(cfg, credentialsManager); err != nil {
-		logger.Error("Could not initialize environment files resource", logger.Fields{
+		logger.Error("could not initialize environment files resource", logger.Fields{
 			field.TaskID: task.GetID(),
 			field.Error:  err,
 		})
