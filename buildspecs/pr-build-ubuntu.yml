@@ -53,7 +53,7 @@ phases:
       # make wraps error codes to output stream
       # Need to check if artifacts successfully built
       - |
-        if [[ (! -f $ECS_AGENT_DEB) || (! -f $ECS_AGENT_DEB_TAR) ]] ; then
+        if [[ ! -f $ECS_AGENT_DEB || ! -f $ECS_AGENT_DEB_TAR ]] ; then
           echo "Artifacts not found, failing"
           exit 1
         fi
