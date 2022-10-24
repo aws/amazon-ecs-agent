@@ -100,14 +100,6 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attr
 	return capabilities
 }
 
-func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if agent.cfg.GMSACapable {
-		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
-	}
-
-	return capabilities
-}
-
 func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Attribute, pluginCapability string) []*ecs.Attribute {
 	return capabilities
 }
