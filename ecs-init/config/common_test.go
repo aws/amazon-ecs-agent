@@ -253,3 +253,35 @@ func TestAgentRunningInExternal(t *testing.T) {
 	defer os.Unsetenv(ExternalEnvVar)
 	assert.True(t, RunningInExternal())
 }
+
+func TestCredentialsFetcherUnixSocketWithoutCredentialsFetcherHost(t *testing.T) {
+	credentialsFetcherUnixSocketSourcePath := credentialsFetcherUnixSocket()
+
+	if credentialsFetcherUnixSocketSourcePath != "/var/credentials-fetcher/socket/credentials_fetcher.sock" {
+		t.Error("CredentialsFetcherUnixSocket() should be \"/var/credentials-fetcher/socket\"")
+	}
+
+}
+
+func TestCredentialsFetcherUnixSocketWithCredentialsFetcherHost(t *testing.T) {
+	t.Setenv("CREDENTIALS_FETCHER_HOST", "unix:///foo/bar")
+
+	credentialsFetcherUnixSocketSourcePath := credentialsFetcherUnixSocket()
+	if credentialsFetcherUnixSocketSourcePath != "/foo/bar" {
+		t.Error("CredentialsFetcherUnixSocket() should be \"/foo/bar\"")
+	}
+}
+
+func TestHostCredentialsFetcherPath(t *testing.T) {
+	t.Setenv("CREDENTIALS_FETCHER_HOST", "unix:///foo/bar")
+
+	credentialsFetcherHost, ok := HostCredentialsFetcherPath()
+	assert.True(t, ok)
+	assert.Equal(t, "/foo/bar", credentialsFetcherHost)
+}
+
+func TestHostCredentialsFetcherPathHostNotFound(t *testing.T) {
+	credentialsFetcherHost, ok := HostCredentialsFetcherPath()
+	assert.True(t, ok)
+	assert.Equal(t, "/var/credentials-fetcher/socket/credentials_fetcher.sock", credentialsFetcherHost)
+}
