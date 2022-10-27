@@ -15,8 +15,10 @@ package container
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -1323,6 +1325,44 @@ func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicon
 		}
 	}
 	return false
+}
+
+// RequiresCredentialSpec checks if container needs a credentialspec resource
+func (c *Container) RequiresCredentialSpec() bool {
+	credSpec, err := c.getCredentialSpec()
+	if err != nil || credSpec == "" {
+		return false
+	}
+
+	return true
+}
+
+// GetCredentialSpec is used to retrieve the current credentialspec resource
+func (c *Container) GetCredentialSpec() (string, error) {
+	return c.getCredentialSpec()
+}
+
+func (c *Container) getCredentialSpec() (string, error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.DockerConfig.HostConfig == nil {
+		return "", errors.New("empty container hostConfig")
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+	if err != nil || len(hostConfig.SecurityOpt) == 0 {
+		return "", errors.New("unable to obtain security options from container hostConfig")
+	}
+
+	for _, opt := range hostConfig.SecurityOpt {
+		if strings.HasPrefix(opt, "credentialspec") {
+			return opt, nil
+		}
+	}
+
+	return "", errors.New("unable to obtain credentialspec")
 }
 
 func (c *Container) GetManagedAgentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {

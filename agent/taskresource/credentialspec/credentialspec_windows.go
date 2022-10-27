@@ -398,7 +398,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 		return err
 	}
 
-	s3Client, err := cs.s3ClientCreator.NewS3ClientForBucket(bucket, cs.region, iamCredentials)
+	s3Client, err := cs.s3ClientCreator.NewS3ManagerClient(bucket, cs.region, iamCredentials)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err
