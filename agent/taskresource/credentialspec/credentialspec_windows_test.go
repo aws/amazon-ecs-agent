@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
-	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
+	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -464,7 +464,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
 	}
@@ -495,7 +495,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		return testTempFile
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -531,7 +531,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
 	}
@@ -551,7 +551,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -567,7 +567,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
@@ -605,7 +605,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	}()
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -692,7 +692,7 @@ func TestCreateS3(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
@@ -725,7 +725,7 @@ func TestCreateS3(t *testing.T) {
 	defer mockRename()()
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
