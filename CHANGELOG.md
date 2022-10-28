@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.65.1
+* Enhancement - Add grpc vendor dependencies [#3439](https://github.com/aws/amazon-ecs-agent/pull/3439)
+* Bug - Workaround git-secrets scan issue: awslabs/git-secrets#221 [#3442](https://github.com/aws/amazon-ecs-agent/pull/3442)
+
 ## 1.65.0
 * Feature - ECS Agent changes to support task scale in protection feature. ECS Agent API Endpoint is also introduced with this feature. This feature allows a user to update and get task protection state of a task from a task container by calling ECS Agent API Endpoint, which protects the task from being terminated in a scale-in event [#3427](https://github.com/aws/amazon-ecs-agent/pull/3427) Github feature request - [#125](https://github.com/aws/containers-roadmap/issues/125)
 * Enhancement - Update service connect config validator to validate fields with a global standard, or consumed and proceeded by ECS Agent for service connect [#3424](https://github.com/aws/amazon-ecs-agent/pull/3424)
