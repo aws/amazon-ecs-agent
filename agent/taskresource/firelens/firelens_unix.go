@@ -494,7 +494,7 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 		return errors.Wrap(err, "unable to parse bucket and key from s3 arn")
 	}
 
-	s3Client, err := firelens.s3ClientCreator.NewS3ClientForBucket(bucket, firelens.region, creds.GetIAMRoleCredentials())
+	s3Client, err := firelens.s3ClientCreator.NewS3ManagerClient(bucket, firelens.region, creds.GetIAMRoleCredentials())
 	if err != nil {
 		return errors.Wrapf(err, "unable to initialize s3 client for bucket %s", bucket)
 	}
