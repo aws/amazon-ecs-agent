@@ -21,7 +21,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-// S3Client interface wraps the S3 API.
-type S3Client interface {
+// S3ManagerClient interface wraps the S3Manager APIs.
+// Any method that belongs aws-sdk-go/service/s3manager goes here.
+type S3ManagerClient interface {
 	DownloadWithContext(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
+}
+
+// S3Client interface wraps the generic S3 APIs.
+// Any method that belongs to aws-sdk-go/service/s3 goes here.
+type S3Client interface {
+	GetObject(*s3.GetObjectInput) (*s3.GetObjectOutput, error)
 }

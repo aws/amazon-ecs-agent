@@ -13,4 +13,5 @@
 
 package s3
 
+//go:generate mockgen -destination=mocks/s3manager/s3_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/s3 S3ManagerClient
 //go:generate mockgen -destination=mocks/s3_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/s3 S3Client
