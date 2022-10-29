@@ -45,6 +45,14 @@ func parseGMSACapability() bool {
 					return false
 				}
 			}
+
+			//skip domain join check if the domainless gMSA is supported by setting the env variable
+			domainlessGMSAUser := os.Getenv("CREDENTIALS_FETCHER_SECRET_NAME_FOR_DOMAINLESS_GMSA")
+			if domainlessGMSAUser != "" && len(domainlessGMSAUser) > 0 {
+				seelog.Info("domainless gMSA support is enabled")
+				return true
+			}
+
 			// returns true if the container instance is domain joined
 			// this env variable is set in ecs-init module
 			isDomainJoined := utils.ParseBool(os.Getenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE"), false)
@@ -55,6 +63,7 @@ func parseGMSACapability() bool {
 			return isDomainJoined
 		}
 	}
+	seelog.Debug("env variables to support gMSA are not set")
 	return false
 }
 

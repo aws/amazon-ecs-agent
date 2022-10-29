@@ -1413,29 +1413,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 		containerCredSpec, err := container.GetCredentialSpec()
 		if err == nil && containerCredSpec != "" {
-			// CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
+			// on windows CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
+			// on linux CredentialSpec mapping: input := ssm/asm arn, output := /var/credentials-fetcher/krbdir/123456/ccname_webapp01_xyz
 			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
 			if err != nil || desiredCredSpecInjection == "" {
 				missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec mapping"}
 				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
 			}
-
-			// Inject containers' hostConfig.SecurityOpt with the credentialspec resource
-			logger.Info("Injecting container with credentialspec", logger.Fields{
-				field.TaskID:     task.GetID(),
-				field.Container:  container.Name,
-				"credentialSpec": desiredCredSpecInjection,
-			})
-			if len(hostConfig.SecurityOpt) == 0 {
-				hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
-			} else {
-				for idx, opt := range hostConfig.SecurityOpt {
-					if strings.HasPrefix(opt, "credentialspec:") {
-						hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
-					}
-				}
-			}
-
+			engine.updateCredentialSpecMapping(task.GetID(), container.Name, desiredCredSpecInjection, hostConfig)
 		} else {
 			emptyErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec: " + err.Error()}
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(emptyErr)}

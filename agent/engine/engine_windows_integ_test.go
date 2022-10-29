@@ -488,9 +488,9 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator: ssmfactory.NewSSMClientCreator(),
+			S3ClientCreator:  s3factory.NewS3ClientCreator(),
 		},
-		DockerClient:    dockerClient,
-		S3ClientCreator: s3factory.NewS3ClientCreator(),
+		DockerClient: dockerClient,
 	}
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
