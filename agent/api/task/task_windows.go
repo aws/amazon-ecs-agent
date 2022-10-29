@@ -26,14 +26,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/containernetworking/cni/libcni"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
@@ -137,30 +134,6 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 		return nil
 	}
 	return errors.New("unsupported platform")
-}
-
-// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
-func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
-	resourceFields *taskresource.ResourceFields) error {
-	credspecContainerMapping := task.getAllCredentialSpecRequirements()
-	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, credspecContainerMapping)
-	if err != nil {
-		return err
-	}
-
-	task.AddResource(credentialspec.ResourceName, credentialspecResource)
-
-	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
-	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
-			container.BuildResourceDependency(credentialspecResource.GetName(),
-				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
-				apicontainerstatus.ContainerCreated)
-		}
-	}
-
-	return nil
 }
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {

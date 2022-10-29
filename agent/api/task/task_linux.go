@@ -239,15 +239,6 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	return int64(containerCPU)
 }
 
-// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
-func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
-	resourceFields *taskresource.ResourceFields) error {
-	//TBD: Add code to support gMSA on linux
-	credspecContainerMapping := task.getAllCredentialSpecRequirements()
-	seelog.Info(credspecContainerMapping)
-	return errors.New("task credentialspec is only supported on windows")
-}
-
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	if hostConfig.Sysctls == nil {
 		hostConfig.Sysctls = make(map[string]string)

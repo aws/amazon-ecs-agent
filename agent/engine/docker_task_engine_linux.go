@@ -19,6 +19,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -27,12 +28,18 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
 	// Constants for CNI timeout during setup and cleanup.
 	cniSetupTimeout   = 1 * time.Minute
 	cniCleanupTimeout = 30 * time.Second
+
+	defaultKerberosTicketBindPath = "/var/credentials-fetcher/krbdir"
+	readOnly                      = ":ro"
 )
 
 // updateTaskENIDependencies updates the task's dependencies for awsvpc networking mode.
@@ -118,5 +125,32 @@ func (engine *DockerTaskEngine) restartInstanceTask() {
 		engine.serviceconnectRelay = serviceconnectRelayTask
 		engine.AddTask(engine.serviceconnectRelay)
 		logger.Info("engine: Restarted AppNet Relay task")
+	}
+}
+
+// updateCredentialSpecMapping is used to map the bind location of kerberos ticket to the target location on the application container
+func (engine *DockerTaskEngine) updateCredentialSpecMapping(taskID string, containerName string, desiredCredSpecInjection string, hostConfig *dockercontainer.HostConfig) {
+	// Inject containers' hostConfig.Bind with the kerberos ticket bind
+	logger.Info("Injecting container with kerberos ticket bind", logger.Fields{
+		field.TaskID:           taskID,
+		field.Container:        containerName,
+		"kerberos ticket path": desiredCredSpecInjection,
+	})
+
+	// Inject containers' hostConfig.BindMount with the kerberos ticket location
+	bindMountKerberosTickets := desiredCredSpecInjection + ":" + defaultKerberosTicketBindPath + readOnly
+	if len(hostConfig.Binds) == 0 {
+		hostConfig.Binds = []string{bindMountKerberosTickets}
+	} else {
+		hostConfig.Binds = append(hostConfig.Binds, bindMountKerberosTickets)
+	}
+
+	if len(hostConfig.SecurityOpt) != 0 {
+		for idx, opt := range hostConfig.SecurityOpt {
+			// credentialspec security opt is not supported by docker on linux
+			if strings.HasPrefix(opt, "credentialspec:") {
+				hostConfig.SecurityOpt = utils.Remove(hostConfig.SecurityOpt, idx)
+			}
+		}
 	}
 }

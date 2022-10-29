@@ -30,9 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
@@ -45,7 +43,6 @@ import (
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"
-	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 )
 
@@ -353,52 +350,6 @@ func TestGetCanonicalPath(t *testing.T) {
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
-}
-
-func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
-	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
-	container := &apicontainer.Container{
-		Name:                      "myName",
-		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
-	}
-	container.DockerConfig.HostConfig = &hostConfig
-
-	task := &Task{
-		Arn:                "test",
-		Containers:         []*apicontainer.Container{container},
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-	}
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cfg := &config.Config{
-		AWSRegion: "test-aws-region",
-	}
-
-	credentialsManager := mock_credentials.NewMockManager(ctrl)
-	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
-	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
-
-	resFields := &taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-		S3ClientCreator: s3ClientCreator,
-	}
-
-	task.initializeCredentialSpecResource(cfg, credentialsManager, resFields)
-
-	resourceDep := apicontainer.ResourceDependency{
-		Name:           credentialspec.ResourceName,
-		RequiredStatus: resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
-	}
-
-	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
-
-	_, ok := task.GetCredentialSpecResource()
-	assert.True(t, ok)
 }
 
 func TestRequiresFSxWindowsFileServerResource(t *testing.T) {
