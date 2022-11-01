@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	SecurityCrednetialsResource               = "iam/security-credentials/"
+	SecurityCredentialsResource               = "iam/security-credentials/"
 	InstanceIdentityDocumentResource          = "instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
 	MacResource                               = "mac"
@@ -105,7 +105,7 @@ func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
 
 // DefaultCredentials returns the credentials associated with the instance iam role
 func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	securityCredential, err := c.client.GetMetadata(SecurityCrednetialsResource)
+	securityCredential, err := c.client.GetMetadata(SecurityCredentialsResource)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 
 	defaultCredentialName := securityCredentialList[0]
 
-	defaultCredentialStr, err := c.client.GetMetadata(SecurityCrednetialsResource + defaultCredentialName)
+	defaultCredentialStr, err := c.client.GetMetadata(SecurityCredentialsResource + defaultCredentialName)
 	if err != nil {
 		return nil, err
 	}
