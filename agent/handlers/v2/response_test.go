@@ -30,6 +30,8 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
@@ -55,7 +57,10 @@ const (
 	volDestination       = "/volume"
 	availabilityZone     = "us-west-2b"
 	containerInstanceArn = "containerInstance-test"
-	hostIp               = "0.0.0.0"
+	hostIP               = "0.0.0.0"
+	testPort             = 80
+	testPortRange        = "100-200"
+	testProtocol         = "tcp"
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -97,8 +102,12 @@ func TestTaskResponse(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: aws.String(testPortRange),
+				Protocol:           apicontainer.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -106,6 +115,16 @@ func TestTaskResponse(t *testing.T) {
 				Name:        volName,
 				Source:      volSource,
 				Destination: volDestination,
+			},
+		},
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+			{
+				ContainerPort: aws.Uint16(testPort),
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: aws.String(testPortRange),
+				Protocol:           apicontainer.TransportProtocolTCP,
 			},
 		},
 	}
@@ -122,6 +141,15 @@ func TestTaskResponse(t *testing.T) {
 			Container:  container,
 		},
 	}
+
+	expectedPorts := []v1.PortResponse{
+		{
+			ContainerPort: testPort,
+			HostPort:      testPort,
+			Protocol:      testProtocol,
+		},
+	}
+
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
@@ -137,11 +165,21 @@ func TestTaskResponse(t *testing.T) {
 	// Log driver and Log options should not be populated
 	assert.Equal(t, "", taskResponse.Containers[0].LogDriver)
 	assert.Len(t, taskResponse.Containers[0].LogOptions, 0)
+	// port ranges should not be populated
+	assert.Equal(t, expectedPorts, taskResponse.Containers[0].Ports)
 
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
+
+	// v4 task response should have port ranges information.
+	expectedPorts = append(expectedPorts, v1.PortResponse{
+		ContainerPortRange: testPortRange,
+		HostPortRange:      testPortRange,
+		Protocol:           testProtocol,
+	})
+
 	// verify that 'v4' response without log driver or options returns blank fields as well
 	taskResponse, err = NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
 	assert.NoError(t, err)
@@ -152,6 +190,8 @@ func TestTaskResponse(t *testing.T) {
 	// Log driver and Log options should not be populated
 	assert.Equal(t, "", taskResponse.Containers[0].LogDriver)
 	assert.Len(t, taskResponse.Containers[0].LogOptions, 0)
+	// port ranges should be populated, for both port range and single port binding config.
+	assert.Equal(t, expectedPorts, taskResponse.Containers[0].Ports)
 }
 
 func TestTaskResponseWithV4Metadata(t *testing.T) {
@@ -193,8 +233,12 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: aws.String(testPortRange),
+				Protocol:           apicontainer.TransportProtocolTCP,
 			},
 		},
 		VolumesUnsafe: []types.MountPoint{
@@ -206,6 +250,16 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		},
 		DockerConfig: apicontainer.DockerConfig{
 			HostConfig: aws.String(`{"LogConfig":{"Type":"awslogs","Config":{"awslogs-group":"myLogGroup"}}}`),
+		},
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+			{
+				ContainerPort: aws.Uint16(testPort),
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: aws.String(testPortRange),
+				Protocol:           apicontainer.TransportProtocolTCP,
+			},
 		},
 	}
 	created := time.Now()
@@ -219,6 +273,19 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 			DockerID:   containerID,
 			DockerName: containerName,
 			Container:  container,
+		},
+	}
+
+	expectedPorts := []v1.PortResponse{
+		{
+			ContainerPort: testPort,
+			HostPort:      testPort,
+			Protocol:      testProtocol,
+		},
+		{
+			ContainerPortRange: testPortRange,
+			HostPortRange:      testPortRange,
+			Protocol:           testProtocol,
 		},
 	}
 	gomock.InOrder(
@@ -236,6 +303,8 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 	// Log driver and config should be populated
 	assert.Equal(t, "awslogs", taskResponse.Containers[0].LogDriver)
 	assert.Equal(t, map[string]string{"awslogs-group": "myLogGroup"}, taskResponse.Containers[0].LogOptions)
+	// port bindings should be populated, for both port range and single port binding config.
+	assert.Equal(t, expectedPorts, taskResponse.Containers[0].Ports)
 }
 
 func TestContainerResponse(t *testing.T) {
@@ -276,7 +345,7 @@ func TestContainerResponse(t *testing.T) {
 				},
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
+						ContainerPort: aws.Uint16(testPort),
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
@@ -345,9 +414,9 @@ func TestTaskResponseMarshal(t *testing.T) {
 				"ImageID":    imageID,
 				"Ports": []interface{}{
 					map[string]interface{}{
-						"HostPort":      float64(80),
-						"ContainerPort": float64(80),
-						"Protocol":      "tcp",
+						"HostPort":      float64(testPort),
+						"ContainerPort": float64(testPort),
+						"Protocol":      testProtocol,
 					},
 				},
 				"DesiredStatus": "NONE",
@@ -404,7 +473,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		ImageID:      imageID,
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -459,7 +528,8 @@ func TestTaskResponseMarshal(t *testing.T) {
 	assert.NoError(t, err)
 
 	taskResponseMap := make(map[string]interface{})
-	json.Unmarshal(taskResponseJSON, &taskResponseMap)
+	err = json.Unmarshal(taskResponseJSON, &taskResponseMap)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedTaskResponseMap, taskResponseMap)
 }
 
@@ -487,9 +557,9 @@ func TestContainerResponseMarshal(t *testing.T) {
 		"ImageID":    imageID,
 		"Ports": []interface{}{
 			map[string]interface{}{
-				"ContainerPort": float64(80),
-				"Protocol":      "tcp",
-				"HostPort":      float64(80),
+				"ContainerPort": float64(testPort),
+				"Protocol":      testProtocol,
+				"HostPort":      float64(testPort),
 			},
 		},
 		"Labels": map[string]interface{}{
@@ -537,7 +607,7 @@ func TestContainerResponseMarshal(t *testing.T) {
 		},
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -572,8 +642,24 @@ func TestContainerResponseMarshal(t *testing.T) {
 				state.EXPECT().TaskByID(containerID).Return(task, true),
 			)
 			if tc.includeV4Metadata {
-				container.KnownPortBindingsUnsafe[0].BindIP = hostIp
-				expectedContainerResponseMap["Ports"].([]interface{})[0].(map[string]interface{})["HostIp"] = hostIp
+				container.KnownPortBindingsUnsafe[0].BindIP = hostIP
+				expectedContainerResponseMap["Ports"].([]interface{})[0].(map[string]interface{})["HostIp"] = hostIP
+
+				binding := apicontainer.PortBinding{
+					ContainerPortRange: aws.String(testPortRange),
+					HostPortRange:      testPortRange,
+					Protocol:           apicontainer.TransportProtocolTCP,
+					BindIP:             hostIP,
+				}
+				container.KnownPortBindingsUnsafe = append(container.KnownPortBindingsUnsafe, binding)
+				expectedContainerResponseMap["Ports"] = append(expectedContainerResponseMap["Ports"].([]interface{}),
+					map[string]interface{}{
+						"ContainerPortRange": testPortRange,
+						"HostPortRange":      testPortRange,
+						"Protocol":           testProtocol,
+						"HostIp":             hostIP,
+					},
+				)
 			}
 			containerResponse, err := NewContainerResponseFromState(containerID, state, tc.includeV4Metadata)
 			assert.NoError(t, err)
@@ -582,7 +668,8 @@ func TestContainerResponseMarshal(t *testing.T) {
 			assert.NoError(t, err)
 
 			containerResponseMap := make(map[string]interface{})
-			json.Unmarshal(containerResponseJSON, &containerResponseMap)
+			err = json.Unmarshal(containerResponseJSON, &containerResponseMap)
+			assert.NoError(t, err)
 			assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
 		})
 	}
@@ -627,7 +714,7 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},

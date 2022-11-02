@@ -24,6 +24,8 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,6 +40,7 @@ const (
 	volName        = "volume1"
 	volSource      = "/var/lib/volume1"
 	volDestination = "/volume"
+	testPort       = 80
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -57,9 +60,9 @@ func TestTaskResponse(t *testing.T) {
 						// The number should be float here, because when we unmarshal
 						// something and we don't specify the number type, it will be
 						// set to float.
-						"ContainerPort": float64(80),
+						"ContainerPort": float64(testPort),
 						"Protocol":      "tcp",
-						"HostPort":      float64(80),
+						"HostPort":      float64(testPort),
 					},
 				},
 				"Networks": []interface{}{
@@ -100,7 +103,7 @@ func TestTaskResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -140,9 +143,9 @@ func TestContainerResponse(t *testing.T) {
 		"Name":       "sleepy",
 		"Ports": []interface{}{
 			map[string]interface{}{
-				"ContainerPort": float64(80),
+				"ContainerPort": float64(testPort),
 				"Protocol":      "tcp",
-				"HostPort":      float64(80),
+				"HostPort":      float64(testPort),
 			},
 		},
 		"Networks": []interface{}{
@@ -164,7 +167,7 @@ func TestContainerResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(testPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -208,8 +211,8 @@ func TestPortBindingsResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
-				HostPort:      80,
+				ContainerPort: aws.Uint16(testPort),
+				HostPort:      testPort,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -221,8 +224,8 @@ func TestPortBindingsResponse(t *testing.T) {
 
 	PortBindingsResponse := NewPortBindingsResponse(dockerContainer, nil)
 
-	assert.Equal(t, uint16(80), PortBindingsResponse[0].ContainerPort)
-	assert.Equal(t, uint16(80), PortBindingsResponse[0].HostPort)
+	assert.Equal(t, uint16(testPort), PortBindingsResponse[0].ContainerPort)
+	assert.Equal(t, uint16(testPort), PortBindingsResponse[0].HostPort)
 	assert.Equal(t, "tcp", PortBindingsResponse[0].Protocol)
 }
 

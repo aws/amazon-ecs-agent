@@ -271,22 +271,8 @@ func NewContainerResponse(
 		resp.FinishedAt = &finishedAt
 	}
 
-	for _, binding := range container.GetKnownPortBindings() {
-		port := v1.PortResponse{
-			ContainerPort: binding.ContainerPort,
-			Protocol:      binding.Protocol.String(),
-		}
-		if eni == nil {
-			port.HostPort = binding.HostPort
-		} else {
-			port.HostPort = port.ContainerPort
-		}
-		if includeV4Metadata {
-			port.HostIp = binding.BindIP
-		}
-
-		resp.Ports = append(resp.Ports, port)
-	}
+	// populate port bindings into the container response
+	resp.Ports = NewPortBindingsResponse(dockerContainer, eni, includeV4Metadata)
 
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
@@ -300,6 +286,45 @@ func NewContainerResponse(
 
 	resp.Volumes = v1.NewVolumesResponse(dockerContainer)
 	return resp
+}
+
+// NewPortBindingsResponse creates []v1.PortResponse for a container.
+func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI, includeV4Metadata bool) []v1.PortResponse {
+	container := dockerContainer.Container
+	var ports []v1.PortResponse
+
+	for _, binding := range container.GetKnownPortBindings() {
+		// per port binding config, either one of containerPort or containerPortRange will be set
+		// also, populate port ranges for v4 response only
+		if binding.ContainerPort != nil {
+			port := v1.PortResponse{
+				ContainerPort: aws.Uint16Value(binding.ContainerPort),
+				Protocol:      binding.Protocol.String(),
+			}
+			if eni == nil {
+				port.HostPort = binding.HostPort
+			} else {
+				port.HostPort = port.ContainerPort
+			}
+			if includeV4Metadata {
+				port.HostIp = binding.BindIP
+			}
+			ports = append(ports, port)
+		} else if binding.ContainerPortRange != nil && includeV4Metadata {
+			port := v1.PortResponse{
+				ContainerPortRange: aws.StringValue(binding.ContainerPortRange),
+				Protocol:           binding.Protocol.String(),
+				HostIp:             binding.BindIP,
+			}
+			if eni == nil {
+				port.HostPortRange = binding.HostPortRange
+			} else {
+				port.HostPortRange = aws.StringValue(binding.ContainerPortRange)
+			}
+			ports = append(ports, port)
+		}
+	}
+	return ports
 }
 
 // metadataErrorHandling writes an error to the logger, and append an error response

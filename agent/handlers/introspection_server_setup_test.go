@@ -33,6 +33,7 @@ import (
 	mock_utils "github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,7 @@ const (
 	testContainerInstanceArn = "test_container_instance_arn"
 	testClusterArn           = "test_cluster_arn"
 	eniIPV4Address           = "10.0.0.2"
+	testPort                 = 80
 )
 
 var runtimeStatsConfigForTest = config.BooleanDefaultFalse{}
@@ -160,7 +162,7 @@ func TestGetHostNeworkingTaskByTaskArn(t *testing.T) {
 
 	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
 
-	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
+	assert.Equal(t, uint16(testPort), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
 	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
 
 	taskDiffHelper(t, []*apitask.Task{testTasks[4]}, resp)
@@ -177,7 +179,7 @@ func TestGetBridgeNeworkingTaskByTaskArn(t *testing.T) {
 
 	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
 
-	assert.Equal(t, uint16(80), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
+	assert.Equal(t, uint16(testPort), resp.Tasks[0].Containers[0].Ports[0].ContainerPort)
 	assert.Equal(t, "tcp", resp.Tasks[0].Containers[0].Ports[0].Protocol)
 
 	taskDiffHelper(t, []*apitask.Task{testTasks[5]}, resp)
@@ -426,8 +428,8 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
-						HostPort:      80,
+						ContainerPort: aws.Uint16(testPort),
+						HostPort:      testPort,
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
@@ -445,8 +447,8 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 				KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
-						HostPort:      80,
+						ContainerPort: aws.Uint16(testPort),
+						HostPort:      testPort,
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},

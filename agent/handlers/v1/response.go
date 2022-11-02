@@ -20,6 +20,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 // MetadataResponse is the schema for the metadata response JSON object
@@ -64,10 +66,12 @@ type VolumeResponse struct {
 // PortResponse defines the schema for portmapping response JSON
 // object.
 type PortResponse struct {
-	ContainerPort uint16 `json:"ContainerPort,omitempty"`
-	Protocol      string `json:"Protocol,omitempty"`
-	HostPort      uint16 `json:"HostPort,omitempty"`
-	HostIp        string `json:"HostIp,omitempty"`
+	ContainerPort      uint16 `json:"ContainerPort,omitempty"`
+	ContainerPortRange string `json:"ContainerPortRange,omitempty"`
+	Protocol           string `json:"Protocol,omitempty"`
+	HostPort           uint16 `json:"HostPort,omitempty"`
+	HostPortRange      string `json:"HostPortRange,omitempty"`
+	HostIp             string `json:"HostIp,omitempty"`
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
@@ -139,7 +143,7 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 
 	for _, binding := range bindings {
 		port := PortResponse{
-			ContainerPort: binding.ContainerPort,
+			ContainerPort: aws.Uint16Value(binding.ContainerPort),
 			Protocol:      binding.Protocol.String(),
 		}
 
