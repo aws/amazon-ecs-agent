@@ -1,6 +1,6 @@
 module github.com/aws/amazon-ecs-agent/ecs-init
 
-go 1.17
+go 1.18
 
 require (
 	github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20180829222009-86f2a9fac6c5
