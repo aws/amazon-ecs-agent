@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockManager is a mock of Manager interface
+// MockManager is a mock of Manager interface.
 type MockManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockManagerMockRecorder
 }
 
-// MockManagerMockRecorder is the mock recorder for MockManager
+// MockManagerMockRecorder is the mock recorder for MockManager.
 type MockManagerMockRecorder struct {
 	mock *MockManager
 }
 
-// NewMockManager creates a new mock instance
+// NewMockManager creates a new mock instance.
 func NewMockManager(ctrl *gomock.Controller) *MockManager {
 	mock := &MockManager{ctrl: ctrl}
 	mock.recorder = &MockManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// GetTaskCredentials mocks base method
+// GetTaskCredentials mocks base method.
 func (m *MockManager) GetTaskCredentials(arg0 string) (credentials.TaskIAMRoleCredentials, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTaskCredentials", arg0)
@@ -57,25 +57,25 @@ func (m *MockManager) GetTaskCredentials(arg0 string) (credentials.TaskIAMRoleCr
 	return ret0, ret1
 }
 
-// GetTaskCredentials indicates an expected call of GetTaskCredentials
+// GetTaskCredentials indicates an expected call of GetTaskCredentials.
 func (mr *MockManagerMockRecorder) GetTaskCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskCredentials", reflect.TypeOf((*MockManager)(nil).GetTaskCredentials), arg0)
 }
 
-// RemoveCredentials mocks base method
+// RemoveCredentials mocks base method.
 func (m *MockManager) RemoveCredentials(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RemoveCredentials", arg0)
 }
 
-// RemoveCredentials indicates an expected call of RemoveCredentials
+// RemoveCredentials indicates an expected call of RemoveCredentials.
 func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCredentials", reflect.TypeOf((*MockManager)(nil).RemoveCredentials), arg0)
 }
 
-// SetTaskCredentials mocks base method
+// SetTaskCredentials mocks base method.
 func (m *MockManager) SetTaskCredentials(arg0 *credentials.TaskIAMRoleCredentials) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetTaskCredentials", arg0)
@@ -83,7 +83,7 @@ func (m *MockManager) SetTaskCredentials(arg0 *credentials.TaskIAMRoleCredential
 	return ret0
 }
 
-// SetTaskCredentials indicates an expected call of SetTaskCredentials
+// SetTaskCredentials indicates an expected call of SetTaskCredentials.
 func (mr *MockManagerMockRecorder) SetTaskCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTaskCredentials", reflect.TypeOf((*MockManager)(nil).SetTaskCredentials), arg0)

@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockContainerMetadataResolver is a mock of ContainerMetadataResolver interface
+// MockContainerMetadataResolver is a mock of ContainerMetadataResolver interface.
 type MockContainerMetadataResolver struct {
 	ctrl     *gomock.Controller
 	recorder *MockContainerMetadataResolverMockRecorder
 }
 
-// MockContainerMetadataResolverMockRecorder is the mock recorder for MockContainerMetadataResolver
+// MockContainerMetadataResolverMockRecorder is the mock recorder for MockContainerMetadataResolver.
 type MockContainerMetadataResolverMockRecorder struct {
 	mock *MockContainerMetadataResolver
 }
 
-// NewMockContainerMetadataResolver creates a new mock instance
+// NewMockContainerMetadataResolver creates a new mock instance.
 func NewMockContainerMetadataResolver(ctrl *gomock.Controller) *MockContainerMetadataResolver {
 	mock := &MockContainerMetadataResolver{ctrl: ctrl}
 	mock.recorder = &MockContainerMetadataResolverMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContainerMetadataResolver) EXPECT() *MockContainerMetadataResolverMockRecorder {
 	return m.recorder
 }
 
-// ResolveContainer mocks base method
+// ResolveContainer mocks base method.
 func (m *MockContainerMetadataResolver) ResolveContainer(arg0 string) (*container.DockerContainer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveContainer", arg0)
@@ -58,13 +58,13 @@ func (m *MockContainerMetadataResolver) ResolveContainer(arg0 string) (*containe
 	return ret0, ret1
 }
 
-// ResolveContainer indicates an expected call of ResolveContainer
+// ResolveContainer indicates an expected call of ResolveContainer.
 func (mr *MockContainerMetadataResolverMockRecorder) ResolveContainer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveContainer", reflect.TypeOf((*MockContainerMetadataResolver)(nil).ResolveContainer), arg0)
 }
 
-// ResolveTask mocks base method
+// ResolveTask mocks base method.
 func (m *MockContainerMetadataResolver) ResolveTask(arg0 string) (*task.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveTask", arg0)
@@ -73,13 +73,13 @@ func (m *MockContainerMetadataResolver) ResolveTask(arg0 string) (*task.Task, er
 	return ret0, ret1
 }
 
-// ResolveTask indicates an expected call of ResolveTask
+// ResolveTask indicates an expected call of ResolveTask.
 func (mr *MockContainerMetadataResolverMockRecorder) ResolveTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveTask", reflect.TypeOf((*MockContainerMetadataResolver)(nil).ResolveTask), arg0)
 }
 
-// ResolveTaskByARN mocks base method
+// ResolveTaskByARN mocks base method.
 func (m *MockContainerMetadataResolver) ResolveTaskByARN(arg0 string) (*task.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveTaskByARN", arg0)
@@ -88,7 +88,7 @@ func (m *MockContainerMetadataResolver) ResolveTaskByARN(arg0 string) (*task.Tas
 	return ret0, ret1
 }
 
-// ResolveTaskByARN indicates an expected call of ResolveTaskByARN
+// ResolveTaskByARN indicates an expected call of ResolveTaskByARN.
 func (mr *MockContainerMetadataResolverMockRecorder) ResolveTaskByARN(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveTaskByARN", reflect.TypeOf((*MockContainerMetadataResolver)(nil).ResolveTaskByARN), arg0)

@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockProvider is a mock of Provider interface
+// MockProvider is a mock of Provider interface.
 type MockProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockProviderMockRecorder
 }
 
-// MockProviderMockRecorder is the mock recorder for MockProvider
+// MockProviderMockRecorder is the mock recorder for MockProvider.
 type MockProviderMockRecorder struct {
 	mock *MockProvider
 }
 
-// NewMockProvider creates a new mock instance
+// NewMockProvider creates a new mock instance.
 func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 	mock := &MockProvider{ctrl: ctrl}
 	mock.recorder = &MockProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// IsExpired mocks base method
+// IsExpired mocks base method.
 func (m *MockProvider) IsExpired() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsExpired")
@@ -56,13 +56,13 @@ func (m *MockProvider) IsExpired() bool {
 	return ret0
 }
 
-// IsExpired indicates an expected call of IsExpired
+// IsExpired indicates an expected call of IsExpired.
 func (mr *MockProviderMockRecorder) IsExpired() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExpired", reflect.TypeOf((*MockProvider)(nil).IsExpired))
 }
 
-// Retrieve mocks base method
+// Retrieve mocks base method.
 func (m *MockProvider) Retrieve() (credentials.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Retrieve")
@@ -71,7 +71,7 @@ func (m *MockProvider) Retrieve() (credentials.Value, error) {
 	return ret0, ret1
 }
 
-// Retrieve indicates an expected call of Retrieve
+// Retrieve indicates an expected call of Retrieve.
 func (mr *MockProviderMockRecorder) Retrieve() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockProvider)(nil).Retrieve))

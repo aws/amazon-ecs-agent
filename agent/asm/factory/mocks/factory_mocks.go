@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockClientCreator is a mock of ClientCreator interface
+// MockClientCreator is a mock of ClientCreator interface.
 type MockClientCreator struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientCreatorMockRecorder
 }
 
-// MockClientCreatorMockRecorder is the mock recorder for MockClientCreator
+// MockClientCreatorMockRecorder is the mock recorder for MockClientCreator.
 type MockClientCreatorMockRecorder struct {
 	mock *MockClientCreator
 }
 
-// NewMockClientCreator creates a new mock instance
+// NewMockClientCreator creates a new mock instance.
 func NewMockClientCreator(ctrl *gomock.Controller) *MockClientCreator {
 	mock := &MockClientCreator{ctrl: ctrl}
 	mock.recorder = &MockClientCreatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClientCreator) EXPECT() *MockClientCreatorMockRecorder {
 	return m.recorder
 }
 
-// NewASMClient mocks base method
+// NewASMClient mocks base method.
 func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewASMClient", arg0, arg1)
@@ -57,7 +57,7 @@ func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCr
 	return ret0
 }
 
-// NewASMClient indicates an expected call of NewASMClient
+// NewASMClient indicates an expected call of NewASMClient.
 func (mr *MockClientCreatorMockRecorder) NewASMClient(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewASMClient", reflect.TypeOf((*MockClientCreator)(nil).NewASMClient), arg0, arg1)

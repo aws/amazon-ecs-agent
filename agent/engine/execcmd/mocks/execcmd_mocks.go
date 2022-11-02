@@ -30,30 +30,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockManager is a mock of Manager interface
+// MockManager is a mock of Manager interface.
 type MockManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockManagerMockRecorder
 }
 
-// MockManagerMockRecorder is the mock recorder for MockManager
+// MockManagerMockRecorder is the mock recorder for MockManager.
 type MockManagerMockRecorder struct {
 	mock *MockManager
 }
 
-// NewMockManager creates a new mock instance
+// NewMockManager creates a new mock instance.
 func NewMockManager(ctrl *gomock.Controller) *MockManager {
 	mock := &MockManager{ctrl: ctrl}
 	mock.recorder = &MockManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// InitializeContainer mocks base method
+// InitializeContainer mocks base method.
 func (m *MockManager) InitializeContainer(arg0 string, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitializeContainer", arg0, arg1, arg2)
@@ -61,13 +61,13 @@ func (m *MockManager) InitializeContainer(arg0 string, arg1 *container.Container
 	return ret0
 }
 
-// InitializeContainer indicates an expected call of InitializeContainer
+// InitializeContainer indicates an expected call of InitializeContainer.
 func (mr *MockManagerMockRecorder) InitializeContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeContainer", reflect.TypeOf((*MockManager)(nil).InitializeContainer), arg0, arg1, arg2)
 }
 
-// RestartAgentIfStopped mocks base method
+// RestartAgentIfStopped mocks base method.
 func (m *MockManager) RestartAgentIfStopped(arg0 context.Context, arg1 dockerapi.DockerClient, arg2 *task.Task, arg3 *container.Container, arg4 string) (execcmd.RestartStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RestartAgentIfStopped", arg0, arg1, arg2, arg3, arg4)
@@ -76,13 +76,13 @@ func (m *MockManager) RestartAgentIfStopped(arg0 context.Context, arg1 dockerapi
 	return ret0, ret1
 }
 
-// RestartAgentIfStopped indicates an expected call of RestartAgentIfStopped
+// RestartAgentIfStopped indicates an expected call of RestartAgentIfStopped.
 func (mr *MockManagerMockRecorder) RestartAgentIfStopped(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestartAgentIfStopped", reflect.TypeOf((*MockManager)(nil).RestartAgentIfStopped), arg0, arg1, arg2, arg3, arg4)
 }
 
-// StartAgent mocks base method
+// StartAgent mocks base method.
 func (m *MockManager) StartAgent(arg0 context.Context, arg1 dockerapi.DockerClient, arg2 *task.Task, arg3 *container.Container, arg4 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartAgent", arg0, arg1, arg2, arg3, arg4)
@@ -90,7 +90,7 @@ func (m *MockManager) StartAgent(arg0 context.Context, arg1 dockerapi.DockerClie
 	return ret0
 }
 
-// StartAgent indicates an expected call of StartAgent
+// StartAgent indicates an expected call of StartAgent.
 func (mr *MockManagerMockRecorder) StartAgent(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartAgent", reflect.TypeOf((*MockManager)(nil).StartAgent), arg0, arg1, arg2, arg3, arg4)

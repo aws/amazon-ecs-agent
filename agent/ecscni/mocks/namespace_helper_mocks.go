@@ -28,30 +28,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockNamespaceHelper is a mock of NamespaceHelper interface
+// MockNamespaceHelper is a mock of NamespaceHelper interface.
 type MockNamespaceHelper struct {
 	ctrl     *gomock.Controller
 	recorder *MockNamespaceHelperMockRecorder
 }
 
-// MockNamespaceHelperMockRecorder is the mock recorder for MockNamespaceHelper
+// MockNamespaceHelperMockRecorder is the mock recorder for MockNamespaceHelper.
 type MockNamespaceHelperMockRecorder struct {
 	mock *MockNamespaceHelper
 }
 
-// NewMockNamespaceHelper creates a new mock instance
+// NewMockNamespaceHelper creates a new mock instance.
 func NewMockNamespaceHelper(ctrl *gomock.Controller) *MockNamespaceHelper {
 	mock := &MockNamespaceHelper{ctrl: ctrl}
 	mock.recorder = &MockNamespaceHelperMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNamespaceHelper) EXPECT() *MockNamespaceHelperMockRecorder {
 	return m.recorder
 }
 
-// ConfigureTaskNamespaceRouting mocks base method
+// ConfigureTaskNamespaceRouting mocks base method.
 func (m *MockNamespaceHelper) ConfigureTaskNamespaceRouting(arg0 context.Context, arg1 *eni.ENI, arg2 *ecscni.Config, arg3 *current.Result) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigureTaskNamespaceRouting", arg0, arg1, arg2, arg3)
@@ -59,7 +59,7 @@ func (m *MockNamespaceHelper) ConfigureTaskNamespaceRouting(arg0 context.Context
 	return ret0
 }
 
-// ConfigureTaskNamespaceRouting indicates an expected call of ConfigureTaskNamespaceRouting
+// ConfigureTaskNamespaceRouting indicates an expected call of ConfigureTaskNamespaceRouting.
 func (mr *MockNamespaceHelperMockRecorder) ConfigureTaskNamespaceRouting(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureTaskNamespaceRouting", reflect.TypeOf((*MockNamespaceHelper)(nil).ConfigureTaskNamespaceRouting), arg0, arg1, arg2, arg3)

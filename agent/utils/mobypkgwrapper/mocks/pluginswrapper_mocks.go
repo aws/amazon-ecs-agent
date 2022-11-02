@@ -24,30 +24,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockPlugins is a mock of Plugins interface
+// MockPlugins is a mock of Plugins interface.
 type MockPlugins struct {
 	ctrl     *gomock.Controller
 	recorder *MockPluginsMockRecorder
 }
 
-// MockPluginsMockRecorder is the mock recorder for MockPlugins
+// MockPluginsMockRecorder is the mock recorder for MockPlugins.
 type MockPluginsMockRecorder struct {
 	mock *MockPlugins
 }
 
-// NewMockPlugins creates a new mock instance
+// NewMockPlugins creates a new mock instance.
 func NewMockPlugins(ctrl *gomock.Controller) *MockPlugins {
 	mock := &MockPlugins{ctrl: ctrl}
 	mock.recorder = &MockPluginsMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPlugins) EXPECT() *MockPluginsMockRecorder {
 	return m.recorder
 }
 
-// Scan mocks base method
+// Scan mocks base method.
 func (m *MockPlugins) Scan() ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Scan")
@@ -56,7 +56,7 @@ func (m *MockPlugins) Scan() ([]string, error) {
 	return ret0, ret1
 }
 
-// Scan indicates an expected call of Scan
+// Scan indicates an expected call of Scan.
 func (mr *MockPluginsMockRecorder) Scan() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scan", reflect.TypeOf((*MockPlugins)(nil).Scan))

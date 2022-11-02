@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockNS is a mock of NS interface
+// MockNS is a mock of NS interface.
 type MockNS struct {
 	ctrl     *gomock.Controller
 	recorder *MockNSMockRecorder
 }
 
-// MockNSMockRecorder is the mock recorder for MockNS
+// MockNSMockRecorder is the mock recorder for MockNS.
 type MockNSMockRecorder struct {
 	mock *MockNS
 }
 
-// NewMockNS creates a new mock instance
+// NewMockNS creates a new mock instance.
 func NewMockNS(ctrl *gomock.Controller) *MockNS {
 	mock := &MockNS{ctrl: ctrl}
 	mock.recorder = &MockNSMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNS) EXPECT() *MockNSMockRecorder {
 	return m.recorder
 }
 
-// GetNS mocks base method
+// GetNS mocks base method.
 func (m *MockNS) GetNS(arg0 string) (ns.NetNS, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNS", arg0)
@@ -57,13 +57,13 @@ func (m *MockNS) GetNS(arg0 string) (ns.NetNS, error) {
 	return ret0, ret1
 }
 
-// GetNS indicates an expected call of GetNS
+// GetNS indicates an expected call of GetNS.
 func (mr *MockNSMockRecorder) GetNS(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNS", reflect.TypeOf((*MockNS)(nil).GetNS), arg0)
 }
 
-// WithNetNSPath mocks base method
+// WithNetNSPath mocks base method.
 func (m *MockNS) WithNetNSPath(arg0 string, arg1 func(ns.NetNS) error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithNetNSPath", arg0, arg1)
@@ -71,7 +71,7 @@ func (m *MockNS) WithNetNSPath(arg0 string, arg1 func(ns.NetNS) error) error {
 	return ret0
 }
 
-// WithNetNSPath indicates an expected call of WithNetNSPath
+// WithNetNSPath indicates an expected call of WithNetNSPath.
 func (mr *MockNSMockRecorder) WithNetNSPath(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithNetNSPath", reflect.TypeOf((*MockNS)(nil).WithNetNSPath), arg0, arg1)

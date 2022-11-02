@@ -24,30 +24,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockBackoff is a mock of Backoff interface
+// MockBackoff is a mock of Backoff interface.
 type MockBackoff struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackoffMockRecorder
 }
 
-// MockBackoffMockRecorder is the mock recorder for MockBackoff
+// MockBackoffMockRecorder is the mock recorder for MockBackoff.
 type MockBackoffMockRecorder struct {
 	mock *MockBackoff
 }
 
-// NewMockBackoff creates a new mock instance
+// NewMockBackoff creates a new mock instance.
 func NewMockBackoff(ctrl *gomock.Controller) *MockBackoff {
 	mock := &MockBackoff{ctrl: ctrl}
 	mock.recorder = &MockBackoffMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackoff) EXPECT() *MockBackoffMockRecorder {
 	return m.recorder
 }
 
-// Duration mocks base method
+// Duration mocks base method.
 func (m *MockBackoff) Duration() time.Duration {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Duration")
@@ -55,13 +55,13 @@ func (m *MockBackoff) Duration() time.Duration {
 	return ret0
 }
 
-// Duration indicates an expected call of Duration
+// Duration indicates an expected call of Duration.
 func (mr *MockBackoffMockRecorder) Duration() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Duration", reflect.TypeOf((*MockBackoff)(nil).Duration))
 }
 
-// ShouldRetry mocks base method
+// ShouldRetry mocks base method.
 func (m *MockBackoff) ShouldRetry() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRetry")
@@ -69,7 +69,7 @@ func (m *MockBackoff) ShouldRetry() bool {
 	return ret0
 }
 
-// ShouldRetry indicates an expected call of ShouldRetry
+// ShouldRetry indicates an expected call of ShouldRetry.
 func (mr *MockBackoffMockRecorder) ShouldRetry() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldRetry", reflect.TypeOf((*MockBackoff)(nil).ShouldRetry))

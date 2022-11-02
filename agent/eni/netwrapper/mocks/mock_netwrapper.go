@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockNetWrapper is a mock of NetWrapper interface
+// MockNetWrapper is a mock of NetWrapper interface.
 type MockNetWrapper struct {
 	ctrl     *gomock.Controller
 	recorder *MockNetWrapperMockRecorder
 }
 
-// MockNetWrapperMockRecorder is the mock recorder for MockNetWrapper
+// MockNetWrapperMockRecorder is the mock recorder for MockNetWrapper.
 type MockNetWrapperMockRecorder struct {
 	mock *MockNetWrapper
 }
 
-// NewMockNetWrapper creates a new mock instance
+// NewMockNetWrapper creates a new mock instance.
 func NewMockNetWrapper(ctrl *gomock.Controller) *MockNetWrapper {
 	mock := &MockNetWrapper{ctrl: ctrl}
 	mock.recorder = &MockNetWrapperMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetWrapper) EXPECT() *MockNetWrapperMockRecorder {
 	return m.recorder
 }
 
-// FindInterfaceByIndex mocks base method
+// FindInterfaceByIndex mocks base method.
 func (m *MockNetWrapper) FindInterfaceByIndex(arg0 int) (*net.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindInterfaceByIndex", arg0)
@@ -57,13 +57,13 @@ func (m *MockNetWrapper) FindInterfaceByIndex(arg0 int) (*net.Interface, error) 
 	return ret0, ret1
 }
 
-// FindInterfaceByIndex indicates an expected call of FindInterfaceByIndex
+// FindInterfaceByIndex indicates an expected call of FindInterfaceByIndex.
 func (mr *MockNetWrapperMockRecorder) FindInterfaceByIndex(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInterfaceByIndex", reflect.TypeOf((*MockNetWrapper)(nil).FindInterfaceByIndex), arg0)
 }
 
-// GetAllNetworkInterfaces mocks base method
+// GetAllNetworkInterfaces mocks base method.
 func (m *MockNetWrapper) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllNetworkInterfaces")
@@ -72,7 +72,7 @@ func (m *MockNetWrapper) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	return ret0, ret1
 }
 
-// GetAllNetworkInterfaces indicates an expected call of GetAllNetworkInterfaces
+// GetAllNetworkInterfaces indicates an expected call of GetAllNetworkInterfaces.
 func (mr *MockNetWrapperMockRecorder) GetAllNetworkInterfaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllNetworkInterfaces", reflect.TypeOf((*MockNetWrapper)(nil).GetAllNetworkInterfaces))

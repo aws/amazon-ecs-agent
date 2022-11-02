@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockDockerStateResolver is a mock of DockerStateResolver interface
+// MockDockerStateResolver is a mock of DockerStateResolver interface.
 type MockDockerStateResolver struct {
 	ctrl     *gomock.Controller
 	recorder *MockDockerStateResolverMockRecorder
 }
 
-// MockDockerStateResolverMockRecorder is the mock recorder for MockDockerStateResolver
+// MockDockerStateResolverMockRecorder is the mock recorder for MockDockerStateResolver.
 type MockDockerStateResolverMockRecorder struct {
 	mock *MockDockerStateResolver
 }
 
-// NewMockDockerStateResolver creates a new mock instance
+// NewMockDockerStateResolver creates a new mock instance.
 func NewMockDockerStateResolver(ctrl *gomock.Controller) *MockDockerStateResolver {
 	mock := &MockDockerStateResolver{ctrl: ctrl}
 	mock.recorder = &MockDockerStateResolverMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDockerStateResolver) EXPECT() *MockDockerStateResolverMockRecorder {
 	return m.recorder
 }
 
-// State mocks base method
+// State mocks base method.
 func (m *MockDockerStateResolver) State() dockerstate.TaskEngineState {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
@@ -56,7 +56,7 @@ func (m *MockDockerStateResolver) State() dockerstate.TaskEngineState {
 	return ret0
 }
 
-// State indicates an expected call of State
+// State indicates an expected call of State.
 func (mr *MockDockerStateResolverMockRecorder) State() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockDockerStateResolver)(nil).State))

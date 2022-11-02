@@ -28,102 +28,102 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockTaskEngineState is a mock of TaskEngineState interface
+// MockTaskEngineState is a mock of TaskEngineState interface.
 type MockTaskEngineState struct {
 	ctrl     *gomock.Controller
 	recorder *MockTaskEngineStateMockRecorder
 }
 
-// MockTaskEngineStateMockRecorder is the mock recorder for MockTaskEngineState
+// MockTaskEngineStateMockRecorder is the mock recorder for MockTaskEngineState.
 type MockTaskEngineStateMockRecorder struct {
 	mock *MockTaskEngineState
 }
 
-// NewMockTaskEngineState creates a new mock instance
+// NewMockTaskEngineState creates a new mock instance.
 func NewMockTaskEngineState(ctrl *gomock.Controller) *MockTaskEngineState {
 	mock := &MockTaskEngineState{ctrl: ctrl}
 	mock.recorder = &MockTaskEngineStateMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTaskEngineState) EXPECT() *MockTaskEngineStateMockRecorder {
 	return m.recorder
 }
 
-// AddContainer mocks base method
+// AddContainer mocks base method.
 func (m *MockTaskEngineState) AddContainer(arg0 *container.DockerContainer, arg1 *task.Task) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddContainer", arg0, arg1)
 }
 
-// AddContainer indicates an expected call of AddContainer
+// AddContainer indicates an expected call of AddContainer.
 func (mr *MockTaskEngineStateMockRecorder) AddContainer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddContainer", reflect.TypeOf((*MockTaskEngineState)(nil).AddContainer), arg0, arg1)
 }
 
-// AddENIAttachment mocks base method
+// AddENIAttachment mocks base method.
 func (m *MockTaskEngineState) AddENIAttachment(arg0 *eni.ENIAttachment) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddENIAttachment", arg0)
 }
 
-// AddENIAttachment indicates an expected call of AddENIAttachment
+// AddENIAttachment indicates an expected call of AddENIAttachment.
 func (mr *MockTaskEngineStateMockRecorder) AddENIAttachment(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddENIAttachment", reflect.TypeOf((*MockTaskEngineState)(nil).AddENIAttachment), arg0)
 }
 
-// AddImageState mocks base method
+// AddImageState mocks base method.
 func (m *MockTaskEngineState) AddImageState(arg0 *image.ImageState) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddImageState", arg0)
 }
 
-// AddImageState indicates an expected call of AddImageState
+// AddImageState indicates an expected call of AddImageState.
 func (mr *MockTaskEngineStateMockRecorder) AddImageState(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddImageState", reflect.TypeOf((*MockTaskEngineState)(nil).AddImageState), arg0)
 }
 
-// AddPulledContainer mocks base method
+// AddPulledContainer mocks base method.
 func (m *MockTaskEngineState) AddPulledContainer(arg0 *container.DockerContainer, arg1 *task.Task) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddPulledContainer", arg0, arg1)
 }
 
-// AddPulledContainer indicates an expected call of AddPulledContainer
+// AddPulledContainer indicates an expected call of AddPulledContainer.
 func (mr *MockTaskEngineStateMockRecorder) AddPulledContainer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPulledContainer", reflect.TypeOf((*MockTaskEngineState)(nil).AddPulledContainer), arg0, arg1)
 }
 
-// AddTask mocks base method
+// AddTask mocks base method.
 func (m *MockTaskEngineState) AddTask(arg0 *task.Task) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddTask", arg0)
 }
 
-// AddTask indicates an expected call of AddTask
+// AddTask indicates an expected call of AddTask.
 func (mr *MockTaskEngineStateMockRecorder) AddTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTask", reflect.TypeOf((*MockTaskEngineState)(nil).AddTask), arg0)
 }
 
-// AddTaskIPAddress mocks base method
+// AddTaskIPAddress mocks base method.
 func (m *MockTaskEngineState) AddTaskIPAddress(arg0, arg1 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddTaskIPAddress", arg0, arg1)
 }
 
-// AddTaskIPAddress indicates an expected call of AddTaskIPAddress
+// AddTaskIPAddress indicates an expected call of AddTaskIPAddress.
 func (mr *MockTaskEngineStateMockRecorder) AddTaskIPAddress(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTaskIPAddress", reflect.TypeOf((*MockTaskEngineState)(nil).AddTaskIPAddress), arg0, arg1)
 }
 
-// AllENIAttachments mocks base method
+// AllENIAttachments mocks base method.
 func (m *MockTaskEngineState) AllENIAttachments() []*eni.ENIAttachment {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllENIAttachments")
@@ -131,13 +131,13 @@ func (m *MockTaskEngineState) AllENIAttachments() []*eni.ENIAttachment {
 	return ret0
 }
 
-// AllENIAttachments indicates an expected call of AllENIAttachments
+// AllENIAttachments indicates an expected call of AllENIAttachments.
 func (mr *MockTaskEngineStateMockRecorder) AllENIAttachments() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllENIAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).AllENIAttachments))
 }
 
-// AllExternalTasks mocks base method
+// AllExternalTasks mocks base method.
 func (m *MockTaskEngineState) AllExternalTasks() []*task.Task {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllExternalTasks")
@@ -145,13 +145,13 @@ func (m *MockTaskEngineState) AllExternalTasks() []*task.Task {
 	return ret0
 }
 
-// AllExternalTasks indicates an expected call of AllExternalTasks
+// AllExternalTasks indicates an expected call of AllExternalTasks.
 func (mr *MockTaskEngineStateMockRecorder) AllExternalTasks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllExternalTasks", reflect.TypeOf((*MockTaskEngineState)(nil).AllExternalTasks))
 }
 
-// AllImageStates mocks base method
+// AllImageStates mocks base method.
 func (m *MockTaskEngineState) AllImageStates() []*image.ImageState {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllImageStates")
@@ -159,13 +159,13 @@ func (m *MockTaskEngineState) AllImageStates() []*image.ImageState {
 	return ret0
 }
 
-// AllImageStates indicates an expected call of AllImageStates
+// AllImageStates indicates an expected call of AllImageStates.
 func (mr *MockTaskEngineStateMockRecorder) AllImageStates() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllImageStates", reflect.TypeOf((*MockTaskEngineState)(nil).AllImageStates))
 }
 
-// AllTasks mocks base method
+// AllTasks mocks base method.
 func (m *MockTaskEngineState) AllTasks() []*task.Task {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllTasks")
@@ -173,13 +173,13 @@ func (m *MockTaskEngineState) AllTasks() []*task.Task {
 	return ret0
 }
 
-// AllTasks indicates an expected call of AllTasks
+// AllTasks indicates an expected call of AllTasks.
 func (mr *MockTaskEngineStateMockRecorder) AllTasks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllTasks", reflect.TypeOf((*MockTaskEngineState)(nil).AllTasks))
 }
 
-// ContainerByID mocks base method
+// ContainerByID mocks base method.
 func (m *MockTaskEngineState) ContainerByID(arg0 string) (*container.DockerContainer, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerByID", arg0)
@@ -188,13 +188,13 @@ func (m *MockTaskEngineState) ContainerByID(arg0 string) (*container.DockerConta
 	return ret0, ret1
 }
 
-// ContainerByID indicates an expected call of ContainerByID
+// ContainerByID indicates an expected call of ContainerByID.
 func (mr *MockTaskEngineStateMockRecorder) ContainerByID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerByID", reflect.TypeOf((*MockTaskEngineState)(nil).ContainerByID), arg0)
 }
 
-// ContainerMapByArn mocks base method
+// ContainerMapByArn mocks base method.
 func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*container.DockerContainer, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerMapByArn", arg0)
@@ -203,13 +203,13 @@ func (m *MockTaskEngineState) ContainerMapByArn(arg0 string) (map[string]*contai
 	return ret0, ret1
 }
 
-// ContainerMapByArn indicates an expected call of ContainerMapByArn
+// ContainerMapByArn indicates an expected call of ContainerMapByArn.
 func (mr *MockTaskEngineStateMockRecorder) ContainerMapByArn(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).ContainerMapByArn), arg0)
 }
 
-// DockerIDByV3EndpointID mocks base method
+// DockerIDByV3EndpointID mocks base method.
 func (m *MockTaskEngineState) DockerIDByV3EndpointID(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DockerIDByV3EndpointID", arg0)
@@ -218,13 +218,13 @@ func (m *MockTaskEngineState) DockerIDByV3EndpointID(arg0 string) (string, bool)
 	return ret0, ret1
 }
 
-// DockerIDByV3EndpointID indicates an expected call of DockerIDByV3EndpointID
+// DockerIDByV3EndpointID indicates an expected call of DockerIDByV3EndpointID.
 func (mr *MockTaskEngineStateMockRecorder) DockerIDByV3EndpointID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DockerIDByV3EndpointID", reflect.TypeOf((*MockTaskEngineState)(nil).DockerIDByV3EndpointID), arg0)
 }
 
-// ENIByMac mocks base method
+// ENIByMac mocks base method.
 func (m *MockTaskEngineState) ENIByMac(arg0 string) (*eni.ENIAttachment, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ENIByMac", arg0)
@@ -233,13 +233,13 @@ func (m *MockTaskEngineState) ENIByMac(arg0 string) (*eni.ENIAttachment, bool) {
 	return ret0, ret1
 }
 
-// ENIByMac indicates an expected call of ENIByMac
+// ENIByMac indicates an expected call of ENIByMac.
 func (mr *MockTaskEngineStateMockRecorder) ENIByMac(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ENIByMac", reflect.TypeOf((*MockTaskEngineState)(nil).ENIByMac), arg0)
 }
 
-// GetAllContainerIDs mocks base method
+// GetAllContainerIDs mocks base method.
 func (m *MockTaskEngineState) GetAllContainerIDs() []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllContainerIDs")
@@ -247,13 +247,13 @@ func (m *MockTaskEngineState) GetAllContainerIDs() []string {
 	return ret0
 }
 
-// GetAllContainerIDs indicates an expected call of GetAllContainerIDs
+// GetAllContainerIDs indicates an expected call of GetAllContainerIDs.
 func (mr *MockTaskEngineStateMockRecorder) GetAllContainerIDs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllContainerIDs", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllContainerIDs))
 }
 
-// GetIPAddressByTaskARN mocks base method
+// GetIPAddressByTaskARN mocks base method.
 func (m *MockTaskEngineState) GetIPAddressByTaskARN(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIPAddressByTaskARN", arg0)
@@ -262,13 +262,13 @@ func (m *MockTaskEngineState) GetIPAddressByTaskARN(arg0 string) (string, bool) 
 	return ret0, ret1
 }
 
-// GetIPAddressByTaskARN indicates an expected call of GetIPAddressByTaskARN
+// GetIPAddressByTaskARN indicates an expected call of GetIPAddressByTaskARN.
 func (mr *MockTaskEngineStateMockRecorder) GetIPAddressByTaskARN(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPAddressByTaskARN", reflect.TypeOf((*MockTaskEngineState)(nil).GetIPAddressByTaskARN), arg0)
 }
 
-// GetTaskByIPAddress mocks base method
+// GetTaskByIPAddress mocks base method.
 func (m *MockTaskEngineState) GetTaskByIPAddress(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTaskByIPAddress", arg0)
@@ -277,13 +277,13 @@ func (m *MockTaskEngineState) GetTaskByIPAddress(arg0 string) (string, bool) {
 	return ret0, ret1
 }
 
-// GetTaskByIPAddress indicates an expected call of GetTaskByIPAddress
+// GetTaskByIPAddress indicates an expected call of GetTaskByIPAddress.
 func (mr *MockTaskEngineStateMockRecorder) GetTaskByIPAddress(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskByIPAddress", reflect.TypeOf((*MockTaskEngineState)(nil).GetTaskByIPAddress), arg0)
 }
 
-// MarshalJSON mocks base method
+// MarshalJSON mocks base method.
 func (m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MarshalJSON")
@@ -292,13 +292,13 @@ func (m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 	return ret0, ret1
 }
 
-// MarshalJSON indicates an expected call of MarshalJSON
+// MarshalJSON indicates an expected call of MarshalJSON.
 func (mr *MockTaskEngineStateMockRecorder) MarshalJSON() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarshalJSON", reflect.TypeOf((*MockTaskEngineState)(nil).MarshalJSON))
 }
 
-// PulledContainerMapByArn mocks base method
+// PulledContainerMapByArn mocks base method.
 func (m *MockTaskEngineState) PulledContainerMapByArn(arg0 string) (map[string]*container.DockerContainer, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PulledContainerMapByArn", arg0)
@@ -307,61 +307,61 @@ func (m *MockTaskEngineState) PulledContainerMapByArn(arg0 string) (map[string]*
 	return ret0, ret1
 }
 
-// PulledContainerMapByArn indicates an expected call of PulledContainerMapByArn
+// PulledContainerMapByArn indicates an expected call of PulledContainerMapByArn.
 func (mr *MockTaskEngineStateMockRecorder) PulledContainerMapByArn(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PulledContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).PulledContainerMapByArn), arg0)
 }
 
-// RemoveENIAttachment mocks base method
+// RemoveENIAttachment mocks base method.
 func (m *MockTaskEngineState) RemoveENIAttachment(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RemoveENIAttachment", arg0)
 }
 
-// RemoveENIAttachment indicates an expected call of RemoveENIAttachment
+// RemoveENIAttachment indicates an expected call of RemoveENIAttachment.
 func (mr *MockTaskEngineStateMockRecorder) RemoveENIAttachment(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveENIAttachment", reflect.TypeOf((*MockTaskEngineState)(nil).RemoveENIAttachment), arg0)
 }
 
-// RemoveImageState mocks base method
+// RemoveImageState mocks base method.
 func (m *MockTaskEngineState) RemoveImageState(arg0 *image.ImageState) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RemoveImageState", arg0)
 }
 
-// RemoveImageState indicates an expected call of RemoveImageState
+// RemoveImageState indicates an expected call of RemoveImageState.
 func (mr *MockTaskEngineStateMockRecorder) RemoveImageState(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveImageState", reflect.TypeOf((*MockTaskEngineState)(nil).RemoveImageState), arg0)
 }
 
-// RemoveTask mocks base method
+// RemoveTask mocks base method.
 func (m *MockTaskEngineState) RemoveTask(arg0 *task.Task) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RemoveTask", arg0)
 }
 
-// RemoveTask indicates an expected call of RemoveTask
+// RemoveTask indicates an expected call of RemoveTask.
 func (mr *MockTaskEngineStateMockRecorder) RemoveTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTask", reflect.TypeOf((*MockTaskEngineState)(nil).RemoveTask), arg0)
 }
 
-// Reset mocks base method
+// Reset mocks base method.
 func (m *MockTaskEngineState) Reset() {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Reset")
 }
 
-// Reset indicates an expected call of Reset
+// Reset indicates an expected call of Reset.
 func (mr *MockTaskEngineStateMockRecorder) Reset() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockTaskEngineState)(nil).Reset))
 }
 
-// TaskARNByV3EndpointID mocks base method
+// TaskARNByV3EndpointID mocks base method.
 func (m *MockTaskEngineState) TaskARNByV3EndpointID(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TaskARNByV3EndpointID", arg0)
@@ -370,13 +370,13 @@ func (m *MockTaskEngineState) TaskARNByV3EndpointID(arg0 string) (string, bool) 
 	return ret0, ret1
 }
 
-// TaskARNByV3EndpointID indicates an expected call of TaskARNByV3EndpointID
+// TaskARNByV3EndpointID indicates an expected call of TaskARNByV3EndpointID.
 func (mr *MockTaskEngineStateMockRecorder) TaskARNByV3EndpointID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskARNByV3EndpointID", reflect.TypeOf((*MockTaskEngineState)(nil).TaskARNByV3EndpointID), arg0)
 }
 
-// TaskByArn mocks base method
+// TaskByArn mocks base method.
 func (m *MockTaskEngineState) TaskByArn(arg0 string) (*task.Task, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TaskByArn", arg0)
@@ -385,13 +385,13 @@ func (m *MockTaskEngineState) TaskByArn(arg0 string) (*task.Task, bool) {
 	return ret0, ret1
 }
 
-// TaskByArn indicates an expected call of TaskByArn
+// TaskByArn indicates an expected call of TaskByArn.
 func (mr *MockTaskEngineStateMockRecorder) TaskByArn(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskByArn", reflect.TypeOf((*MockTaskEngineState)(nil).TaskByArn), arg0)
 }
 
-// TaskByID mocks base method
+// TaskByID mocks base method.
 func (m *MockTaskEngineState) TaskByID(arg0 string) (*task.Task, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TaskByID", arg0)
@@ -400,13 +400,13 @@ func (m *MockTaskEngineState) TaskByID(arg0 string) (*task.Task, bool) {
 	return ret0, ret1
 }
 
-// TaskByID indicates an expected call of TaskByID
+// TaskByID indicates an expected call of TaskByID.
 func (mr *MockTaskEngineStateMockRecorder) TaskByID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskByID", reflect.TypeOf((*MockTaskEngineState)(nil).TaskByID), arg0)
 }
 
-// TaskByShortID mocks base method
+// TaskByShortID mocks base method.
 func (m *MockTaskEngineState) TaskByShortID(arg0 string) ([]*task.Task, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TaskByShortID", arg0)
@@ -415,13 +415,13 @@ func (m *MockTaskEngineState) TaskByShortID(arg0 string) ([]*task.Task, bool) {
 	return ret0, ret1
 }
 
-// TaskByShortID indicates an expected call of TaskByShortID
+// TaskByShortID indicates an expected call of TaskByShortID.
 func (mr *MockTaskEngineStateMockRecorder) TaskByShortID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskByShortID", reflect.TypeOf((*MockTaskEngineState)(nil).TaskByShortID), arg0)
 }
 
-// UnmarshalJSON mocks base method
+// UnmarshalJSON mocks base method.
 func (m *MockTaskEngineState) UnmarshalJSON(arg0 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnmarshalJSON", arg0)
@@ -429,7 +429,7 @@ func (m *MockTaskEngineState) UnmarshalJSON(arg0 []byte) error {
 	return ret0
 }
 
-// UnmarshalJSON indicates an expected call of UnmarshalJSON
+// UnmarshalJSON indicates an expected call of UnmarshalJSON.
 func (mr *MockTaskEngineStateMockRecorder) UnmarshalJSON(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnmarshalJSON", reflect.TypeOf((*MockTaskEngineState)(nil).UnmarshalJSON), arg0)

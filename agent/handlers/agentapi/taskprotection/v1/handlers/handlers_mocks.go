@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockTaskProtectionClientFactoryInterface is a mock of TaskProtectionClientFactoryInterface interface
+// MockTaskProtectionClientFactoryInterface is a mock of TaskProtectionClientFactoryInterface interface.
 type MockTaskProtectionClientFactoryInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockTaskProtectionClientFactoryInterfaceMockRecorder
 }
 
-// MockTaskProtectionClientFactoryInterfaceMockRecorder is the mock recorder for MockTaskProtectionClientFactoryInterface
+// MockTaskProtectionClientFactoryInterfaceMockRecorder is the mock recorder for MockTaskProtectionClientFactoryInterface.
 type MockTaskProtectionClientFactoryInterfaceMockRecorder struct {
 	mock *MockTaskProtectionClientFactoryInterface
 }
 
-// NewMockTaskProtectionClientFactoryInterface creates a new mock instance
+// NewMockTaskProtectionClientFactoryInterface creates a new mock instance.
 func NewMockTaskProtectionClientFactoryInterface(ctrl *gomock.Controller) *MockTaskProtectionClientFactoryInterface {
 	mock := &MockTaskProtectionClientFactoryInterface{ctrl: ctrl}
 	mock.recorder = &MockTaskProtectionClientFactoryInterfaceMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTaskProtectionClientFactoryInterface) EXPECT() *MockTaskProtectionClientFactoryInterfaceMockRecorder {
 	return m.recorder
 }
 
-// newTaskProtectionClient mocks base method
+// newTaskProtectionClient mocks base method.
 func (m *MockTaskProtectionClientFactoryInterface) newTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "newTaskProtectionClient", arg0)
@@ -57,7 +57,7 @@ func (m *MockTaskProtectionClientFactoryInterface) newTaskProtectionClient(arg0 
 	return ret0
 }
 
-// newTaskProtectionClient indicates an expected call of newTaskProtectionClient
+// newTaskProtectionClient indicates an expected call of newTaskProtectionClient.
 func (mr *MockTaskProtectionClientFactoryInterfaceMockRecorder) newTaskProtectionClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "newTaskProtectionClient", reflect.TypeOf((*MockTaskProtectionClientFactoryInterface)(nil).newTaskProtectionClient), arg0)

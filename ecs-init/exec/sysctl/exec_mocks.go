@@ -24,45 +24,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockExec is a mock of Exec interface
+// MockExec is a mock of Exec interface.
 type MockExec struct {
 	ctrl     *gomock.Controller
 	recorder *MockExecMockRecorder
 }
 
-// MockExecMockRecorder is the mock recorder for MockExec
+// MockExecMockRecorder is the mock recorder for MockExec.
 type MockExecMockRecorder struct {
 	mock *MockExec
 }
 
-// NewMockExec creates a new mock instance
+// NewMockExec creates a new mock instance.
 func NewMockExec(ctrl *gomock.Controller) *MockExec {
 	mock := &MockExec{ctrl: ctrl}
 	mock.recorder = &MockExecMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExec) EXPECT() *MockExecMockRecorder {
 	return m.recorder
 }
 
-// LookPath mocks base method
-func (m *MockExec) LookPath(file string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LookPath", file)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LookPath indicates an expected call of LookPath
-func (mr *MockExecMockRecorder) LookPath(file interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookPath", reflect.TypeOf((*MockExec)(nil).LookPath), file)
-}
-
-// Command mocks base method
+// Command mocks base method.
 func (m *MockExec) Command(name string, arg ...string) cmd.Cmd {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{name}
@@ -74,9 +59,24 @@ func (m *MockExec) Command(name string, arg ...string) cmd.Cmd {
 	return ret0
 }
 
-// Command indicates an expected call of Command
+// Command indicates an expected call of Command.
 func (mr *MockExecMockRecorder) Command(name interface{}, arg ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{name}, arg...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Command", reflect.TypeOf((*MockExec)(nil).Command), varargs...)
+}
+
+// LookPath mocks base method.
+func (m *MockExec) LookPath(file string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LookPath", file)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LookPath indicates an expected call of LookPath.
+func (mr *MockExecMockRecorder) LookPath(file interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookPath", reflect.TypeOf((*MockExec)(nil).LookPath), file)
 }
