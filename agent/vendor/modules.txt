@@ -77,8 +77,8 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/cilium/ebpf v0.4.0
-## explicit; go 1.15
+# github.com/cilium/ebpf v0.4.0 => github.com/cilium/ebpf v0.3.1-0.20201126135850-a4445178e714
+## explicit; go 1.14
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
@@ -280,7 +280,7 @@ golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20220624220833-87e55d714810 => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
+# golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 ## explicit; go 1.12
 golang.org/x/sys/unix
 golang.org/x/sys/windows
@@ -407,3 +407,4 @@ google.golang.org/protobuf/types/known/timestamppb
 # golang.org/x/net => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 # golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 # golang.org/x/tools => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
+# github.com/cilium/ebpf => github.com/cilium/ebpf v0.3.1-0.20201126135850-a4445178e714

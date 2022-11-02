@@ -29,7 +29,7 @@ require (
 	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
-	golang.org/x/sys v0.0.0-20220624220833-87e55d714810
+	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec
 	golang.org/x/tools v0.1.5
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
@@ -92,3 +92,5 @@ replace (
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 	golang.org/x/tools => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
 )
+
+replace github.com/cilium/ebpf => github.com/cilium/ebpf v0.3.1-0.20201126135850-a4445178e714

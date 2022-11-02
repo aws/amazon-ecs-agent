@@ -10,19 +10,16 @@ import (
 )
 
 const (
-	ENOENT  = linux.ENOENT
-	EEXIST  = linux.EEXIST
-	EAGAIN  = linux.EAGAIN
-	ENOSPC  = linux.ENOSPC
-	EINVAL  = linux.EINVAL
-	EPOLLIN = linux.EPOLLIN
-	EINTR   = linux.EINTR
-	EPERM   = linux.EPERM
-	ESRCH   = linux.ESRCH
-	ENODEV  = linux.ENODEV
-	// ENOTSUPP is not the same as ENOTSUP or EOPNOTSUP
-	ENOTSUPP = syscall.Errno(0x20c)
-
+	ENOENT                   = linux.ENOENT
+	EEXIST                   = linux.EEXIST
+	EAGAIN                   = linux.EAGAIN
+	ENOSPC                   = linux.ENOSPC
+	EINVAL                   = linux.EINVAL
+	EPOLLIN                  = linux.EPOLLIN
+	EINTR                    = linux.EINTR
+	EPERM                    = linux.EPERM
+	ESRCH                    = linux.ESRCH
+	ENODEV                   = linux.ENODEV
 	EBADF                    = linux.EBADF
 	BPF_F_NO_PREALLOC        = linux.BPF_F_NO_PREALLOC
 	BPF_F_NUMA_NODE          = linux.BPF_F_NUMA_NODE
@@ -46,7 +43,6 @@ const (
 	PERF_FLAG_FD_CLOEXEC     = linux.PERF_FLAG_FD_CLOEXEC
 	RLIM_INFINITY            = linux.RLIM_INFINITY
 	RLIMIT_MEMLOCK           = linux.RLIMIT_MEMLOCK
-	BPF_STATS_RUN_TIME       = linux.BPF_STATS_RUN_TIME
 )
 
 // Statfs_t is a wrapper

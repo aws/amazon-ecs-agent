@@ -14,7 +14,7 @@ var ErrNotSupported = internal.ErrNotSupported
 type Link interface {
 	// Replace the current program with a new program.
 	//
-	// Passing a nil program is an error. May return an error wrapping ErrNotSupported.
+	// Passing a nil program is an error.
 	Update(*ebpf.Program) error
 
 	// Persist a link by pinning it into a bpffs.
