@@ -1416,7 +1416,6 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", tc.errs), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockTime := mock_ttime.NewMockTime(ctrl)
-			mockTimer := mock_ttime.NewMockTimer(ctrl)
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			task := &managedTask{
@@ -1429,8 +1428,6 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 				acsMessages: make(chan acsTransition),
 			}
 			if tc.result {
-				mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).Return(mockTimer)
-				mockTimer.EXPECT().Stop()
 				go func() { task.acsMessages <- acsTransition{desiredStatus: apitaskstatus.TaskRunning} }()
 			}
 
