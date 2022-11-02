@@ -32,6 +32,16 @@
       "output":{"shape":"AckRequest"},
       "documentation":"AttachNetworkInterface requests that the Agent look for and confirm the attachment of a network interface by the control plane."
     },
+    "ConfirmAttachment":{
+      "name":"ConfirmAttachment",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ConfirmAttachmentMessage"},
+      "output":{"shape":"AckRequest"},
+      "documentation":"ConfirmAttachment requests that the Agent look for and confirm an attachment request by the control plane."
+    },
     "Error":{
       "name":"Error",
       "http":{
@@ -105,6 +115,24 @@
       "input":{"shape":"StageUpdateMessage"},
       "output":{"shape":"AckRequest"}
     },
+    "TaskManifest":{
+      "name":"TaskManifest",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"TaskManifestMessage"},
+      "output":{"shape":"AckRequest"}
+    },
+    "TaskStopVerification":{
+      "name":"TaskStopVerification",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"TaskStopVerificationMessage"},
+      "output":{"shape":"TaskStopVerificationAck"}
+    },
     "UpdateFailure":{
       "name":"UpdateFailure",
       "http":{
@@ -174,6 +202,7 @@
         "containerInstanceArn":{"shape":"String"},
         "clusterArn":{"shape":"String"},
         "taskArn":{"shape":"String"},
+        "taskClusterArn":{"shape":"String"},
         "generatedAt":{"shape":"Long"},
         "messageId":{"shape":"String"},
         "waitTimeoutMs":{"shape":"Long"},
@@ -228,6 +257,19 @@
         "message":{"shape":"String"}
       }
     },
+    "ConfirmAttachmentMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "taskArn":{"shape":"String"},
+        "taskClusterArn":{"shape":"String"},
+        "generatedAt":{"shape":"Long"},
+        "messageId":{"shape":"String"},
+        "waitTimeoutMs":{"shape":"Long"},
+        "attachment":{"shape":"Attachment"}
+      }
+    },
     "Container":{
       "type":"structure",
       "members":{
@@ -237,6 +279,8 @@
         "environment":{"shape":"EnvironmentVariables"},
         "environmentFiles":{"shape":"EnvironmentFiles"},
         "essential":{"shape":"Boolean"},
+        "restartPolicy":{"shape":"RestartPolicy"},
+        "restartMaxAttempts":{"shape":"Integer"},
         "image":{"shape":"String"},
         "links":{"shape":"StringList"},
         "memory":{"shape":"Integer"},
@@ -245,6 +289,7 @@
         "portMappings":{"shape":"PortMappingList"},
         "managedAgents":{"shape":"ManagedAgentList"},
         "mountPoints":{"shape":"MountPointList"},
+        "networkInterfaceNames":{"shape":"StringList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
         "healthCheckType":{"shape":"HealthCheckType"},
@@ -301,6 +346,15 @@
       }
     },
     "Double":{"type":"double"},
+    "EBSVolumeConfiguration":{
+      "type":"structure",
+      "members":{
+        "volumeId":{"shape":"String"},
+        "deleteOnTermination":{"shape":"Boolean"},
+        "deviceName":{"shape":"String"},
+        "filesystemType":{"shape":"String"}
+      }
+    },
     "ECRAuthData":{
       "type":"structure",
       "members":{
@@ -310,29 +364,6 @@
         "useExecutionRole":{"shape":"Boolean"}
       }
     },
-
-    "NetworkInterfaceAssociationProtocol": {
-      "type": "string",
-      "enum": [
-        "default",
-        "vlan"
-      ]
-    },
-
-    "NetworkInterfaceVlanProperties": {
-      "type": "structure",
-      "members": {
-        "vlanId":{"shape":"String"},
-        "trunkInterfaceMacAddress":{"shape":"String"}
-      }
-    },
-    "EFSTransitEncryption":{
-      "type":"string",
-      "enum":[
-        "ENABLED",
-        "DISABLED"
-      ]
-    },
     "EFSAuthorizationConfig":{
       "type":"structure",
       "members":{
@@ -341,6 +372,13 @@
       }
     },
     "EFSAuthorizationConfigIAM":{
+      "type":"string",
+      "enum":[
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
+    "EFSTransitEncryption":{
       "type":"string",
       "enum":[
         "ENABLED",
@@ -360,11 +398,15 @@
     "ElasticNetworkInterface":{
       "type":"structure",
       "members":{
-        "interfaceAssociationProtocol": {"shape": "NetworkInterfaceAssociationProtocol"},
-        "interfaceVlanProperties": {"shape": "NetworkInterfaceVlanProperties"},
+        "name":{"shape":"String"},
         "macAddress":{"shape":"String"},
         "attachmentArn":{"shape":"String"},
         "ec2Id":{"shape":"String"},
+        "index":{"shape":"Integer"},
+        "interfaceAssociationProtocol":{"shape":"NetworkInterfaceAssociationProtocol"},
+        "interfaceTunnelProperties":{"shape":"NetworkInterfaceTunnelProperties"},
+        "interfaceVethProperties":{"shape":"NetworkInterfaceVethProperties"},
+        "interfaceVlanProperties":{"shape":"NetworkInterfaceVlanProperties"},
         "ipv4Addresses":{"shape":"IPv4AddressList"},
         "ipv6Addresses":{"shape":"IPv6AddressList"},
         "domainName":{"shape":"StringList"},
@@ -398,20 +440,19 @@
         "type":{"shape":"EnvironmentFileType"}
       }
     },
+    "EnvironmentFileType":{
+      "type":"string",
+      "enum":["s3"]
+    },
     "EnvironmentFiles":{
       "type":"list",
       "member":{"shape":"EnvironmentFile"}
     },
-    "EnvironmentFileType": {
-      "type":"string",
-      "enum":[
-        "s3"
-      ]
-    },
     "EnvironmentVariables":{
       "type":"map",
       "key":{"shape":"String"},
-      "value":{"shape":"String"}
+      "value":{"shape":"String"},
+      "sensitive":true
     },
     "ErrorMessage":{
       "type":"structure",
@@ -434,20 +475,39 @@
         "authorizationConfig":{"shape":"FSxWindowsFileServerAuthorizationConfig"}
       }
     },
+    "FirelensConfiguration":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"FirelensConfigurationType"},
+        "options":{"shape":"FirelensConfigurationOptionsMap"}
+      }
+    },
+    "FirelensConfigurationOptionsMap":{
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
+    },
+    "FirelensConfigurationType":{
+      "type":"string",
+      "enum":[
+        "fluentd",
+        "fluentbit"
+      ]
+    },
     "HealthCheckType":{
       "type":"string",
       "enum":["docker"]
+    },
+    "HeartbeatAckRequest":{
+      "type":"structure",
+      "members":{
+        "messageId":{"shape":"String"}
+      }
     },
     "HeartbeatMessage":{
       "type":"structure",
       "members":{
         "healthy":{"shape":"Boolean"},
-        "messageId":{"shape":"String"}
-      }
-    },
-    "HeartbeatAckRequest":{
-      "type":"structure",
-      "members":{
         "messageId":{"shape":"String"}
       }
     },
@@ -480,6 +540,7 @@
       "type":"structure",
       "members":{
         "taskArn":{"shape":"String"},
+        "taskClusterArn":{"shape":"String"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
         "roleType":{"shape":"RoleType"},
         "messageId":{"shape":"String"}
@@ -528,6 +589,7 @@
       },
       "exception":true
     },
+    "Long":{"type":"long"},
     "ManagedAgent":{
       "type":"structure",
       "members":{
@@ -543,26 +605,6 @@
       "type":"string",
       "enum":["ExecuteCommandAgent"]
     },
-    "FirelensConfiguration":{
-      "type":"structure",
-      "members":{
-        "type":{"shape":"FirelensConfigurationType"},
-        "options":{"shape":"FirelensConfigurationOptionsMap"}
-      }
-    },
-    "FirelensConfigurationType":{
-      "type":"string",
-      "enum":[
-        "fluentd",
-        "fluentbit"
-      ]
-    },
-    "FirelensConfigurationOptionsMap": {
-      "type":"map",
-      "key":{"shape":"String"},
-      "value":{"shape":"String"}
-    },
-    "Long":{"type":"long"},
     "MountPoint":{
       "type":"structure",
       "members":{
@@ -584,6 +626,43 @@
         "reason":{"shape":"String"}
       }
     },
+    "NetworkInterfaceAssociationProtocol":{
+      "type":"string",
+      "enum":[
+        "default",
+        "tunnel",
+        "veth",
+        "vlan"
+      ]
+    },
+    "NetworkInterfaceTunnelProperties":{
+      "type":"structure",
+      "members":{
+        "tunnelId":{"shape":"String"},
+        "interfaceIpAddress":{"shape":"String"}
+      }
+    },
+    "NetworkInterfaceVethProperties":{
+      "type":"structure",
+      "members":{
+        "peerInterface":{"shape":"String"}
+      }
+    },
+    "NetworkInterfaceVlanProperties":{
+      "type":"structure",
+      "members":{
+        "vlanId":{"shape":"String"},
+        "trunkInterfaceMacAddress":{"shape":"String"}
+      }
+    },
+    "NullableInteger":{
+      "type":"integer",
+      "box":true
+    },
+    "NullableLong":{
+      "type":"long",
+      "box":true
+    },
     "PayloadMessage":{
       "type":"structure",
       "members":{
@@ -592,7 +671,8 @@
         "tasks":{"shape":"TaskList"},
         "generatedAt":{"shape":"Long"},
         "messageId":{"shape":"String"},
-        "seqNum":{"shape":"Integer"}
+        "seqNum":{"shape":"Integer"},
+        "timeline":{"shape":"NullableLong"}
       }
     },
     "PerformUpdateMessage":{
@@ -610,8 +690,10 @@
         "cluster":{"shape":"String"},
         "containerInstance":{"shape":"String"},
         "seqNum":{"shape":"Integer"},
+        "timeline":{"shape":"NullableLong"},
         "versionInfo":{"shape":"VersionInfo"},
-        "sendCredentials":{"shape":"Boolean"}
+        "sendCredentials":{"shape":"Boolean"},
+        "protocolVersion":{"shape":"NullableInteger"}
       }
     },
     "PortMapping":{
@@ -619,6 +701,7 @@
       "members":{
         "containerPort":{"shape":"Integer"},
         "hostPort":{"shape":"Integer"},
+        "containerPortRange":{"shape":"String"},
         "protocol":{"shape":"TransportProtocol"}
       }
     },
@@ -645,6 +728,14 @@
         "ecrAuthData":{"shape":"ECRAuthData"},
         "asmAuthData":{"shape":"ASMAuthData"}
       }
+    },
+    "RestartPolicy":{
+      "type":"string",
+      "enum":[
+        "NEVER",
+        "UNLESS_TASK_STOPPED",
+        "ON_FAILURE"
+      ]
     },
     "RoleType":{
       "type":"string",
@@ -693,7 +784,9 @@
     "SecretType":{
       "type":"string",
       "enum":[
-        "ENVIRONMENT_VARIABLE"
+        "ENVIRONMENT_VARIABLE",
+        "MOUNT_POINT",
+        "BOOTSTRAP"
       ]
     },
     "SensitiveString":{
@@ -730,11 +823,13 @@
       "type":"structure",
       "members":{
         "arn":{"shape":"String"},
+        "taskClusterArn":{"shape":"String"},
         "containers":{"shape":"ContainerList"},
         "desiredStatus":{"shape":"String"},
         "family":{"shape":"String"},
         "overrides":{"shape":"String"},
         "version":{"shape":"String"},
+        "zone":{"shape":"String"},
         "taskDefinitionAccountId":{"shape":"String"},
         "volumes":{"shape":"VolumeList"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
@@ -746,15 +841,54 @@
         "pidMode":{"shape":"String"},
         "ipcMode":{"shape":"String"},
         "proxyConfiguration":{"shape":"ProxyConfiguration"},
+        "agentConfiguration":{"shape":"String"},
         "launchType":{"shape":"String"},
-        "serviceName":{"shape":"String"},
         "attachments":{"shape":"AttachmentList"},
-        "networkMode":{"shape":"String"}
+        "networkMode":{"shape":"String"},
+        "serviceName":{"shape":"String"}
       }
+    },
+    "TaskIdentifier":{
+      "type":"structure",
+      "members":{
+        "taskArn":{"shape":"String"},
+        "taskClusterArn":{"shape":"String"},
+        "desiredStatus":{"shape":"String"}
+      }
+    },
+    "TaskIdentifierList":{
+      "type":"list",
+      "member":{"shape":"TaskIdentifier"}
     },
     "TaskList":{
       "type":"list",
       "member":{"shape":"Task"}
+    },
+    "TaskManifestMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "tasks":{"shape":"TaskIdentifierList"},
+        "generatedAt":{"shape":"Long"},
+        "messageId":{"shape":"String"},
+        "timeline":{"shape":"Long"}
+      }
+    },
+    "TaskStopVerificationAck":{
+      "type":"structure",
+      "members":{
+        "generatedAt":{"shape":"Long"},
+        "messageId":{"shape":"String"},
+        "stopTasks":{"shape":"TaskIdentifierList"}
+      }
+    },
+    "TaskStopVerificationMessage":{
+      "type":"structure",
+      "members":{
+        "messageId":{"shape":"String"},
+        "stopCandidates":{"shape":"TaskIdentifierList"}
+      }
     },
     "TransportProtocol":{
       "type":"string",
@@ -786,7 +920,8 @@
         "host":{"shape":"HostVolumeProperties"},
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
         "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"},
-        "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"}
+        "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"},
+        "ebsVolumeConfiguration":{"shape":"EBSVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -810,46 +945,9 @@
         "host",
         "docker",
         "efs",
-        "fsxWindowsFileServer"
+        "fsxWindowsFileServer",
+        "ebs"
       ]
-    },
-    "TaskIdentifier": {
-      "type": "structure",
-      "members": {
-        "taskArn": {"shape":"String"},
-        "taskClusterArn": {"shape": "String"},
-        "desiredStatus": {"shape":"String"}
-      }
-    },
-    "TaskIdentifierList": {
-      "type": "list",
-      "member": {"shape": "TaskIdentifier"}
-    },
-    "TaskManifestMessage": {
-      "type": "structure",
-      "members": {
-        "containerInstanceArn": {"shape":"String"},
-        "clusterArn": {"shape":"String"},
-        "tasks": {"shape": "TaskIdentifierList"},
-        "generatedAt": {"shape": "Long"},
-        "messageId": {"shape": "String"},
-        "timeline": {"shape":"Long"}
-      }
-    },
-    "TaskStopVerificationAck": {
-      "type": "structure",
-      "members": {
-        "stopTasks": {"shape": "TaskIdentifierList"},
-        "generatedAt": {"shape": "Long"},
-        "messageId": {"shape": "String"}
-      }
-    },
-    "TaskStopVerificationMessage": {
-      "type": "structure",
-      "members": {
-        "stopCandidates": {"shape": "TaskIdentifierList"},
-        "messageId": {"shape": "String"}
-      }
     }
   }
 }

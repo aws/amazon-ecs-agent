@@ -224,6 +224,8 @@ type AttachTaskNetworkInterfacesInput struct {
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
 
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+
 	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
 }
 
@@ -251,6 +253,8 @@ type AttachTaskNetworkInterfacesMessage struct {
 	MessageId *string `locationName:"messageId" type:"string"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
 
 	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
 }
@@ -394,6 +398,86 @@ func (s CloseMessage) GoString() string {
 	return s.String()
 }
 
+type ConfirmAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	Attachment *Attachment `locationName:"attachment" type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s ConfirmAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConfirmAttachmentInput) GoString() string {
+	return s.String()
+}
+
+type ConfirmAttachmentMessage struct {
+	_ struct{} `type:"structure"`
+
+	Attachment *Attachment `locationName:"attachment" type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s ConfirmAttachmentMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConfirmAttachmentMessage) GoString() string {
+	return s.String()
+}
+
+type ConfirmAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s ConfirmAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConfirmAttachmentOutput) GoString() string {
+	return s.String()
+}
+
 type Container struct {
 	_ struct{} `type:"structure"`
 
@@ -409,7 +493,7 @@ type Container struct {
 
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
 
-	Environment map[string]*string `locationName:"environment" type:"map"`
+	Environment map[string]*string `locationName:"environment" type:"map" sensitive:"true"`
 
 	EnvironmentFiles []*EnvironmentFile `locationName:"environmentFiles" type:"list"`
 
@@ -433,11 +517,17 @@ type Container struct {
 
 	Name *string `locationName:"name" type:"string"`
 
+	NetworkInterfaceNames []*string `locationName:"networkInterfaceNames" type:"list"`
+
 	Overrides *string `locationName:"overrides" type:"string"`
 
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
 
 	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
+
+	RestartMaxAttempts *int64 `locationName:"restartMaxAttempts" type:"integer"`
+
+	RestartPolicy *string `locationName:"restartPolicy" type:"string" enum:"RestartPolicy"`
 
 	Secrets []*Secret `locationName:"secrets" type:"list"`
 
@@ -520,6 +610,28 @@ func (s DockerVolumeConfiguration) GoString() string {
 	return s.String()
 }
 
+type EBSVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	DeleteOnTermination *bool `locationName:"deleteOnTermination" type:"boolean"`
+
+	DeviceName *string `locationName:"deviceName" type:"string"`
+
+	FilesystemType *string `locationName:"filesystemType" type:"string"`
+
+	VolumeId *string `locationName:"volumeId" type:"string"`
+}
+
+// String returns the string representation
+func (s EBSVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EBSVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type ECRAuthData struct {
 	_ struct{} `type:"structure"`
 
@@ -595,7 +707,13 @@ type ElasticNetworkInterface struct {
 
 	Ec2Id *string `locationName:"ec2Id" type:"string"`
 
+	Index *int64 `locationName:"index" type:"integer"`
+
 	InterfaceAssociationProtocol *string `locationName:"interfaceAssociationProtocol" type:"string" enum:"NetworkInterfaceAssociationProtocol"`
+
+	InterfaceTunnelProperties *NetworkInterfaceTunnelProperties `locationName:"interfaceTunnelProperties" type:"structure"`
+
+	InterfaceVethProperties *NetworkInterfaceVethProperties `locationName:"interfaceVethProperties" type:"structure"`
 
 	InterfaceVlanProperties *NetworkInterfaceVlanProperties `locationName:"interfaceVlanProperties" type:"structure"`
 
@@ -604,6 +722,8 @@ type ElasticNetworkInterface struct {
 	Ipv6Addresses []*IPv6AddressAssignment `locationName:"ipv6Addresses" type:"list"`
 
 	MacAddress *string `locationName:"macAddress" type:"string"`
+
+	Name *string `locationName:"name" type:"string"`
 
 	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
 
@@ -898,6 +1018,8 @@ type IAMRoleCredentialsMessage struct {
 	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
 }
 
 // String returns the string representation
@@ -1169,6 +1291,40 @@ func (s NackRequest) GoString() string {
 	return s.String()
 }
 
+type NetworkInterfaceTunnelProperties struct {
+	_ struct{} `type:"structure"`
+
+	InterfaceIpAddress *string `locationName:"interfaceIpAddress" type:"string"`
+
+	TunnelId *string `locationName:"tunnelId" type:"string"`
+}
+
+// String returns the string representation
+func (s NetworkInterfaceTunnelProperties) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s NetworkInterfaceTunnelProperties) GoString() string {
+	return s.String()
+}
+
+type NetworkInterfaceVethProperties struct {
+	_ struct{} `type:"structure"`
+
+	PeerInterface *string `locationName:"peerInterface" type:"string"`
+}
+
+// String returns the string representation
+func (s NetworkInterfaceVethProperties) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s NetworkInterfaceVethProperties) GoString() string {
+	return s.String()
+}
+
 type NetworkInterfaceVlanProperties struct {
 	_ struct{} `type:"structure"`
 
@@ -1201,6 +1357,8 @@ type PayloadInput struct {
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
 
 	Tasks []*Task `locationName:"tasks" type:"list"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
 }
 
 // String returns the string representation
@@ -1227,6 +1385,8 @@ type PayloadMessage struct {
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
 
 	Tasks []*Task `locationName:"tasks" type:"list"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
 }
 
 // String returns the string representation
@@ -1330,9 +1490,13 @@ type PollInput struct {
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
+	ProtocolVersion *int64 `locationName:"protocolVersion" type:"integer"`
+
 	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
 
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
 
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 }
@@ -1370,9 +1534,13 @@ type PollRequest struct {
 
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
 
+	ProtocolVersion *int64 `locationName:"protocolVersion" type:"integer"`
+
 	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
 
 	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
 
 	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
 }
@@ -1391,6 +1559,8 @@ type PortMapping struct {
 	_ struct{} `type:"structure"`
 
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
+
+	ContainerPortRange *string `locationName:"containerPortRange" type:"string"`
 
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
@@ -1437,6 +1607,8 @@ type RefreshTaskIAMRoleCredentialsInput struct {
 	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
 }
 
 // String returns the string representation
@@ -1639,6 +1811,8 @@ func (s StageUpdateOutput) GoString() string {
 type Task struct {
 	_ struct{} `type:"structure"`
 
+	AgentConfiguration *string `locationName:"agentConfiguration" type:"string"`
+
 	Arn *string `locationName:"arn" type:"string"`
 
 	Associations []*Association `locationName:"associations" type:"list"`
@@ -1675,11 +1849,15 @@ type Task struct {
 
 	ServiceName *string `locationName:"serviceName" type:"string"`
 
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+
 	TaskDefinitionAccountId *string `locationName:"taskDefinitionAccountId" type:"string"`
 
 	Version *string `locationName:"version" type:"string"`
 
 	Volumes []*Volume `locationName:"volumes" type:"list"`
+
+	Zone *string `locationName:"zone" type:"string"`
 }
 
 // String returns the string representation
@@ -1712,6 +1890,32 @@ func (s TaskIdentifier) GoString() string {
 	return s.String()
 }
 
+type TaskManifestInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	Tasks []*TaskIdentifier `locationName:"tasks" type:"list"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
+}
+
+// String returns the string representation
+func (s TaskManifestInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskManifestInput) GoString() string {
+	return s.String()
+}
+
 type TaskManifestMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -1738,6 +1942,26 @@ func (s TaskManifestMessage) GoString() string {
 	return s.String()
 }
 
+type TaskManifestOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s TaskManifestOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskManifestOutput) GoString() string {
+	return s.String()
+}
+
 type TaskStopVerificationAck struct {
 	_ struct{} `type:"structure"`
 
@@ -1758,6 +1982,24 @@ func (s TaskStopVerificationAck) GoString() string {
 	return s.String()
 }
 
+type TaskStopVerificationInput struct {
+	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	StopCandidates []*TaskIdentifier `locationName:"stopCandidates" type:"list"`
+}
+
+// String returns the string representation
+func (s TaskStopVerificationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskStopVerificationInput) GoString() string {
+	return s.String()
+}
+
 type TaskStopVerificationMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -1773,6 +2015,26 @@ func (s TaskStopVerificationMessage) String() string {
 
 // GoString returns the string representation
 func (s TaskStopVerificationMessage) GoString() string {
+	return s.String()
+}
+
+type TaskStopVerificationOutput struct {
+	_ struct{} `type:"structure"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	StopTasks []*TaskIdentifier `locationName:"stopTasks" type:"list"`
+}
+
+// String returns the string representation
+func (s TaskStopVerificationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskStopVerificationOutput) GoString() string {
 	return s.String()
 }
 
@@ -1854,6 +2116,8 @@ type Volume struct {
 	_ struct{} `type:"structure"`
 
 	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
+
+	EbsVolumeConfiguration *EBSVolumeConfiguration `locationName:"ebsVolumeConfiguration" type:"structure"`
 
 	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
 
