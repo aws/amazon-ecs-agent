@@ -377,8 +377,8 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 }
 
 func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	// The test could fail for timing issue, so retry for 30 seconds to make this test more stable
-	for i := 0; i < 30; i++ {
+	// The test could fail for timing issue, so retry for 60 seconds to make this test more stable
+	for i := 0; i < 60; i++ {
 		resp, err := client.GetLogEvents(params)
 		if err != nil {
 			awsError, ok := err.(awserr.Error)
