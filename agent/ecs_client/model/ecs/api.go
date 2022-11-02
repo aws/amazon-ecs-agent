@@ -9770,8 +9770,12 @@ type NetworkBinding struct {
 	// The port number on the container that is used with the network binding.
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
+	ContainerPortRange *string `locationName:"containerPortRange" type:"string"`
+
 	// The port number on the host that is used with the network binding.
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
+
+	HostPortRange *string `locationName:"hostPortRange" type:"string"`
 
 	// The protocol used for the network binding.
 	Protocol *string `locationName:"protocol" type:"string" enum:"TransportProtocol"`
@@ -9799,9 +9803,21 @@ func (s *NetworkBinding) SetContainerPort(v int64) *NetworkBinding {
 	return s
 }
 
+// SetContainerPortRange sets the ContainerPortRange field's value.
+func (s *NetworkBinding) SetContainerPortRange(v string) *NetworkBinding {
+	s.ContainerPortRange = &v
+	return s
+}
+
 // SetHostPort sets the HostPort field's value.
 func (s *NetworkBinding) SetHostPort(v int64) *NetworkBinding {
 	s.HostPort = &v
+	return s
+}
+
+// SetHostPortRange sets the HostPortRange field's value.
+func (s *NetworkBinding) SetHostPortRange(v string) *NetworkBinding {
+	s.HostPortRange = &v
 	return s
 }
 
@@ -10210,6 +10226,8 @@ type PortMapping struct {
 	// the 100 reserved ports limit of a container instance.
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
+	ContainerPortRange *string `locationName:"containerPortRange" type:"string"`
+
 	// The port number on the container instance to reserve for your container.
 	//
 	// If using containers in a task with the awsvpc or host network mode, the hostPort
@@ -10259,6 +10277,12 @@ func (s PortMapping) GoString() string {
 // SetContainerPort sets the ContainerPort field's value.
 func (s *PortMapping) SetContainerPort(v int64) *PortMapping {
 	s.ContainerPort = &v
+	return s
+}
+
+// SetContainerPortRange sets the ContainerPortRange field's value.
+func (s *PortMapping) SetContainerPortRange(v string) *PortMapping {
+	s.ContainerPortRange = &v
 	return s
 }
 
