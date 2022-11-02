@@ -23,33 +23,33 @@ import (
 
 	cgroups "github.com/containerd/cgroups"
 	gomock "github.com/golang/mock/gomock"
-	specs_go "github.com/opencontainers/runtime-spec/specs-go"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-// MockCgroupFactory is a mock of CgroupFactory interface
+// MockCgroupFactory is a mock of CgroupFactory interface.
 type MockCgroupFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockCgroupFactoryMockRecorder
 }
 
-// MockCgroupFactoryMockRecorder is the mock recorder for MockCgroupFactory
+// MockCgroupFactoryMockRecorder is the mock recorder for MockCgroupFactory.
 type MockCgroupFactoryMockRecorder struct {
 	mock *MockCgroupFactory
 }
 
-// NewMockCgroupFactory creates a new mock instance
+// NewMockCgroupFactory creates a new mock instance.
 func NewMockCgroupFactory(ctrl *gomock.Controller) *MockCgroupFactory {
 	mock := &MockCgroupFactory{ctrl: ctrl}
 	mock.recorder = &MockCgroupFactoryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCgroupFactory) EXPECT() *MockCgroupFactoryMockRecorder {
 	return m.recorder
 }
 
-// Load mocks base method
+// Load mocks base method.
 func (m *MockCgroupFactory) Load(arg0 cgroups.Hierarchy, arg1 cgroups.Path) (cgroups.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load", arg0, arg1)
@@ -58,14 +58,14 @@ func (m *MockCgroupFactory) Load(arg0 cgroups.Hierarchy, arg1 cgroups.Path) (cgr
 	return ret0, ret1
 }
 
-// Load indicates an expected call of Load
+// Load indicates an expected call of Load.
 func (mr *MockCgroupFactoryMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockCgroupFactory)(nil).Load), arg0, arg1)
 }
 
-// New mocks base method
-func (m *MockCgroupFactory) New(arg0 cgroups.Hierarchy, arg1 cgroups.Path, arg2 *specs_go.LinuxResources) (cgroups.Cgroup, error) {
+// New mocks base method.
+func (m *MockCgroupFactory) New(arg0 cgroups.Hierarchy, arg1 cgroups.Path, arg2 *specs.LinuxResources) (cgroups.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", arg0, arg1, arg2)
 	ret0, _ := ret[0].(cgroups.Cgroup)
@@ -73,7 +73,7 @@ func (m *MockCgroupFactory) New(arg0 cgroups.Hierarchy, arg1 cgroups.Path, arg2 
 	return ret0, ret1
 }
 
-// New indicates an expected call of New
+// New indicates an expected call of New.
 func (mr *MockCgroupFactoryMockRecorder) New(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockCgroupFactory)(nil).New), arg0, arg1, arg2)

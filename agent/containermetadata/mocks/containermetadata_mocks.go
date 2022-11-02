@@ -29,30 +29,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockManager is a mock of Manager interface
+// MockManager is a mock of Manager interface.
 type MockManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockManagerMockRecorder
 }
 
-// MockManagerMockRecorder is the mock recorder for MockManager
+// MockManagerMockRecorder is the mock recorder for MockManager.
 type MockManagerMockRecorder struct {
 	mock *MockManager
 }
 
-// NewMockManager creates a new mock instance
+// NewMockManager creates a new mock instance.
 func NewMockManager(ctrl *gomock.Controller) *MockManager {
 	mock := &MockManager{ctrl: ctrl}
 	mock.recorder = &MockManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// Clean mocks base method
+// Clean mocks base method.
 func (m *MockManager) Clean(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Clean", arg0)
@@ -60,13 +60,13 @@ func (m *MockManager) Clean(arg0 string) error {
 	return ret0
 }
 
-// Clean indicates an expected call of Clean
+// Clean indicates an expected call of Clean.
 func (mr *MockManagerMockRecorder) Clean(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clean", reflect.TypeOf((*MockManager)(nil).Clean), arg0)
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockManager) Create(arg0 *container.Config, arg1 *container.HostConfig, arg2 *task.Task, arg3 string, arg4 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3, arg4)
@@ -74,61 +74,61 @@ func (m *MockManager) Create(arg0 *container.Config, arg1 *container.HostConfig,
 	return ret0
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockManagerMockRecorder) Create(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManager)(nil).Create), arg0, arg1, arg2, arg3, arg4)
 }
 
-// SetAvailabilityZone mocks base method
+// SetAvailabilityZone mocks base method.
 func (m *MockManager) SetAvailabilityZone(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetAvailabilityZone", arg0)
 }
 
-// SetAvailabilityZone indicates an expected call of SetAvailabilityZone
+// SetAvailabilityZone indicates an expected call of SetAvailabilityZone.
 func (mr *MockManagerMockRecorder) SetAvailabilityZone(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAvailabilityZone", reflect.TypeOf((*MockManager)(nil).SetAvailabilityZone), arg0)
 }
 
-// SetContainerInstanceARN mocks base method
+// SetContainerInstanceARN mocks base method.
 func (m *MockManager) SetContainerInstanceARN(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetContainerInstanceARN", arg0)
 }
 
-// SetContainerInstanceARN indicates an expected call of SetContainerInstanceARN
+// SetContainerInstanceARN indicates an expected call of SetContainerInstanceARN.
 func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerInstanceARN", reflect.TypeOf((*MockManager)(nil).SetContainerInstanceARN), arg0)
 }
 
-// SetHostPrivateIPv4Address mocks base method
+// SetHostPrivateIPv4Address mocks base method.
 func (m *MockManager) SetHostPrivateIPv4Address(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetHostPrivateIPv4Address", arg0)
 }
 
-// SetHostPrivateIPv4Address indicates an expected call of SetHostPrivateIPv4Address
+// SetHostPrivateIPv4Address indicates an expected call of SetHostPrivateIPv4Address.
 func (mr *MockManagerMockRecorder) SetHostPrivateIPv4Address(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostPrivateIPv4Address", reflect.TypeOf((*MockManager)(nil).SetHostPrivateIPv4Address), arg0)
 }
 
-// SetHostPublicIPv4Address mocks base method
+// SetHostPublicIPv4Address mocks base method.
 func (m *MockManager) SetHostPublicIPv4Address(arg0 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetHostPublicIPv4Address", arg0)
 }
 
-// SetHostPublicIPv4Address indicates an expected call of SetHostPublicIPv4Address
+// SetHostPublicIPv4Address indicates an expected call of SetHostPublicIPv4Address.
 func (mr *MockManagerMockRecorder) SetHostPublicIPv4Address(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostPublicIPv4Address", reflect.TypeOf((*MockManager)(nil).SetHostPublicIPv4Address), arg0)
 }
 
-// Update mocks base method
+// Update mocks base method.
 func (m *MockManager) Update(arg0 context.Context, arg1 string, arg2 *task.Task, arg3 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2, arg3)
@@ -136,36 +136,36 @@ func (m *MockManager) Update(arg0 context.Context, arg1 string, arg2 *task.Task,
 	return ret0
 }
 
-// Update indicates an expected call of Update
+// Update indicates an expected call of Update.
 func (mr *MockManagerMockRecorder) Update(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockManager)(nil).Update), arg0, arg1, arg2, arg3)
 }
 
-// MockDockerMetadataClient is a mock of DockerMetadataClient interface
+// MockDockerMetadataClient is a mock of DockerMetadataClient interface.
 type MockDockerMetadataClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockDockerMetadataClientMockRecorder
 }
 
-// MockDockerMetadataClientMockRecorder is the mock recorder for MockDockerMetadataClient
+// MockDockerMetadataClientMockRecorder is the mock recorder for MockDockerMetadataClient.
 type MockDockerMetadataClientMockRecorder struct {
 	mock *MockDockerMetadataClient
 }
 
-// NewMockDockerMetadataClient creates a new mock instance
+// NewMockDockerMetadataClient creates a new mock instance.
 func NewMockDockerMetadataClient(ctrl *gomock.Controller) *MockDockerMetadataClient {
 	mock := &MockDockerMetadataClient{ctrl: ctrl}
 	mock.recorder = &MockDockerMetadataClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDockerMetadataClient) EXPECT() *MockDockerMetadataClientMockRecorder {
 	return m.recorder
 }
 
-// InspectContainer mocks base method
+// InspectContainer mocks base method.
 func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
@@ -174,7 +174,7 @@ func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 s
 	return ret0, ret1
 }
 
-// InspectContainer indicates an expected call of InspectContainer
+// InspectContainer indicates an expected call of InspectContainer.
 func (mr *MockDockerMetadataClientMockRecorder) InspectContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectContainer", reflect.TypeOf((*MockDockerMetadataClient)(nil).InspectContainer), arg0, arg1, arg2)

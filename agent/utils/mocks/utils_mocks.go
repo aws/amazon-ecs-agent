@@ -24,30 +24,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockLicenseProvider is a mock of LicenseProvider interface
+// MockLicenseProvider is a mock of LicenseProvider interface.
 type MockLicenseProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockLicenseProviderMockRecorder
 }
 
-// MockLicenseProviderMockRecorder is the mock recorder for MockLicenseProvider
+// MockLicenseProviderMockRecorder is the mock recorder for MockLicenseProvider.
 type MockLicenseProviderMockRecorder struct {
 	mock *MockLicenseProvider
 }
 
-// NewMockLicenseProvider creates a new mock instance
+// NewMockLicenseProvider creates a new mock instance.
 func NewMockLicenseProvider(ctrl *gomock.Controller) *MockLicenseProvider {
 	mock := &MockLicenseProvider{ctrl: ctrl}
 	mock.recorder = &MockLicenseProviderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLicenseProvider) EXPECT() *MockLicenseProviderMockRecorder {
 	return m.recorder
 }
 
-// GetText mocks base method
+// GetText mocks base method.
 func (m *MockLicenseProvider) GetText() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetText")
@@ -56,7 +56,7 @@ func (m *MockLicenseProvider) GetText() (string, error) {
 	return ret0, ret1
 }
 
-// GetText indicates an expected call of GetText
+// GetText indicates an expected call of GetText.
 func (mr *MockLicenseProviderMockRecorder) GetText() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetText", reflect.TypeOf((*MockLicenseProvider)(nil).GetText))

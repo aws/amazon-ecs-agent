@@ -23,30 +23,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockCmd is a mock of Cmd interface
+// MockCmd is a mock of Cmd interface.
 type MockCmd struct {
 	ctrl     *gomock.Controller
 	recorder *MockCmdMockRecorder
 }
 
-// MockCmdMockRecorder is the mock recorder for MockCmd
+// MockCmdMockRecorder is the mock recorder for MockCmd.
 type MockCmdMockRecorder struct {
 	mock *MockCmd
 }
 
-// NewMockCmd creates a new mock instance
+// NewMockCmd creates a new mock instance.
 func NewMockCmd(ctrl *gomock.Controller) *MockCmd {
 	mock := &MockCmd{ctrl: ctrl}
 	mock.recorder = &MockCmdMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCmd) EXPECT() *MockCmdMockRecorder {
 	return m.recorder
 }
 
-// CombinedOutput mocks base method
+// CombinedOutput mocks base method.
 func (m *MockCmd) CombinedOutput() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CombinedOutput")
@@ -55,13 +55,13 @@ func (m *MockCmd) CombinedOutput() ([]byte, error) {
 	return ret0, ret1
 }
 
-// CombinedOutput indicates an expected call of CombinedOutput
+// CombinedOutput indicates an expected call of CombinedOutput.
 func (mr *MockCmdMockRecorder) CombinedOutput() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CombinedOutput", reflect.TypeOf((*MockCmd)(nil).CombinedOutput))
 }
 
-// Output mocks base method
+// Output mocks base method.
 func (m *MockCmd) Output() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Output")
@@ -70,7 +70,7 @@ func (m *MockCmd) Output() ([]byte, error) {
 	return ret0, ret1
 }
 
-// Output indicates an expected call of Output
+// Output indicates an expected call of Output.
 func (mr *MockCmdMockRecorder) Output() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Output", reflect.TypeOf((*MockCmd)(nil).Output))

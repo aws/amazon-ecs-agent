@@ -32,30 +32,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockManager is a mock of Manager interface
+// MockManager is a mock of Manager interface.
 type MockManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockManagerMockRecorder
 }
 
-// MockManagerMockRecorder is the mock recorder for MockManager
+// MockManagerMockRecorder is the mock recorder for MockManager.
 type MockManagerMockRecorder struct {
 	mock *MockManager
 }
 
-// NewMockManager creates a new mock instance
+// NewMockManager creates a new mock instance.
 func NewMockManager(ctrl *gomock.Controller) *MockManager {
 	mock := &MockManager{ctrl: ctrl}
 	mock.recorder = &MockManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// AugmentInstanceContainer mocks base method
+// AugmentInstanceContainer mocks base method.
 func (m *MockManager) AugmentInstanceContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AugmentInstanceContainer", arg0, arg1, arg2)
@@ -63,13 +63,13 @@ func (m *MockManager) AugmentInstanceContainer(arg0 *task.Task, arg1 *container.
 	return ret0
 }
 
-// AugmentInstanceContainer indicates an expected call of AugmentInstanceContainer
+// AugmentInstanceContainer indicates an expected call of AugmentInstanceContainer.
 func (mr *MockManagerMockRecorder) AugmentInstanceContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AugmentInstanceContainer", reflect.TypeOf((*MockManager)(nil).AugmentInstanceContainer), arg0, arg1, arg2)
 }
 
-// AugmentTaskContainer mocks base method
+// AugmentTaskContainer mocks base method.
 func (m *MockManager) AugmentTaskContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AugmentTaskContainer", arg0, arg1, arg2)
@@ -77,13 +77,13 @@ func (m *MockManager) AugmentTaskContainer(arg0 *task.Task, arg1 *container.Cont
 	return ret0
 }
 
-// AugmentTaskContainer indicates an expected call of AugmentTaskContainer
+// AugmentTaskContainer indicates an expected call of AugmentTaskContainer.
 func (mr *MockManagerMockRecorder) AugmentTaskContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AugmentTaskContainer", reflect.TypeOf((*MockManager)(nil).AugmentTaskContainer), arg0, arg1, arg2)
 }
 
-// CreateInstanceTask mocks base method
+// CreateInstanceTask mocks base method.
 func (m *MockManager) CreateInstanceTask(arg0 *config.Config) (*task.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceTask", arg0)
@@ -92,13 +92,13 @@ func (m *MockManager) CreateInstanceTask(arg0 *config.Config) (*task.Task, error
 	return ret0, ret1
 }
 
-// CreateInstanceTask indicates an expected call of CreateInstanceTask
+// CreateInstanceTask indicates an expected call of CreateInstanceTask.
 func (mr *MockManagerMockRecorder) CreateInstanceTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstanceTask", reflect.TypeOf((*MockManager)(nil).CreateInstanceTask), arg0)
 }
 
-// GetAppnetContainerTarballDir mocks base method
+// GetAppnetContainerTarballDir mocks base method.
 func (m *MockManager) GetAppnetContainerTarballDir() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAppnetContainerTarballDir")
@@ -106,13 +106,13 @@ func (m *MockManager) GetAppnetContainerTarballDir() string {
 	return ret0
 }
 
-// GetAppnetContainerTarballDir indicates an expected call of GetAppnetContainerTarballDir
+// GetAppnetContainerTarballDir indicates an expected call of GetAppnetContainerTarballDir.
 func (mr *MockManagerMockRecorder) GetAppnetContainerTarballDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppnetContainerTarballDir", reflect.TypeOf((*MockManager)(nil).GetAppnetContainerTarballDir))
 }
 
-// GetCapabilitiesForAppnetInterfaceVersion mocks base method
+// GetCapabilitiesForAppnetInterfaceVersion mocks base method.
 func (m *MockManager) GetCapabilitiesForAppnetInterfaceVersion(arg0 string) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCapabilitiesForAppnetInterfaceVersion", arg0)
@@ -121,13 +121,13 @@ func (m *MockManager) GetCapabilitiesForAppnetInterfaceVersion(arg0 string) ([]s
 	return ret0, ret1
 }
 
-// GetCapabilitiesForAppnetInterfaceVersion indicates an expected call of GetCapabilitiesForAppnetInterfaceVersion
+// GetCapabilitiesForAppnetInterfaceVersion indicates an expected call of GetCapabilitiesForAppnetInterfaceVersion.
 func (mr *MockManagerMockRecorder) GetCapabilitiesForAppnetInterfaceVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapabilitiesForAppnetInterfaceVersion", reflect.TypeOf((*MockManager)(nil).GetCapabilitiesForAppnetInterfaceVersion), arg0)
 }
 
-// GetLoadedAppnetVersion mocks base method
+// GetLoadedAppnetVersion mocks base method.
 func (m *MockManager) GetLoadedAppnetVersion() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLoadedAppnetVersion")
@@ -136,13 +136,13 @@ func (m *MockManager) GetLoadedAppnetVersion() (string, error) {
 	return ret0, ret1
 }
 
-// GetLoadedAppnetVersion indicates an expected call of GetLoadedAppnetVersion
+// GetLoadedAppnetVersion indicates an expected call of GetLoadedAppnetVersion.
 func (mr *MockManagerMockRecorder) GetLoadedAppnetVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadedAppnetVersion", reflect.TypeOf((*MockManager)(nil).GetLoadedAppnetVersion))
 }
 
-// GetLoadedImageName mocks base method
+// GetLoadedImageName mocks base method.
 func (m *MockManager) GetLoadedImageName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLoadedImageName")
@@ -150,13 +150,13 @@ func (m *MockManager) GetLoadedImageName() string {
 	return ret0
 }
 
-// GetLoadedImageName indicates an expected call of GetLoadedImageName
+// GetLoadedImageName indicates an expected call of GetLoadedImageName.
 func (mr *MockManagerMockRecorder) GetLoadedImageName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadedImageName", reflect.TypeOf((*MockManager)(nil).GetLoadedImageName))
 }
 
-// IsLoaded mocks base method
+// IsLoaded mocks base method.
 func (m *MockManager) IsLoaded(arg0 dockerapi.DockerClient) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsLoaded", arg0)
@@ -165,13 +165,13 @@ func (m *MockManager) IsLoaded(arg0 dockerapi.DockerClient) (bool, error) {
 	return ret0, ret1
 }
 
-// IsLoaded indicates an expected call of IsLoaded
+// IsLoaded indicates an expected call of IsLoaded.
 func (mr *MockManagerMockRecorder) IsLoaded(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoaded", reflect.TypeOf((*MockManager)(nil).IsLoaded), arg0)
 }
 
-// LoadImage mocks base method
+// LoadImage mocks base method.
 func (m *MockManager) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 dockerapi.DockerClient) (*types.ImageInspect, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1, arg2)
@@ -180,19 +180,19 @@ func (m *MockManager) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 
 	return ret0, ret1
 }
 
-// LoadImage indicates an expected call of LoadImage
+// LoadImage indicates an expected call of LoadImage.
 func (mr *MockManagerMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockManager)(nil).LoadImage), arg0, arg1, arg2)
 }
 
-// SetECSClient mocks base method
+// SetECSClient mocks base method.
 func (m *MockManager) SetECSClient(arg0 api.ECSClient, arg1 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetECSClient", arg0, arg1)
 }
 
-// SetECSClient indicates an expected call of SetECSClient
+// SetECSClient indicates an expected call of SetECSClient.
 func (mr *MockManagerMockRecorder) SetECSClient(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetECSClient", reflect.TypeOf((*MockManager)(nil).SetECSClient), arg0, arg1)

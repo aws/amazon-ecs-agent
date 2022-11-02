@@ -25,30 +25,30 @@ import (
 	netlink "github.com/vishvananda/netlink"
 )
 
-// MockNetLink is a mock of NetLink interface
+// MockNetLink is a mock of NetLink interface.
 type MockNetLink struct {
 	ctrl     *gomock.Controller
 	recorder *MockNetLinkMockRecorder
 }
 
-// MockNetLinkMockRecorder is the mock recorder for MockNetLink
+// MockNetLinkMockRecorder is the mock recorder for MockNetLink.
 type MockNetLinkMockRecorder struct {
 	mock *MockNetLink
 }
 
-// NewMockNetLink creates a new mock instance
+// NewMockNetLink creates a new mock instance.
 func NewMockNetLink(ctrl *gomock.Controller) *MockNetLink {
 	mock := &MockNetLink{ctrl: ctrl}
 	mock.recorder = &MockNetLinkMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetLink) EXPECT() *MockNetLinkMockRecorder {
 	return m.recorder
 }
 
-// LinkByName mocks base method
+// LinkByName mocks base method.
 func (m *MockNetLink) LinkByName(arg0 string) (netlink.Link, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LinkByName", arg0)
@@ -57,13 +57,13 @@ func (m *MockNetLink) LinkByName(arg0 string) (netlink.Link, error) {
 	return ret0, ret1
 }
 
-// LinkByName indicates an expected call of LinkByName
+// LinkByName indicates an expected call of LinkByName.
 func (mr *MockNetLinkMockRecorder) LinkByName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkByName", reflect.TypeOf((*MockNetLink)(nil).LinkByName), arg0)
 }
 
-// LinkList mocks base method
+// LinkList mocks base method.
 func (m *MockNetLink) LinkList() ([]netlink.Link, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LinkList")
@@ -72,7 +72,7 @@ func (m *MockNetLink) LinkList() ([]netlink.Link, error) {
 	return ret0, ret1
 }
 
-// LinkList indicates an expected call of LinkList
+// LinkList indicates an expected call of LinkList.
 func (mr *MockNetLinkMockRecorder) LinkList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkList", reflect.TypeOf((*MockNetLink)(nil).LinkList))

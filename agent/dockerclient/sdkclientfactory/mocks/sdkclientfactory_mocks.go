@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockFactory is a mock of Factory interface
+// MockFactory is a mock of Factory interface.
 type MockFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockFactoryMockRecorder
 }
 
-// MockFactoryMockRecorder is the mock recorder for MockFactory
+// MockFactoryMockRecorder is the mock recorder for MockFactory.
 type MockFactoryMockRecorder struct {
 	mock *MockFactory
 }
 
-// NewMockFactory creates a new mock instance
+// NewMockFactory creates a new mock instance.
 func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
 	mock := &MockFactory{ctrl: ctrl}
 	mock.recorder = &MockFactoryMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
 }
 
-// FindClientAPIVersion mocks base method
+// FindClientAPIVersion mocks base method.
 func (m *MockFactory) FindClientAPIVersion(arg0 sdkclient.Client) dockerclient.DockerVersion {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindClientAPIVersion", arg0)
@@ -57,13 +57,13 @@ func (m *MockFactory) FindClientAPIVersion(arg0 sdkclient.Client) dockerclient.D
 	return ret0
 }
 
-// FindClientAPIVersion indicates an expected call of FindClientAPIVersion
+// FindClientAPIVersion indicates an expected call of FindClientAPIVersion.
 func (mr *MockFactoryMockRecorder) FindClientAPIVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindClientAPIVersion", reflect.TypeOf((*MockFactory)(nil).FindClientAPIVersion), arg0)
 }
 
-// FindKnownAPIVersions mocks base method
+// FindKnownAPIVersions mocks base method.
 func (m *MockFactory) FindKnownAPIVersions() []dockerclient.DockerVersion {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindKnownAPIVersions")
@@ -71,13 +71,13 @@ func (m *MockFactory) FindKnownAPIVersions() []dockerclient.DockerVersion {
 	return ret0
 }
 
-// FindKnownAPIVersions indicates an expected call of FindKnownAPIVersions
+// FindKnownAPIVersions indicates an expected call of FindKnownAPIVersions.
 func (mr *MockFactoryMockRecorder) FindKnownAPIVersions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKnownAPIVersions", reflect.TypeOf((*MockFactory)(nil).FindKnownAPIVersions))
 }
 
-// FindSupportedAPIVersions mocks base method
+// FindSupportedAPIVersions mocks base method.
 func (m *MockFactory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindSupportedAPIVersions")
@@ -85,13 +85,13 @@ func (m *MockFactory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
 	return ret0
 }
 
-// FindSupportedAPIVersions indicates an expected call of FindSupportedAPIVersions
+// FindSupportedAPIVersions indicates an expected call of FindSupportedAPIVersions.
 func (mr *MockFactoryMockRecorder) FindSupportedAPIVersions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSupportedAPIVersions", reflect.TypeOf((*MockFactory)(nil).FindSupportedAPIVersions))
 }
 
-// GetClient mocks base method
+// GetClient mocks base method.
 func (m *MockFactory) GetClient(arg0 dockerclient.DockerVersion) (sdkclient.Client, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetClient", arg0)
@@ -100,13 +100,13 @@ func (m *MockFactory) GetClient(arg0 dockerclient.DockerVersion) (sdkclient.Clie
 	return ret0, ret1
 }
 
-// GetClient indicates an expected call of GetClient
+// GetClient indicates an expected call of GetClient.
 func (mr *MockFactoryMockRecorder) GetClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClient", reflect.TypeOf((*MockFactory)(nil).GetClient), arg0)
 }
 
-// GetDefaultClient mocks base method
+// GetDefaultClient mocks base method.
 func (m *MockFactory) GetDefaultClient() (sdkclient.Client, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDefaultClient")
@@ -115,7 +115,7 @@ func (m *MockFactory) GetDefaultClient() (sdkclient.Client, error) {
 	return ret0, ret1
 }
 
-// GetDefaultClient indicates an expected call of GetDefaultClient
+// GetDefaultClient indicates an expected call of GetDefaultClient.
 func (mr *MockFactoryMockRecorder) GetDefaultClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultClient", reflect.TypeOf((*MockFactory)(nil).GetDefaultClient))
