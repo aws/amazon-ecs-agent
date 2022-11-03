@@ -35,7 +35,6 @@ phases:
       - GITHUBUSERNAME=$(ls)
       - mkdir -p src/github.com/
       - mv $GITHUBUSERNAME src/github.com/aws
-      - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com/aws/amazon-ecs-agent
 
       # Build agent tars
@@ -43,9 +42,7 @@ phases:
       - DEBIAN_FRONTEND=noninteractive
 
       - apt-get update -y
-      - apt-get install -y make dpkg-dev devscripts debhelper golang
-      - which go
-      - go version
+      - apt-get install -y make dpkg-dev devscripts debhelper wget
       - make generic-deb-integrated
       - mv amazon-ecs-init_${AGENT_VERSION}-1_${architecture}.deb $ECS_AGENT_DEB
 

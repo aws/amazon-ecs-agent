@@ -21,6 +21,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -57,6 +60,17 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 }
 
 func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
+	if !task.MemoryCPULimitsEnabled {
+		if task.CPU > 0 || task.Memory > 0 {
+			// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance
+			// where agent does not support it. These limits will be ignored.
+			logger.Warn("Ignoring task-level CPU/memory limits since agent does not support the TaskCPUMemLimits capability", logger.Fields{
+				field.TaskID: task.GetID(),
+			})
+		}
+		return nil
+	}
+
 	cgroupRoot, err := task.BuildCgroupRoot()
 	if err != nil {
 		return errors.Wrapf(err, "cgroup resource: unable to determine cgroup root for task")
@@ -98,11 +112,12 @@ func buildCgroupV1Root(taskID string) string {
 // buildCgroupV2Root creates a root cgroup using the systemd driver's special "-"
 // character. The "-" specifies a parent slice, so tasks and their containers end up
 // looking like this in the cgroup directory:
-//   /sys/fs/cgroup/ecstasks.slice/
-//   ├── ecstasks-XXXXf406f70c4c678073ae96944fXXXX.slice
-//   │   └── docker-XXXX7c6dc81f2e9a8bf1c566dc769733ccba594b3007dd289a0f50ad7923XXXX.scope
-//   └── ecstasks-XXXX30467358463ab6bbba4e73afXXXX.slice
-//       └── docker-XXXX7ef4e942552437c96051356859c1df169f16e1cf9a9fc96fd30614e6XXXX.scope
+//
+//	/sys/fs/cgroup/ecstasks.slice/
+//	├── ecstasks-XXXXf406f70c4c678073ae96944fXXXX.slice
+//	│   └── docker-XXXX7c6dc81f2e9a8bf1c566dc769733ccba594b3007dd289a0f50ad7923XXXX.scope
+//	└── ecstasks-XXXX30467358463ab6bbba4e73afXXXX.slice
+//	    └── docker-XXXX7ef4e942552437c96051356859c1df169f16e1cf9a9fc96fd30614e6XXXX.scope
 func buildCgroupV2Root(taskID string) string {
 	return fmt.Sprintf("%s-%s.slice", config.DefaultTaskCgroupV2Prefix, taskID)
 }
@@ -260,9 +275,9 @@ func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, cre
 	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }
 
-// BuildCNIConfig builds a list of CNI network configurations for the task.
+// BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
 // If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
-func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
 	if !task.IsNetworkModeAWSVPC() {
 		return nil, errors.New("task config: task network mode is not AWSVPC")
 	}
@@ -321,7 +336,56 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 		})
 	}
 
+	// Build a CNI network configuration for ServiceConnect-enabled task in AWSVPC mode
+	if task.IsServiceConnectEnabled() {
+		ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
+			task.ServiceConnectConfig,
+			ecscni.NAT,
+			false,
+			task.shouldEnableIPv4(),
+			task.shouldEnableIPv6(),
+			cniConfig)
+		if err != nil {
+			return nil, err
+		}
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           ifName,
+			CNINetworkConfig: netconf,
+		})
+	}
+
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 
+	return cniConfig, nil
+}
+
+// BuildCNIConfigBridgeMode builds a list of CNI network configurations for a task in docker bridge mode.
+// Currently the only plugin in available is for Service Connect
+func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerName string) (*ecscni.Config, error) {
+	if !task.IsNetworkModeBridge() || !task.IsServiceConnectEnabled() {
+		return nil, errors.New("only bridge-mode Service-Connect-enabled task should invoke BuildCNIConfigBridgeMode")
+	}
+
+	var netconf *libcni.NetworkConfig
+	var ifName string
+	var err error
+
+	scNetworkConfig := task.GetServiceConnectNetworkConfig()
+	ifName, netconf, err = ecscni.NewServiceConnectNetworkConfig(
+		task.ServiceConnectConfig,
+		ecscni.TPROXY,
+		!task.IsContainerServiceConnectPause(containerName),
+		scNetworkConfig.SCPauseIPv4Addr != "",
+		scNetworkConfig.SCPauseIPv6Addr != "",
+		cniConfig)
+	if err != nil {
+		return nil, err
+	}
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ifName,
+		CNINetworkConfig: netconf,
+	})
+
+	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 	return cniConfig, nil
 }

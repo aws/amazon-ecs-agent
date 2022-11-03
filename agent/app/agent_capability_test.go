@@ -31,7 +31,8 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
-	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
+	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
+	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -72,7 +73,7 @@ func TestCapabilities(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
@@ -90,6 +91,12 @@ func TestCapabilities(t *testing.T) {
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes().Return([]string{"ecs.capability.service-connect-v1"}, nil)
+
 	// Scan() and ListPluginsWithFilters() are tested with
 	// AnyTimes() because they are not called in windows.
 	gomock.InOrder(
@@ -132,6 +139,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
+		attributePrefix + capabilityServiceConnect,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -151,13 +159,14 @@ func TestCapabilities(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                conf,
-		dockerClient:       client,
-		cniClient:          cniClient,
-		pauseLoader:        mockPauseLoader,
-		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:        mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		pauseLoader:           mockPauseLoader,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -219,12 +228,17 @@ func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribut
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	// CNI plugins are platform dependent. Therefore return version for any plugin query.
 	mockCNIClient.EXPECT().Version(gomock.Any()).Return("v1", nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
+
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -244,13 +258,14 @@ func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribut
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                cfg,
-		dockerClient:       client,
-		pauseLoader:        mockPauseLoader,
-		cniClient:          mockCNIClient,
-		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:        mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   cfg,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		cniClient:             mockCNIClient,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 	capabilities, err := agent.capabilities()
 	require.NoError(t, err)
@@ -272,18 +287,24 @@ func TestCapabilitiesECR(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		pauseLoader:  mockPauseLoader,
-		dockerClient: client,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		pauseLoader:           mockPauseLoader,
+		dockerClient:          client,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -318,18 +339,24 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -361,18 +388,24 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -405,18 +438,24 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -449,18 +488,24 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -482,7 +527,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	conf := &config.Config{
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
@@ -493,6 +538,11 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
+
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -525,13 +575,14 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                conf,
-		dockerClient:       client,
-		cniClient:          cniClient,
-		pauseLoader:        mockPauseLoader,
-		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:        mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		pauseLoader:           mockPauseLoader,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -573,19 +624,24 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		cniClient:    cniClient,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -608,8 +664,12 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
@@ -621,11 +681,12 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	expectedCapability := attributePrefix + capabilityTaskCPUMemLimit
@@ -651,8 +712,12 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
@@ -664,11 +729,12 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	unexpectedCapability := attributePrefix + capabilityTaskCPUMemLimit
@@ -693,8 +759,13 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
+
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
@@ -703,10 +774,11 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          conf,
-		pauseLoader:  mockPauseLoader,
-		dockerClient: client,
+		ctx:                   ctx,
+		cfg:                   conf,
+		pauseLoader:           mockPauseLoader,
+		dockerClient:          client,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -752,8 +824,12 @@ func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
 			client := mock_dockerapi.NewMockDockerClient(ctrl)
 			versionList := []dockerclient.DockerVersion{tc.dockerVersion}
 			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+			mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+			mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+			mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 			gomock.InOrder(
 				client.EXPECT().SupportedVersions().Return(versionList),
 				client.EXPECT().KnownVersions().Return(versionList),
@@ -765,11 +841,12 @@ func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
 			// Cancel the context to cancel async routines
 			defer cancel()
 			agent := &ecsAgent{
-				ctx:          ctx,
-				cfg:          conf,
-				dockerClient: client,
-				pauseLoader:  mockPauseLoader,
-				mobyPlugins:  mockMobyPlugins,
+				ctx:                   ctx,
+				cfg:                   conf,
+				dockerClient:          client,
+				pauseLoader:           mockPauseLoader,
+				mobyPlugins:           mockMobyPlugins,
+				serviceconnectManager: mockServiceConnectManager,
 			}
 
 			capability := attributePrefix + capabilityIncreasedTaskCPULimit
@@ -802,18 +879,23 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   &config.Config{},
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -843,18 +925,23 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   &config.Config{DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}},
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -875,8 +962,12 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
@@ -888,11 +979,12 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   &config.Config{},
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -912,8 +1004,12 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
@@ -925,11 +1021,12 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+		ctx:                   ctx,
+		cfg:                   &config.Config{},
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
 	}
 
 	capabilities, err := agent.capabilities()
@@ -1019,8 +1116,12 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 			client := mock_dockerapi.NewMockDockerClient(ctrl)
 			versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+			mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+			mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+			mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 			gomock.InOrder(
 				client.EXPECT().SupportedVersions().Return(versionList),
 				client.EXPECT().KnownVersions().Return(versionList),
@@ -1032,11 +1133,12 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			// Cancel the context to cancel async routines
 			defer cancel()
 			agent := &ecsAgent{
-				ctx:          ctx,
-				cfg:          &config.Config{},
-				dockerClient: client,
-				pauseLoader:  mockPauseLoader,
-				mobyPlugins:  mockMobyPlugins,
+				ctx:                   ctx,
+				cfg:                   &config.Config{},
+				dockerClient:          client,
+				pauseLoader:           mockPauseLoader,
+				mobyPlugins:           mockMobyPlugins,
+				serviceconnectManager: mockServiceConnectManager,
 			}
 
 			capabilities, err := agent.capabilities()
@@ -1049,6 +1151,129 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			} else {
 				assert.NotContains(t, capabilities, &execCapability)
 			}
+		})
+	}
+}
+
+func TestCapabilitiesNoServiceConnect(t *testing.T) {
+	mockPathExists(true)
+	defer mockPathExists(false)
+	getSubDirectories = func(path string) ([]string, error) {
+		// appendExecCapabilities() requires at least 1 version to exist
+		return []string{"3.0.236.0"}, nil
+	}
+	defer func() {
+		getSubDirectories = defaultGetSubDirectories
+	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JSONFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+	}
+
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("No File")).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
+
+	// Scan() and ListPluginsWithFilters() are tested with
+	// AnyTimes() because they are not called in windows.
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
+		// CNI plugins are platform dependent.
+		// Therefore, for any version query for any plugin return an appropriate version
+		cniClient.EXPECT().Version(gomock.Any()).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	expectedNameOnlyCapabilities := []string{
+		capabilityPrefix + "privileged-container",
+		capabilityPrefix + "docker-remote-api.1.17",
+		capabilityPrefix + "docker-remote-api.1.18",
+		capabilityPrefix + "logging-driver.json-file",
+		capabilityPrefix + "logging-driver.syslog",
+		capabilityPrefix + "logging-driver.journald",
+		capabilityPrefix + "selinux",
+		capabilityPrefix + "apparmor",
+		attributePrefix + "docker-plugin.local",
+		attributePrefix + taskENIAttributeSuffix,
+		attributePrefix + capabilityPrivateRegistryAuthASM,
+		attributePrefix + capabilitySecretEnvSSM,
+		attributePrefix + capabilitySecretLogDriverSSM,
+		attributePrefix + capabilityECREndpoint,
+		attributePrefix + capabilitySecretEnvASM,
+		attributePrefix + capabilitySecretLogDriverASM,
+		attributePrefix + capabilityContainerOrdering,
+		attributePrefix + capabilityFullTaskSync,
+		attributePrefix + capabilityEnvFilesS3,
+		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + capabilityExec,
+	}
+
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedNameOnlyCapabilities {
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
+	}
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{
+			{
+				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+				Value: aws.String("v1"),
+			},
+		}...)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                   ctx,
+		cfg:                   conf,
+		dockerClient:          client,
+		cniClient:             cniClient,
+		pauseLoader:           mockPauseLoader,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	for _, expected := range expectedCapabilities {
+		assert.Contains(t, capabilities, &ecs.Attribute{
+			Name:  expected.Name,
+			Value: expected.Value,
 		})
 	}
 }

@@ -25,6 +25,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -39,16 +40,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	DefaultNetworkMode = "default"
+	BridgeNetworkMode  = "bridge"
+	SCContainerName    = "service-connect"
+)
+
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
+	networkMode := "bridge"
+	t1 := &apitask.Task{Arn: "t1", Family: "f1", NetworkMode: networkMode}
 	t2 := &apitask.Task{Arn: "t2", Family: "f2"}
 	t3 := &apitask.Task{Arn: "t3"}
 	name := "testContainer"
-	networkMode := "bridge"
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
@@ -116,7 +123,37 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
+	if err != nil {
+		t.Errorf("Error gettting instance metrics: %v", err)
+	}
+
+	err = validateMetricsMetadata(metadata)
+	require.NoError(t, err)
+	require.Len(t, taskMetrics, 1, "Incorrect number of tasks.")
+	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 2)
+	require.NoError(t, err)
+	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
+
+	for _, statsContainer := range containers {
+		assert.Equal(t, name, statsContainer.containerMetadata.Name)
+		assert.Equal(t, networkMode, statsContainer.containerMetadata.NetworkMode)
+		for _, fakeContainerStats := range createFakeContainerStats() {
+			statsContainer.statsQueue.add(fakeContainerStats)
+		}
+	}
+
+	// Ensure task shows up in metrics.
+	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1")
+	if err != nil {
+		t.Errorf("Error getting container metrics: %v", err)
+	}
+	err = validateContainerMetrics(containerMetrics, 2)
+	if err != nil {
+		t.Errorf("Error validating container metrics: %v", err)
+	}
+
+	metadata, taskMetrics, err = engine.GetInstanceMetrics(true)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -153,7 +190,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c3 not found in engine")
 	}
 
-	_, _, err = engine.GetInstanceMetrics()
+	_, _, err = engine.GetInstanceMetrics(false)
 	if err == nil {
 		t.Error("Expected non-empty error for empty stats.")
 	}
@@ -175,7 +212,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
+	t1 := &apitask.Task{Arn: "t1", Family: "f1", NetworkMode: "bridge"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{
@@ -207,7 +244,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -446,23 +483,27 @@ func TestSynchronizeOnRestart(t *testing.T) {
 
 func TestTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENIs        []*apieni.ENI
-		NetworkMode string
-		StatsEmpty  bool
+		ENIs                  []*apieni.ENI
+		NetworkMode           string
+		ServiceConnectEnabled bool
+		StatsEmpty            bool
 	}{
-		{nil, "default", false},
+		{nil, DefaultNetworkMode, false, false},
+		{nil, DefaultNetworkMode, true, true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.ServiceConnectEnabled, tc.StatsEmpty)
 	}
 }
 
-func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, emptyStats bool) {
+func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, serviceConnectEnabled, emptyStats bool) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-
+	if netMode == DefaultNetworkMode {
+		netMode = BridgeNetworkMode
+	}
 	testContainer := &apicontainer.DockerContainer{
 		Container: &apicontainer.Container{
 			Name:              "test",
@@ -470,16 +511,22 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, empt
 			Type:              apicontainer.ContainerCNIPause,
 		},
 	}
-
 	t1 := &apitask.Task{
 		Arn:               "t1",
 		Family:            "f1",
 		ENIs:              enis,
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+		NetworkMode:       netMode,
 		Containers: []*apicontainer.Container{
 			{Name: "test"},
 			{Name: "test1"},
+			{Name: SCContainerName},
 		},
+	}
+	if serviceConnectEnabled {
+		t1.ServiceConnectConfig = &serviceconnect.Config{
+			ContainerName: SCContainerName,
+		}
 	}
 
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
@@ -514,7 +561,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, empt
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	_, taskMetrics, err := engine.GetInstanceMetrics()
+	_, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {

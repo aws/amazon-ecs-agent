@@ -300,7 +300,7 @@ func (imageManager *dockerImageManager) isImageOldEnough(imageState *image.Image
 	return ageOfImage > imageManager.minimumAgeBeforeDeletion
 }
 
-//TODO: change image createdTime to image lastUsedTime when docker support it in the future
+// TODO: change image createdTime to image lastUsedTime when docker support it in the future
 func (imageManager *dockerImageManager) nonECSImageOldEnough(NonECSImage ImageWithSizeID) bool {
 	ageOfImage := time.Since(NonECSImage.createdTime)
 	return ageOfImage > imageManager.nonECSMinimumAgeBeforeDeletion

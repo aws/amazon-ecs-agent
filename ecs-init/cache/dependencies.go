@@ -18,11 +18,10 @@ package cache
 // package-level functions.  These interfaces are then used to create mocks
 // for the unit tests.
 
-//go:generate mockgen.sh cache $GOFILE  
+//go:generate mockgen.sh cache $GOFILE
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -118,7 +117,7 @@ func (d *s3Downloader) downloadFile(fileName string) (string, error) {
 	return "", errors.New("failed to download file from s3")
 }
 
-// fileSystem captures related functions from os, io, and io/ioutil packages
+// fileSystem captures related functions from io and os packages
 type fileSystem interface {
 	MkdirAll(path string, perm os.FileMode) error
 	TempFile(dir, prefix string) (f *os.File, err error)
@@ -156,7 +155,7 @@ func (s *standardFS) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (s *standardFS) TempFile(dir, prefix string) (*os.File, error) {
-	return ioutil.TempFile(dir, prefix)
+	return os.CreateTemp(dir, prefix)
 }
 
 func (s *standardFS) Remove(path string) {
@@ -176,7 +175,7 @@ func (s *standardFS) Rename(oldpath, newpath string) error {
 }
 
 func (s *standardFS) ReadAll(r io.Reader) ([]byte, error) {
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 func (s *standardFS) Open(name string) (io.ReadCloser, error) {
@@ -192,5 +191,5 @@ func (s *standardFS) Base(path string) string {
 }
 
 func (s *standardFS) WriteFile(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
+	return os.WriteFile(filename, data, perm)
 }

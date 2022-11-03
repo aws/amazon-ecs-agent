@@ -21,8 +21,14 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+
+	"github.com/docker/go-connections/nat"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -56,6 +62,21 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	serviceConnectContainerTestName = "service-connect"
+	testHostName                    = "testHostName"
+	testOutboundListenerName        = "testOutboundListener"
+	testIPv4Address                 = "172.31.21.40"
+	testIPv6Address                 = "abcd:dcba:1234:4321::"
+	testIPv4Cidr                    = "127.255.0.0/16"
+	testIPv6Cidr                    = "2002::1234:abcd:ffff:c0a8:101/64"
+)
+
+var (
+	testListenerPort              = uint16(8080)
+	testBridgeDefaultListenerPort = uint16(15000)
 )
 
 func TestDockerConfigPortBinding(t *testing.T) {
@@ -185,6 +206,212 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	assert.Equal(t, "20", bindings[0].HostPort, "Wrong hostport")
 }
 
+var (
+	SCTaskContainerPort1            uint16 = 8080
+	SCTaskContainerPort2            uint16 = 9090
+	SCIngressListener1ContainerPort uint16 = 15000
+	SCIngressListener2ContainerPort uint16 = 16000
+	SCIngressListener2HostPort      uint16 = 17000
+	SCEgressListenerContainerPort   uint16 = 12345
+	defaultSCProtocol                      = "/tcp"
+)
+
+func getTestTaskServiceConnectBridgeMode() *Task {
+	testTask := &Task{
+		NetworkMode: BridgeNetworkMode,
+		Containers: []*apicontainer.Container{
+			{
+				Name: "C1",
+				Ports: []apicontainer.PortBinding{
+					{SCTaskContainerPort1, 0, "", apicontainer.TransportProtocolTCP},
+					{SCTaskContainerPort2, 0, "", apicontainer.TransportProtocolTCP},
+				},
+				NetworkModeUnsafe: "", // should later be overridden to container mode
+			},
+			{
+				Name:              fmt.Sprintf("%s-%s", NetworkPauseContainerName, "C1"),
+				Type:              apicontainer.ContainerCNIPause,
+				NetworkModeUnsafe: "", // should later be overridden to explicit bridge mode
+			},
+			{
+				Name:              serviceConnectContainerTestName, // port binding is retrieved through listener config and published by pause container
+				NetworkModeUnsafe: "",                              // should later be overridden to container mode
+			},
+			{
+				Name:              fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceConnectContainerTestName),
+				Type:              apicontainer.ContainerCNIPause,
+				NetworkModeUnsafe: "", // should later be overridden to explicit bridge mode
+			},
+		},
+	}
+
+	testTask.ServiceConnectConfig = &serviceconnect.Config{
+		ContainerName: serviceConnectContainerTestName,
+		IngressConfig: []serviceconnect.IngressConfigEntry{
+			{
+				ListenerName: "testListener1", // bridge mode default - ephemeral listener host port
+				ListenerPort: SCIngressListener1ContainerPort,
+			},
+			{
+				ListenerName: "testListener2", // bridge mode non-default - user-specified listener host port
+				ListenerPort: SCIngressListener2ContainerPort,
+				HostPort:     &SCIngressListener2HostPort,
+			},
+		},
+		EgressConfig: &serviceconnect.EgressConfig{
+			ListenerName: "testEgressListener",
+			ListenerPort: SCEgressListenerContainerPort, // Presently this should always get ephemeral port
+		},
+	}
+	return testTask
+}
+
+func convertSCPort(port uint16) nat.Port {
+	return nat.Port(strconv.Itoa(int(port)) + defaultSCProtocol)
+}
+
+// TestDockerHostConfigSCBridgeMode verifies port bindings and network mode overrides for each
+// container in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
+// and two pause containers associated with each.
+func TestDockerHostConfigSCBridgeMode(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	// task container and SC container should both get empty port binding map and "container" network mode
+	actualConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
+		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, "C1")), actualConfig.NetworkMode)
+	assert.Empty(t, actualConfig.PortBindings, "Task container port binding should be empty")
+
+	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
+		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, serviceConnectContainerTestName)), actualConfig.NetworkMode)
+	assert.Empty(t, actualConfig.PortBindings, "SC container port binding should be empty")
+
+	// task pause container should get port binding map of the task container
+	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
+	bindings, ok := actualConfig.PortBindings[convertSCPort(SCTaskContainerPort1)]
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
+	bindings, ok = actualConfig.PortBindings[convertSCPort(SCTaskContainerPort2)]
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
+
+	// SC pause container should get port binding map of all ingress listeners
+	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[3], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
+	// SC - ingress listener 1 - default experience
+	bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener1ContainerPort)]
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
+	// SC - ingress listener 2 - non-default host port
+	bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener2ContainerPort)]
+	assert.True(t, ok, "Could not get port bindings")
+	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+	assert.Equal(t, strconv.Itoa(int(SCIngressListener2HostPort)), bindings[0].HostPort, "Wrong hostport")
+	// SC - egress listener - should not have port binding
+	bindings, ok = actualConfig.PortBindings[convertSCPort(SCEgressListenerContainerPort)]
+	assert.False(t, ok, "egress listener has port binding but it shouldn't")
+}
+
+// TestDockerHostConfigSCBridgeMode_getPortBindingFailure verifies that when we can't find the task
+// container associated with the pause container, DockerHostConfig should return failure (from getPortBinding)
+func TestDockerHostConfigSCBridgeMode_getPortBindingFailure(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.Containers[1].Name = "invalid" // make the pause container name invalid such that we can't resolve task container from it
+	_, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Msg, "error retrieving docker port map"))
+}
+
+// TestDockerContainerConfigSCBridgeMode verifies exposed port and uid configuration for each container
+// in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
+// and two pause container associated with each of them.
+func TestDockerContainerConfigSCBridgeMode(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+
+	// Containers[0] aka user-defined task container should NOT expose any ports (it's done through the associated pause container)
+	// It should NOT get UID override
+	actualConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Empty(t, actualConfig.ExposedPorts)
+	assert.Empty(t, actualConfig.User)
+
+	// Containers[2] aka SC container should NOT expose any ports (it's done through the associated pause container)
+	// It should get UID override
+	actualConfig, err = testTask.DockerConfig(testTask.Containers[2], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.Empty(t, actualConfig.ExposedPorts)
+	assert.Equal(t, strconv.Itoa(serviceconnect.AppNetUID), actualConfig.User)
+
+	// Containers[1] aka task pause container should expose all container ports from the associated user-defined task containers
+	// It should NOT get UID override
+	actualConfig, err = testTask.DockerConfig(testTask.Containers[1], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.NotNil(t, actualConfig.ExposedPorts)
+	assert.Equal(t, 2, len(actualConfig.ExposedPorts))
+	_, ok := actualConfig.ExposedPorts[convertSCPort(SCTaskContainerPort1)]
+	assert.True(t, ok)
+	_, ok = actualConfig.ExposedPorts[convertSCPort(SCTaskContainerPort2)]
+	assert.True(t, ok)
+	assert.Empty(t, actualConfig.User)
+
+	// Containers[3] aka SC pause container should expose all container ports from SC ingress and egress listeners
+	// It should NOT get UID override
+	actualConfig, err = testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.NotNil(t, actualConfig.ExposedPorts)
+	assert.Equal(t, 3, len(actualConfig.ExposedPorts))
+	_, ok = actualConfig.ExposedPorts[convertSCPort(SCIngressListener1ContainerPort)]
+	assert.True(t, ok)
+	_, ok = actualConfig.ExposedPorts[convertSCPort(SCIngressListener2ContainerPort)]
+	assert.True(t, ok)
+	_, ok = actualConfig.ExposedPorts[convertSCPort(SCEgressListenerContainerPort)]
+	assert.True(t, ok)
+	assert.Empty(t, actualConfig.User)
+}
+
+func TestDockerContainerConfigSCBridgeMode_getExposedPortsFailure(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.Containers[1].Name = "invalid" // make the pause container name invalid such that we can't resolve task container from it
+	_, err := testTask.DockerConfig(testTask.Containers[1], defaultDockerClientAPIVersion)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Msg, "error resolving docker exposed ports"))
+}
+
+func TestDockerContainerConfigSCBridgeMode_emptyEgressConfig(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.ServiceConnectConfig.EgressConfig = nil
+	actualConfig, err := testTask.DockerConfig(testTask.Containers[3], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.NotNil(t, actualConfig)
+	assert.NotNil(t, actualConfig.ExposedPorts)
+	assert.Equal(t, 2, len(actualConfig.ExposedPorts))
+	_, ok := actualConfig.ExposedPorts[convertSCPort(SCIngressListener1ContainerPort)]
+	assert.True(t, ok)
+	_, ok = actualConfig.ExposedPorts[convertSCPort(SCIngressListener2ContainerPort)]
+	assert.True(t, ok)
+}
+
 func TestDockerHostConfigVolumesFrom(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
@@ -264,6 +491,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				ID: "eniID",
 			},
 		},
+		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
@@ -880,6 +1108,36 @@ func TestInitializeContainersV4MetadataEndpoint(t *testing.T) {
 		fmt.Sprintf(apicontainer.MetadataURIFormatV4, "new-uuid"))
 }
 
+// Tests that task.initializeContainersV1AgentAPIEndpoint method initializes
+// V3EndpointID for all containers of the task and injects v1 Agent API Endpoint
+// as an environment variable into each container.
+func TestInitializeContainersV1AgentAPIEndpoint(t *testing.T) {
+	// Create a dummy task
+	task := Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+			},
+			{
+				Name: "c2",
+			},
+		},
+	}
+
+	// Call the method
+	task.initializeContainersV1AgentAPIEndpoint(utils.NewStaticUUIDProvider("new-uuid"))
+
+	// Assert that v3 endpoint id is set and the endpoint is injected to env of each container
+	for _, container := range task.Containers {
+		assert.Equal(t, "new-uuid", container.GetV3EndpointID())
+		assert.Equal(t,
+			map[string]string{
+				apicontainer.AgentURIEnvVarName: "http://169.254.170.2/api/new-uuid",
+			},
+			container.Environment)
+	}
+}
+
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{
@@ -1275,6 +1533,7 @@ func TestTaskFromACS(t *testing.T) {
 		Family:              "myFamily",
 		Version:             "1",
 		ServiceName:         "myService",
+		NetworkMode:         BridgeNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:        "myName",
@@ -1369,6 +1628,7 @@ func TestTaskFromACS(t *testing.T) {
 		Memory:              512,
 		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
+	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
@@ -3198,9 +3458,7 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 			containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
 	}
 
-	err := task.initializeContainerOrderingForVolumes()
-	assert.NoError(t, err)
-	err = task.initializeContainerOrderingForLinks()
+	err := task.initializeContainerOrdering()
 	assert.NoError(t, err)
 
 	containerResultWithVolume := task.Containers[0]
@@ -3240,26 +3498,30 @@ func TestInitializeContainerOrderingWithError(t *testing.T) {
 		Links: []string{"myName:link1:link2"},
 	}
 
-	task1 := &Task{
+	task1v := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError1},
+		Containers:         []*apicontainer.Container{containerWithVolumeError},
 	}
 
-	task2 := &Task{
+	task1l := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError2},
+		Containers:         []*apicontainer.Container{containerWithLinkError1},
 	}
 
-	errVolume1 := task1.initializeContainerOrderingForVolumes()
+	task2l := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithLinkError2},
+	}
+
+	errVolume1 := task1v.initializeContainerOrdering()
 	assert.Error(t, errVolume1)
-	errLink1 := task1.initializeContainerOrderingForLinks()
+	errLink1 := task1l.initializeContainerOrdering()
 	assert.Error(t, errLink1)
 
-	errVolume2 := task2.initializeContainerOrderingForVolumes()
-	assert.Error(t, errVolume2)
-	errLink2 := task2.initializeContainerOrderingForLinks()
+	errLink2 := task2l.initializeContainerOrdering()
 	assert.Error(t, errLink2)
 }
 
@@ -3488,4 +3750,627 @@ func TestPostUnmarshalTaskWithOptions(t *testing.T) {
 	}
 	task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil, opt, opt)
 	assert.Equal(t, 2, numCalls)
+}
+
+func TestGetServiceConnectContainer(t *testing.T) {
+	const serviceConnectContainerName = "service-connect"
+	scContainer := &apicontainer.Container{
+		Name: serviceConnectContainerName,
+	}
+	tt := []struct {
+		scConfig *serviceconnect.Config
+	}{
+		{
+			scConfig: nil,
+		},
+		{
+			scConfig: &serviceconnect.Config{
+				ContainerName: serviceConnectContainerName,
+			},
+		},
+	}
+	for _, tc := range tt {
+		task := &Task{
+			ServiceConnectConfig: tc.scConfig,
+			Containers: []*apicontainer.Container{
+				scContainer,
+			},
+		}
+		c := task.GetServiceConnectContainer()
+		if tc.scConfig == nil {
+			assert.Nil(t, c)
+		} else {
+			assert.Equal(t, scContainer, c)
+		}
+	}
+}
+
+func TestIsServiceConnectEnabled(t *testing.T) {
+	const serviceConnectContainerName = "service-connect"
+	tt := []struct {
+		scConfig          *serviceconnect.Config
+		scContainer       *apicontainer.Container
+		expectedSCEnabled bool
+	}{
+		{
+			scConfig:          nil,
+			scContainer:       nil,
+			expectedSCEnabled: false,
+		},
+		{
+			scConfig: &serviceconnect.Config{
+				ContainerName: serviceConnectContainerName,
+			},
+			scContainer:       nil,
+			expectedSCEnabled: false,
+		},
+		{
+			scConfig: nil,
+			scContainer: &apicontainer.Container{
+				Name: serviceConnectContainerName,
+			},
+			expectedSCEnabled: false,
+		},
+		{
+			scConfig: &serviceconnect.Config{
+				ContainerName: serviceConnectContainerName,
+			},
+			scContainer: &apicontainer.Container{
+				Name: serviceConnectContainerName,
+			},
+			expectedSCEnabled: true,
+		},
+	}
+
+	for _, tc := range tt {
+		task := &Task{
+			ServiceConnectConfig: tc.scConfig,
+		}
+		if tc.scContainer != nil {
+			task.Containers = append(task.Containers, tc.scContainer)
+		}
+		assert.Equal(t, tc.expectedSCEnabled, task.IsServiceConnectEnabled())
+	}
+}
+
+func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
+	const (
+		utilizedPort1 = 33333
+		utilizedPort2 = 44444
+		utilizedPort3 = 55555
+	)
+	utilizedPorts := map[uint16]struct{}{
+		utilizedPort1: {},
+		utilizedPort2: {},
+		utilizedPort3: {},
+	}
+
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			containerFromACS("C1", utilizedPort1, 0, AWSVPCNetworkMode),
+			containerFromACS("C2", utilizedPort2, 0, AWSVPCNetworkMode),
+			containerFromACS(serviceConnectContainerTestName, 0, 0, AWSVPCNetworkMode),
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	testSCConfig := serviceconnect.Config{
+		ContainerName: serviceConnectContainerTestName,
+		IngressConfig: []serviceconnect.IngressConfigEntry{
+			{
+				ListenerName: "testListener1",
+				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
+			},
+			{
+				ListenerName: "testListener2",
+				ListenerPort: utilizedPort3, // this one should NOT get ephemeral port after PostUnmarshalTask
+			},
+			{
+				ListenerName: "testListener3",
+				ListenerPort: 0, // this one should get ephemeral port after PostUnmarshalTask
+			},
+		},
+		EgressConfig: &serviceconnect.EgressConfig{
+			ListenerName: "testEgressListener",
+			ListenerPort: 0, // Presently this should always get ephemeral port
+		},
+	}
+	originalSCConfig := cloneSCConfig(testSCConfig)
+	task.ServiceConnectConfig = &testSCConfig
+	assert.Nil(t, err, "Should be able to handle acs task")
+	err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
+	assert.NoError(t, err)
+	task.NetworkMode = AWSVPCNetworkMode
+
+	validateServiceConnectContainerOrder(t, task)
+	validateEphemeralPorts(t, task, originalSCConfig, utilizedPorts)
+	validateAppnetEnvVars(t, task)
+
+}
+
+// TestPostUnmarshalTaskWithServiceConnectBridgeMode verifies pause container creation and container dependency/ordering
+// for an SC-enabled bridge mode task. We verify:
+// - regular taskContainer.CREATED depends on SCContainer.RESOURCES_PROVISIONED
+// - regular taskContainer.CREATED depends on SCContainer.HEALTHY
+// - a pause container is created for each regular task container, and has steady state RUNNING
+// - SCContainer.PULLED depends on ALL pauseContainer.RUNNING
+// - SCContainer.STOPPED depends on ALL taskContainer.STOPPED
+// - pauseContainer.STOPPED depends on SCContainer.STOPPED
+func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
+	const (
+		utilizedPort1 = 33333
+		utilizedPort2 = 44444
+		listenerPort1 = 15000
+		listenerPort2 = 16000
+		listenerPort3 = 17000
+	)
+	utilizedPorts := map[uint16]struct{}{
+		utilizedPort1: {},
+		utilizedPort2: {},
+		listenerPort1: {},
+		listenerPort2: {},
+		listenerPort3: {},
+	}
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			containerFromACS("C1", utilizedPort1, 0, BridgeNetworkMode),
+			containerFromACS("C2", utilizedPort2, 0, BridgeNetworkMode),
+			containerFromACS(serviceConnectContainerTestName, 0, 0, BridgeNetworkMode),
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	testSCConfig := serviceconnect.Config{
+		ContainerName: serviceConnectContainerTestName,
+		IngressConfig: []serviceconnect.IngressConfigEntry{
+			{
+				ListenerName: "testListener1",
+				ListenerPort: listenerPort1,
+			},
+			{
+				ListenerName: "testListener2",
+				ListenerPort: listenerPort2,
+			},
+			{
+				ListenerName: "testListener3",
+				ListenerPort: listenerPort3,
+			},
+		},
+		EgressConfig: &serviceconnect.EgressConfig{
+			ListenerName: "testEgressListener",
+			ListenerPort: 0, // Presently this should always get ephemeral port
+		},
+	}
+	originalSCConfig := cloneSCConfig(testSCConfig)
+	task.ServiceConnectConfig = &testSCConfig
+	assert.Nil(t, err, "Should be able to handle acs task")
+	err = task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
+	assert.NoError(t, err)
+	validateServiceConnectContainerOrder(t, task)
+	validateEphemeralPorts(t, task, originalSCConfig, utilizedPorts)
+	validateAppnetEnvVars(t, task)
+	validateServiceConnectBridgeModePauseContainer(t, task)
+}
+
+func containerFromACS(name string, containerPort int64, hostPort int64, networkMode string) *ecsacs.Container {
+	var portMapping *ecsacs.PortMapping
+	if containerPort != 0 || hostPort != 0 {
+		portMapping = &ecsacs.PortMapping{}
+		if containerPort != 0 {
+			portMapping.ContainerPort = aws.Int64(containerPort)
+		}
+		if hostPort != 0 {
+			portMapping.HostPort = aws.Int64(hostPort)
+		}
+	}
+
+	container := &ecsacs.Container{
+		Name: aws.String(name),
+		DockerConfig: &ecsacs.DockerConfig{
+			HostConfig: aws.String(fmt.Sprintf(
+				`{"NetworkMode":"%s"}`, networkMode)),
+		},
+	}
+	if portMapping != nil {
+		container.PortMappings = []*ecsacs.PortMapping{
+			portMapping,
+		}
+	}
+	return container
+}
+
+func cloneSCConfig(scConfig serviceconnect.Config) serviceconnect.Config {
+	clone := scConfig
+	clone.IngressConfig = nil
+	for _, ic := range scConfig.IngressConfig {
+		clone.IngressConfig = append(clone.IngressConfig, ic)
+	}
+	return clone
+}
+
+func validateServiceConnectContainerOrder(t *testing.T, task *Task) {
+	c1, _ := task.ContainerByName("C1")
+	c2, _ := task.ContainerByName("C2")
+	scC, _ := task.ContainerByName(serviceConnectContainerTestName)
+
+	// Check that regular containers have a dependency on SC container becoming HEALTHY
+	assert.NotEmpty(t, c1.DependsOnUnsafe)
+	assert.Equal(t, serviceConnectContainerTestName, c1.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingHealthyCondition, c1.DependsOnUnsafe[0].Condition)
+
+	assert.NotEmpty(t, c2.DependsOnUnsafe)
+	assert.Equal(t, serviceConnectContainerTestName, c2.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingHealthyCondition, c2.DependsOnUnsafe[0].Condition)
+
+	// Check that SC container has a stop dependency on regular containers
+	assert.Empty(t, scC.DependsOnUnsafe)
+	assert.NotEmpty(t, scC.TransitionDependenciesMap)
+	assert.NotEmpty(t, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies)
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   "C1",
+		SatisfiedStatus: apicontainerstatus.ContainerStopped,
+	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   "C2",
+		SatisfiedStatus: apicontainerstatus.ContainerStopped,
+	}, scC.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[1])
+}
+
+func validateEphemeralPorts(t *testing.T, task *Task, originalSCConfig serviceconnect.Config, utilizedPorts map[uint16]struct{}) {
+	for i, ic := range originalSCConfig.IngressConfig {
+		if ic.ListenerPort == 0 {
+			assignedPort := task.ServiceConnectConfig.IngressConfig[i].ListenerPort
+			_, ok := utilizedPorts[assignedPort]
+			assert.Falsef(t, ok, "An already-utilized port [%d] was assigned to ingress listener: %s", assignedPort, ic.ListenerName)
+			assert.NotZerof(t, assignedPort,
+				"Ephemeral port was not assigned for ingress listener: %s", ic.ListenerName)
+			utilizedPorts[assignedPort] = struct{}{}
+		} else {
+			assert.Equalf(t, ic.ListenerPort, task.ServiceConnectConfig.IngressConfig[i].ListenerPort,
+				"Ingress port incorrectly modified for listener: %s", ic.ListenerName)
+		}
+		assert.Equalf(t, ic.HostPort, task.ServiceConnectConfig.IngressConfig[i].HostPort,
+			"Ingress host port incorrectly modified for listener: %s", ic.ListenerName)
+		assert.Equalf(t, ic.InterceptPort, task.ServiceConnectConfig.IngressConfig[i].InterceptPort,
+			"Ingress intercept port incorrectly modified for listener: %s", ic.ListenerName)
+		assert.Equalf(t, ic.ListenerName, task.ServiceConnectConfig.IngressConfig[i].ListenerName,
+			"Ingress listener name incorrectly modified for listener: %s", ic.ListenerName)
+	}
+	if originalSCConfig.EgressConfig != nil && originalSCConfig.EgressConfig.ListenerPort == 0 {
+		assignedPort := task.ServiceConnectConfig.EgressConfig.ListenerPort
+		_, ok := utilizedPorts[assignedPort]
+		assert.Falsef(t, ok, "An already-utilized port [%d] was assigned to egress listener", assignedPort)
+		assert.NotZero(t, assignedPort,
+			"Ephemeral port was not assigned for egress listener")
+		utilizedPorts[assignedPort] = struct{}{}
+	} else {
+		assert.Equal(t, originalSCConfig.EgressConfig.ListenerPort, task.ServiceConnectConfig.EgressConfig.ListenerPort,
+			"Egress port incorrectly modified for egress listener")
+	}
+	assert.Equalf(t, originalSCConfig.EgressConfig.ListenerName, task.ServiceConnectConfig.EgressConfig.ListenerName,
+		"Egress listener name incorrectly modified")
+	assert.Equalf(t, originalSCConfig.EgressConfig.VIP, task.ServiceConnectConfig.EgressConfig.VIP,
+		"Egress VIP incorrectly modified")
+}
+
+func validateAppnetEnvVars(t *testing.T, task *Task) {
+	// Validate the env vars were injected to SC container
+	for _, c := range task.Containers {
+		if c.Name != serviceConnectContainerTestName {
+			continue
+		}
+		portMappingStr := c.Environment["APPNET_LISTENER_PORT_MAPPING"]
+		// TODO [SC]: this map probably needs to change to the real Appnet model when it's ready
+		portMapping := make(map[string]int)
+		err := json.Unmarshal([]byte(portMappingStr), &portMapping)
+		assert.NoError(t, err, "Error parsing APPNET_LISTENER_PORT_MAPPING")
+		if task.IsNetworkModeAWSVPC() { // ECS Agent only select ephemeral listener ports for default SC AWSVPC tasks
+			listener1 := task.ServiceConnectConfig.IngressConfig[0]
+			listener3 := task.ServiceConnectConfig.IngressConfig[2]
+			assert.Equalf(t, int(listener1.ListenerPort), portMapping[listener1.ListenerName], "Listener-port mapping incorrectly configured for %s", listener1.ListenerName)
+			assert.Equalf(t, int(listener3.ListenerPort), portMapping[listener3.ListenerName], "Listener-port mapping incorrectly configured for %s", listener3.ListenerName)
+		}
+		egressListener := task.ServiceConnectConfig.EgressConfig
+		assert.Equalf(t, int(egressListener.ListenerPort), portMapping[egressListener.ListenerName], "Listener-port mapping incorrectly configured for %s", egressListener.ListenerName)
+	}
+}
+
+func validateServiceConnectBridgeModePauseContainer(t *testing.T, task *Task) {
+	scC, _ := task.ContainerByName(serviceConnectContainerTestName)
+	scPauseC, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceConnectContainerTestName))
+	assert.True(t, ok)
+	p1, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, "C1"))
+	assert.True(t, ok)
+	p2, ok := task.ContainerByName(fmt.Sprintf("%s-%s", NetworkPauseContainerName, "C2"))
+	assert.True(t, ok)
+	pauseContainers := [...]*apicontainer.Container{p1, p2, scPauseC}
+
+	// verify that SCContainer.CREATED depends on ALL PauseContainer.RESOURCES_PROVISIONED, and dthat
+	// ALL PauseContainer.STOPPED depends on SCContainer.STOPPED
+	assert.NotEmpty(t, scC.TransitionDependenciesMap)
+	assert.NotNil(t, scC.TransitionDependenciesMap[apicontainerstatus.ContainerCreated])
+	containerDependencies := scC.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ContainerDependencies
+	assert.Equal(t, len(pauseContainers), len(containerDependencies))
+	for i, pc := range pauseContainers {
+		assert.Equal(t, pc.Name, containerDependencies[i].ContainerName)
+		assert.Equal(t, apicontainerstatus.ContainerResourcesProvisioned, containerDependencies[i].SatisfiedStatus)
+
+		assert.NotEmpty(t, pc.TransitionDependenciesMap)
+		assert.NotNil(t, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped])
+		assert.NotEmpty(t, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies)
+		assert.Equal(t, apicontainer.ContainerDependency{
+			ContainerName:   serviceConnectContainerTestName,
+			SatisfiedStatus: apicontainerstatus.ContainerStopped,
+		}, pc.TransitionDependenciesMap[apicontainerstatus.ContainerStopped].ContainerDependencies[0])
+	}
+
+	// verify that taskPauseContainer.RESOURCES_PROVISIONED depends on SCPauseContainer.RUNNING
+	assert.NotNil(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned])
+	assert.NotEmpty(t, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies)
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   scPauseC.Name,
+		SatisfiedStatus: apicontainerstatus.ContainerRunning,
+	}, p1.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies[0])
+
+	assert.NotNil(t, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned])
+	assert.NotEmpty(t, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies)
+	assert.Equal(t, apicontainer.ContainerDependency{
+		ContainerName:   scPauseC.Name,
+		SatisfiedStatus: apicontainerstatus.ContainerRunning,
+	}, p2.TransitionDependenciesMap[apicontainerstatus.ContainerResourcesProvisioned].ContainerDependencies[0])
+}
+
+func TestTaskFromACS_InitNetworkMode(t *testing.T) {
+	for _, tc := range []struct {
+		inputNetworkMode        string
+		expectedTaskNetworkMode string
+	}{
+		{
+			inputNetworkMode:        AWSVPCNetworkMode,
+			expectedTaskNetworkMode: AWSVPCNetworkMode,
+		},
+		{
+			inputNetworkMode:        BridgeNetworkMode,
+			expectedTaskNetworkMode: BridgeNetworkMode,
+		},
+		{
+			inputNetworkMode:        "",
+			expectedTaskNetworkMode: BridgeNetworkMode,
+		},
+		{
+			inputNetworkMode:        HostNetworkMode,
+			expectedTaskNetworkMode: HostNetworkMode,
+		},
+	} {
+		taskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			Version:       strptr("1"),
+			NetworkMode:   aws.String(tc.inputNetworkMode),
+			Containers: []*ecsacs.Container{
+				{
+					Name: aws.String("C1"),
+				},
+				{
+					Name: aws.String("C2"),
+				},
+			},
+		}
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.Equal(t, tc.expectedTaskNetworkMode, task.NetworkMode)
+		switch tc.inputNetworkMode {
+		case AWSVPCNetworkMode:
+			assert.True(t, task.IsNetworkModeAWSVPC())
+			assert.False(t, task.IsNetworkModeBridge())
+			assert.False(t, task.IsNetworkModeHost())
+		case BridgeNetworkMode, "":
+			assert.False(t, task.IsNetworkModeAWSVPC())
+			assert.True(t, task.IsNetworkModeBridge())
+			assert.False(t, task.IsNetworkModeHost())
+		case HostNetworkMode:
+			assert.False(t, task.IsNetworkModeAWSVPC())
+			assert.False(t, task.IsNetworkModeBridge())
+			assert.True(t, task.IsNetworkModeHost())
+		}
+	}
+}
+
+func TestGetBridgeModePauseContainerForTaskContainer(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	container, err := testTask.GetBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
+	assert.Nil(t, err)
+	assert.NotNil(t, container)
+	assert.Equal(t, testTask.Containers[1].Name, container.Name)
+}
+
+func TestGetBridgeModePauseContainerForTaskContainer_NotFound(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.Containers[1].Name = "invalid"
+	_, err := testTask.GetBridgeModePauseContainerForTaskContainer(testTask.Containers[0])
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "could not find pause container"))
+}
+
+func TestGetBridgeModeTaskContainerForPauseContainer(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	// make the service container name include "-" to make sure we can still resolve service container from pause container name correctly
+	serviceContainerName := "service-container-name"
+	testTask.Containers[0].Name = serviceContainerName
+	testTask.Containers[1].Name = fmt.Sprintf("%s-%s", NetworkPauseContainerName, serviceContainerName)
+
+	container, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	assert.Nil(t, err)
+	assert.NotNil(t, container)
+	assert.Equal(t, testTask.Containers[0].Name, container.Name)
+}
+
+func TestGetBridgeModeTaskContainerForPauseContainer_InvalidPauseContainerName(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.Containers[1].Name = "invalid"
+	_, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "does not conform to ~internal~ecs~pause-$TASK_CONTAINER_NAME format"))
+}
+
+func TestGetBridgeModeTaskContainerForPauseContainer_NotFound(t *testing.T) {
+	testTask := getTestTaskServiceConnectBridgeMode()
+	testTask.Containers[0].Name = "anotherTaskContainer"
+	_, err := testTask.getBridgeModeTaskContainerForPauseContainer(testTask.Containers[1])
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "could not find task container"))
+}
+
+func TestTaskServiceConnectAttachment(t *testing.T) {
+	seqNum := int64(42)
+	tt := []struct {
+		testName                    string
+		testElasticNetworkInterface *ecsacs.ElasticNetworkInterface
+		testNetworkMode             string
+		testSCConfigValue           string
+		testExpectedSCConfig        *serviceconnect.Config
+	}{
+		{
+			testName: "Bridge default case",
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String(ipv4),
+					},
+				},
+			},
+			testNetworkMode:   BridgeNetworkMode,
+			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"172.31.21.40\"}],\"ingressConfig\":[{\"listenerPort\":15000}]}",
+			testExpectedSCConfig: &serviceconnect.Config{
+				ContainerName: serviceConnectContainerTestName,
+				IngressConfig: []serviceconnect.IngressConfigEntry{
+					{
+						ListenerPort: testBridgeDefaultListenerPort,
+					},
+				},
+				EgressConfig: &serviceconnect.EgressConfig{
+					ListenerName: testOutboundListenerName,
+					VIP: serviceconnect.VIP{
+						IPV4CIDR: testIPv4Cidr,
+						IPV6CIDR: "",
+					},
+				},
+				DNSConfig: []serviceconnect.DNSConfigEntry{
+					{
+						HostName: testHostName,
+						Address:  testIPv4Address,
+					},
+				},
+			},
+		},
+		{
+			testName: "AWSVPC override case with IPv6 enabled",
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String("ipv6"),
+					},
+				},
+			},
+			testNetworkMode:   AWSVPCNetworkMode,
+			testSCConfigValue: "{\"egressConfig\":{\"listenerName\":\"testOutboundListener\",\"vip\":{\"ipv4Cidr\":\"127.255.0.0/16\",\"ipv6Cidr\":\"2002::1234:abcd:ffff:c0a8:101/64\"}},\"dnsConfig\":[{\"hostname\":\"testHostName\",\"address\":\"abcd:dcba:1234:4321::\"}],\"ingressConfig\":[{\"listenerPort\":8080}]}",
+			testExpectedSCConfig: &serviceconnect.Config{
+				ContainerName: serviceConnectContainerTestName,
+				IngressConfig: []serviceconnect.IngressConfigEntry{
+					{
+						ListenerPort: testListenerPort,
+					},
+				},
+				EgressConfig: &serviceconnect.EgressConfig{
+					ListenerName: testOutboundListenerName,
+					VIP: serviceconnect.VIP{
+						IPV4CIDR: testIPv4Cidr,
+						IPV6CIDR: testIPv6Cidr,
+					},
+				},
+				DNSConfig: []serviceconnect.DNSConfigEntry{
+					{
+						HostName: testHostName,
+						Address:  testIPv6Address,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.testName, func(t *testing.T) {
+			taskFromACS := ecsacs.Task{
+				Arn:                      strptr("myArn"),
+				DesiredStatus:            strptr("RUNNING"),
+				Family:                   strptr("myFamily"),
+				Version:                  strptr("1"),
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{tc.testElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
+					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
+					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
+				},
+				Attachments: []*ecsacs.Attachment{
+					{
+						AttachmentArn: strptr("attachmentArn"),
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
+							{
+								Name:  strptr(serviceconnect.GetServiceConnectConfigKey()),
+								Value: strptr(tc.testSCConfigValue),
+							},
+							{
+								Name:  strptr(serviceconnect.GetServiceConnectContainerNameKey()),
+								Value: strptr(serviceConnectContainerTestName),
+							},
+						},
+						AttachmentType: strptr(serviceConnectAttachmentType),
+					},
+				},
+				NetworkMode: strptr(tc.testNetworkMode),
+			}
+			task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+			assert.Nil(t, err, "Should be able to handle acs task")
+			assert.Equal(t, tc.testNetworkMode, task.NetworkMode)
+			assert.Equal(t, tc.testExpectedSCConfig, task.ServiceConnectConfig)
+		})
+	}
+}
+
+func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
+	seqNum := int64(42)
+	testElasticNetworkInterface := &ecsacs.ElasticNetworkInterface{
+		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			{
+				Primary:        aws.Bool(true),
+				PrivateAddress: aws.String(ipv4),
+			},
+		},
+	}
+	taskFromACS := ecsacs.Task{
+		Arn:                      strptr("myArn"),
+		DesiredStatus:            strptr("RUNNING"),
+		Family:                   strptr("myFamily"),
+		Version:                  strptr("1"),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testElasticNetworkInterface},
+		Containers: []*ecsacs.Container{
+			containerFromACS("C1", 33333, 0, BridgeNetworkMode),
+		},
+		NetworkMode: strptr(BridgeNetworkMode),
+	}
+
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, BridgeNetworkMode, task.NetworkMode)
+	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
 }

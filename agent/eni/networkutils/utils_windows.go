@@ -25,22 +25,32 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
-
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/windows"
 )
+
+//go:generate mockgen -destination=mocks/$GOFILE -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/networkutils NetworkUtils
 
 // NetworkUtils is the interface used for accessing network related functionality on Windows.
 // The methods declared in this package may or may not add any additional logic over the actual networking api calls.
 type NetworkUtils interface {
+	// GetInterfaceMACByIndex returns the MAC address of the device with given interface index.
+	// We will retry with the given timeout and context before erroring out.
 	GetInterfaceMACByIndex(int, context.Context, time.Duration) (string, error)
+	// GetAllNetworkInterfaces returns all the network interfaces in the host namespace.
 	GetAllNetworkInterfaces() ([]net.Interface, error)
+	// GetDNSServerAddressList returns the DNS Server list associated to the interface with
+	// the given MAC address.
 	GetDNSServerAddressList(macAddress string) ([]string, error)
-	SetNetWrapper(netWrapper netwrapper.NetWrapper)
+	// ConvertInterfaceAliasToLUID converts an interface alias to it's LUID.
+	ConvertInterfaceAliasToLUID(interfaceAlias string) (uint64, error)
+	// GetMIBIfEntryFromLUID returns the MIB_IF_ROW2 for the interface with the given LUID.
+	GetMIBIfEntryFromLUID(ifaceLUID uint64) (*MibIfRow2, error)
 }
 
 type networkUtils struct {
@@ -53,14 +63,25 @@ type networkUtils struct {
 	ctx     context.Context
 	// A wrapper over Golang's net package
 	netWrapper netwrapper.NetWrapper
+	// funcConvertInterfaceAliasToLuid is the system call to ConvertInterfaceAliasToLuid Win32 API.
+	funcConvertInterfaceAliasToLuid func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
+	// funcGetIfEntry2Ex is the system call to GetIfEntry2Ex Win32 API.
+	funcGetIfEntry2Ex func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
 }
 
 var funcGetAdapterAddresses = getAdapterAddresses
 
 // New creates a new network utils.
 func New() NetworkUtils {
+	// We would be using GetIfTable2Ex, GetIfEntry2Ex, and FreeMibTable Win32 APIs from IP Helper.
+	moduleIPHelper := windows.NewLazySystemDLL("iphlpapi.dll")
+	procConvertInterfaceAliasToLuid := moduleIPHelper.NewProc("ConvertInterfaceAliasToLuid")
+	procGetIfEntry2Ex := moduleIPHelper.NewProc("GetIfEntry2Ex")
+
 	return &networkUtils{
-		netWrapper: netwrapper.New(),
+		netWrapper:                      netwrapper.New(),
+		funcConvertInterfaceAliasToLuid: procConvertInterfaceAliasToLuid.Call,
+		funcGetIfEntry2Ex:               procGetIfEntry2Ex.Call,
 	}
 }
 
@@ -118,11 +139,6 @@ func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	return utils.netWrapper.GetAllNetworkInterfaces()
 }
 
-// SetNetWrapper is used to inject netWrapper instance. This will be handy while testing to inject mocks.
-func (utils *networkUtils) SetNetWrapper(netWrapper netwrapper.NetWrapper) {
-	utils.netWrapper = netWrapper
-}
-
 // GetDNSServerAddressList returns the DNS server addresses of the queried interface.
 func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string, error) {
 	addresses, err := funcGetAdapterAddresses()
@@ -141,11 +157,44 @@ func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string,
 
 	dnsServerAddressList := make([]string, 0)
 	for firstDnsNode != nil {
-		dnsServerAddressList = append(dnsServerAddressList, utils.parseSocketAddress(firstDnsNode.Address))
+		dnsServerAddressList = append(dnsServerAddressList, firstDnsNode.Address.IP().String())
 		firstDnsNode = firstDnsNode.Next
 	}
 
 	return dnsServerAddressList, nil
+}
+
+// ConvertInterfaceAliasToLUID returns the LUID of the interface with given interface alias.
+// Internally, it would invoke ConvertInterfaceAliasToLuid Win32 API to perform the conversion.
+func (utils *networkUtils) ConvertInterfaceAliasToLUID(interfaceAlias string) (uint64, error) {
+	var luid uint64
+	alias := windows.StringToUTF16Ptr(interfaceAlias)
+
+	// ConvertInterfaceAliasToLuid function converts alias into LUID.
+	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-convertinterfacealiastoluid
+	retVal, _, _ := utils.funcConvertInterfaceAliasToLuid(uintptr(unsafe.Pointer(alias)), uintptr(unsafe.Pointer(&luid)))
+	if retVal != 0 {
+		return 0, errors.Errorf("error occured while calling ConvertInterfaceAliasToLuid: %s", syscall.Errno(retVal))
+	}
+
+	return luid, nil
+}
+
+// GetMIBIfEntryFromLUID returns the MIB_IF_ROW2 object for the interface with given LUID.
+// Internally, this would invoke GetIfEntry2Ex Win32 API to retrieve the specific row.
+func (utils *networkUtils) GetMIBIfEntryFromLUID(ifaceLUID uint64) (*MibIfRow2, error) {
+	row := &MibIfRow2{
+		InterfaceLUID: ifaceLUID,
+	}
+
+	// GetIfEntry2Ex function retrieves the MIB-II interface for the given interface index..
+	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getifentry2ex
+	retVal, _, _ := utils.funcGetIfEntry2Ex(uintptr(0), uintptr(unsafe.Pointer(row)))
+	if retVal != 0 {
+		return nil, errors.Errorf("error occured while calling GetIfEntry2Ex: %s", syscall.Errno(retVal))
+	}
+
+	return row, nil
 }
 
 // parseMACAddress parses the physical address of windows.IpAdapterAddresses into net.HardwareAddr.
@@ -156,18 +205,6 @@ func (utils *networkUtils) parseMACAddress(adapterAddress *windows.IpAdapterAddr
 		return hardwareAddr
 	}
 	return hardwareAddr
-}
-
-// parseSocketAddress parses the SocketAddress into its string representation.
-// This method needs to be deprecated in favour of IP() method of SocketAdress introduced in Go 1.13+.
-// The method details have been taken from https://github.com/golang/sys/blob/release-branch.go1.13/windows/types_windows.go
-func (utils *networkUtils) parseSocketAddress(addr windows.SocketAddress) string {
-	var ipAddr string
-	if uintptr(addr.SockaddrLength) >= unsafe.Sizeof(syscall.RawSockaddrInet4{}) && addr.Sockaddr.Addr.Family == syscall.AF_INET {
-		ip := net.IP((*syscall.RawSockaddrInet4)(unsafe.Pointer(addr.Sockaddr)).Addr[:])
-		ipAddr = ip.String()
-	}
-	return ipAddr
 }
 
 // getAdapterAddresses returns a list of IP adapter and address

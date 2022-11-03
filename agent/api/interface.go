@@ -13,7 +13,13 @@
 
 package api
 
-import "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
+	prometheus "github.com/prometheus/client_model/go"
+)
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
 // details around constructing the request and reading the response down to the
@@ -44,6 +50,9 @@ type ECSClient interface {
 	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact Telemetry Service
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
+	// DiscoverServiceConnectEndpoint takes a ContainerInstanceARN and returns the
+	// endpoint at which this Agent should contact ServiceConnect
+	DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
 	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 	// UpdateContainerInstancesState updates the given container Instance ID with
@@ -68,4 +77,22 @@ type ECSSubmitStateSDK interface {
 	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
 	SubmitAttachmentStateChanges(*ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error)
+}
+
+// AppnetClient is an interface with customized Appnet client that
+// implements the GetStats and DrainInboundConnections
+type AppnetClient interface {
+	GetStats(config serviceconnect.RuntimeConfig) (map[string]*prometheus.MetricFamily, error)
+	DrainInboundConnections(config serviceconnect.RuntimeConfig) error
+}
+
+// ECSTaskProtectionSDK is an interface with customized ecs client that
+// implements the UpdateTaskProtection and GetTaskProtection
+type ECSTaskProtectionSDK interface {
+	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
+	UpdateTaskProtectionWithContext(ctx aws.Context, input *ecs.UpdateTaskProtectionInput,
+		opts ...request.Option) (*ecs.UpdateTaskProtectionOutput, error)
+	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
+	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
+		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
 }

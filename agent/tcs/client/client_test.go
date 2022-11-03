@@ -24,6 +24,7 @@ package tcsclient
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -43,11 +44,12 @@ import (
 )
 
 const (
-	testPublishMetricsInterval = 1 * time.Second
-	testMessageId              = "testMessageId"
-	testCluster                = "default"
-	testContainerInstance      = "containerInstance"
-	rwTimeout                  = time.Second
+	testPublishMetricsInterval        = 1 * time.Second
+	testMessageId                     = "testMessageId"
+	testCluster                       = "default"
+	testContainerInstance             = "containerInstance"
+	rwTimeout                         = time.Second
+	testPublishMetricRequestSizeLimit = 1024
 )
 
 const (
@@ -105,7 +107,7 @@ var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "t
 
 type mockStatsEngine struct{}
 
-func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
@@ -117,9 +119,21 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*mockStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 type emptyStatsEngine struct{}
 
-func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*emptyStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("empty stats")
 }
 
@@ -131,9 +145,21 @@ func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecst
 	return nil, nil, nil
 }
 
+func (*emptyStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*emptyStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*emptyStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 type idleStatsEngine struct{}
 
-func (*idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*idleStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -151,11 +177,23 @@ func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*idleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*idleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*idleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 type nonIdleStatsEngine struct {
 	numTasks int
 }
 
-func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *nonIdleStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -178,8 +216,122 @@ func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*typ
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
+
+func (*nonIdleStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*nonIdleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*nonIdleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 	return &nonIdleStatsEngine{numTasks: numTasks}
+}
+
+type serviceConnectStatsEngine struct {
+	numTasks int
+}
+
+func (engine *serviceConnectStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	metadata := &ecstcs.MetricsMetadata{
+		Cluster:           aws.String(testCluster),
+		ContainerInstance: aws.String(testContainerInstance),
+		Idle:              aws.Bool(false),
+		MessageId:         aws.String(testMessageId),
+	}
+	var taskMetrics []*ecstcs.TaskMetric
+	var i int64
+	var fval float64
+	fval = rand.Float64()
+	var ival int64
+	ival = rand.Int63n(10)
+	for i = 0; int(i) < engine.numTasks; i++ {
+		taskArn := "task/" + strconv.FormatInt(i, 10)
+		taskMetric := ecstcs.TaskMetric{
+			TaskArn: &taskArn,
+			ContainerMetrics: []*ecstcs.ContainerMetric{
+				{
+					CpuStatsSet: &ecstcs.CWStatsSet{
+						Max:         &fval,
+						Min:         &fval,
+						SampleCount: &ival,
+						Sum:         &fval,
+					},
+					MemoryStatsSet: &ecstcs.CWStatsSet{
+						Max:         &fval,
+						Min:         &fval,
+						SampleCount: &ival,
+						Sum:         &fval,
+					},
+				},
+			},
+		}
+		if includeServiceConnectStats {
+			var serviceConnectMetrics []*ecstcs.GeneralMetricsWrapper
+			var generalMetrics []*ecstcs.GeneralMetric
+			metricType := "2"
+			dimensionKey := "ClusterName"
+			dimentsionValue := "TestClusterName"
+			metricName := "HTTPCode_Target_2XX_Count"
+			metricValue := 3.0
+			var metricCount int64 = 1
+
+			// generate a task metric with size more than testPublishMetricRequestSizeLimit i.e 1kB
+			generalMetric := ecstcs.GeneralMetric{
+				MetricName:   &metricName,
+				MetricValues: []*float64{&metricValue},
+				MetricCounts: []*int64{&metricCount},
+			}
+			generalMetrics = append(generalMetrics, &generalMetric)
+			generalMetrics = append(generalMetrics, &generalMetric)
+			generalMetrics = append(generalMetrics, &generalMetric)
+			generalMetrics = append(generalMetrics, &generalMetric)
+			generalMetricsWrapper := ecstcs.GeneralMetricsWrapper{
+				MetricType: &metricType,
+				Dimensions: []*ecstcs.Dimension{
+					{
+						Key:   &dimensionKey,
+						Value: &dimentsionValue,
+					},
+				},
+				GeneralMetrics: generalMetrics,
+			}
+			serviceConnectMetrics = append(serviceConnectMetrics, &generalMetricsWrapper)
+			serviceConnectMetrics = append(serviceConnectMetrics, &generalMetricsWrapper)
+			taskMetric.ServiceConnectMetricsWrapper = serviceConnectMetrics
+		}
+		taskMetrics = append(taskMetrics, &taskMetric)
+	}
+	return metadata, taskMetrics, nil
+}
+
+func (*serviceConnectStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
+func (*serviceConnectStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
+}
+
+func (*serviceConnectStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*serviceConnectStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*serviceConnectStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+}
+
+func newServiceConnectStatsEngine(numTasks int) *serviceConnectStatsEngine {
+	return &serviceConnectStatsEngine{numTasks: numTasks}
 }
 
 func TestPayloadHandlerCalled(t *testing.T) {
@@ -234,7 +386,7 @@ func TestPublishMetricsOnceEmptyStatsError(t *testing.T) {
 	cs := clientServer{
 		statsEngine: &emptyStatsEngine{},
 	}
-	err := cs.publishMetricsOnce()
+	err := cs.publishMetricsOnce(false)
 
 	assert.Error(t, err, "Failed: expecting publishMerticOnce return err ")
 }
@@ -243,7 +395,7 @@ func TestPublishOnceIdleStatsEngine(t *testing.T) {
 	cs := clientServer{
 		statsEngine: &idleStatsEngine{},
 	}
-	requests, err := cs.metricsToPublishMetricRequests()
+	requests, err := cs.metricsToPublishMetricRequests(false)
 	if err != nil {
 		t.Fatal("Error creating publishmetricrequests: ", err)
 	}
@@ -264,7 +416,7 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	cs := clientServer{
 		statsEngine: newNonIdleStatsEngine(numTasks),
 	}
-	requests, err := cs.metricsToPublishMetricRequests()
+	requests, err := cs.metricsToPublishMetricRequests(false)
 	if err != nil {
 		t.Fatal("Error creating publishmetricrequests: ", err)
 	}
@@ -290,6 +442,67 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 		if *request.Metadata.Fin {
 			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
 		}
+	}
+}
+
+func TestPublishServiceConnectStatsEngine(t *testing.T) {
+	tempLimit := publishMetricRequestSizeLimit
+	publishMetricRequestSizeLimit = testPublishMetricRequestSizeLimit
+	defer func() {
+		publishMetricRequestSizeLimit = tempLimit
+	}()
+
+	testCases := []struct {
+		name             string
+		numTasks         int
+		expectedRequests int
+	}{
+		{
+			name:             "publish metrics requests with under 10 tasks with service connect stats",
+			numTasks:         3,
+			expectedRequests: 6,
+		},
+		{
+			name:             "publish metrics requests with more than 10 tasks with service connect stats",
+			numTasks:         20,
+			expectedRequests: 40,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cs := clientServer{
+				statsEngine: newServiceConnectStatsEngine(tc.numTasks),
+			}
+			requests, err := cs.metricsToPublishMetricRequests(true)
+			if err != nil {
+				t.Fatal("Error creating publishmetricrequests: ", err)
+			}
+
+			taskArns := make(map[string]bool)
+			for _, request := range requests {
+				for _, taskMetric := range request.TaskMetrics {
+					_, exists := taskArns[*taskMetric.TaskArn]
+					// if it is first part of task metric or a complete task metric being sent in this request
+					// validate that ContainerMetrics is not empty
+					if !exists {
+						assert.NotEmpty(t, taskMetric.ContainerMetrics, "Expected Container metrics to be not empty")
+					} else {
+						// task metric with remaining service connect metrics being sent in the next request
+						// validate that ContainerMetrics is empty
+						assert.Empty(t, taskMetric.ContainerMetrics, "Expected Container metrics to be empty, got %d", len(taskMetric.ContainerMetrics))
+					}
+					taskArns[*taskMetric.TaskArn] = true
+				}
+			}
+			assert.Equal(t, tc.expectedRequests, len(requests), "Wrong number of requests generated")
+			lastRequest := requests[tc.expectedRequests-1]
+			assert.True(t, *lastRequest.Metadata.Fin, "Fin not set to true in last request")
+			requests = requests[:(tc.expectedRequests - 1)]
+			for i, request := range requests {
+				assert.False(t, *request.Metadata.Fin, "Fin set to true in request %d/%d", i, (tc.expectedRequests - 1))
+			}
+		})
 	}
 }
 
@@ -373,6 +586,7 @@ func TestMetricsDisabled(t *testing.T) {
 	readed := make(chan struct{})
 
 	// stats engine should only be called for getting health metrics
+	mockStatsEngine.EXPECT().GetPublishMetricsTicker().Return(time.NewTicker(config.DefaultContainerMetricsPublishInterval)).MinTimes(1)
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
 		Cluster:           aws.String("TestMetricsDisabled"),
 		ContainerInstance: aws.String("container_instance"),

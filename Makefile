@@ -39,6 +39,9 @@ all: docker
 gobuild:
 	./scripts/build false
 
+gobuild-init-deb:
+	./scripts/gobuild.sh debian
+
 # create output directories
 .out-stamp:
 	mkdir -p ./out/test-artifacts ./out/cni-plugins ./out/amazon-ecs-cni-plugins ./out/amazon-vpc-cni-plugins
@@ -172,6 +175,9 @@ run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tes
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
+run-sudo-unit-tests:
+	sudo -E ${GOTEST} -tags 'sudo_unit' -timeout=60s ./agent/...
+
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
 
@@ -228,6 +234,7 @@ build-vpc-cni-plugins:
 	docker run --rm --net=none \
 		-e GO111MODULE=off \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
+		-e GIT_TAG=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git describe --tags --always --dirty) \
 		-u "$(USERID)" \
 		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/${TARGET_OS}_$(GOARCH)" \
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
@@ -296,7 +303,7 @@ GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 18 ${GOFILES}
+	gocyclo -over 17 ${GOFILES}
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet
@@ -338,6 +345,10 @@ goimports:
 	goimports -w $(GOFMTFILES)
 
 GOPATH=$(shell go env GOPATH)
+
+install-golang:
+	./scripts/install-golang.sh
+
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
@@ -396,8 +407,8 @@ VERSION = $(shell cat ecs-init/ECSVERSION)
 	mkdir -p BUILDROOT
 	./scripts/update-version.sh
 	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
-	cp -r packaging/generic-deb-integrated/debian ecs-init scripts misc agent agent-container amazon-ecs-cni-plugins amazon-vpc-cni-plugins README.md VERSION BUILDROOT
-	cd BUILDROOT && debuild -uc -us --lintian-opts --suppress-tags bad-distribution-in-changes-file,file-in-unusual-dir
+	cp -r packaging/generic-deb-integrated/debian Makefile ecs-init scripts misc agent agent-container amazon-ecs-cni-plugins amazon-vpc-cni-plugins README.md VERSION GO_VERSION BUILDROOT
+	cd BUILDROOT && dpkg-buildpackage -uc -b
 	touch .generic-deb-integrated-done
 
 generic-deb-integrated: .generic-deb-integrated-done
@@ -481,7 +492,7 @@ clean:
 	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
-	-rm -f .srpm-done .rpm-done .generic-rpm-done
+	-rm -f .srpm-done .rpm-done .generic-rpm-done .generic-deb-integrated-done
 	-rm -f .deb-done
 	-rm -f .amazon-linux-rpm-integrated-done
 	-rm -f .generic-rpm-integrated-done

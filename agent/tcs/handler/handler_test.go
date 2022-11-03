@@ -67,7 +67,7 @@ var testCfg = &config.Config{
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
-func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	req := createPublishMetricsRequest()
 	return req.Metadata, req.TaskMetrics, nil
 }
@@ -78,6 +78,18 @@ func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*mockStatsEngine) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
 }
 
 // TestDisableMetrics tests the StartMetricsSession will return immediately if

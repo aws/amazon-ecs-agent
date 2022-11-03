@@ -175,7 +175,7 @@ func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []VolumeR
 
 // NewTasksResponse creates TasksResponse for all the tasks.
 func NewTasksResponse(state dockerstate.TaskEngineState) *TasksResponse {
-	allTasks := state.AllTasks()
+	allTasks := state.AllExternalTasks()
 	taskResponses := make([]*TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)

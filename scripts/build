@@ -35,22 +35,40 @@ PAUSE_CONTAINER_TARBALL="amazon-ecs-pause.tar"
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
+# we need to make sure we've got the correct golang version installed
+# if it's already installed the script will set env vars and exit
+source ./scripts/install-golang.sh
+
 # Set TARGET_OS from GOOS if it is not set
 if [[ "${TARGET_OS}" == "" && "${GOOS}" != "" ]]; then
-  TARGET_OS="${GOOS}"
+    TARGET_OS="${GOOS}"
 fi
 
+# setup temporary build directory
+export TOPWD="$(pwd)"
+export BUILDDIR="$(mktemp -d)"
+export GOPATH="${BUILDDIR}"
+export SRCPATH="${BUILDDIR}/src/github.com/aws"
+mkdir -p "${SRCPATH}"
+
+# create a gopath-friendly symlink to the BUILDROOT
+# codebuild's path is TOPWD=/codebuild/output/src381519807/src/github.com/aws/amazon-ecs-agent/BUILDROOT
+cd "${SRCPATH}"
+ln -s "${TOPWD}" "amazon-ecs-agent"
+
+# run build from our temporary linked srcpath
+cd ${SRCPATH}/amazon-ecs-agent
 if [[ "${version_gen}" == "true" ]]; then
-    # Versioning stuff. We run the generator to setup the version and then always
-    # restore ourselves to a clean state
+    # We run the generator to setup the version and then always restore ourselves to a clean state
     cp agent/version/version.go agent/version/_version.go
     trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
 
-  cd ./agent/version/
-  # Turn off go module here because version-gen.go is a separate program (i.e. "package main")
-  # and no dependency needed to be fetched (but if go mod is on it will try to fetch dependency causing
-  # this script to fail when we run it in a container with network mode "none").
-  GO111MODULE=off go run gen/version-gen.go
+    cd ./agent/version/
+    # Turn off go module here because version-gen.go is a separate program (i.e. "package main")
+    # and no dependency needed to be fetched (but if go mod is on it will try to fetch dependency causing
+    # this script to fail when we run it in a container with network mode "none").
+    echo "running version gen"
+    GO111MODULE=off go run gen/version-gen.go
 fi
 
 if [[ "${with_pause}" == "true" ]]; then
@@ -59,21 +77,25 @@ fi
 
 if [ "${TARGET_OS}" == "windows" ]; then
     unset static
-    build_exe="out/amazon-ecs-agent.exe"
+    build_artifact="out/amazon-ecs-agent.exe"
     export GOOS=windows
 else
-    build_exe="out/amazon-ecs-agent"
+    build_artifact="out/amazon-ecs-agent"
 fi
 
-cd "${ROOT}"
+# run build from our temporary linked srcpath
+cd ${SRCPATH}/amazon-ecs-agent
 if [[ "${TARGET_OS}" == "windows" ]]; then
-    go build -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+    go build -ldflags "${LDFLAGS} -s" -o $build_artifact ./agent/
 elif [[ "${static}" == "true" ]]; then
-    GO111MODULE=auto CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+    GO111MODULE=auto CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_artifact ./agent/
 else
-    GO111MODULE=auto go build -o $build_exe ./agent/
+    GO111MODULE=auto go build -o $build_artifact ./agent/
 fi
 
 if [[ -n "${output_directory}" ]]; then
-    mv $build_exe "${output_directory}"
+    mv $build_artifact "${output_directory}"
 fi
+
+# finally, we'll clean up builddir
+rm -r "${BUILDDIR}"

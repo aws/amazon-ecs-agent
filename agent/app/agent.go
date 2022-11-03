@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -59,6 +60,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -133,7 +135,8 @@ type ecsAgent struct {
 	credentialProvider          *aws_credentials.Credentials
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
-	pauseLoader                 pause.Loader
+	pauseLoader                 loader.Loader
+	serviceconnectManager       engineserviceconnect.Manager
 	eniWatcher                  *watcher.ENIWatcher
 	cniClient                   ecscni.CNIClient
 	vpc                         string
@@ -229,6 +232,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
+		serviceconnectManager:       engineserviceconnect.NewManager(),
 		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
 		metadataManager:             metadataManager,
 		terminationHandler:          sighandlers.StartDefaultTerminationHandler,
@@ -303,8 +307,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Create the task engine
-	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
-		credentialsManager, state, imageManager, execCmdMgr)
+	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
+		containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, agent.serviceconnectManager)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -334,7 +338,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
 		if loadPauseErr != nil {
-			if pause.IsNoSuchFileError(loadPauseErr) || pause.UnsupportedPlatform(loadPauseErr) {
+			if loader.IsNoSuchFileError(loadPauseErr) || loader.IsUnsupportedPlatform(loadPauseErr) {
 				return exitcodes.ExitTerminal
 			} else {
 				return exitcodes.ExitError
@@ -391,6 +395,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
+	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
 
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {
@@ -506,7 +511,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	execCmdMgr execcmd.Manager) (engine.TaskEngine, string, error) {
+	execCmdMgr execcmd.Manager,
+	serviceConnectManager engineserviceconnect.Manager) (engine.TaskEngine, string, error) {
 
 	containerChangeEventStream.StartListening()
 
@@ -514,10 +520,10 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resourceFields, execCmdMgr), "", nil
+			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectManager), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, serviceConnectManager)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -539,7 +545,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state, agent.metadataManager,
-			agent.resourceFields, execCmdMgr), currentEC2InstanceID, nil
+			agent.resourceFields, execCmdMgr, serviceConnectManager), currentEC2InstanceID, nil
 	}
 
 	if savedData.cluster != "" {

@@ -51,10 +51,11 @@ const (
 	// for the waiting after container cleanup before checking the state of the manager.
 	waitForCleanupSleep = 10 * time.Millisecond
 
-	taskArn               = "gremlin"
-	taskDefinitionFamily  = "docker-gremlin"
-	taskDefinitionVersion = "1"
-	containerName         = "gremlin-container"
+	taskArn                     = "gremlin"
+	taskDefinitionFamily        = "docker-gremlin"
+	taskDefinitionVersion       = "1"
+	containerName               = "gremlin-container"
+	serviceConnectContainerName = "service-connect-container"
 )
 
 var (
@@ -141,8 +142,8 @@ func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID str
 	return container, nil
 }
 
-func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(includeServiceConnectStats)
 	assert.NoError(t, err, "gettting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
@@ -151,6 +152,24 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine) {
 	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
 	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
 	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
+	if includeServiceConnectStats {
+		assert.NoError(t, validateServiceConnectMetrics(taskMetric.ServiceConnectMetricsWrapper, 1), "validating service connect metrics failed")
+	}
+}
+
+func validateInstanceMetricsWithDisabledMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(includeServiceConnectStats)
+	assert.NoError(t, err, "gettting instance metrics failed")
+	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
+	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
+
+	taskMetric := taskMetrics[0]
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
+	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
+	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 0), "validating container metrics failed")
+	if includeServiceConnectStats {
+		assert.NoError(t, validateServiceConnectMetrics(taskMetric.ServiceConnectMetricsWrapper, 1), "validating service connect metrics failed")
+	}
 }
 
 func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expected int) error {
@@ -177,8 +196,23 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 	return nil
 }
 
+func validateServiceConnectMetrics(serviceConnectMetrics []*ecstcs.GeneralMetricsWrapper, expected int) error {
+	if len(serviceConnectMetrics) != expected {
+		return fmt.Errorf("Mismatch in number of serviceConnectMetrics elements. Expected: %d, Got: %d", expected, len(serviceConnectMetrics))
+	}
+	for _, serviceConnectMetric := range serviceConnectMetrics {
+		if *serviceConnectMetric.GeneralMetrics[0].MetricName == "" {
+			return fmt.Errorf("service Connect MetricName is empty")
+		}
+		if serviceConnectMetric.Dimensions == nil {
+			return fmt.Errorf("service Connect Metric DimensionSet is nil")
+		}
+	}
+	return nil
+}
+
 func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics()
+	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 

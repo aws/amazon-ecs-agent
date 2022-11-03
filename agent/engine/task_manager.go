@@ -115,10 +115,11 @@ type resourceTransition struct {
 // block and it is expected that the managedTask listen to those channels
 // almost constantly.
 // The general operation should be:
-//  1) Listen to the channels
-//  2) On an event, update the status of the task and containers (known/desired)
-//  3) Figure out if any action needs to be done. If so, do it
-//  4) GOTO 1
+//  1. Listen to the channels
+//  2. On an event, update the status of the task and containers (known/desired)
+//  3. Figure out if any action needs to be done. If so, do it
+//  4. GOTO 1
+//
 // Item '3' obviously might lead to some duration where you are not listening
 // to the channels. However, this can be solved by kicking off '3' as a
 // goroutine and then only communicating the result back via the channels
@@ -240,6 +241,7 @@ func (mtask *managedTask) overseeTask() {
 		field.TaskID: mtask.GetID(),
 	})
 	mtask.engine.checkTearDownPauseContainer(mtask.Task)
+	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		logger.Debug("Marking done for this sequence", logger.Fields{
@@ -753,7 +755,7 @@ func (mtask *managedTask) releaseIPInIPAM() {
 		field.TaskID: mtask.GetID(),
 	})
 
-	cfg, err := mtask.BuildCNIConfig(true, &ecscni.Config{
+	cfg, err := mtask.BuildCNIConfigAwsvpc(true, &ecscni.Config{
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	})
 	if err != nil {

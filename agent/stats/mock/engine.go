@@ -20,6 +20,7 @@ package mock_stats
 
 import (
 	reflect "reflect"
+	time "time"
 
 	stats "github.com/aws/amazon-ecs-agent/agent/stats"
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -67,9 +68,9 @@ func (mr *MockEngineMockRecorder) ContainerDockerStats(arg0, arg1 interface{}) *
 }
 
 // GetInstanceMetrics mocks base method
-func (m *MockEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (m *MockEngine) GetInstanceMetrics(arg0 bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstanceMetrics")
+	ret := m.ctrl.Call(m, "GetInstanceMetrics", arg0)
 	ret0, _ := ret[0].(*ecstcs.MetricsMetadata)
 	ret1, _ := ret[1].([]*ecstcs.TaskMetric)
 	ret2, _ := ret[2].(error)
@@ -77,9 +78,37 @@ func (m *MockEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.Ta
 }
 
 // GetInstanceMetrics indicates an expected call of GetInstanceMetrics
-func (mr *MockEngineMockRecorder) GetInstanceMetrics() *gomock.Call {
+func (mr *MockEngineMockRecorder) GetInstanceMetrics(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceMetrics", reflect.TypeOf((*MockEngine)(nil).GetInstanceMetrics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceMetrics", reflect.TypeOf((*MockEngine)(nil).GetInstanceMetrics), arg0)
+}
+
+// GetPublishMetricsTicker mocks base method
+func (m *MockEngine) GetPublishMetricsTicker() *time.Ticker {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPublishMetricsTicker")
+	ret0, _ := ret[0].(*time.Ticker)
+	return ret0
+}
+
+// GetPublishMetricsTicker indicates an expected call of GetPublishMetricsTicker
+func (mr *MockEngineMockRecorder) GetPublishMetricsTicker() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublishMetricsTicker", reflect.TypeOf((*MockEngine)(nil).GetPublishMetricsTicker))
+}
+
+// GetPublishServiceConnectTickerInterval mocks base method
+func (m *MockEngine) GetPublishServiceConnectTickerInterval() int32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPublishServiceConnectTickerInterval")
+	ret0, _ := ret[0].(int32)
+	return ret0
+}
+
+// GetPublishServiceConnectTickerInterval indicates an expected call of GetPublishServiceConnectTickerInterval
+func (mr *MockEngineMockRecorder) GetPublishServiceConnectTickerInterval() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublishServiceConnectTickerInterval", reflect.TypeOf((*MockEngine)(nil).GetPublishServiceConnectTickerInterval))
 }
 
 // GetTaskHealthMetrics mocks base method
@@ -96,4 +125,16 @@ func (m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.T
 func (mr *MockEngineMockRecorder) GetTaskHealthMetrics() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskHealthMetrics", reflect.TypeOf((*MockEngine)(nil).GetTaskHealthMetrics))
+}
+
+// SetPublishServiceConnectTickerInterval mocks base method
+func (m *MockEngine) SetPublishServiceConnectTickerInterval(arg0 int32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPublishServiceConnectTickerInterval", arg0)
+}
+
+// SetPublishServiceConnectTickerInterval indicates an expected call of SetPublishServiceConnectTickerInterval
+func (mr *MockEngineMockRecorder) SetPublishServiceConnectTickerInterval(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPublishServiceConnectTickerInterval", reflect.TypeOf((*MockEngine)(nil).SetPublishServiceConnectTickerInterval), arg0)
 }

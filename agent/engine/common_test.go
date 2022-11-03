@@ -174,6 +174,8 @@ func validateContainerRunWorkflow(t *testing.T,
 		dockerConfig.Env = append(dockerConfig.Env, "ECS_CONTAINER_METADATA_URI="+metadataEndpointEnvValue)
 		metadataEndpointEnvValueV4 := fmt.Sprintf(apicontainer.MetadataURIFormatV4, v3EndpointID)
 		dockerConfig.Env = append(dockerConfig.Env, "ECS_CONTAINER_METADATA_URI_V4="+metadataEndpointEnvValueV4)
+		agentAPIEndpointEnvValue := fmt.Sprintf(apicontainer.AgentURIFormat, v3EndpointID)
+		dockerConfig.Env = append(dockerConfig.Env, "ECS_AGENT_URI="+agentAPIEndpointEnvValue)
 	}
 	// Container config should get updated with this during CreateContainer
 	dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = task.Arn
@@ -297,10 +299,10 @@ func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event,
 
 	event := <-stateChangeEvents
 	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
-		t.Fatal("Expected container to stop first")
 		if verifyExitCode {
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
 		}
+		t.Fatal("Expected container to stop first")
 	}
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")

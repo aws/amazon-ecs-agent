@@ -18,49 +18,25 @@ package pause
 
 import (
 	"context"
-	"os"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 
-	log "github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
-	"github.com/pkg/errors"
 )
 
 // LoadImage helps load the pause container image for the agent
-func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
-	if err := loadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient); err != nil {
+func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+	logger.Debug("Loading pause container tarball:", logger.Fields{
+		field.Image: cfg.PauseContainerTarballPath,
+	})
+	if err := loader.LoadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient); err != nil {
 		return nil, err
 	}
 
-	return getPauseContainerImage(
-		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
-}
-
-func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return isImageLoaded(dockerClient)
-}
-
-var open = os.Open
-
-func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient) error {
-	pauseContainerReader, err := open(path)
-	if err != nil {
-		if err.Error() == noSuchFile {
-			return NewNoSuchFileError(errors.Wrapf(err,
-				"pause container load: failed to read pause container image: %s", path))
-		}
-		return errors.Wrapf(err,
-			"pause container load: failed to read pause container image: %s", path)
-	}
-	if err := dockerClient.LoadImage(ctx, pauseContainerReader, dockerclient.LoadImageTimeout); err != nil {
-		return errors.Wrapf(err,
-			"pause container load: failed to load pause container image: %s", path)
-	}
-
-	return nil
-
+	return loader.GetContainerImage(
+		config.DefaultPauseContainerImageName+":"+config.DefaultPauseContainerTag, dockerClient)
 }

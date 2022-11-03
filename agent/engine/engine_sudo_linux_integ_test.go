@@ -61,6 +61,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -585,7 +586,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
-		nil, execCmdMgr)
+		nil, execCmdMgr, engineserviceconnect.NewManager())
 	taskEngine.monitorExecAgentsInterval = time.Second
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {

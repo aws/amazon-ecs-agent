@@ -1,3 +1,21 @@
+amazon-ecs-init (1.65.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.65.1
+
+ -- Ray Allan <fierlion@amazon.com>  Fri, 28 Oct 2022 18:00:00 +0000
+
+amazon-ecs-init (1.65.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.65.0
+
+ -- Mythri Garaga Manjunatha <mythr@amazon.com>  Wed, 19 Oct 2022 18:00:00 +0000
+
+amazon-ecs-init (1.64.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.64.0
+
+ -- Utsa Bhattacharjya <utsa@amazon.com>  Tue, 04 Oct 2022 18:00:00 +0000
+
 amazon-ecs-init (1.63.1-1) stable; urgency=medium
 
   * Cache Agent version 1.63.1

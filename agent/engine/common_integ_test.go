@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	log "github.com/cihub/seelog"
@@ -169,7 +170,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
-		nil, execcmd.NewManager())
+		nil, execcmd.NewManager(), engineserviceconnect.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -212,13 +213,14 @@ func waitForTaskCleanup(t *testing.T, taskEngine TaskEngine, taskArn string, sec
 // Organized first by EventType (Task or Container),
 // then by StatusType (i.e. RUNNING, STOPPED, etc)
 // then by Task/Container identifying string (TaskARN or ContainerName)
-//                   EventType
-//                  /         \
-//          TaskEvent         ContainerEvent
-//        /          \           /        \
-//    RUNNING      STOPPED   RUNNING      STOPPED
-//    /    \        /    \      |             |
-//  ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
+//
+//	                 EventType
+//	                /         \
+//	        TaskEvent         ContainerEvent
+//	      /          \           /        \
+//	  RUNNING      STOPPED   RUNNING      STOPPED
+//	  /    \        /    \      |             |
+//	ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
 type EventSet map[statechange.EventType]statusToName
 
 // Type definition for mapping a Status to a TaskARN/ContainerName

@@ -162,7 +162,7 @@ func TestMetricCollection(t *testing.T) {
 // A type for storing a Tree-based map. We map the MetricName to a map of metrics
 // under that name. This second map indexes by MetricLabelName+MetricLabelValue to
 // a slice MetricType and MetricValue.
-//MetricName:metricLabelName+metricLabelValue:[metricType, metricValue]
+// MetricName:metricLabelName+metricLabelValue:[metricType, metricValue]
 type metricMap map[string]map[string][]interface{}
 
 // In order to verify the MetricFamily with the expected metric values, we do a simple

@@ -770,6 +770,44 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	}
 }
 
+func TestDiscoverServiceConnectEndpoint(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	expectedEndpoint := "http://127.0.0.1"
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{ServiceConnectEndpoint: &expectedEndpoint}, nil)
+	endpoint, err := client.DiscoverServiceConnectEndpoint("containerInstance")
+	if err != nil {
+		t.Error("Error getting service connect endpoint: ", err)
+	}
+	if expectedEndpoint != endpoint {
+		t.Errorf("Expected telemetry endpoint(%s) != endpoint(%s)", expectedEndpoint, endpoint)
+	}
+}
+
+func TestDiscoverServiceConnectEndpointError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("Error getting endpoint"))
+	_, err := client.DiscoverServiceConnectEndpoint("containerInstance")
+	if err == nil {
+		t.Error("Expected error getting service connect endpoint, didn't get any")
+	}
+}
+
+func TestDiscoverNilServiceConnectEndpoint(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	pollEndpoint := "http://127.0.0.1"
+	mc.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(&ecs.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	_, err := client.DiscoverServiceConnectEndpoint("containerInstance")
+	if err == nil {
+		t.Error("Expected error getting service connect endpoint with old response")
+	}
+}
+
 func TestUpdateContainerInstancesState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

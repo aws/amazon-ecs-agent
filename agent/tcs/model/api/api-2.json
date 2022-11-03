@@ -191,7 +191,38 @@
       "type":"list",
       "member":{"shape":"ContainerMetric"}
     },
+    "Dimension":{
+      "type":"structure",
+      "members":{
+        "key":{"shape":"String"},
+        "value":{"shape":"String"}
+      }
+    },
+    "Dimensions":{
+      "type":"list",
+      "member":{"shape":"Dimension"}
+    },
     "Double":{"type":"double"},
+    "GeneralMetric":{
+      "type":"structure",
+      "members":{
+        "metricName":{"shape":"String"},
+        "metricValues":{"shape":"MetricValues"},
+        "metricCounts":{"shape":"MetricCounts"}
+      }
+    },
+    "GeneralMetrics":{
+      "type":"list",
+      "member":{"shape":"GeneralMetric"}
+    },
+    "GeneralMetricsWrapper":{
+      "type":"structure",
+      "members":{
+        "dimensions":{"shape":"Dimensions"},
+        "metricType":{"shape":"MetricType"},
+        "generalMetrics":{"shape":"GeneralMetrics"}
+      }
+    },
     "HealthMetadata":{
       "type":"structure",
       "members":{
@@ -251,6 +282,22 @@
         "message":{"shape":"String"}
       },
       "exception":true
+    },
+    "Long":{"type":"long"},
+    "MetricCounts":{
+      "type":"list",
+      "member":{"shape":"Long"}
+    },
+    "MetricType":{
+      "type":"string",
+      "enum":[
+        "1",
+        "2"
+      ]
+    },
+    "MetricValues":{
+      "type":"list",
+      "member":{"shape":"Double"}
     },
     "MetricsMetadata":{
       "type":"structure",
@@ -316,6 +363,10 @@
       "exception":true,
       "fault":true
     },
+    "ServiceConnectMetricsWrapper":{
+      "type":"list",
+      "member":{"shape":"GeneralMetricsWrapper"}
+    },
     "StartTelemetrySessionRequest":{
       "type":"structure",
       "members":{
@@ -358,7 +409,8 @@
         "clusterArn":{"shape":"String"},
         "taskDefinitionFamily":{"shape":"String"},
         "taskDefinitionVersion":{"shape":"String"},
-        "containerMetrics":{"shape":"ContainerMetrics"}
+        "containerMetrics":{"shape":"ContainerMetrics"},
+        "serviceConnectMetricsWrapper":{"shape":"ServiceConnectMetricsWrapper"}
       }
     },
     "TaskMetrics":{
@@ -369,7 +421,7 @@
     "Timestamp":{"type":"timestamp"},
     "UDouble":{
       "type":"double",
-      "min":0
+      "min":0.0
     },
     "UDoubleCWStatsSet":{
       "type":"structure",
