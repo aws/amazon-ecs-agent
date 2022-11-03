@@ -1784,8 +1784,14 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 	}
 
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
-		dockerExposedPorts[dockerPort] = struct{}{}
+		// for every port binding config, either one of containerPort or containerPortRange is set
+		if portBinding.ContainerPort != nil {
+			dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
+			dockerExposedPorts[dockerPort] = struct{}{}
+		} else if portBinding.ContainerPortRange != nil {
+			dockerPort := nat.Port(aws.StringValue(portBinding.ContainerPortRange) + "/" + portBinding.Protocol.String())
+			dockerExposedPorts[dockerPort] = struct{}{}
+		}
 	}
 	return dockerExposedPorts, nil
 }
@@ -2297,6 +2303,7 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 	return dockerLinkArr, nil
 }
 
+// dockerPortMap returns a map of port bindings that are populated in the dockerHostConfig
 func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap, error) {
 	dockerPortMap := nat.PortMap{}
 	scContainer := task.GetServiceConnectContainer()
@@ -2334,8 +2341,13 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 	}
 
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
-		dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+		// we don't populate port bindings associated to containerPortRange in dockerHostConfig since the corresponding hostPortRange
+		// will be dynamically assigned by docker, until we add support for hostPortRange in ECS task definition.
+		// Instead, port bindings associated to containerPortRange are populated in the non-host dependent Config only, via dockerExposedPorts().
+		if portBinding.ContainerPort != nil {
+			dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
+			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+		}
 	}
 	return dockerPortMap, nil
 }

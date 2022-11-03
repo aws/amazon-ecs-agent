@@ -72,6 +72,7 @@ const (
 	testIPv6Address                 = "abcd:dcba:1234:4321::"
 	testIPv4Cidr                    = "127.255.0.0/16"
 	testIPv6Cidr                    = "2002::1234:abcd:ffff:c0a8:101/64"
+	testPortRange                   = "300-500"
 )
 
 var (
@@ -83,8 +84,26 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
-				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{ContainerPort: aws.Uint16(10), HostPort: 10, BindIP: "", Protocol: apicontainer.TransportProtocolTCP}, {ContainerPort: aws.Uint16(20), HostPort: 20, BindIP: "", Protocol: apicontainer.TransportProtocolUDP}},
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: aws.Uint16(10),
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: aws.Uint16(20),
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: aws.String(testPortRange),
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolTCP,
+					},
+				},
 			},
 		},
 	}
@@ -101,6 +120,10 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	_, ok = config.ExposedPorts["20/udp"]
 	if !ok {
 		t.Fatal("Could not get exposed ports 20/udp")
+	}
+	_, ok = config.ExposedPorts[testPortRange+"/tcp"]
+	if !ok {
+		t.Fatalf("Could not get exposed port range %v/tcp", testPortRange)
 	}
 }
 
@@ -185,8 +208,26 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
-				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{ContainerPort: aws.Uint16(10), HostPort: 10, BindIP: "", Protocol: apicontainer.TransportProtocolTCP}, {ContainerPort: aws.Uint16(20), HostPort: 20, BindIP: "", Protocol: apicontainer.TransportProtocolUDP}},
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: aws.Uint16(10),
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: aws.Uint16(20),
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: aws.String(testPortRange),
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolUDP,
+					},
+				},
 			},
 		},
 	}
@@ -204,6 +245,9 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	assert.True(t, ok, "Could not get port bindings")
 	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
 	assert.Equal(t, "20", bindings[0].HostPort, "Wrong hostport")
+
+	bindings, ok = config.PortBindings[testPortRange+"/udp"]
+	assert.False(t, ok, "port binding with container port range should not be set in dockerHostConfig")
 }
 
 var (
@@ -1462,6 +1506,10 @@ func TestTaskFromACS(t *testing.T) {
 						ContainerPort: intptr(900),
 						Protocol:      strptr("udp"),
 					},
+					{
+						ContainerPortRange: strptr(testPortRange),
+						Protocol:           strptr("tcp"),
+					},
 				},
 				VolumesFrom: []*ecsacs.VolumeFrom{
 					{
@@ -1560,6 +1608,10 @@ func TestTaskFromACS(t *testing.T) {
 						HostPort:      800,
 						ContainerPort: aws.Uint16(900),
 						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: aws.String(testPortRange),
+						Protocol:           apicontainer.TransportProtocolTCP,
 					},
 				},
 				VolumesFrom: []apicontainer.VolumeFrom{
