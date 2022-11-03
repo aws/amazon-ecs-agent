@@ -45,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
@@ -4494,4 +4495,50 @@ func TestGetCredentialSpecResource(t *testing.T) {
 	credentialspecTaskResource, ok := task.GetCredentialSpecResource()
 	assert.True(t, ok)
 	assert.NotEmpty(t, credentialspecTaskResource)
+}
+
+func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+	container.DockerConfig.HostConfig = &hostConfig
+
+	task := &Task{
+		Arn:                "test",
+		Containers:         []*apicontainer.Container{container},
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{
+		AWSRegion: "test-aws-region",
+	}
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
+		},
+	}
+
+	task.initializeCredentialSpecResource(cfg, credentialsManager, resFields)
+
+	resourceDep := apicontainer.ResourceDependency{
+		Name:           credentialspec.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
+	}
+
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+
+	_, ok := task.GetCredentialSpecResource()
+	assert.True(t, ok)
 }

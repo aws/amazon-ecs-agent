@@ -106,6 +106,16 @@ func TestSlicesDeepEqual(t *testing.T) {
 	}
 }
 
+func TestRemove(t *testing.T) {
+	testSlice := []string{"cat", "dog", "cat"}
+	removeElementAtIndex := 0
+
+	expectedValue := []string{"dog", "cat"}
+	actualValue := Remove(testSlice, removeElementAtIndex)
+
+	assert.Equal(t, expectedValue, actualValue)
+}
+
 func TestParseBool(t *testing.T) {
 	truthyStrings := []string{"true", "1", "t", "true\r", "true ", "true \r"}
 	falsyStrings := []string{"false", "0", "f", "false\r", "false ", "false \r"}
