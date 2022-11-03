@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/cihub/seelog"
@@ -50,50 +48,15 @@ const (
 
 // CredentialSpecResource is the abstraction for credentialspec resources
 type CredentialSpecResource struct {
-	taskARN                string
-	region                 string
-	executionCredentialsID string
-	credentialsManager     credentials.Manager
-	createdAt              time.Time
-	desiredStatusUnsafe    resourcestatus.ResourceStatus
-	knownStatusUnsafe      resourcestatus.ResourceStatus
-	// appliedStatus is the status that has been "applied" (e.g., we've called some
-	// operation such as 'Create' on the resource) but we don't yet know that the
-	// application was successful, which may then change the known status. This is
-	// used while progressing resource states in progressTask() of task manager
-	appliedStatus                      resourcestatus.ResourceStatus
-	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
-	// terminalReason should be set for resource creation failures. This ensures
-	// the resource object carries some context for why provisioning failed.
-	terminalReason     string
-	terminalReasonOnce sync.Once
-	// ssmClientCreator is a factory interface that creates new SSM clients. This is
-	// needed mostly for testing.
-	ssmClientCreator ssmfactory.SSMClientCreator
-	// s3ClientCreator is a factory interface that creates new S3 clients. This is
-	// needed mostly for testing.
-	s3ClientCreator s3factory.S3ClientCreator
-	//	This stores credspec  arn and the corresponding service account name, domain name
-	// * key := credentialspec:ssmARN, value := Path to kerberos tickets on the host machine
-	// * key := credentialspec:asmARN, value := Path to kerberos tickets on the host machine
-	ServiceAccountInfoMap map[string]ServiceAccountInfo
+	*CredentialSpecResourceCommon
 	// This stores the identifier associated with the kerberos tickets created for the task
 	leaseID string
-	// map to transform credentialspec values, key is an input credentialspec
-	// Examples:
-	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
-	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
-	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
-	CredSpecMap map[string]string
-	// The essential map of credentialspecs needed for the containers. It stores the map with the credentialSpecARN as
-	// the key container name as the value.
-	// Example item := arn:aws:ssm:us-east-1:XXXXXXXXXXXXX:parameter/x/y/c:container-sql
-	// This stores the map of a credential spec to corresponding container name
-	credentialSpecContainerMap map[string]string
+	//	This stores credspec  arn and the corresponding service account name, domain name
+	// * key := credentialspec:ssmARN, value := corresponding ServiceAccountInfo
+	// * key := credentialspec:asmARN, value := corresponding ServiceAccountInfo
+	ServiceAccountInfoMap map[string]ServiceAccountInfo
 	//	This stores credspec contents associated to all the containers of the task
 	credentialsFetcherRequest []string
-	// lock is used for fields that are accessed and updated concurrently
-	lock sync.RWMutex
 }
 
 // ServiceAccountInfo contains account info associated to a credentialspec
@@ -102,7 +65,7 @@ type ServiceAccountInfo struct {
 	domainName         string
 }
 
-// CredentialSpecSchema object schema
+// CredentialSpec object schema
 type CredentialSpecSchema struct {
 	CmsPlugins       []string `json:"CmsPlugins"`
 	DomainJoinConfig struct {
@@ -129,17 +92,18 @@ func NewCredentialSpecResource(taskARN, region string,
 	s3ClientCreator s3factory.S3ClientCreator,
 	credentialSpecContainerMap map[string]string) (*CredentialSpecResource, error) {
 	s := &CredentialSpecResource{
-		taskARN:                    taskARN,
-		region:                     region,
-		credentialsManager:         credentialsManager,
-		executionCredentialsID:     executionCredentialsID,
-		ssmClientCreator:           ssmClientCreator,
-		s3ClientCreator:            s3ClientCreator,
-		CredSpecMap:                make(map[string]string),
-		credentialSpecContainerMap: credentialSpecContainerMap,
-		ServiceAccountInfoMap:      make(map[string]ServiceAccountInfo),
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			taskARN:                    taskARN,
+			region:                     region,
+			credentialsManager:         credentialsManager,
+			executionCredentialsID:     executionCredentialsID,
+			ssmClientCreator:           ssmClientCreator,
+			s3ClientCreator:            s3ClientCreator,
+			CredSpecMap:                make(map[string]string),
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ServiceAccountInfoMap: make(map[string]ServiceAccountInfo),
 	}
-
 	s.initStatusToTransition()
 	return s, nil
 }
@@ -283,7 +247,7 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(credentialSpec string
 	}
 
 	fileName := strings.SplitAfterN(credSpecFile, "file://", 2)
-	data, err := ioutil.ReadFile(fileName[1])
+	data, err := os.ReadFile(fileName[1])
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		errorEvents <- err
@@ -395,7 +359,7 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecC
 	serviceAccountName := credentialSpecSchema.DomainJoinConfig.MachineAccountName
 	domainName := credentialSpecSchema.DomainJoinConfig.DNSName
 
-	if len(serviceAccountName) != 0 && len(domainName) != 0 {
+	if len(serviceAccountName) > 0 && len(domainName) > 0 {
 		cs.ServiceAccountInfoMap[credSpecInput] = ServiceAccountInfo{
 			serviceAccountName: serviceAccountName,
 			domainName:         domainName,
@@ -436,4 +400,18 @@ func (cs *CredentialSpecResource) clearKerberosTickets() {
 			delete(cs.ServiceAccountInfoMap, key)
 		}
 	}
+}
+
+// CredentialSpecResourceJSON is the json representation of the credentialspec resource
+type CredentialSpecResourceJSON struct {
+	*CredentialSpecResourceJSONCommon
+	LeaseID string `json:"leaseID"`
+}
+
+func (cs *CredentialSpecResource) MarshallPlatformSpecificFields(credentialSpecResourceJSON *CredentialSpecResourceJSON) {
+	credentialSpecResourceJSON.LeaseID = cs.leaseID
+}
+
+func (cs *CredentialSpecResource) UnmarshallPlatformSpecificFields(credentialSpecResourceJSON CredentialSpecResourceJSON) {
+	cs.leaseID = credentialSpecResourceJSON.LeaseID
 }

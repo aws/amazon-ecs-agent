@@ -95,12 +95,13 @@
                 "desiredStatus": "CREATED",
                 "knownStatus": "CREATED",
                 "credentialSpecResources": [
-                  "arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+                    "arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
                 ],
                 "CredSpecMap": {
-                  "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json": "/var/credentials-fetcher/krbdir/123456/webapp01"
+                    "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json": "/var/credentials-fetcher/krbdir/123456/webapp01"
                 },
-                "executionCredentialsID": "b1a6ede6-1a9f-4ab3-a02e-bd3e51b11244"
+                "executionCredentialsID": "b1a6ede6-1a9f-4ab3-a02e-bd3e51b11244",
+                "leaseID": "123456"
               }
             ]
           },

@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -30,7 +29,6 @@ import (
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -52,45 +50,10 @@ const (
 
 // CredentialSpecResource is the abstraction for credentialspec resources
 type CredentialSpecResource struct {
-	taskARN                string
-	region                 string
-	executionCredentialsID string
-	credentialsManager     credentials.Manager
-	ioutil                 ioutilwrapper.IOUtil
-	createdAt              time.Time
-	desiredStatusUnsafe    resourcestatus.ResourceStatus
-	knownStatusUnsafe      resourcestatus.ResourceStatus
-	// appliedStatus is the status that has been "applied" (e.g., we've called some
-	// operation such as 'Create' on the resource) but we don't yet know that the
-	// application was successful, which may then change the known status. This is
-	// used while progressing resource states in progressTask() of task manager
-	appliedStatus                      resourcestatus.ResourceStatus
-	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
-	// terminalReason should be set for resource creation failures. This ensures
-	// the resource object carries some context for why provisioning failed.
-	terminalReason     string
-	terminalReasonOnce sync.Once
-	// ssmClientCreator is a factory interface that creates new SSM clients. This is
-	// needed mostly for testing.
-	ssmClientCreator ssmfactory.SSMClientCreator
-	// s3ClientCreator is a factory interface that creates new S3 clients. This is
-	// needed mostly for testing.
-	s3ClientCreator s3factory.S3ClientCreator
+	*CredentialSpecResourceCommon
+	ioutil ioutilwrapper.IOUtil
 	// credentialSpecResourceLocation is the location for all the tasks' credentialspec artifacts
 	credentialSpecResourceLocation string
-	// map to transform credentialspec values, key is a input credentialspec
-	// Examples:
-	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
-	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
-	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
-	CredSpecMap map[string]string
-	// The essential map of credentialspecs needed for the containers. It stores the map with the credentialSpecARN as
-	// the key container name as the value.
-	// Example item := arn:aws:ssm:us-east-1:XXXXXXXXXXXXX:parameter/x/y/c:container-sql
-	// This stores the map of a credential spec to corresponding container name
-	credentialSpecContainerMap map[string]string
-	// lock is used for fields that are accessed and updated concurrently
-	lock sync.RWMutex
 }
 
 // NewCredentialSpecResource creates a new CredentialSpecResource object
@@ -102,15 +65,17 @@ func NewCredentialSpecResource(taskARN, region string,
 	credentialSpecContainerMap map[string]string) (*CredentialSpecResource, error) {
 
 	s := &CredentialSpecResource{
-		taskARN:                    taskARN,
-		region:                     region,
-		credentialsManager:         credentialsManager,
-		executionCredentialsID:     executionCredentialsID,
-		ssmClientCreator:           ssmClientCreator,
-		s3ClientCreator:            s3ClientCreator,
-		CredSpecMap:                make(map[string]string),
-		ioutil:                     ioutilwrapper.NewIOUtil(),
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			taskARN:                    taskARN,
+			region:                     region,
+			credentialsManager:         credentialsManager,
+			executionCredentialsID:     executionCredentialsID,
+			ssmClientCreator:           ssmClientCreator,
+			s3ClientCreator:            s3ClientCreator,
+			CredSpecMap:                make(map[string]string),
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: ioutilwrapper.NewIOUtil(),
 	}
 
 	err := s.setCredentialSpecResourceLocation()
@@ -397,4 +362,17 @@ func (cs *CredentialSpecResource) setCredentialSpecResourceLocation() error {
 	}
 
 	return nil
+}
+
+// CredentialSpecResourceJSON is the json representation of the credentialspec resource
+type CredentialSpecResourceJSON struct {
+	*CredentialSpecResourceJSONCommon
+}
+
+func (cs *CredentialSpecResource) MarshallPlatformSpecificFields(credentialSpecResourceJSON *CredentialSpecResourceJSON) {
+	return
+}
+
+func (cs *CredentialSpecResource) UnmarshallPlatformSpecificFields(credentialSpecResourceJSON CredentialSpecResourceJSON) {
+	return
 }
