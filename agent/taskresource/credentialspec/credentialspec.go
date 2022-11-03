@@ -15,16 +15,63 @@ package credentialspec
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
+
+type CredentialSpecResourceCommon struct {
+	taskARN                string
+	region                 string
+	executionCredentialsID string
+	credentialsManager     credentials.Manager
+	createdAt              time.Time
+	desiredStatusUnsafe    resourcestatus.ResourceStatus
+	knownStatusUnsafe      resourcestatus.ResourceStatus
+	// appliedStatus is the status that has been "applied" (e.g., we've called some
+	// operation such as 'Create' on the resource) but we don't yet know that the
+	// application was successful, which may then change the known status. This is
+	// used while progressing resource states in progressTask() of task manager
+	appliedStatus                      resourcestatus.ResourceStatus
+	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
+	// terminalReason should be set for resource creation failures. This ensures
+	// the resource object carries some context for why provisioning failed.
+	terminalReason     string
+	terminalReasonOnce sync.Once
+	// ssmClientCreator is a factory interface that creates new SSM clients. This is
+	// needed mostly for testing.
+	ssmClientCreator ssmfactory.SSMClientCreator
+	// s3ClientCreator is a factory interface that creates new S3 clients. This is
+	// needed mostly for testing.
+	s3ClientCreator s3factory.S3ClientCreator
+	// map to transform credentialspec values, key is an input credentialspec
+	// Examples: (windows)
+	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
+	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
+	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
+	// (linux)
+	// * key := credentialspec:file://credentialspec.json, value := Path to kerberos tickets on the host machine
+	// * key := credentialspec:ssmARN, value := Path to kerberos tickets on the host machine
+	// * key := credentialspec:asmARN, value := Path to kerberos tickets on the host machine
+	CredSpecMap map[string]string
+	// The essential map of credentialspecs needed for the containers. It stores the map with the credentialSpecARN as
+	// the key container name as the value.
+	// Example item := arn:aws:ssm:us-east-1:XXXXXXXXXXXXX:parameter/x/y/c:container-sql
+	// This stores the map of a credential spec to corresponding container name
+	credentialSpecContainerMap map[string]string
+	// lock is used for fields that are accessed and updated concurrently
+	lock sync.RWMutex
+}
 
 func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
 	_ status.TaskStatus,
@@ -214,7 +261,7 @@ func (cs *CredentialSpecResource) GetTargetMapping(credSpecInput string) (string
 }
 
 // CredentialSpecResourceJSON is the json representation of the credentialspec resource
-type CredentialSpecResourceJSON struct {
+type CredentialSpecResourceJSONCommon struct {
 	TaskARN                    string                `json:"taskARN"`
 	CreatedAt                  *time.Time            `json:"createdAt,omitempty"`
 	DesiredStatus              *CredentialSpecStatus `json:"desiredStatus"`
@@ -230,23 +277,28 @@ func (cs *CredentialSpecResource) MarshalJSON() ([]byte, error) {
 		return nil, errors.New("credential specresource is nil")
 	}
 	createdAt := cs.GetCreatedAt()
-	return json.Marshal(CredentialSpecResourceJSON{
-		TaskARN:   cs.taskARN,
-		CreatedAt: &createdAt,
-		DesiredStatus: func() *CredentialSpecStatus {
-			desiredState := cs.GetDesiredStatus()
-			s := CredentialSpecStatus(desiredState)
-			return &s
-		}(),
-		KnownStatus: func() *CredentialSpecStatus {
-			knownState := cs.GetKnownStatus()
-			s := CredentialSpecStatus(knownState)
-			return &s
-		}(),
-		CredentialSpecContainerMap: cs.credentialSpecContainerMap,
-		CredSpecMap:                cs.getCredSpecMap(),
-		ExecutionCredentialsID:     cs.getExecutionCredentialsID(),
-	})
+
+	credentialSpecResourceJSON := CredentialSpecResourceJSON{
+		CredentialSpecResourceJSONCommon: &CredentialSpecResourceJSONCommon{
+			TaskARN:   cs.taskARN,
+			CreatedAt: &createdAt,
+			DesiredStatus: func() *CredentialSpecStatus {
+				desiredState := cs.GetDesiredStatus()
+				s := CredentialSpecStatus(desiredState)
+				return &s
+			}(),
+			KnownStatus: func() *CredentialSpecStatus {
+				knownState := cs.GetKnownStatus()
+				s := CredentialSpecStatus(knownState)
+				return &s
+			}(),
+			CredentialSpecContainerMap: cs.credentialSpecContainerMap,
+			CredSpecMap:                cs.getCredSpecMap(),
+			ExecutionCredentialsID:     cs.getExecutionCredentialsID(),
+		},
+	}
+	cs.MarshallPlatformSpecificFields(&credentialSpecResourceJSON)
+	return json.Marshal(credentialSpecResourceJSON)
 }
 
 func (cs *CredentialSpecResource) getCredSpecMap() map[string]string {
@@ -258,10 +310,16 @@ func (cs *CredentialSpecResource) getCredSpecMap() map[string]string {
 
 // UnmarshalJSON deserialises the raw JSON to a CredentialSpecResourceJSON struct
 func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
-	temp := CredentialSpecResourceJSON{}
+	temp := CredentialSpecResourceJSON{
+		CredentialSpecResourceJSONCommon: &CredentialSpecResourceJSONCommon{},
+	}
 
 	if err := json.Unmarshal(b, &temp); err != nil {
 		return err
+	}
+
+	if cs.CredentialSpecResourceCommon == nil {
+		cs.CredentialSpecResourceCommon = &CredentialSpecResourceCommon{}
 	}
 
 	if temp.DesiredStatus != nil {
@@ -281,6 +339,7 @@ func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 	}
 	cs.taskARN = temp.TaskARN
 	cs.executionCredentialsID = temp.ExecutionCredentialsID
+	cs.UnmarshallPlatformSpecificFields(temp)
 
 	return nil
 }

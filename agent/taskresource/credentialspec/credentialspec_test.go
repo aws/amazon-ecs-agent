@@ -25,20 +25,26 @@ import (
 )
 
 func TestGetResourceName(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	assert.Equal(t, ResourceName, cs.GetName())
 }
 
 func TestGetDesiredStatus(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	cs.SetDesiredStatus(resourcestatus.ResourceCreated)
 	assert.Equal(t, resourcestatus.ResourceCreated, cs.GetDesiredStatus())
 }
 
 func TestGetTerminalReason(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	reason := "failed to read credentialspec"
 	cs.setTerminalReason(reason)
@@ -46,14 +52,18 @@ func TestGetTerminalReason(t *testing.T) {
 }
 
 func TestKnownCreated(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	cs.SetKnownStatus(resourcestatus.ResourceCreated)
 	assert.True(t, cs.KnownCreated())
 }
 
 func TestNextKnownState(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	cs.SetKnownStatus(resourcestatus.ResourceCreated)
 	assert.Equal(t, resourcestatus.ResourceRemoved, cs.NextKnownState())
@@ -62,7 +72,9 @@ func TestNextKnownState(t *testing.T) {
 func TestCreatedAt(t *testing.T) {
 	time := time.Now()
 
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	cs.SetCreatedAt(time)
 	assert.Equal(t, time, cs.GetCreatedAt())
@@ -78,11 +90,13 @@ func TestMarshallandUnMarshallCredSpec(t *testing.T) {
 	}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
 	}
 
 	parsedBytes, err := cs.MarshalJSON()

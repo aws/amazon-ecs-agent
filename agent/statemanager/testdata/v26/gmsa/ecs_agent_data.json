@@ -95,10 +95,10 @@
                 "desiredStatus": "CREATED",
                 "knownStatus": "CREATED",
                 "credentialSpecResources": [
-                  "credentialspec:file://WebApp01.json"
+                    "credentialspec:file://WebApp01.json"
                 ],
                 "CredSpecMap": {
-                  "credentialspec:file://WebApp01.json": "credentialspec=file://WebApp01.json"
+                    "credentialspec:file://WebApp01.json": "credentialspec=file://WebApp01.json"
                 },
                 "executionCredentialsID": "b1a6ede6-1a9f-4ab3-a02e-bd3e51b11244"
               }
