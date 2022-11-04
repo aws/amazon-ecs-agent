@@ -14,7 +14,7 @@ The best source of information on running this software is the
 
 Please note that from Agent version 1.20.0, Minimum required Docker version is 1.9.0, corresponding to Docker API version 1.21. For more information, please visit [Amazon ECS Container Agent Versions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container_agent_versions.html).
 
-### On the Amazon Linux AMI
+### On the Amazon Linux AMI 
 
 On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
 `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
