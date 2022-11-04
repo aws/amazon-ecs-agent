@@ -16,22 +16,8 @@
 
 package container
 
-import (
-	"github.com/pkg/errors"
-)
-
 const (
 	// DockerContainerMinimumMemoryInBytes is the minimum amount of
 	// memory to be allocated to a docker container
 	DockerContainerMinimumMemoryInBytes = 4 * 1024 * 1024 // 4MB
 )
-
-// RequiresCredentialSpec checks if container needs a credentialspec resource
-func (c *Container) RequiresCredentialSpec() bool {
-	return false
-}
-
-// GetCredentialSpec is used to retrieve the current credentialspec resource
-func (c *Container) GetCredentialSpec() (string, error) {
-	return "", errors.New("unsupported platform")
-}

@@ -354,7 +354,7 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 		return
 	}
 
-	s3Client, err := envfile.s3ClientCreator.NewS3ClientForBucket(bucket, envfile.region, iamCredentials)
+	s3Client, err := envfile.s3ClientCreator.NewS3ManagerClient(bucket, envfile.region, iamCredentials)
 	if err != nil {
 		errorEvents <- fmt.Errorf("unable to initialize s3 client for bucket %s, error: %v", bucket, err)
 		return

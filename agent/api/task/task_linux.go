@@ -239,23 +239,6 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	return int64(containerCPU)
 }
 
-// requiresCredentialSpecResource returns true if at least one container in the task
-// needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
-	return false
-}
-
-// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
-func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
-	resourceFields *taskresource.ResourceFields) error {
-	return errors.New("task credentialspec is only supported on windows")
-}
-
-// GetCredentialSpecResource retrieves credentialspec resource from resource map
-func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
-	return []taskresource.TaskResource{}, false
-}
-
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	if hostConfig.Sysctls == nil {
 		hostConfig.Sysctls = make(map[string]string)

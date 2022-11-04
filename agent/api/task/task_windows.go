@@ -26,14 +26,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/containernetworking/cni/libcni"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
@@ -137,62 +134,6 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 		return nil
 	}
 	return errors.New("unsupported platform")
-}
-
-// requiresCredentialSpecResource returns true if at least one container in the task
-// needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
-	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
-			return true
-		}
-	}
-	return false
-}
-
-// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
-func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
-	resourceFields *taskresource.ResourceFields) error {
-	credspecContainerMapping := task.getAllCredentialSpecRequirements()
-	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, credspecContainerMapping)
-	if err != nil {
-		return err
-	}
-
-	task.AddResource(credentialspec.ResourceName, credentialspecResource)
-
-	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
-	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
-			container.BuildResourceDependency(credentialspecResource.GetName(),
-				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
-				apicontainerstatus.ContainerCreated)
-		}
-	}
-
-	return nil
-}
-
-// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() map[string]string {
-	reqsContainerMap := make(map[string]string)
-	for _, container := range task.Containers {
-		credentialSpec, err := container.GetCredentialSpec()
-		if err == nil && credentialSpec != "" {
-			reqsContainerMap[credentialSpec] = container.Name
-		}
-	}
-	return reqsContainerMap
-}
-
-// GetCredentialSpecResource retrieves credentialspec resource from resource map
-func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
-	task.lock.RLock()
-	defer task.lock.RUnlock()
-
-	res, ok := task.ResourcesMapUnsafe[credentialspec.ResourceName]
-	return res, ok
 }
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {

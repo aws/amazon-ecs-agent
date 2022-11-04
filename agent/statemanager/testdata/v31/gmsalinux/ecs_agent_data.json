@@ -11,14 +11,14 @@
           "Version": "5",
           "Containers": [
             {
-              "Name": "windows_sample_app",
+              "Name": "linux_sample_app",
               "RuntimeID": "c7c4ce17a76d30f26f48743faa9331867ffc0ae53971929f100124836ded7be7",
               "V3EndpointID": "9cd43f50-acff-42fe-829e-3ed4aa68f637",
-              "Image": "microsoft/iis",
+              "Image": "busybox",
               "ImageID": "sha256:281fc8d130220f569fcdaf500cf8ebc614f5f7227188432f73bc9da19bdbae1b",
               "ImageDigest": "",
               "Command": [
-                "New-Item -Path C:\\inetpub\\wwwroot\\index.html -ItemType file -Value '<html> <head> <title>Amazon ECS Sample App</title> <style>body        {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1>                   <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p>' -Force ; C:\\ServiceMonitor.exe w3svc"
+                "sh", "-c", "sleep 5s; echo ab; echo bc; echo ac; exit 42"
               ],
               "Cpu": 512,
               "GPUIDs": null,
@@ -35,7 +35,7 @@
                   "Protocol": "tcp"
                 }
               ],
-              "secrets": null,
+              "secrets": [],
               "Essential": true,
               "EntryPoint": [
                 "powershell",
@@ -50,7 +50,7 @@
               },
               "dockerConfig": {
                 "config": "{}",
-                "hostConfig": "{\"SecurityOpt\":[\"credentialspec:file://WebApp01.json\"],\"CapAdd\":[],\"CapDrop\":[]}",
+                "hostConfig": "{\"Binds\":[\"/var/credentials-fetcher/krbdir/123456/webap01:/var/credebntials-fetcher/krbdir\"],\"CapAdd\":[],\"CapDrop\":[]}",
                 "version": "1.17"
               },
               "registryAuthentication": null,
@@ -95,12 +95,13 @@
                 "desiredStatus": "CREATED",
                 "knownStatus": "CREATED",
                 "credentialSpecResources": [
-                    "credentialspec:file://WebApp01.json"
+                    "arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
                 ],
                 "CredSpecMap": {
-                    "credentialspec:file://WebApp01.json": "credentialspec=file://WebApp01.json"
+                    "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json": "/var/credentials-fetcher/krbdir/123456/webapp01"
                 },
-                "executionCredentialsID": "b1a6ede6-1a9f-4ab3-a02e-bd3e51b11244"
+                "executionCredentialsID": "b1a6ede6-1a9f-4ab3-a02e-bd3e51b11244",
+                "leaseID": "123456"
               }
             ]
           },
@@ -126,16 +127,16 @@
       "IdToContainer": {
         "c7c4ce17a76d30f26f48743faa9331867ffc0ae53971929f100124836ded7be7": {
           "DockerId": "c7c4ce17a76d30f26f48743faa9331867ffc0ae53971929f100124836ded7be7",
-          "DockerName": "ecs-gmsa-test-5-windowssampleapp-d28d85d3c994a7ccaf01",
+          "DockerName": "ecs-gmsa-test-5-linuxsampleapp-d28d85d3c994a7ccaf01",
           "Container": {
-            "Name": "windows_sample_app",
+            "Name": "linux_sample_app",
             "RuntimeID": "c7c4ce17a76d30f26f48743faa9331867ffc0ae53971929f100124836ded7be7",
             "V3EndpointID": "9cd43f50-acff-42fe-829e-3ed4aa68f637",
-            "Image": "microsoft/iis",
+            "Image": "busybox",
             "ImageID": "sha256:281fc8d130220f569fcdaf500cf8ebc614f5f7227188432f73bc9da19bdbae1b",
             "ImageDigest": "",
             "Command": [
-              "New-Item -Path C:\\inetpub\\wwwroot\\index.html -ItemType file -Value '<html> <head> <title>Amazon ECS Sample App</title> <style>body        {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1>                   <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p>' -Force ; C:\\ServiceMonitor.exe w3svc"
+              "sh", "-c", "sleep 5s; echo ab; echo bc; echo ac; exit 42"
             ],
             "Cpu": 512,
             "GPUIDs": null,
@@ -167,7 +168,7 @@
             },
             "dockerConfig": {
               "config": "{}",
-              "hostConfig": "{\"SecurityOpt\":[\"credentialspec:file://WebApp01.json\"],\"CapAdd\":[],\"CapDrop\":[]}",
+              "hostConfig": "{}",
               "version": "1.17"
             },
             "registryAuthentication": null,
@@ -212,20 +213,18 @@
           "Image": {
             "ImageID": "sha256:281fc8d130220f569fcdaf500cf8ebc614f5f7227188432f73bc9da19bdbae1b",
             "Names": [
-              "microsoft/iis"
+              "httpd"
             ],
             "Size": 5005450904
           },
-          "PulledAt": "2019-11-14T21:23:43.5555065Z",
-          "LastUsedAt": "2019-11-14T21:23:43.5555065Z",
+          "PulledAt": "2022-09-14T21:23:43.5555065Z",
+          "LastUsedAt": "2022-09-14T21:23:43.5555065Z",
           "PullSucceeded": true
         }
       ],
       "ENIAttachments": null,
       "IPToTask": {}
-    },
-    "availabilityZone": "ap-northeast-1a",
-    "latestSeqNumberTaskManifest": 3
+    }
   },
-  "Version": 26
+  "Version": 31
 }

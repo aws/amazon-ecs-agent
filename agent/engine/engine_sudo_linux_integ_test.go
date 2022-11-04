@@ -43,6 +43,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -377,8 +378,8 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 }
 
 func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	// The test could fail for timing issue, so retry for 30 seconds to make this test more stable
-	for i := 0; i < 30; i++ {
+	// The test could fail for timing issue, so retry for 60 seconds to make this test more stable
+	for i := 0; i < 60; i++ {
 		resp, err := client.GetLogEvents(params)
 		if err != nil {
 			awsError, ok := err.(awserr.Error)
@@ -756,4 +757,109 @@ func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
+}
+
+func TestGMSATaskFile(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+	cfg.TaskCleanupWaitDuration = 3 * time.Second
+	cfg.GMSACapable = true
+	cfg.AWSRegion = "us-west-2"
+
+	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	// Setup test gmsa file
+	credentialSpecDataDir := "/tmp"
+	testFileName := "test-gmsa.json"
+	testCredSpecFilePath := filepath.Join(credentialSpecDataDir, testFileName)
+	_, err := os.Create(testCredSpecFilePath)
+	require.NoError(t, err)
+
+	// add local credentialspec file
+	testCredSpecData := []byte(`{
+    "CmsPlugins":  [
+                       "ActiveDirectory"
+                   ],
+    "DomainJoinConfig":  {
+                             "Sid":  "S-1-5-21-975084816-3050680612-2826754290",
+                             "MachineAccountName":  "gmsa-acct-test",
+                             "Guid":  "92a07e28-bd9f-4bf3-b1f7-0894815a5257",
+                             "DnsTreeName":  "gmsa.test.com",
+                             "DnsName":  "gmsa.test.com",
+                             "NetBiosName":  "gmsa"
+                         },
+    "ActiveDirectoryConfig":  {
+                                  "GroupManagedServiceAccounts":  [
+                                                                      {
+                                                                          "Name":  "gmsa-acct-test",
+                                                                          "Scope":  "gmsa.test.com"
+                                                                      }
+                                                                  ]
+                              }
+}`)
+
+	err = ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
+	require.NoError(t, err)
+
+	testContainer := createTestContainer()
+	testContainer.Name = "testGMSATaskFile"
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file:///tmp/test-gmsa.json\"]}"
+	testContainer.DockerConfig.HostConfig = &hostConfig
+
+	testTask := &apitask.Task{
+		Arn:                 "testGMSAFileTaskARN",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{testContainer},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = getLongRunningCommand()
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+
+	expectedBind := "/tmp/tgt:/var/credentials-fetcher/krbdir:ro"
+	err = verifyContainerBindMount(client, cid, expectedBind)
+	assert.NoError(t, err)
+
+	// Kill the existing container now
+	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	assert.NoError(t, err, "Could not kill container")
+
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+
+	// Cleanup the test file
+	err = os.RemoveAll(testCredSpecFilePath)
+	assert.NoError(t, err)
+
+}
+
+func verifyContainerBindMount(client *sdkClient.Client, id, expectedBind string) error {
+	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	if err != nil {
+		return err
+	}
+
+	for _, opt := range dockerContainer.HostConfig.Binds {
+		if opt == expectedBind {
+			return nil
+		}
+	}
+
+	return errors.New("unable to validate the bind mount")
 }
