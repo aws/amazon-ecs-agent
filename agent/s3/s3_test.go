@@ -19,6 +19,7 @@ package s3
 import (
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
+	mock_s3manager "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 )
 
@@ -42,15 +44,15 @@ func TestDownloadFile(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3ManagerClient := mock_s3manager.NewMockS3ManagerClient(ctrl)
 
-	mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Do(func(ctx aws.Context,
+	mockS3ManagerClient.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Do(func(ctx aws.Context,
 		w io.WriterAt, input *s3sdk.GetObjectInput) {
 		assert.Equal(t, testBucket, aws.StringValue(input.Bucket))
 		assert.Equal(t, testKey, aws.StringValue(input.Key))
 	})
 
-	err := DownloadFile(testBucket, testKey, testTimeout, mockFile, mockS3Client)
+	err := DownloadFile(testBucket, testKey, testTimeout, mockFile, mockS3ManagerClient)
 	assert.NoError(t, err)
 }
 
@@ -58,12 +60,12 @@ func TestDownloadFileError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3ManagerClient := mock_s3manager.NewMockS3ManagerClient(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
 
-	mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), errors.New("test error"))
+	mockS3ManagerClient.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), errors.New("test error"))
 
-	err := DownloadFile(testBucket, testKey, testTimeout, mockFile, mockS3Client)
+	err := DownloadFile(testBucket, testKey, testTimeout, mockFile, mockS3ManagerClient)
 	assert.Error(t, err)
 }
 
@@ -76,5 +78,33 @@ func TestParseS3ARN(t *testing.T) {
 
 func TestParseS3ARNInvalid(t *testing.T) {
 	_, _, err := ParseS3ARN("arn:aws:xxx:::xxx")
+	assert.Error(t, err)
+}
+
+func TestGetObject(t *testing.T) {
+	expectedValue := "testdata"
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetObjectResponse := &s3sdk.GetObjectOutput{
+		Body: io.NopCloser(strings.NewReader(expectedValue)),
+	}
+	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client.EXPECT().GetObject(gomock.Any()).Return(mockGetObjectResponse, nil)
+
+	actualValue, err := GetObject(testBucket, testKey, mockS3Client)
+	assert.NoError(t, err)
+	assert.Equal(t, actualValue, expectedValue)
+}
+
+func TestGetObjectErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetObjectResponse := &s3sdk.GetObjectOutput{}
+	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client.EXPECT().GetObject(gomock.Any()).Return(mockGetObjectResponse, errors.New("test error"))
+
+	_, err := GetObject(testBucket, testKey, mockS3Client)
 	assert.Error(t, err)
 }

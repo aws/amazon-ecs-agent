@@ -307,12 +307,12 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			ASMClientCreator:   asmfactory.NewClientCreator(),
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			FSxClientCreator:   fsxfactory.NewFSxClientCreator(),
+			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
-		Ctx:             agent.ctx,
-		DockerClient:    agent.dockerClient,
-		S3ClientCreator: s3factory.NewS3ClientCreator(),
-		NetworkUtils:    networkutils.New(),
+		Ctx:          agent.ctx,
+		DockerClient: agent.dockerClient,
+		NetworkUtils: networkutils.New(),
 	}
 }
 

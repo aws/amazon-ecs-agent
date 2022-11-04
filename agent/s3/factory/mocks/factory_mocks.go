@@ -49,17 +49,31 @@ func (m *MockS3ClientCreator) EXPECT() *MockS3ClientCreatorMockRecorder {
 	return m.recorder
 }
 
-// NewS3ClientForBucket mocks base method
-func (m *MockS3ClientCreator) NewS3ClientForBucket(arg0, arg1 string, arg2 credentials.IAMRoleCredentials) (s3.S3Client, error) {
+// NewS3Client mocks base method
+func (m *MockS3ClientCreator) NewS3Client(arg0 string, arg1 credentials.IAMRoleCredentials) s3.S3Client {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewS3ClientForBucket", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewS3Client", arg0, arg1)
 	ret0, _ := ret[0].(s3.S3Client)
+	return ret0
+}
+
+// NewS3Client indicates an expected call of NewS3Client
+func (mr *MockS3ClientCreatorMockRecorder) NewS3Client(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3Client", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3Client), arg0, arg1)
+}
+
+// NewS3ManagerClient mocks base method
+func (m *MockS3ClientCreator) NewS3ManagerClient(arg0, arg1 string, arg2 credentials.IAMRoleCredentials) (s3.S3ManagerClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewS3ManagerClient", arg0, arg1, arg2)
+	ret0, _ := ret[0].(s3.S3ManagerClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewS3ClientForBucket indicates an expected call of NewS3ClientForBucket
-func (mr *MockS3ClientCreatorMockRecorder) NewS3ClientForBucket(arg0, arg1, arg2 interface{}) *gomock.Call {
+// NewS3ManagerClient indicates an expected call of NewS3ManagerClient
+func (mr *MockS3ClientCreatorMockRecorder) NewS3ManagerClient(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3ClientForBucket", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3ClientForBucket), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3ManagerClient", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3ManagerClient), arg0, arg1, arg2)
 }

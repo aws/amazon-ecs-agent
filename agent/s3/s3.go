@@ -29,7 +29,7 @@ const (
 )
 
 // DownloadFile downloads a file from s3 and writes it with the writer.
-func DownloadFile(bucket, key string, timeout time.Duration, w io.WriterAt, client S3Client) error {
+func DownloadFile(bucket, key string, timeout time.Duration, w io.WriterAt, client S3ManagerClient) error {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
@@ -49,4 +49,25 @@ func ParseS3ARN(s3ARN string) (bucket string, key string, err error) {
 		return "", "", errors.Errorf("invalid s3 arn: %s", s3ARN)
 	}
 	return match[2], match[3], nil
+}
+
+func GetObject(bucket string, key string, client S3Client) (string, error) {
+	requestInput := &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}
+
+	result, err := client.GetObject(requestInput)
+	if err != nil {
+		return "", err
+	}
+
+	defer result.Body.Close()
+	resultBody, err := io.ReadAll(result.Body)
+	if err != nil {
+		return "", err
+	}
+	credSpecData := string(resultBody)
+
+	return credSpecData, nil
 }

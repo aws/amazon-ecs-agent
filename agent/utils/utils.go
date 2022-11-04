@@ -163,6 +163,11 @@ func ParseBool(str string, default_ bool) bool {
 	return res
 }
 
+// Removes element at a particular index in the slice
+func Remove(slice []string, s int) []string {
+	return append(slice[:s], slice[s+1:]...)
+}
+
 // IsAWSErrorCodeEqual returns true if the err implements Error
 // interface of awserr and it has the same error code as
 // the passed in error code.

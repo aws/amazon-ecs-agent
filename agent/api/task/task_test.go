@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 
 	"github.com/docker/go-connections/nat"
 
@@ -44,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
@@ -4373,4 +4375,170 @@ func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, BridgeNetworkMode, task.NetworkMode)
 	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
+}
+
+func TestRequiresCredentialSpecResource(t *testing.T) {
+	container1 := &apicontainer.Container{}
+	task1 := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container1},
+	}
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	container2 := &apicontainer.Container{}
+	container2.DockerConfig.HostConfig = &hostConfig
+	task2 := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container2},
+	}
+
+	testCases := []struct {
+		name           string
+		task           *Task
+		expectedOutput bool
+	}{
+		{
+			name:           "missing_credentialspec",
+			task:           task1,
+			expectedOutput: false,
+		},
+		{
+			name:           "valid_credentialspec",
+			task:           task2,
+			expectedOutput: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.task.requiresCredentialSpecResource())
+		})
+	}
+
+}
+
+func TestGetAllCredentialSpecRequirements(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	container := &apicontainer.Container{Name: "webapp1"}
+	container.DockerConfig.HostConfig = &hostConfig
+
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container},
+	}
+
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+
+	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
+	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp1"}
+
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
+}
+
+func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	c1 := &apicontainer.Container{Name: "webapp1"}
+	c1.DockerConfig.HostConfig = &hostConfig
+
+	c2 := &apicontainer.Container{Name: "webapp2"}
+	c2.DockerConfig.HostConfig = &hostConfig
+
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{c1, c2},
+	}
+
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+
+	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
+	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp2"}
+
+	assert.Equal(t, len(expectedCredentialSpecContainerMap), len(credentialSpecContainerMap))
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
+}
+
+func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
+	hostConfig1 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-1.json\"]}"
+	hostConfig2 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-2.json\"]}"
+
+	c1 := &apicontainer.Container{Name: "webapp1"}
+	c1.DockerConfig.HostConfig = &hostConfig1
+
+	c2 := &apicontainer.Container{Name: "webapp2"}
+	c2.DockerConfig.HostConfig = &hostConfig1
+
+	c3 := &apicontainer.Container{Name: "webapp3"}
+	c3.DockerConfig.HostConfig = &hostConfig2
+
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{c1, c2, c3},
+	}
+
+	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+
+	credentialspec1 := "credentialspec:file://gmsa_gmsa-acct-1.json"
+	credentialspec2 := "credentialspec:file://gmsa_gmsa-acct-2.json"
+
+	expectedCredentialSpecContainerMap := map[string]string{credentialspec1: "webapp2", credentialspec2: "webapp3"}
+
+	assert.True(t, reflect.DeepEqual(expectedCredentialSpecContainerMap, credentialSpecContainerMap))
+}
+
+func TestGetCredentialSpecResource(t *testing.T) {
+	credentialspecResource := &credentialspec.CredentialSpecResource{}
+	task := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+	task.AddResource(credentialspec.ResourceName, credentialspecResource)
+
+	credentialspecTaskResource, ok := task.GetCredentialSpecResource()
+	assert.True(t, ok)
+	assert.NotEmpty(t, credentialspecTaskResource)
+}
+
+func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+	container.DockerConfig.HostConfig = &hostConfig
+
+	task := &Task{
+		Arn:                "test",
+		Containers:         []*apicontainer.Container{container},
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{
+		AWSRegion: "test-aws-region",
+	}
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
+		},
+	}
+
+	task.initializeCredentialSpecResource(cfg, credentialsManager, resFields)
+
+	resourceDep := apicontainer.ResourceDependency{
+		Name:           credentialspec.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
+	}
+
+	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+
+	_, ok := task.GetCredentialSpecResource()
+	assert.True(t, ok)
 }
