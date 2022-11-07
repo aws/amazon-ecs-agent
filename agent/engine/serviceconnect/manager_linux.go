@@ -302,7 +302,15 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 		return nil, err
 	}
 	containerRunning := apicontainerstatus.ContainerRunning
-	dockerHostConfig := dockercontainer.HostConfig{NetworkMode: apitask.HostNetworkMode}
+	dockerHostConfig := dockercontainer.HostConfig{
+		NetworkMode: apitask.HostNetworkMode,
+		// do not restart relay if it's stopped manually.
+		// the default value of 0 for MaximumRetryCount means that we will not enforce a maximum count
+		RestartPolicy: dockercontainer.RestartPolicy{
+			Name:              "on-failure",
+			MaximumRetryCount: 0,
+		},
+	}
 	rawHostConfig, err := json.Marshal(&dockerHostConfig)
 	if err != nil {
 		return nil, err
