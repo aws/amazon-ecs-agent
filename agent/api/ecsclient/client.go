@@ -17,8 +17,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/docker/go-connections/nat"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 
@@ -513,9 +516,87 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 			Protocol:      aws.String(protocol),
 		})
 	}
+
+	for _, requestedPorts := range change.Container.Ports {
+		if requestedPorts.ContainerPortRange != nil {
+			containerPortRange := aws.StringValue(requestedPorts.ContainerPortRange)
+			err := consolidateNetworkBindings(containerPortRange, networkBindings)
+			if err != nil {
+				seelog.Errorf("Unable to consolidate network bindings associated to container port range %v for container %s in task %s, err: %v",
+					containerPortRange, change.ContainerName, change.TaskArn, err)
+			}
+		}
+	}
 	statechange.NetworkBindings = networkBindings
 
 	return statechange
+}
+
+func consolidateNetworkBindings(containerPortRange string, networkBindings []*ecs.NetworkBinding) error {
+	// get start and end ints of the containerPortRange using nat.ParsePortRangeToInt
+	startContainerPortRange, lastContainerPortRange, err := nat.ParsePortRangeToInt(containerPortRange)
+	if err != nil {
+		return err
+	}
+
+	var startHostPort, lastHostPort, n int
+	for containerPort := startContainerPortRange; containerPort <= lastContainerPortRange; containerPort++ {
+		bindings, err := findNetworkBindingsForContainerPort(containerPort, networkBindings)
+		if err != nil {
+			return err
+		}
+
+		// there may be multiple bindings with the same host port
+		// ex: when there are both ipv4 and ipv6 HostIPs
+		currHostPort := int(aws.Int64Value(bindings[0].HostPort))
+		if currHostPort-lastHostPort == 1 {
+			removeNetworkBindings(currHostPort, networkBindings)
+			lastHostPort = currHostPort
+			n += 1
+		} else {
+			if n > 1 {
+				for _, b := range bindings {
+					networkBindings = append(networkBindings, &ecs.NetworkBinding{
+						BindIP:             b.BindIP,
+						ContainerPortRange: aws.String(strconv.Itoa(containerPort - n)),
+						HostPortRange:      aws.String(strconv.Itoa(lastHostPort - startHostPort)),
+						Protocol:           b.Protocol,
+					})
+				}
+			}
+			startHostPort, lastHostPort = currHostPort, currHostPort
+			n = 1
+		}
+	}
+	return nil
+}
+
+func findNetworkBindingsForContainerPort(containerPort int, networkBindings []*ecs.NetworkBinding) ([]*ecs.NetworkBinding, error) {
+	var resp []*ecs.NetworkBinding
+	for _, networkBinding := range networkBindings {
+		if aws.Int64Value(networkBinding.ContainerPort) == int64(containerPort) {
+			resp = append(resp, networkBinding)
+		}
+	}
+	if len(resp) != 0 {
+		return resp, nil
+	}
+	return nil, fmt.Errorf("unable to find networkBindings associated to containerPort %v", containerPort)
+}
+
+func removeNetworkBindings(targetHostPort int, networkBindings []*ecs.NetworkBinding) {
+	for i, networkBinding := range networkBindings {
+		if aws.Int64Value(networkBinding.HostPort) == int64(targetHostPort) {
+			remove(networkBindings, i)
+		}
+	}
+}
+
+func remove(slice []*ecs.NetworkBinding, idx int) {
+	// Remove the element at index idx from slice, in constant time.
+	slice[idx] = slice[len(slice)-1]            // Copy last element to index idx.
+	slice[len(slice)-1] = &ecs.NetworkBinding{} // Erase last element (write empty/zero value).
+	slice = slice[:len(slice)-1]                // Truncate slice.
 }
 
 func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
