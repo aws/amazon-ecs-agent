@@ -320,7 +320,7 @@ type Container struct {
 
 	labels map[string]string
 
-	// hasPortRange is set to true when the container has at least 1 port range requested.
+	// ContainerHasPortRange is set to true when the container has at least 1 port range requested.
 	ContainerHasPortRange bool
 	// ContainerPortSet is a set of singular container ports that don't belong to a containerPortRange request
 	ContainerPortSet map[int]struct{}
@@ -1414,7 +1414,7 @@ func (c *Container) SetContainerHasPortRange(containerHasPortRange bool) {
 	c.ContainerHasPortRange = containerHasPortRange
 }
 
-func (c *Container) GetContainerHasPortRange() bool {
+func (c *Container) HasPortRange() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.ContainerHasPortRange
