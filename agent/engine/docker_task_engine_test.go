@@ -2077,7 +2077,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 			pauseContainerName:    fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, testContainerName),
 			pauseContainerPortBindings: []apicontainer.PortBinding{
 				{
-					ContainerPort: 8080,
+					ContainerPort: aws.Uint16(8080),
 				},
 			},
 			networkMode: networkModeBridge,
@@ -2205,7 +2205,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			started: time.Now(),
 			portBindings: []apicontainer.PortBinding{
 				{
-					ContainerPort: 80,
+					ContainerPort: aws.Uint16(80),
 					HostPort:      80,
 					BindIP:        "0.0.0.0/0",
 					Protocol:      apicontainer.TransportProtocolTCP,
@@ -2283,7 +2283,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			assert.Equal(t, (tc.started).Format(time.RFC3339), (dockerContainer.Container.GetStartedAt()).Format(time.RFC3339))
 			assert.Equal(t, (tc.finished).Format(time.RFC3339), (dockerContainer.Container.GetFinishedAt()).Format(time.RFC3339))
 			if tc.stage == "started" {
-				assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindingsUnsafe[0].ContainerPort)
+				assert.Equal(t, aws.Uint16(80), dockerContainer.Container.KnownPortBindingsUnsafe[0].ContainerPort)
 			}
 			if tc.stage == "finished" {
 				assert.False(t, task.GetExecutionStoppedAt().IsZero())

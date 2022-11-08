@@ -572,7 +572,7 @@ func (task *Task) initServiceConnectEphemeralPorts() error {
 	// to avoid port conflicts.
 	for _, c := range task.Containers {
 		for _, p := range c.Ports {
-			utilizedPorts = append(utilizedPorts, p.ContainerPort)
+			utilizedPorts = append(utilizedPorts, aws.Uint16Value(p.ContainerPort))
 		}
 	}
 
@@ -1808,7 +1808,7 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 	}
 
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
+		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 	return dockerExposedPorts, nil
@@ -2358,7 +2358,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 	}
 
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
+		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
 		dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
 	}
 	return dockerPortMap, nil

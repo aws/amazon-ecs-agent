@@ -21,14 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -161,7 +161,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 						SteadyStateStatusUnsafe: &steadyStateStatus,
 						KnownExitCodeUnsafe:     &exitCode,
 						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
-							ContainerPort: 1,
+							ContainerPort: aws.Uint16(1),
 							HostPort:      2,
 							BindIP:        "1.2.3.4",
 							Protocol:      3,
@@ -177,7 +177,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 				Status:        apicontainerstatus.ContainerRunning,
 				ExitCode:      &exitCode,
 				PortBindings: []apicontainer.PortBinding{{
-					ContainerPort: 1,
+					ContainerPort: aws.Uint16(1),
 					HostPort:      2,
 					BindIP:        "1.2.3.4",
 					Protocol:      3,
@@ -219,7 +219,7 @@ func TestNewUncheckedContainerStateChangeEvent_SCBridge(t *testing.T) {
 			addPauseContainer:  true,
 			pauseContainerName: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, testContainerName),
 			pauseContainerPortBindings: []apicontainer.PortBinding{{
-				ContainerPort: 1,
+				ContainerPort: aws.Uint16(1),
 				HostPort:      2,
 				BindIP:        "1.2.3.4",
 				Protocol:      3,
@@ -252,7 +252,7 @@ func TestNewUncheckedContainerStateChangeEvent_SCBridge(t *testing.T) {
 						SteadyStateStatusUnsafe: &steadyStateStatus,
 						KnownExitCodeUnsafe:     &exitCode,
 						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
-							ContainerPort: 8080, // we get this from task definition
+							ContainerPort: aws.Uint16(8080), // we get this from task definition
 						}},
 						ImageDigest: "image",
 					},

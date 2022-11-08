@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -39,7 +41,7 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 				{
 					BindIP:        "1.2.3.4",
 					HostPort:      55,
-					ContainerPort: 53,
+					ContainerPort: aws.Uint16(53),
 					Protocol:      TransportProtocolUDP,
 				},
 			},
@@ -55,13 +57,13 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 				{
 					BindIP:        "2.3.4.5",
 					HostPort:      8080,
-					ContainerPort: 80,
+					ContainerPort: aws.Uint16(80),
 					Protocol:      TransportProtocolTCP,
 				},
 				{
 					BindIP:        "5.6.7.8",
 					HostPort:      80,
-					ContainerPort: 80,
+					ContainerPort: aws.Uint16(80),
 					Protocol:      TransportProtocolTCP,
 				},
 			},

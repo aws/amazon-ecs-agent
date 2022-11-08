@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -426,7 +428,7 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
+						ContainerPort: aws.Uint16(80),
 						HostPort:      80,
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
@@ -445,7 +447,7 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 				KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
+						ContainerPort: aws.Uint16(80),
 						HostPort:      80,
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},

@@ -17,6 +17,8 @@ import (
 	"strconv"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -30,7 +32,9 @@ const (
 // PortBinding represents a port binding for a container
 type PortBinding struct {
 	// ContainerPort is the port inside the container
-	ContainerPort uint16
+	ContainerPort *uint16
+	// ContainerPortRange is a range of ports exposed inside the container
+	ContainerPortRange *string
 	// HostPort is the port exposed on the host
 	HostPort uint16
 	// BindIP is the IP address to which the port is bound
@@ -60,7 +64,7 @@ func PortBindingFromDockerPortBinding(dockerPortBindings nat.PortMap) ([]PortBin
 				return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing port binding as int " + err.Error()}
 			}
 			portBindings = append(portBindings, PortBinding{
-				ContainerPort: uint16(containerPort),
+				ContainerPort: aws.Uint16(uint16(containerPort)),
 				HostPort:      uint16(hostPort),
 				BindIP:        binding.HostIP,
 				Protocol:      protocol,

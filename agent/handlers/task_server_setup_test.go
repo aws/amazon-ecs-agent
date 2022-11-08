@@ -193,7 +193,7 @@ var (
 		ContainerArn:        "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: containerPort,
+				ContainerPort: aws.Uint16(containerPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -313,7 +313,7 @@ var (
 		Type:                apicontainer.ContainerNormal,
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: containerPort,
+				ContainerPort: aws.Uint16(containerPort),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},

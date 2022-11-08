@@ -276,7 +276,7 @@ func TestPortForward(t *testing.T) {
 	testTask = createTestTask(testArn)
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port2), "-serve", serverContent}
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port2, HostPort: port2}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port2), HostPort: port2}}
 
 	taskEngine.AddTask(testTask)
 
@@ -331,12 +331,12 @@ func TestMultiplePortForwards(t *testing.T) {
 	port1 := getUnassignedPort()
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "1"}
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port1}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port1), HostPort: port1}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "2"}
-	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port2}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port1), HostPort: port2}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -386,7 +386,7 @@ func TestDynamicPortForward(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port)}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -404,7 +404,7 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 	var bindingForcontainerPortOne uint16
 	for _, binding := range validPortBindings {
-		if binding.ContainerPort == port {
+		if port == aws.Uint16Value(binding.ContainerPort) {
 			bindingForcontainerPortOne = binding.HostPort
 		}
 	}
@@ -441,7 +441,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port}, {ContainerPort: port, HostPort: 0}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port)}, {ContainerPort: aws.Uint16(port), HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -460,7 +460,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	var bindingForcontainerPortOne_1 uint16
 	var bindingForcontainerPortOne_2 uint16
 	for _, binding := range validPortBindings {
-		if binding.ContainerPort == port {
+		if port == aws.Uint16Value(binding.ContainerPort) {
 			if bindingForcontainerPortOne_1 == 0 {
 				bindingForcontainerPortOne_1 = binding.HostPort
 			} else {
@@ -519,7 +519,7 @@ func TestLinking(t *testing.T) {
 	port := getUnassignedPort()
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", port), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: port, HostPort: port}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(port), HostPort: port}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -959,7 +959,7 @@ func TestFluentdTag(t *testing.T) {
 	testTaskFleuntdDriver.Containers[0].Image = testFluentdImage
 	testTaskFleuntdDriver.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/fluentd/log",
 		SourceVolume: "logs"}}
-	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
+	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: aws.Uint16(24224), HostPort: 24224}}
 	go taskEngine.AddTask(testTaskFleuntdDriver)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
