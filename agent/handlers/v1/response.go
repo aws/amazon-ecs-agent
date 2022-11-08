@@ -20,6 +20,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 // MetadataResponse is the schema for the metadata response JSON object
@@ -139,7 +141,7 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 
 	for _, binding := range bindings {
 		port := PortResponse{
-			ContainerPort: binding.ContainerPort,
+			ContainerPort: aws.Uint16Value(binding.ContainerPort),
 			Protocol:      binding.Protocol.String(),
 		}
 

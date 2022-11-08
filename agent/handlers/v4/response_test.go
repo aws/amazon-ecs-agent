@@ -28,6 +28,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -105,7 +107,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},

@@ -806,7 +806,7 @@ func TestContainerEvents(t *testing.T) {
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
 	assert.Equal(t, event.Status, apicontainerstatus.ContainerRunning, "Wrong status")
-	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
+	assert.Equal(t, event.PortBindings[0].ContainerPort, aws.Uint16(80), "Incorrect port bindings")
 	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
 	assert.Equal(t, event.Volumes[0].Source, "/host/path", "Incorrect volume mapping")
 	assert.Equal(t, event.Volumes[0].Destination, "/container/path", "Incorrect volume mapping")
