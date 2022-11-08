@@ -319,6 +319,13 @@ type Container struct {
 	finishedAt time.Time
 
 	labels map[string]string
+
+	// hasPortRange is set to true when the container has at least 1 port range requested.
+	ContainerHasPortRange bool
+	// ContainerPortSet is a set of singular container ports that don't belong to a containerPortRange request
+	ContainerPortSet map[int]struct{}
+	// ContainerPortRangeMap is a map of containerPortRange to its associated hostPortRange
+	ContainerPortRangeMap map[string]string
 }
 
 type DependsOn struct {
@@ -1399,4 +1406,40 @@ func (c *Container) IsContainerTornDown() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.ContainerTornDownUnsafe
+}
+
+func (c *Container) SetContainerHasPortRange(containerHasPortRange bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ContainerHasPortRange = containerHasPortRange
+}
+
+func (c *Container) GetContainerHasPortRange() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.ContainerHasPortRange
+}
+
+func (c *Container) SetContainerPortSet(containerPortSet map[int]struct{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ContainerPortSet = containerPortSet
+}
+
+func (c *Container) GetContainerPortSet() map[int]struct{} {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.ContainerPortSet
+}
+
+func (c *Container) SetContainerPortRangeMap(portRangeMap map[string]string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ContainerPortRangeMap = portRangeMap
+}
+
+func (c *Container) GetContainerPortRangeMap() map[string]string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.ContainerPortRangeMap
 }
