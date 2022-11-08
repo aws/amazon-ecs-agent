@@ -50,6 +50,7 @@ const (
 	iid               = "instanceIdentityDocument"
 	iidSignature      = "signature"
 	registrationToken = "clientToken"
+	testNetworkName   = "foo"
 )
 
 var (
@@ -196,6 +197,12 @@ func TestSubmitContainerStateChange(t *testing.T) {
 					HostPort:      int64ptr(intptr(4)),
 					Protocol:      strptr("udp"),
 				},
+				{
+					BindIP:             strptr("5.6.7.8"),
+					ContainerPortRange: strptr("11-12"),
+					HostPortRange:      strptr("11-12"),
+					Protocol:           strptr("udp"),
+				},
 			},
 		},
 	})
@@ -204,6 +211,18 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		ContainerName: "cont",
 		RuntimeID:     "runtime id",
 		Status:        apicontainerstatus.ContainerRunning,
+		Container: &apicontainer.Container{
+			ContainerArn:          "arn",
+			NetworkModeUnsafe:     testNetworkName,
+			ContainerHasPortRange: true,
+			ContainerPortSet: map[int]struct{}{
+				1: {},
+				3: {},
+			},
+			ContainerPortRangeMap: map[string]string{
+				"11-12": "11-12",
+			},
+		},
 		PortBindings: []apicontainer.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
@@ -214,6 +233,18 @@ func TestSubmitContainerStateChange(t *testing.T) {
 				BindIP:        "2.2.3.4",
 				ContainerPort: aws.Uint16(3),
 				HostPort:      4,
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				BindIP:        "5.6.7.8",
+				ContainerPort: aws.Uint16(11),
+				HostPort:      11,
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				BindIP:        "5.6.7.8",
+				ContainerPort: aws.Uint16(12),
+				HostPort:      12,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 		},
@@ -232,21 +263,14 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 
 	mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&containerSubmitInputMatcher{
 		ecs.SubmitContainerStateChangeInput{
-			Cluster:       strptr(configuredCluster),
-			Task:          strptr("arn"),
-			ContainerName: strptr("cont"),
-			RuntimeId:     strptr("runtime id"),
-			Status:        strptr("STOPPED"),
-			ExitCode:      int64ptr(&exitCode),
-			Reason:        strptr(reason),
-			NetworkBindings: []*ecs.NetworkBinding{
-				{
-					BindIP:        strptr(""),
-					ContainerPort: int64ptr(intptr(0)),
-					HostPort:      int64ptr(intptr(0)),
-					Protocol:      strptr("tcp"),
-				},
-			},
+			Cluster:         strptr(configuredCluster),
+			Task:            strptr("arn"),
+			ContainerName:   strptr("cont"),
+			RuntimeId:       strptr("runtime id"),
+			Status:          strptr("STOPPED"),
+			ExitCode:        int64ptr(&exitCode),
+			Reason:          strptr(reason),
+			NetworkBindings: []*ecs.NetworkBinding{},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
@@ -256,6 +280,9 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
+		Container: &apicontainer.Container{
+			NetworkModeUnsafe: testNetworkName,
+		},
 		PortBindings: []apicontainer.PortBinding{
 			{},
 		},
@@ -286,9 +313,12 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainerstatus.ContainerStopped,
-		ExitCode:      &exitCode,
-		Reason:        reason,
+		Container: &apicontainer.Container{
+			NetworkModeUnsafe: testNetworkName,
+		},
+		Status:   apicontainerstatus.ContainerStopped,
+		ExitCode: &exitCode,
+		Reason:   reason,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -317,9 +347,12 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainerstatus.ContainerStopped,
-		ExitCode:      &exitCode,
-		Reason:        reason,
+		Container: &apicontainer.Container{
+			NetworkModeUnsafe: testNetworkName,
+		},
+		Status:   apicontainerstatus.ContainerStopped,
+		ExitCode: &exitCode,
+		Reason:   reason,
 	})
 	if err != nil {
 		t.Errorf("Unable to submit container state change: %v", err)
@@ -1114,7 +1147,10 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 				TaskArn:       "arn",
 				ContainerName: "container",
 				RuntimeID:     "runtimeid",
-				Status:        apicontainerstatus.ContainerRunning,
+				Container: &apicontainer.Container{
+					NetworkModeUnsafe: testNetworkName,
+				},
+				Status: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
@@ -1151,4 +1187,140 @@ func extractTagsMapFromRegisterContainerInstanceInput(req *ecs.RegisterContainer
 		tagsMap[aws.StringValue(req.Tags[i].Key)] = aws.StringValue(req.Tags[i].Value)
 	}
 	return tagsMap
+}
+
+func getTestContainerStateChange() api.ContainerStateChange {
+	testContainer := &apicontainer.Container{
+		Name:              "cont",
+		NetworkModeUnsafe: testNetworkName,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: aws.Uint16(10),
+				HostPort:      10,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: aws.Uint16(12),
+				HostPort:      12,
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: aws.Uint16(15),
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: aws.String("21-22"),
+				Protocol:           apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPortRange: aws.String("96-97"),
+				Protocol:           apicontainer.TransportProtocolTCP,
+			},
+		},
+		ContainerHasPortRange: true,
+		ContainerPortSet: map[int]struct{}{
+			10: {},
+			12: {},
+			15: {},
+		},
+		ContainerPortRangeMap: map[string]string{
+			"21-22": "60001-60002",
+			"96-97": "47001-47002",
+		},
+	}
+
+	testContainerStateChange := api.ContainerStateChange{
+		TaskArn:       "arn",
+		ContainerName: "cont",
+		Status:        apicontainerstatus.ContainerRunning,
+		Container:     testContainer,
+		PortBindings: []apicontainer.PortBinding{
+			{
+				ContainerPort: aws.Uint16(10),
+				HostPort:      10,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: aws.Uint16(12),
+				HostPort:      12,
+				BindIP:        "1.2.3.4",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: aws.Uint16(15),
+				HostPort:      20,
+				BindIP:        "5.6.7.8",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: aws.Uint16(21),
+				HostPort:      60001,
+				BindIP:        "::",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: aws.Uint16(22),
+				HostPort:      60002,
+				BindIP:        "::",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: aws.Uint16(96),
+				HostPort:      47001,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: aws.Uint16(97),
+				HostPort:      47002,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+	}
+
+	return testContainerStateChange
+}
+
+func TestGetNetworkBindings(t *testing.T) {
+	testContainerStateChange := getTestContainerStateChange()
+	expectedNetworkBindings := []*ecs.NetworkBinding{
+		{
+			BindIP:        strptr("0.0.0.0"),
+			ContainerPort: int64ptr(intptr(10)),
+			HostPort:      int64ptr(intptr(10)),
+			Protocol:      strptr("tcp"),
+		},
+		{
+			BindIP:        strptr("1.2.3.4"),
+			ContainerPort: int64ptr(intptr(12)),
+			HostPort:      int64ptr(intptr(12)),
+			Protocol:      strptr("udp"),
+		},
+		{
+			BindIP:        strptr("5.6.7.8"),
+			ContainerPort: int64ptr(intptr(15)),
+			HostPort:      int64ptr(intptr(20)),
+			Protocol:      strptr("tcp"),
+		},
+		{
+			BindIP:             strptr("::"),
+			ContainerPortRange: strptr("21-22"),
+			HostPortRange:      strptr("60001-60002"),
+			Protocol:           strptr("udp"),
+		},
+		{
+			BindIP:             strptr("0.0.0.0"),
+			ContainerPortRange: strptr("96-97"),
+			HostPortRange:      strptr("47001-47002"),
+			Protocol:           strptr("tcp"),
+		},
+	}
+
+	networkBindings := getNetworkBindings(testContainerStateChange, false)
+	if !reflect.DeepEqual(expectedNetworkBindings, networkBindings) {
+		t.Errorf("Mismatch between expected and actual network bindings, expected: %v actual: %v",
+			expectedNetworkBindings, networkBindings)
+	}
 }
