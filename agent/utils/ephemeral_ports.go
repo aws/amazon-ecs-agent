@@ -16,7 +16,12 @@ package utils
 import (
 	"fmt"
 	"math/rand"
+	"net"
+	"strconv"
+	"sync"
 	"time"
+
+	"github.com/cihub/seelog"
 )
 
 // From https://www.kernel.org/doc/html/latest//networking/ip-sysctl.html#ip-variables
@@ -29,6 +34,9 @@ const (
 var (
 	// Injection point for UTs
 	randIntFunc = rand.Intn
+	// portLock is a mutex lock used to prevent two concurrent tasks to get the same host ports.
+	// TODO: implement a port manager that tracks last assigned host port
+	portLock sync.Mutex
 )
 
 // GenerateEphemeralPortNumbers generates a list of n unique port numbers in the 32768-60999 range. The resulting port
@@ -57,4 +65,70 @@ func GenerateEphemeralPortNumbers(n int, reserved []uint16) ([]uint16, error) {
 		result = append(result, port)
 	}
 	return result, nil
+}
+
+var dynamicHostPortRange = getDynamicHostPortRange
+
+// GetHostPortRange gets N contiguous host ports from the ephemeral host port range defined on the host.
+func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
+	portLock.Lock()
+	defer portLock.Unlock()
+
+	// get ephemeral port range, either default or if custom-defined
+	startHostPortRange, endHostPortRange, err := dynamicHostPortRange()
+	if err != nil {
+		seelog.Warnf("Unable to read the ephemeral host port range, falling back to the default range: %v-%v",
+			defaultPortRangeStart, defaultPortRangeEnd)
+		startHostPortRange, endHostPortRange = defaultPortRangeStart, defaultPortRangeEnd
+	}
+
+	var startPort, lastPort, n int
+	for port := startHostPortRange; port <= endHostPortRange; port++ {
+		portStr := strconv.Itoa(port)
+		// check if port is available
+		if protocol == "tcp" {
+			// net.Listen announces on the local tcp network
+			ln, err := net.Listen(protocol, ":"+portStr)
+			// either port is unavailable or some error occurred while listening, we proceed to the next port
+			if err != nil {
+				continue
+			}
+			// let's close the listener first
+			err = ln.Close()
+			if err != nil {
+				continue
+			}
+		} else if protocol == "udp" {
+			// net.ListenPacket announces on the local udp network
+			ln, err := net.ListenPacket(protocol, ":"+portStr)
+			// either port is unavailable or some error occurred while listening, we proceed to the next port
+			if err != nil {
+				continue
+			}
+			// let's close the listener first
+			err = ln.Close()
+			if err != nil {
+				continue
+			}
+		}
+
+		// check if current port is contiguous relative to lastPort
+		if port-lastPort != 1 {
+			startPort = port
+			lastPort = port
+			n = 1
+		} else {
+			lastPort = port
+			n += 1
+		}
+
+		// we've got contiguous available ephemeral host ports to use, equal to the requested numberOfPorts
+		if n == numberOfPorts {
+			break
+		}
+	}
+	if n != numberOfPorts {
+		return "", fmt.Errorf("%v contiguous host ports unavailable", numberOfPorts)
+	}
+	return strconv.Itoa(startPort) + "-" + strconv.Itoa(lastPort), nil
 }
