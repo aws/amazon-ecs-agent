@@ -1,11 +1,33 @@
 package utils
 
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 import (
+	"errors"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	testTCPProtocol        = "tcp"
+	testUDPProtocol        = "udp"
+	testContainerPortRange = "11-20"
+	// testNumberOfPorts is the no.of ports in the above testContainerPortRange, inclusive of start and end.
+	testNumberOfPorts = 10
 )
 
 func TestGenerateEphemeralPortNumbers(t *testing.T) {
@@ -49,4 +71,91 @@ func TestGenerateEphemeralPortNumbers_CollisionError(t *testing.T) {
 	assert.Nil(t, ports)
 	assert.Error(t, err)
 	assert.Equal(t, "maximum number of attempts to generate unique ports reached", err.Error())
+}
+
+func TestGetPortRangeLength(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		testRange      string
+		expectedOutput int
+		expectError    bool
+	}{
+		{
+			testName:       "valid range, no err",
+			testRange:      testContainerPortRange,
+			expectedOutput: testNumberOfPorts,
+			expectError:    false,
+		},
+		{
+			testName:       "invalid range, err",
+			testRange:      "999-99",
+			expectedOutput: 0,
+			expectError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			numberOfPorts, err := getPortRangeLength(tc.testRange)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectedOutput, numberOfPorts)
+		})
+	}
+}
+
+func TestGetHostPortRange(t *testing.T) {
+	testCases := []struct {
+		testName           string
+		containerPortRange string
+		protocol           string
+		expectedError      error
+	}{
+		{
+			testName:           "valid containerPortRange, tcp protocol, hostPortRange found",
+			containerPortRange: testContainerPortRange,
+			protocol:           testTCPProtocol,
+			expectedError:      nil,
+		},
+		{
+			testName:           "valid containerPortRange, udp protocol, hostPortRange found",
+			containerPortRange: testContainerPortRange,
+			protocol:           testUDPProtocol,
+			expectedError:      nil,
+		},
+		{
+			testName:           "valid containerPortRange, tcp protocol, hostPortRange not found",
+			containerPortRange: testContainerPortRange,
+			protocol:           testTCPProtocol,
+			expectedError:      errors.New("10 contiguous host ports unavailable"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			hostPortRange, err := GetHostPortRange(tc.containerPortRange, tc.protocol)
+			if tc.expectedError == nil {
+				assert.NoError(t, err)
+
+				numberOfHostPorts, err := getPortRangeLength(hostPortRange)
+				assert.NoError(t, err)
+				assert.Equal(t, testNumberOfPorts, numberOfHostPorts)
+			} else {
+				defer func() {
+					dynamicHostPortRange = getDynamicHostPortRange
+				}()
+
+				dynamicHostPortRange = func() (start int, end int, err error) {
+					return 1, 2, nil
+				}
+				hostPortRange, err := GetHostPortRange(tc.containerPortRange, tc.protocol)
+				assert.Equal(t, tc.expectedError, err)
+				assert.Equal(t, "", hostPortRange)
+			}
+
+		})
+	}
 }
