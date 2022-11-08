@@ -502,7 +502,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		}
 
 		hostPort := int64(binding.HostPort)
-		containerPort := int64(binding.ContainerPort)
+		containerPort := int64(aws.Uint16Value(binding.ContainerPort))
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 

@@ -97,7 +97,7 @@ func TestTaskResponse(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -193,7 +193,7 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -276,7 +276,7 @@ func TestContainerResponse(t *testing.T) {
 				},
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: 80,
+						ContainerPort: aws.Uint16(80),
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
@@ -404,7 +404,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		ImageID:      imageID,
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -537,7 +537,7 @@ func TestContainerResponseMarshal(t *testing.T) {
 		},
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -627,7 +627,7 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		Type:                apicontainer.ContainerNormal,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: 80,
+				ContainerPort: aws.Uint16(80),
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},

@@ -207,12 +207,12 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		PortBindings: []apicontainer.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
-				ContainerPort: 1,
+				ContainerPort: aws.Uint16(1),
 				HostPort:      2,
 			},
 			{
 				BindIP:        "2.2.3.4",
-				ContainerPort: 3,
+				ContainerPort: aws.Uint16(3),
 				HostPort:      4,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
