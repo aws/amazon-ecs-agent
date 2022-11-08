@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.66.0
+* Feature - gMSA on Linux support [#3464](https://github.com/aws/amazon-ecs-agent/pull/3464)
+* Enhancement - Restart AppNet Relay on failure [#3469](Restart AppNet Relay on failure)
+
 ## 1.65.1
 * Enhancement - Add grpc vendor dependencies [#3439](https://github.com/aws/amazon-ecs-agent/pull/3439)
 * Bug - Workaround git-secrets scan issue: awslabs/git-secrets#221 [#3442](https://github.com/aws/amazon-ecs-agent/pull/3442)
