@@ -24,26 +24,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/go-connections/nat"
-
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -54,8 +48,13 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
 
@@ -1784,8 +1783,19 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 	}
 
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
-		dockerExposedPorts[dockerPort] = struct{}{}
+		protocol := portBinding.Protocol.String()
+		// per port binding config, either one of ContainerPort or ContainerPortRange is set
+		if portBinding.ContainerPort != nil {
+			dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + protocol)
+			dockerExposedPorts[dockerPort] = struct{}{}
+		} else if portBinding.ContainerPortRange != nil {
+			// we supply containerPortRange here in case we did not assign a host port range and ask docker to do so
+			dockerPortRange, err := nat.NewPort(protocol, aws.StringValue(portBinding.ContainerPortRange))
+			if err != nil {
+				return nil, err
+			}
+			dockerExposedPorts[dockerPortRange] = struct{}{}
+		}
 	}
 	return dockerExposedPorts, nil
 }
@@ -2297,6 +2307,8 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 	return dockerLinkArr, nil
 }
 
+var getHostPortRange = utils.GetHostPortRange
+
 func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap, error) {
 	dockerPortMap := nat.PortMap{}
 	scContainer := task.GetServiceConnectContainer()
@@ -2333,10 +2345,72 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 		}
 	}
 
+	containerPortSet := make(map[int]struct{})
+	containerPortRangeMap := make(map[string]string)
 	for _, portBinding := range containerToCheck.Ports {
-		dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + portBinding.Protocol.String())
-		dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+		// for each port binding config, either one of containerPort or containerPortRange is set
+		if portBinding.ContainerPort != nil {
+			containerPort := int(aws.Uint16Value(portBinding.ContainerPort))
+
+			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + portBinding.Protocol.String())
+			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+
+			// append non-range, singular container port to the containerPortSet
+			containerPortSet[containerPort] = struct{}{}
+		} else if portBinding.ContainerPortRange != nil {
+			containerToCheck.SetContainerHasPortRange(true)
+
+			containerPortRange := aws.StringValue(portBinding.ContainerPortRange)
+			// nat.ParsePortRangeToInt validates a port range; if valid, it returns start and end ports as integers
+			startContainerPort, endContainerPort, err := nat.ParsePortRangeToInt(containerPortRange)
+			if err != nil {
+				return nil, err
+			}
+
+			numberOfPorts := endContainerPort - startContainerPort + 1
+			protocol := portBinding.Protocol.String()
+			// we will try to get a contiguous set of host ports from the ephemeral host port range.
+			// this is to ensure that docker maps host ports in a contiguous manner, and
+			// we are guaranteed to have the entire hostPortRange in a single network binding while sending this info to ECS.
+			hostPortRange, err := getHostPortRange(numberOfPorts, protocol)
+			if err != nil {
+				// in the odd case where we're unable to find a contiguous set of host ports, we fall back to docker dynamic port
+				// assignment for the requested ContainerPortRange.
+				logger.Error("Unable to find contiguous host ports for container, falling back to "+
+					"docker dynamic port assignment", logger.Fields{
+					field.TaskID:         task.GetID(),
+					field.Container:      container.Name,
+					"containerPortRange": containerPortRange,
+					field.Error:          err,
+				})
+
+				// append individual container port from the containerPortRange into the containerPortSet.
+				// this will ensure that we populate network bindings for ports that docker dynamically assigned.
+				for port := startContainerPort; port <= endContainerPort; port++ {
+					containerPortSet[port] = struct{}{}
+				}
+			} else {
+				// append ranges to the dockerPortMap
+				// nat.ParsePortSpec returns a list of port mappings in a format that docker likes
+				mappings, err := nat.ParsePortSpec(hostPortRange + ":" + containerPortRange + "/" + protocol)
+				if err != nil {
+					return nil, err
+				}
+
+				for _, mapping := range mappings {
+					dockerPortMap[mapping.Port] = append(dockerPortMap[mapping.Port], mapping.Binding)
+				}
+
+				// append containerPortRange and associated hostPortRange to the containerPortRangeMap
+				// this will ensure that we consolidate range into 1 network binding while sending it to ECS
+				containerPortRangeMap[containerPortRange] = hostPortRange
+			}
+		}
 	}
+
+	// set Container.ContainerPortSet and Container.ContainerPortRangeMap to be used during network binding creation
+	containerToCheck.SetContainerPortSet(containerPortSet)
+	containerToCheck.SetContainerPortRangeMap(containerPortRangeMap)
 	return dockerPortMap, nil
 }
 
