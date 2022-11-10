@@ -292,7 +292,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)
 	}
 
-	if len(hostCfg.CapAdd) != 3 {
+	if len(hostCfg.CapAdd) != 2 {
 		t.Error("Mismatch detected in added host config capabilities")
 	}
 
