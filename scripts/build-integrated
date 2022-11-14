@@ -35,6 +35,10 @@ PAUSE_CONTAINER_TARBALL="amazon-ecs-pause.tar"
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
+# we need to make sure we've got the correct golang version installed
+# # if it's already installed the script will set env vars and exit
+source ./scripts/install-golang.sh
+
 # Set TARGET_OS from GOOS if it is not set
 if [[ "${TARGET_OS}" == "" && "${GOOS}" != "" ]]; then
   TARGET_OS="${GOOS}"

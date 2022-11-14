@@ -54,6 +54,10 @@ static:
 static-with-pause:
 	./scripts/build true "" false true
 
+static-integrated-with-pause:
+	./scripts/update-version.sh
+	./scripts/build-integrated true "" false true
+
 # Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
@@ -258,7 +262,7 @@ dockerfree-cni-plugins: get-cni-sources
 	./scripts/build-cni-plugins
 
 # see dockerfree-pause above: assumes that the pre-compiled pause container tar exists
-dockerfree-agent-image: dockerfree-certs dockerfree-cni-plugins static-with-pause
+dockerfree-agent-image: dockerfree-certs dockerfree-cni-plugins static-integrated-with-pause
 	./scripts/build-agent-image
 
 .PHONY: codebuild
