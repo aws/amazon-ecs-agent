@@ -8,7 +8,7 @@ jobs:
     name: Static Analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
@@ -25,10 +25,10 @@ jobs:
             exit 1
           fi
           echo "::set-output name=GO_VERSION::$go_version"
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
@@ -44,7 +44,7 @@ jobs:
     name: Static Analysis Init
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
@@ -61,10 +61,10 @@ jobs:
             exit 1
           fi
           echo "::set-output name=GO_VERSION::$go_version"
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
@@ -80,7 +80,7 @@ jobs:
     name: Cross platform build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
@@ -97,10 +97,10 @@ jobs:
             exit 1
           fi
           echo "::set-output name=GO_VERSION::$go_version"
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent
