@@ -69,21 +69,6 @@ const (
 	// maxRetries specifies the maximum number of retries for ping to return
 	// a successful response from the docker socket
 	maxRetries = 5
-	// CapNetAdmin to start agent with NET_ADMIN capability
-	// For more information on capabilities, please read this manpage:
-	// http://man7.org/linux/man-pages/man7/capabilities.7.html
-	CapNetAdmin = "NET_ADMIN"
-	// CapSysAdmin to start agent with SYS_ADMIN capability
-	// This is needed for the ECS Agent to invoke the setns call when
-	// configuring the network namespace of the pause container
-	// For more information on setns, please read this manpage:
-	// http://man7.org/linux/man-pages/man2/setns.2.html
-	CapSysAdmin = "SYS_ADMIN"
-	// CapChown to start agent with CAP_CHOWN capability
-	// This is needed for the ECS Agent to invoke the chown call when
-	// configuring the files for configuration or administration.
-	// http://man7.org/linux/man-pages/man2/chown.2.html
-	CapChown = "CAP_CHOWN"
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
 	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
@@ -125,6 +110,20 @@ const (
 	execConfigRelativePath = "config"
 
 	execAgentLogRelativePath = "/exec"
+)
+
+// Do NOT include "CAP_" in capability string
+const (
+	// CapNetAdmin to start agent with NET_ADMIN capability
+	// For more information on capabilities, please read this manpage:
+	// http://man7.org/linux/man-pages/man7/capabilities.7.html
+	CapNetAdmin = "NET_ADMIN"
+	// CapSysAdmin to start agent with SYS_ADMIN capability
+	// This is needed for the ECS Agent to invoke the setns call when
+	// configuring the network namespace of the pause container
+	// For more information on setns, please read this manpage:
+	// http://man7.org/linux/man-pages/man2/setns.2.html
+	CapSysAdmin = "SYS_ADMIN"
 )
 
 var pluginDirs = []string{

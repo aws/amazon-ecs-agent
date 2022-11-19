@@ -1,3 +1,21 @@
+amazon-ecs-init (1.66.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.66.2
+
+ -- Heming Han <hanhm@amazon.com>  Sat, 12 Nov 2022 18:00:00 +0000
+
+amazon-ecs-init (1.66.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.66.1
+
+ -- Heming Han <hanhm@amazon.com>  Thu, 10 Nov 2022 18:00:00 +0000
+
+amazon-ecs-init (1.66.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.66.0
+
+ -- Cameron Sparr <cssparr@amazon.com>  Tue, 08 Nov 2022 18:00:00 +0000
+
 amazon-ecs-init (1.65.1-1) stable; urgency=medium
 
   * Cache Agent version 1.65.1
