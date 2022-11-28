@@ -97,8 +97,10 @@ func TestResourceContainerProgression(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	taskID := sleepTask.GetID()
-	cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, mockIO, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
 	sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -110,35 +112,69 @@ func TestResourceContainerProgression(t *testing.T) {
 	containerEventsWG := sync.WaitGroup{}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
-	gomock.InOrder(
-		// Ensure that the resource is created first
-		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
-		mockControl.EXPECT().Create(gomock.Any()).Return(nil),
-		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
-		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
-		client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
-		imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
-		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
-		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
-				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
-		// Next, the sleep container is started
-		client.EXPECT().StartContainer(gomock.Any(), containerID+":"+sleepContainer.Name, defaultConfig.ContainerStartTimeout).Do(
-			func(ctx interface{}, id string, timeout time.Duration) {
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
-	)
+
+	// Hierarchical memory accounting is always enabled in CgroupV2 and no controller file exists to configure it
+	if config.CgroupV2 {
+		gomock.InOrder(
+			// Ensure that the resource is created first
+			mockControl.EXPECT().Exists(gomock.Any()).Return(false),
+			mockControl.EXPECT().Create(gomock.Any()).Return(nil),
+			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
+			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
+					assert.True(t, strings.Contains(containerName, sleepContainer.Name))
+					containerEventsWG.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						containerEventsWG.Done()
+					}()
+				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
+			// Next, the sleep container is started
+			client.EXPECT().StartContainer(gomock.Any(), containerID+":"+sleepContainer.Name, defaultConfig.ContainerStartTimeout).Do(
+				func(ctx interface{}, id string, timeout time.Duration) {
+					containerEventsWG.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						containerEventsWG.Done()
+					}()
+				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
+		)
+	} else {
+		cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
+		gomock.InOrder(
+			// Ensure that the resource is created first
+			mockControl.EXPECT().Exists(gomock.Any()).Return(false),
+			mockControl.EXPECT().Create(gomock.Any()).Return(nil),
+			mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
+			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
+			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
+					assert.True(t, strings.Contains(containerName, sleepContainer.Name))
+					containerEventsWG.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						containerEventsWG.Done()
+					}()
+				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
+			// Next, the sleep container is started
+			client.EXPECT().StartContainer(gomock.Any(), containerID+":"+sleepContainer.Name, defaultConfig.ContainerStartTimeout).Do(
+				func(ctx interface{}, id string, timeout time.Duration) {
+					containerEventsWG.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						containerEventsWG.Done()
+					}()
+				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
+		)
+	}
 	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 
 	cleanup := make(chan time.Time, 1)
@@ -266,6 +302,9 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	taskID := sleepTask.GetID()
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 	cgroupResource := cgroup.NewCgroupResource(sleepTask.Arn, mockControl, nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
 
 	sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -343,7 +382,6 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			mockControl := mock_control.NewMockControl(ctrl)
 			mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 			taskID := sleepTask.GetID()
-			cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
 			if tc.taskCPULimit.Enabled() {
 				// TODO Currently, the resource Setup() method gets invoked multiple
 				// times for a task. This is really a bug and a fortunate occurrence
@@ -360,7 +398,10 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				}
 				mockControl.EXPECT().Exists(gomock.Any()).Return(false)
 				mockControl.EXPECT().Create(gomock.Any()).Return(nil)
-				mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil)
+				if !config.CgroupV2 {
+					cgroupMemoryPath := fmt.Sprintf("/sys/fs/cgroup/memory/ecs/%s/memory.use_hierarchy", taskID)
+					mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil)
+				}
 			}
 
 			for _, container := range sleepTask.Containers {
@@ -412,6 +453,9 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			taskEngine.AddTask(sleepTaskStop)
 			taskEngine.AddTask(sleepTaskStop)
 			cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+			if config.CgroupV2 {
+				cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+			}
 			if tc.taskCPULimit.Enabled() {
 				mockControl.EXPECT().Remove(cgroupRoot).Return(nil)
 			}

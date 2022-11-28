@@ -51,7 +51,8 @@ const (
 	validTaskArn   = "arn:aws:ecs:region:account-id:task/task-id"
 	invalidTaskArn = "invalid:task::arn"
 
-	expectedCgroupRoot = "/ecs/task-id"
+	expectedCgroupV1Root = "/ecs/task-id"
+	expectedCgroupV2Root = "ecstasks-task-id.slice"
 
 	taskVCPULimit             = 2.0
 	taskMemoryLimit           = 512
@@ -80,6 +81,13 @@ const (
 var (
 	scPauseContainerName = fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainerName)
 )
+
+func getExpectedCgroupRoot() string {
+	if config.CgroupV2 {
+		return expectedCgroupV2Root
+	}
+	return expectedCgroupV1Root
+}
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 	testTask := &Task{
@@ -244,6 +252,7 @@ func TestBuildCgroupRootHappyPath(t *testing.T) {
 	}
 
 	cgroupRoot, err := task.BuildCgroupRoot()
+	expectedCgroupRoot := getExpectedCgroupRoot()
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedCgroupRoot, cgroupRoot)
@@ -450,6 +459,7 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 	}
 
 	hostConfig := &dockercontainer.HostConfig{}
+	expectedCgroupRoot := getExpectedCgroupRoot()
 
 	assert.NoError(t, task.overrideCgroupParent(hostConfig))
 	assert.NotEmpty(t, hostConfig)
@@ -482,6 +492,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 	}
 
 	hostConfig := &dockercontainer.HostConfig{}
+	expectedCgroupRoot := getExpectedCgroupRoot()
 
 	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
