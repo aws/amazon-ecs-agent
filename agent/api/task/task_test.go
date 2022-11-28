@@ -89,24 +89,24 @@ func TestDockerConfigPortBinding(t *testing.T) {
 				Name: "c1",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: aws.Uint16(10),
+						ContainerPort: 10,
 						HostPort:      10,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 					{
-						ContainerPort: aws.Uint16(20),
+						ContainerPort: 20,
 						HostPort:      20,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolUDP,
 					},
 					{
-						ContainerPortRange: aws.String("99-999"),
+						ContainerPortRange: "99-999",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolTCP,
 					},
 					{
-						ContainerPortRange: aws.String("121-221"),
+						ContainerPortRange: "121-221",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolUDP,
 					},
@@ -223,13 +223,13 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				Name: "c1",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPort: aws.Uint16(10),
+						ContainerPort: 10,
 						HostPort:      10,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 					{
-						ContainerPort: aws.Uint16(20),
+						ContainerPort: 20,
 						HostPort:      20,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolUDP,
@@ -245,12 +245,12 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				Name: "c1",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPortRange: aws.String("999-1000"),
+						ContainerPortRange: "999-1000",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolTCP,
 					},
 					{
-						ContainerPortRange: aws.String("1-3"),
+						ContainerPortRange: "1-3",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolUDP,
 					},
@@ -265,12 +265,12 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				Name: "c1",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPortRange: aws.String("55-57"),
+						ContainerPortRange: "55-57",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolUDP,
 					},
 					{
-						ContainerPort: aws.Uint16(80),
+						ContainerPort: 80,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
@@ -386,8 +386,8 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 			{
 				Name: "C1",
 				Ports: []apicontainer.PortBinding{
-					{ContainerPort: aws.Uint16(SCTaskContainerPort1), HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
-					{ContainerPort: aws.Uint16(SCTaskContainerPort2), HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
+					{ContainerPort: SCTaskContainerPort1, HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
+					{ContainerPort: SCTaskContainerPort2, HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
 				},
 				NetworkModeUnsafe: "", // should later be overridden to container mode
 			},
@@ -1725,11 +1725,11 @@ func TestTaskFromACS(t *testing.T) {
 				Ports: []apicontainer.PortBinding{
 					{
 						HostPort:      800,
-						ContainerPort: aws.Uint16(900),
+						ContainerPort: 900,
 						Protocol:      apicontainer.TransportProtocolUDP,
 					},
 					{
-						ContainerPortRange: strptr("99-199"),
+						ContainerPortRange: "99-199",
 						Protocol:           apicontainer.TransportProtocolTCP,
 					},
 				},

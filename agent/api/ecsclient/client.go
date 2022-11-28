@@ -548,7 +548,7 @@ func getNetworkBindings(change api.ContainerStateChange, shouldExcludeIPv6PortBi
 		}
 
 		hostPort := int64(binding.HostPort)
-		containerPort := int64(aws.Uint16Value(binding.ContainerPort))
+		containerPort := int64(binding.ContainerPort)
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 

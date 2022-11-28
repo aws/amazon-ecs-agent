@@ -572,7 +572,7 @@ func (task *Task) initServiceConnectEphemeralPorts() error {
 	// to avoid port conflicts.
 	for _, c := range task.Containers {
 		for _, p := range c.Ports {
-			utilizedPorts = append(utilizedPorts, aws.Uint16Value(p.ContainerPort))
+			utilizedPorts = append(utilizedPorts, p.ContainerPort)
 		}
 	}
 
@@ -1810,12 +1810,12 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 	for _, portBinding := range containerToCheck.Ports {
 		protocol := portBinding.Protocol.String()
 		// per port binding config, either one of ContainerPort or ContainerPortRange is set
-		if portBinding.ContainerPort != nil {
-			dockerPort := nat.Port(strconv.Itoa(int(aws.Uint16Value(portBinding.ContainerPort))) + "/" + protocol)
+		if portBinding.ContainerPort != 0 {
+			dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + protocol)
 			dockerExposedPorts[dockerPort] = struct{}{}
-		} else if portBinding.ContainerPortRange != nil {
+		} else if portBinding.ContainerPortRange != "" {
 			// we supply containerPortRange here in case we did not assign a host port range and ask docker to do so
-			dockerPortRange, err := nat.NewPort(protocol, aws.StringValue(portBinding.ContainerPortRange))
+			dockerPortRange, err := nat.NewPort(protocol, portBinding.ContainerPortRange)
 			if err != nil {
 				return nil, err
 			}
@@ -2374,18 +2374,18 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 	containerPortRangeMap := make(map[string]string)
 	for _, portBinding := range containerToCheck.Ports {
 		// for each port binding config, either one of containerPort or containerPortRange is set
-		if portBinding.ContainerPort != nil {
-			containerPort := int(aws.Uint16Value(portBinding.ContainerPort))
+		if portBinding.ContainerPort != 0 {
+			containerPort := int(portBinding.ContainerPort)
 
 			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + portBinding.Protocol.String())
 			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
 
 			// append non-range, singular container port to the containerPortSet
 			containerPortSet[containerPort] = struct{}{}
-		} else if portBinding.ContainerPortRange != nil {
+		} else if portBinding.ContainerPortRange != "" {
 			containerToCheck.SetContainerHasPortRange(true)
 
-			containerPortRange := aws.StringValue(portBinding.ContainerPortRange)
+			containerPortRange := portBinding.ContainerPortRange
 			// nat.ParsePortRangeToInt validates a port range; if valid, it returns start and end ports as integers
 			startContainerPort, endContainerPort, err := nat.ParsePortRangeToInt(containerPortRange)
 			if err != nil {

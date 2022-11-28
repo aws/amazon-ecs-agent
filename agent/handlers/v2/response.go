@@ -273,7 +273,7 @@ func NewContainerResponse(
 
 	for _, binding := range container.GetKnownPortBindings() {
 		port := v1.PortResponse{
-			ContainerPort: aws.Uint16Value(binding.ContainerPort),
+			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
 		}
 		if eni == nil {

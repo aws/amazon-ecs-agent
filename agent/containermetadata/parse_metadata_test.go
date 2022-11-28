@@ -21,7 +21,6 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -201,7 +200,7 @@ func TestParseHasNetworkSettingsPortBindings(t *testing.T) {
 	assert.Equal(t, len(metadata.dockerContainerMetadata.networkInfo.networks), 2, "Expected two networks")
 
 	assert.Equal(t, len(metadata.dockerContainerMetadata.ports), 1, "Expected nonempty list of ports")
-	assert.Equal(t, aws.Uint16(80), metadata.dockerContainerMetadata.ports[0].ContainerPort, "Expected nonempty ContainerPort field")
+	assert.Equal(t, uint16(80), metadata.dockerContainerMetadata.ports[0].ContainerPort, "Expected nonempty ContainerPort field")
 	assert.Equal(t, uint16(8080), metadata.dockerContainerMetadata.ports[0].HostPort, "Expected nonempty HostPort field")
 	assert.Equal(t, "0.0.0.0", metadata.dockerContainerMetadata.ports[0].BindIP, "Expected nonempty HostIP field")
 }
