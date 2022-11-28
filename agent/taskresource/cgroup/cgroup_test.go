@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -42,6 +43,9 @@ const (
 )
 
 func TestCreateHappyPath(t *testing.T) {
+	if config.CgroupV2 {
+		t.Skip("Skipping TestCreateHappyPath for CgroupV2 as memory.use_hierarchy is not created when cgroupV2=true")
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -68,6 +72,9 @@ func TestCreateCgroupPathExists(t *testing.T) {
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(true),
@@ -85,6 +92,9 @@ func TestCreateCgroupError(t *testing.T) {
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 
 	gomock.InOrder(
 		mockControl.EXPECT().Exists(gomock.Any()).Return(false),
@@ -101,6 +111,9 @@ func TestCleanupHappyPath(t *testing.T) {
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 
 	mockControl.EXPECT().Remove(cgroupRoot).Return(nil)
 
@@ -114,6 +127,9 @@ func TestCleanupRemoveError(t *testing.T) {
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 
 	mockControl.EXPECT().Remove(gomock.Any()).Return(errors.New("cgroup remove error"))
 
@@ -127,6 +143,9 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", taskID)
+	}
 
 	err := cgroups.ErrCgroupDeleted
 	wrappedErr := fmt.Errorf("cgroup remove: unable to obtain controller: %w", err)
@@ -144,6 +163,11 @@ func TestMarshal(t *testing.T) {
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\",\"resourceSpec\":{}}"
 
 	cgroupRoot := "/ecs/taskid"
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", "taskid")
+		cgroupStr = "{\"cgroupRoot\":\"ecstasks-taskid.slice\",\"cgroupMountPath\":\"/sys/fs/cgroup\"," +
+			"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\",\"resourceSpec\":{}}"
+	}
 	cgroupMountPath := "/sys/fs/cgroup"
 
 	cgroup := NewCgroupResource("", cgroup.New(), nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
@@ -160,6 +184,14 @@ func TestUnmarshal(t *testing.T) {
 	cgroupMountPath := "/sys/fs/cgroup"
 	bytes := []byte("{\"CgroupRoot\":\"/ecs/taskid\",\"CgroupMountPath\":\"/sys/fs/cgroup\"," +
 		"\"CreatedAt\":\"0001-01-01T00:00:00Z\",\"DesiredStatus\":\"CREATED\",\"KnownStatus\":\"NONE\"}")
+
+	if config.CgroupV2 {
+		cgroupRoot = fmt.Sprintf("ecstasks-%s.slice", "taskid")
+		bytes = []byte("{\"CgroupRoot\":\"ecstasks-taskid.slice\",\"CgroupMountPath\":\"/sys/fs/cgroup\"," +
+			"\"CreatedAt\":\"0001-01-01T00:00:00Z\",\"DesiredStatus\":\"CREATED\",\"KnownStatus\":\"NONE\"}")
+
+	}
+
 	unmarshalledCgroup := &CgroupResource{}
 	err := unmarshalledCgroup.UnmarshalJSON(bytes)
 	assert.NoError(t, err)
