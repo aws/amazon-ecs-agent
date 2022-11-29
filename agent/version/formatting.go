@@ -48,9 +48,7 @@ func String() string {
 	return ret + GitShortHash + ")"
 }
 
+// Don't prepend the dirty (*) in pathwriter path
 func GitHashString() string {
-	if GitDirty {
-		return "*" + GitShortHash
-	}
 	return GitShortHash
 }
