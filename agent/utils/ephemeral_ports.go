@@ -35,7 +35,6 @@ var (
 	// Injection point for UTs
 	randIntFunc = rand.Intn
 	// portLock is a mutex lock used to prevent two concurrent tasks to get the same host ports.
-	// TODO: implement a port manager that tracks last assigned host port
 	portLock sync.Mutex
 )
 
@@ -67,7 +66,31 @@ func GenerateEphemeralPortNumbers(n int, reserved []uint16) ([]uint16, error) {
 	return result, nil
 }
 
+// safePortTracker tracks the host port last assigned to a container port range and is safe to use concurrently.
+// TODO: implement a port manager that does synchronization and integrates with a configurable option to modify ephemeral range
+type safePortTracker struct {
+	mu                   sync.Mutex
+	lastAssignedHostPort int
+}
+
+// SetLastAssignedHostPort sets the last assigned host port
+func (pt *safePortTracker) SetLastAssignedHostPort(port int) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	pt.lastAssignedHostPort = port
+}
+
+// GetLastAssignedHostPort returns the last assigned host port
+func (pt *safePortTracker) GetLastAssignedHostPort() int {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	return pt.lastAssignedHostPort
+}
+
 var dynamicHostPortRange = getDynamicHostPortRange
+var tracker safePortTracker
 
 // GetHostPortRange gets N contiguous host ports from the ephemeral host port range defined on the host.
 func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
@@ -82,8 +105,40 @@ func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
 		startHostPortRange, endHostPortRange = defaultPortRangeStart, defaultPortRangeEnd
 	}
 
-	var startPort, lastPort, n int
-	for port := startHostPortRange; port <= endHostPortRange; port++ {
+	start := startHostPortRange
+	end := endHostPortRange
+
+	// get the last assigned host port
+	lastAssignedHostPort := tracker.GetLastAssignedHostPort()
+	if lastAssignedHostPort != 0 {
+		// this implies that this is not the first time we're searching for host ports
+		// so start searching for new ports from the last tracked port
+		start = lastAssignedHostPort + 1
+	}
+
+	result, lastCheckedPort, err := getHostPortRange(numberOfPorts, start, end, protocol)
+	if err != nil {
+		if lastAssignedHostPort != 0 {
+			// this implies that there are no contiguous host ports available from lastAssignedHostPort to endHostPortRange
+			// so, we need to loop back to the startHostPortRange and check for contiguous ports until lastCheckedPort
+			start = startHostPortRange
+			end = lastCheckedPort - 1
+			result, lastCheckedPort, err = getHostPortRange(numberOfPorts, start, end, protocol)
+		}
+	}
+
+	if lastCheckedPort == endHostPortRange {
+		tracker.SetLastAssignedHostPort(startHostPortRange - 1)
+	} else {
+		tracker.SetLastAssignedHostPort(lastCheckedPort)
+	}
+
+	return result, err
+}
+
+func getHostPortRange(numberOfPorts, start, end int, protocol string) (string, int, error) {
+	var resultStartPort, resultEndPort, n int
+	for port := start; port <= end; port++ {
 		portStr := strconv.Itoa(port)
 		// check if port is available
 		if protocol == "tcp" {
@@ -113,12 +168,12 @@ func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
 		}
 
 		// check if current port is contiguous relative to lastPort
-		if port-lastPort != 1 {
-			startPort = port
-			lastPort = port
+		if port-resultEndPort != 1 {
+			resultStartPort = port
+			resultEndPort = port
 			n = 1
 		} else {
-			lastPort = port
+			resultEndPort = port
 			n += 1
 		}
 
@@ -127,8 +182,10 @@ func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
 			break
 		}
 	}
+
 	if n != numberOfPorts {
-		return "", fmt.Errorf("%v contiguous host ports unavailable", numberOfPorts)
+		return "", resultEndPort, fmt.Errorf("%v contiguous host ports unavailable", numberOfPorts)
 	}
-	return strconv.Itoa(startPort) + "-" + strconv.Itoa(lastPort), nil
+
+	return fmt.Sprintf("%d-%d", resultStartPort, resultEndPort), resultEndPort, nil
 }
