@@ -18,7 +18,9 @@ package docker
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -290,7 +292,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 		t.Errorf("Expected network mode to be %s, got %s", networkMode, hostCfg.NetworkMode)
 	}
 
-	if len(hostCfg.CapAdd) != 3 {
+	if len(hostCfg.CapAdd) != 2 {
 		t.Error("Mismatch detected in added host config capabilities")
 	}
 
@@ -984,4 +986,102 @@ func TestDefaultIsPathValid(t *testing.T) {
 			assert.Equal(t, result, tc.expected)
 		})
 	}
+}
+
+func TestGetCredentialsFetcherSocketBind(t *testing.T) {
+	testCases := []struct {
+		name                                 string
+		credentialsFetcherHostFromEnv        string
+		credentialsFetcherHostFromConfigFile string
+		expectedBind                         string
+	}{
+		{
+			name:                                 "No Credentials Fetcher host from env",
+			credentialsFetcherHostFromEnv:        "",
+			credentialsFetcherHostFromConfigFile: "dummy",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Invalid Credentials Fetcher host from env",
+			credentialsFetcherHostFromEnv:        "invalid",
+			credentialsFetcherHostFromConfigFile: "dummy",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher from env, no Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
+			credentialsFetcherHostFromConfigFile: "",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher from env, invalid Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
+			credentialsFetcherHostFromConfigFile: "invalid",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
+		},
+		{
+			name:                                 "Credentials Fetcher host from env, Credentials Fetcher from config file",
+			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+			credentialsFetcherHostFromConfigFile: "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock.1:/var/credentials-fetcher/socket/credentials_fetcher.sock.1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("CREDENTIALS_FETCHER_HOST", tc.credentialsFetcherHostFromEnv)
+			defer os.Unsetenv("CREDENTIALS_FETCHER_HOST")
+
+			bind, _ := getCredentialsFetcherSocketBind()
+			assert.Equal(t, tc.expectedBind, bind)
+		})
+	}
+}
+
+func TestInstanceDomainJoined(t *testing.T) {
+	execCommand = fakeExecCommand
+	execLookPath = func(name string) (string, error) {
+		return "/usr/sbin/dummy", nil
+	}
+
+	defer func() {
+		execLookPath = exec.LookPath
+		execCommand = exec.Command
+	}()
+
+	out := isDomainJoined()
+	assert.True(t, out)
+}
+
+func TestInstanceDomainJoinedRealmNotFound(t *testing.T) {
+	execCommand = fakeExecCommand
+	execLookPath = func(name string) (string, error) {
+		return "", nil
+	}
+
+	defer func() {
+		execLookPath = exec.LookPath
+		execCommand = exec.Command
+	}()
+
+	out := isDomainJoined()
+	assert.False(t, out)
+}
+
+func TestExecHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	mockRealmList := "contoso.com\n  type: kerberos\n  realm-name: CONTOSO.COM\n  domain-name: contoso.com\n  configured: kerberos-member\n  server-software: active-directory\n  client-software: sssd\n  required-package: oddjob\n  required-package: oddjob-mkhomedir\n  required-package: sssd\n  required-package: adcli\n  required-package: samba-common-tools\n  login-formats: %U@contoso.com\n  login-policy: allow-realm-logins"
+	fmt.Fprintf(os.Stdout, mockRealmList)
+	os.Exit(0)
+}
+
+func fakeExecCommand(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestExecHelperProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+	return cmd
 }

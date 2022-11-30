@@ -21,14 +21,12 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
-	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 )
 
 // ResourceFields is the list of fields required for creation of task resources
 type ResourceFields struct {
 	*ResourceFieldsCommon
-	Ctx             context.Context
-	DockerClient    dockerapi.DockerClient
-	S3ClientCreator s3factory.S3ClientCreator
-	NetworkUtils    networkutils.NetworkUtils
+	Ctx          context.Context
+	DockerClient dockerapi.DockerClient
+	NetworkUtils networkutils.NetworkUtils
 }

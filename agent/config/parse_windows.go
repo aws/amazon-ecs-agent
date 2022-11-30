@@ -28,11 +28,6 @@ import (
 )
 
 const (
-	// envSkipDomainJoinCheck is an environment setting that can be used to skip
-	// domain join check validation. This is useful for integration and
-	// functional-tests but should not be set for any non-test use-case.
-	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
-
 	// envSkipWindowsServerVersionCheck is an environment setting that can be used
 	// to skip the windows server version check. This is useful for testing and
 	// should not be set for any non-test use-case.

@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
-	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
+	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -71,7 +71,9 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 
 	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap:                    credSpecMapData,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			CredSpecMap: credSpecMapData,
+		},
 		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
@@ -91,7 +93,9 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 
 	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap:                    credSpecMapData,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			CredSpecMap: credSpecMapData,
+		},
 		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
@@ -115,15 +119,17 @@ func TestInitialize(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	credspecRes := &CredentialSpecResource{
-		knownStatusUnsafe:   resourcestatus.ResourceCreated,
-		desiredStatusUnsafe: resourcestatus.ResourceCreated,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:   resourcestatus.ResourceCreated,
+			desiredStatusUnsafe: resourcestatus.ResourceCreated,
+		},
 	}
 	credspecRes.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	assert.NotNil(t, credspecRes.credentialsManager)
@@ -142,13 +148,15 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 	credSpecMap[testCredSpec] = targetCredSpec
 
 	credspecIn := &CredentialSpecResource{
-		taskARN:                    taskARN,
-		executionCredentialsID:     executionCredentialsID,
-		createdAt:                  time.Now(),
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		credentialSpecContainerMap: credentialSpecContainerMap,
-		CredSpecMap:                credSpecMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			taskARN:                    taskARN,
+			executionCredentialsID:     executionCredentialsID,
+			createdAt:                  time.Now(),
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+			CredSpecMap:                credSpecMap,
+		},
 	}
 
 	bytes, err := json.Marshal(credspecIn)
@@ -174,8 +182,10 @@ func TestHandleCredentialspecFile(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{fileCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		credentialSpecContainerMap: credentialSpecContainerMap,
-		CredSpecMap:                map[string]string{},
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			credentialSpecContainerMap: credentialSpecContainerMap,
+			CredSpecMap:                map[string]string{},
+		},
 	}
 
 	err := cs.handleCredentialspecFile(fileCredentialSpec)
@@ -191,7 +201,9 @@ func TestHandleCredentialspecFileErr(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{fileCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
 	}
 
 	err := cs.handleCredentialspecFile(fileCredentialSpec)
@@ -225,19 +237,21 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -293,20 +307,22 @@ func TestHandleSSMCredentialspecFileWithHierarchicalPath(t *testing.T) {
 	}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -343,7 +359,9 @@ func TestHandleSSMCredentialspecFileARNParseErr(t *testing.T) {
 
 	var termReason string
 	cs := &CredentialSpecResource{
-		terminalReason: termReason,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			terminalReason: termReason,
+		},
 	}
 
 	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
@@ -367,18 +385,20 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{ssmCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
@@ -408,19 +428,21 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{ssmCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -445,7 +467,9 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 }
 
 func TestHandlerSSMCredentialspecCredMissingErr(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
@@ -464,7 +488,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
 	}
@@ -475,19 +499,21 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{s3CredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	defer mockRename()()
@@ -495,7 +521,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		return testTempFile
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -517,7 +543,9 @@ func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
 
 	var termReason string
 	cs := &CredentialSpecResource{
-		terminalReason: termReason,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			terminalReason: termReason,
+		},
 	}
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -531,7 +559,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
 	}
@@ -540,18 +568,20 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 
 	var termReason string
 	cs := &CredentialSpecResource{
-		terminalReason: termReason,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			terminalReason: termReason,
+		},
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -567,7 +597,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
@@ -578,19 +608,21 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{s3CredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	mockFile.(*mock_oswrapper.MockFile).NameImpl = func() string {
@@ -605,7 +637,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	}()
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -615,7 +647,9 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 }
 
 func TestHandlerS3CredentialspecCredMissingErr(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
@@ -639,19 +673,21 @@ func TestCreateSSM(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{ssmCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -692,26 +728,28 @@ func TestCreateS3(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockFile := mock_oswrapper.NewMockFile()
-	mockS3Client := mock_s3.NewMockS3Client(ctrl)
+	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
 
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
 	credentialSpecContainerMap := map[string]string{s3CredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		knownStatusUnsafe:          resourcestatus.ResourceCreated,
-		desiredStatusUnsafe:        resourcestatus.ResourceCreated,
-		CredSpecMap:                map[string]string{},
-		taskARN:                    taskARN,
-		ioutil:                     mockIO,
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			knownStatusUnsafe:          resourcestatus.ResourceCreated,
+			desiredStatusUnsafe:        resourcestatus.ResourceCreated,
+			CredSpecMap:                map[string]string{},
+			taskARN:                    taskARN,
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
+		ioutil: mockIO,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
+			S3ClientCreator:    s3ClientCreator,
 		},
-		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	creds := credentials.TaskIAMRoleCredentials{
@@ -725,7 +763,7 @@ func TestCreateS3(t *testing.T) {
 	defer mockRename()()
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -743,9 +781,11 @@ func TestCreateFile(t *testing.T) {
 	credentialSpecContainerMap := map[string]string{fileCredentialSpec: "webapp"}
 
 	cs := &CredentialSpecResource{
-		credentialsManager:         credentialsManager,
-		CredSpecMap:                map[string]string{},
-		credentialSpecContainerMap: credentialSpecContainerMap,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			credentialsManager:         credentialsManager,
+			CredSpecMap:                map[string]string{},
+			credentialSpecContainerMap: credentialSpecContainerMap,
+		},
 	}
 
 	creds := credentials.TaskIAMRoleCredentials{
@@ -764,7 +804,9 @@ func TestCreateFile(t *testing.T) {
 }
 
 func TestGetName(t *testing.T) {
-	cs := &CredentialSpecResource{}
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{},
+	}
 
 	assert.Equal(t, ResourceName, cs.GetName())
 }
@@ -776,7 +818,9 @@ func TestGetTargetMapping(t *testing.T) {
 	}
 
 	cs := &CredentialSpecResource{
-		CredSpecMap: credSpecMapData,
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			CredSpecMap: credSpecMapData,
+		},
 	}
 
 	targetCredSpec, err := cs.GetTargetMapping(inputCredSpec)
@@ -786,7 +830,9 @@ func TestGetTargetMapping(t *testing.T) {
 
 func TestGetTargetMappingErr(t *testing.T) {
 	cs := &CredentialSpecResource{
-		CredSpecMap: map[string]string{},
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			CredSpecMap: map[string]string{},
+		},
 	}
 
 	targetCredSpec, err := cs.GetTargetMapping("testcredspec")

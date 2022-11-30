@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -49,7 +50,6 @@ const (
 	// in case /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint   = "/var/run"
 	defaultDockerSocketPath = "/var/run/docker.sock"
-
 	// networkMode specifies the networkmode to create the agent container
 	networkMode = "host"
 	// usernsMode specifies the userns mode to create the agent container
@@ -69,21 +69,6 @@ const (
 	// maxRetries specifies the maximum number of retries for ping to return
 	// a successful response from the docker socket
 	maxRetries = 5
-	// CapNetAdmin to start agent with NET_ADMIN capability
-	// For more information on capabilities, please read this manpage:
-	// http://man7.org/linux/man-pages/man7/capabilities.7.html
-	CapNetAdmin = "NET_ADMIN"
-	// CapSysAdmin to start agent with SYS_ADMIN capability
-	// This is needed for the ECS Agent to invoke the setns call when
-	// configuring the network namespace of the pause container
-	// For more information on setns, please read this manpage:
-	// http://man7.org/linux/man-pages/man2/setns.2.html
-	CapSysAdmin = "SYS_ADMIN"
-	// CapChown to start agent with CAP_CHOWN capability
-	// This is needed for the ECS Agent to invoke the chown call when
-	// configuring the files for configuration or administration.
-	// http://man7.org/linux/man-pages/man2/chown.2.html
-	CapChown = "CAP_CHOWN"
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
 	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
@@ -127,6 +112,20 @@ const (
 	execAgentLogRelativePath = "/exec"
 )
 
+// Do NOT include "CAP_" in capability string
+const (
+	// CapNetAdmin to start agent with NET_ADMIN capability
+	// For more information on capabilities, please read this manpage:
+	// http://man7.org/linux/man-pages/man7/capabilities.7.html
+	CapNetAdmin = "NET_ADMIN"
+	// CapSysAdmin to start agent with SYS_ADMIN capability
+	// This is needed for the ECS Agent to invoke the setns call when
+	// configuring the network namespace of the pause container
+	// For more information on setns, please read this manpage:
+	// http://man7.org/linux/man-pages/man2/setns.2.html
+	CapSysAdmin = "SYS_ADMIN"
+)
+
 var pluginDirs = []string{
 	pluginSocketFilesDir,
 	pluginSpecFilesEtcDir,
@@ -138,6 +137,8 @@ var (
 	dockerClient    *client
 	dockerClientErr error
 	isPathValid     = defaultIsPathValid
+	execCommand     = exec.Command
+	execLookPath    = exec.LookPath
 )
 
 // client enables business logic for running the Agent inside Docker
@@ -298,9 +299,20 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables["SSL_CERT_DIR"] = certDir
 	}
 
+	// env variable is only available if the gmsa is enabled on linux
+	credentialsFetcherHost, ok := config.HostCredentialsFetcherPath()
+	if ok && credentialsFetcherHost != "" {
+		envVariables["CREDENTIALS_FETCHER_HOST_DIR"] = credentialsFetcherHost
+	}
+
 	// merge in platform-specific environment variables
 	for envKey, envValue := range getPlatformSpecificEnvVariables() {
 		envVariables[envKey] = envValue
+	}
+
+	if isDomainJoined() {
+		// set the environment variable to true if the container instance is domain joined
+		envVariables["ECS_DOMAIN_JOINED_LINUX_INSTANCE"] = "true"
 	}
 
 	for key, val := range envVarsFromFiles {
@@ -430,6 +442,14 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 				binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
 			}
 		}
+
+		if key == config.ECSGMSASupportEnvVar && val == "true" {
+			// only bind if the env variable gmsa support is set to true and the path to bind exists
+			credentialsfetcherSocketBind, volumeExists := getCredentialsFetcherSocketBind()
+			if volumeExists {
+				binds = append(binds, credentialsfetcherSocketBind)
+			}
+		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
@@ -438,6 +458,23 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	binds = append(binds, getCapabilityBinds()...)
 
 	return createHostConfig(binds)
+}
+
+// getCredentialsFetcherSocketBind returns the corresponding bind for credentials fetcher socket.
+func getCredentialsFetcherSocketBind() (string, bool) {
+	credentialsFetcherUnixSocketHostPath, ok := config.HostCredentialsFetcherPath()
+	if ok && credentialsFetcherUnixSocketHostPath != "" {
+		// check whether the path to the credentials fetcher socket exists
+		_, err := os.Stat(credentialsFetcherUnixSocketHostPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return "", false
+			}
+		}
+
+		return credentialsFetcherUnixSocketHostPath + ":" + credentialsFetcherUnixSocketHostPath, true
+	}
+	return "", false
 }
 
 // getDockerSocketBind returns the bind for Docker socket.
@@ -540,4 +577,33 @@ func (c *client) StopAgent() error {
 		return nil
 	}
 	return err
+}
+
+// isDomainJoined is used to validate if container instance is part of a valid active directory.
+func isDomainJoined() bool {
+	realmPath, err := execLookPath("realm")
+	if err != nil {
+		log.Error("realmd is not installed on the instance")
+		return false
+	}
+
+	if len(realmPath) == 0 {
+		log.Error("could not path of realm on the instance")
+		return false
+	}
+
+	realmCommmand := realmPath + " list"
+	realmCmdOutput, err := execCommand("bash", "-c", realmCommmand).Output()
+	if err != nil {
+		log.Error("failed to read realm info")
+		return false
+	}
+
+	realmOutputStr := string(realmCmdOutput)
+	if !strings.Contains(realmOutputStr, "realm-name") {
+		log.Error("couldn't not find realm name")
+		return false
+	}
+
+	return true
 }

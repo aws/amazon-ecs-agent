@@ -38,7 +38,6 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
-		seelog.Infof("V4 tasks stats handler: writing response for task '%s'", taskArn)
 		WriteV4TaskStatsResponse(w, taskArn, state, statsEngine)
 	}
 }
@@ -64,6 +63,5 @@ func WriteV4TaskStatsResponse(w http.ResponseWriter,
 	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 		return
 	}
-	seelog.Infof("V4 Stats response json is %v", responseJSON)
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskStats)
 }

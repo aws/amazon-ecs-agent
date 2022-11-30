@@ -45,9 +45,12 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
+	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
+	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -1391,4 +1394,83 @@ func TestWatchAppNetImage(t *testing.T) {
 	assert.NoError(t, err)
 
 	<-watcherCtx.Done()
+}
+
+func TestCredentialSpecResourceTaskFile(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	// metadata required for createContainer workflow validation
+	credentialSpecTaskARN := "credentialSpecTask"
+	credentialSpecTaskFamily := "credentialSpecFamily"
+	credentialSpecTaskVersion := "1"
+	credentialSpecTaskContainerName := "credentialSpecContainer"
+
+	c := &apicontainer.Container{
+		Name: credentialSpecTaskContainerName,
+	}
+	credentialspecFile := "credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json"
+	targetCredentialspecFile := "/var/credentials-fetcher/krbdir/123456/webap01"
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:arn:aws:s3:::gmsacredspec/contoso_webapp01.json\"]}"
+	c.DockerConfig.HostConfig = &hostConfig
+
+	// sample test
+	testTask := &apitask.Task{
+		Arn:        credentialSpecTaskARN,
+		Family:     credentialSpecTaskFamily,
+		Version:    credentialSpecTaskVersion,
+		Containers: []*apicontainer.Container{c},
+	}
+
+	// metadata required for execution role authentication workflow
+	credentialsID := "execution role"
+
+	// configure the task and container to use execution role
+	testTask.SetExecutionRoleCredentialsID(credentialsID)
+
+	// validate base config
+	expectedConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedConfig.Labels = map[string]string{
+		"com.amazonaws.ecs.task-arn":                credentialSpecTaskARN,
+		"com.amazonaws.ecs.container-name":          credentialSpecTaskContainerName,
+		"com.amazonaws.ecs.task-definition-family":  credentialSpecTaskFamily,
+		"com.amazonaws.ecs.task-definition-version": credentialSpecTaskVersion,
+		"com.amazonaws.ecs.cluster":                 "",
+	}
+
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+
+	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
+		testTask.Arn,
+		defaultConfig.AWSRegion,
+		credentialsID,
+		credentialsManager,
+		ssmClientCreator,
+		s3ClientCreator,
+		nil)
+	assert.NoError(t, cerr)
+
+	credSpecdata := map[string]string{
+		credentialspecFile: targetCredentialspecFile,
+	}
+	credentialSpecRes.CredSpecMap = credSpecdata
+
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+		credentialspec.ResourceName: {credentialSpecRes},
+	}
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+
+	client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.Nil(t, ret.Error)
 }

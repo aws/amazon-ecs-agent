@@ -100,7 +100,7 @@ func DefaultConfig() Config {
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
-		GMSACapable:                         false,
+		GMSACapable:                         parseGMSACapability(),
 		FSxWindowsFileServerCapable:         false,
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},

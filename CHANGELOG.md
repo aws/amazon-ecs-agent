@@ -1,4 +1,15 @@
 # Changelog
+## 1.66.2
+* Bug - Add ecs-serviceconnect to CNI and Agent build scripts [#3482](https://github.com/aws/amazon-ecs-agent/pull/3482)
+* Bug - add call to update-version.sh to dockerfree-agent-image [#3484](https://github.com/aws/amazon-ecs-agent/pull/3484)
+
+## 1.66.1
+* Bug - Update ecs agent version short hash to point to built head [#3476](https://github.com/aws/amazon-ecs-agent/pull/3476)
+* Bug - Remove CAP_CHOWN [#3480](https://github.com/aws/amazon-ecs-agent/pull/3480)
+
+## 1.66.0
+* Feature - gMSA on Linux support [#3464](https://github.com/aws/amazon-ecs-agent/pull/3464)
+* Enhancement - Restart AppNet Relay on failure [#3469](Restart AppNet Relay on failure)
 
 ## 1.65.1
 * Enhancement - Add grpc vendor dependencies [#3439](https://github.com/aws/amazon-ecs-agent/pull/3439)

@@ -46,7 +46,7 @@ const (
 	// DefaultAgentVersion is the version of the agent that will be
 	// fetched if required. This should look like v1.2.3 or an
 	// 8-character sha, as is downloadable from S3.
-	DefaultAgentVersion = "v1.65.1"
+	DefaultAgentVersion = "v1.66.2"
 
 	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
 	AgentPartitionBucketName = "amazon-ecs-agent"
@@ -93,6 +93,17 @@ const (
 
 	// DefaultRegionEnvVar is the environment variable for specifying the default AWS region to use.
 	DefaultRegionEnvVar = "AWS_DEFAULT_REGION"
+
+	// ECSGMSASupportEnvVar indicates that the gMSA is supported
+	ECSGMSASupportEnvVar = "ECS_GMSA_SUPPORTED"
+
+	// CredentialsFetcherHostEnvVar is the environment variable that specifies the location of the credentials-fetcher daemon socket.
+	CredentialsFetcherHostEnvVar = "CREDENTIALS_FETCHER_HOST"
+
+	// this socket is exposed by credentials-fetcher (daemon for gMSA support on Linux)
+	// defaultCredentialsFetcherSocketPath is set to /var/credentials-fetcher/socket/credentials_fetcher.sock
+	// in case path is not passed in the env variable
+	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -210,6 +221,23 @@ func DockerUnixSocket() (string, bool) {
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated
 	// outside the container, eg: Docker daemon restart
 	return "/var/run", false
+}
+
+// credentialsFetcherUnixSocketHostPath returns the credentials fetcher daemon socket endpoint and whether it reads from CredentialsFetcherEnvVar
+func credentialsFetcherUnixSocket() string {
+	if credentialsFetcherHost := os.Getenv(CredentialsFetcherHostEnvVar); strings.HasPrefix(credentialsFetcherHost, UnixSocketPrefix) {
+		return strings.TrimPrefix(credentialsFetcherHost, UnixSocketPrefix)
+	}
+
+	return DefaultCredentialsFetcherSocketPath
+}
+
+// HostCredentialsFetcherPath() returns the daemon socket location if it is available
+func HostCredentialsFetcherPath() (string, bool) {
+	if credentialsFetcherHost := credentialsFetcherUnixSocket(); len(credentialsFetcherHost) > 0 {
+		return credentialsFetcherHost, true
+	}
+	return "", false
 }
 
 // CgroupMountpoint returns the cgroup mountpoint for the system
