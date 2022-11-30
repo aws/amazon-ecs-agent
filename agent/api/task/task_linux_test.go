@@ -239,6 +239,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) 
 
 // TestBuildCgroupRootHappyPath builds cgroup root from valid taskARN
 func TestBuildCgroupRootHappyPath(t *testing.T) {
+	t.Skip("TODO unskip when cgroups v2 supported on Ubuntu test instance")
 	task := Task{
 		Arn: validTaskArn,
 	}
@@ -442,6 +443,7 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 
 // TestOverrideCgroupParent validates the cgroup parent override
 func TestOverrideCgroupParentHappyPath(t *testing.T) {
+	t.Skip("TODO unskip when cgroups v2 supported on Ubuntu test instance")
 	task := &Task{
 		Arn:                    validTaskArn,
 		CPU:                    float64(taskVCPULimit),
@@ -474,6 +476,7 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 
 // TestPlatformHostConfigOverride validates the platform host config overrides
 func TestPlatformHostConfigOverride(t *testing.T) {
+	t.Skip("TODO unskip when cgroups v2 supported on Ubuntu test instance")
 	task := &Task{
 		Arn:                    validTaskArn,
 		CPU:                    float64(taskVCPULimit),
