@@ -52,10 +52,10 @@ cd "${SRCPATH}/agent"
 if [[ "${version_gen}" == "true" ]]; then
     # Versioning stuff. We run the generator to setup the version and then always
     # restore ourselves to a clean state
-    cp agent/version/version.go agent/version/_version.go
-    trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
+    cp ${ROOT}/agent/version/version.go ${ROOT}/agent/version/_version.go
+    trap "cd \"${ROOT}\"; mv ${ROOT}/agent/version/_version.go ${ROOT}/agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
 
-  cd ./agent/version/
+  cd ${ROOT}/agent/version/
   # Turn off go module here because version-gen.go is a separate program (i.e. "package main")
   # and no dependency needed to be fetched (but if go mod is on it will try to fetch dependency causing
   # this script to fail when we run it in a container with network mode "none").
