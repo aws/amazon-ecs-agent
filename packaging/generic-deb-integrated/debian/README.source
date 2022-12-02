@@ -1,10 +1,10 @@
 Steps to build and install package:
 
 1. Install build dependencies
-    sudo apt-get update -y && sudo apt-get install -y devscripts build-essential lintian git curl golang-go debhelper
+    sudo apt-get update -y && sudo apt-get install -y make dpkg-dev wget devscripts debhelper
 
 2. Build the package by running
-    make clean deb
+    make clean generic-deb-integrated
 
 3. Install docker
     sudo apt-get install docker.io -y # or via docker repos: https://docs.docker.com/engine/install/
@@ -14,7 +14,7 @@ Steps to build and install package:
     https://docs.aws.amazon.com/efs/latest/ug/installing-amazon-efs-utils.html#installing-other-distro
 
 5. Install the package with
-    sudo apt install -y ./amazon-ecs-init_1.45.0-1_amd64.deb
+    sudo apt install -y ./amazon-ecs-init_${AGENT_VERSION}-1_amd64.deb
 
 6. Install docker and start and enable ecs service
     sudo systemctl enable --now ecs

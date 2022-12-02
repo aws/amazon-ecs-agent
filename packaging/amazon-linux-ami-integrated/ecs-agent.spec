@@ -161,7 +161,7 @@ required routes among its preparation steps.
 # each of these should build for arm and amd arch
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
-./scripts/build-integrated true "" false true
+./scripts/build-integrated true "" true true
 ./scripts/build-agent-image
 ./scripts/gobuild.sh %{gobuild_tag}
 

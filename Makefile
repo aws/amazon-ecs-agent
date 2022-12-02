@@ -52,7 +52,7 @@ static:
 	./scripts/build
 
 static-with-pause:
-	./scripts/build true "" false true
+	./scripts/build true "" true true
 
 # Cross-platform build target for static checks
 xplatform-build:
@@ -381,7 +381,7 @@ amazon-linux-sources.tgz:
 
 .amazon-linux-rpm-integrated-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
-	rpmbuild --define "%_topdir $(PWD)" -bb ecs-init.spec
+	rpmbuild --define "%_topdir $(PWD)" -bb ecs-agent.spec
 	find RPMS/ -type f -exec cp {} . \;
 	touch .amazon-linux-rpm-integrated-done
 
@@ -404,8 +404,8 @@ generic-rpm-integrated: .generic-rpm-integrated-done
 VERSION = $(shell cat ecs-init/ECSVERSION)
 
 .generic-deb-integrated-done: get-cni-sources
-	mkdir -p BUILDROOT
 	./scripts/update-version.sh
+	mkdir -p BUILDROOT
 	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
 	cp -r packaging/generic-deb-integrated/debian Makefile ecs-init scripts misc agent agent-container amazon-ecs-cni-plugins amazon-vpc-cni-plugins README.md VERSION GO_VERSION BUILDROOT
 	cd BUILDROOT && dpkg-buildpackage -uc -b
@@ -459,16 +459,17 @@ generic-rpm: .generic-rpm-done
 deb: .deb-done
 
 clean:
-	rm -f misc/certs/host-certs.crt &> /dev/null
-	rm -rf misc/pause-container/image/
-	rm -rf misc/pause-container/rootfs/
-	rm -rf misc/plugins/
-	rm -rf out/
-	rm -rf rootfs/
+	-rm -f misc/certs/host-certs.crt &> /dev/null
+	-rm -rf misc/pause-container/image/
+	-rm -rf misc/pause-container/rootfs/
+	-rm -rf misc/plugins/
+	-rm -rf out/
+	-rm -rf rootfs/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
+	-rm -f ecs-agent.spec
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out

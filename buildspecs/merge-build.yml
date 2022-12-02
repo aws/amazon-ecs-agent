@@ -71,18 +71,6 @@ phases:
 
       # Build agent tar and rpm
       - GO111MODULE=auto
-
-      # Update version.go file
-      - ./scripts/update-version.sh
-      - git add agent/version/version.go
-
-      # Dummy git config to create a commit
-      - git config user.email "you@example.com"
-      - git config user.name "Your Name"
-
-      # Commit required to build agent with updated files
-      - git commit -m "update version"
-
       - make dockerfree-agent-image
       - make generic-rpm-integrated
       - ls
