@@ -2,19 +2,11 @@
 
 * Install build and install dependencies
   ```
-  rpm-build make golang-go gcc git wget rpmdevtools 
-  ```
-* Download the latest agent
-  ```
-  curl -O https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v${VERSION}.tar
-  ```
-  or
-  ```
-  curl -O https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v${VERSION}.tar
+  rpm-build make gcc git wget rpmdevtools 
   ```
 * Build the package by running 
   ```
-  make generic-rpm
+  make generic-rpm-integrated
   ```
 * Install docker via docker repos: https://docs.docker.com/engine/install/
 * Install the package using built `.rpm` file from previous step
@@ -27,4 +19,3 @@
   ```
   sudo systemctl enable --now amazon-ecs-volume-plugin
   ```
-
