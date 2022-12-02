@@ -50,8 +50,6 @@ const (
 	osTypeAttrName              = "ecs.os-type"
 	osFamilyAttrName            = "ecs.os-family"
 	RoundtripTimeout            = 5 * time.Second
-	// networkModeBridge specifies the bridge network mode.
-	networkModeBridge = "bridge"
 	// ecsMaxNetworkBindingsLength is the maximum length of the ecs.NetworkBindings list sent as part of the
 	// container state change payload. Currently, this is enforced only when containerPortRanges are requested.
 	ecsMaxNetworkBindingsLength = 100
@@ -526,10 +524,6 @@ type ProtocolBindIP struct {
 // getNetworkBindings returns the list of networkingBindings, sent to ECS as part of the container state change payload
 func getNetworkBindings(change api.ContainerStateChange, shouldExcludeIPv6PortBinding bool) []*ecs.NetworkBinding {
 	networkBindings := []*ecs.NetworkBinding{}
-	// we return network bindings for bridge network mode tasks only
-	if change.Container.GetNetworkMode() != networkModeBridge {
-		return networkBindings
-	}
 	// hostPortToProtocolBindIPMap is a map to store protocol and bindIP information associated to host ports
 	// that belong to a range. This is used in case when there are multiple protocol/bindIP combinations associated to a
 	// port binding. example: when both IPv4 and IPv6 bindIPs are populated by docker and shouldExcludeIPv6PortBinding is false.
