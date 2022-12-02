@@ -28,7 +28,6 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -161,7 +160,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 						SteadyStateStatusUnsafe: &steadyStateStatus,
 						KnownExitCodeUnsafe:     &exitCode,
 						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
-							ContainerPort: aws.Uint16(1),
+							ContainerPort: 1,
 							HostPort:      2,
 							BindIP:        "1.2.3.4",
 							Protocol:      3,
@@ -177,7 +176,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 				Status:        apicontainerstatus.ContainerRunning,
 				ExitCode:      &exitCode,
 				PortBindings: []apicontainer.PortBinding{{
-					ContainerPort: aws.Uint16(1),
+					ContainerPort: 1,
 					HostPort:      2,
 					BindIP:        "1.2.3.4",
 					Protocol:      3,
@@ -219,7 +218,7 @@ func TestNewUncheckedContainerStateChangeEvent_SCBridge(t *testing.T) {
 			addPauseContainer:  true,
 			pauseContainerName: fmt.Sprintf("%s-%s", apitask.NetworkPauseContainerName, testContainerName),
 			pauseContainerPortBindings: []apicontainer.PortBinding{{
-				ContainerPort: aws.Uint16(1),
+				ContainerPort: 1,
 				HostPort:      2,
 				BindIP:        "1.2.3.4",
 				Protocol:      3,
@@ -252,7 +251,7 @@ func TestNewUncheckedContainerStateChangeEvent_SCBridge(t *testing.T) {
 						SteadyStateStatusUnsafe: &steadyStateStatus,
 						KnownExitCodeUnsafe:     &exitCode,
 						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
-							ContainerPort: aws.Uint16(8080), // we get this from task definition
+							ContainerPort: 8080, // we get this from task definition
 						}},
 						ImageDigest: "image",
 					},

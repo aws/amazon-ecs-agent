@@ -226,24 +226,24 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		PortBindings: []apicontainer.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
-				ContainerPort: aws.Uint16(1),
+				ContainerPort: 1,
 				HostPort:      2,
 			},
 			{
 				BindIP:        "2.2.3.4",
-				ContainerPort: aws.Uint16(3),
+				ContainerPort: 3,
 				HostPort:      4,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
 				BindIP:        "5.6.7.8",
-				ContainerPort: aws.Uint16(11),
+				ContainerPort: 11,
 				HostPort:      11,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
 				BindIP:        "5.6.7.8",
-				ContainerPort: aws.Uint16(12),
+				ContainerPort: 12,
 				HostPort:      12,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
@@ -1195,25 +1195,25 @@ func getTestContainerStateChange() api.ContainerStateChange {
 		NetworkModeUnsafe: testNetworkName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: aws.Uint16(10),
+				ContainerPort: 10,
 				HostPort:      10,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 			{
-				ContainerPort: aws.Uint16(12),
+				ContainerPort: 12,
 				HostPort:      12,
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
-				ContainerPort: aws.Uint16(15),
+				ContainerPort: 15,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 			{
-				ContainerPortRange: aws.String("21-22"),
+				ContainerPortRange: "21-22",
 				Protocol:           apicontainer.TransportProtocolUDP,
 			},
 			{
-				ContainerPortRange: aws.String("96-97"),
+				ContainerPortRange: "96-97",
 				Protocol:           apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -1236,43 +1236,43 @@ func getTestContainerStateChange() api.ContainerStateChange {
 		Container:     testContainer,
 		PortBindings: []apicontainer.PortBinding{
 			{
-				ContainerPort: aws.Uint16(10),
+				ContainerPort: 10,
 				HostPort:      10,
 				BindIP:        "0.0.0.0",
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 			{
-				ContainerPort: aws.Uint16(12),
+				ContainerPort: 12,
 				HostPort:      12,
 				BindIP:        "1.2.3.4",
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
-				ContainerPort: aws.Uint16(15),
+				ContainerPort: 15,
 				HostPort:      20,
 				BindIP:        "5.6.7.8",
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 			{
-				ContainerPort: aws.Uint16(21),
+				ContainerPort: 21,
 				HostPort:      60001,
 				BindIP:        "::",
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
-				ContainerPort: aws.Uint16(22),
+				ContainerPort: 22,
 				HostPort:      60002,
 				BindIP:        "::",
 				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 			{
-				ContainerPort: aws.Uint16(96),
+				ContainerPort: 96,
 				HostPort:      47001,
 				BindIP:        "0.0.0.0",
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 			{
-				ContainerPort: aws.Uint16(97),
+				ContainerPort: 97,
 				HostPort:      47002,
 				BindIP:        "0.0.0.0",
 				Protocol:      apicontainer.TransportProtocolTCP,

@@ -74,53 +74,88 @@ func TestGenerateEphemeralPortNumbers_CollisionError(t *testing.T) {
 
 func TestGetHostPortRange(t *testing.T) {
 	testCases := []struct {
-		testName      string
-		numberOfPorts int
-		protocol      string
-		expectedError error
+		testName                 string
+		numberOfPorts            int
+		protocol                 string
+		expectedLastAssignedPort []int
+		numberOfRequests         int
+		expectedError            error
 	}{
 		{
-			testName:      "tcp protocol, contiguous hostPortRange found",
-			numberOfPorts: 10,
-			protocol:      testTCPProtocol,
-			expectedError: nil,
+			testName:                 "tcp protocol, contiguous hostPortRange found",
+			numberOfPorts:            10,
+			protocol:                 testTCPProtocol,
+			expectedLastAssignedPort: []int{40010},
+			numberOfRequests:         1,
+			expectedError:            nil,
 		},
 		{
-			testName:      "udp protocol, contiguous hostPortRange found",
-			numberOfPorts: 500,
-			protocol:      testUDPProtocol,
-			expectedError: nil,
+			testName:                 "udp protocol, contiguous hostPortRange found",
+			numberOfPorts:            30,
+			protocol:                 testUDPProtocol,
+			expectedLastAssignedPort: []int{40040},
+			numberOfRequests:         1,
+			expectedError:            nil,
 		},
 		{
-			testName:      "contiguous hostPortRange not found",
-			numberOfPorts: 20,
-			protocol:      testTCPProtocol,
-			expectedError: errors.New("20 contiguous host ports unavailable"),
+			testName:                 "2 requests for contiguous hostPortRange in succession, success",
+			numberOfPorts:            20,
+			protocol:                 testTCPProtocol,
+			expectedLastAssignedPort: []int{40060, 40000},
+			numberOfRequests:         2,
+			expectedError:            nil,
+		},
+		{
+			testName:                 "contiguous hostPortRange after looping back, success",
+			numberOfPorts:            15,
+			protocol:                 testUDPProtocol,
+			expectedLastAssignedPort: []int{40015},
+			numberOfRequests:         1,
+			expectedError:            nil,
+		},
+		{
+			testName:         "contiguous hostPortRange not found",
+			numberOfPorts:    20,
+			protocol:         testTCPProtocol,
+			numberOfRequests: 1,
+			expectedError:    errors.New("20 contiguous host ports unavailable"),
 		},
 	}
 
+	defer func() {
+		dynamicHostPortRange = getDynamicHostPortRange
+	}()
+
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
-			if tc.expectedError == nil {
-				assert.NoError(t, err)
+			for i := 0; i < tc.numberOfRequests; i++ {
+				if tc.expectedError == nil {
+					dynamicHostPortRange = func() (start int, end int, err error) {
+						return 40001, 40080, nil
+					}
 
-				numberOfHostPorts, err := getPortRangeLength(hostPortRange)
-				assert.NoError(t, err)
-				assert.Equal(t, tc.numberOfPorts, numberOfHostPorts)
-			} else {
-				defer func() {
-					dynamicHostPortRange = getDynamicHostPortRange
-				}()
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					assert.NoError(t, err)
 
-				dynamicHostPortRange = func() (start int, end int, err error) {
-					return 1, 2, nil
+					numberOfHostPorts, err := getPortRangeLength(hostPortRange)
+					assert.NoError(t, err)
+					assert.Equal(t, tc.numberOfPorts, numberOfHostPorts)
+
+					actualLastAssignedHostPort := tracker.GetLastAssignedHostPort()
+					assert.Equal(t, tc.expectedLastAssignedPort[i], actualLastAssignedHostPort)
+				} else {
+					// need to reset the tracker to avoid getting data from previous test cases
+					tracker.SetLastAssignedHostPort(0)
+
+					dynamicHostPortRange = func() (start int, end int, err error) {
+						return 40001, 40005, nil
+					}
+
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					assert.Equal(t, tc.expectedError, err)
+					assert.Equal(t, "", hostPortRange)
 				}
-				hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
-				assert.Equal(t, tc.expectedError, err)
-				assert.Equal(t, "", hostPortRange)
 			}
-
 		})
 	}
 }

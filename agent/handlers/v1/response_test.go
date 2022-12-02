@@ -25,7 +25,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -102,7 +101,7 @@ func TestTaskResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: aws.Uint16(80),
+				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -166,7 +165,7 @@ func TestContainerResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: aws.Uint16(80),
+				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
@@ -210,7 +209,7 @@ func TestPortBindingsResponse(t *testing.T) {
 		Name: containerName,
 		Ports: []apicontainer.PortBinding{
 			{
-				ContainerPort: aws.Uint16(80),
+				ContainerPort: 80,
 				HostPort:      80,
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
