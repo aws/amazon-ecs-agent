@@ -1,3 +1,9 @@
+amazon-ecs-init (1.67.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.67.0
+
+ -- Yash Kulshrestha <kulshres@amazon.com>  Mon, 05 Dec 2022 18:00:00 +0000
+
 amazon-ecs-init (1.66.2-1) stable; urgency=medium
 
   * Cache Agent version 1.66.2
