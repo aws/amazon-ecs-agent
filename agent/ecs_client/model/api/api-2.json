@@ -1645,7 +1645,9 @@
       "members":{
         "bindIP":{"shape":"String"},
         "containerPort":{"shape":"BoxedInteger"},
+        "containerPortRange":{"shape":"String"},
         "hostPort":{"shape":"BoxedInteger"},
+        "hostPortRange":{"shape":"String"},
         "protocol":{"shape":"TransportProtocol"}
       }
     },
@@ -1761,6 +1763,7 @@
       "type":"structure",
       "members":{
         "containerPort":{"shape":"BoxedInteger"},
+        "containerPortRange":{"shape":"String"},
         "hostPort":{"shape":"BoxedInteger"},
         "protocol":{"shape":"TransportProtocol"}
       }

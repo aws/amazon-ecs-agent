@@ -1392,6 +1392,8 @@ type PortMapping struct {
 
 	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
 
+	ContainerPortRange *string `locationName:"containerPortRange" type:"string"`
+
 	HostPort *int64 `locationName:"hostPort" type:"integer"`
 
 	Protocol *string `locationName:"protocol" type:"string" enum:"TransportProtocol"`

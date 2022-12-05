@@ -140,6 +140,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
 		attributePrefix + capabilityServiceConnect,
+		attributePrefix + capabilityContainerPortRange,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -1239,6 +1240,7 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
+		attributePrefix + capabilityContainerPortRange,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
