@@ -310,9 +310,13 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables[envKey] = envValue
 	}
 
-	if isDomainJoined() {
-		// set the environment variable to true if the container instance is domain joined
-		envVariables["ECS_DOMAIN_JOINED_LINUX_INSTANCE"] = "true"
+	envVar := os.Getenv(config.ECSGMSASupportEnvVar)
+	// check for the domain join only if ECS_GMSA_SUPPORTED environment variable is set to true
+	if envVar == "true" {
+		if isDomainJoined() {
+			// set the environment variable to true if the container instance is domain joined
+			envVariables["ECS_DOMAIN_JOINED_LINUX_INSTANCE"] = "true"
+		}
 	}
 
 	for key, val := range envVarsFromFiles {

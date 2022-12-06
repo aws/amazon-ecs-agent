@@ -618,6 +618,7 @@
       "type":"structure",
       "members":{
         "containerPort":{"shape":"Integer"},
+        "containerPortRange":{"shape":"String"},
         "hostPort":{"shape":"Integer"},
         "protocol":{"shape":"TransportProtocol"}
       }

@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -30,12 +28,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/pkg/system"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
@@ -49,6 +50,9 @@ const (
 	osTypeAttrName              = "ecs.os-type"
 	osFamilyAttrName            = "ecs.os-family"
 	RoundtripTimeout            = 5 * time.Second
+	// ecsMaxNetworkBindingsLength is the maximum length of the ecs.NetworkBindings list sent as part of the
+	// container state change payload. Currently, this is enforced only when containerPortRanges are requested.
+	ecsMaxNetworkBindingsLength = 100
 )
 
 // APIECSClient implements ECSClient
@@ -419,7 +423,12 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	containerEvents := make([]*ecs.ContainerStateChange, len(change.Containers))
 	for i, containerEvent := range change.Containers {
-		containerEvents[i] = client.buildContainerStateChangePayload(containerEvent, client.config.ShouldExcludeIPv6PortBinding.Enabled())
+		payload, err := client.buildContainerStateChangePayload(containerEvent, client.config.ShouldExcludeIPv6PortBinding.Enabled())
+		if err != nil {
+			seelog.Errorf("Could not submit task state change: [%s]: %v", change.String(), err)
+			return err
+		}
+		containerEvents[i] = payload
 	}
 
 	req.Containers = containerEvents
@@ -460,7 +469,7 @@ func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.Manag
 	}
 }
 
-func (client *APIECSClient) buildContainerStateChangePayload(change api.ContainerStateChange, shouldExcludeIPv6PortBinding bool) *ecs.ContainerStateChange {
+func (client *APIECSClient) buildContainerStateChangePayload(change api.ContainerStateChange, shouldExcludeIPv6PortBinding bool) (*ecs.ContainerStateChange, error) {
 	statechange := &ecs.ContainerStateChange{
 		ContainerName: aws.String(change.ContainerName),
 	}
@@ -481,7 +490,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	if status != apicontainerstatus.ContainerStopped && status != apicontainerstatus.ContainerRunning {
 		seelog.Warnf("Not submitting unsupported upstream container state %s for container %s in task %s",
 			status.String(), change.ContainerName, change.TaskArn)
-		return nil
+		return nil, nil
 	}
 	stat := change.Status.String()
 	if stat == "DEAD" {
@@ -494,7 +503,38 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		statechange.ExitCode = aws.Int64(exitCode)
 	}
 
+	networkBindings := getNetworkBindings(change, shouldExcludeIPv6PortBinding)
+	// we enforce a limit on the no. of network bindings for containers with at-least 1 port range requested.
+	// this limit is enforced by ECS, and we fail early and don't call SubmitContainerStateChange.
+	if change.Container.HasPortRange() && len(networkBindings) > ecsMaxNetworkBindingsLength {
+		return nil, fmt.Errorf("no. of network bindings %v is more than the maximum supported no. %v, "+
+			"container: %s "+"task: %s", len(networkBindings), ecsMaxNetworkBindingsLength, change.ContainerName, change.TaskArn)
+	}
+	statechange.NetworkBindings = networkBindings
+
+	return statechange, nil
+}
+
+// ProtocolBindIP used to store protocol and bindIP information associated to a particular host port
+type ProtocolBindIP struct {
+	protocol string
+	bindIP   string
+}
+
+// getNetworkBindings returns the list of networkingBindings, sent to ECS as part of the container state change payload
+func getNetworkBindings(change api.ContainerStateChange, shouldExcludeIPv6PortBinding bool) []*ecs.NetworkBinding {
 	networkBindings := []*ecs.NetworkBinding{}
+	// hostPortToProtocolBindIPMap is a map to store protocol and bindIP information associated to host ports
+	// that belong to a range. This is used in case when there are multiple protocol/bindIP combinations associated to a
+	// port binding. example: when both IPv4 and IPv6 bindIPs are populated by docker and shouldExcludeIPv6PortBinding is false.
+	hostPortToProtocolBindIPMap := map[int64][]ProtocolBindIP{}
+
+	// ContainerPortSet consists of singular ports, and ports that belong to a range, but for which we were not able to
+	// find contiguous host ports and ask docker to pick instead.
+	containerPortSet := change.Container.GetContainerPortSet()
+	// each entry in the ContainerPortRangeMap implies that we found a contiguous host port range for the same
+	containerPortRangeMap := change.Container.GetContainerPortRangeMap()
+
 	for _, binding := range change.PortBindings {
 		if binding.BindIP == "::" && shouldExcludeIPv6PortBinding {
 			seelog.Debugf("Exclude IPv6 port binding %v for container %s in task %s", binding, change.ContainerName, change.TaskArn)
@@ -506,24 +546,54 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 
-		networkBindings = append(networkBindings, &ecs.NetworkBinding{
-			BindIP:        aws.String(bindIP),
-			ContainerPort: aws.Int64(containerPort),
-			HostPort:      aws.Int64(hostPort),
-			Protocol:      aws.String(protocol),
-		})
+		// create network binding for each containerPort that exists in the singular ContainerPortSet
+		// for container ports that belong to a range, we'll have 1 consolidated network binding for the range
+		if _, ok := containerPortSet[int(containerPort)]; ok {
+			networkBindings = append(networkBindings, &ecs.NetworkBinding{
+				BindIP:        aws.String(bindIP),
+				ContainerPort: aws.Int64(containerPort),
+				HostPort:      aws.Int64(hostPort),
+				Protocol:      aws.String(protocol),
+			})
+		} else {
+			// populate hostPortToProtocolBindIPMap – this is used below when we construct network binding for ranges.
+			hostPortToProtocolBindIPMap[hostPort] = append(hostPortToProtocolBindIPMap[hostPort],
+				ProtocolBindIP{
+					protocol: protocol,
+					bindIP:   bindIP,
+				})
+		}
 	}
-	statechange.NetworkBindings = networkBindings
 
-	return statechange
+	for containerPortRange, hostPortRange := range containerPortRangeMap {
+		// we check for protocol and bindIP information associated to any one of the host ports from the hostPortRange,
+		// all ports belonging to the same range share this information.
+		hostPort, _, _ := nat.ParsePortRangeToInt(hostPortRange)
+		if val, ok := hostPortToProtocolBindIPMap[int64(hostPort)]; ok {
+			for _, v := range val {
+				networkBindings = append(networkBindings, &ecs.NetworkBinding{
+					BindIP:             aws.String(v.bindIP),
+					ContainerPortRange: aws.String(containerPortRange),
+					HostPortRange:      aws.String(hostPortRange),
+					Protocol:           aws.String(v.protocol),
+				})
+			}
+		}
+	}
+
+	return networkBindings
 }
 
 func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
-	pl := client.buildContainerStateChangePayload(change, client.config.ShouldExcludeIPv6PortBinding.Enabled())
-	if pl == nil {
+	pl, err := client.buildContainerStateChangePayload(change, client.config.ShouldExcludeIPv6PortBinding.Enabled())
+	if err != nil {
+		seelog.Errorf("Could not build container state change payload: [%s]: %v", change.String(), err)
+		return err
+	} else if pl == nil {
 		return nil
 	}
-	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&ecs.SubmitContainerStateChangeInput{
+
+	_, err = client.submitStateChangeClient.SubmitContainerStateChange(&ecs.SubmitContainerStateChangeInput{
 		Cluster:         aws.String(client.config.Cluster),
 		ContainerName:   aws.String(change.ContainerName),
 		ExitCode:        pl.ExitCode,

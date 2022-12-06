@@ -404,7 +404,7 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 	var bindingForcontainerPortOne uint16
 	for _, binding := range validPortBindings {
-		if binding.ContainerPort == port {
+		if port == binding.ContainerPort {
 			bindingForcontainerPortOne = binding.HostPort
 		}
 	}
@@ -460,7 +460,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	var bindingForcontainerPortOne_1 uint16
 	var bindingForcontainerPortOne_2 uint16
 	for _, binding := range validPortBindings {
-		if binding.ContainerPort == port {
+		if port == binding.ContainerPort {
 			if bindingForcontainerPortOne_1 == 0 {
 				bindingForcontainerPortOne_1 = binding.HostPort
 			} else {

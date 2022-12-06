@@ -1,11 +1,32 @@
 package utils
 
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 import (
+	"errors"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/docker/go-connections/nat"
+
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	testTCPProtocol = "tcp"
+	testUDPProtocol = "udp"
 )
 
 func TestGenerateEphemeralPortNumbers(t *testing.T) {
@@ -49,4 +70,100 @@ func TestGenerateEphemeralPortNumbers_CollisionError(t *testing.T) {
 	assert.Nil(t, ports)
 	assert.Error(t, err)
 	assert.Equal(t, "maximum number of attempts to generate unique ports reached", err.Error())
+}
+
+func TestGetHostPortRange(t *testing.T) {
+	testCases := []struct {
+		testName                 string
+		numberOfPorts            int
+		protocol                 string
+		expectedLastAssignedPort []int
+		numberOfRequests         int
+		expectedError            error
+	}{
+		{
+			testName:                 "tcp protocol, contiguous hostPortRange found",
+			numberOfPorts:            10,
+			protocol:                 testTCPProtocol,
+			expectedLastAssignedPort: []int{40010},
+			numberOfRequests:         1,
+			expectedError:            nil,
+		},
+		{
+			testName:                 "udp protocol, contiguous hostPortRange found",
+			numberOfPorts:            30,
+			protocol:                 testUDPProtocol,
+			expectedLastAssignedPort: []int{40040},
+			numberOfRequests:         1,
+			expectedError:            nil,
+		},
+		{
+			testName:                 "2 requests for contiguous hostPortRange in succession, success",
+			numberOfPorts:            20,
+			protocol:                 testTCPProtocol,
+			expectedLastAssignedPort: []int{40060, 40000},
+			numberOfRequests:         2,
+			expectedError:            nil,
+		},
+		{
+			testName:                 "contiguous hostPortRange after looping back, success",
+			numberOfPorts:            15,
+			protocol:                 testUDPProtocol,
+			expectedLastAssignedPort: []int{40015},
+			numberOfRequests:         1,
+			expectedError:            nil,
+		},
+		{
+			testName:         "contiguous hostPortRange not found",
+			numberOfPorts:    20,
+			protocol:         testTCPProtocol,
+			numberOfRequests: 1,
+			expectedError:    errors.New("20 contiguous host ports unavailable"),
+		},
+	}
+
+	defer func() {
+		dynamicHostPortRange = getDynamicHostPortRange
+	}()
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			for i := 0; i < tc.numberOfRequests; i++ {
+				if tc.expectedError == nil {
+					dynamicHostPortRange = func() (start int, end int, err error) {
+						return 40001, 40080, nil
+					}
+
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					assert.NoError(t, err)
+
+					numberOfHostPorts, err := getPortRangeLength(hostPortRange)
+					assert.NoError(t, err)
+					assert.Equal(t, tc.numberOfPorts, numberOfHostPorts)
+
+					actualLastAssignedHostPort := tracker.GetLastAssignedHostPort()
+					assert.Equal(t, tc.expectedLastAssignedPort[i], actualLastAssignedHostPort)
+				} else {
+					// need to reset the tracker to avoid getting data from previous test cases
+					tracker.SetLastAssignedHostPort(0)
+
+					dynamicHostPortRange = func() (start int, end int, err error) {
+						return 40001, 40005, nil
+					}
+
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					assert.Equal(t, tc.expectedError, err)
+					assert.Equal(t, "", hostPortRange)
+				}
+			}
+		})
+	}
+}
+
+func getPortRangeLength(portRange string) (int, error) {
+	startPort, endPort, err := nat.ParsePortRangeToInt(portRange)
+	if err != nil {
+		return 0, err
+	}
+	return endPort - startPort + 1, nil
 }

@@ -76,6 +76,10 @@ const (
 	capabilityExecCertsRelativePath                        = "certs"
 	capabilityExternal                                     = "external"
 	capabilityServiceConnect                               = "service-connect-v1"
+
+	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
+	networkCapabilityPrefix      = "network."
+	capabilityContainerPortRange = networkCapabilityPrefix + "container-port-range"
 )
 
 var (
@@ -99,6 +103,8 @@ var (
 		capabilityFullTaskSync,
 		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
 		capabilityEnvFilesS3,
+		// support container port range in container definition - port mapping field
+		capabilityContainerPortRange,
 	}
 	// use empty struct as value type to simulate set
 	capabilityExecInvalidSsmVersions = map[string]struct{}{}
@@ -181,6 +187,7 @@ var (
 //	ecs.capability.execute-command
 //	ecs.capability.external
 //	ecs.capability.service-connect-v1
+//	ecs.capability.network.container-port-range
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 

@@ -18,6 +18,7 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -85,8 +86,31 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
-				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 10,
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 20,
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: "99-999",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPortRange: "121-221",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolUDP,
+					},
+				},
 			},
 		},
 	}
@@ -104,6 +128,15 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	if !ok {
 		t.Fatal("Could not get exposed ports 20/udp")
 	}
+	_, ok = config.ExposedPorts["99-999/tcp"]
+	if !ok {
+		t.Fatal("Could not get exposed ports 99-999/tcp")
+	}
+	_, ok = config.ExposedPorts["121-221/udp"]
+	if !ok {
+		t.Fatal("Could not get exposed ports 121-221/udp")
+	}
+
 }
 
 func TestDockerHostConfigCPUShareZero(t *testing.T) {
@@ -184,28 +217,156 @@ func TestDockerHostConfigCPUShareUnchanged(t *testing.T) {
 }
 
 func TestDockerHostConfigPortBinding(t *testing.T) {
-	testTask := &Task{
+	testTask1 := &Task{
 		Containers: []*apicontainer.Container{
 			{
-				Name:  "c1",
-				Ports: []apicontainer.PortBinding{{10, 10, "", apicontainer.TransportProtocolTCP}, {20, 20, "", apicontainer.TransportProtocolUDP}},
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 10,
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 20,
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+				},
 			},
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
-		&config.Config{})
-	assert.Nil(t, err)
+	testTask2 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPortRange: "999-1000",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPortRange: "1-3",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolUDP,
+					},
+				},
+			},
+		},
+	}
 
-	bindings, ok := config.PortBindings["10/tcp"]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, "10", bindings[0].HostPort, "Wrong hostport")
+	testTask3 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPortRange: "55-57",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPort: 80,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+				},
+			},
+		},
+	}
 
-	bindings, ok = config.PortBindings["20/udp"]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, "20", bindings[0].HostPort, "Wrong hostport")
+	testCases := []struct {
+		testName                      string
+		testTask                      *Task
+		getHostPortRange              func(numberOfPorts int, protocol string) (string, error)
+		expectedPortBinding           nat.PortMap
+		expectedContainerPortSet      map[int]struct{}
+		expectedContainerPortRangeMap map[string]string
+	}{
+		{
+			testName: "2 port bindings, each with singular container port - host port",
+			testTask: testTask1,
+			expectedPortBinding: nat.PortMap{
+				nat.Port("10/tcp"): []nat.PortBinding{{HostPort: "10"}},
+				nat.Port("20/udp"): []nat.PortBinding{{HostPort: "20"}},
+			},
+			expectedContainerPortSet: map[int]struct{}{
+				10: {},
+				20: {},
+			},
+			expectedContainerPortRangeMap: map[string]string{},
+		},
+		{
+			testName: "2 port bindings, each with container port range, 1 found valid host port range, other didn't",
+			testTask: testTask2,
+			getHostPortRange: func(numberOfPorts int, protocol string) (string, error) {
+				if numberOfPorts == 3 {
+					return "", errors.New("couldn't find host ports")
+				}
+				return "99-100", nil
+			},
+			expectedPortBinding: nat.PortMap{
+				nat.Port("999/tcp"):  []nat.PortBinding{{HostPort: "99"}},
+				nat.Port("1000/tcp"): []nat.PortBinding{{HostPort: "100"}},
+			},
+			expectedContainerPortSet: map[int]struct{}{
+				1: {},
+				2: {},
+				3: {},
+			},
+			expectedContainerPortRangeMap: map[string]string{
+				"999-1000": "99-100",
+			},
+		},
+		{
+			testName: "2 port bindings, one with container port range, other with singular container port",
+			testTask: testTask3,
+			getHostPortRange: func(numberOfPorts int, protocol string) (string, error) {
+				return "155-157", nil
+			},
+			expectedPortBinding: nat.PortMap{
+				nat.Port("55/udp"): []nat.PortBinding{{HostPort: "155"}},
+				nat.Port("56/udp"): []nat.PortBinding{{HostPort: "156"}},
+				nat.Port("57/udp"): []nat.PortBinding{{HostPort: "157"}},
+				nat.Port("80/tcp"): []nat.PortBinding{{HostPort: "0"}},
+			},
+			expectedContainerPortSet: map[int]struct{}{
+				80: {},
+			},
+			expectedContainerPortRangeMap: map[string]string{
+				"55-57": "155-157",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			defer func() {
+				getHostPortRange = utils.GetHostPortRange
+			}()
+			getHostPortRange = tc.getHostPortRange
+
+			config, err := tc.testTask.DockerHostConfig(tc.testTask.Containers[0], dockerMap(tc.testTask), defaultDockerClientAPIVersion,
+				&config.Config{})
+			assert.Nil(t, err)
+
+			if !reflect.DeepEqual(config.PortBindings, tc.expectedPortBinding) {
+				t.Error("Expected port bindings to be resolved, was: ", config.PortBindings)
+			}
+
+			if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortSet, tc.expectedContainerPortSet) {
+				t.Error("Expected container port set to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortSet())
+			}
+
+			if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortRangeMap, tc.expectedContainerPortRangeMap) {
+				t.Error("Expected container port range map to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortRangeMap())
+			}
+		})
+	}
 }
 
 var (
@@ -225,8 +386,8 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 			{
 				Name: "C1",
 				Ports: []apicontainer.PortBinding{
-					{SCTaskContainerPort1, 0, "", apicontainer.TransportProtocolTCP},
-					{SCTaskContainerPort2, 0, "", apicontainer.TransportProtocolTCP},
+					{ContainerPort: SCTaskContainerPort1, HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
+					{ContainerPort: SCTaskContainerPort2, HostPort: 0, BindIP: "", Protocol: apicontainer.TransportProtocolTCP},
 				},
 				NetworkModeUnsafe: "", // should later be overridden to container mode
 			},
@@ -1464,6 +1625,10 @@ func TestTaskFromACS(t *testing.T) {
 						ContainerPort: intptr(900),
 						Protocol:      strptr("udp"),
 					},
+					{
+						ContainerPortRange: strptr("99-199"),
+						Protocol:           strptr("tcp"),
+					},
 				},
 				VolumesFrom: []*ecsacs.VolumeFrom{
 					{
@@ -1562,6 +1727,10 @@ func TestTaskFromACS(t *testing.T) {
 						HostPort:      800,
 						ContainerPort: 900,
 						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: "99-199",
+						Protocol:           apicontainer.TransportProtocolTCP,
 					},
 				},
 				VolumesFrom: []apicontainer.VolumeFrom{
