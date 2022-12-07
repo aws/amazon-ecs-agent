@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.67.1
+* Bug - Read git hash from RELEASE_COMMIT file if possible [#3508](https://github.com/aws/amazon-ecs-agent/pull/3508)
+
 ## 1.67.0
 * Bug - Don't log errors on instances not using GMSA [#3489](https://github.com/aws/amazon-ecs-agent/pull/3489)
 * Enhancement - Update packaging Readme files with updated instructions to build init files [#3490](https://github.com/aws/amazon-ecs-agent/pull/3490)
