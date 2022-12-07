@@ -892,6 +892,8 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	assert.Equal(t, "", agent.getEC2InstanceID())
 }
 

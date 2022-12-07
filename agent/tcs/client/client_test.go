@@ -602,7 +602,10 @@ func TestMetricsDisabled(t *testing.T) {
 		published <- struct{}{}
 	}).Return(nil).MinTimes(1)
 
-	go cs.Serve()
+	go func() {
+		err := cs.Serve()
+		assert.NoError(t, err)
+	}()
 	<-published
 	<-readed
 }
