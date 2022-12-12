@@ -2338,6 +2338,8 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 	dockerPortMap := nat.PortMap{}
 	scContainer := task.GetServiceConnectContainer()
 	containerToCheck := container
+	containerPortSet := make(map[int]struct{})
+	containerPortRangeMap := make(map[string]string)
 	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() {
 		if container.Type == apicontainer.ContainerCNIPause {
 			// we will create bindings for task containers (including both customer containers and SC Appnet container)
@@ -2352,12 +2354,17 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 				// create bindings for all ingress listener ports
 				// no need to create binding for egress listener port as it won't be access from host level or from outside
 				for _, ic := range task.ServiceConnectConfig.IngressConfig {
-					dockerPort := nat.Port(strconv.Itoa(int(ic.ListenerPort))) + "/tcp"
+					listenerPortInt := int(ic.ListenerPort)
+					dockerPort := nat.Port(strconv.Itoa(listenerPortInt)) + "/tcp"
 					hostPort := 0           // default bridge-mode SC experience - host port will be an ephemeral port assigned by docker
 					if ic.HostPort != nil { // non-default bridge-mode SC experience - host port specified by customer
 						hostPort = int(*ic.HostPort)
 					}
 					dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(hostPort)})
+					// append non-range, singular container port to the containerPortSet
+					containerPortSet[listenerPortInt] = struct{}{}
+					// set taskContainer.ContainerPortSet to be used during network binding creation
+					taskContainer.SetContainerPortSet(containerPortSet)
 				}
 				return dockerPortMap, nil
 			}
@@ -2370,8 +2377,6 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 		}
 	}
 
-	containerPortSet := make(map[int]struct{})
-	containerPortRangeMap := make(map[string]string)
 	for _, portBinding := range containerToCheck.Ports {
 		// for each port binding config, either one of containerPort or containerPortRange is set
 		if portBinding.ContainerPort != 0 {
