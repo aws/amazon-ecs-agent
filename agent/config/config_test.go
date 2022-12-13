@@ -123,6 +123,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	)
 
 	defer setTestRegion()()
+	defer setTestEnv("ECS_DYNAMIC_HOST_PORT_RANGE", "200-300")()
 	defer setTestEnv("ECS_CLUSTER", "myCluster")()
 	defer setTestEnv("ECS_RESERVED_PORTS_UDP", "[42,99]")()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
@@ -169,6 +170,7 @@ func TestEnvironmentConfig(t *testing.T) {
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
+	assert.Equal(t, "200-300", conf.DynamicHostPortRange)
 	assert.Equal(t, "myCluster", conf.Cluster)
 	assert.Equal(t, 2, len(conf.ReservedPortsUDP))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))

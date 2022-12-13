@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cihub/seelog"
+	"github.com/docker/go-connections/nat"
 )
 
 // From https://www.kernel.org/doc/html/latest//networking/ip-sysctl.html#ip-variables
@@ -89,22 +89,15 @@ func (pt *safePortTracker) GetLastAssignedHostPort() int {
 	return pt.lastAssignedHostPort
 }
 
-var dynamicHostPortRange = getDynamicHostPortRange
 var tracker safePortTracker
 
 // GetHostPortRange gets N contiguous host ports from the ephemeral host port range defined on the host.
-func GetHostPortRange(numberOfPorts int, protocol string) (string, error) {
+func GetHostPortRange(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error) {
 	portLock.Lock()
 	defer portLock.Unlock()
 
 	// get ephemeral port range, either default or if custom-defined
-	startHostPortRange, endHostPortRange, err := dynamicHostPortRange()
-	if err != nil {
-		seelog.Warnf("Unable to read the ephemeral host port range, falling back to the default range: %v-%v",
-			defaultPortRangeStart, defaultPortRangeEnd)
-		startHostPortRange, endHostPortRange = defaultPortRangeStart, defaultPortRangeEnd
-	}
-
+	startHostPortRange, endHostPortRange, _ := nat.ParsePortRangeToInt(dynamicHostPortRange)
 	start := startHostPortRange
 	end := endHostPortRange
 
