@@ -76,6 +76,7 @@ func TestGetHostPortRange(t *testing.T) {
 	testCases := []struct {
 		testName                 string
 		numberOfPorts            int
+		testPortRange            string
 		protocol                 string
 		expectedLastAssignedPort []int
 		numberOfRequests         int
@@ -84,6 +85,7 @@ func TestGetHostPortRange(t *testing.T) {
 		{
 			testName:                 "tcp protocol, contiguous hostPortRange found",
 			numberOfPorts:            10,
+			testPortRange:            "40001-40080",
 			protocol:                 testTCPProtocol,
 			expectedLastAssignedPort: []int{40010},
 			numberOfRequests:         1,
@@ -92,6 +94,7 @@ func TestGetHostPortRange(t *testing.T) {
 		{
 			testName:                 "udp protocol, contiguous hostPortRange found",
 			numberOfPorts:            30,
+			testPortRange:            "40001-40080",
 			protocol:                 testUDPProtocol,
 			expectedLastAssignedPort: []int{40040},
 			numberOfRequests:         1,
@@ -100,6 +103,7 @@ func TestGetHostPortRange(t *testing.T) {
 		{
 			testName:                 "2 requests for contiguous hostPortRange in succession, success",
 			numberOfPorts:            20,
+			testPortRange:            "40001-40080",
 			protocol:                 testTCPProtocol,
 			expectedLastAssignedPort: []int{40060, 40000},
 			numberOfRequests:         2,
@@ -108,6 +112,7 @@ func TestGetHostPortRange(t *testing.T) {
 		{
 			testName:                 "contiguous hostPortRange after looping back, success",
 			numberOfPorts:            15,
+			testPortRange:            "40001-40080",
 			protocol:                 testUDPProtocol,
 			expectedLastAssignedPort: []int{40015},
 			numberOfRequests:         1,
@@ -116,25 +121,26 @@ func TestGetHostPortRange(t *testing.T) {
 		{
 			testName:         "contiguous hostPortRange not found",
 			numberOfPorts:    20,
+			testPortRange:    "40001-40005",
 			protocol:         testTCPProtocol,
 			numberOfRequests: 1,
 			expectedError:    errors.New("20 contiguous host ports unavailable"),
 		},
 	}
 
-	defer func() {
-		dynamicHostPortRange = getDynamicHostPortRange
-	}()
+	//defer func() {
+	//	dynamicHostPortRange = GetDynamicHostPortRange
+	//}()
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			for i := 0; i < tc.numberOfRequests; i++ {
 				if tc.expectedError == nil {
-					dynamicHostPortRange = func() (start int, end int, err error) {
-						return 40001, 40080, nil
-					}
+					//dynamicHostPortRange = func() (start int, end int, err error) {
+					//	return 40001, 40080, nil
+					//}
 
-					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol, tc.testPortRange)
 					assert.NoError(t, err)
 
 					numberOfHostPorts, err := getPortRangeLength(hostPortRange)
@@ -147,11 +153,11 @@ func TestGetHostPortRange(t *testing.T) {
 					// need to reset the tracker to avoid getting data from previous test cases
 					tracker.SetLastAssignedHostPort(0)
 
-					dynamicHostPortRange = func() (start int, end int, err error) {
-						return 40001, 40005, nil
-					}
+					//dynamicHostPortRange = func() (start int, end int, err error) {
+					//	return 40001, 40005, nil
+					//}
 
-					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol)
+					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol, tc.testPortRange)
 					assert.Equal(t, tc.expectedError, err)
 					assert.Equal(t, "", hostPortRange)
 				}
