@@ -23,7 +23,7 @@ const (
 	defaultPortRangeEnd = 65535
 )
 
-// getDynamicHostPortRange returns the default ephemeral port range
-func getDynamicHostPortRange() (start int, end int, err error) {
+// GetDynamicHostPortRange returns the default ephemeral port range
+func GetDynamicHostPortRange() (start int, end int, err error) {
 	return defaultPortRangeStart, defaultPortRangeEnd, nil
 }

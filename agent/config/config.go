@@ -526,6 +526,7 @@ func environmentConfig() (Config, error) {
 		err = apierrors.NewMultiError(errs...)
 	}
 	return Config{
+		PortRange:                           os.Getenv("ECS_PortRange"),
 		Cluster:                             os.Getenv("ECS_CLUSTER"),
 		APIEndpoint:                         os.Getenv("ECS_BACKEND_HOST"),
 		AWSRegion:                           os.Getenv("AWS_DEFAULT_REGION"),

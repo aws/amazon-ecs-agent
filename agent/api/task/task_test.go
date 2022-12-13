@@ -282,7 +282,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	testCases := []struct {
 		testName                      string
 		testTask                      *Task
-		getHostPortRange              func(numberOfPorts int, protocol string) (string, error)
+		getHostPortRange              func(numberOfPorts int, protocol string, portRange string) (string, error)
 		expectedPortBinding           nat.PortMap
 		expectedContainerPortSet      map[int]struct{}
 		expectedContainerPortRangeMap map[string]string
@@ -303,7 +303,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		{
 			testName: "2 port bindings, each with container port range, 1 found valid host port range, other didn't",
 			testTask: testTask2,
-			getHostPortRange: func(numberOfPorts int, protocol string) (string, error) {
+			getHostPortRange: func(numberOfPorts int, protocol string, portRange string) (string, error) {
 				if numberOfPorts == 3 {
 					return "", errors.New("couldn't find host ports")
 				}
@@ -325,7 +325,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		{
 			testName: "2 port bindings, one with container port range, other with singular container port",
 			testTask: testTask3,
-			getHostPortRange: func(numberOfPorts int, protocol string) (string, error) {
+			getHostPortRange: func(numberOfPorts int, protocol string, portRange string) (string, error) {
 				return "155-157", nil
 			},
 			expectedPortBinding: nat.PortMap{
