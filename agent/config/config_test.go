@@ -37,12 +37,14 @@ func TestMerge(t *testing.T) {
 	conf1 := &Config{Cluster: "Foo"}
 	conf2 := Config{Cluster: "ignored", APIEndpoint: "Bar"}
 	conf3 := Config{AWSRegion: "us-west-2"}
+	conf4 := Config{PortRange: "100-200"}
 
 	conf1.Merge(conf2).Merge(conf3)
 
 	assert.Equal(t, "Foo", conf1.Cluster, "The cluster should not have been overridden")
 	assert.Equal(t, "Bar", conf1.APIEndpoint, "The APIEndpoint should have been merged in")
 	assert.Equal(t, "us-west-2", conf1.AWSRegion, "Incorrect region")
+	assert.Equal(t, "100-200", conf1.PortRange, "Incorrect port range")
 }
 
 // TODO: we need to move all boolean configs to use BooleanDefaultTrue/False
@@ -123,6 +125,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	)
 
 	defer setTestRegion()()
+	defer setTestEnv("ECS_PortRange", "200-300")
 	defer setTestEnv("ECS_CLUSTER", "myCluster")()
 	defer setTestEnv("ECS_RESERVED_PORTS_UDP", "[42,99]")()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
@@ -169,6 +172,7 @@ func TestEnvironmentConfig(t *testing.T) {
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
+	assert.Equal(t, "200-300")
 	assert.Equal(t, "myCluster", conf.Cluster)
 	assert.Equal(t, 2, len(conf.ReservedPortsUDP))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))
@@ -223,24 +227,27 @@ func TestEnvironmentConfig(t *testing.T) {
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
 	defer setTestRegion()()
+	defer setTestEnv("ECS_PortRange", "100-200 \r")()
 	defer setTestEnv("ECS_CLUSTER", "default \r")()
 	defer setTestEnv("ECS_ENGINE_AUTH_TYPE", "dockercfg\r")()
 
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
+	assert.Equal(t, "100-200", cfg.Cluster, "Wrong range")
 	assert.Equal(t, "default", cfg.Cluster, "Wrong cluster")
 	assert.Equal(t, "dockercfg", cfg.EngineAuthType, "Wrong auth type")
 }
 
 func TestTrimWhitespace(t *testing.T) {
 	cfg := &Config{
+		PortRange: " 100-2000 ",
 		Cluster:   " asdf ",
 		AWSRegion: " us-east-1\r\t",
 		DataDir:   "/trailing/space/directory ",
 	}
 
 	cfg.trimWhitespace()
-	assert.Equal(t, &Config{Cluster: "asdf", AWSRegion: "us-east-1", DataDir: "/trailing/space/directory "}, cfg)
+	assert.Equal(t, &Config{PortRange: "100-2000", Cluster: "asdf", AWSRegion: "us-east-1", DataDir: "/trailing/space/directory "}, cfg)
 }
 
 func TestConfigBoolean(t *testing.T) {

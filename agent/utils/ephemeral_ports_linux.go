@@ -31,9 +31,9 @@ const (
 	portRangeKernelParam = "/proc/sys/net/ipv4/ip_local_port_range"
 )
 
-// getDynamicHostPortRange returns the ephemeral port range defined by the "/proc/sys/net/ipv4/ip_local_port_range"
+// GetDynamicHostPortRange returns the ephemeral port range defined by the "/proc/sys/net/ipv4/ip_local_port_range"
 // kernel parameter. Ref: https://github.com/moby/moby/blob/master/libnetwork/portallocator/portallocator_linux.go
-func getDynamicHostPortRange() (start int, end int, err error) {
+func GetDynamicHostPortRange() (start int, end int, err error) {
 	file, err := os.Open(portRangeKernelParam)
 	if err != nil {
 		return 0, 0, err

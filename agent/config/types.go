@@ -29,10 +29,17 @@ type ImagePullBehaviorType int8
 type ContainerInstancePropagateTagsFromType int8
 
 type Config struct {
+
+	// PortRange Variable enables the clients to set their custom port range
+	// when there is no port range provided, this will default to the
+	// platform specific values
+	PortRange string `trim:"true"`
+
 	// DEPRECATED
 	// ClusterArn is the Name or full ARN of a Cluster to register into. It has
 	// been deprecated (and will eventually be removed) in favor of Cluster
 	ClusterArn string `deprecated:"Please use Cluster instead"`
+
 	// Cluster can either be the Name or full ARN of a Cluster. This is the
 	// cluster the agent should register this ContainerInstance into. If this
 	// value is not set, it will default to "default"

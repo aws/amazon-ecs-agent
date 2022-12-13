@@ -11,8 +11,8 @@ const (
 	defaultPortRangeEnd = 65535
 )
 
-// getDynamicHostPortRange returns the default ephemeral port range on Windows.
+// GetDynamicHostPortRange returns the default ephemeral port range on Windows.
 // TODO: instead of sticking to defaults, run netsh commands on the host to get the ranges.
-func getDynamicHostPortRange() (start int, end int, err error) {
+func GetDynamicHostPortRange() (start int, end int, err error) {
 	return defaultPortRangeStart, defaultPortRangeEnd, nil
 }
