@@ -143,12 +143,11 @@ func (mr *MockManagerMockRecorder) GetLoadedAppnetVersion() *gomock.Call {
 }
 
 // GetLoadedImageName mocks base method
-func (m *MockManager) GetLoadedImageName() (string, error) {
+func (m *MockManager) GetLoadedImageName() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLoadedImageName")
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // GetLoadedImageName indicates an expected call of GetLoadedImageName

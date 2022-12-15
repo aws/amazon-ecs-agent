@@ -49,6 +49,7 @@ type ImageManager interface {
 	GetImageStateFromImageName(containerImageName string) (*image.ImageState, bool)
 	StartImageCleanupProcess(ctx context.Context)
 	SetDataClient(dataClient data.Client)
+	AddImageToCleanUpExclusionList(image string)
 }
 
 // dockerImageManager accounts all the images and their states in the instance.
@@ -110,6 +111,13 @@ func buildImageCleanupExclusionList(cfg *config.Config) []string {
 		})
 	}
 	return excludedImages
+}
+
+func (imageManager *dockerImageManager) AddImageToCleanUpExclusionList(image string) {
+	imageManager.imageCleanupExclusionList = append(imageManager.imageCleanupExclusionList, image)
+	logger.Info("Image excluded from cleanup", logger.Fields{
+		field.Image: image,
+	})
 }
 
 func (imageManager *dockerImageManager) AddAllImageStates(imageStates []*image.ImageState) {

@@ -121,31 +121,33 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		// Set up a mock http sever on the statsUrlpath
-		mockUDSPath := "/tmp/appnet_admin.sock"
-		r := mux.NewRouter()
-		r.HandleFunc("/get/them/stats", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "%v", test.stats)
-		}))
+		func() {
+			// Set up a mock http sever on the statsUrlpath
+			mockUDSPath := "/tmp/appnet_admin.sock"
+			r := mux.NewRouter()
+			r.HandleFunc("/get/them/stats", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, "%v", test.stats)
+			}))
 
-		ts := httptest.NewUnstartedServer(r)
+			ts := httptest.NewUnstartedServer(r)
+			defer ts.Close()
 
-		l, err := net.Listen("unix", mockUDSPath)
-		assert.NoError(t, err)
+			l, err := net.Listen("unix", mockUDSPath)
+			assert.NoError(t, err)
 
-		ts.Listener.Close()
-		ts.Listener = l
-		ts.Start()
+			ts.Listener.Close()
+			ts.Listener = l
+			ts.Start()
 
-		serviceConnectStats := &ServiceConnectStats{
-			appnetClient: appnet.Client(),
-		}
-		serviceConnectStats.retrieveServiceConnectStats(t1)
+			serviceConnectStats := &ServiceConnectStats{
+				appnetClient: appnet.Client(),
+			}
+			serviceConnectStats.retrieveServiceConnectStats(t1)
 
-		sortMetrics(serviceConnectStats.GetStats())
-		sortMetrics(test.expectedStats)
-		assert.Equal(t, test.expectedStats, serviceConnectStats.GetStats())
-		ts.Close()
+			sortMetrics(serviceConnectStats.GetStats())
+			sortMetrics(test.expectedStats)
+			assert.Equal(t, test.expectedStats, serviceConnectStats.GetStats())
+		}()
 	}
 }
 
