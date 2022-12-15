@@ -266,6 +266,18 @@ func (mr *MockImageManagerMockRecorder) AddAllImageStates(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAllImageStates", reflect.TypeOf((*MockImageManager)(nil).AddAllImageStates), arg0)
 }
 
+// AddImageToCleanUpExclusionList mocks base method
+func (m *MockImageManager) AddImageToCleanUpExclusionList(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddImageToCleanUpExclusionList", arg0)
+}
+
+// AddImageToCleanUpExclusionList indicates an expected call of AddImageToCleanUpExclusionList
+func (mr *MockImageManagerMockRecorder) AddImageToCleanUpExclusionList(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddImageToCleanUpExclusionList", reflect.TypeOf((*MockImageManager)(nil).AddImageToCleanUpExclusionList), arg0)
+}
+
 // GetImageStateFromImageName mocks base method
 func (m *MockImageManager) GetImageStateFromImageName(arg0 string) (*image.ImageState, bool) {
 	m.ctrl.T.Helper()
