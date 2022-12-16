@@ -18,6 +18,7 @@ package config
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"testing"
 	"time"
@@ -190,7 +191,7 @@ func TestGetConfigFileName(t *testing.T) {
 		os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", tc.envVarVal)
 		defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
 
-		osStat = func(name string) (os.FileInfo, error) {
+		osStat = func(name string) (fs.FileInfo, error) {
 			return nil, nil
 		}
 
