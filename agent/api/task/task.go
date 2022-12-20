@@ -1860,7 +1860,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
-	dockerPortMap, err := task.dockerPortMap(container)
+	dockerPortMap, err := task.dockerPortMap(container, cfg.DynamicHostPortRange)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: fmt.Sprintf("error retrieving docker port map: %+v", err.Error())}
 	}
@@ -2334,7 +2334,7 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 
 var getHostPortRange = utils.GetHostPortRange
 
-func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap, error) {
+func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPortRange string) (nat.PortMap, error) {
 	dockerPortMap := nat.PortMap{}
 	scContainer := task.GetServiceConnectContainer()
 	containerToCheck := container
@@ -2402,7 +2402,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container) (nat.PortMap,
 			// we will try to get a contiguous set of host ports from the ephemeral host port range.
 			// this is to ensure that docker maps host ports in a contiguous manner, and
 			// we are guaranteed to have the entire hostPortRange in a single network binding while sending this info to ECS.
-			hostPortRange, err := getHostPortRange(numberOfPorts, protocol)
+			hostPortRange, err := getHostPortRange(numberOfPorts, protocol, dynamicHostPortRange)
 			if err != nil {
 				// in the odd case where we're unable to find a contiguous set of host ports, we fall back to docker dynamic port
 				// assignment for the requested ContainerPortRange.

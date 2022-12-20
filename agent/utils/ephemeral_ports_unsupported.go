@@ -17,13 +17,13 @@
 package utils
 
 const (
-	// defaultPortRangeStart indicates the first port in ephemeral port range
-	defaultPortRangeStart = 49153
-	// defaultPortRangeEnd indicates the last port in ephemeral port range
-	defaultPortRangeEnd = 65535
+	// DefaultPortRangeStart indicates the first port in ephemeral port range
+	DefaultPortRangeStart = 49153
+	// DefaultPortRangeEnd indicates the last port in ephemeral port range
+	DefaultPortRangeEnd = 65535
 )
 
-// getDynamicHostPortRange returns the default ephemeral port range
-func getDynamicHostPortRange() (start int, end int, err error) {
-	return defaultPortRangeStart, defaultPortRangeEnd, nil
+// GetDynamicHostPortRange returns the default ephemeral port range
+func GetDynamicHostPortRange() (start int, end int, err error) {
+	return DefaultPortRangeStart, DefaultPortRangeEnd, nil
 }

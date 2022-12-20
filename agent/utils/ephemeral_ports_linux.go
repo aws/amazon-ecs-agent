@@ -23,17 +23,17 @@ import (
 )
 
 const (
-	// defaultPortRangeStart indicates the first port in ephemeral port range
-	defaultPortRangeStart = 49153
-	// defaultPortRangeEnd indicates the last port in ephemeral port range
-	defaultPortRangeEnd = 65535
 	// portRangeKernelParam is a kernel parameter that defines the ephemeral port range
 	portRangeKernelParam = "/proc/sys/net/ipv4/ip_local_port_range"
+	// DefaultPortRangeStart indicates the first port in ephemeral port range
+	DefaultPortRangeStart = 49153
+	// DefaultPortRangeEnd indicates the last port in ephemeral port range
+	DefaultPortRangeEnd = 65535
 )
 
-// getDynamicHostPortRange returns the ephemeral port range defined by the "/proc/sys/net/ipv4/ip_local_port_range"
+// GetDynamicHostPortRange returns the ephemeral port range defined by the "/proc/sys/net/ipv4/ip_local_port_range"
 // kernel parameter. Ref: https://github.com/moby/moby/blob/master/libnetwork/portallocator/portallocator_linux.go
-func getDynamicHostPortRange() (start int, end int, err error) {
+func GetDynamicHostPortRange() (start int, end int, err error) {
 	file, err := os.Open(portRangeKernelParam)
 	if err != nil {
 		return 0, 0, err
