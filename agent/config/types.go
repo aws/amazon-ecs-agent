@@ -33,6 +33,7 @@ type Config struct {
 	// ClusterArn is the Name or full ARN of a Cluster to register into. It has
 	// been deprecated (and will eventually be removed) in favor of Cluster
 	ClusterArn string `deprecated:"Please use Cluster instead"`
+
 	// Cluster can either be the Name or full ARN of a Cluster. This is the
 	// cluster the agent should register this ContainerInstance into. If this
 	// value is not set, it will default to "default"
@@ -359,4 +360,9 @@ type Config struct {
 	// WarmPoolsSupport specifies whether the agent should poll IMDS to check the target lifecycle state for a starting
 	// instance
 	WarmPoolsSupport BooleanDefaultFalse
+
+	// DynamicHostPortRange specifies the dynamic host port range that the agent
+	// uses to assign host ports from, for a container port range mapping.
+	// This defaults to the platform specific ephemeral host port range
+	DynamicHostPortRange string
 }
