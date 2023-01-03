@@ -514,6 +514,13 @@ func TestParseDynamicHostPortRange(t *testing.T) {
 			expectedErrorEphemeralHostPortRange: nil,
 		},
 		{
+			testName:                            "Parse DynamicHostPortRange for valid case when config option is not set or is empty",
+			testDynamicHostPortRangeVal:         "",
+			expectedPortRangeVal:                "300-400",
+			expectedErrorDynamicHostPortRange:   nil,
+			expectedErrorEphemeralHostPortRange: nil,
+		},
+		{
 			testName:                            "Parse DynamicHostPortRange for Invalid DynamicHostPortRange value",
 			testDynamicHostPortRangeVal:         "test1",
 			expectedPortRangeVal:                "300-400",
@@ -536,7 +543,7 @@ func TestParseDynamicHostPortRange(t *testing.T) {
 			defer setTestRegion()()
 			defer setTestEnv("ECS_DYNAMIC_HOST_PORT_RANGE", tc.testDynamicHostPortRangeVal)()
 
-			if tc.expectedErrorDynamicHostPortRange != nil {
+			if tc.testDynamicHostPortRangeVal == "" || tc.expectedErrorDynamicHostPortRange != nil {
 				getDynamicHostPortRange = func() (start int, end int, err error) {
 					return 300, 400, nil
 				}
