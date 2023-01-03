@@ -454,6 +454,11 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 				binds = append(binds, credentialsfetcherSocketBind)
 			}
 		}
+
+		securityOpt := string[]
+		if key == config.SecurityOptEnvVar {
+			securityOpt = parseSecurityOptList(SecurityOptEnvVar)
+		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
@@ -461,7 +466,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	// only add bind mounts when the src file/directory exists on host; otherwise docker API create an empty directory on host
 	binds = append(binds, getCapabilityBinds()...)
 
-	return createHostConfig(binds)
+	return createHostConfig(binds, securityOpt)
 }
 
 // getCredentialsFetcherSocketBind returns the corresponding bind for credentials fetcher socket.
