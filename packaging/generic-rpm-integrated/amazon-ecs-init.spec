@@ -46,7 +46,7 @@ required routes among its preparation steps.
 %build
 ./scripts/get-host-certs
 ./scripts/build-cni-plugins
-./scripts/build-integrated true "" true true
+./scripts/build true "" true true
 ./scripts/build-agent-image
 ./scripts/gobuild.sh %{gobuild_tag}
 

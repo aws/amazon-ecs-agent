@@ -48,9 +48,6 @@ gobuild-init-deb:
 	touch .out-stamp
 
 # Basic go build
-static:
-	./scripts/build
-
 static-with-pause:
 	./scripts/build true "" true true
 
