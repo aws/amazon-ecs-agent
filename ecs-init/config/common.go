@@ -333,12 +333,12 @@ func RunningInExternal() bool {
 }
 
 func RunSecurityOpts() bool {
-	envVar := os.Getenv("ECS_AGENT_SELINUX_SECURITY_OPTS")
+	envVar := os.Getenv(SecurityOptsEnvVar)
 	return len(envVar) > 0
 }
 
-func parseSecurityOptsList(envVar string) []string {
-	securiyOptsEnv := os.Getenv(envVar)
+func ParseSecurityOptsList() []string {
+	securiyOptsEnv := os.Getenv(SecurityOptsEnvVar)
 	if securiyOptsEnv == "" {
 		seelog.Debugf("Environment variable empty: %s", securiyOptsEnv)
 		return nil

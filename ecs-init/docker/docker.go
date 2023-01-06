@@ -439,6 +439,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 		binds = append(binds, credsPath)
 	}
 
+	var securityOpts = make([]string, 0)
 	for key, val := range c.LoadEnvVars() {
 		if key == config.GPUSupportEnvVar && val == "true" {
 			if nvidiaGPUDevicesPresent() {
@@ -455,9 +456,8 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 			}
 		}
 
-		var securityOpts []string
 		if key == config.SecurityOptsEnvVar {
-			securityOpts = config.parseSecurityOptsList(config.SecurityOptsEnvVar)
+			securityOpts = config.ParseSecurityOptsList()
 		}
 	}
 
