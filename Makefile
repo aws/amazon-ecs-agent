@@ -15,7 +15,7 @@ USERID=$(shell id -u)
 # default value of TARGET_OS
 TARGET_OS=linux
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static-with-pause xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -197,9 +197,6 @@ pause-container: .out-stamp
 
 pause-container-release: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
-
-# Variable to determine branch/tag of amazon-ecs-cni-plugins
-ECS_CNI_REPOSITORY_REVISION=master
 
 # Variable to override cni repository location
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
@@ -419,41 +416,6 @@ else ifeq (${ARCH},aarch64)
 else ifeq (${ARCH},arm64)
 	AGENT_FILENAME=ecs-agent-arm64-v${VERSION}.tar
 endif
-
-BUILDROOT/ecs-agent.tar:
-	mkdir -p BUILDROOT
-	curl -o BUILDROOT/ecs-agent.tar https://s3.amazonaws.com/amazon-ecs-agent/${AGENT_FILENAME}
-
-${AGENT_FILENAME}: BUILDROOT/ecs-agent.tar
-	cp BUILDROOT/ecs-agent.tar ${AGENT_FILENAME}
-
-rpm-in-docker: ${AGENT_FILENAME}
-	docker build -t "amazon/amazon-ecs-init:build" -f "scripts/dockerfiles/build.dockerfile" .
-	docker run -u "$(shell id -u)" --tmpfs /.cache -v "$(shell pwd):/workspace/amazon-ecs-init" "amazon/amazon-ecs-init:build"
-
-.generic-rpm-done: ${AGENT_FILENAME}
-	./scripts/update-version.sh
-	cp packaging/generic-rpm/amazon-ecs-init.spec amazon-ecs-init.spec
-	cp packaging/generic-rpm/ecs.service ecs.service
-	cp packaging/generic-rpm/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
-	cp packaging/generic-rpm/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
-	tar -czf ./sources.tgz ecs-init scripts
-	test -e SOURCES || ln -s . SOURCES
-	rpmbuild --define "%_topdir $(PWD)" -bb amazon-ecs-init.spec
-	find RPMS/ -type f -exec cp {} . \;
-	touch .generic-rpm-done
-
-generic-rpm: .generic-rpm-done
-
-.deb-done: BUILDROOT/ecs-agent.tar
-	./scripts/update-version.sh
-	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
-	cp -r packaging/generic-deb/debian ecs-init scripts README.md BUILDROOT
-	cd BUILDROOT && debuild -uc -us --lintian-opts --suppress-tags bad-distribution-in-changes-file,file-in-unusual-dir
-	touch .deb-done
-
-.PHONY: deb
-deb: .deb-done
 
 clean:
 	-rm -f misc/certs/host-certs.crt &> /dev/null
