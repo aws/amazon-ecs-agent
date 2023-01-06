@@ -455,9 +455,9 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 			}
 		}
 
-		securityOpts := []string{}
-		if key == config.SecurityOptEnvVar {
-			securityOpts =config.parseSecurityOptList(config.SecurityOptEnvVar)
+		var securityOpts []string
+		if key == config.SecurityOptsEnvVar {
+			securityOpts = config.parseSecurityOptsList(config.SecurityOptsEnvVar)
 		}
 	}
 

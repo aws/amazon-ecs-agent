@@ -105,7 +105,8 @@ const (
 	// in case path is not passed in the env variable
 	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
 
-	SecurityOptEnvVar = "ECS_AGENT_SELINUX_SECURITY_OPT"
+    //SecurityOptsEnvVar is the environment variable that specifies a list of string values to customize labels for MLS systems, such as SELinux
+	SecurityOptsEnvVar = "ECS_AGENT_SELINUX_SECURITY_OPTS"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -331,22 +332,24 @@ func RunningInExternal() bool {
 	return envVar == "true"
 }
 
-func RunSecurityOpt() bool {
-	envVar := os.Getenv("ECS_AGENT_SELINUX_SECURITY_OPT")
+func RunSecurityOpts() bool {
+	envVar := os.Getenv("ECS_AGENT_SELINUX_SECURITY_OPTS")
 	return len(envVar) > 0
 }
 
-func parseSecurityOptList(envVar string) []string {
-	securiyOptEnv := os.Getenv(envVar)
-	var SecurityOptList []string
-	if securiyOptEnv == "" {
-		seelog.Debugf("Environment variable empty: %s", securiyOptEnv)
+func parseSecurityOptsList(envVar string) []string {
+	securiyOptsEnv := os.Getenv(envVar)
+	if securiyOptsEnv == "" {
+		seelog.Debugf("Environment variable empty: %s", securiyOptsEnv)
 		return nil
-	}else {
-		SecurityOptList = strings.Split(securiyOptEnv, "lable")
 	}
-
-	return SecurityOptList
+	optsDecoder := json.NewDecoder(strings.NewReader(securiyOptsEnv))
+	var SecurityOptsList []string
+	err := optsDecoder.Decode(&SecurityOptsList)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"ECS_AGENT_SELINUX_SECURITY_OPTS\", expected a json list of string. error: %v", err)
+	}
+	return SecurityOptsList
 }
 
 func agentArtifactName(version string, arch string) (string, error) {

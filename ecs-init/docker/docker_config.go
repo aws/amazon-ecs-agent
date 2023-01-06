@@ -65,7 +65,7 @@ func createHostConfig(binds []string, securityOpts []string) *godocker.HostConfi
 		hostConfig.Privileged = true
 	}
 
-	if config.RunSecurityOpt() {
+	if config.RunSecurityOpts() {
 		hostConfig.SecurityOpt = securityOpts
 	}
 
