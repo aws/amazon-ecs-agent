@@ -44,10 +44,7 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/get-host-certs
-./scripts/build-cni-plugins
-./scripts/build true "" true true
-./scripts/build-agent-image
+make dockerfree-agent-image
 ./scripts/gobuild.sh %{gobuild_tag}
 
 %install
