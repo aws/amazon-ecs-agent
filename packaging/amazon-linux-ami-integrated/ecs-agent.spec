@@ -159,10 +159,7 @@ required routes among its preparation steps.
 
 %build
 # each of these should build for arm and amd arch
-./scripts/get-host-certs
-./scripts/build-cni-plugins
-./scripts/build true "" true true
-./scripts/build-agent-image
+make release-agent-internal
 ./scripts/gobuild.sh %{gobuild_tag}
 
 %install

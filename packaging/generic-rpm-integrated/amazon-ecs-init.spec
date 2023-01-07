@@ -44,7 +44,7 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-make dockerfree-agent-image
+make release-agent
 ./scripts/gobuild.sh %{gobuild_tag}
 
 %install

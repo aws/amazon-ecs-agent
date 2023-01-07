@@ -15,7 +15,7 @@ USERID=$(shell id -u)
 # default value of TARGET_OS
 TARGET_OS=linux
 
-.PHONY: all gobuild static-with-pause xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static-with-pause xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts release-agent release-agent-internal
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -248,13 +248,19 @@ dockerfree-pause:
 dockerfree-certs:
 	./scripts/get-host-certs
 
-dockerfree-cni-plugins: get-cni-sources
+dockerfree-cni-plugins:
 	./scripts/build-cni-plugins
 
 # see dockerfree-pause above: assumes that the pre-compiled pause container tar exists
-dockerfree-agent-image: dockerfree-certs dockerfree-cni-plugins static-with-pause
+# builds agent image and saves on disk, assumes cni plugins have been pulled
+release-agent-internal: dockerfree-certs dockerfree-cni-plugins static-with-pause
 	./scripts/build-agent-image
 
+# pulls cni plugins, builds agent image and save it to disk 
+release-agent: get-cni-sources
+	$(MAKE) release-agent-internal
+
+# legacy target used for building agent artifacts for functional tests
 .PHONY: codebuild
 codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
@@ -371,7 +377,7 @@ amazon-linux-sources.tgz:
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
-	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION RELEASE_COMMIT
+	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container Makefile VERSION RELEASE_COMMIT
 
 .amazon-linux-rpm-integrated-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES
