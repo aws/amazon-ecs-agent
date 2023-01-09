@@ -15,7 +15,7 @@ USERID=$(shell id -u)
 # default value of TARGET_OS
 TARGET_OS=linux
 
-.PHONY: all gobuild static-with-pause xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts release-agent release-agent-internal
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts release-agent release-agent-internal
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -48,7 +48,7 @@ gobuild-init-deb:
 	touch .out-stamp
 
 # Basic go build
-static-with-pause:
+static:
 	./scripts/build true "" true true
 
 # Cross-platform build target for static checks
@@ -253,7 +253,7 @@ dockerfree-cni-plugins:
 
 # see dockerfree-pause above: assumes that the pre-compiled pause container tar exists
 # builds agent image and saves on disk, assumes cni plugins have been pulled
-release-agent-internal: dockerfree-certs dockerfree-cni-plugins static-with-pause
+release-agent-internal: dockerfree-certs dockerfree-cni-plugins static
 	./scripts/build-agent-image
 
 # pulls cni plugins, builds agent image and save it to disk 
