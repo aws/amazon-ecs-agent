@@ -108,7 +108,7 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--rm \
 		"amazon/amazon-ecs-agent-${BUILD}:make"
 
-# Release packages our agent into a "scratch" based dockerfile
+# Legacy target : Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release
 	@./scripts/create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
@@ -256,11 +256,11 @@ dockerfree-cni-plugins:
 release-agent-internal: dockerfree-certs dockerfree-cni-plugins static
 	./scripts/build-agent-image
 
-# pulls cni plugins, builds agent image and save it to disk 
+# Default Agent target to build. Pulls cni plugins, builds agent image and save it to disk 
 release-agent: get-cni-sources
 	$(MAKE) release-agent-internal
 
-# legacy target used for building agent artifacts for functional tests
+# Legacy target used for building agent artifacts for functional tests
 .PHONY: codebuild
 codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
@@ -399,6 +399,7 @@ amazon-linux-rpm-integrated: .amazon-linux-rpm-integrated-done
 	find RPMS/ -type f -exec cp {} . \;
 	touch .generic-rpm-integrated-done
 
+# Build init rpm
 generic-rpm-integrated: .generic-rpm-integrated-done
 
 VERSION = $(shell cat ecs-init/ECSVERSION)
@@ -411,6 +412,7 @@ VERSION = $(shell cat ecs-init/ECSVERSION)
 	cd BUILDROOT && dpkg-buildpackage -uc -b
 	touch .generic-deb-integrated-done
 
+# Build init deb
 generic-deb-integrated: .generic-deb-integrated-done
 
 ARCH:=$(shell uname -m)
