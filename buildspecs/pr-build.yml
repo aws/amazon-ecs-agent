@@ -60,7 +60,7 @@ phases:
 
       # Building agent tars
       - GO111MODULE=auto
-      - make dockerfree-agent-image 2>&1 | tee -a $BUILD_LOG
+      - make release-agent 2>&1 | tee -a $BUILD_LOG
       - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
       - ls
       # Rename artifacts for architecture
