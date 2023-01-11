@@ -251,7 +251,10 @@ The following targets are available. Each may be run with `make <target>`.
 
 | Make Target            | Description |
 |:-----------------------|:------------|
-| `release`              | *(Default)* Builds the agent within a Docker container and and packages it into a scratch-based image |
+| `release-agent`        | *(Default Agent build)* Builds Agent fetching required dependencies and saves image .tar to disk|
+| `generic-rpm-integrated`| Builds init rpm package and saves .rpm package to disk |
+| `generic-deb-integrated`| Builds init deb package and saves .deb package to disk |
+| `release`              | *(Legacy Agent build)* Builds the agent within a Docker container and packages it into a scratch-based image |
 | `gobuild`              | Runs a normal `go build` of the agent and stores the binary in `./out/amazon-ecs-agent` |
 | `static`               | Runs `go build` to produce a static binary in `./out/amazon-ecs-agent` |
 | `test`                 | Runs all unit tests using `go test` |
