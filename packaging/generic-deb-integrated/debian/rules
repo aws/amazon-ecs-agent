@@ -15,7 +15,7 @@ override_dh_auto_clean:
 override_dh_auto_test:
 override_dh_auto_build:
 override_dh_auto_install:
-	make dockerfree-agent-image
+	make release-agent
 	make gobuild-init-deb
 	cp ./ecs-agent-v${AGENT_VERSION}.tar debian/amazon-ecs-init/var/cache/ecs/ecs-agent-v${VERSION}.tar
 	echo "2" >debian/amazon-ecs-init/var/cache/ecs/state
