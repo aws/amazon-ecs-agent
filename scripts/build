@@ -29,7 +29,6 @@ with_pause=${4:-false}
 
 PAUSE_CONTAINER_IMAGE="amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG="0.1.0"
-PAUSE_CONTAINER_TARBALL="amazon-ecs-pause.tar"
 
 # Normalize to working directory being build root (up one level from ./scripts)
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )

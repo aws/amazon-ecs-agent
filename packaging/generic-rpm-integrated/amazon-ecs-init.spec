@@ -44,10 +44,7 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/get-host-certs
-./scripts/build-cni-plugins
-./scripts/build-integrated true "" true true
-./scripts/build-agent-image
+make release-agent
 ./scripts/gobuild.sh %{gobuild_tag}
 
 %install
