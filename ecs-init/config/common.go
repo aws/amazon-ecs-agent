@@ -347,7 +347,7 @@ func ParseSecurityOptsList() []string {
 	var SecurityOptsList []string
 	err := optsDecoder.Decode(&SecurityOptsList)
 	if err != nil {
-		seelog.Warnf("Invalid format for \"ECS_AGENT_SELINUX_SECURITY_OPTS\", expected a json list of string. error: %v", err)
+		seelog.Warnf("Invalid format for \"ECS_AGENT_DOCKER_SECURITY_OPTS\", expected a json list of string. error: %v", err)
 	}
 	return SecurityOptsList
 }
