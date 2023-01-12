@@ -113,6 +113,8 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 
 	gomock.InOrder(
@@ -456,6 +458,8 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
@@ -618,6 +622,8 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),

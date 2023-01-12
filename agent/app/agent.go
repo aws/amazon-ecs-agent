@@ -395,7 +395,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
-	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
+	scManager := agent.serviceconnectManager
+	scManager.SetECSClient(client, agent.containerInstanceARN)
+	if loaded, _ := scManager.IsLoaded(agent.dockerClient); loaded {
+		imageManager.AddImageToCleanUpExclusionList(agent.serviceconnectManager.GetLoadedImageName())
+	}
 
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {

@@ -64,10 +64,8 @@ func (*manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 func (m *manager) SetECSClient(api.ECSClient, string) {
 }
 
-func (*manager) GetLoadedImageName() (string, error) {
-	return "", loader.NewUnsupportedPlatformError(fmt.Errorf(
-		"appnetAgent container get image name: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+func (*manager) GetLoadedImageName() string {
+	return ""
 }
 
 func (*manager) GetLoadedAppnetVersion() (string, error) {
