@@ -106,7 +106,7 @@ const (
 	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
 
     //SecurityOptsEnvVar is the environment variable that specifies a list of string values to customize labels for MLS systems, such as SELinux
-	SecurityOptsEnvVar = "ECS_AGENT_SELINUX_SECURITY_OPTS"
+	SecurityOptsEnvVar = "ECS_AGENT_DOCKER_SECURITY_OPTS"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
