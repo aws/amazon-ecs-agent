@@ -104,6 +104,9 @@ const (
 	// defaultCredentialsFetcherSocketPath is set to /var/credentials-fetcher/socket/credentials_fetcher.sock
 	// in case path is not passed in the env variable
 	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
+
+	//SecurityOptsEnvVar is the environment variable that specifies a comma-separated list of string values to customize labels for MLS systems, such as SELinux
+	SecurityOptsEnvVar = "ECS_AGENT_DOCKER_SECURITY_OPTS"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -327,6 +330,26 @@ func RunPrivileged() bool {
 func RunningInExternal() bool {
 	envVar := os.Getenv(ExternalEnvVar)
 	return envVar == "true"
+}
+
+func RunSecurityOpts() bool {
+	envVar := os.Getenv(SecurityOptsEnvVar)
+	return len(envVar) > 0
+}
+
+func ParseSecurityOptsList() []string {
+	securiyOptsEnv := os.Getenv(SecurityOptsEnvVar)
+	if securiyOptsEnv == "" {
+		seelog.Debugf("Environment variable empty: %s", securiyOptsEnv)
+		return nil
+	}
+	optsDecoder := json.NewDecoder(strings.NewReader(securiyOptsEnv))
+	var SecurityOptsList []string
+	err := optsDecoder.Decode(&SecurityOptsList)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"ECS_AGENT_DOCKER_SECURITY_OPTS\", expected a json list of string. error: %v", err)
+	}
+	return SecurityOptsList
 }
 
 func agentArtifactName(version string, arch string) (string, error) {

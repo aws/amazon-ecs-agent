@@ -439,6 +439,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 		binds = append(binds, credsPath)
 	}
 
+	var securityOpts = make([]string, 0)
 	for key, val := range c.LoadEnvVars() {
 		if key == config.GPUSupportEnvVar && val == "true" {
 			if nvidiaGPUDevicesPresent() {
@@ -454,6 +455,10 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 				binds = append(binds, credentialsfetcherSocketBind)
 			}
 		}
+
+		if key == config.SecurityOptsEnvVar {
+			securityOpts = config.ParseSecurityOptsList()
+		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
@@ -461,7 +466,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	// only add bind mounts when the src file/directory exists on host; otherwise docker API create an empty directory on host
 	binds = append(binds, getCapabilityBinds()...)
 
-	return createHostConfig(binds)
+	return createHostConfig(binds, securityOpts)
 }
 
 // getCredentialsFetcherSocketBind returns the corresponding bind for credentials fetcher socket.
