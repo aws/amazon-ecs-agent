@@ -105,7 +105,7 @@ const (
 	// in case path is not passed in the env variable
 	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
 
-    //SecurityOptsEnvVar is the environment variable that specifies a list of string values to customize labels for MLS systems, such as SELinux
+	//SecurityOptsEnvVar is the environment variable that specifies a comma-separated list of string values to customize labels for MLS systems, such as SELinux
 	SecurityOptsEnvVar = "ECS_AGENT_DOCKER_SECURITY_OPTS"
 )
 
