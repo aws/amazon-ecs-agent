@@ -8,7 +8,7 @@ require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v1.0.4
 	github.com/containernetworking/cni v0.8.1
-	github.com/containernetworking/plugins v0.8.1
+	github.com/containernetworking/plugins v0.8.6
 	github.com/deniswernert/udev v0.0.0-20170418162847-a12666f7b5a1
 	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible
@@ -37,7 +37,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/Microsoft/go-winio v0.4.7 // indirect
+	github.com/Microsoft/go-winio v0.4.11 // indirect
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect

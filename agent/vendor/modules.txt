@@ -1,6 +1,6 @@
 # github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1
 ## explicit; go 1.16
-# github.com/Microsoft/go-winio v0.4.7
+# github.com/Microsoft/go-winio v0.4.11
 ## explicit
 github.com/Microsoft/go-winio
 # github.com/Microsoft/hcsshim v0.8.6
@@ -109,8 +109,8 @@ github.com/containernetworking/cni/pkg/types/020
 github.com/containernetworking/cni/pkg/types/current
 github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
-# github.com/containernetworking/plugins v0.8.1
-## explicit
+# github.com/containernetworking/plugins v0.8.6
+## explicit; go 1.12
 github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-systemd/v22 v22.3.2
 ## explicit; go 1.12
