@@ -14,9 +14,9 @@ require (
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
-	github.com/fsnotify/fsnotify v1.4.9
+	github.com/fsnotify/fsnotify v1.5.4
 	github.com/golang/mock v1.4.1
-	github.com/gorilla/mux v1.7.2
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417

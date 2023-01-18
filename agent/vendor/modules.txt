@@ -166,8 +166,8 @@ github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.4.0
 ## explicit
 github.com/docker/go-units
-# github.com/fsnotify/fsnotify v1.4.9
-## explicit; go 1.13
+# github.com/fsnotify/fsnotify v1.5.4
+## explicit; go 1.16
 github.com/fsnotify/fsnotify
 # github.com/godbus/dbus/v5 v5.0.6
 ## explicit; go 1.12
@@ -192,8 +192,8 @@ github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
-# github.com/gorilla/mux v1.7.2
-## explicit
+# github.com/gorilla/mux v1.8.0
+## explicit; go 1.12
 github.com/gorilla/mux
 # github.com/gorilla/websocket v1.4.2
 ## explicit; go 1.12
