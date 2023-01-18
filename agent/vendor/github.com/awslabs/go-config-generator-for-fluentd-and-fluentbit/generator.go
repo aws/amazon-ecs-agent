@@ -45,6 +45,9 @@ type FluentConfig interface {
 	AddFieldToRecord(key string, value string, tag string) FluentConfig
 	AddExternalConfig(filePath string, position IncludePosition) FluentConfig
 	AddOutput(name string, tag string, options map[string]string) FluentConfig
+	AddCustom(conf interface{}) FluentConfig
+	WithFluentdTemplate(template string) FluentConfig
+	WithFluentBitTemplate(template string) FluentConfig
 	WriteFluentdConfig(wr io.Writer) error
 	WriteFluentBitConfig(wr io.Writer) error
 }
@@ -52,14 +55,19 @@ type FluentConfig interface {
 // New Creates a new Fluent Config generater
 func New() FluentConfig {
 	return &FluentConfigGenerator{
-		ModifyRecords: make(map[string]RecordModifier),
+		fluentdTemplate:   fluentDConfigTemplate,
+		fluentBitTemplate: fluentBitConfigTemplate,
+		ModifyRecords:     make(map[string]RecordModifier),
 	}
 }
 
 // FluentConfigGenerator implements FluentConfig
-// It and all its fields must be public, so that the template library can
-// use them when
+// The templating fields must be public, so that the template library
+// can use them when the templates are executed
 type FluentConfigGenerator struct {
+	fluentdTemplate   string
+	fluentBitTemplate string
+
 	Inputs                    []LogPipe
 	ModifyRecords             map[string]RecordModifier
 	IncludeFilters            []RegexFilter
@@ -69,6 +77,7 @@ type FluentConfigGenerator struct {
 	IncludeConfigAfterFilters []string
 	IncludeConfigEndOfFile    []string
 	Outputs                   []LogPipe
+	Custom                    interface{}
 }
 
 // LogPipe can represent an input or an output plugin
@@ -149,6 +158,24 @@ func (config *FluentConfigGenerator) AddExternalConfig(filePath string, position
 	return config
 }
 
+// AddCustom adds custom configuration, needed for a custom template
+func (config *FluentConfigGenerator) AddCustom(conf interface{}) FluentConfig {
+	config.Custom = conf
+	return config
+}
+
+// WithFluentdTemplate sets a custom Fluentd template
+func (config *FluentConfigGenerator) WithFluentdTemplate(template string) FluentConfig {
+	config.fluentdTemplate = template
+	return config
+}
+
+// WithFluentBitTemplate sets a custom FluentBit template
+func (config *FluentConfigGenerator) WithFluentBitTemplate(template string) FluentConfig {
+	config.fluentBitTemplate = template
+	return config
+}
+
 // AddOutput adds an output/log destination
 func (config *FluentConfigGenerator) AddOutput(name string, tag string, options map[string]string) FluentConfig {
 	config.Outputs = append(config.Outputs, LogPipe{
@@ -161,18 +188,24 @@ func (config *FluentConfigGenerator) AddOutput(name string, tag string, options 
 
 // WriteFluentdConfig outputs the config in Fluentd syntax
 func (config *FluentConfigGenerator) WriteFluentdConfig(wr io.Writer) error {
-	tmpl, err := template.New("fluent.conf").Parse(fluentDConfigTemplate)
+	tmpl, err := template.New("fluent.conf").Parse(config.fluentdTemplate)
 	if err != nil {
 		return err
+	}
+	if config.Custom != nil {
+		tmpl.Option("missingkey=error")
 	}
 	return tmpl.Execute(wr, config)
 }
 
 // WriteFluentBitConfig outputs the config in Fluent Bit syntax
 func (config *FluentConfigGenerator) WriteFluentBitConfig(wr io.Writer) error {
-	tmpl, err := template.New("fluent-bit.conf").Parse(fluentBitConfigTemplate)
+	tmpl, err := template.New("fluent-bit.conf").Parse(config.fluentBitTemplate)
 	if err != nil {
 		return err
+	}
+	if config.Custom != nil {
+		tmpl.Option("missingkey=error")
 	}
 	return tmpl.Execute(wr, config)
 }

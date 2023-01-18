@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build linux
 // +build linux
 
 package fsnotify
@@ -38,6 +37,7 @@ func newFdPoller(fd int) (*fdPoller, error) {
 			poller.close()
 		}
 	}()
+	poller.fd = fd
 
 	// Create epoll fd
 	poller.epfd, errno = unix.EpollCreate1(unix.EPOLL_CLOEXEC)
