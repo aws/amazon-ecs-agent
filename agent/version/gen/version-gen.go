@@ -14,7 +14,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -72,9 +72,36 @@ func gitHash() string {
 	cmd := exec.Command("git", "rev-parse", "--short=8", "HEAD")
 	hash, err := cmd.Output()
 	if err != nil {
+		log.Printf("failed to execute git rev-parse --short=8 HEAD, err: %v", err)
 		return "UNKNOWN"
 	}
-	return strings.TrimSpace(string(hash))
+	hashStr := strings.TrimSpace(string(hash))
+	log.Printf("Successfully retrieved short hash value from git rev-parse --short=8 HEAD, hashStr: %s",
+		hashStr)
+	return hashStr
+}
+
+func releaseCommitGitHash() (string, error) {
+	fullHash, err := os.ReadFile(filepath.Join("..", "..", "RELEASE_COMMIT"))
+	if err != nil {
+		return "", fmt.Errorf("unable to read RELEASE_COMMIT file, err: %v", err)
+	}
+	fullHashStr := strings.TrimSpace(string(fullHash))
+	if fullHashStr == "" || len(fullHashStr) < 8 {
+		log.Fatalf("Invalid hash value obtained from RELEASE_COMMIT file (empty or length <8), fullHashStr: %s",
+			fullHashStr)
+	}
+	log.Printf("Successfully retrieved full hash value from RELEASE_COMMIT file, fullHashStr: %s", fullHashStr)
+	// return short hash (first 8 characters) instead of full hash
+	return fullHashStr[0:8], nil
+}
+
+func selectGitHash() string {
+	hash, err := releaseCommitGitHash()
+	if err != nil {
+		return gitHash()
+	}
+	return hash
 }
 
 // version-gen is a simple program that generates the agent's version file,
@@ -82,7 +109,7 @@ func gitHash() string {
 // cleanliness.
 func main() {
 
-	versionStr, _ := ioutil.ReadFile(filepath.Join("..", "..", "VERSION"))
+	versionStr, _ := os.ReadFile(filepath.Join("..", "..", "VERSION"))
 
 	// default values
 	info := versionInfo{
@@ -101,7 +128,7 @@ func main() {
 		// have a commit hash so that it does not churn with every commit. This
 		// env var should not be set when building, and go generate should be
 		// run before any build, such that the commithash will be set correctly.
-		info.Hash = gitHash()
+		info.Hash = selectGitHash()
 	}
 
 	outFile, err := os.Create("version.go")

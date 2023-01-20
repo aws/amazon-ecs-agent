@@ -89,6 +89,7 @@ func TestCompatibilityNotSetFail(t *testing.T) {
 		require.NoError(t, dataClient.SaveTask(task))
 	}
 
+	cfg.Cluster = "test-cluster"
 	agent := &ecsAgent{
 		cfg:                   &cfg,
 		dataClient:            dataClient,

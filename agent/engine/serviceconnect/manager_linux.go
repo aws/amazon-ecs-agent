@@ -168,7 +168,7 @@ func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontai
 	config.DrainRequest = m.adminDrainRequest
 
 	task.PopulateServiceConnectRuntimeConfig(config)
-	container.Image, _ = m.GetLoadedImageName()
+	container.Image = m.GetLoadedImageName()
 	return nil
 }
 
@@ -297,10 +297,7 @@ func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontain
 }
 
 func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) {
-	imageName, err := m.GetLoadedImageName()
-	if err != nil {
-		return nil, err
-	}
+	imageName := m.GetLoadedImageName()
 	containerRunning := apicontainerstatus.ContainerRunning
 	dockerHostConfig := dockercontainer.HostConfig{
 		NetworkMode: apitask.HostNetworkMode,
@@ -404,7 +401,7 @@ func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerCli
 			continue
 		}
 		agent.setLoadedAppnetVerion(supportedAppnetInterfaceVersion)
-		imageName, _ := agent.GetLoadedImageName()
+		imageName := agent.GetLoadedImageName()
 		logger.Info(fmt.Sprintf("Successfully loaded Appnet agent container tarball: %s", agentContainerTarballPath),
 			logger.Fields{
 				field.Image: imageName,
@@ -415,13 +412,12 @@ func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerCli
 }
 
 func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	imageName, _ := agent.GetLoadedImageName()
-	return loader.IsImageLoaded(imageName, dockerClient)
+	return loader.IsImageLoaded(agent.GetLoadedImageName(), dockerClient)
 }
 
-func (agent *manager) GetLoadedImageName() (string, error) {
+func (agent *manager) GetLoadedImageName() string {
 	agent.agentContainerTag = fmt.Sprintf(defaultAgentContainerTagFormat, agent.appnetInterfaceVersion)
-	return fmt.Sprintf("%s:%s", agent.agentContainerImageName, agent.agentContainerTag), nil
+	return fmt.Sprintf("%s:%s", agent.agentContainerImageName, agent.agentContainerTag)
 }
 
 func (agent *manager) GetLoadedAppnetVersion() (string, error) {

@@ -350,7 +350,6 @@ install-golang:
 	./scripts/install-golang.sh
 
 .get-deps-stamp:
-	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
@@ -362,7 +361,6 @@ get-deps: .get-deps-stamp
 
 get-deps-init:
 	go get golang.org/x/tools/cover
-	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
@@ -377,7 +375,7 @@ amazon-linux-sources.tgz:
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
 	cp packaging/amazon-linux-ami-integrated/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
-	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION
+	tar -czf ./sources.tgz ecs-init scripts misc agent amazon-ecs-cni-plugins amazon-vpc-cni-plugins agent-container VERSION RELEASE_COMMIT
 
 .amazon-linux-rpm-integrated-done: amazon-linux-sources.tgz
 	test -e SOURCES || ln -s . SOURCES

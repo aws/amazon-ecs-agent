@@ -87,7 +87,7 @@ const (
 	instanceIdBackoffMax      = time.Second * 5
 	instanceIdBackoffJitter   = 0.2
 	instanceIdBackoffMultiple = 1.3
-	instanceIdMaxRetryCount   = 3
+	instanceIdMaxRetryCount   = 5
 
 	targetLifecycleBackoffMin      = time.Second
 	targetLifecycleBackoffMax      = time.Second * 5
@@ -395,7 +395,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
-	agent.serviceconnectManager.SetECSClient(client, agent.containerInstanceARN)
+	scManager := agent.serviceconnectManager
+	scManager.SetECSClient(client, agent.containerInstanceARN)
+	if loaded, _ := scManager.IsLoaded(agent.dockerClient); loaded {
+		imageManager.AddImageToCleanUpExclusionList(agent.serviceconnectManager.GetLoadedImageName())
+	}
 
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {
@@ -536,6 +540,10 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	}
 
 	currentEC2InstanceID := agent.getEC2InstanceID()
+	if currentEC2InstanceID == "" {
+		currentEC2InstanceID = savedData.ec2InstanceID
+		seelog.Warnf("Not able to get EC2 Instance ID from IMDS, using EC2 Instance ID from saved state: '%s'", currentEC2InstanceID)
+	}
 	if savedData.ec2InstanceID != "" && savedData.ec2InstanceID != currentEC2InstanceID {
 		seelog.Warnf(instanceIDMismatchErrorFormat,
 			savedData.ec2InstanceID, currentEC2InstanceID)

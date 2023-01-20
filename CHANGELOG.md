@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.68.0
+* Bug - Add ServiceConnect image to clean-up exclusion list [#3521](https://github.com/aws/amazon-ecs-agent/pull/3521)
+* Enhancement: added new agent configuration to specify ephemeral host port range [#3522](https://github.com/aws/amazon-ecs-agent/pull/3522)
+
+## 1.67.2
+* Bug - Fix the generation of network bindings for Service Connect container [#3513](https://github.com/aws/amazon-ecs-agent/pull/3513)
+* Bug - Prevent resetting valid agent state db when IMDS fails on startup [#3509](https://github.com/aws/amazon-ecs-agent/pull/3509)
+
+## 1.67.1
+* Bug - Read git hash from RELEASE_COMMIT file if possible [#3508](https://github.com/aws/amazon-ecs-agent/pull/3508)
+
 ## 1.67.0
 * Bug - Don't log errors on instances not using GMSA [#3489](https://github.com/aws/amazon-ecs-agent/pull/3489)
 * Enhancement - Update packaging Readme files with updated instructions to build init files [#3490](https://github.com/aws/amazon-ecs-agent/pull/3490)

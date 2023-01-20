@@ -23,8 +23,11 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/cihub/seelog"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
@@ -371,4 +374,30 @@ func parseCgroupCPUPeriod() time.Duration {
 	}
 
 	return defaultCgroupCPUPeriod
+}
+
+var getDynamicHostPortRange = utils.GetDynamicHostPortRange
+
+func parseDynamicHostPortRange(dynamicHostPortRangeEnv string) string {
+	dynamicHostPortRange := os.Getenv(dynamicHostPortRangeEnv)
+	if dynamicHostPortRange != "" {
+		_, _, err := nat.ParsePortRangeToInt(dynamicHostPortRange)
+		if err != nil {
+			seelog.Warnf("Invalid dynamicHostPortRange value from config: %s, err: %v", dynamicHostPortRange, err)
+			return getDefaultDynamicHostPortRange()
+		}
+	} else {
+		return getDefaultDynamicHostPortRange()
+	}
+	return dynamicHostPortRange
+}
+
+func getDefaultDynamicHostPortRange() string {
+	startHostPortRange, endHostPortRange, err := getDynamicHostPortRange()
+	if err != nil {
+		seelog.Warnf("Unable to read the ephemeral host port range, "+
+			"falling back to the default range: %v-%v", utils.DefaultPortRangeStart, utils.DefaultPortRangeEnd)
+		return fmt.Sprintf("%d-%d", utils.DefaultPortRangeStart, utils.DefaultPortRangeEnd)
+	}
+	return fmt.Sprintf("%d-%d", startHostPortRange, endHostPortRange)
 }

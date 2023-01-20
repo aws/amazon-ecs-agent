@@ -25,7 +25,7 @@ import (
 type Manager interface {
 	loader.Loader
 
-	GetLoadedImageName() (string, error)
+	GetLoadedImageName() string
 	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	CreateInstanceTask(config *config.Config) (*apitask.Task, error)
 	AugmentInstanceContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error

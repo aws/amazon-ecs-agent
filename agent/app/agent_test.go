@@ -424,6 +424,8 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
@@ -889,6 +891,8 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
