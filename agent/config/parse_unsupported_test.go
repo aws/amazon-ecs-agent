@@ -17,23 +17,15 @@
 package config
 
 import (
-	"errors"
-	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func parseGMSACapability() BooleanDefaultFalse {
-	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+func TestParseGMSACapabilitySupported(t *testing.T) {
+	assert.False(t, parseGMSACapability().Enabled())
 }
 
-func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
-	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
-}
-
-var IsWindows2016 = func() (bool, error) {
-	return false, errors.New("unsupported platform")
-}
-
-// GetOSFamily returns "UNSUPPORTED" as operating system family for non-windows based ecs instances.
-func GetOSFamily() string {
-	return strings.ToUpper(OSType)
+func TestParseFSxWindowsFileServerCapability(t *testing.T) {
+	assert.False(t, parseGMSACapability().Enabled())
 }

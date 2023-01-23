@@ -455,7 +455,7 @@ func defaultTestConfigIntegTestGMSA() *config.Config {
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 
-	cfg.GMSACapable = true
+	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.AWSRegion = "us-west-2"
 
 	return cfg

@@ -35,41 +35,42 @@ const (
 )
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
-func parseGMSACapability() bool {
+func parseGMSACapability() BooleanDefaultFalse {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	return checkDomainJoinWithEnvOverride(envStatus)
 }
 
 // parseFSxWindowsFileServerCapability is used to determine if fsxWindowsFileServer support can be enabled
-func parseFSxWindowsFileServerCapability() bool {
+func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
 	// fsxwindowsfileserver is not supported on Windows 2016 and non-domain-joined container instances
 	status, err := IsWindows2016()
 	if err != nil || status == true {
-		return false
+		return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 	}
 
 	envStatus := utils.ParseBool(os.Getenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED"), true)
 	return checkDomainJoinWithEnvOverride(envStatus)
 }
 
-func checkDomainJoinWithEnvOverride(envStatus bool) bool {
+func checkDomainJoinWithEnvOverride(envStatus bool) BooleanDefaultFalse {
 	if envStatus {
 		// Check if domain join check override is present
 		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
 		if skipDomainJoinCheck {
 			seelog.Debug("Skipping domain join validation based on environment override")
-			return true
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
 		}
 		// check if container instance is domain joined.
 		// If container instance is not domain joined, explicitly disable feature configuration.
 		status, err := isDomainJoined()
-		if err == nil && status == true {
-			return true
+		if err != nil {
+			seelog.Errorf("Unable to determine valid domain join with err: %v", err)
 		}
-		seelog.Errorf("Unable to determine valid domain join: %v", err)
+		if status == true {
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
+		}
 	}
-
-	return false
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
 // isDomainJoined is used to validate if container instance is part of a valid active directory.
