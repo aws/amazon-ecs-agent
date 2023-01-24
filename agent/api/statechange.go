@@ -105,6 +105,9 @@ type AttachmentStateChange struct {
 // returns error if the state change doesn't need to be sent to the ECS backend.
 func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange, error) {
 	var event TaskStateChange
+	if task.IsInternal {
+		return event, errors.Errorf("skip creating task stage change event for internal task %v", task.Arn)
+	}
 	taskKnownStatus := task.GetKnownStatus()
 	if !taskKnownStatus.BackendRecognized() {
 		return event, errors.Errorf(
