@@ -31,8 +31,10 @@ jobs:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - name: make test
         run: |
-          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          set -eoux pipefail
           export GOPATH=$GITHUB_WORKSPACE
-          cd agent
-          go env
-          go test -count=1 -race -tags unit ./...
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          make test-silent
+          make analyze-cover-profile
+          make test-init
+          make analyze-cover-profile-init
