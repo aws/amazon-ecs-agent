@@ -78,7 +78,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 
 	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, region, apiEndpoint, acceptInsecureCert)
 
-	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
+	limiter := tollbooth.NewLimiter(float64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
 	limiter.SetBurst(burstRate)
 
