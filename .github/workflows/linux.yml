@@ -10,6 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
+          submodules: true
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
         id: get-go-version
@@ -24,18 +25,14 @@ jobs:
             echo "invalid GO version"
             exit 1
           fi
-          echo "::set-output name=GO_VERSION::$go_version"
-      - uses: actions/setup-go@v2
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-          path: src/github.com/aws/amazon-ecs-agent
       - name: make test
         run: |
+          set -eoux pipefail
           export GOPATH=$GITHUB_WORKSPACE
-          export GO111MODULE=auto
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           make test-silent
           make analyze-cover-profile
