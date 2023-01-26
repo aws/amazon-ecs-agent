@@ -206,7 +206,10 @@ func validateConfigFile(configFileName string) (bool, error) {
 	}
 	defer windows.LocalFree(handle)
 
-	id := Sid.String()
+	id, err := Sid.String()
+	if err != nil {
+		return false, err
+	}
 
 	if id == adminSid {
 		return true, nil

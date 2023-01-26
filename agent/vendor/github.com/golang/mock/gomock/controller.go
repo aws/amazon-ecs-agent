@@ -84,7 +84,7 @@ type TestHelper interface {
 // defer.
 //
 //   func TestFoo(t *testing.T) {
-//     ctrl := gomock.NewController(t)
+//     ctrl := gomock.NewController(st)
 //     defer ctrl.Finish()
 //     // ..
 //   }
@@ -209,7 +209,7 @@ func (ctrl *Controller) Call(receiver interface{}, method string, args ...interf
 			ctrl.expectedCalls.Remove(preReqCall)
 		}
 
-		actions := expected.call()
+		actions := expected.call(args)
 		if expected.exhausted() {
 			ctrl.expectedCalls.Remove(expected)
 		}

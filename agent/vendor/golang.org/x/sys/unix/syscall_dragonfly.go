@@ -12,25 +12,7 @@
 
 package unix
 
-import (
-	"sync"
-	"unsafe"
-)
-
-// See version list in https://github.com/DragonFlyBSD/DragonFlyBSD/blob/master/sys/sys/param.h
-var (
-	osreldateOnce sync.Once
-	osreldate     uint32
-)
-
-// First __DragonFly_version after September 2019 ABI changes
-// http://lists.dragonflybsd.org/pipermail/users/2019-September/358280.html
-const _dragonflyABIChangeVersion = 500705
-
-func supportsABI(ver uint32) bool {
-	osreldateOnce.Do(func() { osreldate, _ = SysctlUint32("kern.osreldate") })
-	return osreldate >= ver
-}
+import "unsafe"
 
 // SockaddrDatalink implements the Sockaddr interface for AF_LINK type sockets.
 type SockaddrDatalink struct {
@@ -45,10 +27,6 @@ type SockaddrDatalink struct {
 	Rcf    uint16
 	Route  [16]uint16
 	raw    RawSockaddrDatalink
-}
-
-func anyToSockaddrGOOS(fd int, rsa *RawSockaddrAny) (Sockaddr, error) {
-	return nil, EAFNOSUPPORT
 }
 
 // Translate "kern.hostname" to []_C_int{0,1,2,3}.
@@ -95,44 +73,23 @@ func direntNamlen(buf []byte) (uint64, bool) {
 	return readInt(buf, unsafe.Offsetof(Dirent{}.Namlen), unsafe.Sizeof(Dirent{}.Namlen))
 }
 
-//sysnb	pipe() (r int, w int, err error)
+//sysnb pipe() (r int, w int, err error)
 
 func Pipe(p []int) (err error) {
 	if len(p) != 2 {
 		return EINVAL
 	}
-	r, w, err := pipe()
-	if err == nil {
-		p[0], p[1] = r, w
-	}
+	p[0], p[1], err = pipe()
 	return
 }
 
-//sysnb	pipe2(p *[2]_C_int, flags int) (r int, w int, err error)
-
-func Pipe2(p []int, flags int) (err error) {
-	if len(p) != 2 {
-		return EINVAL
-	}
-	var pp [2]_C_int
-	// pipe2 on dragonfly takes an fds array as an argument, but still
-	// returns the file descriptors.
-	r, w, err := pipe2(&pp, flags)
-	if err == nil {
-		p[0], p[1] = r, w
-	}
-	return err
-}
-
 //sys	extpread(fd int, p []byte, flags int, offset int64) (n int, err error)
-
-func pread(fd int, p []byte, offset int64) (n int, err error) {
+func Pread(fd int, p []byte, offset int64) (n int, err error) {
 	return extpread(fd, p, 0, offset)
 }
 
 //sys	extpwrite(fd int, p []byte, flags int, offset int64) (n int, err error)
-
-func pwrite(fd int, p []byte, offset int64) (n int, err error) {
+func Pwrite(fd int, p []byte, offset int64) (n int, err error) {
 	return extpwrite(fd, p, 0, offset)
 }
 
@@ -154,7 +111,22 @@ func Accept4(fd, flags int) (nfd int, sa Sockaddr, err error) {
 	return
 }
 
+const ImplementsGetwd = true
+
 //sys	Getcwd(buf []byte) (n int, err error) = SYS___GETCWD
+
+func Getwd() (string, error) {
+	var buf [PathMax]byte
+	_, err := Getcwd(buf[0:])
+	if err != nil {
+		return "", err
+	}
+	n := clen(buf[:])
+	if n < 1 {
+		return "", EINVAL
+	}
+	return string(buf[:n]), nil
+}
 
 func Getfsstat(buf []Statfs_t, flags int) (n int, err error) {
 	var _p0 unsafe.Pointer
@@ -171,9 +143,12 @@ func Getfsstat(buf []Statfs_t, flags int) (n int, err error) {
 	return
 }
 
-//sys	ioctl(fd int, req uint, arg uintptr) (err error)
+func setattrlistTimes(path string, times []Timespec, flags int) error {
+	// used on Darwin for UtimesNano
+	return ENOSYS
+}
 
-//sys	sysctl(mib []_C_int, old *byte, oldlen *uintptr, new *byte, newlen uintptr) (err error) = SYS___SYSCTL
+//sys	ioctl(fd int, req uint, arg uintptr) (err error)
 
 func sysctlUname(mib []_C_int, old *byte, oldlen *uintptr) error {
 	err := sysctl(mib, old, oldlen, nil, 0)
@@ -255,7 +230,6 @@ func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 //sys	Chmod(path string, mode uint32) (err error)
 //sys	Chown(path string, uid int, gid int) (err error)
 //sys	Chroot(path string) (err error)
-//sys	ClockGettime(clockid int32, time *Timespec) (err error)
 //sys	Close(fd int) (err error)
 //sys	Dup(fd int) (nfd int, err error)
 //sys	Dup2(from int, to int) (err error)
@@ -314,7 +288,7 @@ func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 //sys	Revoke(path string) (err error)
 //sys	Rmdir(path string) (err error)
 //sys	Seek(fd int, offset int64, whence int) (newoffset int64, err error) = SYS_LSEEK
-//sys	Select(nfd int, r *FdSet, w *FdSet, e *FdSet, timeout *Timeval) (n int, err error)
+//sys	Select(n int, r *FdSet, w *FdSet, e *FdSet, timeout *Timeval) (err error)
 //sysnb	Setegid(egid int) (err error)
 //sysnb	Seteuid(euid int) (err error)
 //sysnb	Setgid(gid int) (err error)
@@ -341,8 +315,8 @@ func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 //sys	Unlinkat(dirfd int, path string, flags int) (err error)
 //sys	Unmount(path string, flags int) (err error)
 //sys	write(fd int, p []byte) (n int, err error)
-//sys	mmap(addr uintptr, length uintptr, prot int, flag int, fd int, pos int64) (ret uintptr, err error)
-//sys	munmap(addr uintptr, length uintptr) (err error)
+//sys   mmap(addr uintptr, length uintptr, prot int, flag int, fd int, pos int64) (ret uintptr, err error)
+//sys   munmap(addr uintptr, length uintptr) (err error)
 //sys	readlen(fd int, buf *byte, nbuf int) (n int, err error) = SYS_READ
 //sys	writelen(fd int, buf *byte, nbuf int) (n int, err error) = SYS_WRITE
 //sys	accept4(fd int, rsa *RawSockaddrAny, addrlen *_Socklen, flags int) (nfd int, err error)
