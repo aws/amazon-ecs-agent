@@ -1,8 +1,9 @@
 package netlink
 
 import (
+	"syscall"
+
 	"github.com/vishvananda/netlink/nl"
-	"golang.org/x/sys/unix"
 )
 
 func selFromPolicy(sel *nl.XfrmSelector, policy *XfrmPolicy) {
@@ -27,7 +28,6 @@ func selFromPolicy(sel *nl.XfrmSelector, policy *XfrmPolicy) {
 	if sel.Sport != 0 {
 		sel.SportMask = ^uint16(0)
 	}
-	sel.Ifindex = int32(policy.Ifindex)
 }
 
 // XfrmPolicyAdd will add an xfrm policy to the system.
@@ -55,14 +55,13 @@ func (h *Handle) XfrmPolicyUpdate(policy *XfrmPolicy) error {
 }
 
 func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
-	req := h.newNetlinkRequest(nlProto, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlProto, syscall.NLM_F_CREATE|syscall.NLM_F_EXCL|syscall.NLM_F_ACK)
 
 	msg := &nl.XfrmUserpolicyInfo{}
 	selFromPolicy(&msg.Sel, policy)
 	msg.Priority = uint32(policy.Priority)
 	msg.Index = uint32(policy.Index)
 	msg.Dir = uint8(policy.Dir)
-	msg.Action = uint8(policy.Action)
 	msg.Lft.SoftByteLimit = nl.XFRM_INF
 	msg.Lft.HardByteLimit = nl.XFRM_INF
 	msg.Lft.SoftPacketLimit = nl.XFRM_INF
@@ -92,10 +91,7 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 		req.AddData(out)
 	}
 
-	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
-	req.AddData(ifId)
-
-	_, err := req.Execute(unix.NETLINK_XFRM, 0)
+	_, err := req.Execute(syscall.NETLINK_XFRM, 0)
 	return err
 }
 
@@ -125,12 +121,12 @@ func XfrmPolicyList(family int) ([]XfrmPolicy, error) {
 // Equivalent to: `ip xfrm policy show`.
 // The list can be filtered by ip family.
 func (h *Handle) XfrmPolicyList(family int) ([]XfrmPolicy, error) {
-	req := h.newNetlinkRequest(nl.XFRM_MSG_GETPOLICY, unix.NLM_F_DUMP)
+	req := h.newNetlinkRequest(nl.XFRM_MSG_GETPOLICY, syscall.NLM_F_DUMP)
 
 	msg := nl.NewIfInfomsg(family)
 	req.AddData(msg)
 
-	msgs, err := req.Execute(unix.NETLINK_XFRM, nl.XFRM_MSG_NEWPOLICY)
+	msgs, err := req.Execute(syscall.NETLINK_XFRM, nl.XFRM_MSG_NEWPOLICY)
 	if err != nil {
 		return nil, err
 	}
@@ -169,13 +165,13 @@ func XfrmPolicyFlush() error {
 // XfrmPolicyFlush will flush the policies on the system.
 // Equivalent to: `ip xfrm policy flush`
 func (h *Handle) XfrmPolicyFlush() error {
-	req := h.newNetlinkRequest(nl.XFRM_MSG_FLUSHPOLICY, unix.NLM_F_ACK)
-	_, err := req.Execute(unix.NETLINK_XFRM, 0)
+	req := h.newNetlinkRequest(nl.XFRM_MSG_FLUSHPOLICY, syscall.NLM_F_ACK)
+	_, err := req.Execute(syscall.NETLINK_XFRM, 0)
 	return err
 }
 
 func (h *Handle) xfrmPolicyGetOrDelete(policy *XfrmPolicy, nlProto int) (*XfrmPolicy, error) {
-	req := h.newNetlinkRequest(nlProto, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlProto, syscall.NLM_F_ACK)
 
 	msg := &nl.XfrmUserpolicyId{}
 	selFromPolicy(&msg.Sel, policy)
@@ -188,15 +184,12 @@ func (h *Handle) xfrmPolicyGetOrDelete(policy *XfrmPolicy, nlProto int) (*XfrmPo
 		req.AddData(out)
 	}
 
-	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
-	req.AddData(ifId)
-
 	resType := nl.XFRM_MSG_NEWPOLICY
 	if nlProto == nl.XFRM_MSG_DELPOLICY {
 		resType = 0
 	}
 
-	msgs, err := req.Execute(unix.NETLINK_XFRM, uint16(resType))
+	msgs, err := req.Execute(syscall.NETLINK_XFRM, uint16(resType))
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +198,12 @@ func (h *Handle) xfrmPolicyGetOrDelete(policy *XfrmPolicy, nlProto int) (*XfrmPo
 		return nil, err
 	}
 
-	return parseXfrmPolicy(msgs[0], FAMILY_ALL)
+	p, err := parseXfrmPolicy(msgs[0], FAMILY_ALL)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func parseXfrmPolicy(m []byte, family int) (*XfrmPolicy, error) {
@@ -223,11 +221,9 @@ func parseXfrmPolicy(m []byte, family int) (*XfrmPolicy, error) {
 	policy.Proto = Proto(msg.Sel.Proto)
 	policy.DstPort = int(nl.Swap16(msg.Sel.Dport))
 	policy.SrcPort = int(nl.Swap16(msg.Sel.Sport))
-	policy.Ifindex = int(msg.Sel.Ifindex)
 	policy.Priority = int(msg.Priority)
 	policy.Index = int(msg.Index)
 	policy.Dir = Dir(msg.Dir)
-	policy.Action = PolicyAction(msg.Action)
 
 	attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 	if err != nil {
@@ -254,8 +250,6 @@ func parseXfrmPolicy(m []byte, family int) (*XfrmPolicy, error) {
 			policy.Mark = new(XfrmMark)
 			policy.Mark.Value = mark.Value
 			policy.Mark.Mask = mark.Mask
-		case nl.XFRMA_IF_ID:
-			policy.Ifid = int(native.Uint32(attr.Value))
 		}
 	}
 

@@ -59,7 +59,7 @@ xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
 	# Agent and its dependencies on Go 1.18.x are not compatible with Mac (Darwin).
-	# Mac is not a supported target platform for Agent, so commenting out
+	# Mac is not a supported target platform for Agent, so commenting out 
 	# cross-platform build step for Mac temporarily.
 	# GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
 
@@ -149,7 +149,7 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
 test-init:
@@ -157,7 +157,8 @@ test-init:
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent:
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	$(eval VERBOSE=)
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
 .PHONY: analyze-cover-profile
@@ -359,6 +360,7 @@ install-golang:
 get-deps: .get-deps-stamp
 
 get-deps-init:
+	go get golang.org/x/tools/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
