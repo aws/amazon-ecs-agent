@@ -3,10 +3,8 @@ package tollbooth
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
-
-	"fmt"
-	"math"
 
 	"github.com/didip/tollbooth/errors"
 	"github.com/didip/tollbooth/libstring"
@@ -15,15 +13,15 @@ import (
 
 // setResponseHeaders configures X-Rate-Limit-Limit and X-Rate-Limit-Duration
 func setResponseHeaders(lmt *limiter.Limiter, w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("X-Rate-Limit-Limit", fmt.Sprintf("%.2f", lmt.GetMax()))
+	w.Header().Add("X-Rate-Limit-Limit", strconv.FormatInt(lmt.GetMax(), 10))
 	w.Header().Add("X-Rate-Limit-Duration", "1")
 	w.Header().Add("X-Rate-Limit-Request-Forwarded-For", r.Header.Get("X-Forwarded-For"))
 	w.Header().Add("X-Rate-Limit-Request-Remote-Addr", r.RemoteAddr)
 }
 
 // NewLimiter is a convenience function to limiter.New.
-func NewLimiter(max float64, tbOptions *limiter.ExpirableOptions) *limiter.Limiter {
-	return limiter.New(tbOptions).SetMax(max).SetBurst(int(math.Max(1, max)))
+func NewLimiter(max int64, tbOptions *limiter.ExpirableOptions) *limiter.Limiter {
+	return limiter.New(tbOptions).SetMax(max).SetBurst(int(max))
 }
 
 // LimitByKeys keeps track number of request made by keys separated by pipe.
@@ -59,21 +57,18 @@ func BuildKeys(lmt *limiter.Limiter, r *http.Request) [][]string {
 		if libstring.StringInSlice(lmtMethods, r.Method) {
 			for headerKey, headerValues := range lmtHeaders {
 				if (headerValues == nil || len(headerValues) <= 0) && r.Header.Get(headerKey) != "" {
-					// If header values are empty, rate-limit all request containing headerKey.
+					// If header values are empty, rate-limit all request with headerKey.
 					username, _, ok := r.BasicAuth()
 					if ok && libstring.StringInSlice(lmtBasicAuthUsers, username) {
-						sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, r.Header.Get(headerKey), username})
+						sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, username})
 					}
 
 				} else if len(headerValues) > 0 && r.Header.Get(headerKey) != "" {
 					// If header values are not empty, rate-limit all request with headerKey and headerValues.
 					for _, headerValue := range headerValues {
-						if r.Header.Get(headerKey) == headerValue {
-							username, _, ok := r.BasicAuth()
-							if ok && libstring.StringInSlice(lmtBasicAuthUsers, username) {
-								sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, headerValue, username})
-							}
-							break
+						username, _, ok := r.BasicAuth()
+						if ok && libstring.StringInSlice(lmtBasicAuthUsers, username) {
+							sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, headerValue, username})
 						}
 					}
 				}
@@ -86,15 +81,12 @@ func BuildKeys(lmt *limiter.Limiter, r *http.Request) [][]string {
 			for headerKey, headerValues := range lmtHeaders {
 				if (headerValues == nil || len(headerValues) <= 0) && r.Header.Get(headerKey) != "" {
 					// If header values are empty, rate-limit all request with headerKey.
-					sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, r.Header.Get(headerKey)})
+					sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey})
 
 				} else if len(headerValues) > 0 && r.Header.Get(headerKey) != "" {
-					// We are only limiting if request's header value is defined inside `headerValues`.
+					// If header values are not empty, rate-limit all request with headerKey and headerValues.
 					for _, headerValue := range headerValues {
-						if r.Header.Get(headerKey) == headerValue {
-							sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, headerValue})
-							break
-						}
+						sliceKeys = append(sliceKeys, []string{remoteIP, path, r.Method, headerKey, headerValue})
 					}
 				}
 			}
@@ -120,15 +112,12 @@ func BuildKeys(lmt *limiter.Limiter, r *http.Request) [][]string {
 		for headerKey, headerValues := range lmtHeaders {
 			if (headerValues == nil || len(headerValues) <= 0) && r.Header.Get(headerKey) != "" {
 				// If header values are empty, rate-limit all request with headerKey.
-				sliceKeys = append(sliceKeys, []string{remoteIP, path, headerKey, r.Header.Get(headerKey)})
+				sliceKeys = append(sliceKeys, []string{remoteIP, path, headerKey})
 
 			} else if len(headerValues) > 0 && r.Header.Get(headerKey) != "" {
 				// If header values are not empty, rate-limit all request with headerKey and headerValues.
 				for _, headerValue := range headerValues {
-					if r.Header.Get(headerKey) == headerValue {
-						sliceKeys = append(sliceKeys, []string{remoteIP, path, headerKey, headerValue})
-						break
-					}
+					sliceKeys = append(sliceKeys, []string{remoteIP, path, headerKey, headerValue})
 				}
 			}
 		}
