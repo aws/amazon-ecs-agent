@@ -3240,7 +3240,7 @@ func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsM
 				return errors.Wrapf(err, "unable to initialize envfiles resource for container %s", container.Name)
 			}
 			task.AddResource(envFiles.ResourceName, envfileResource)
-			container.BuildResourceDependency(envfileResource.GetName(), resourcestatus.ResourceCreated, apicontainerstatus.ContainerCreated)
+			container.BuildResourceDependency(envfileResource.GetName(), resourcestatus.ResourceStatus(envFiles.EnvFileCreated), apicontainerstatus.ContainerCreated)
 		}
 	}
 
