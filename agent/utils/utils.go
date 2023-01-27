@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/cihub/seelog"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/http/httpproxy"
@@ -267,5 +268,16 @@ func GetENIAttachmentId(eniAttachmentArn string) (string, error) {
 
 // Proxy is an uncached version of http.ProxyFromEnvironment.
 func Proxy(req *http.Request) (*url.URL, error) {
-	return httpproxy.FromEnvironment().ProxyFunc()(req.URL)
+	inURL := req.URL
+	sURL := "nil"
+	if inURL != nil {
+		sURL = inURL.String()
+	}
+	seelog.Infof("Input request URL: %s", sURL)
+	url, err := httpproxy.FromEnvironment().ProxyFunc()(req.URL)
+	if err != nil || url == nil {
+		return url, err
+	}
+	seelog.Infof("Output proxied request URL: %s", url.String())
+	return url, err
 }
