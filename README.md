@@ -2,17 +2,15 @@
 
 ![Amazon ECS logo](doc/ecs.png "Amazon ECS")
 
-![Build Status](https://github.com/aws/amazon-ecs-agent/workflows/Build/badge.svg?branch=dev)
-
 The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
 ([Amazon ECS](http://aws.amazon.com/ecs/)) and is responsible for managing containers on behalf of Amazon ECS.
+
+This repository comes with ECS-Init, which is a [systemd](http://www.freedesktop.org/wiki/Software/systemd/) based service to support the Amazon ECS Container Agent and keep it running. It is used for systems that utilize `systemd` as init systems and is packaged as deb or rpm. The source for ECS-Init is available in this repository at `./ecs-init` while the packaging is available at `./packaging`.
 
 ## Usage
 
 The best source of information on running this software is the
 [Amazon ECS documentation](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html).
-
-Please note that from Agent version 1.20.0, Minimum required Docker version is 1.9.0, corresponding to Docker API version 1.21. For more information, please visit [Amazon ECS Container Agent Versions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container_agent_versions.html).
 
 ### On the Amazon Linux AMI
 
@@ -21,9 +19,11 @@ On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide 
 
 ### On Other Linux AMIs
 
+[Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html) provides deb and rpm packages and instructions to install ECS Container Agent on non-Amazon Linux instances.
+
 The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version
 installed. A Docker image is available in our
-[Docker Hub Repository](https://registry.hub.docker.com/u/amazon/amazon-ecs-agent/).
+[Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent).
 
 ```bash
 $ # Set up directories the agent uses
@@ -108,6 +108,56 @@ PS C:\> # use agentVersion = "latest" for the latest available agent version
 PS C:\> $agentVersion = "v1.20.4"
 PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole -Version $agentVersion
 ```
+
+## Build ECS Agent from source
+
+### Build ECS Agent Image (Linux)
+
+ECS Agent can also be built locally from source on a linux machine. Use the following steps to build ECS Agent
+* Get ECS Agent source
+```
+git clone https://github.com/aws/amazon-ecs-agent.git
+```
+* Build Agent image using ```release-agent``` make target
+```
+make release-agent
+```
+This installs the required build dependencies, builds ECS Agent image and saves it at a path ```ecs-agent-v${AGENT_VERSION}.tar```. Load this using
+```
+docker load < ecs-agent-v${AGENT_VERSION}.tar
+```
+Follow the instructions [above](https://github.com/aws/amazon-ecs-agent#on-other-linux-amis) to continue with the installation
+
+### Build and run standalone (Linux)
+
+The Amazon ECS Container Agent may also be run outside of a Docker container as a Go binary. At this time, this is not recommended
+for production on Linux, but it can be useful for development or easier integration with your local Go tools.
+
+The following commands run the agent outside of Docker:
+
+```
+make gobuild
+./out/amazon-ecs-agent
+```
+
+### Standalone (Windows)
+
+The Amazon ECS Container Agent may be built by invoking `scripts\build_agent.ps1`
+
+### Scripts (Windows)
+
+The following scripts are available to help develop the Amazon ECS Container Agent on Windows:
+
+* `scripts\run-integ-tests.ps1` - Runs all integration tests in the `engine` and `stats` packages
+* `misc\windows-deploy\Install-ECSAgent.ps1` - Install the ECS agent as a Windows service
+* `misc\windows-deploy\amazon-ecs-agent.ps1` - Helper script to set up the host and run the agent as a process
+* `misc\windows-deploy\user-data.ps1` - Sample user-data that can be used with the Windows Server 2016 with Containers
+  AMI to run the agent as a process
+
+
+### Build ECS-Init Package (Linux)
+
+You can also build the ECS-Init packaged as a deb or rpm depending on the linux system you running. Follow instructions at [generic-deb-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-deb-integrated/debian) and [generic-rpm-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-rpm-integrated) to build and install ECS Agent packaged with Init deb or rpm packages
 
 ## Advanced Usage
 
@@ -206,6 +256,17 @@ additional details on each available environment variable.
 | `CREDENTIALS_FETCHER_HOST`   | `unix:///var/credentials-fetcher/socket/credentials_fetcher.sock` | Used to create a connection to the [credentials-fetcher daemon](https://github.com/aws/credentials-fetcher); to support gMSA on Linux. The default is fine for most users, only needs to be modified if user is configuring a custom credentials-fetcher socket path, ie, [CF_UNIX_DOMAIN_SOCKET_DIR](https://github.com/aws/credentials-fetcher#default-environment-variables). | `unix:///var/credentials-fetcher/socket/credentials_fetcher.sock` | Not Applicable |
 | `CREDENTIALS_FETCHER_SECRET_NAME_FOR_DOMAINLESS_GMSA`   | `secretmanager-secretname` | Used to support scaling option for gMSA on Linux [credentials-fetcher daemon](https://github.com/aws/credentials-fetcher). If user is configuring gMSA on a non-domain joined instance, they need to create an Active Directory user with access to retrieve principals for the gMSA account and store it in secrets manager | `secretmanager-secretname` | Not Applicable |
 | `ECS_DYNAMIC_HOST_PORT_RANGE` | `100-200` | This specifies the dynamic host port range that the agent uses to assign host ports from, for a container port range mapping. | Defined by `/proc/sys/net/ipv4/ip_local_port_range` | `49152-65535` |
+
+Additionally, the following environment variable(s) can be used to configure the behavior of the ecs-init service. When using ECS-Init, all env variables, including the ECS Agent variables above, are read from path `/etc/ecs/ecs.config`:
+| Environment Variable Name | Example Value(s)            | Description | Default value |
+|:----------------|:----------------------------|:------------|:-----------------------|
+| `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to drop non-local packets to localhost if they're not part of an existing forwarded connection or DNAT, and removes the rule upon stop. If `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` is set to true, this rule will not be added/removed. | false |
+| `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to block access to ECS Agent's introspection port from off-host (or containers in awsvpc network mode), and removes the rule upon stop. If `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` is set to true, this rule will not be added/removed. | false |
+| `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
+| `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
+
+
+
 ### Persistence
 
 When you run the Amazon ECS Container Agent in production, its `datadir` should be persisted between runs of the Docker
@@ -221,29 +282,6 @@ The agent also supports the following flags:
 * ` -loglevel` &mdash; Options: `[<crit>|<error>|<warn>|<info>|<debug>]`. The agent will output on stdout at the given
   level. This is overridden by the `ECS_LOGLEVEL` environment variable, if present.
 
-## Building and Running from Source
-
-**Running the Amazon ECS Container Agent outside of Amazon EC2 is not supported.**
-
-### Docker Image (on Linux)
-
-The Amazon ECS Container Agent may be built by typing `make` with the [Docker
-daemon](https://docs.docker.com/installation/) (v1.5.0) running.
-
-This produces an image tagged `amazon/ecs-container-agent:make` that
-you may run as described above.
-
-### Standalone (on Linux)
-
-The Amazon ECS Container Agent may also be run outside of a Docker container as a Go binary. This is not recommended
-for production on Linux, but it can be useful for development or easier integration with your local Go tools.
-
-The following commands run the agent outside of Docker:
-
-```
-make gobuild
-./out/amazon-ecs-agent
-```
 
 ### Make Targets (on Linux)
 
@@ -261,20 +299,6 @@ The following targets are available. Each may be run with `make <target>`.
 | `test-in-docker`       | Runs all tests inside a Docker container |
 | `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
 | `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
-
-### Standalone (on Windows)
-
-The Amazon ECS Container Agent may be built by invoking `scripts\build_agent.ps1`
-
-### Scripts (on Windows)
-
-The following scripts are available to help develop the Amazon ECS Container Agent on Windows:
-
-* `scripts\run-integ-tests.ps1` - Runs all integration tests in the `engine` and `stats` packages
-* `misc\windows-deploy\Install-ECSAgent.ps1` - Install the ECS agent as a Windows service
-* `misc\windows-deploy\amazon-ecs-agent.ps1` - Helper script to set up the host and run the agent as a process
-* `misc\windows-deploy\user-data.ps1` - Sample user-data that can be used with the Windows Server 2016 with Containers
-  AMI to run the agent as a process
 
 
 ## Contributing
