@@ -29,12 +29,12 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/utils/httpproxy"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/http/httpproxy"
 )
 
 func DefaultIfBlank(str string, default_value string) string {
