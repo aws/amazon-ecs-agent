@@ -1,8 +1,9 @@
-# github.com/Microsoft/go-winio v0.4.11
-## explicit
+# github.com/Microsoft/go-winio v0.4.17-0.20210211115548-6eac466e5fa3
+## explicit; go 1.12
 github.com/Microsoft/go-winio
-# github.com/Microsoft/hcsshim v0.8.6
-## explicit
+github.com/Microsoft/go-winio/pkg/guid
+# github.com/Microsoft/hcsshim v0.8.15
+## explicit; go 1.13
 github.com/Microsoft/hcsshim/osversion
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
