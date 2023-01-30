@@ -31,6 +31,7 @@ import (
 	network "github.com/docker/docker/api/types/network"
 	volume "github.com/docker/docker/api/types/volume"
 	gomock "github.com/golang/mock/gomock"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // MockClient is a mock of Client interface
@@ -71,18 +72,18 @@ func (mr *MockClientMockRecorder) ClientVersion() *gomock.Call {
 }
 
 // ContainerCreate mocks base method
-func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 string) (container.ContainerCreateCreatedBody, error) {
+func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.ContainerCreateCreatedBody, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerCreate", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "ContainerCreate", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(container.ContainerCreateCreatedBody)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerCreate indicates an expected call of ContainerCreate
-func (mr *MockClientMockRecorder) ContainerCreate(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ContainerCreate(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerCreate", reflect.TypeOf((*MockClient)(nil).ContainerCreate), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerCreate", reflect.TypeOf((*MockClient)(nil).ContainerCreate), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // ContainerExecCreate mocks base method

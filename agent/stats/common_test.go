@@ -93,6 +93,7 @@ func createGremlin(client *sdkClient.Client, netMode string) (*dockercontainer.C
 			NetworkMode: dockercontainer.NetworkMode(netMode),
 		},
 		&network.NetworkingConfig{},
+		nil,
 		"")
 
 	return &containerGremlin, err
@@ -105,6 +106,7 @@ func createHealthContainer(client *sdkClient.Client) (*dockercontainer.Container
 		},
 		&dockercontainer.HostConfig{},
 		&network.NetworkingConfig{},
+		nil,
 		"")
 
 	return &container, err
