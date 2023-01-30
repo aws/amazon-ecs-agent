@@ -128,6 +128,8 @@ func TestGetHostPortRange(t *testing.T) {
 		},
 	}
 
+	// need to reset the tracker to avoid getting data from previous test cases
+	tracker.SetLastAssignedHostPort(0)
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			for i := 0; i < tc.numberOfRequests; i++ {
@@ -143,9 +145,6 @@ func TestGetHostPortRange(t *testing.T) {
 					actualLastAssignedHostPort := tracker.GetLastAssignedHostPort()
 					assert.Equal(t, tc.expectedLastAssignedPort[i], actualLastAssignedHostPort)
 				} else {
-					// need to reset the tracker to avoid getting data from previous test cases
-					tracker.SetLastAssignedHostPort(0)
-
 					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol, tc.testDynamicHostPortRange)
 					assert.Equal(t, tc.expectedError, err)
 					assert.Equal(t, "", hostPortRange)
