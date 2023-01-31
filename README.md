@@ -22,8 +22,8 @@ On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide 
 [Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html) provides deb and rpm packages and instructions to install ECS Container Agent on non-Amazon Linux instances.
 
 The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version
-installed. A Docker image is available in our
-[Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent).
+installed. Docker images are available in
+[Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent) and [ECR Public Gallery](https://gallery.ecr.aws/ecs/amazon-ecs-agent).
 
 ```bash
 $ # Set up directories the agent uses
@@ -157,7 +157,7 @@ The following scripts are available to help develop the Amazon ECS Container Age
 
 ### Build ECS-Init Package (Linux)
 
-You can also build the ECS-Init packaged as a deb or rpm depending on the linux system you running. Follow instructions at [generic-deb-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-deb-integrated/debian) and [generic-rpm-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-rpm-integrated) to build and install ECS Agent packaged with Init deb or rpm packages
+ECS-Init package can also be built as a deb or rpm depending on the linux system you are running. Follow instructions at [generic-deb-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-deb-integrated/debian) or [generic-rpm-integrated](https://github.com/aws/amazon-ecs-agent/tree/master/packaging/generic-rpm-integrated) to build and install ECS Agent with Init using deb or rpm.
 
 ## Advanced Usage
 
