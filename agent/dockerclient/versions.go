@@ -13,6 +13,11 @@
 
 package dockerclient
 
+import (
+	"strconv"
+	"strings"
+)
+
 type DockerVersion string
 
 const (
@@ -37,6 +42,27 @@ const (
 
 func (d DockerVersion) String() string {
 	return string(d)
+}
+
+func (d DockerVersion) IsGreaterThan(b DockerVersion) bool {
+	majorThis, minorThis := getMajorMinorInts(d)
+	majorB, minorB := getMajorMinorInts(b)
+	if majorThis > majorB {
+		return true
+	}
+	if minorThis > minorB {
+		return true
+	}
+	return false
+}
+
+func getMajorMinorInts(d DockerVersion) (int, int) {
+	parts := strings.Split(d.String(), ".")
+	majorStr := parts[0]
+	minorStr := parts[1]
+	major, _ := strconv.Atoi(majorStr)
+	minor, _ := strconv.Atoi(minorStr)
+	return major, minor
 }
 
 // GetKnownAPIVersions returns all of the API versions that we know about.

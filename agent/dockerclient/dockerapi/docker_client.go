@@ -262,6 +262,11 @@ type ImagePullResponse struct {
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
+	currentVersion, _ := dg.APIVersion()
+	if currentVersion.IsGreaterThan(version) {
+		logger.Info("CLIENT DEBUG: current version is greater than requested version, ignoring override")
+		return dg
+	}
 	return &dockerGoClient{
 		sdkClientFactory: dg.sdkClientFactory,
 		version:          version,
