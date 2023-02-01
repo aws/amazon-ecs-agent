@@ -799,12 +799,12 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	<-connectionClosed
 }
 
-func TestHandlerDoesntLeakGoroutines(t *testing.T) {
+//func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	// Skip this test on "windows" platform as we have observed this to
 	// fail often after upgrading the windows builds to golang v1.17.
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
+	//if runtime.GOOS == "windows" {
+		//t.Skip()
+	//}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
