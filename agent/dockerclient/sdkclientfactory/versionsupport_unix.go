@@ -50,10 +50,11 @@ func getAgentSupportedDockerVersions() []dockerclient.DockerVersion {
 		dockerclient.Version_1_30,
 		dockerclient.Version_1_31,
 		dockerclient.Version_1_32,
+		dockerclient.Version_1_41,
 	}
 }
 
 // getDefaultVersion will return the default Docker API version for linux
 func GetDefaultVersion() dockerclient.DockerVersion {
-	return dockerclient.Version_1_21
+	return dockerclient.Version_1_41
 }
