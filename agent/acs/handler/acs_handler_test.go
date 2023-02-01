@@ -799,7 +799,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	<-connectionClosed
 }
 
-//func TestHandlerDoesntLeakGoroutines(t *testing.T) {
+func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	// Skip this test on "windows" platform as we have observed this to
 	// fail often after upgrading the windows builds to golang v1.17.
 	//if runtime.GOOS == "windows" {
