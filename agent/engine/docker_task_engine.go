@@ -199,7 +199,10 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,
-	serviceConnectManager serviceconnect.Manager) *DockerTaskEngine {
+	serviceConnectManager serviceconnect.Manager,
+) *DockerTaskEngine {
+	apiVersion, err := client.APIVersion()
+	logger.Info(fmt.Sprintf("CLIENT DEBUG making a new docker task engine with docker client: %s %s", apiVersion, err))
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -1288,8 +1291,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	})
 	client := engine.client
 	if container.DockerConfig.Version != nil {
+		logger.Info(fmt.Sprintf("CLIENT DEBUG overriding for CREATE: %s", container.DockerConfig.Version))
 		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
 	}
+	apiVersion, apiVersionErr := client.APIVersion()
+	logger.Info(fmt.Sprintf("CLIENT DEBUG client for CREATE: %s %s", apiVersion, apiVersionErr))
 
 	dockerContainerName := ""
 	containerMap, ok := engine.state.ContainerMapByArn(task.Arn)
@@ -1574,8 +1580,11 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	})
 	client := engine.client
 	if container.DockerConfig.Version != nil {
+		logger.Info(fmt.Sprintf("CLIENT DEBUG overriding for RUN: %s", container.DockerConfig.Version))
 		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
 	}
+	apiVersion, apiVersionErr := client.APIVersion()
+	logger.Info(fmt.Sprintf("CLIENT DEBUG client for RUN: %s %s", apiVersion, apiVersionErr))
 
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {
