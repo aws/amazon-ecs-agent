@@ -32,7 +32,7 @@ const orderingTimeout = 90 * time.Second
 
 // TestDependencyHealthCheck is a happy-case integration test that considers a workflow with a HEALTHY dependency
 // condition. We ensure that the task can be both started and stopped.
-//func TestDependencyHealthCheck(t *testing.T) {
+func TestDependencyHealthCheck(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -91,7 +91,7 @@ const orderingTimeout = 90 * time.Second
 
 // TestDependencyComplete validates that the COMPLETE dependency condition will resolve when the child container exits
 // with exit code 1. It ensures that the child is started and stopped before the parent starts.
-//func TestDependencyComplete(t *testing.T) {
+func TestDependencyComplete(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -150,7 +150,7 @@ const orderingTimeout = 90 * time.Second
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will resolve when the child container exits
 // with exit code 0. It ensures that the child is started and stopped before the parent starts.
-//func TestDependencySuccess(t *testing.T) {
+func TestDependencySuccess(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -209,12 +209,12 @@ const orderingTimeout = 90 * time.Second
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will fail when the child exits 1. This is a
 // contrast to how COMPLETE behaves. Instead of starting the parent, the task should simply exit.
-//func TestDependencySuccessErrored(t *testing.T) {
+func TestDependencySuccessErrored(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
 	//	t.Skip()
-	}
+	//}
 
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
@@ -262,7 +262,7 @@ const orderingTimeout = 90 * time.Second
 }
 
 // TestDependencySuccessTimeout
-//func TestDependencySuccessTimeout(t *testing.T) {
+func TestDependencySuccessTimeout(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -318,7 +318,7 @@ const orderingTimeout = 90 * time.Second
 }
 
 // TestDependencyHealthyTimeout
-//func TestDependencyHealthyTimeout(t *testing.T) {
+func TestDependencyHealthyTimeout(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -381,7 +381,7 @@ const orderingTimeout = 90 * time.Second
 }
 
 // TestShutdownOrder
-//func TestShutdownOrder(t *testing.T) {
+func TestShutdownOrder(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
@@ -477,7 +477,7 @@ const orderingTimeout = 90 * time.Second
 	waitFinished(t, finished, shutdownOrderingTimeout)
 }
 
-//func TestMultipleContainerDependency(t *testing.T) {
+func TestMultipleContainerDependency(t *testing.T) {
 	// Skip these tests on WS 2016 until the failures are root-caused.
 	//isWindows2016, err := config.IsWindows2016()
 	//if err == nil && isWindows2016 == true {
