@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
+	"github.com/cihub/seelog"
 	log "github.com/cihub/seelog"
 	docker "github.com/docker/docker/client"
 	"github.com/pkg/errors"
@@ -74,7 +75,16 @@ func NewFactory(ctx context.Context, endpoint string) Factory {
 }
 
 func (f *factory) GetDefaultClient() (sdkclient.Client, error) {
-	return f.GetClient(GetDefaultVersion())
+	var client sdkclient.Client
+	var err error
+	versions := GetDefaultVersions()
+	for _, version := range versions {
+		client, err = f.GetClient(version)
+		if err == nil {
+			break
+		}
+	}
+	return client, err
 }
 
 func (f *factory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
