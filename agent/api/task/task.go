@@ -1815,11 +1815,15 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 			dockerExposedPorts[dockerPort] = struct{}{}
 		} else if portBinding.ContainerPortRange != "" {
 			// we supply containerPortRange here in case we did not assign a host port range and ask docker to do so
-			dockerPortRange, err := nat.NewPort(protocol, portBinding.ContainerPortRange)
+			startContainerPort, endContainerPort, err := nat.ParsePortRangeToInt(portBinding.ContainerPortRange)
 			if err != nil {
 				return nil, err
 			}
-			dockerExposedPorts[dockerPortRange] = struct{}{}
+
+			for i := startContainerPort; i <= endContainerPort; i++ {
+				dockerPort := nat.Port(strconv.Itoa(i) + "/" + protocol)
+				dockerExposedPorts[dockerPort] = struct{}{}
+			}
 		}
 	}
 	return dockerExposedPorts, nil
