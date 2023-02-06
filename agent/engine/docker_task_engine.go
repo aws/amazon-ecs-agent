@@ -784,10 +784,14 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		logger.Error("Unable to create task state change event", logger.Fields{
-			field.TaskID: task.GetID(),
-			field.Error:  err,
-		})
+		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
+			logger.Debug(err.Error())
+		} else {
+			logger.Error("Unable to create task state change event", logger.Fields{
+				field.TaskID: task.GetID(),
+				field.Error:  err,
+			})
+		}
 		return
 	}
 	logger.Info("Preparing to send change event", logger.Fields{

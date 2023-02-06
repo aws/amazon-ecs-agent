@@ -615,11 +615,15 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	}
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		logger.Error("Skipping emitting event for task due to error", logger.Fields{
-			field.TaskID: mtask.GetID(),
-			field.Reason: reason,
-			field.Error:  err,
-		})
+		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
+			logger.Debug(err.Error())
+		} else {
+			logger.Error("Skipping emitting event for task due to error", logger.Fields{
+				field.TaskID: mtask.GetID(),
+				field.Reason: reason,
+				field.Error:  err,
+			})
+		}
 		return
 	}
 	logger.Debug("Sending task change event", logger.Fields{
@@ -680,11 +684,15 @@ func (mtask *managedTask) emitManagedAgentEvent(task *apitask.Task, cont *apicon
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		logger.Debug("Skipping emitting event for container", logger.Fields{
-			field.TaskID:    mtask.GetID(),
-			field.Container: cont.Name,
-			field.Error:     err,
-		})
+		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
+			logger.Debug(err.Error())
+		} else {
+			logger.Error("Skipping emitting event for container due to error", logger.Fields{
+				field.TaskID:    mtask.GetID(),
+				field.Container: cont.Name,
+				field.Error:     err,
+			})
+		}
 		return
 	}
 	mtask.doEmitContainerEvent(event)
