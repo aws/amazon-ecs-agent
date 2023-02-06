@@ -128,15 +128,32 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	if !ok {
 		t.Fatal("Could not get exposed ports 20/udp")
 	}
-	_, ok = config.ExposedPorts["99-999/tcp"]
-	if !ok {
-		t.Fatal("Could not get exposed ports 99-999/tcp")
-	}
-	_, ok = config.ExposedPorts["121-221/udp"]
-	if !ok {
-		t.Fatal("Could not get exposed ports 121-221/udp")
+
+	startContainerPortTcp, endContainerPortTcp, tcpParseErr := nat.ParsePortRangeToInt("99-999")
+	if tcpParseErr != nil {
+		t.Fatal("Error parsing tcp port range into start and end ints")
 	}
 
+	for i := startContainerPortTcp; i <= endContainerPortTcp; i++ {
+		portProtocol := nat.Port(fmt.Sprintf("%d/tcp", i))
+		_, ok := config.ExposedPorts[portProtocol]
+		if !ok {
+			t.Fatalf("Could not get exposed ports %s", portProtocol)
+		}
+	}
+
+	startContainerPortUdp, endContainerPortUdp, udpParseErr := nat.ParsePortRangeToInt("121-221")
+	if udpParseErr != nil {
+		t.Fatal("Error parsing udp port range into start and end ints")
+	}
+
+	for i := startContainerPortUdp; i <= endContainerPortUdp; i++ {
+		portProtocol := nat.Port(fmt.Sprintf("%d/udp", i))
+		_, ok := config.ExposedPorts[portProtocol]
+		if !ok {
+			t.Fatalf("Could not get exposed ports %s", portProtocol)
+		}
+	}
 }
 
 func TestDockerHostConfigCPUShareZero(t *testing.T) {
