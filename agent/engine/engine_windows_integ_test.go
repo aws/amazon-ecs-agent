@@ -132,7 +132,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	return testTask
 }
 
-func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
+func createVolumeTaskWindows(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
 	testTask := createTestTask(arn)
 
 	volumeConfig := &taskresourcevolume.DockerVolumeConfig{
@@ -173,6 +173,66 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	testTask.Containers[0].Command = []string{"$output = (cat c:\\ecs\\volumecontent); if ( $output -eq \"volume\" ) { Exit 0 } else { Exit 1 }"}
 	return testTask, volumePath, nil
+}
+
+func TestSharedAutoprovisionVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTaskWindows("shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	client := taskEngine.(*DockerTaskEngine).client
+	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
+
+	cleanVolumes(testTask, taskEngine)
+}
+
+func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	client := taskEngine.(*DockerTaskEngine).client
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTaskWindows("shared", "TestSharedDoNotAutoprovisionVolume", "TestSharedDoNotAutoprovisionVolume", false)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	// creating volume to simulate previously provisioned volume
+	volumeConfig := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
+	volumeMetadata := client.CreateVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume",
+		volumeConfig.Driver, volumeConfig.DriverOpts, volumeConfig.Labels, 1*time.Minute)
+	require.NoError(t, volumeMetadata.Error)
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Len(t, testTask.ResourcesMapUnsafe["dockerVolume"], 0, "volume that has been provisioned does not require the agent to create it again")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
+
+	cleanVolumes(testTask, taskEngine)
 }
 
 // TODO Modify the container ip to localhost after the AMI has the required feature
@@ -342,7 +402,7 @@ func TestTaskLevelVolume(t *testing.T) {
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
+	testTask, tmpDirectory, err := createVolumeTaskWindows("task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
 	defer os.Remove(tmpDirectory)
 	require.NoError(t, err, "creating test task failed")
 
