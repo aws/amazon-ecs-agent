@@ -1,4 +1,12 @@
 # Changelog
+## 1.68.2
+* Enhancement: Skip sending STSC events for internal tasks [#3541](https://github.com/aws/amazon-ecs-agent/pull/3541) and [#3559](https://github.com/aws/amazon-ecs-agent/pull/3559)
+* Enhancement: Update go version in module file, update most vendored build dependencies to latest library [#3534](https://github.com/aws/amazon-ecs-agent/pull/3534) and [#3551](https://github.com/aws/amazon-ecs-agent/pull/3551)
+* Enhancement - Refactor build and remove legacy packaging [#3552](https://github.com/aws/amazon-ecs-agent/pull/3552)
+* Bug - Address envFile resource naming defect [#3554](https://github.com/aws/amazon-ecs-agent/pull/3554)
+* Bug - Enumerate port ranges into the docker config [#3558](https://github.com/aws/amazon-ecs-agent/pull/3558)
+* Bug - Revert CNI Plugin submodule update [#3565](https://github.com/aws/amazon-ecs-agent/pull/3565)
+
 ## 1.68.1
 * Bug - Update ECS CNI and VPC plugins to fix instances with IMDSv1 disabled [#3531](https://github.com/aws/amazon-ecs-agent/pull/3531)
 * Bug - Filter out metricCount=0 and its corresponding metricValue for service connect metric TargetResponseTime [#3537](https://github.com/aws/amazon-ecs-agent/pull/3537)
