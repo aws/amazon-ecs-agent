@@ -561,7 +561,9 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 
 // TestBuildCNIConfig tests if the generated CNI config is correct
 func TestBuildCNIConfig(t *testing.T) {
-	testTask := &Task{}
+	testTask := &Task{
+		Arn: validTaskArn,
+	}
 	testTask.NetworkMode = AWSVPCNetworkMode
 	testTask.AddTaskENI(&apieni.ENI{
 		ID:                           "TestBuildCNIConfig",
@@ -580,10 +582,13 @@ func TestBuildCNIConfig(t *testing.T) {
 		MinSupportedCNIVersion: "latest",
 	})
 	assert.NoError(t, err)
+
 	// We expect 2 NetworkConfig objects in the cni Config wrapper object:
 	// vpc-eni for task ENI setup.
 	// vpc-eni for ecs-bridge setup.
 	require.Len(t, cniConfig.NetworkConfigs, 2)
+	// We expect the containerID to be set to the task ID when there is no "primary container"
+	assert.Equal(t, cniConfig.ContainerID, "task-id")
 	var eniConfig ecscni.VPCENIPluginConfig
 	// For the task ns setup.
 	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)

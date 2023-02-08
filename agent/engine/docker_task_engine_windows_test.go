@@ -266,7 +266,7 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 
 	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainerAwsvpc(testTask, containerInspectOutput, true)
 	assert.NoError(t, err)
-	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, testTask.GetID(), cniConfig.ContainerID)
 	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
 	assert.Equal(t, containerNetNS, cniConfig.ContainerNetNS)
 	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")

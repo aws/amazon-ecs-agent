@@ -1297,7 +1297,9 @@ func TestEnableIPv6SysctlSetting(t *testing.T) {
 func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			testTask := &Task{}
+			testTask := &Task{
+				Arn: validTaskArn,
+			}
 			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.AddTaskENI(getTestENI())
 			testTask.SetAppMesh(&appmesh.AppMesh{
@@ -1315,6 +1317,8 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 				BlockInstanceMetadata: blockIMDS,
 			})
 			assert.NoError(t, err)
+			// We expect the containerID to be set to the task ID when there is no primary container
+			assert.Equal(t, cniConfig.ContainerID, "task-id")
 			// We expect 3 NetworkConfig objects in the cni Config wrapper object:
 			// ENI, Bridge and Appmesh
 			require.Len(t, cniConfig.NetworkConfigs, 3)
@@ -1347,7 +1351,9 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			testTask := &Task{}
+			testTask := &Task{
+				Arn: validTaskArn,
+			}
 			testTask.AddTaskENI(getTestENI())
 			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.ServiceConnectConfig = &serviceconnect.Config{
@@ -1361,6 +1367,8 @@ func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 				BlockInstanceMetadata: blockIMDS,
 			})
 			assert.NoError(t, err)
+			// We expect the containerID to be set to the task ID when there is no "primary container"
+			assert.Equal(t, cniConfig.ContainerID, "task-id")
 			// We expect 3 NetworkConfig objects in the cni Config wrapper object:
 			// ENI, Bridge and ServiceConnect
 			require.Len(t, cniConfig.NetworkConfigs, 3)
@@ -1396,7 +1404,9 @@ func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			testTask := &Task{}
+			testTask := &Task{
+				Arn: validTaskArn,
+			}
 			testTask.NetworkMode = AWSVPCNetworkMode
 			testTask.AddTaskENI(&apieni.ENI{
 				ID:                           "TestBuildCNIConfigTrunkBranchENI",
@@ -1424,6 +1434,8 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 				BlockInstanceMetadata: blockIMDS,
 			})
 			assert.NoError(t, err)
+			// We expect the containerID to be set to the task ID when there is no "primary container"
+			assert.Equal(t, cniConfig.ContainerID, "task-id")
 			// We expect 2 NetworkConfig objects in the cni Config wrapper object:
 			// Branch ENI and Bridge.
 			require.Len(t, cniConfig.NetworkConfigs, 2)
@@ -1449,7 +1461,9 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
 	for _, containerName := range []string{"other-pause", scPauseContainerName} {
 		t.Run(fmt.Sprintf("When container name is %s", containerName), func(t *testing.T) {
-			testTask := &Task{}
+			testTask := &Task{
+				Arn: validTaskArn,
+			}
 			testTask.NetworkMode = BridgeNetworkMode
 			testTask.ServiceConnectConfig = &serviceconnect.Config{
 				ContainerName: scContainerName,
@@ -1465,6 +1479,8 @@ func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
 			cniConfig := &ecscni.Config{}
 			cniConfig, err := testTask.BuildCNIConfigBridgeMode(cniConfig, containerName)
 			assert.NoError(t, err)
+			// We expect the containerID to be set to the task ID when there is no "primary container"
+			assert.Equal(t, cniConfig.ContainerID, "task-id")
 			// We expect 1 NetworkConfig objects in the cni Config wrapper object which is ServiceConnect
 			require.Len(t, cniConfig.NetworkConfigs, 1)
 			// The first one should be for the ENI.

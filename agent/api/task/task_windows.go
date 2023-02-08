@@ -245,6 +245,7 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 		IfName:           ecscni.ECSBridgeNetworkName,
 		CNINetworkConfig: netconf,
 	})
+	cniConfig.ContainerID = task.GetID()
 
 	return cniConfig, nil
 }

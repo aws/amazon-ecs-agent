@@ -338,7 +338,10 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 	}
 
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
-
+	if len(cniConfig.ContainerID) == 0 {
+		pauseContainer, _ := task.ContainerByName(NetworkPauseContainerName)
+		cniConfig.ContainerID = pauseContainer.GetRuntimeID()
+	}
 	return cniConfig, nil
 }
 
@@ -370,5 +373,9 @@ func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerNa
 	})
 
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
+	if len(cniConfig.ContainerID) == 0 {
+		pauseContainer, _ := task.ContainerByName(NetworkPauseContainerName)
+		cniConfig.ContainerID = pauseContainer.GetRuntimeID()
+	}
 	return cniConfig, nil
 }
