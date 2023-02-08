@@ -43,6 +43,10 @@ const (
 	cpuSharesPerCore  = 1024
 	percentageFactor  = 100
 	minimumCPUPercent = 1
+
+	// windowsDefaultNetworkName is the name of the docker network to which the containers in
+	// default mode are attached to.
+	windowsDefaultNetworkName = "nat"
 )
 
 // PlatformFields consists of fields specific to Windows for a task
@@ -103,6 +107,13 @@ func (task *Task) platformHostConfigOverride(hostConfig *dockercontainer.HostCon
 		// As of version  17.06.2-ee-6 of docker. MemoryReservation is not supported on windows. This ensures that
 		// this parameter is not passed, allowing to launch a container without a hard limit.
 		hostConfig.MemoryReservation = 0
+	}
+
+	// On Windows, bridge mode equivalent for Linux is "default" or "nat" network.
+	// We need to perform explicit conversion for the same.
+	networkMode := hostConfig.NetworkMode.NetworkName()
+	if networkMode == BridgeNetworkMode {
+		hostConfig.NetworkMode = windowsDefaultNetworkName
 	}
 
 	return nil
