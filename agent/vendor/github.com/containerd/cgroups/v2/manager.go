@@ -240,6 +240,10 @@ func (c *Manager) Controllers() ([]string, error) {
 	return strings.Fields(string(b)), nil
 }
 
+func (c *Manager) Update(resources *Resources) error {
+	return setResources(c.path, resources)
+}
+
 type ControllerToggle int
 
 const (
@@ -759,6 +763,11 @@ func NewSystemd(slice, group string, pid int, resources *Resources) (*Manager, e
 	// only add pid if its valid, -1 is used w/ general slice creation.
 	if pid != -1 {
 		properties = append(properties, newSystemdProperty("PIDs", []uint32{uint32(pid)}))
+	}
+
+	if resources.Memory != nil && resources.Memory.Min != nil && *resources.Memory.Min != 0 {
+		properties = append(properties,
+			newSystemdProperty("MemoryMin", uint64(*resources.Memory.Min)))
 	}
 
 	if resources.Memory != nil && resources.Memory.Max != nil && *resources.Memory.Max != 0 {

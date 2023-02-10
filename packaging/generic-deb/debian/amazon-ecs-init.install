@@ -1,2 +1,0 @@
-amazon-ecs-init usr/libexec/
-amazon-ecs-volume-plugin usr/libexec/

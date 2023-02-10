@@ -71,7 +71,7 @@ phases:
 
       # Build agent tar and rpm
       - GO111MODULE=auto
-      - make dockerfree-agent-image
+      - make release-agent
       - make generic-rpm-integrated
       - ls
 

@@ -128,15 +128,32 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	if !ok {
 		t.Fatal("Could not get exposed ports 20/udp")
 	}
-	_, ok = config.ExposedPorts["99-999/tcp"]
-	if !ok {
-		t.Fatal("Could not get exposed ports 99-999/tcp")
-	}
-	_, ok = config.ExposedPorts["121-221/udp"]
-	if !ok {
-		t.Fatal("Could not get exposed ports 121-221/udp")
+
+	startContainerPortTcp, endContainerPortTcp, tcpParseErr := nat.ParsePortRangeToInt("99-999")
+	if tcpParseErr != nil {
+		t.Fatal("Error parsing tcp port range into start and end ints")
 	}
 
+	for i := startContainerPortTcp; i <= endContainerPortTcp; i++ {
+		portProtocol := nat.Port(fmt.Sprintf("%d/tcp", i))
+		_, ok := config.ExposedPorts[portProtocol]
+		if !ok {
+			t.Fatalf("Could not get exposed ports %s", portProtocol)
+		}
+	}
+
+	startContainerPortUdp, endContainerPortUdp, udpParseErr := nat.ParsePortRangeToInt("121-221")
+	if udpParseErr != nil {
+		t.Fatal("Error parsing udp port range into start and end ints")
+	}
+
+	for i := startContainerPortUdp; i <= endContainerPortUdp; i++ {
+		portProtocol := nat.Port(fmt.Sprintf("%d/udp", i))
+		_, ok := config.ExposedPorts[portProtocol]
+		if !ok {
+			t.Fatalf("Could not get exposed ports %s", portProtocol)
+		}
+	}
 }
 
 func TestDockerHostConfigCPUShareZero(t *testing.T) {
@@ -3778,7 +3795,7 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 	}
 
 	resourceDep := apicontainer.ResourceDependency{
-		Name:           envFiles.ResourceName,
+		Name:           envFiles.ResourceName + "_" + container.Name,
 		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
 	}
 
@@ -3791,22 +3808,34 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 }
 
 func TestInitializeAndGetEnvfilesResource(t *testing.T) {
-	envfile := apicontainer.EnvironmentFile{
-		Value: "s3://bucket/envfile",
+	envfile1 := apicontainer.EnvironmentFile{
+		Value: "s3://bucket/envfile1",
 		Type:  "s3",
 	}
 
-	container := &apicontainer.Container{
-		Name:                      "containerName",
+	envfile2 := apicontainer.EnvironmentFile{
+		Value: "s3://bucket/envfile2",
+		Type:  "s3",
+	}
+
+	container1 := &apicontainer.Container{
+		Name:                      "containerName1",
 		Image:                     "image:tag",
-		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
+		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile1},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	container2 := &apicontainer.Container{
+		Name:                      "containerName2",
+		Image:                     "image:tag",
+		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile2},
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 	}
 
 	task := &Task{
 		Arn:                "testArn",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{container},
+		Containers:         []*apicontainer.Container{container1, container2},
 	}
 
 	ctrl := gomock.NewController(t)
@@ -3819,15 +3848,30 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 
 	task.initializeEnvfilesResource(cfg, credentialsManager)
 
-	resourceDep := apicontainer.ResourceDependency{
-		Name:           envFiles.ResourceName,
+	resourceDep1 := apicontainer.ResourceDependency{
+		Name:           envFiles.ResourceName + "_" + container1.Name,
 		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
 	}
 
-	assert.Equal(t, resourceDep,
+	resourceDep2 := apicontainer.ResourceDependency{
+		Name:           envFiles.ResourceName + "_" + container2.Name,
+		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
+	}
+
+	assert.Equal(t, resourceDep1,
 		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
 
-	_, ok := task.getEnvfilesResource("containerName")
+	assert.Equal(t, resourceDep2,
+		task.Containers[1].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+
+	assert.NotEqual(t,
+		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0],
+		task.Containers[1].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+
+	_, ok := task.getEnvfilesResource(container1.Name)
+	assert.True(t, ok)
+
+	_, ok = task.getEnvfilesResource(container2.Name)
 	assert.True(t, ok)
 }
 

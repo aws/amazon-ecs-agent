@@ -202,9 +202,9 @@ func (envfile *EnvironmentFileResource) GetCreatedAt() time.Time {
 	return envfile.createdAtUnsafe
 }
 
-// GetName returns the name fo the resource
+// GetName returns the name of the environment file resource
 func (envfile *EnvironmentFileResource) GetName() string {
-	return ResourceName
+	return ResourceName + "_" + envfile.GetContainerName()
 }
 
 // DesiredTerminal returns true if the resource's desired status is REMOVED

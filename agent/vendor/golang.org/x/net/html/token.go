@@ -110,9 +110,9 @@ func (t Token) String() string {
 	case SelfClosingTagToken:
 		return "<" + t.tagString() + "/>"
 	case CommentToken:
-		return "<!--" + t.Data + "-->"
+		return "<!--" + EscapeString(t.Data) + "-->"
 	case DoctypeToken:
-		return "<!DOCTYPE " + t.Data + ">"
+		return "<!DOCTYPE " + EscapeString(t.Data) + ">"
 	}
 	return "Invalid(" + strconv.Itoa(int(t.Type)) + ")"
 }
@@ -296,8 +296,7 @@ func (z *Tokenizer) Buffered() []byte {
 // too many times in succession.
 func readAtLeastOneByte(r io.Reader, b []byte) (int, error) {
 	for i := 0; i < 100; i++ {
-		n, err := r.Read(b)
-		if n != 0 || err != nil {
+		if n, err := r.Read(b); n != 0 || err != nil {
 			return n, err
 		}
 	}
@@ -606,7 +605,10 @@ func (z *Tokenizer) readComment() {
 			z.data.end = z.data.start
 		}
 	}()
-	for dashCount := 2; ; {
+
+	var dashCount int
+	beginning := true
+	for {
 		c := z.readByte()
 		if z.err != nil {
 			// Ignore up to two dashes at EOF.
@@ -621,7 +623,7 @@ func (z *Tokenizer) readComment() {
 			dashCount++
 			continue
 		case '>':
-			if dashCount >= 2 {
+			if dashCount >= 2 || beginning {
 				z.data.end = z.raw.end - len("-->")
 				return
 			}
@@ -639,6 +641,7 @@ func (z *Tokenizer) readComment() {
 			}
 		}
 		dashCount = 0
+		beginning = false
 	}
 }
 

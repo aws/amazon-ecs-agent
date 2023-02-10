@@ -117,7 +117,17 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 					}
 					metricCounts = append(metricCounts, &metricCount)
 				}
-				metricCounts = convertHistogramMetricCounts(metricCounts)
+
+				metricValues, metricCounts = convertHistogramMetricCounts(metricValues, metricCounts)
+
+				// If all values are 0 in metricCount, then no need to send the metrics to TACS
+				if len(metricCounts) == 0 {
+					logger.Debug("There were no non-zero metricCount received for TargetResponseTime metric. Skipping this metric.", logger.Fields{
+						field.TaskID: taskId,
+					})
+					continue
+				}
+
 			default:
 				logger.Warn("Service connect stats received invalid Metric type", logger.Fields{
 					field.TaskID: taskId,
@@ -212,13 +222,20 @@ func (sc *ServiceConnectStats) resetStats() {
 }
 
 // CloudWatch accepts the histogram buckets in a disjoint manner while the prometheus emits these values in a cumulative way.
-// This method performs that conversion
-func convertHistogramMetricCounts(metricCounts []*int64) []*int64 {
-	prevCount := *metricCounts[0]
-	for i := 1; i < len(metricCounts); i++ {
+// This method performs that conversion. We discard any metricCount that is 0 and also its corresponding metricValue.
+func convertHistogramMetricCounts(metricValues []*float64, metricCounts []*int64) ([]*float64, []*int64) {
+	var mV []*float64
+	var mC []*int64
+	prevCount := int64(0)
+	for i := 0; i < len(metricCounts); i++ {
 		prevCount, *metricCounts[i] = *metricCounts[i], *metricCounts[i]-prevCount
+		if metricCounts[i] != nil && *metricCounts[i] != 0 {
+			mV = append(mV, metricValues[i])
+			mC = append(mC, metricCounts[i])
+		}
 	}
-	return metricCounts
+
+	return mV, mC
 }
 
 // This method sorts the dimensions according to the keyName.

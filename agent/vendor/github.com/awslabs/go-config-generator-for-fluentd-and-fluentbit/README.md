@@ -26,6 +26,15 @@ type FluentConfig interface {
 	// AddOutput adds an output/log destination
 	AddOutput(name string, tag string, options map[string]string) FluentConfig
 
+	// AddCustom adds custom configuration, needed for a custom template
+	AddCustom(conf interface{}) FluentConfig
+
+	// WithFluentdTemplate sets a custom Fluentd template
+	WithFluentdTemplate(template string) FluentConfig
+
+	// WithFluentBitTemplate sets a custom FluentBit template
+	WithFluentBitTemplate(template string) FluentConfig
+
 	// WriteFluentdConfig outputs the config in Fluentd syntax
 	WriteFluentdConfig(wr io.Writer) error
 
@@ -42,4 +51,4 @@ This sample code is made available under the MIT-0 license. See the LICENSE file
 
 #### Security disclosures
 
-If you think you’ve found a potential security issue, please do not post it in the Issues.  Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or email AWS security directly at [aws-security@amazon.com](mailto:aws-security@amazon.com).
+If you think you’ve found a potential security issue, please do not post it in the Issues. Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or email AWS security directly at [aws-security@amazon.com](mailto:aws-security@amazon.com).
