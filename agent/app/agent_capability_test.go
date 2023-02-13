@@ -1421,7 +1421,7 @@ func TestAppendGMSACapabilities(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			GMSACapable: true,
+			GMSACapable: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		},
 	}
 

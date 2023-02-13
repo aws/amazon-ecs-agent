@@ -109,7 +109,7 @@ func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ec
 }
 
 func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if agent.cfg.FSxWindowsFileServerCapable {
+	if agent.cfg.FSxWindowsFileServerCapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFSxWindowsFileServer)
 	}
 

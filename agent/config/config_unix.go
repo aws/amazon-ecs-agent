@@ -101,7 +101,7 @@ func DefaultConfig() Config {
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 		GMSACapable:                         parseGMSACapability(),
-		FSxWindowsFileServerCapable:         false,
+		FSxWindowsFileServerCapable:         BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},

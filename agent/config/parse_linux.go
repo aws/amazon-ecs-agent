@@ -25,14 +25,14 @@ import (
 	"github.com/cihub/seelog"
 )
 
-func parseGMSACapability() bool {
+func parseGMSACapability() BooleanDefaultFalse {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	if envStatus {
 		// Check if domain join check override is present
 		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
 		if skipDomainJoinCheck {
 			seelog.Infof("Skipping domain join validation based on environment override")
-			return true
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
 		}
 
 		// check if the credentials fetcher socket is created and exists
@@ -42,7 +42,7 @@ func parseGMSACapability() bool {
 			if err != nil {
 				if os.IsNotExist(err) {
 					seelog.Errorf("CREDENTIALS_FETCHER_HOST_DIR not found, err: %v", err)
-					return false
+					return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 				}
 			}
 
@@ -50,7 +50,7 @@ func parseGMSACapability() bool {
 			domainlessGMSAUser := os.Getenv("CREDENTIALS_FETCHER_SECRET_NAME_FOR_DOMAINLESS_GMSA")
 			if domainlessGMSAUser != "" && len(domainlessGMSAUser) > 0 {
 				seelog.Info("domainless gMSA support is enabled")
-				return true
+				return BooleanDefaultFalse{Value: ExplicitlyEnabled}
 			}
 
 			// returns true if the container instance is domain joined
@@ -59,16 +59,17 @@ func parseGMSACapability() bool {
 
 			if !isDomainJoined {
 				seelog.Error("gMSA on linux requires domain joined instance. Did not find expected env var ECS_DOMAIN_JOINED_LINUX_INSTANCE=true")
+				return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 			}
-			return isDomainJoined
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
 		}
 	}
 	seelog.Debug("env variables to support gMSA are not set")
-	return false
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
-func parseFSxWindowsFileServerCapability() bool {
-	return false
+func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
 var IsWindows2016 = func() (bool, error) {

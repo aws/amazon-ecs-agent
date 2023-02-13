@@ -329,14 +329,14 @@ type Config struct {
 
 	// GMSACapable is the config option to indicate if gMSA is supported.
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.
-	GMSACapable bool
+	GMSACapable BooleanDefaultFalse
 
 	// VolumePluginCapabilities specifies the capabilities of the ecs volume plugin.
 	VolumePluginCapabilities []string
 
 	// FSxWindowsFileServerCapable is the config option to indicate if fsxWindowsFileServer is supported.
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.
-	FSxWindowsFileServerCapable bool
+	FSxWindowsFileServerCapable BooleanDefaultFalse
 
 	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
 	External BooleanDefaultFalse
