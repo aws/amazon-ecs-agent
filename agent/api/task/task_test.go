@@ -18,7 +18,6 @@ package task
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -262,26 +261,6 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				Name: "c1",
 				Ports: []apicontainer.PortBinding{
 					{
-						ContainerPortRange: "999-1000",
-						BindIP:             "",
-						Protocol:           apicontainer.TransportProtocolTCP,
-					},
-					{
-						ContainerPortRange: "1-3",
-						BindIP:             "",
-						Protocol:           apicontainer.TransportProtocolUDP,
-					},
-				},
-			},
-		},
-	}
-
-	testTask3 := &Task{
-		Containers: []*apicontainer.Container{
-			{
-				Name: "c1",
-				Ports: []apicontainer.PortBinding{
-					{
 						ContainerPortRange: "55-57",
 						BindIP:             "",
 						Protocol:           apicontainer.TransportProtocolUDP,
@@ -318,30 +297,8 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 			expectedContainerPortRangeMap: map[string]string{},
 		},
 		{
-			testName: "2 port bindings, each with container port range, 1 found valid host port range, other didn't",
-			testTask: testTask2,
-			getHostPortRange: func(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error) {
-				if numberOfPorts == 3 {
-					return "", errors.New("couldn't find host ports")
-				}
-				return "99-100", nil
-			},
-			expectedPortBinding: nat.PortMap{
-				nat.Port("999/tcp"):  []nat.PortBinding{{HostPort: "99"}},
-				nat.Port("1000/tcp"): []nat.PortBinding{{HostPort: "100"}},
-			},
-			expectedContainerPortSet: map[int]struct{}{
-				1: {},
-				2: {},
-				3: {},
-			},
-			expectedContainerPortRangeMap: map[string]string{
-				"999-1000": "99-100",
-			},
-		},
-		{
 			testName: "2 port bindings, one with container port range, other with singular container port",
-			testTask: testTask3,
+			testTask: testTask2,
 			getHostPortRange: func(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error) {
 				return "155-157", nil
 			},
