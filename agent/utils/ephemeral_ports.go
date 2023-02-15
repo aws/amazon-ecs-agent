@@ -18,9 +18,11 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	log "github.com/cihub/seelog"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
@@ -30,6 +32,9 @@ const (
 	EphemeralPortMin         = 32768
 	EphemeralPortMax         = 60999
 	maxPortSelectionAttempts = 100
+	portUnavailableMsg       = "Port %v is unavailable or an error occurred while listening on the local %v network"
+	portNotFoundErrMsg       = "a host port is unavailable"
+	portsNotFoundErrMsg      = "%v contiguous host ports are unavailable"
 )
 
 var (
@@ -94,10 +99,32 @@ func (pt *safePortTracker) GetLastAssignedHostPort() int {
 var tracker safePortTracker
 
 // GetHostPortRange gets N contiguous host ports from the ephemeral host port range defined on the host.
+// dynamicHostPortRange can be set by customers using ECS Agent environment variable ECS_DYNAMIC_HOST_PORT_RANGE;
+// otherwise, ECS Agent will use the default value returned from GetDynamicHostPortRange() in the utils package.
 func GetHostPortRange(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error) {
 	portLock.Lock()
 	defer portLock.Unlock()
+	result, err := getNumOfHostPorts(numberOfPorts, protocol, dynamicHostPortRange)
+	return result, err
+}
 
+// GetHostPort gets 1 host port from the ephemeral host port range defined on the host.
+// dynamicHostPortRange can be set by customers using ECS Agent environment variable ECS_DYNAMIC_HOST_PORT_RANGE;
+// otherwise, ECS Agent will use the default value returned from GetDynamicHostPortRange() in the utils package.
+func GetHostPort(protocol string, dynamicHostPortRange string) (string, error) {
+	portLock.Lock()
+	defer portLock.Unlock()
+	numberOfPorts := 1
+	result, err := getNumOfHostPorts(numberOfPorts, protocol, dynamicHostPortRange)
+	if err == nil {
+		result = strings.Split(result, "-")[0]
+	}
+	return result, err
+}
+
+// getNumOfHostPorts returns the requested number of host ports using the given dynamic host port range
+// and protocol. If no host port(s) was/were found, an empty string along with the error message will be returned.
+func getNumOfHostPorts(numberOfPorts int, protocol, dynamicHostPortRange string) (string, error) {
 	// get ephemeral port range, either default or if custom-defined
 	startHostPortRange, endHostPortRange, _ := nat.ParsePortRangeToInt(dynamicHostPortRange)
 	start := startHostPortRange
@@ -127,7 +154,6 @@ func GetHostPortRange(numberOfPorts int, protocol string, dynamicHostPortRange s
 	} else {
 		tracker.SetLastAssignedHostPort(lastCheckedPort)
 	}
-
 	return result, err
 }
 
@@ -157,7 +183,11 @@ func getHostPortRange(numberOfPorts, start, end int, protocol string) (string, i
 	}
 
 	if n != numberOfPorts {
-		return "", resultEndPort, fmt.Errorf("%v contiguous host ports unavailable", numberOfPorts)
+		errMsg := fmt.Errorf(portNotFoundErrMsg)
+		if numberOfPorts > 1 {
+			errMsg = fmt.Errorf(portsNotFoundErrMsg, numberOfPorts)
+		}
+		return "", resultEndPort, errMsg
 	}
 
 	return fmt.Sprintf("%d-%d", resultStartPort, resultEndPort), resultEndPort, nil
