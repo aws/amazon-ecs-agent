@@ -2338,64 +2338,135 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 }
 
 var getHostPortRange = utils.GetHostPortRange
+var getHostPort = utils.GetHostPort
 
+// updatePortMapWithSCIngressConfig creates bindings for all ingress listener ports,
+// and returns a dockerPortMap and a containerPortSet for the service connect container.
+// The dockerPortMap and the containerPortSet will be constructed for following two cases in bridge network mode:
+// (1) non-default service connect experience: customers specified the host port for the listerner in the IngressConfig
+// (2) default service connect experience: customers do not specify the host port. Instead, ECS Agent finds the host port
+// within given the dynamic host port range for the listerner in the IngressConfig.
+// An error will be returned for case (2) if ECS Agent cannot find an available host port within given the dynamic host port range.
+func (task *Task) updatePortMapWithSCIngressConfig(dynamicHostPortRange string) (nat.PortMap, map[int]struct{}, error) {
+	var err error
+	ingressDockerPortMap := nat.PortMap{}
+	ingressContainerPortSet := make(map[int]struct{})
+	protocolStr := "tcp"
+	for _, ic := range task.ServiceConnectConfig.IngressConfig {
+		listenerPortInt := int(ic.ListenerPort)
+		dockerPort := nat.Port(strconv.Itoa(listenerPortInt) + "/" + protocolStr)
+		hostPortStr := ""
+		if ic.HostPort != nil {
+			// for non-default bridge mode service connect experience, a host port is specified by customers
+			hostPortStr = strconv.Itoa(int(*ic.HostPort))
+		} else {
+			// for default bridge mode service connect experience, customers do not specify a host port and
+			// the host port will be assigned by ECS Agent.
+			// ECS Agent will find an available host port within the given dynamicHostPortRange,
+			// and return an error if no host port is available within the range.
+			hostPortStr, err = getHostPort(protocolStr, dynamicHostPortRange)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		ingressDockerPortMap[dockerPort] = append(ingressDockerPortMap[dockerPort], nat.PortBinding{HostPort: hostPortStr})
+		// append non-range, singular container port to the ingressContainerPortSet
+		ingressContainerPortSet[listenerPortInt] = struct{}{}
+	}
+
+	return ingressDockerPortMap, ingressContainerPortSet, err
+}
+
+// dockerPortMap does couple things, including
+// (1) build and return a dockerPortMap with port bindings info
+// (2) build a containerPortSet for a singular port, and link it to the corresponding task container
+// (3) build a containerPortRange for a container port range, and link it to the corresponding task container
+// There are two main logic blocks in this function to handle port bindings for
+// (1) service connect enabled task and service connect container
+// (2) port mapping specified by customers in the task definition
+// For bridge network mode, ECS Agent will assign a host port or a host port range within the dynamic host port range
+// if customers do not specify it in the task definition. If no available host port or host port range can be found by ECS Agent,
+// an error will be returned.
+// Note that,
+// (1) a user-specified host port range has not been supported in task definition, it's assigned by ECS Agent by default.
+// (2) ECS Agent will not assign a new host port within the dynamic host port range for awsvpc network mode task
+// (3) ECS Agent will not assign a new host port within within the dynamic host port range if the user-specified host port exist
 func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPortRange string) (nat.PortMap, error) {
+	hostPortStr := ""
 	dockerPortMap := nat.PortMap{}
-	scContainer := task.GetServiceConnectContainer()
 	containerToCheck := container
 	containerPortSet := make(map[int]struct{})
 	containerPortRangeMap := make(map[string]string)
+
+	// bridge network mode and service connect enabled task
 	if task.IsServiceConnectEnabled() && task.IsNetworkModeBridge() {
 		if container.Type == apicontainer.ContainerCNIPause {
-			// we will create bindings for task containers (including both customer containers and SC Appnet container)
-			// and let them be published by the associated pause container.
-			// Note - for SC bridge mode we do not allow customer to specify a host port for their containers. Additionally,
-			// When an ephemeral host port is assigned, Appnet will NOT proxy traffic to that port
+			// we will create bindings for task containers (including both customer containers and service connect AppNet container)
+			// and let them be published by the associated pause containers.
+			// Note - for service connect bridge mode, we do not allow customer to specify a host port for their containers.
+			// Additionally, AppNet will NOT proxy traffic to that port when an ephemeral host port is assigned.
 			taskContainer, err := task.getBridgeModeTaskContainerForPauseContainer(container)
 			if err != nil {
 				return nil, err
 			}
+
+			scContainer := task.GetServiceConnectContainer()
 			if taskContainer == scContainer {
-				// create bindings for all ingress listener ports
-				// no need to create binding for egress listener port as it won't be access from host level or from outside
-				for _, ic := range task.ServiceConnectConfig.IngressConfig {
-					listenerPortInt := int(ic.ListenerPort)
-					dockerPort := nat.Port(strconv.Itoa(listenerPortInt)) + "/tcp"
-					hostPort := 0           // default bridge-mode SC experience - host port will be an ephemeral port assigned by docker
-					if ic.HostPort != nil { // non-default bridge-mode SC experience - host port specified by customer
-						hostPort = int(*ic.HostPort)
-					}
-					dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(hostPort)})
-					// append non-range, singular container port to the containerPortSet
-					containerPortSet[listenerPortInt] = struct{}{}
-					// set taskContainer.ContainerPortSet to be used during network binding creation
-					taskContainer.SetContainerPortSet(containerPortSet)
+				// for service connect container, we need to create port bings and construct dockerPortMap
+				// and containerPortSet with it's ingress config. No need to do this for egress listener port
+				// as it won't be access from host level or from outside
+				dockerPortMap, containerPortSet, err := task.updatePortMapWithSCIngressConfig(dynamicHostPortRange)
+				if err != nil {
+					return nil, err
 				}
+				// set taskContainer.ContainerPortSet to be used during network binding creation
+				taskContainer.SetContainerPortSet(containerPortSet)
 				return dockerPortMap, nil
+			} else {
+				// for non-service connect container, dockerPortMap will be updated in the later
+				containerToCheck = taskContainer
 			}
-			containerToCheck = taskContainer
 		} else {
-			// If container is neither SC container nor pause container, it's a regular task container. Its port bindings(s)
+			// If container is neither service connect container nor pause container, it's a regular task container. Its port bindings(s)
 			// are published by the associated pause container, and we leave the map empty here (docker would actually complain
 			// otherwise).
 			return dockerPortMap, nil
 		}
 	}
 
+	// update dockerPortMap, containerPortSet and containerPortRangeMap based on port mappings specified in the task definition
+	var err error
 	for _, portBinding := range containerToCheck.Ports {
 		// for each port binding config, either one of containerPort or containerPortRange is set
 		if portBinding.ContainerPort != 0 {
+			// containerPort is the port number on the container that's bound to the user-specified or ECS Agent assigned host port
 			containerPort := int(portBinding.ContainerPort)
+			protocolStr := portBinding.Protocol.String()
+			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + protocolStr)
 
-			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + portBinding.Protocol.String())
-			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+			if portBinding.HostPort != 0 {
+				// user-specified host port
+				hostPortStr = strconv.Itoa(int(portBinding.HostPort))
+			} else {
+				// if there is no user-specified host port, ECS Agent will find an available host port
+				// within the given dynamicHostPortRange. And if no host port is available within the range,
+				// an error will be returned
+				hostPortStr, err = getHostPort(protocolStr, dynamicHostPortRange)
+				if err != nil {
+					return nil, err
+				}
+			}
 
+			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: hostPortStr})
 			// append non-range, singular container port to the containerPortSet
 			containerPortSet[containerPort] = struct{}{}
+
 		} else if portBinding.ContainerPortRange != "" {
+			// containerPortRange is the port number range on the container that's bound to the mapped host port range
+			containerPortRange := portBinding.ContainerPortRange
 			containerToCheck.SetContainerHasPortRange(true)
 
-			containerPortRange := portBinding.ContainerPortRange
 			// nat.ParsePortRangeToInt validates a port range; if valid, it returns start and end ports as integers
 			startContainerPort, endContainerPort, err := nat.ParsePortRangeToInt(containerPortRange)
 			if err != nil {
@@ -2404,6 +2475,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 
 			numberOfPorts := endContainerPort - startContainerPort + 1
 			protocol := portBinding.Protocol.String()
+
 			// we will try to get a contiguous set of host ports from the ephemeral host port range.
 			// this is to ensure that docker maps host ports in a contiguous manner, and
 			// we are guaranteed to have the entire hostPortRange in a single network binding while sending this info to ECS;
