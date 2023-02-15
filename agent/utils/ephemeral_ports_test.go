@@ -130,7 +130,7 @@ func TestGetHostPortRange(t *testing.T) {
 			protocol:                 testTCPProtocol,
 			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         1,
-			expectedError:            errors.New("20 contiguous host ports unavailable"),
+			expectedError:            errors.New("20 contiguous host ports are unavailable"),
 		},
 		{
 			testName:                 "contiguous hostPortRange not found, no ports available on the host",
@@ -166,7 +166,7 @@ func TestGetHostPortRange(t *testing.T) {
 					assert.Equal(t, tc.expectedLastAssignedPort[i], actualLastAssignedHostPort)
 				} else {
 					// need to reset the tracker to avoid getting data from previous test cases
-					tracker.SetLastAssignedHostPort(0)
+					ResetTracker()
 
 					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol, tc.testDynamicHostPortRange)
 					assert.Equal(t, tc.expectedError, err)
@@ -175,6 +175,132 @@ func TestGetHostPortRange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetHostPort(t *testing.T) {
+	numberOfPorts := 1
+	testCases := []struct {
+		testName                  string
+		testDynamicHostPortRange  string
+		protocol                  string
+		numberOfRequests          int
+		resetLastAssignedHostPort bool
+	}{
+		{
+			testName:                  "tcp protocol, a host port found",
+			testDynamicHostPortRange:  "40090-40099",
+			protocol:                  testTCPProtocol,
+			resetLastAssignedHostPort: true,
+			numberOfRequests:          1,
+		},
+		{
+			testName:                  "udp protocol, a host port found",
+			testDynamicHostPortRange:  "40090-40099",
+			protocol:                  testUDPProtocol,
+			resetLastAssignedHostPort: true,
+			numberOfRequests:          1,
+		},
+		{
+			testName:                  "5 requests for host port in succession, success",
+			testDynamicHostPortRange:  "50090-50099",
+			protocol:                  testTCPProtocol,
+			resetLastAssignedHostPort: true,
+			numberOfRequests:          5,
+		},
+		{
+			testName:                  "5 requests for host port in succession, success",
+			testDynamicHostPortRange:  "50090-50099",
+			protocol:                  testUDPProtocol,
+			resetLastAssignedHostPort: false,
+			numberOfRequests:          5,
+		},
+	}
+
+	for _, tc := range testCases {
+		if tc.resetLastAssignedHostPort {
+			// need to reset the tracker to avoid getting data from previous test cases
+			ResetTracker()
+		}
+
+		t.Run(tc.testName, func(t *testing.T) {
+			for i := 0; i < tc.numberOfRequests; i++ {
+				hostPortRange, err := GetHostPort(tc.protocol, tc.testDynamicHostPortRange)
+				assert.NoError(t, err)
+				numberOfHostPorts, err := getPortRangeLength(hostPortRange)
+				assert.NoError(t, err)
+				assert.Equal(t, numberOfPorts, numberOfHostPorts)
+			}
+		})
+	}
+}
+
+func TestPortIsInRange(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		testPort       int
+		testStartPort  int
+		testEndPort    int
+		expectedResult bool
+	}{
+		{
+			testName:       "in the range",
+			testPort:       100,
+			testStartPort:  1,
+			testEndPort:    9999,
+			expectedResult: true,
+		},
+		{
+			testName:       "not in the range",
+			testPort:       10000,
+			testStartPort:  1,
+			testEndPort:    9999,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			result := portIsInRange(tc.testPort, tc.testStartPort, tc.testEndPort)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
+}
+
+func TestVerifyPortsWithinRange(t *testing.T) {
+	testCases := []struct {
+		testName          string
+		testActualRange   string
+		testExpectedRange string
+		expectedResult    bool
+	}{
+		{
+			testName:          "in the expected range",
+			testActualRange:   "1000-1005",
+			testExpectedRange: "900-2000",
+			expectedResult:    true,
+		},
+		{
+			testName:          "not in the expected range",
+			testActualRange:   "1-2",
+			testExpectedRange: "2-100",
+			expectedResult:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			result := verifyPortsWithinRange(tc.testActualRange, tc.testExpectedRange)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
+}
+
+func TestResetTracker(t *testing.T) {
+	tracker.SetLastAssignedHostPort(100)
+	ResetTracker()
+	expectedResetVal := 0
+	actualResult := tracker.GetLastAssignedHostPort()
+	assert.Equal(t, expectedResetVal, actualResult)
 }
 
 func getPortRangeLength(portRange string) (int, error) {
