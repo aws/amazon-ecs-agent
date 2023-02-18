@@ -23,7 +23,7 @@ jobs:
             echo "invalid GO version"
             exit 1
           }
-          Write-Output "::set-output name=GO_VERSION_WINDOWS::$go_version_win"
+          Write-Output "GO_VERSION_WINDOWS=$go_version_win" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}

@@ -24,7 +24,7 @@ jobs:
             echo "invalid GO version"
             exit 1
           fi
-          echo "::set-output name=GO_VERSION::$go_version"
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
@@ -60,7 +60,7 @@ jobs:
             echo "invalid GO version"
             exit 1
           fi
-          echo "::set-output name=GO_VERSION::$go_version"
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
@@ -96,7 +96,7 @@ jobs:
             echo "invalid GO version"
             exit 1
           fi
-          echo "::set-output name=GO_VERSION::$go_version"
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
