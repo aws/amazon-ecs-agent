@@ -240,13 +240,13 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				Ports: []apicontainer.PortBinding{
 					{
 						ContainerPort: 10,
-						HostPort:      10,
+						HostPort:      20,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 					{
 						ContainerPort: 20,
-						HostPort:      20,
+						HostPort:      30,
 						BindIP:        "",
 						Protocol:      apicontainer.TransportProtocolUDP,
 					},
@@ -256,6 +256,31 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	}
 
 	testTask2 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPort: 30,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+
+	testTask3 := &Task{
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
@@ -278,17 +303,20 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 	testCases := []struct {
 		testName                      string
 		testTask                      *Task
-		getHostPortRange              func(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error)
+		testDynamicHostPortRange      string
+		testContainerPortRange        string
 		expectedPortBinding           nat.PortMap
 		expectedContainerPortSet      map[int]struct{}
 		expectedContainerPortRangeMap map[string]string
+		expectedError                 bool
 	}{
 		{
-			testName: "2 port bindings, each with singular container port - host port",
-			testTask: testTask1,
+			testName:                 "user-specified container ports and host ports",
+			testTask:                 testTask1,
+			testDynamicHostPortRange: "40000-60000",
 			expectedPortBinding: nat.PortMap{
-				nat.Port("10/tcp"): []nat.PortBinding{{HostPort: "10"}},
-				nat.Port("20/udp"): []nat.PortBinding{{HostPort: "20"}},
+				nat.Port("10/tcp"): []nat.PortBinding{{HostPort: "20"}},
+				nat.Port("20/udp"): []nat.PortBinding{{HostPort: "30"}},
 			},
 			expectedContainerPortSet: map[int]struct{}{
 				10: {},
@@ -297,23 +325,37 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 			expectedContainerPortRangeMap: map[string]string{},
 		},
 		{
-			testName: "2 port bindings, one with container port range, other with singular container port",
-			testTask: testTask2,
-			getHostPortRange: func(numberOfPorts int, protocol string, dynamicHostPortRange string) (string, error) {
-				return "155-157", nil
+			testName:                 "user-specified container ports with a ideal dynamicHostPortRange",
+			testTask:                 testTask2,
+			testDynamicHostPortRange: "40000-60000",
+			expectedContainerPortSet: map[int]struct{}{
+				10: {},
+				20: {},
+				30: {},
 			},
-			expectedPortBinding: nat.PortMap{
-				nat.Port("55/udp"): []nat.PortBinding{{HostPort: "155"}},
-				nat.Port("56/udp"): []nat.PortBinding{{HostPort: "156"}},
-				nat.Port("57/udp"): []nat.PortBinding{{HostPort: "157"}},
-				nat.Port("80/tcp"): []nat.PortBinding{{HostPort: "0"}},
-			},
+			expectedContainerPortRangeMap: map[string]string{},
+		},
+		{
+			testName:                 "user-specified container ports with a bad dynamicHostPortRange",
+			testTask:                 testTask2,
+			testDynamicHostPortRange: "100-101",
+			expectedError:            true,
+		},
+		{
+			testName:                 "user-specified container port and container port range with a ideal dynamicHostPortRange",
+			testTask:                 testTask3,
+			testDynamicHostPortRange: "40000-60000",
+			testContainerPortRange:   "55-57",
 			expectedContainerPortSet: map[int]struct{}{
 				80: {},
 			},
-			expectedContainerPortRangeMap: map[string]string{
-				"55-57": "155-157",
-			},
+		},
+		{
+			testName:                 "user-specified container port and container port range with a bad user-specified dynamicHostPortRange",
+			testTask:                 testTask3,
+			testDynamicHostPortRange: "40000-40001",
+			testContainerPortRange:   "55-57",
+			expectedError:            true,
 		},
 	}
 
@@ -322,22 +364,51 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 			defer func() {
 				getHostPortRange = utils.GetHostPortRange
 			}()
-			getHostPortRange = tc.getHostPortRange
 
-			config, err := tc.testTask.DockerHostConfig(tc.testTask.Containers[0], dockerMap(tc.testTask), defaultDockerClientAPIVersion,
-				&config.Config{})
-			assert.Nil(t, err)
+			// Get the Docker host config for the task container
+			config, err := tc.testTask.DockerHostConfig(tc.testTask.Containers[0], dockerMap(tc.testTask),
+				defaultDockerClientAPIVersion, &config.Config{DynamicHostPortRange: tc.testDynamicHostPortRange})
+			if !tc.expectedError {
+				assert.Nil(t, err)
 
-			if !reflect.DeepEqual(config.PortBindings, tc.expectedPortBinding) {
-				t.Error("Expected port bindings to be resolved, was: ", config.PortBindings)
-			}
+				// Verify PortBindings
+				if tc.expectedPortBinding != nil {
+					if !reflect.DeepEqual(config.PortBindings, tc.expectedPortBinding) {
+						t.Error("Expected port bindings to be resolved, was: ", config.PortBindings)
+					}
+				} else {
+					// Verify ECS Agent assigned host ports are within the dynamic host port range
+					eStartPort, eEndPort, _ := nat.ParsePortRangeToInt(tc.testDynamicHostPortRange)
+					for _, hostPortBinding := range config.PortBindings {
+						hostPort, _ := strconv.Atoi(hostPortBinding[0].HostPort)
+						result := utils.PortIsInRange(hostPort, eStartPort, eEndPort)
+						if !result {
+							t.Error("Actual host port is not in the dynamicHostPortRange: ", hostPort)
+							break
+						}
+					}
+				}
 
-			if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortSet, tc.expectedContainerPortSet) {
-				t.Error("Expected container port set to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortSet())
-			}
+				// Verify ContainerPortSet
+				if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortSet, tc.expectedContainerPortSet) {
+					t.Error("Expected container port set to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortSet())
+				}
 
-			if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortRangeMap, tc.expectedContainerPortRangeMap) {
-				t.Error("Expected container port range map to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortRangeMap())
+				// Verify ContainerPortRangeMap
+				if tc.expectedContainerPortRangeMap != nil {
+					if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortRangeMap, tc.expectedContainerPortRangeMap) {
+						t.Error("Expected container port range map to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortRangeMap())
+					}
+				} else {
+					// Verify ECS Agent assigned host port range are within the dynamic host port range
+					hostPortRange := tc.testTask.Containers[0].ContainerPortRangeMap[tc.testContainerPortRange]
+					result := utils.VerifyPortsWithinRange(hostPortRange, tc.testDynamicHostPortRange)
+					if !result {
+						t.Error("Expected host port range should be in the dynamicHostPortRange, but the actual host port range is: ", hostPortRange)
+					}
+				}
+			} else {
+				assert.NotNil(t, err)
 			}
 		})
 	}

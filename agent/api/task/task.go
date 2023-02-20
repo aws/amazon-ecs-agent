@@ -2338,8 +2338,21 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 }
 
 var getHostPortRange = utils.GetHostPortRange
+var getHostPort = utils.GetHostPort
 
+// dockerPortMap creates a port binding map for
+// (1) Ingress listeners for the service connect AppNet container in the service connect enabled bridge network mode task.
+// (2) Port mapping definied by customers in the task definition.
+//
+// For non-service connect bridge network mode task, ECS Agent will assign a host port or a host port range
+// within the default/user-specified dynamic host port range. If no available host port or host port range can be
+// found by ECS Agent, an error will be returned.
+//
+// Note that,
+// (a) ECS Agent will not assign a new host port within the dynamic host port range for awsvpc network mode task
+// (b) ECS Agent will not assign a new host port within the dynamic host port range if the user-specified host port exists
 func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPortRange string) (nat.PortMap, error) {
+	hostPortStr := ""
 	dockerPortMap := nat.PortMap{}
 	scContainer := task.GetServiceConnectContainer()
 	containerToCheck := container
@@ -2382,15 +2395,41 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 		}
 	}
 
+	// For each port binding config, either one of containerPort or containerPortRange is set.
+	// (1) containerPort is the port number on the container that's bound to the user-specified host port or the host port assigned by ECS Agent.
+	// (2) containerPortRange is the port number range on the container that's bound to the mapped host port range found by ECS Agent.
+	var err error
 	for _, portBinding := range containerToCheck.Ports {
-		// for each port binding config, either one of containerPort or containerPortRange is set
 		if portBinding.ContainerPort != 0 {
 			containerPort := int(portBinding.ContainerPort)
+			protocolStr := portBinding.Protocol.String()
+			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + protocolStr)
 
-			dockerPort := nat.Port(strconv.Itoa(containerPort) + "/" + portBinding.Protocol.String())
-			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+			if portBinding.HostPort != 0 {
+				// An User-specified host port exists
+				hostPortStr = strconv.Itoa(int(portBinding.HostPort))
+			} else {
+				// If there is no user-specified host port, ECS Agent will find an available host port
+				// within the given dynamic host port range. And if no host port is available within the range,
+				// an error will be returned.
+				logger.Debug("No user-specified host port, ECS Agent will find an available host port within the given dynamic host port range", logger.Fields{
+					field.Container:        containerToCheck.Name,
+					"dynamicHostPortRange": dynamicHostPortRange,
+				})
+				hostPortStr, err = getHostPort(protocolStr, dynamicHostPortRange)
+				if err != nil {
+					logger.Error("Unable to find a host port for container within the given dynamic host port range", logger.Fields{
+						field.TaskID:           task.GetID(),
+						field.Container:        container.Name,
+						"dynamicHostPortRange": dynamicHostPortRange,
+						field.Error:            err,
+					})
+					return nil, err
+				}
+			}
+			dockerPortMap[dockerPort] = append(dockerPortMap[dockerPort], nat.PortBinding{HostPort: hostPortStr})
 
-			// append non-range, singular container port to the containerPortSet
+			// For the containerPort case, append a non-range, singular container port to the containerPortSet.
 			containerPortSet[containerPort] = struct{}{}
 		} else if portBinding.ContainerPortRange != "" {
 			containerToCheck.SetContainerHasPortRange(true)
@@ -2404,8 +2443,8 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 
 			numberOfPorts := endContainerPort - startContainerPort + 1
 			protocol := portBinding.Protocol.String()
-			// we will try to get a contiguous set of host ports from the ephemeral host port range.
-			// this is to ensure that docker maps host ports in a contiguous manner, and
+			// We will try to get a contiguous set of host ports from the ephemeral host port range.
+			// This is to ensure that docker maps host ports in a contiguous manner, and
 			// we are guaranteed to have the entire hostPortRange in a single network binding while sending this info to ECS;
 			// therefore, an error will be returned if we cannot find a contiguous set of host ports.
 			hostPortRange, err := getHostPortRange(numberOfPorts, protocol, dynamicHostPortRange)
@@ -2419,7 +2458,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 				return nil, err
 			}
 
-			// append ranges to the dockerPortMap
+			// For the ContainerPortRange case, append ranges to the dockerPortMap.
 			// nat.ParsePortSpec returns a list of port mappings in a format that docker likes
 			mappings, err := nat.ParsePortSpec(hostPortRange + ":" + containerPortRange + "/" + protocol)
 			if err != nil {
@@ -2430,13 +2469,13 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 				dockerPortMap[mapping.Port] = append(dockerPortMap[mapping.Port], mapping.Binding)
 			}
 
-			// append containerPortRange and associated hostPortRange to the containerPortRangeMap
-			// this will ensure that we consolidate range into 1 network binding while sending it to ECS
+			// For the ContainerPortRange case, append containerPortRange and associated hostPortRange to the containerPortRangeMap.
+			// This will ensure that we consolidate range into 1 network binding while sending it to ECS
 			containerPortRangeMap[containerPortRange] = hostPortRange
 		}
 	}
 
-	// set Container.ContainerPortSet and Container.ContainerPortRangeMap to be used during network binding creation
+	// Set Container.ContainerPortSet and Container.ContainerPortRangeMap to be used during network binding creation
 	containerToCheck.SetContainerPortSet(containerPortSet)
 	containerToCheck.SetContainerPortRangeMap(containerPortRangeMap)
 	return dockerPortMap, nil
