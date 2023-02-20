@@ -630,6 +630,7 @@ func (cfg *Config) String() string {
 			"DependentContainersPullUpfront: %v, "+
 			"TaskCPUMemLimit: %v, "+
 			"ShouldExcludeIPv6PortBinding: %v, "+
+			"DynamicHostPortRange: %v"+
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
@@ -648,6 +649,7 @@ func (cfg *Config) String() string {
 		cfg.DependentContainersPullUpfront,
 		cfg.TaskCPUMemLimit,
 		cfg.ShouldExcludeIPv6PortBinding,
+		cfg.DynamicHostPortRange,
 		cfg.platformString(),
 	)
 }
