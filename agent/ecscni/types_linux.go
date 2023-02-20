@@ -48,10 +48,6 @@ const (
 	ECSServiceConnectPluginName = "ecs-serviceconnect"
 	// NetnsFormat is used to construct the path to cotainer network namespace
 	NetnsFormat = "/host/proc/%s/ns/net"
-	// Starting with CNI plugin v0.8.0 (this PR https://github.com/containernetworking/cni/pull/698)
-	// NetworkName has to be non-empty field for network config.
-	// We do not actually make use of the field, hence passing in a placeholder string to fulfill the API spec
-	defaultNetworkName = "network-name"
 )
 
 // IPAMNetworkConfig is the config format accepted by the plugin

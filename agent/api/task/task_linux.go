@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/cihub/seelog"
@@ -371,4 +372,39 @@ func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerNa
 
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 	return cniConfig, nil
+}
+
+// requiresCredentialSpecResource returns true if at least one container in the task
+// needs a valid credentialspec resource
+func (task *Task) requiresCredentialSpecResource() bool {
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
+func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) error {
+	credspecContainerMapping := task.getAllCredentialSpecRequirements()
+	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, credspecContainerMapping)
+	if err != nil {
+		return err
+	}
+
+	task.AddResource(credentialspec.ResourceName, credentialspecResource)
+
+	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			container.BuildResourceDependency(credentialspecResource.GetName(),
+				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+
+	return nil
 }

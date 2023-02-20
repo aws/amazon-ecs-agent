@@ -82,12 +82,7 @@ func (task *Task) requiresCredentialSpecResource() bool {
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
-	return errors.New("task credentialspec is only supported on windows")
-}
-
-// GetCredentialSpecResource retrieves credentialspec resource from resource map
-func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
-	return []taskresource.TaskResource{}, false
+	return errors.New("unsupported platform")
 }
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {

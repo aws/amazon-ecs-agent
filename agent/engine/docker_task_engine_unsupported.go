@@ -22,6 +22,8 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -54,4 +56,9 @@ func (engine *DockerTaskEngine) reloadAppNetImage() error {
 // restartInstanceTask stop the running internal relay task and starts a new one
 // with updated AppNet image
 func (engine *DockerTaskEngine) restartInstanceTask() {
+}
+
+// updateCredentialSpecMapping is used to map the bind location of kerberos ticket to the target location on the application container
+func (engine *DockerTaskEngine) updateCredentialSpecMapping(taskID string, containerName string, desiredCredSpecInjection string, hostConfig *dockercontainer.HostConfig) {
+	return
 }

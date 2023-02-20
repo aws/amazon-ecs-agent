@@ -33,6 +33,10 @@ const (
 	// present in the output of the '--capabilities' command of a CNI plugin
 	// indicates that the plugin can support the ECS "awsvpc" network mode
 	CapabilityAWSVPCNetworkingMode = "awsvpc-network-mode"
+	// Starting with CNI plugin v0.8.0 (this PR https://github.com/containernetworking/cni/pull/698)
+	// NetworkName has to be non-empty field for network config.
+	// We do not actually make use of the field, hence passing in a placeholder string to fulfill the API spec
+	defaultNetworkName = "network-name"
 )
 
 // Config contains all the information to set up the container namespace using
