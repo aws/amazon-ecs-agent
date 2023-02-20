@@ -207,9 +207,70 @@ func TestGetHostPort(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, numberOfPorts, numberOfHostPorts)
 
-				actualResult := verifyPortsWithinRange(hostPortRange, tc.testDynamicHostPortRange)
+				actualResult := VerifyPortsWithinRange(hostPortRange, tc.testDynamicHostPortRange)
 				assert.True(t, actualResult)
 			}
+		})
+	}
+}
+
+func TestPortIsInRange(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		testPort       int
+		testStartPort  int
+		testEndPort    int
+		expectedResult bool
+	}{
+		{
+			testName:       "in the range",
+			testPort:       100,
+			testStartPort:  1,
+			testEndPort:    9999,
+			expectedResult: true,
+		},
+		{
+			testName:       "not in the range",
+			testPort:       10000,
+			testStartPort:  1,
+			testEndPort:    9999,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			result := PortIsInRange(tc.testPort, tc.testStartPort, tc.testEndPort)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
+}
+
+func TestVerifyPortsWithinRange(t *testing.T) {
+	testCases := []struct {
+		testName          string
+		testActualRange   string
+		testExpectedRange string
+		expectedResult    bool
+	}{
+		{
+			testName:          "in the expected range",
+			testActualRange:   "1000-1005",
+			testExpectedRange: "900-2000",
+			expectedResult:    true,
+		},
+		{
+			testName:          "not in the expected range",
+			testActualRange:   "1-2",
+			testExpectedRange: "2-100",
+			expectedResult:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			result := VerifyPortsWithinRange(tc.testActualRange, tc.testExpectedRange)
+			assert.Equal(t, tc.expectedResult, result)
 		})
 	}
 }
@@ -220,32 +281,4 @@ func getPortRangeLength(portRange string) (int, error) {
 		return 0, err
 	}
 	return endPort - startPort + 1, nil
-}
-
-// verifyPortsWithinRange returns true if the actualPortRange is within the expectedPortRange;
-// otherwise, returns false.
-func verifyPortsWithinRange(actualPortRange, expectedPortRange string) bool {
-	// get the actual start port and end port
-	aStartPort, aEndPort, _ := nat.ParsePortRangeToInt(actualPortRange)
-	// get the expected start port and end port
-	eStartPort, eEndPort, _ := nat.ParsePortRangeToInt(expectedPortRange)
-	// check the actual start port is in the expected range or not
-	aStartIsInRange := portIsInRange(aStartPort, eStartPort, eEndPort)
-	// check the actual end port is in the expected range or not
-	aEndIsInRange := portIsInRange(aEndPort, eStartPort, eEndPort)
-
-	// return true if both actual start port and end port are in the expected range
-	if aStartIsInRange && aEndIsInRange {
-		return true
-	}
-
-	return false
-}
-
-// portIsInRange checks the given port is within the start-end range
-func portIsInRange(port, start, end int) bool {
-	if (port >= start) && (port <= end) {
-		return true
-	}
-	return false
 }
