@@ -611,8 +611,7 @@ func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
 	taskEngine.SetDataClient(dataClient)
@@ -993,8 +992,7 @@ func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testin
 	ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 	taskEngine.SetDataClient(dataClient)
 
 	mockNamespaceHelper := mock_ecscni.NewMockNamespaceHelper(ctrl)
@@ -2522,8 +2520,7 @@ func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	ctrl, client, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
+	dataClient := newTestDataClient(t)
 
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
 	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()

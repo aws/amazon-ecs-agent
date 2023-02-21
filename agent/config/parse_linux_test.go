@@ -27,25 +27,25 @@ func TestParseGMSACapabilitySupported(t *testing.T) {
 	t.Setenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE", "True")
 	t.Setenv("CREDENTIALS_FETCHER_HOST_DIR", "/var/run")
 
-	assert.True(t, parseGMSACapability())
+	assert.True(t, parseGMSACapability().Enabled())
 }
 
 func TestParseGMSACapabilityNonDomainJoined(t *testing.T) {
 	t.Setenv("ECS_GMSA_SUPPORTED", "True")
 	t.Setenv("ECS_DOMAIN_JOINED_LINUX_INSTANCE", "False")
 
-	assert.False(t, parseGMSACapability())
+	assert.False(t, parseGMSACapability().Enabled())
 }
 
 func TestParseGMSACapabilityUnsupported(t *testing.T) {
 	t.Setenv("ECS_GMSA_SUPPORTED", "False")
 
-	assert.False(t, parseGMSACapability())
+	assert.False(t, parseGMSACapability().Enabled())
 }
 
 func TestSkipDomainJoinCheckParseGMSACapability(t *testing.T) {
 	t.Setenv("ECS_GMSA_SUPPORTED", "True")
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 
-	assert.True(t, parseGMSACapability())
+	assert.True(t, parseGMSACapability().Enabled())
 }

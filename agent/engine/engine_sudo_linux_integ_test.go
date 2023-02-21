@@ -767,7 +767,7 @@ func TestGMSATaskFile(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
-	cfg.GMSACapable = true
+	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.AWSRegion = "us-west-2"
 
 	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)

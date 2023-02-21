@@ -236,7 +236,7 @@ func TestAppendGMSACapabilitiesFalse(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			GMSACapable: false,
+			GMSACapable: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		},
 	}
 
@@ -258,7 +258,7 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			FSxWindowsFileServerCapable: true,
+			FSxWindowsFileServerCapable: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		},
 	}
 
@@ -280,7 +280,7 @@ func TestAppendFSxWindowsFileServerCapabilitiesFalse(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			FSxWindowsFileServerCapable: false,
+			FSxWindowsFileServerCapable: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		},
 	}
 

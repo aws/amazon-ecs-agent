@@ -16,7 +16,6 @@
 package statemanager_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,9 +36,7 @@ import (
 )
 
 func TestStateManager(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("/tmp", "ecs_statemanager_test")
-	assert.Nil(t, err)
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	cfg := &config.Config{DataDir: tmpDir}
 	manager, err := statemanager.NewStateManager(cfg)
 	assert.Nil(t, err, "Error loading manager")

@@ -27,7 +27,7 @@ func TestParseGMSACapability(t *testing.T) {
 	os.Setenv("ECS_GMSA_SUPPORTED", "False")
 	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
 
-	assert.False(t, parseGMSACapability())
+	assert.False(t, parseGMSACapability().Enabled())
 }
 
 func TestParseBooleanEnvVar(t *testing.T) {
@@ -49,5 +49,5 @@ func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 	os.Setenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED", "False")
 	defer os.Unsetenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED")
 
-	assert.False(t, parseFSxWindowsFileServerCapability())
+	assert.False(t, parseFSxWindowsFileServerCapability().Enabled())
 }

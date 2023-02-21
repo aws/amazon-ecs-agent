@@ -312,7 +312,7 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Att
 }
 
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if agent.cfg.GMSACapable {
+	if agent.cfg.GMSACapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
 	}
 

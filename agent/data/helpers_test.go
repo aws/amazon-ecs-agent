@@ -18,8 +18,6 @@ package data
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -37,9 +35,8 @@ type testObjType struct {
 	Val string
 }
 
-func setupHelpersTest(t *testing.T) (*bolt.DB, func()) {
-	testDir, err := ioutil.TempDir("", "agent_data_unit_test")
-	require.NoError(t, err)
+func setupHelpersTest(t *testing.T) *bolt.DB {
+	testDir := t.TempDir()
 	db, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
 	require.NoError(t, err)
 	require.NoError(t, db.Update(func(tx *bolt.Tx) error {
@@ -47,15 +44,15 @@ func setupHelpersTest(t *testing.T) (*bolt.DB, func()) {
 		return err
 	}))
 
-	return db, func() {
+	t.Cleanup(func() {
 		require.NoError(t, db.Close())
-		require.NoError(t, os.RemoveAll(testDir))
-	}
+	})
+
+	return db
 }
 
 func TestHelpers(t *testing.T) {
-	db, cleanup := setupHelpersTest(t)
-	defer cleanup()
+	db := setupHelpersTest(t)
 
 	testObj := &testObjType{
 		Key: "key",

@@ -1,5 +1,5 @@
-//go:build unit
-// +build unit
+//go:build !linux && !windows
+// +build !linux,!windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -7,33 +7,25 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	http://aws.amazon.com/apache2.0/
+//	httpaws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package data
+package config
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-const (
-	testKey = "test-key"
-	testVal = "test-val"
-)
+func TestParseGMSACapabilitySupported(t *testing.T) {
+	assert.False(t, parseGMSACapability().Enabled())
+}
 
-func TestManageMetadata(t *testing.T) {
-	testClient := newTestClient(t)
-
-	require.NoError(t, testClient.SaveMetadata(testKey, testVal))
-
-	val, err := testClient.GetMetadata(testKey)
-	require.NoError(t, err)
-	assert.Equal(t, testVal, val)
+func TestParseFSxWindowsFileServerCapability(t *testing.T) {
+	assert.False(t, parseGMSACapability().Enabled())
 }

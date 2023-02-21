@@ -142,8 +142,8 @@ func DefaultConfig() Config {
 		SharedVolumeMatchFullConfig:         BooleanDefaultFalse{Value: ExplicitlyDisabled}, //only requiring shared volumes to match on name, which is default docker behavior
 		PollMetrics:                         BooleanDefaultFalse{Value: NotSet},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
-		GMSACapable:                         true,
-		FSxWindowsFileServerCapable:         true,
+		GMSACapable:                         BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		FSxWindowsFileServerCapable:         BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
 		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),

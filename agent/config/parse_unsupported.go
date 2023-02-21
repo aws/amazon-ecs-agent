@@ -21,12 +21,12 @@ import (
 	"strings"
 )
 
-func parseGMSACapability() bool {
-	return false
+func parseGMSACapability() BooleanDefaultFalse {
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
-func parseFSxWindowsFileServerCapability() bool {
-	return false
+func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
 var IsWindows2016 = func() (bool, error) {
