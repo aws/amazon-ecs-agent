@@ -96,6 +96,11 @@ func (pt *safePortTracker) GetLastAssignedHostPort() int {
 
 var tracker safePortTracker
 
+// ResetTracker resets the last assigned host port to 0.
+func ResetTracker() {
+	tracker.SetLastAssignedHostPort(0)
+}
+
 // GetHostPortRange gets N contiguous host ports from the ephemeral host port range defined on the host.
 // dynamicHostPortRange can be set by customers using ECS Agent environment variable ECS_DYNAMIC_HOST_PORT_RANGE;
 // otherwise, ECS Agent will use the default value returned from GetDynamicHostPortRange() in the utils package.

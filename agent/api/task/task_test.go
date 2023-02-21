@@ -424,6 +424,14 @@ var (
 	defaultSCProtocol                      = "/tcp"
 )
 
+func getDefaultDynamicHostPortRange() (start int, end int) {
+	startHostPortRange, endHostPortRange, err := utils.GetDynamicHostPortRange()
+	if err != nil {
+		return utils.DefaultPortRangeStart, utils.DefaultPortRangeEnd
+	}
+	return startHostPortRange, endHostPortRange
+}
+
 func getTestTaskServiceConnectBridgeMode() *Task {
 	testTask := &Task{
 		NetworkMode: BridgeNetworkMode,
@@ -479,61 +487,100 @@ func convertSCPort(port uint16) nat.Port {
 }
 
 // TestDockerHostConfigSCBridgeMode verifies port bindings and network mode overrides for each
-// container in an SC-enabled bridge mode task. The test task is consisted of the SC container, a regular container,
+// container in an SC-enabled bridge mode task with default/user-specified dynamic host port range.
+// The test task is consisted of the SC container, a regular container,
 // and two pause containers associated with each.
 func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 	testTask := getTestTaskServiceConnectBridgeMode()
-	// task container and SC container should both get empty port binding map and "container" network mode
-	actualConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
-		&config.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, actualConfig)
-	assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
-		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, "C1")), actualConfig.NetworkMode)
-	assert.Empty(t, actualConfig.PortBindings, "Task container port binding should be empty")
+	testCases := []struct {
+		testStartHostPort int
+		testEndHostPort   int
+		testName          string
+		testError         bool
+	}{
+		{
+			testStartHostPort: 0,
+			testEndHostPort:   0,
+			testName:          "with default dynamic host port range",
+		},
+		{
+			testStartHostPort: 50000,
+			testEndHostPort:   60000,
+			testName:          "with user-specified dynamic host port range",
+		},
+	}
 
-	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion,
-		&config.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, actualConfig)
-	assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
-		dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, serviceConnectContainerTestName)), actualConfig.NetworkMode)
-	assert.Empty(t, actualConfig.PortBindings, "SC container port binding should be empty")
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			// need to reset the tracker to avoid getting data from previous test cases
+			utils.ResetTracker()
+			if tc.testStartHostPort == 0 && tc.testEndHostPort == 0 {
+				tc.testStartHostPort, tc.testEndHostPort = getDefaultDynamicHostPortRange()
+			}
+			testDynamicHostPortRange := fmt.Sprintf("%d-%d", tc.testStartHostPort, tc.testEndHostPort)
+			testConfig := &config.Config{DynamicHostPortRange: testDynamicHostPortRange}
 
-	// task pause container should get port binding map of the task container
-	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
-		&config.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, actualConfig)
-	assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
-	bindings, ok := actualConfig.PortBindings[convertSCPort(SCTaskContainerPort1)]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
-	bindings, ok = actualConfig.PortBindings[convertSCPort(SCTaskContainerPort2)]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
+			// task container and SC container should both get empty port binding map and "container" network mode
 
-	// SC pause container should get port binding map of all ingress listeners
-	actualConfig, err = testTask.DockerHostConfig(testTask.Containers[3], dockerMap(testTask), defaultDockerClientAPIVersion,
-		&config.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, actualConfig)
-	assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
-	// SC - ingress listener 1 - default experience
-	bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener1ContainerPort)]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, "0", bindings[0].HostPort, "Wrong hostport")
-	// SC - ingress listener 2 - non-default host port
-	bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener2ContainerPort)]
-	assert.True(t, ok, "Could not get port bindings")
-	assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-	assert.Equal(t, strconv.Itoa(int(SCIngressListener2HostPort)), bindings[0].HostPort, "Wrong hostport")
-	// SC - egress listener - should not have port binding
-	bindings, ok = actualConfig.PortBindings[convertSCPort(SCEgressListenerContainerPort)]
-	assert.False(t, ok, "egress listener has port binding but it shouldn't")
+			// the task container
+			actualConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion, testConfig)
+			assert.Nil(t, err)
+			assert.NotNil(t, actualConfig)
+			assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
+				dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, "C1")), actualConfig.NetworkMode)
+			assert.Empty(t, actualConfig.PortBindings, "Task container port binding should be empty")
+
+			// the service connect container
+			actualConfig, err = testTask.DockerHostConfig(testTask.Containers[2], dockerMap(testTask), defaultDockerClientAPIVersion, testConfig)
+			assert.Nil(t, err)
+			assert.NotNil(t, actualConfig)
+			assert.Equal(t, dockercontainer.NetworkMode(fmt.Sprintf("%s-%s", // e.g. "container:dockerid-~internal~ecs~pause-C1"
+				dockerMappingContainerPrefix+dockerIDPrefix+NetworkPauseContainerName, serviceConnectContainerTestName)), actualConfig.NetworkMode)
+			assert.Empty(t, actualConfig.PortBindings, "SC container port binding should be empty")
+
+			// task pause container should get port binding map of the task container
+			actualConfig, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion, testConfig)
+			assert.Nil(t, err)
+			assert.NotNil(t, actualConfig)
+			assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
+			bindings, ok := actualConfig.PortBindings[convertSCPort(SCTaskContainerPort1)]
+			assert.True(t, ok, "Could not get port bindings")
+			assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+			hostPort, _ := strconv.Atoi(bindings[0].HostPort)
+			result := utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
+			assert.True(t, result, "hostport is not in the dynamic host port range")
+
+			bindings, ok = actualConfig.PortBindings[convertSCPort(SCTaskContainerPort2)]
+			assert.True(t, ok, "Could not get port bindings")
+			assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+			hostPort, _ = strconv.Atoi(bindings[0].HostPort)
+			result = utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
+			assert.True(t, result, "hostport is not in the dynamic host port range")
+
+			// SC pause container should get port binding map of all ingress listeners
+			actualConfig, err = testTask.DockerHostConfig(testTask.Containers[3], dockerMap(testTask), defaultDockerClientAPIVersion, testConfig)
+			assert.Nil(t, err)
+			assert.NotNil(t, actualConfig)
+			assert.Equal(t, dockercontainer.NetworkMode(BridgeNetworkMode), actualConfig.NetworkMode)
+
+			// SC - ingress listener 1 - default experience
+			bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener1ContainerPort)]
+			assert.True(t, ok, "Could not get port bindings")
+			hostPort, _ = strconv.Atoi(bindings[0].HostPort)
+			result = utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
+			assert.True(t, result, "hostport is not in the dynamic host port range")
+
+			// SC - ingress listener 2 - non-default host port
+			bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener2ContainerPort)]
+			assert.True(t, ok, "Could not get port bindings")
+			assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
+			assert.Equal(t, strconv.Itoa(int(SCIngressListener2HostPort)), bindings[0].HostPort, "Wrong hostport")
+
+			// SC - egress listener - should not have port binding
+			bindings, ok = actualConfig.PortBindings[convertSCPort(SCEgressListenerContainerPort)]
+			assert.False(t, ok, "egress listener has port binding but it shouldn't")
+		})
+	}
 }
 
 // TestDockerHostConfigSCBridgeMode_getPortBindingFailure verifies that when we can't find the task
