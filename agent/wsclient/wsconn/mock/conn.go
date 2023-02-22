@@ -106,6 +106,20 @@ func (mr *MockWebsocketConnMockRecorder) SetWriteDeadline(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWriteDeadline", reflect.TypeOf((*MockWebsocketConn)(nil).SetWriteDeadline), arg0)
 }
 
+// WriteControl mocks base method
+func (m *MockWebsocketConn) WriteControl(arg0 int, arg1 []byte, arg2 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteControl", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteControl indicates an expected call of WriteControl
+func (mr *MockWebsocketConnMockRecorder) WriteControl(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteControl", reflect.TypeOf((*MockWebsocketConn)(nil).WriteControl), arg0, arg1, arg2)
+}
+
 // WriteMessage mocks base method
 func (m *MockWebsocketConn) WriteMessage(arg0 int, arg1 []byte) error {
 	m.ctrl.T.Helper()

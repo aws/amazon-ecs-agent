@@ -19,6 +19,7 @@ import "time"
 // connection's methods that this client uses.
 type WebsocketConn interface {
 	WriteMessage(messageType int, data []byte) error
+	WriteControl(messageType int, data []byte, deadline time.Time) error
 	ReadMessage() (messageType int, data []byte, err error)
 	Close() error
 	SetWriteDeadline(t time.Time) error
