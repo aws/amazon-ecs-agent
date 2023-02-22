@@ -20,6 +20,7 @@ package wsclient
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,14 +34,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-
-	"crypto/tls"
-
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
@@ -98,6 +97,7 @@ type ClientServer interface {
 	SetAnyRequestHandler(RequestHandler)
 	MakeRequest(input interface{}) error
 	WriteMessage(input []byte) error
+	WriteCloseMessage() error
 	Connect() error
 	IsConnected() bool
 	SetConnection(conn wsconn.WebsocketConn)
@@ -368,6 +368,18 @@ func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 	}
 
 	return cs.conn.WriteMessage(websocket.TextMessage, send)
+}
+
+// WriteCloseMessage wraps the low level websocket WriteControl method with a lock, and sends a message of type
+// CloseMessage (Ref: https://github.com/gorilla/websocket/blob/9111bb834a68b893cebbbaed5060bdbc1d9ab7d2/conn.go#L74)
+func (cs *ClientServerImpl) WriteCloseMessage() error {
+	cs.writeLock.Lock()
+	defer cs.writeLock.Unlock()
+
+	send := websocket.FormatCloseMessage(websocket.CloseNormalClosure,
+		"ConnectionExpired: Reconnect to continue")
+
+	return cs.conn.WriteControl(websocket.CloseMessage, send, time.Now().Add(cs.RWTimeout))
 }
 
 // ConsumeMessages reads messages from the websocket connection and handles read
