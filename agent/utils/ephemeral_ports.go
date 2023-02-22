@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
 )
 
 // From https://www.kernel.org/doc/html/latest//networking/ip-sysctl.html#ip-variables
@@ -33,7 +34,8 @@ const (
 
 var (
 	// Injection point for UTs
-	randIntFunc = rand.Intn
+	randIntFunc         = rand.Intn
+	isPortAvailableFunc = isPortAvailable
 	// portLock is a mutex lock used to prevent two concurrent tasks to get the same host ports.
 	portLock sync.Mutex
 )
@@ -132,34 +134,12 @@ func GetHostPortRange(numberOfPorts int, protocol string, dynamicHostPortRange s
 func getHostPortRange(numberOfPorts, start, end int, protocol string) (string, int, error) {
 	var resultStartPort, resultEndPort, n int
 	for port := start; port <= end; port++ {
-		portStr := strconv.Itoa(port)
-		// check if port is available
-		if protocol == "tcp" {
-			// net.Listen announces on the local tcp network
-			ln, err := net.Listen(protocol, ":"+portStr)
-			// either port is unavailable or some error occurred while listening, we proceed to the next port
-			if err != nil {
-				continue
-			}
-			// let's close the listener first
-			err = ln.Close()
-			if err != nil {
-				continue
-			}
-		} else if protocol == "udp" {
-			// net.ListenPacket announces on the local udp network
-			ln, err := net.ListenPacket(protocol, ":"+portStr)
-			// either port is unavailable or some error occurred while listening, we proceed to the next port
-			if err != nil {
-				continue
-			}
-			// let's close the listener first
-			err = ln.Close()
-			if err != nil {
-				continue
-			}
+		isAvailable, err := isPortAvailableFunc(port, protocol)
+		if !isAvailable || err != nil {
+			// either port is unavailable or some error occurred while listening or closing the listener,
+			// we proceed to the next port
+			continue
 		}
-
 		// check if current port is contiguous relative to lastPort
 		if port-resultEndPort != 1 {
 			resultStartPort = port
@@ -181,4 +161,37 @@ func getHostPortRange(numberOfPorts, start, end int, protocol string) (string, i
 	}
 
 	return fmt.Sprintf("%d-%d", resultStartPort, resultEndPort), resultEndPort, nil
+}
+
+// isPortAvailable checks if a port is available
+func isPortAvailable(port int, protocol string) (bool, error) {
+	portStr := strconv.Itoa(port)
+	switch protocol {
+	case "tcp":
+		// net.Listen announces on the local tcp network
+		ln, err := net.Listen(protocol, ":"+portStr)
+		if err != nil {
+			return false, err
+		}
+		// let's close the listener first
+		err = ln.Close()
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	case "udp":
+		// net.ListenPacket announces on the local udp network
+		ln, err := net.ListenPacket(protocol, ":"+portStr)
+		if err != nil {
+			return false, err
+		}
+		// let's close the listener first
+		err = ln.Close()
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	default:
+		return false, errors.New("invalid protocol")
+	}
 }
