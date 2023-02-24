@@ -23,6 +23,7 @@
 package tcsclient
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -36,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/docker/docker/api/types"
@@ -574,6 +576,7 @@ func TestMetricsDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx, cancel := context.WithCancel(context.TODO())
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 
@@ -583,10 +586,12 @@ func TestMetricsDisabled(t *testing.T) {
 	cs.SetConnection(conn)
 
 	published := make(chan struct{})
-	readed := make(chan struct{})
+	read := make(chan struct{})
 
 	// stats engine should only be called for getting health metrics
-	mockStatsEngine.EXPECT().GetPublishMetricsTicker().Return(time.NewTicker(config.DefaultContainerMetricsPublishInterval)).MinTimes(1)
+	mockStatsEngine.EXPECT().GetPublishMetricsTicker().Do(func() {
+		cancel()
+	}).Return(time.NewTicker(config.DefaultContainerMetricsPublishInterval)).Times(1)
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
 		Cluster:           aws.String("TestMetricsDisabled"),
 		ContainerInstance: aws.String("container_instance"),
@@ -595,7 +600,7 @@ func TestMetricsDisabled(t *testing.T) {
 	}, []*ecstcs.TaskHealth{{}}, nil).MinTimes(1)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Do(func() {
-		readed <- struct{}{}
+		read <- struct{}{}
 	}).Return(1, nil, nil).MinTimes(1)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Do(func(messageType int, data []byte) {
@@ -607,7 +612,13 @@ func TestMetricsDisabled(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	<-published
-	<-readed
+	<-read
+
+	// Wait for the context to be cancelled. This ensures that the publishMetrics() go routine started by cs.Serve()
+	// always runs and GetPublishMetricsTicker mock call is triggered.
+	select {
+	case <-ctx.Done():
+	}
 }
 
 func TestCreatePublishHealthRequestsEmpty(t *testing.T) {
