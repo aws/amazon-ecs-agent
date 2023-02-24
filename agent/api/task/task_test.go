@@ -376,17 +376,6 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 					if !reflect.DeepEqual(config.PortBindings, tc.expectedPortBinding) {
 						t.Error("Expected port bindings to be resolved, was: ", config.PortBindings)
 					}
-				} else {
-					// Verify ECS Agent assigned host ports are within the dynamic host port range
-					eStartPort, eEndPort, _ := nat.ParsePortRangeToInt(tc.testDynamicHostPortRange)
-					for _, hostPortBinding := range config.PortBindings {
-						hostPort, _ := strconv.Atoi(hostPortBinding[0].HostPort)
-						result := utils.PortIsInRange(hostPort, eStartPort, eEndPort)
-						if !result {
-							t.Error("Actual host port is not in the dynamicHostPortRange: ", hostPort)
-							break
-						}
-					}
 				}
 
 				// Verify ContainerPortSet
@@ -398,13 +387,6 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 				if tc.expectedContainerPortRangeMap != nil {
 					if !reflect.DeepEqual(tc.testTask.Containers[0].ContainerPortRangeMap, tc.expectedContainerPortRangeMap) {
 						t.Error("Expected container port range map to be resolved, was: ", tc.testTask.Containers[0].GetContainerPortRangeMap())
-					}
-				} else {
-					// Verify ECS Agent assigned host port range are within the dynamic host port range
-					hostPortRange := tc.testTask.Containers[0].ContainerPortRangeMap[tc.testContainerPortRange]
-					result := utils.VerifyPortsWithinRange(hostPortRange, tc.testDynamicHostPortRange)
-					if !result {
-						t.Error("Expected host port range should be in the dynamicHostPortRange, but the actual host port range is: ", hostPortRange)
 					}
 				}
 			} else {
@@ -546,16 +528,10 @@ func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 			bindings, ok := actualConfig.PortBindings[convertSCPort(SCTaskContainerPort1)]
 			assert.True(t, ok, "Could not get port bindings")
 			assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-			hostPort, _ := strconv.Atoi(bindings[0].HostPort)
-			result := utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
-			assert.True(t, result, "hostport is not in the dynamic host port range")
 
 			bindings, ok = actualConfig.PortBindings[convertSCPort(SCTaskContainerPort2)]
 			assert.True(t, ok, "Could not get port bindings")
 			assert.Equal(t, 1, len(bindings), "Wrong number of bindings")
-			hostPort, _ = strconv.Atoi(bindings[0].HostPort)
-			result = utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
-			assert.True(t, result, "hostport is not in the dynamic host port range")
 
 			// SC pause container should get port binding map of all ingress listeners
 			actualConfig, err = testTask.DockerHostConfig(testTask.Containers[3], dockerMap(testTask), defaultDockerClientAPIVersion, testConfig)
@@ -566,9 +542,6 @@ func TestDockerHostConfigSCBridgeMode(t *testing.T) {
 			// SC - ingress listener 1 - default experience
 			bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener1ContainerPort)]
 			assert.True(t, ok, "Could not get port bindings")
-			hostPort, _ = strconv.Atoi(bindings[0].HostPort)
-			result = utils.PortIsInRange(hostPort, tc.testStartHostPort, tc.testEndHostPort)
-			assert.True(t, result, "hostport is not in the dynamic host port range")
 
 			// SC - ingress listener 2 - non-default host port
 			bindings, ok = actualConfig.PortBindings[convertSCPort(SCIngressListener2ContainerPort)]

@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/cihub/seelog"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
@@ -35,6 +34,8 @@ const (
 	portUnavailableMsg       = "Port %v is unavailable or an error occurred while listening on the local %v network"
 	portNotFoundErrMsg       = "a host port is unavailable"
 	portsNotFoundErrMsg      = "%v contiguous host ports are unavailable"
+	portRangeErrMsg          = "The host port range: %s found by ECS Agent is not within the expected host port range: %s"
+	portErrMsg               = "The host port: %s found by ECS Agent is not within the expected host port range: %s"
 )
 
 var (
@@ -110,6 +111,13 @@ func GetHostPortRange(numberOfPorts int, protocol string, dynamicHostPortRange s
 	portLock.Lock()
 	defer portLock.Unlock()
 	result, err := getNumOfHostPorts(numberOfPorts, protocol, dynamicHostPortRange)
+	if err == nil {
+		// Verify the found host port range is within the given dynamic host port range
+		if isInRange := verifyPortsWithinRange(result, dynamicHostPortRange); !isInRange {
+			errMsg := fmt.Errorf(portRangeErrMsg, result, dynamicHostPortRange)
+			return "", errMsg
+		}
+	}
 	return result, err
 }
 
@@ -121,10 +129,15 @@ func GetHostPort(protocol string, dynamicHostPortRange string) (string, error) {
 	defer portLock.Unlock()
 	numberOfPorts := 1
 	result, err := getNumOfHostPorts(numberOfPorts, protocol, dynamicHostPortRange)
+	foundHostPort := strings.Split(result, "-")[0]
 	if err == nil {
-		result = strings.Split(result, "-")[0]
+		// Verify the found host port is within the given dynamic host port range
+		if isInRange := verifyPortsWithinRange(result, dynamicHostPortRange); !isInRange {
+			errMsg := fmt.Errorf(portErrMsg, foundHostPort, dynamicHostPortRange)
+			return "", errMsg
+		}
 	}
-	return result, err
+	return foundHostPort, err
 }
 
 // getNumOfHostPorts returns the requested number of host ports using the given dynamic host port range
@@ -229,9 +242,11 @@ func isPortAvailable(port int, protocol string) (bool, error) {
 	default:
 		return false, errors.New("invalid protocol")
 	}
+}
+
 // PortIsInRange returns true if the given port is within the start-end port range;
 // otherwise, returns false.
-func PortIsInRange(port, start, end int) bool {
+func portIsInRange(port, start, end int) bool {
 	if (port >= start) && (port <= end) {
 		return true
 	}
@@ -240,15 +255,15 @@ func PortIsInRange(port, start, end int) bool {
 
 // VerifyPortsWithinRange returns true if the actualPortRange is within the expectedPortRange;
 // otherwise, returns false.
-func VerifyPortsWithinRange(actualPortRange, expectedPortRange string) bool {
+func verifyPortsWithinRange(actualPortRange, expectedPortRange string) bool {
 	// Get the actual start port and end port
 	aStartPort, aEndPort, _ := nat.ParsePortRangeToInt(actualPortRange)
 	// Get the expected start port and end port
 	eStartPort, eEndPort, _ := nat.ParsePortRangeToInt(expectedPortRange)
 	// Check the actual start port is in the expected range or not
-	aStartIsInRange := PortIsInRange(aStartPort, eStartPort, eEndPort)
+	aStartIsInRange := portIsInRange(aStartPort, eStartPort, eEndPort)
 	// Check the actual end port is in the expected range or not
-	aEndIsInRange := PortIsInRange(aEndPort, eStartPort, eEndPort)
+	aEndIsInRange := portIsInRange(aEndPort, eStartPort, eEndPort)
 
 	// Return true if both actual start port and end port are in the expected range
 	if aStartIsInRange && aEndIsInRange {

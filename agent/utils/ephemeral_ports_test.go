@@ -229,9 +229,6 @@ func TestGetHostPort(t *testing.T) {
 				numberOfHostPorts, err := getPortRangeLength(hostPortRange)
 				assert.NoError(t, err)
 				assert.Equal(t, numberOfPorts, numberOfHostPorts)
-
-				actualResult := VerifyPortsWithinRange(hostPortRange, tc.testDynamicHostPortRange)
-				assert.True(t, actualResult)
 			}
 		})
 	}
@@ -263,7 +260,7 @@ func TestPortIsInRange(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			result := PortIsInRange(tc.testPort, tc.testStartPort, tc.testEndPort)
+			result := portIsInRange(tc.testPort, tc.testStartPort, tc.testEndPort)
 			assert.Equal(t, tc.expectedResult, result)
 		})
 	}
@@ -292,7 +289,7 @@ func TestVerifyPortsWithinRange(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			result := VerifyPortsWithinRange(tc.testActualRange, tc.testExpectedRange)
+			result := verifyPortsWithinRange(tc.testActualRange, tc.testExpectedRange)
 			assert.Equal(t, tc.expectedResult, result)
 		})
 	}
