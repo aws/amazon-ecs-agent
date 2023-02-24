@@ -92,6 +92,18 @@ func (refreshHandler *refreshCredentialsHandler) sendAcks() {
 	}
 }
 
+// sendPendingAcks sends pending acks to ACS before closing the connection
+func (refreshHandler *refreshCredentialsHandler) sendPendingAcks() {
+	for {
+		select {
+		case ack := <-refreshHandler.ackRequest:
+			refreshHandler.ackMessage(ack)
+		default:
+			return
+		}
+	}
+}
+
 // ackMessageId sends an IAMRoleCredentialsAckRequest to the backend
 func (refreshHandler *refreshCredentialsHandler) ackMessage(ack *ecsacs.IAMRoleCredentialsAckRequest) {
 	err := refreshHandler.acsClient.MakeRequest(ack)

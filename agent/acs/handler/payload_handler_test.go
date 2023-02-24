@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -1034,4 +1035,36 @@ func TestPayloadHandlerAddedFirelensData(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
 	assert.NotNil(t, actual.Options)
 	assert.Equal(t, aws.StringValue(expected.Options["enable-ecs-log-metadata"]), actual.Options["enable-ecs-log-metadata"])
+}
+
+func TestPayloadHandlerSendPendingAcks(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	// write a dummy ack into the ackRequest
+	go func() {
+		tester.payloadHandler.ackRequest <- "testMessageID"
+		wg.Done()
+	}()
+
+	// sleep here to ensure that the sending go routine above executes before the receiving one below. if not, then the
+	// receiving go routine will finish without receiving the ack msg since sendPendingAcks() is non-blocking.
+	time.Sleep(1 * time.Second)
+
+	go func() {
+		tester.payloadHandler.sendPendingAcks()
+		wg.Done()
+	}()
+
+	// wait for both go routines above to finish before we verify that ack channel is empty and exit the test.
+	// this also ensures that the mock MakeRequest call happened as expected.
+	wg.Wait()
+
+	// verify that the ackRequest channel is empty
+	assert.Equal(t, 0, len(tester.payloadHandler.ackRequest))
 }

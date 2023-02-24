@@ -18,14 +18,18 @@ package handler
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,4 +115,42 @@ func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessa
 	<-ctx.Done()
 
 	require.Equal(t, heartbeatAckExpected, heartbeatAckSent)
+}
+
+func TestHeartbeatHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	emptyHealthCheckList := []doctor.Healthcheck{}
+	emptyDoctor, _ := doctor.NewDoctor(emptyHealthCheckList, "testCluster",
+		"this:is:an:instance:arn")
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
+	handler := newHeartbeatHandler(ctx, mockWSClient, emptyDoctor)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	// write a dummy ack into the heartbeatAckMessageBuffer
+	go func() {
+		handler.heartbeatAckMessageBuffer <- &ecsacs.HeartbeatAckRequest{}
+		wg.Done()
+	}()
+
+	// sleep here to ensure that the sending go routine executes before the receiving one below. if not, then the
+	// receiving go routine will finish without receiving the ack since sendPendingHeartbeatAck() is non-blocking.
+	time.Sleep(1 * time.Second)
+
+	go func() {
+		handler.sendPendingHeartbeatAck()
+		wg.Done()
+	}()
+
+	// wait for both go routines above to finish before we verify that ack channel is empty and exit the test.
+	// this also ensures that the mock MakeRequest call happened as expected.
+	wg.Wait()
+
+	// verify that the heartbeatAckMessageBuffer channel is empty
+	assert.Equal(t, 0, len(handler.heartbeatAckMessageBuffer))
 }
