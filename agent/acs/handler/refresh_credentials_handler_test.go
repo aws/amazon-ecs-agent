@@ -16,18 +16,21 @@
 package handler
 
 import (
-	"reflect"
-	"testing"
-
 	"context"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -275,6 +278,45 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 	if !reflect.DeepEqual(creds, expectedCredentials) {
 		t.Errorf("Mismatch between expected credentials and credentials for task. Expected: %v, got: %v", expectedCredentials, creds)
 	}
+}
+
+func TestRefreshCredentialsHandlerSendPendingAcks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	credentialsManager := credentials.NewManager()
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
+
+	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+		credentialsManager, taskEngine)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	// write a dummy ack into the ackRequest
+	go func() {
+		handler.ackRequest <- expectedAck
+		wg.Done()
+	}()
+
+	// sleep here to ensure that the sending go routine above executes before the receiving one below. if not, then the
+	// receiving go routine will finish without receiving the ack msg since sendPendingAcks() is non-blocking.
+	time.Sleep(1 * time.Second)
+
+	go func() {
+		handler.sendPendingAcks()
+		wg.Done()
+	}()
+
+	// wait for both go routines above to finish before we verify that ack channel is empty and exit the test.
+	// this also ensures that the mock MakeRequest call happened as expected.
+	wg.Wait()
+
+	// verify that the ackRequest channel is empty
+	assert.Equal(t, 0, len(handler.ackRequest))
 }
 
 // TestRefreshCredentialsHandler tests if a credential message is acked when

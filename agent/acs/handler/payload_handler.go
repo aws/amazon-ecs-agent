@@ -122,6 +122,18 @@ func (payloadHandler *payloadRequestHandler) sendAcks() {
 	}
 }
 
+// sendPendingAcks sends ack requests to ACS before closing the connection
+func (payloadHandler *payloadRequestHandler) sendPendingAcks() {
+	for {
+		select {
+		case mid := <-payloadHandler.ackRequest:
+			payloadHandler.ackMessageId(mid)
+		default:
+			return
+		}
+	}
+}
+
 // ackMessageId sends an AckRequest for a message id
 func (payloadHandler *payloadRequestHandler) ackMessageId(messageID string) {
 	seelog.Debugf("Acking payload message id: %s", messageID)

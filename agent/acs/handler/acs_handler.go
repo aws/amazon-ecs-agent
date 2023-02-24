@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
@@ -75,6 +76,10 @@ const (
 	// 1: default protocol version
 	// 2: ACS will proactively close the connection when heartbeat acks are missing
 	acsProtocolVersion = 2
+	// numOfHandlersSendingAcks is the number of handlers that send acks back to ACS and that are not saved across
+	// sessions. We use this to send pending acks, before agent initiates a disconnect to ACS.
+	// they are: refreshCredentialsHandler, taskManifestHandler, payloadHandler and heartbeatHandler
+	numOfHandlersSendingAcks = 4
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.
@@ -369,8 +374,10 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	seelog.Info("Connected to ACS endpoint")
-	// Start a connection timer; agent will close its ACS websocket connection after this timer expires
-	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter)
+	// Start a connection timer; agent will send pending acks and close its ACS websocket connection
+	// after this timer expires
+	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter,
+		&refreshCredsHandler, &taskManifestHandler, &payloadHandler, &heartbeatHandler)
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
@@ -505,10 +512,53 @@ func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitt
 	return timer
 }
 
-// newConnectionTimer creates a new timer, after which agent closes its ACS websocket connection
-func newConnectionTimer(client wsclient.ClientServer, connectionTime time.Duration, connectionJitter time.Duration) ttime.Timer {
+// newConnectionTimer creates a new timer, after which agent sends any pending acks to ACS and closes
+// its websocket connection
+func newConnectionTimer(
+	client wsclient.ClientServer,
+	connectionTime time.Duration,
+	connectionJitter time.Duration,
+	refreshCredsHandler *refreshCredentialsHandler,
+	taskManifestHandler *taskManifestHandler,
+	payloadHandler *payloadRequestHandler,
+	heartbeatHandler *heartbeatHandler,
+) ttime.Timer {
 	expiresAt := retry.AddJitter(connectionTime, connectionJitter)
 	timer := time.AfterFunc(expiresAt, func() {
+		seelog.Debugf("Sending pending acks to ACS before closing the connection")
+
+		wg := sync.WaitGroup{}
+		wg.Add(numOfHandlersSendingAcks)
+
+		// send pending creds refresh acks to ACS
+		go func() {
+			refreshCredsHandler.sendPendingAcks()
+			wg.Done()
+		}()
+
+		// send pending task manifest acks and task stop verification acks to ACS
+		go func() {
+			taskManifestHandler.sendPendingTaskManifestMessageAck()
+			taskManifestHandler.handlePendingTaskStopVerificationAck()
+			wg.Done()
+		}()
+
+		// send pending payload acks to ACS
+		go func() {
+			payloadHandler.sendPendingAcks()
+			wg.Done()
+		}()
+
+		// send pending heartbeat acks to ACS
+		go func() {
+			heartbeatHandler.sendPendingHeartbeatAck()
+			wg.Done()
+		}()
+
+		// wait for acks from all the handlers above to be sent to ACS before closing the websocket connection.
+		// the methods used to read pending acks are non-blocking, so it is safe to wait here.
+		wg.Wait()
+
 		seelog.Infof("Closing ACS websocket connection after %v minutes", expiresAt.Minutes())
 		// WriteCloseMessage() writes a close message using websocket control messages
 		// Ref: https://pkg.go.dev/github.com/gorilla/websocket#hdr-Control_Messages

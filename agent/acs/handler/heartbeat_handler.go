@@ -103,6 +103,18 @@ func (heartbeatHandler *heartbeatHandler) sendHeartbeatAck() {
 	}
 }
 
+// sendPendingHeartbeatAck sends all pending heartbeat acks to ACS before closing the connection
+func (heartbeatHandler *heartbeatHandler) sendPendingHeartbeatAck() {
+	for {
+		select {
+		case ack := <-heartbeatHandler.heartbeatAckMessageBuffer:
+			heartbeatHandler.sendSingleHeartbeatAck(ack)
+		default:
+			return
+		}
+	}
+}
+
 func (heartbeatHandler *heartbeatHandler) sendSingleHeartbeatAck(ack *ecsacs.HeartbeatAckRequest) {
 	err := heartbeatHandler.acsClient.MakeRequest(ack)
 	if err != nil {
