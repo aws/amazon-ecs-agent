@@ -1,4 +1,14 @@
 # Changelog
+
+## 1.69.0
+* Enhancement - Use T.TempDir to create temporary test directory [#3159](https://github.com/aws/amazon-ecs-agent/pull/3159) and [#3560](https://github.com/aws/amazon-ecs-agent/pull/3560)
+* Enhancement - remove set-output GitHub action command [#3487](https://github.com/aws/amazon-ecs-agent/pull/3487)
+* Enhancement - periodically disconnect from ACS [#3586](https://github.com/aws/amazon-ecs-agent/pull/3586)
+* Bug - Fixed a bug that incorrectly advertised the gMSA and fsx capability [#3540](https://github.com/aws/amazon-ecs-agent/pull/3540)
+* Bug - Remove fallback to Docker for host port ranges assignment [#3569](https://github.com/aws/amazon-ecs-agent/pull/3569)
+* Bug - fix ecs-init log message [#3577](https://github.com/aws/amazon-ecs-agent/pull/3577)
+* Bug - Update CNI plugin versions, IMDS access works properly over IPv6 [#3581](https://github.com/aws/amazon-ecs-agent/pull/3581)
+
 ## 1.68.2
 * Enhancement: Skip sending STSC events for internal tasks [#3541](https://github.com/aws/amazon-ecs-agent/pull/3541) and [#3559](https://github.com/aws/amazon-ecs-agent/pull/3559)
 * Enhancement: Update go version in module file, update most vendored build dependencies to latest library [#3534](https://github.com/aws/amazon-ecs-agent/pull/3534) and [#3551](https://github.com/aws/amazon-ecs-agent/pull/3551)
