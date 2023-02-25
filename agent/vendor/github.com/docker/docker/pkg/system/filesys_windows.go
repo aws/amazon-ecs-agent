@@ -9,36 +9,28 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// SddlAdministratorsLocalSystem is local administrators plus NT AUTHORITY\System.
-const SddlAdministratorsLocalSystem = "D:P(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
+const (
+	// SddlAdministratorsLocalSystem is local administrators plus NT AUTHORITY\System
+	SddlAdministratorsLocalSystem = "D:P(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
+)
 
-// volumePath is a regular expression to check if a path is a Windows
-// volume path (e.g., "\\?\Volume{4c1b02c1-d990-11dc-99ae-806e6f6e6963}"
-// or "\\?\Volume{4c1b02c1-d990-11dc-99ae-806e6f6e6963}\").
-var volumePath = regexp.MustCompile(`^\\\\\?\\Volume{[a-z0-9-]+}\\?$`)
-
-// MkdirAllWithACL is a custom version of os.MkdirAll modified for use on Windows
-// so that it is both volume path aware, and can create a directory with
-// an appropriate SDDL defined ACL.
-func MkdirAllWithACL(path string, _ os.FileMode, sddl string) error {
-	sa, err := makeSecurityAttributes(sddl)
-	if err != nil {
-		return &os.PathError{Op: "mkdirall", Path: path, Err: err}
-	}
-	return mkdirall(path, sa)
+// MkdirAllWithACL is a wrapper for MkdirAll that creates a directory
+// with an appropriate SDDL defined ACL.
+func MkdirAllWithACL(path string, perm os.FileMode, sddl string) error {
+	return mkdirall(path, true, sddl)
 }
 
-// MkdirAll is a custom version of os.MkdirAll that is volume path aware for
-// Windows. It can be used as a drop-in replacement for os.MkdirAll.
+// MkdirAll implementation that is volume path aware for Windows. It can be used
+// as a drop-in replacement for os.MkdirAll()
 func MkdirAll(path string, _ os.FileMode) error {
-	return mkdirall(path, nil)
+	return mkdirall(path, false, "")
 }
 
 // mkdirall is a custom version of os.MkdirAll modified for use on Windows
 // so that it is both volume path aware, and can create a directory with
 // a DACL.
-func mkdirall(path string, perm *windows.SecurityAttributes) error {
-	if volumePath.MatchString(path) {
+func mkdirall(path string, applyACL bool, sddl string) error {
+	if re := regexp.MustCompile(`^\\\\\?\\Volume{[a-z0-9-]+}$`); re.MatchString(path) {
 		return nil
 	}
 
@@ -51,7 +43,11 @@ func mkdirall(path string, perm *windows.SecurityAttributes) error {
 		if dir.IsDir() {
 			return nil
 		}
-		return &os.PathError{Op: "mkdir", Path: path, Err: syscall.ENOTDIR}
+		return &os.PathError{
+			Op:   "mkdir",
+			Path: path,
+			Err:  syscall.ENOTDIR,
+		}
 	}
 
 	// Slow path: make sure parent exists and then call Mkdir for path.
@@ -66,15 +62,20 @@ func mkdirall(path string, perm *windows.SecurityAttributes) error {
 	}
 
 	if j > 1 {
-		// Create parent.
-		err = mkdirall(fixRootDirectory(path[:j-1]), perm)
+		// Create parent
+		err = mkdirall(path[0:j-1], false, sddl)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Parent now exists; invoke Mkdir and use its result.
-	err = mkdirWithACL(path, perm)
+	// Parent now exists; invoke os.Mkdir or mkdirWithACL and use its result.
+	if applyACL {
+		err = mkdirWithACL(path, sddl)
+	} else {
+		err = os.Mkdir(path, 0)
+	}
+
 	if err != nil {
 		// Handle arguments like "foo/." by
 		// double-checking that directory doesn't exist.
@@ -94,42 +95,24 @@ func mkdirall(path string, perm *windows.SecurityAttributes) error {
 // in golang to cater for creating a directory am ACL permitting full
 // access, with inheritance, to any subfolder/file for Built-in Administrators
 // and Local System.
-func mkdirWithACL(name string, sa *windows.SecurityAttributes) error {
-	if sa == nil {
-		return os.Mkdir(name, 0)
+func mkdirWithACL(name string, sddl string) error {
+	sa := windows.SecurityAttributes{Length: 0}
+	sd, err := windows.SecurityDescriptorFromString(sddl)
+	if err != nil {
+		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
+	sa.Length = uint32(unsafe.Sizeof(sa))
+	sa.InheritHandle = 1
+	sa.SecurityDescriptor = sd
 
 	namep, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
 
-	err = windows.CreateDirectory(namep, sa)
-	if err != nil {
-		return &os.PathError{Op: "mkdir", Path: name, Err: err}
+	e := windows.CreateDirectory(namep, &sa)
+	if e != nil {
+		return &os.PathError{Op: "mkdir", Path: name, Err: e}
 	}
 	return nil
-}
-
-// fixRootDirectory fixes a reference to a drive's root directory to
-// have the required trailing slash.
-func fixRootDirectory(p string) string {
-	if len(p) == len(`\\?\c:`) {
-		if os.IsPathSeparator(p[0]) && os.IsPathSeparator(p[1]) && p[2] == '?' && os.IsPathSeparator(p[3]) && p[5] == ':' {
-			return p + `\`
-		}
-	}
-	return p
-}
-
-func makeSecurityAttributes(sddl string) (*windows.SecurityAttributes, error) {
-	var sa windows.SecurityAttributes
-	sa.Length = uint32(unsafe.Sizeof(sa))
-	sa.InheritHandle = 1
-	var err error
-	sa.SecurityDescriptor, err = windows.SecurityDescriptorFromString(sddl)
-	if err != nil {
-		return nil, err
-	}
-	return &sa, nil
 }

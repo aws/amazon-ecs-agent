@@ -24,6 +24,7 @@ func (cli *Client) ImageList(ctx context.Context, options types.ImageListOptions
 		}
 	}
 	if optionFilters.Len() > 0 {
+		//nolint:staticcheck // ignore SA1019 for old code
 		filterJSON, err := filters.ToParamWithVersion(cli.version, optionFilters)
 		if err != nil {
 			return images, err
@@ -32,6 +33,9 @@ func (cli *Client) ImageList(ctx context.Context, options types.ImageListOptions
 	}
 	if options.All {
 		query.Set("all", "1")
+	}
+	if options.SharedSize && versions.GreaterThanOrEqualTo(cli.version, "1.42") {
+		query.Set("shared-size", "1")
 	}
 
 	serverResp, err := cli.get(ctx, "/images/json", query, nil)

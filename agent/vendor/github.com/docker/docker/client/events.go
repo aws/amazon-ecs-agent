@@ -17,7 +17,6 @@ import (
 // be sent over the error channel. If an error is sent all processing will be stopped. It's up
 // to the caller to reopen the stream in the event of an error by reinvoking this method.
 func (cli *Client) Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error) {
-
 	messages := make(chan events.Message)
 	errs := make(chan error, 1)
 
@@ -90,6 +89,7 @@ func buildEventsQueryParams(cliVersion string, options types.EventsOptions) (url
 	}
 
 	if options.Filters.Len() > 0 {
+		//nolint:staticcheck // ignore SA1019 for old code
 		filterJSON, err := filters.ToParamWithVersion(cliVersion, options.Filters)
 		if err != nil {
 			return nil, err
