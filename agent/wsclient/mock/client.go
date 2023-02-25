@@ -188,6 +188,20 @@ func (mr *MockClientServerMockRecorder) SetReadDeadline(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetReadDeadline", reflect.TypeOf((*MockClientServer)(nil).SetReadDeadline), arg0)
 }
 
+// WriteCloseMessage mocks base method
+func (m *MockClientServer) WriteCloseMessage() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteCloseMessage")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteCloseMessage indicates an expected call of WriteCloseMessage
+func (mr *MockClientServerMockRecorder) WriteCloseMessage() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteCloseMessage", reflect.TypeOf((*MockClientServer)(nil).WriteCloseMessage))
+}
+
 // WriteMessage mocks base method
 func (m *MockClientServer) WriteMessage(arg0 []byte) error {
 	m.ctrl.T.Helper()

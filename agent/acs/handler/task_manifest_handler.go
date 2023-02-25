@@ -116,6 +116,18 @@ func (taskManifestHandler *taskManifestHandler) sendTaskManifestMessageAck() {
 	}
 }
 
+// sendPendingTaskManifestMessageAck sends all pending task manifest acks to ACS before closing the connection
+func (taskManifestHandler *taskManifestHandler) sendPendingTaskManifestMessageAck() {
+	for {
+		select {
+		case messageBufferTaskManifestAck := <-taskManifestHandler.messageBufferTaskManifestAck:
+			taskManifestHandler.ackTaskManifestMessage(messageBufferTaskManifestAck)
+		default:
+			return
+		}
+	}
+}
+
 func (taskManifestHandler *taskManifestHandler) handleTaskStopVerificationAck() {
 	for {
 		select {
@@ -125,6 +137,21 @@ func (taskManifestHandler *taskManifestHandler) handleTaskStopVerificationAck() 
 					messageBufferTaskStopVerificationAck.MessageId, err)
 			}
 		case <-taskManifestHandler.ctx.Done():
+			return
+		}
+	}
+}
+
+// handlePendingTaskStopVerificationAck sends pending task stop verification acks to ACS before closing the connection
+func (taskManifestHandler *taskManifestHandler) handlePendingTaskStopVerificationAck() {
+	for {
+		select {
+		case messageBufferTaskStopVerificationAck := <-taskManifestHandler.messageBufferTaskStopVerificationAck:
+			if err := taskManifestHandler.handleSingleMessageVerificationAck(messageBufferTaskStopVerificationAck); err != nil {
+				seelog.Warnf("Error handling Verification ack with messageID: %s, error: %v",
+					messageBufferTaskStopVerificationAck.MessageId, err)
+			}
+		default:
 			return
 		}
 	}
