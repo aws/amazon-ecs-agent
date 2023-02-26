@@ -17,7 +17,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/golang/mock v1.4.1
 	github.com/gorilla/mux v1.8.0
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/pborman/uuid v1.2.1
