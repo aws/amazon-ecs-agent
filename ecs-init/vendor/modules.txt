@@ -6,7 +6,7 @@ github.com/Azure/go-ansiterm/winterm
 ## explicit; go 1.13
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/Microsoft/hcsshim v0.9.4
+# github.com/Microsoft/hcsshim v0.9.6
 ## explicit; go 1.13
 github.com/Microsoft/hcsshim/osversion
 # github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20180829222009-86f2a9fac6c5
@@ -67,11 +67,9 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/containerd/containerd v1.6.8
+# github.com/containerd/containerd v1.6.18
 ## explicit; go 1.17
 github.com/containerd/containerd/pkg/userns
-# github.com/containerd/continuity v0.3.0
-## explicit; go 1.17
 # github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e => github.com/coreos/go-systemd/v22 v22.0.0
 ## explicit; go 1.12
 github.com/coreos/go-systemd/activation
@@ -164,18 +162,18 @@ github.com/sirupsen/logrus
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# golang.org/x/net v0.0.0-20211216030914-fe4d6282115f => golang.org/x/net v0.0.0-20170529214944-3da985ce5951
+# golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.0.0-20170529214944-3da985ce5951
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+# golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+# gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.3.0
