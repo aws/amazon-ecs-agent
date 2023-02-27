@@ -79,6 +79,7 @@ func TestGetHostPortRange(t *testing.T) {
 		testDynamicHostPortRange string
 		protocol                 string
 		expectedLastAssignedPort []int
+		isPortAvailableFunc      func(port int, protocol string) (bool, error)
 		numberOfRequests         int
 		expectedError            error
 	}{
@@ -88,6 +89,7 @@ func TestGetHostPortRange(t *testing.T) {
 			testDynamicHostPortRange: "40001-40080",
 			protocol:                 testTCPProtocol,
 			expectedLastAssignedPort: []int{40010},
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         1,
 			expectedError:            nil,
 		},
@@ -97,6 +99,7 @@ func TestGetHostPortRange(t *testing.T) {
 			testDynamicHostPortRange: "40001-40080",
 			protocol:                 testUDPProtocol,
 			expectedLastAssignedPort: []int{40040},
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         1,
 			expectedError:            nil,
 		},
@@ -106,6 +109,7 @@ func TestGetHostPortRange(t *testing.T) {
 			testDynamicHostPortRange: "40001-40080",
 			protocol:                 testTCPProtocol,
 			expectedLastAssignedPort: []int{40060, 40000},
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         2,
 			expectedError:            nil,
 		},
@@ -115,24 +119,42 @@ func TestGetHostPortRange(t *testing.T) {
 			testDynamicHostPortRange: "40001-40080",
 			protocol:                 testUDPProtocol,
 			expectedLastAssignedPort: []int{40015},
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         1,
 			expectedError:            nil,
 		},
 		{
-			testName:                 "contiguous hostPortRange not found",
+			testName:                 "contiguous hostPortRange not found, numberOfPorts more than available",
 			numberOfPorts:            20,
 			testDynamicHostPortRange: "40001-40005",
 			protocol:                 testTCPProtocol,
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return true, nil },
 			numberOfRequests:         1,
 			expectedError:            errors.New("20 contiguous host ports are unavailable"),
 		},
+		{
+			testName:                 "contiguous hostPortRange not found, no ports available on the host",
+			numberOfPorts:            5,
+			testDynamicHostPortRange: "40001-40005",
+			protocol:                 testTCPProtocol,
+			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return false, nil },
+			numberOfRequests:         1,
+			expectedError:            errors.New("5 contiguous host ports are unavailable"),
+		},
 	}
+
+	// mock isPortAvailable() for unit test
+	// this ensures that the test doesn't rely on the runtime port availability on the host
+	isPortAvailableFuncTmp := isPortAvailableFunc
+	defer func() {
+		isPortAvailableFunc = isPortAvailableFuncTmp
+	}()
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			for i := 0; i < tc.numberOfRequests; i++ {
+				isPortAvailableFunc = tc.isPortAvailableFunc
 				if tc.expectedError == nil {
-
 					hostPortRange, err := GetHostPortRange(tc.numberOfPorts, tc.protocol, tc.testDynamicHostPortRange)
 					assert.NoError(t, err)
 
