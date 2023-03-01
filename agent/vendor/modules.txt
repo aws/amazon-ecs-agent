@@ -1,10 +1,11 @@
 # github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1
 ## explicit; go 1.16
-# github.com/Microsoft/go-winio v0.4.11
-## explicit
+# github.com/Microsoft/go-winio v0.5.2
+## explicit; go 1.13
 github.com/Microsoft/go-winio
-# github.com/Microsoft/hcsshim v0.8.6
-## explicit
+github.com/Microsoft/go-winio/pkg/guid
+# github.com/Microsoft/hcsshim v0.8.25
+## explicit; go 1.13
 github.com/Microsoft/hcsshim/osversion
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
@@ -80,7 +81,7 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/cilium/ebpf v0.4.0
+# github.com/cilium/ebpf v0.6.2
 ## explicit; go 1.15
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -94,11 +95,11 @@ github.com/containerd/cgroups
 github.com/containerd/cgroups/stats/v1
 github.com/containerd/cgroups/v2
 github.com/containerd/cgroups/v2/stats
-# github.com/containerd/containerd v1.4.13
-## explicit
+# github.com/containerd/containerd v1.5.18
+## explicit; go 1.17
 github.com/containerd/containerd/errdefs
-# github.com/containerd/continuity v0.0.0-20210208174643-50096c924a4e
-## explicit; go 1.13
+# github.com/containerd/continuity v0.3.0
+## explicit; go 1.17
 github.com/containerd/continuity/pathdriver
 # github.com/containernetworking/cni v0.8.1
 ## explicit
@@ -109,8 +110,8 @@ github.com/containernetworking/cni/pkg/types/020
 github.com/containernetworking/cni/pkg/types/current
 github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
-# github.com/containernetworking/plugins v0.8.6
-## explicit; go 1.12
+# github.com/containernetworking/plugins v0.9.1
+## explicit; go 1.14
 github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-systemd/v22 v22.3.2
 ## explicit; go 1.12
@@ -206,7 +207,7 @@ github.com/hectane/go-acl/api
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
-# github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
+# github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/morikuni/aec v1.0.0
@@ -263,11 +264,11 @@ github.com/sirupsen/logrus
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# github.com/vishvananda/netlink v1.1.0
+# github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+# github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 ## explicit; go 1.12
 github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.5
