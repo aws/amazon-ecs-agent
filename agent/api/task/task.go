@@ -2347,11 +2347,12 @@ var getHostPort = utils.GetHostPort
 //
 //	Instead, ECS Agent finds host ports within the given dynamic host port range. An error will be returned for case (2) if
 //	ECS Agent cannot find an available host port within range.
-func (task *Task) buildPortMapWithSCIngressConfig(dynamicHostPortRange string) (nat.PortMap, map[int]struct{}, error) {
+func (task *Task) buildPortMapWithSCIngressConfig(dynamicHostPortRange string) (nat.PortMap, error) {
 	var err error
 	ingressDockerPortMap := nat.PortMap{}
 	ingressContainerPortSet := make(map[int]struct{})
 	protocolStr := "tcp"
+	scContainer := task.GetServiceConnectContainer()
 	for _, ic := range task.ServiceConnectConfig.IngressConfig {
 		listenerPortInt := int(ic.ListenerPort)
 		dockerPort := nat.Port(strconv.Itoa(listenerPortInt) + "/" + protocolStr)
@@ -2369,15 +2370,17 @@ func (task *Task) buildPortMapWithSCIngressConfig(dynamicHostPortRange string) (
 			// or return an error if no host port is available within the range.
 			hostPortStr, err = getHostPort(protocolStr, dynamicHostPortRange)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 
 		ingressDockerPortMap[dockerPort] = append(ingressDockerPortMap[dockerPort], nat.PortBinding{HostPort: hostPortStr})
 		// Append non-range, singular container port to the ingressContainerPortSet
 		ingressContainerPortSet[listenerPortInt] = struct{}{}
+		// Set taskContainer.ContainerPortSet to be used during network binding creation
+		scContainer.SetContainerPortSet(ingressContainerPortSet)
 	}
-	return ingressDockerPortMap, ingressContainerPortSet, err
+	return ingressDockerPortMap, err
 }
 
 // dockerPortMap creates a port binding map for
@@ -2422,7 +2425,7 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 				// create port binding(s) for ingress listener ports based on its ingress config.
 				// Note that there is no need to do this for egress listener ports as they won't be accessed
 				// from host level or from outside.
-				dockerPortMap, containerPortSet, err := task.buildPortMapWithSCIngressConfig(dynamicHostPortRange)
+				dockerPortMap, err := task.buildPortMapWithSCIngressConfig(dynamicHostPortRange)
 				if err != nil {
 					logger.Error("Failed to build a port map with service connect ingress config", logger.Fields{
 						field.TaskID:           task.GetID(),
@@ -2432,8 +2435,6 @@ func (task *Task) dockerPortMap(container *apicontainer.Container, dynamicHostPo
 					})
 					return nil, err
 				}
-				// Set taskContainer.ContainerPortSet to be used during network binding creation
-				taskContainer.SetContainerPortSet(containerPortSet)
 				return dockerPortMap, nil
 			}
 			// If the associated task container to this pause container is NOT the service connect AppNet container,
