@@ -1,5 +1,3 @@
-# github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1
-## explicit; go 1.16
 # github.com/Microsoft/go-winio v0.5.2
 ## explicit; go 1.13
 github.com/Microsoft/go-winio
@@ -95,12 +93,8 @@ github.com/containerd/cgroups
 github.com/containerd/cgroups/stats/v1
 github.com/containerd/cgroups/v2
 github.com/containerd/cgroups/v2/stats
-# github.com/containerd/containerd v1.5.18
-## explicit; go 1.17
-github.com/containerd/containerd/errdefs
 # github.com/containerd/continuity v0.3.0
 ## explicit; go 1.17
-github.com/containerd/continuity/pathdriver
 # github.com/containernetworking/cni v0.8.1
 ## explicit
 github.com/containernetworking/cni/libcni
@@ -132,8 +126,7 @@ github.com/didip/tollbooth/limiter
 ## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
-github.com/docker/distribution/registry/api/errcode
-# github.com/docker/docker v17.12.0-ce-rc1.0.20200916142827-bd33bbf0497b+incompatible
+# github.com/docker/docker v20.10.23+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -155,7 +148,6 @@ github.com/docker/docker/client
 github.com/docker/docker/errdefs
 github.com/docker/docker/pkg/ioutils
 github.com/docker/docker/pkg/longpath
-github.com/docker/docker/pkg/mount
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
 github.com/docker/docker/pkg/system
@@ -199,8 +191,6 @@ github.com/gorilla/mux
 # github.com/gorilla/websocket v1.5.0
 ## explicit; go 1.12
 github.com/gorilla/websocket
-# github.com/gotestyourself/gotestyourself v1.4.0
-## explicit
 # github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 ## explicit; go 1.12
 github.com/hectane/go-acl/api
@@ -210,6 +200,14 @@ github.com/jmespath/go-jmespath
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/moby/sys/mount v0.3.3
+## explicit; go 1.16
+github.com/moby/sys/mount
+# github.com/moby/sys/mountinfo v0.6.2
+## explicit; go 1.16
+github.com/moby/sys/mountinfo
+# github.com/moby/term v0.0.0-20221205130635-1aeaba878587
+## explicit; go 1.18
 # github.com/morikuni/aec v1.0.0
 ## explicit
 # github.com/onsi/ginkgo v1.16.5
@@ -410,8 +408,8 @@ google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
+# gopkg.in/yaml.v2 v2.4.0
+## explicit; go 1.15
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# gotest.tools v1.4.0
-## explicit
