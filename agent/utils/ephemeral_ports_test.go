@@ -139,7 +139,7 @@ func TestGetHostPortRange(t *testing.T) {
 			protocol:                 testTCPProtocol,
 			isPortAvailableFunc:      func(port int, protocol string) (bool, error) { return false, nil },
 			numberOfRequests:         1,
-			expectedError:            errors.New("5 contiguous host ports unavailable"),
+			expectedError:            errors.New("5 contiguous host ports are unavailable"),
 		},
 	}
 
