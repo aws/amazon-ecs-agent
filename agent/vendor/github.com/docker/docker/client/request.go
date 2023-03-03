@@ -29,12 +29,12 @@ type serverResponse struct {
 
 // head sends an http request to the docker API using the method HEAD.
 func (cli *Client) head(ctx context.Context, path string, query url.Values, headers map[string][]string) (serverResponse, error) {
-	return cli.sendRequest(ctx, "HEAD", path, query, nil, headers)
+	return cli.sendRequest(ctx, http.MethodHead, path, query, nil, headers)
 }
 
 // get sends an http request to the docker API using the method GET with a specific Go context.
 func (cli *Client) get(ctx context.Context, path string, query url.Values, headers map[string][]string) (serverResponse, error) {
-	return cli.sendRequest(ctx, "GET", path, query, nil, headers)
+	return cli.sendRequest(ctx, http.MethodGet, path, query, nil, headers)
 }
 
 // post sends an http request to the docker API using the method POST with a specific Go context.
@@ -43,30 +43,21 @@ func (cli *Client) post(ctx context.Context, path string, query url.Values, obj 
 	if err != nil {
 		return serverResponse{}, err
 	}
-	return cli.sendRequest(ctx, "POST", path, query, body, headers)
+	return cli.sendRequest(ctx, http.MethodPost, path, query, body, headers)
 }
 
 func (cli *Client) postRaw(ctx context.Context, path string, query url.Values, body io.Reader, headers map[string][]string) (serverResponse, error) {
-	return cli.sendRequest(ctx, "POST", path, query, body, headers)
-}
-
-// put sends an http request to the docker API using the method PUT.
-func (cli *Client) put(ctx context.Context, path string, query url.Values, obj interface{}, headers map[string][]string) (serverResponse, error) {
-	body, headers, err := encodeBody(obj, headers)
-	if err != nil {
-		return serverResponse{}, err
-	}
-	return cli.sendRequest(ctx, "PUT", path, query, body, headers)
+	return cli.sendRequest(ctx, http.MethodPost, path, query, body, headers)
 }
 
 // putRaw sends an http request to the docker API using the method PUT.
 func (cli *Client) putRaw(ctx context.Context, path string, query url.Values, body io.Reader, headers map[string][]string) (serverResponse, error) {
-	return cli.sendRequest(ctx, "PUT", path, query, body, headers)
+	return cli.sendRequest(ctx, http.MethodPut, path, query, body, headers)
 }
 
 // delete sends an http request to the docker API using the method DELETE.
 func (cli *Client) delete(ctx context.Context, path string, query url.Values, headers map[string][]string) (serverResponse, error) {
-	return cli.sendRequest(ctx, "DELETE", path, query, nil, headers)
+	return cli.sendRequest(ctx, http.MethodDelete, path, query, nil, headers)
 }
 
 type headers map[string][]string
@@ -88,7 +79,7 @@ func encodeBody(obj interface{}, headers headers) (io.Reader, headers, error) {
 }
 
 func (cli *Client) buildRequest(method, path string, body io.Reader, headers headers) (*http.Request, error) {
-	expectedPayload := (method == "POST" || method == "PUT")
+	expectedPayload := (method == http.MethodPost || method == http.MethodPut)
 	if expectedPayload && body == nil {
 		body = bytes.NewReader([]byte{})
 	}
@@ -159,10 +150,8 @@ func (cli *Client) doRequest(ctx context.Context, req *http.Request) (serverResp
 			if err.Timeout() {
 				return serverResp, ErrorConnectionFailed(cli.host)
 			}
-			if !err.Temporary() {
-				if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "dial unix") {
-					return serverResp, ErrorConnectionFailed(cli.host)
-				}
+			if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "dial unix") {
+				return serverResp, ErrorConnectionFailed(cli.host)
 			}
 		}
 
@@ -251,10 +240,8 @@ func (cli *Client) addHeaders(req *http.Request, headers headers) *http.Request 
 		req.Header.Set(k, v)
 	}
 
-	if headers != nil {
-		for k, v := range headers {
-			req.Header[k] = v
-		}
+	for k, v := range headers {
+		req.Header[k] = v
 	}
 	return req
 }
