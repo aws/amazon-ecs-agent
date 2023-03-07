@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.70.0
+* Fix: flaky TestMetricsDisabled unit test. #3588
+* Enhancement: TestGetHostPortRange unit test deterministic. #3587
+* Enhancement: update go module dependencies. #3593
+* Enhancement: Resolve CI NodeJS 12 deprecation warnings for actions/checkout. #3595
+* Enhancement: update docker client library to latest. #3598
+* Enhancement: Provide imageDigest for images from all container repositories. #3576
+* Enhancement: explicitly provide the network name override to nat when using bridge network mode. #3564
+* Enhancement: Support dynamic host port range assignment for singular ports. The dynamic host port range can be configured with ECS_DYNAMIC_HOST_PORT_RANGE in ecs.config; if there is no user-specified ECS_DYNAMIC_HOST_PORT_RANGE, ECS Agent will assign host ports within the default port range, based on platform and Docker API version, for containers that do not have user-specified host ports in task definitions. #3601
+* Dependency Changes. #3602
+
 ## 1.69.0
 * Enhancement - Use T.TempDir to create temporary test directory [#3159](https://github.com/aws/amazon-ecs-agent/pull/3159) and [#3560](https://github.com/aws/amazon-ecs-agent/pull/3560)
 * Enhancement - remove set-output GitHub action command [#3487](https://github.com/aws/amazon-ecs-agent/pull/3487)
