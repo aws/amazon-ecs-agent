@@ -14,6 +14,7 @@
 # limitations under the License.
 set -x
 set -e
+echo "[!] Building"
 export TOPWD="$(pwd)"
 export BUILDDIR="$(mktemp -d)"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-agent"
