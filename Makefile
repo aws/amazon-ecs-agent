@@ -138,7 +138,7 @@ VERBOSE=-v -cover
 # provide false positives when running integ tests, so we err on the side of
 # caution. See `go help test`
 # unit tests include the coverage profile
-GOTEST=${GO_EXECUTABLE} test -count=1 ${VERBOSE}
+GOTEST=${GO_EXECUTABLE} test -count=1
 
 # -race sometimes causes compile issues on Arm
 ifneq (${BUILD_PLATFORM},aarch64)

@@ -142,6 +142,7 @@ func removeEndpointConfigFromEnvironment(container *apicontainer.Container) {
 func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 	// Testing Windows platform override for HostConfig.
 	// Expects MemorySwappiness option to be set to -1
+	// Expects NetworkMode to be set as nat only when the network mode is bridge.
 
 	task := &Task{}
 
@@ -155,6 +156,14 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
 	assert.Empty(t, hostConfig.CPUShares)
+
+	hostConfig = &dockercontainer.HostConfig{NetworkMode: BridgeNetworkMode}
+	task.platformHostConfigOverride(hostConfig)
+	assert.Equal(t, windowsDefaultNetworkName, hostConfig.NetworkMode.NetworkName())
+
+	hostConfig = &dockercontainer.HostConfig{NetworkMode: AWSVPCNetworkMode}
+	task.platformHostConfigOverride(hostConfig)
+	assert.Equal(t, AWSVPCNetworkMode, hostConfig.NetworkMode.NetworkName())
 }
 
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {

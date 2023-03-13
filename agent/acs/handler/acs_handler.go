@@ -78,8 +78,8 @@ const (
 	acsProtocolVersion = 2
 	// numOfHandlersSendingAcks is the number of handlers that send acks back to ACS and that are not saved across
 	// sessions. We use this to send pending acks, before agent initiates a disconnect to ACS.
-	// they are: refreshCredentialsHandler, taskManifestHandler, payloadHandler and heartbeatHandler
-	numOfHandlersSendingAcks = 4
+	// they are: refreshCredentialsHandler, taskManifestHandler, and payloadHandler
+	numOfHandlersSendingAcks = 3
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.
@@ -358,12 +358,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.doctor)
-	defer heartbeatHandler.clearAcks()
-	heartbeatHandler.start()
-	defer heartbeatHandler.stop()
-
-	client.AddRequestHandler(heartbeatHandler.handlerFunc())
+	client.AddRequestHandler(HeartbeatHandlerFunc(client, acsSession.doctor))
 
 	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 
@@ -377,7 +372,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	// Start a connection timer; agent will send pending acks and close its ACS websocket connection
 	// after this timer expires
 	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter,
-		&refreshCredsHandler, &taskManifestHandler, &payloadHandler, &heartbeatHandler)
+		&refreshCredsHandler, &taskManifestHandler, &payloadHandler)
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
@@ -521,7 +516,6 @@ func newConnectionTimer(
 	refreshCredsHandler *refreshCredentialsHandler,
 	taskManifestHandler *taskManifestHandler,
 	payloadHandler *payloadRequestHandler,
-	heartbeatHandler *heartbeatHandler,
 ) ttime.Timer {
 	expiresAt := retry.AddJitter(connectionTime, connectionJitter)
 	timer := time.AfterFunc(expiresAt, func() {
@@ -546,12 +540,6 @@ func newConnectionTimer(
 		// send pending payload acks to ACS
 		go func() {
 			payloadHandler.sendPendingAcks()
-			wg.Done()
-		}()
-
-		// send pending heartbeat acks to ACS
-		go func() {
-			heartbeatHandler.sendPendingHeartbeatAck()
 			wg.Done()
 		}()
 
