@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.70.0
+* Enhancement - Update docker client library to latest [#3598](https://github.com/aws/amazon-ecs-agent/pull/3598)
+* Enhancement - Provide imageDigest for images from all container repositories [3576](https://github.com/aws/amazon-ecs-agent/pull/3576)
+* Enhancement - Explicitly provide the network name override to nat when using bridge network mode [3564](https://github.com/aws/amazon-ecs-agent/pull/3564)
+* Enhancement - Support dynamic host port range assignment for singular ports. The dynamic host port range can be configured with ECS_DYNAMIC_HOST_PORT_RANGE in ecs.config; if there is no user-specified ECS_DYNAMIC_HOST_PORT_RANGE, ECS Agent will assign host ports within the default port range, based on platform and Docker API version, for containers that do not have user-specified host ports in task definitions. [3601](https://github.com/aws/amazon-ecs-agent/pull/3601)
+
 ## 1.69.0
 * Enhancement - Use T.TempDir to create temporary test directory [#3159](https://github.com/aws/amazon-ecs-agent/pull/3159) and [#3560](https://github.com/aws/amazon-ecs-agent/pull/3560)
 * Enhancement - remove set-output GitHub action command [#3487](https://github.com/aws/amazon-ecs-agent/pull/3487)
