@@ -25,6 +25,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	s3sdk "github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -46,8 +47,9 @@ func TestDownloadFile(t *testing.T) {
 	mockFile := mock_oswrapper.NewMockFile()
 	mockS3ManagerClient := mock_s3manager.NewMockS3ManagerClient(ctrl)
 
-	mockS3ManagerClient.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Do(func(ctx aws.Context,
-		w io.WriterAt, input *s3sdk.GetObjectInput) {
+	mockS3ManagerClient.EXPECT().DownloadWithContext(
+		gomock.Any(), mockFile, gomock.Any(), gomock.Any(),
+	).Do(func(ctx aws.Context, w io.WriterAt, input *s3sdk.GetObjectInput, options ...func(*s3manager.Downloader)) {
 		assert.Equal(t, testBucket, aws.StringValue(input.Bucket))
 		assert.Equal(t, testKey, aws.StringValue(input.Key))
 	})
