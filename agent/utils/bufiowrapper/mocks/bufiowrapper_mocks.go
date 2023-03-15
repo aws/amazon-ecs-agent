@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockBufio is a mock of Bufio interface
+// MockBufio is a mock of Bufio interface.
 type MockBufio struct {
 	ctrl     *gomock.Controller
 	recorder *MockBufioMockRecorder
 }
 
-// MockBufioMockRecorder is the mock recorder for MockBufio
+// MockBufioMockRecorder is the mock recorder for MockBufio.
 type MockBufioMockRecorder struct {
 	mock *MockBufio
 }
 
-// NewMockBufio creates a new mock instance
+// NewMockBufio creates a new mock instance.
 func NewMockBufio(ctrl *gomock.Controller) *MockBufio {
 	mock := &MockBufio{ctrl: ctrl}
 	mock.recorder = &MockBufioMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBufio) EXPECT() *MockBufioMockRecorder {
 	return m.recorder
 }
 
-// NewScanner mocks base method
+// NewScanner mocks base method.
 func (m *MockBufio) NewScanner(arg0 io.Reader) bufiowrapper.Scanner {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewScanner", arg0)
@@ -57,36 +57,36 @@ func (m *MockBufio) NewScanner(arg0 io.Reader) bufiowrapper.Scanner {
 	return ret0
 }
 
-// NewScanner indicates an expected call of NewScanner
+// NewScanner indicates an expected call of NewScanner.
 func (mr *MockBufioMockRecorder) NewScanner(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewScanner", reflect.TypeOf((*MockBufio)(nil).NewScanner), arg0)
 }
 
-// MockScanner is a mock of Scanner interface
+// MockScanner is a mock of Scanner interface.
 type MockScanner struct {
 	ctrl     *gomock.Controller
 	recorder *MockScannerMockRecorder
 }
 
-// MockScannerMockRecorder is the mock recorder for MockScanner
+// MockScannerMockRecorder is the mock recorder for MockScanner.
 type MockScannerMockRecorder struct {
 	mock *MockScanner
 }
 
-// NewMockScanner creates a new mock instance
+// NewMockScanner creates a new mock instance.
 func NewMockScanner(ctrl *gomock.Controller) *MockScanner {
 	mock := &MockScanner{ctrl: ctrl}
 	mock.recorder = &MockScannerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockScanner) EXPECT() *MockScannerMockRecorder {
 	return m.recorder
 }
 
-// Err mocks base method
+// Err mocks base method.
 func (m *MockScanner) Err() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Err")
@@ -94,13 +94,13 @@ func (m *MockScanner) Err() error {
 	return ret0
 }
 
-// Err indicates an expected call of Err
+// Err indicates an expected call of Err.
 func (mr *MockScannerMockRecorder) Err() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockScanner)(nil).Err))
 }
 
-// Scan mocks base method
+// Scan mocks base method.
 func (m *MockScanner) Scan() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Scan")
@@ -108,13 +108,13 @@ func (m *MockScanner) Scan() bool {
 	return ret0
 }
 
-// Scan indicates an expected call of Scan
+// Scan indicates an expected call of Scan.
 func (mr *MockScannerMockRecorder) Scan() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scan", reflect.TypeOf((*MockScanner)(nil).Scan))
 }
 
-// Text mocks base method
+// Text mocks base method.
 func (m *MockScanner) Text() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Text")
@@ -122,7 +122,7 @@ func (m *MockScanner) Text() string {
 	return ret0
 }
 
-// Text indicates an expected call of Text
+// Text indicates an expected call of Text.
 func (mr *MockScannerMockRecorder) Text() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Text", reflect.TypeOf((*MockScanner)(nil).Text))

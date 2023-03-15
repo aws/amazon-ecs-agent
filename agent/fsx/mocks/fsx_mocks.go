@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockFSxClient is a mock of FSxClient interface
+// MockFSxClient is a mock of FSxClient interface.
 type MockFSxClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockFSxClientMockRecorder
 }
 
-// MockFSxClientMockRecorder is the mock recorder for MockFSxClient
+// MockFSxClientMockRecorder is the mock recorder for MockFSxClient.
 type MockFSxClientMockRecorder struct {
 	mock *MockFSxClient
 }
 
-// NewMockFSxClient creates a new mock instance
+// NewMockFSxClient creates a new mock instance.
 func NewMockFSxClient(ctrl *gomock.Controller) *MockFSxClient {
 	mock := &MockFSxClient{ctrl: ctrl}
 	mock.recorder = &MockFSxClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFSxClient) EXPECT() *MockFSxClientMockRecorder {
 	return m.recorder
 }
 
-// DescribeFileSystems mocks base method
+// DescribeFileSystems mocks base method.
 func (m *MockFSxClient) DescribeFileSystems(arg0 *fsx.DescribeFileSystemsInput) (*fsx.DescribeFileSystemsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeFileSystems", arg0)
@@ -57,7 +57,7 @@ func (m *MockFSxClient) DescribeFileSystems(arg0 *fsx.DescribeFileSystemsInput) 
 	return ret0, ret1
 }
 
-// DescribeFileSystems indicates an expected call of DescribeFileSystems
+// DescribeFileSystems indicates an expected call of DescribeFileSystems.
 func (mr *MockFSxClientMockRecorder) DescribeFileSystems(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeFileSystems", reflect.TypeOf((*MockFSxClient)(nil).DescribeFileSystems), arg0)

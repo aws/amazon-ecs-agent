@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockControl is a mock of Control interface
+// MockControl is a mock of Control interface.
 type MockControl struct {
 	ctrl     *gomock.Controller
 	recorder *MockControlMockRecorder
 }
 
-// MockControlMockRecorder is the mock recorder for MockControl
+// MockControlMockRecorder is the mock recorder for MockControl.
 type MockControlMockRecorder struct {
 	mock *MockControl
 }
 
-// NewMockControl creates a new mock instance
+// NewMockControl creates a new mock instance.
 func NewMockControl(ctrl *gomock.Controller) *MockControl {
 	mock := &MockControl{ctrl: ctrl}
 	mock.recorder = &MockControlMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControl) EXPECT() *MockControlMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockControl) Create(arg0 *control.Spec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
@@ -56,13 +56,13 @@ func (m *MockControl) Create(arg0 *control.Spec) error {
 	return ret0
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockControlMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockControl)(nil).Create), arg0)
 }
 
-// Exists mocks base method
+// Exists mocks base method.
 func (m *MockControl) Exists(arg0 string) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exists", arg0)
@@ -70,13 +70,13 @@ func (m *MockControl) Exists(arg0 string) bool {
 	return ret0
 }
 
-// Exists indicates an expected call of Exists
+// Exists indicates an expected call of Exists.
 func (mr *MockControlMockRecorder) Exists(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockControl)(nil).Exists), arg0)
 }
 
-// Init mocks base method
+// Init mocks base method.
 func (m *MockControl) Init() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Init")
@@ -84,13 +84,13 @@ func (m *MockControl) Init() error {
 	return ret0
 }
 
-// Init indicates an expected call of Init
+// Init indicates an expected call of Init.
 func (mr *MockControlMockRecorder) Init() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockControl)(nil).Init))
 }
 
-// Remove mocks base method
+// Remove mocks base method.
 func (m *MockControl) Remove(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove", arg0)
@@ -98,7 +98,7 @@ func (m *MockControl) Remove(arg0 string) error {
 	return ret0
 }
 
-// Remove indicates an expected call of Remove
+// Remove indicates an expected call of Remove.
 func (mr *MockControlMockRecorder) Remove(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockControl)(nil).Remove), arg0)

@@ -28,30 +28,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockS3ManagerClient is a mock of S3ManagerClient interface
+// MockS3ManagerClient is a mock of S3ManagerClient interface.
 type MockS3ManagerClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockS3ManagerClientMockRecorder
 }
 
-// MockS3ManagerClientMockRecorder is the mock recorder for MockS3ManagerClient
+// MockS3ManagerClientMockRecorder is the mock recorder for MockS3ManagerClient.
 type MockS3ManagerClientMockRecorder struct {
 	mock *MockS3ManagerClient
 }
 
-// NewMockS3ManagerClient creates a new mock instance
+// NewMockS3ManagerClient creates a new mock instance.
 func NewMockS3ManagerClient(ctrl *gomock.Controller) *MockS3ManagerClient {
 	mock := &MockS3ManagerClient{ctrl: ctrl}
 	mock.recorder = &MockS3ManagerClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockS3ManagerClient) EXPECT() *MockS3ManagerClientMockRecorder {
 	return m.recorder
 }
 
-// DownloadWithContext mocks base method
+// DownloadWithContext mocks base method.
 func (m *MockS3ManagerClient) DownloadWithContext(arg0 context.Context, arg1 io.WriterAt, arg2 *s3.GetObjectInput, arg3 ...func(*s3manager.Downloader)) (int64, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
@@ -64,7 +64,7 @@ func (m *MockS3ManagerClient) DownloadWithContext(arg0 context.Context, arg1 io.
 	return ret0, ret1
 }
 
-// DownloadWithContext indicates an expected call of DownloadWithContext
+// DownloadWithContext indicates an expected call of DownloadWithContext.
 func (mr *MockS3ManagerClientMockRecorder) DownloadWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)

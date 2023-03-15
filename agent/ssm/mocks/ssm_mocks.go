@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockSSMClient is a mock of SSMClient interface
+// MockSSMClient is a mock of SSMClient interface.
 type MockSSMClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockSSMClientMockRecorder
 }
 
-// MockSSMClientMockRecorder is the mock recorder for MockSSMClient
+// MockSSMClientMockRecorder is the mock recorder for MockSSMClient.
 type MockSSMClientMockRecorder struct {
 	mock *MockSSMClient
 }
 
-// NewMockSSMClient creates a new mock instance
+// NewMockSSMClient creates a new mock instance.
 func NewMockSSMClient(ctrl *gomock.Controller) *MockSSMClient {
 	mock := &MockSSMClient{ctrl: ctrl}
 	mock.recorder = &MockSSMClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSSMClient) EXPECT() *MockSSMClientMockRecorder {
 	return m.recorder
 }
 
-// GetParameters mocks base method
+// GetParameters mocks base method.
 func (m *MockSSMClient) GetParameters(arg0 *ssm.GetParametersInput) (*ssm.GetParametersOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetParameters", arg0)
@@ -57,7 +57,7 @@ func (m *MockSSMClient) GetParameters(arg0 *ssm.GetParametersInput) (*ssm.GetPar
 	return ret0, ret1
 }
 
-// GetParameters indicates an expected call of GetParameters
+// GetParameters indicates an expected call of GetParameters.
 func (mr *MockSSMClientMockRecorder) GetParameters(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetParameters", reflect.TypeOf((*MockSSMClient)(nil).GetParameters), arg0)
