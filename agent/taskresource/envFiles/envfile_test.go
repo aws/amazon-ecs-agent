@@ -37,6 +37,7 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -141,8 +142,10 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ManagerClient(s3Bucket, region, creds.IAMRoleCredentials).Return(mockS3Client, nil),
 		mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Do(
-			func(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput) {
+		mockS3Client.EXPECT().DownloadWithContext(
+			gomock.Any(), mockFile, gomock.Any(), gomock.Any(),
+		).Do(
+			func(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) {
 				assert.Equal(t, s3Bucket, aws.StringValue(input.Bucket))
 				assert.Equal(t, s3Key, aws.StringValue(input.Key))
 			}).Return(int64(0), nil),
