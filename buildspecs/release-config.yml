@@ -56,7 +56,17 @@ phases:
           }
         }
         EOF
+      
+      # Copying over the existing agentVersionV2-<branch>.json file 
+      - aws s3 cp ${RESULTS_BUCKET_URI}/agentVersionV2/agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json ./agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json
+      # Grabbing the old release agent version (will be the new current agent version)
+      - CURR_VER=$(jq -r '.releaseAgentVersion' agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json)
+      # Updating the agentVersionV2-<branch>.json file with new current and release agent versions
+      - cat <<< $(jq '.releaseAgentVersion = '\"$AGENT_VERSION\"' | .currentAgentVersion = '\"$CURR_VER\"'' agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json) > agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}-COPY.json
+      # Reformatting the file
+      - jq . agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}-COPY.json > agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json
 
 artifacts:
   files:
     - agent.json
+    - agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json
