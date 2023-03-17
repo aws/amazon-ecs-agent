@@ -7,7 +7,13 @@ Parameters:
       Description: Full name of the agent repository to use (e.g. https://github.com/aws/amazon-ecs-agent.git)
     GithubBranchName:
       Type: String
-      Description: Name of the base branch to use to build, PRs to which will trigger builds (e.g. refs/heads/dev)
+      Description: Name of the base branch to use to build, PRs to which will trigger builds (e.g. refs/heads/AmazonLinuxLegacy)
+    GithubSourceBranchName:
+      Type: String
+      Description: Name of the source branch used for the PRs (e.g. refs/heads/al1-patch)
+    ReleaseArtifactsBucketS3Uri:
+      Type: String
+      Description: The URI of the bucket where things land at the end, this is assumed to already exist (e.g. s3://artifacts)
     ServiceRoleArn:
       Type: String
       Description: The ARN of an existing CodeBuild service role
@@ -26,6 +32,10 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         ImagePullCredentialsType: CODEBUILD
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: RESULTS_BUCKET_URI
+            Type: PLAINTEXT
+            Value: !Ref ReleaseArtifactsBucketS3Uri
       Name: !Ref 'AWS::StackName'
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleArn
@@ -39,6 +49,8 @@ Resources:
         FilterGroups:
           - - Type: EVENT
               Pattern: 'PULL_REQUEST_MERGED'
+            - Type: HEAD_REF
+              Pattern: !Sub '^${GithubSourceBranchName}$'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
         Webhook: true
