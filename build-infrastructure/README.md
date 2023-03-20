@@ -1,4 +1,4 @@
-# Building the ECS Agent using AWS CodeSuite
+# Building the ECS Agent using AWS Code Services
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ You will then have to import this key into secrets manager. To set expectations,
 
 Be sure to pick plaintext and just paste the contents of the key into the textbox without JSON encoding it. Secrets Manager encourages the use of JSON structured data but it is not required. You will also need to create a Secrets Manager secret for the passphrase the same way as above.
 
-As for the codestar connection, you can generate one of those by logging into the AWS Console, going to any of the CodeSuite services, clicking on the Settings left nav item and clicking connections. And then clicking the new button. The wizard will walk you through generating the connection. You'll need the ARN of that connection.
+As for the codestar connection, you can generate one of those by logging into the AWS Console, going to any of the Code Services, clicking on the Settings left nav item and clicking connections. And then clicking the new button. The wizard will walk you through generating the connection. You'll need the ARN of that connection.
 
 ## Release pipeline
 
