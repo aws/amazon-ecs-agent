@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockStateManager is a mock of StateManager interface
+// MockStateManager is a mock of StateManager interface.
 type MockStateManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateManagerMockRecorder
 }
 
-// MockStateManagerMockRecorder is the mock recorder for MockStateManager
+// MockStateManagerMockRecorder is the mock recorder for MockStateManager.
 type MockStateManagerMockRecorder struct {
 	mock *MockStateManager
 }
 
-// NewMockStateManager creates a new mock instance
+// NewMockStateManager creates a new mock instance.
 func NewMockStateManager(ctrl *gomock.Controller) *MockStateManager {
 	mock := &MockStateManager{ctrl: ctrl}
 	mock.recorder = &MockStateManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 	return m.recorder
 }
 
-// NewStateManager mocks base method
+// NewStateManager mocks base method.
 func (m *MockStateManager) NewStateManager(arg0 *config.Config, arg1 ...statemanager.Option) (statemanager.StateManager, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
@@ -62,37 +62,37 @@ func (m *MockStateManager) NewStateManager(arg0 *config.Config, arg1 ...stateman
 	return ret0, ret1
 }
 
-// NewStateManager indicates an expected call of NewStateManager
+// NewStateManager indicates an expected call of NewStateManager.
 func (mr *MockStateManagerMockRecorder) NewStateManager(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStateManager", reflect.TypeOf((*MockStateManager)(nil).NewStateManager), varargs...)
 }
 
-// MockSaveableOption is a mock of SaveableOption interface
+// MockSaveableOption is a mock of SaveableOption interface.
 type MockSaveableOption struct {
 	ctrl     *gomock.Controller
 	recorder *MockSaveableOptionMockRecorder
 }
 
-// MockSaveableOptionMockRecorder is the mock recorder for MockSaveableOption
+// MockSaveableOptionMockRecorder is the mock recorder for MockSaveableOption.
 type MockSaveableOptionMockRecorder struct {
 	mock *MockSaveableOption
 }
 
-// NewMockSaveableOption creates a new mock instance
+// NewMockSaveableOption creates a new mock instance.
 func NewMockSaveableOption(ctrl *gomock.Controller) *MockSaveableOption {
 	mock := &MockSaveableOption{ctrl: ctrl}
 	mock.recorder = &MockSaveableOptionMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSaveableOption) EXPECT() *MockSaveableOptionMockRecorder {
 	return m.recorder
 }
 
-// AddSaveable mocks base method
+// AddSaveable mocks base method.
 func (m *MockSaveableOption) AddSaveable(arg0 string, arg1 statemanager.Saveable) statemanager.Option {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSaveable", arg0, arg1)
@@ -100,7 +100,7 @@ func (m *MockSaveableOption) AddSaveable(arg0 string, arg1 statemanager.Saveable
 	return ret0
 }
 
-// AddSaveable indicates an expected call of AddSaveable
+// AddSaveable indicates an expected call of AddSaveable.
 func (mr *MockSaveableOptionMockRecorder) AddSaveable(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSaveable", reflect.TypeOf((*MockSaveableOption)(nil).AddSaveable), arg0, arg1)

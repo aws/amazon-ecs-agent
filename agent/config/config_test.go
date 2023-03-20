@@ -88,7 +88,6 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)

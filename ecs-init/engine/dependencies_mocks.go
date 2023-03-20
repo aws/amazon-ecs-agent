@@ -25,44 +25,44 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// Mockdownloader is a mock of downloader interface
+// Mockdownloader is a mock of downloader interface.
 type Mockdownloader struct {
 	ctrl     *gomock.Controller
 	recorder *MockdownloaderMockRecorder
 }
 
-// MockdownloaderMockRecorder is the mock recorder for Mockdownloader
+// MockdownloaderMockRecorder is the mock recorder for Mockdownloader.
 type MockdownloaderMockRecorder struct {
 	mock *Mockdownloader
 }
 
-// NewMockdownloader creates a new mock instance
+// NewMockdownloader creates a new mock instance.
 func NewMockdownloader(ctrl *gomock.Controller) *Mockdownloader {
 	mock := &Mockdownloader{ctrl: ctrl}
 	mock.recorder = &MockdownloaderMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *Mockdownloader) EXPECT() *MockdownloaderMockRecorder {
 	return m.recorder
 }
 
-// IsAgentCached mocks base method
-func (m *Mockdownloader) IsAgentCached() bool {
+// AgentCacheStatus mocks base method.
+func (m *Mockdownloader) AgentCacheStatus() cache.CacheStatus {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsAgentCached")
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "AgentCacheStatus")
+	ret0, _ := ret[0].(cache.CacheStatus)
 	return ret0
 }
 
-// IsAgentCached indicates an expected call of IsAgentCached
-func (mr *MockdownloaderMockRecorder) IsAgentCached() *gomock.Call {
+// AgentCacheStatus indicates an expected call of AgentCacheStatus.
+func (mr *MockdownloaderMockRecorder) AgentCacheStatus() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentCached", reflect.TypeOf((*Mockdownloader)(nil).IsAgentCached))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentCacheStatus", reflect.TypeOf((*Mockdownloader)(nil).AgentCacheStatus))
 }
 
-// DownloadAgent mocks base method
+// DownloadAgent mocks base method.
 func (m *Mockdownloader) DownloadAgent() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadAgent")
@@ -70,13 +70,27 @@ func (m *Mockdownloader) DownloadAgent() error {
 	return ret0
 }
 
-// DownloadAgent indicates an expected call of DownloadAgent
+// DownloadAgent indicates an expected call of DownloadAgent.
 func (mr *MockdownloaderMockRecorder) DownloadAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAgent", reflect.TypeOf((*Mockdownloader)(nil).DownloadAgent))
 }
 
-// LoadCachedAgent mocks base method
+// IsAgentCached mocks base method.
+func (m *Mockdownloader) IsAgentCached() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsAgentCached")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsAgentCached indicates an expected call of IsAgentCached.
+func (mr *MockdownloaderMockRecorder) IsAgentCached() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentCached", reflect.TypeOf((*Mockdownloader)(nil).IsAgentCached))
+}
+
+// LoadCachedAgent mocks base method.
 func (m *Mockdownloader) LoadCachedAgent() (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadCachedAgent")
@@ -85,13 +99,13 @@ func (m *Mockdownloader) LoadCachedAgent() (io.ReadCloser, error) {
 	return ret0, ret1
 }
 
-// LoadCachedAgent indicates an expected call of LoadCachedAgent
+// LoadCachedAgent indicates an expected call of LoadCachedAgent.
 func (mr *MockdownloaderMockRecorder) LoadCachedAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadCachedAgent", reflect.TypeOf((*Mockdownloader)(nil).LoadCachedAgent))
 }
 
-// LoadDesiredAgent mocks base method
+// LoadDesiredAgent mocks base method.
 func (m *Mockdownloader) LoadDesiredAgent() (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadDesiredAgent")
@@ -100,13 +114,13 @@ func (m *Mockdownloader) LoadDesiredAgent() (io.ReadCloser, error) {
 	return ret0, ret1
 }
 
-// LoadDesiredAgent indicates an expected call of LoadDesiredAgent
+// LoadDesiredAgent indicates an expected call of LoadDesiredAgent.
 func (mr *MockdownloaderMockRecorder) LoadDesiredAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDesiredAgent", reflect.TypeOf((*Mockdownloader)(nil).LoadDesiredAgent))
 }
 
-// RecordCachedAgent mocks base method
+// RecordCachedAgent mocks base method.
 func (m *Mockdownloader) RecordCachedAgent() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecordCachedAgent")
@@ -114,50 +128,36 @@ func (m *Mockdownloader) RecordCachedAgent() error {
 	return ret0
 }
 
-// RecordCachedAgent indicates an expected call of RecordCachedAgent
+// RecordCachedAgent indicates an expected call of RecordCachedAgent.
 func (mr *MockdownloaderMockRecorder) RecordCachedAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCachedAgent", reflect.TypeOf((*Mockdownloader)(nil).RecordCachedAgent))
 }
 
-// AgentCacheStatus mocks base method
-func (m *Mockdownloader) AgentCacheStatus() cache.CacheStatus {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentCacheStatus")
-	ret0, _ := ret[0].(cache.CacheStatus)
-	return ret0
-}
-
-// AgentCacheStatus indicates an expected call of AgentCacheStatus
-func (mr *MockdownloaderMockRecorder) AgentCacheStatus() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentCacheStatus", reflect.TypeOf((*Mockdownloader)(nil).AgentCacheStatus))
-}
-
-// MockdockerClient is a mock of dockerClient interface
+// MockdockerClient is a mock of dockerClient interface.
 type MockdockerClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockdockerClientMockRecorder
 }
 
-// MockdockerClientMockRecorder is the mock recorder for MockdockerClient
+// MockdockerClientMockRecorder is the mock recorder for MockdockerClient.
 type MockdockerClientMockRecorder struct {
 	mock *MockdockerClient
 }
 
-// NewMockdockerClient creates a new mock instance
+// NewMockdockerClient creates a new mock instance.
 func NewMockdockerClient(ctrl *gomock.Controller) *MockdockerClient {
 	mock := &MockdockerClient{ctrl: ctrl}
 	mock.recorder = &MockdockerClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockdockerClient) EXPECT() *MockdockerClientMockRecorder {
 	return m.recorder
 }
 
-// GetContainerLogTail mocks base method
+// GetContainerLogTail mocks base method.
 func (m *MockdockerClient) GetContainerLogTail(logWindowSize string) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerLogTail", logWindowSize)
@@ -165,13 +165,13 @@ func (m *MockdockerClient) GetContainerLogTail(logWindowSize string) string {
 	return ret0
 }
 
-// GetContainerLogTail indicates an expected call of GetContainerLogTail
+// GetContainerLogTail indicates an expected call of GetContainerLogTail.
 func (mr *MockdockerClientMockRecorder) GetContainerLogTail(logWindowSize interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerLogTail", reflect.TypeOf((*MockdockerClient)(nil).GetContainerLogTail), logWindowSize)
 }
 
-// IsAgentImageLoaded mocks base method
+// IsAgentImageLoaded mocks base method.
 func (m *MockdockerClient) IsAgentImageLoaded() (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAgentImageLoaded")
@@ -180,13 +180,27 @@ func (m *MockdockerClient) IsAgentImageLoaded() (bool, error) {
 	return ret0, ret1
 }
 
-// IsAgentImageLoaded indicates an expected call of IsAgentImageLoaded
+// IsAgentImageLoaded indicates an expected call of IsAgentImageLoaded.
 func (mr *MockdockerClientMockRecorder) IsAgentImageLoaded() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentImageLoaded", reflect.TypeOf((*MockdockerClient)(nil).IsAgentImageLoaded))
 }
 
-// LoadImage mocks base method
+// LoadEnvVars mocks base method.
+func (m *MockdockerClient) LoadEnvVars() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadEnvVars")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// LoadEnvVars indicates an expected call of LoadEnvVars.
+func (mr *MockdockerClientMockRecorder) LoadEnvVars() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadEnvVars", reflect.TypeOf((*MockdockerClient)(nil).LoadEnvVars))
+}
+
+// LoadImage mocks base method.
 func (m *MockdockerClient) LoadImage(image io.Reader) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadImage", image)
@@ -194,13 +208,13 @@ func (m *MockdockerClient) LoadImage(image io.Reader) error {
 	return ret0
 }
 
-// LoadImage indicates an expected call of LoadImage
+// LoadImage indicates an expected call of LoadImage.
 func (mr *MockdockerClientMockRecorder) LoadImage(image interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockdockerClient)(nil).LoadImage), image)
 }
 
-// RemoveExistingAgentContainer mocks base method
+// RemoveExistingAgentContainer mocks base method.
 func (m *MockdockerClient) RemoveExistingAgentContainer() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveExistingAgentContainer")
@@ -208,13 +222,13 @@ func (m *MockdockerClient) RemoveExistingAgentContainer() error {
 	return ret0
 }
 
-// RemoveExistingAgentContainer indicates an expected call of RemoveExistingAgentContainer
+// RemoveExistingAgentContainer indicates an expected call of RemoveExistingAgentContainer.
 func (mr *MockdockerClientMockRecorder) RemoveExistingAgentContainer() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveExistingAgentContainer", reflect.TypeOf((*MockdockerClient)(nil).RemoveExistingAgentContainer))
 }
 
-// StartAgent mocks base method
+// StartAgent mocks base method.
 func (m *MockdockerClient) StartAgent() (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartAgent")
@@ -223,13 +237,13 @@ func (m *MockdockerClient) StartAgent() (int, error) {
 	return ret0, ret1
 }
 
-// StartAgent indicates an expected call of StartAgent
+// StartAgent indicates an expected call of StartAgent.
 func (mr *MockdockerClientMockRecorder) StartAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartAgent", reflect.TypeOf((*MockdockerClient)(nil).StartAgent))
 }
 
-// StopAgent mocks base method
+// StopAgent mocks base method.
 func (m *MockdockerClient) StopAgent() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StopAgent")
@@ -237,50 +251,36 @@ func (m *MockdockerClient) StopAgent() error {
 	return ret0
 }
 
-// StopAgent indicates an expected call of StopAgent
+// StopAgent indicates an expected call of StopAgent.
 func (mr *MockdockerClientMockRecorder) StopAgent() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopAgent", reflect.TypeOf((*MockdockerClient)(nil).StopAgent))
 }
 
-// LoadEnvVars mocks base method
-func (m *MockdockerClient) LoadEnvVars() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadEnvVars")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// LoadEnvVars indicates an expected call of LoadEnvVars
-func (mr *MockdockerClientMockRecorder) LoadEnvVars() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadEnvVars", reflect.TypeOf((*MockdockerClient)(nil).LoadEnvVars))
-}
-
-// MockloopbackRouting is a mock of loopbackRouting interface
+// MockloopbackRouting is a mock of loopbackRouting interface.
 type MockloopbackRouting struct {
 	ctrl     *gomock.Controller
 	recorder *MockloopbackRoutingMockRecorder
 }
 
-// MockloopbackRoutingMockRecorder is the mock recorder for MockloopbackRouting
+// MockloopbackRoutingMockRecorder is the mock recorder for MockloopbackRouting.
 type MockloopbackRoutingMockRecorder struct {
 	mock *MockloopbackRouting
 }
 
-// NewMockloopbackRouting creates a new mock instance
+// NewMockloopbackRouting creates a new mock instance.
 func NewMockloopbackRouting(ctrl *gomock.Controller) *MockloopbackRouting {
 	mock := &MockloopbackRouting{ctrl: ctrl}
 	mock.recorder = &MockloopbackRoutingMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockloopbackRouting) EXPECT() *MockloopbackRoutingMockRecorder {
 	return m.recorder
 }
 
-// Enable mocks base method
+// Enable mocks base method.
 func (m *MockloopbackRouting) Enable() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enable")
@@ -288,13 +288,13 @@ func (m *MockloopbackRouting) Enable() error {
 	return ret0
 }
 
-// Enable indicates an expected call of Enable
+// Enable indicates an expected call of Enable.
 func (mr *MockloopbackRoutingMockRecorder) Enable() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enable", reflect.TypeOf((*MockloopbackRouting)(nil).Enable))
 }
 
-// RestoreDefault mocks base method
+// RestoreDefault mocks base method.
 func (m *MockloopbackRouting) RestoreDefault() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RestoreDefault")
@@ -302,36 +302,36 @@ func (m *MockloopbackRouting) RestoreDefault() error {
 	return ret0
 }
 
-// RestoreDefault indicates an expected call of RestoreDefault
+// RestoreDefault indicates an expected call of RestoreDefault.
 func (mr *MockloopbackRoutingMockRecorder) RestoreDefault() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreDefault", reflect.TypeOf((*MockloopbackRouting)(nil).RestoreDefault))
 }
 
-// MockcredentialsProxyRoute is a mock of credentialsProxyRoute interface
+// MockcredentialsProxyRoute is a mock of credentialsProxyRoute interface.
 type MockcredentialsProxyRoute struct {
 	ctrl     *gomock.Controller
 	recorder *MockcredentialsProxyRouteMockRecorder
 }
 
-// MockcredentialsProxyRouteMockRecorder is the mock recorder for MockcredentialsProxyRoute
+// MockcredentialsProxyRouteMockRecorder is the mock recorder for MockcredentialsProxyRoute.
 type MockcredentialsProxyRouteMockRecorder struct {
 	mock *MockcredentialsProxyRoute
 }
 
-// NewMockcredentialsProxyRoute creates a new mock instance
+// NewMockcredentialsProxyRoute creates a new mock instance.
 func NewMockcredentialsProxyRoute(ctrl *gomock.Controller) *MockcredentialsProxyRoute {
 	mock := &MockcredentialsProxyRoute{ctrl: ctrl}
 	mock.recorder = &MockcredentialsProxyRouteMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockcredentialsProxyRoute) EXPECT() *MockcredentialsProxyRouteMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
+// Create mocks base method.
 func (m *MockcredentialsProxyRoute) Create() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create")
@@ -339,13 +339,13 @@ func (m *MockcredentialsProxyRoute) Create() error {
 	return ret0
 }
 
-// Create indicates an expected call of Create
+// Create indicates an expected call of Create.
 func (mr *MockcredentialsProxyRouteMockRecorder) Create() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Create))
 }
 
-// Remove mocks base method
+// Remove mocks base method.
 func (m *MockcredentialsProxyRoute) Remove() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove")
@@ -353,36 +353,36 @@ func (m *MockcredentialsProxyRoute) Remove() error {
 	return ret0
 }
 
-// Remove indicates an expected call of Remove
+// Remove indicates an expected call of Remove.
 func (mr *MockcredentialsProxyRouteMockRecorder) Remove() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Remove))
 }
 
-// Mockipv6RouterAdvertisements is a mock of ipv6RouterAdvertisements interface
+// Mockipv6RouterAdvertisements is a mock of ipv6RouterAdvertisements interface.
 type Mockipv6RouterAdvertisements struct {
 	ctrl     *gomock.Controller
 	recorder *Mockipv6RouterAdvertisementsMockRecorder
 }
 
-// Mockipv6RouterAdvertisementsMockRecorder is the mock recorder for Mockipv6RouterAdvertisements
+// Mockipv6RouterAdvertisementsMockRecorder is the mock recorder for Mockipv6RouterAdvertisements.
 type Mockipv6RouterAdvertisementsMockRecorder struct {
 	mock *Mockipv6RouterAdvertisements
 }
 
-// NewMockipv6RouterAdvertisements creates a new mock instance
+// NewMockipv6RouterAdvertisements creates a new mock instance.
 func NewMockipv6RouterAdvertisements(ctrl *gomock.Controller) *Mockipv6RouterAdvertisements {
 	mock := &Mockipv6RouterAdvertisements{ctrl: ctrl}
 	mock.recorder = &Mockipv6RouterAdvertisementsMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *Mockipv6RouterAdvertisements) EXPECT() *Mockipv6RouterAdvertisementsMockRecorder {
 	return m.recorder
 }
 
-// Disable mocks base method
+// Disable mocks base method.
 func (m *Mockipv6RouterAdvertisements) Disable() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Disable")
@@ -390,7 +390,7 @@ func (m *Mockipv6RouterAdvertisements) Disable() error {
 	return ret0
 }
 
-// Disable indicates an expected call of Disable
+// Disable indicates an expected call of Disable.
 func (mr *Mockipv6RouterAdvertisementsMockRecorder) Disable() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disable", reflect.TypeOf((*Mockipv6RouterAdvertisements)(nil).Disable))

@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockAuditLogger is a mock of AuditLogger interface
+// MockAuditLogger is a mock of AuditLogger interface.
 type MockAuditLogger struct {
 	ctrl     *gomock.Controller
 	recorder *MockAuditLoggerMockRecorder
 }
 
-// MockAuditLoggerMockRecorder is the mock recorder for MockAuditLogger
+// MockAuditLoggerMockRecorder is the mock recorder for MockAuditLogger.
 type MockAuditLoggerMockRecorder struct {
 	mock *MockAuditLogger
 }
 
-// NewMockAuditLogger creates a new mock instance
+// NewMockAuditLogger creates a new mock instance.
 func NewMockAuditLogger(ctrl *gomock.Controller) *MockAuditLogger {
 	mock := &MockAuditLogger{ctrl: ctrl}
 	mock.recorder = &MockAuditLoggerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAuditLogger) EXPECT() *MockAuditLoggerMockRecorder {
 	return m.recorder
 }
 
-// GetCluster mocks base method
+// GetCluster mocks base method.
 func (m *MockAuditLogger) GetCluster() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCluster")
@@ -56,13 +56,13 @@ func (m *MockAuditLogger) GetCluster() string {
 	return ret0
 }
 
-// GetCluster indicates an expected call of GetCluster
+// GetCluster indicates an expected call of GetCluster.
 func (mr *MockAuditLoggerMockRecorder) GetCluster() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockAuditLogger)(nil).GetCluster))
 }
 
-// GetContainerInstanceArn mocks base method
+// GetContainerInstanceArn mocks base method.
 func (m *MockAuditLogger) GetContainerInstanceArn() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerInstanceArn")
@@ -70,48 +70,48 @@ func (m *MockAuditLogger) GetContainerInstanceArn() string {
 	return ret0
 }
 
-// GetContainerInstanceArn indicates an expected call of GetContainerInstanceArn
+// GetContainerInstanceArn indicates an expected call of GetContainerInstanceArn.
 func (mr *MockAuditLoggerMockRecorder) GetContainerInstanceArn() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerInstanceArn", reflect.TypeOf((*MockAuditLogger)(nil).GetContainerInstanceArn))
 }
 
-// Log mocks base method
+// Log mocks base method.
 func (m *MockAuditLogger) Log(arg0 request.LogRequest, arg1 int, arg2 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Log", arg0, arg1, arg2)
 }
 
-// Log indicates an expected call of Log
+// Log indicates an expected call of Log.
 func (mr *MockAuditLoggerMockRecorder) Log(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockAuditLogger)(nil).Log), arg0, arg1, arg2)
 }
 
-// MockInfoLogger is a mock of InfoLogger interface
+// MockInfoLogger is a mock of InfoLogger interface.
 type MockInfoLogger struct {
 	ctrl     *gomock.Controller
 	recorder *MockInfoLoggerMockRecorder
 }
 
-// MockInfoLoggerMockRecorder is the mock recorder for MockInfoLogger
+// MockInfoLoggerMockRecorder is the mock recorder for MockInfoLogger.
 type MockInfoLoggerMockRecorder struct {
 	mock *MockInfoLogger
 }
 
-// NewMockInfoLogger creates a new mock instance
+// NewMockInfoLogger creates a new mock instance.
 func NewMockInfoLogger(ctrl *gomock.Controller) *MockInfoLogger {
 	mock := &MockInfoLogger{ctrl: ctrl}
 	mock.recorder = &MockInfoLoggerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInfoLogger) EXPECT() *MockInfoLoggerMockRecorder {
 	return m.recorder
 }
 
-// Info mocks base method
+// Info mocks base method.
 func (m *MockInfoLogger) Info(arg0 ...interface{}) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
@@ -121,7 +121,7 @@ func (m *MockInfoLogger) Info(arg0 ...interface{}) {
 	m.ctrl.Call(m, "Info", varargs...)
 }
 
-// Info indicates an expected call of Info
+// Info indicates an expected call of Info.
 func (mr *MockInfoLoggerMockRecorder) Info(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockInfoLogger)(nil).Info), arg0...)

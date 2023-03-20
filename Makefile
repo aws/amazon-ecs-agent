@@ -121,11 +121,10 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 gogenerate:
-	go generate -x ./agent/...
 	$(MAKE) goimports
 
 gogenerate-init:
-	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./ecs-init/...
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./agent/... ./ecs-init/...
 	$(MAKE) goimports
 
 # 'go' may not be on the $PATH for sudo tests
@@ -349,9 +348,8 @@ install-golang:
 	./scripts/install-golang.sh
 
 .get-deps-stamp:
-	go get github.com/golang/mock/mockgen
-	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
-	go get golang.org/x/tools/cmd/goimports
+	go install github.com/golang/mock/mockgen@v1.6.0
+	go install golang.org/x/tools/cmd/goimports@v0.2.0
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 	touch .get-deps-stamp
@@ -359,10 +357,9 @@ install-golang:
 get-deps: .get-deps-stamp
 
 get-deps-init:
-	go get github.com/golang/mock/mockgen
-	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
+	go install github.com/golang/mock/mockgen@v1.6.0
+	go install golang.org/x/tools/cmd/goimports@v0.2.0
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
-	go get golang.org/x/tools/cmd/goimports
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 
 amazon-linux-sources.tgz:

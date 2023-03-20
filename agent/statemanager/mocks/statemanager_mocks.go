@@ -24,30 +24,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockStateManager is a mock of StateManager interface
+// MockStateManager is a mock of StateManager interface.
 type MockStateManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateManagerMockRecorder
 }
 
-// MockStateManagerMockRecorder is the mock recorder for MockStateManager
+// MockStateManagerMockRecorder is the mock recorder for MockStateManager.
 type MockStateManagerMockRecorder struct {
 	mock *MockStateManager
 }
 
-// NewMockStateManager creates a new mock instance
+// NewMockStateManager creates a new mock instance.
 func NewMockStateManager(ctrl *gomock.Controller) *MockStateManager {
 	mock := &MockStateManager{ctrl: ctrl}
 	mock.recorder = &MockStateManagerMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 	return m.recorder
 }
 
-// ForceSave mocks base method
+// ForceSave mocks base method.
 func (m *MockStateManager) ForceSave() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForceSave")
@@ -55,13 +55,13 @@ func (m *MockStateManager) ForceSave() error {
 	return ret0
 }
 
-// ForceSave indicates an expected call of ForceSave
+// ForceSave indicates an expected call of ForceSave.
 func (mr *MockStateManagerMockRecorder) ForceSave() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForceSave", reflect.TypeOf((*MockStateManager)(nil).ForceSave))
 }
 
-// Load mocks base method
+// Load mocks base method.
 func (m *MockStateManager) Load() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load")
@@ -69,13 +69,13 @@ func (m *MockStateManager) Load() error {
 	return ret0
 }
 
-// Load indicates an expected call of Load
+// Load indicates an expected call of Load.
 func (mr *MockStateManagerMockRecorder) Load() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManager)(nil).Load))
 }
 
-// Save mocks base method
+// Save mocks base method.
 func (m *MockStateManager) Save() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save")
@@ -83,7 +83,7 @@ func (m *MockStateManager) Save() error {
 	return ret0
 }
 
-// Save indicates an expected call of Save
+// Save indicates an expected call of Save.
 func (mr *MockStateManagerMockRecorder) Save() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStateManager)(nil).Save))

@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -366,8 +367,8 @@ func TestCreateFirelensResourceWithS3Config(t *testing.T) {
 		mockS3ClientCreator.EXPECT().NewS3ManagerClient("bucket", testRegion, creds.IAMRoleCredentials).Return(mockS3Client, nil),
 		// write external config file downloaded from s3
 		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Do(
-			func(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput) {
+		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any(), gomock.Any()).Do(
+			func(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) {
 				assert.Equal(t, "bucket", aws.StringValue(input.Bucket))
 				assert.Equal(t, "key", aws.StringValue(input.Key))
 			}).Return(int64(0), nil),

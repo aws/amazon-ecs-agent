@@ -26,30 +26,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockS3ClientCreator is a mock of S3ClientCreator interface
+// MockS3ClientCreator is a mock of S3ClientCreator interface.
 type MockS3ClientCreator struct {
 	ctrl     *gomock.Controller
 	recorder *MockS3ClientCreatorMockRecorder
 }
 
-// MockS3ClientCreatorMockRecorder is the mock recorder for MockS3ClientCreator
+// MockS3ClientCreatorMockRecorder is the mock recorder for MockS3ClientCreator.
 type MockS3ClientCreatorMockRecorder struct {
 	mock *MockS3ClientCreator
 }
 
-// NewMockS3ClientCreator creates a new mock instance
+// NewMockS3ClientCreator creates a new mock instance.
 func NewMockS3ClientCreator(ctrl *gomock.Controller) *MockS3ClientCreator {
 	mock := &MockS3ClientCreator{ctrl: ctrl}
 	mock.recorder = &MockS3ClientCreatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockS3ClientCreator) EXPECT() *MockS3ClientCreatorMockRecorder {
 	return m.recorder
 }
 
-// NewS3Client mocks base method
+// NewS3Client mocks base method.
 func (m *MockS3ClientCreator) NewS3Client(arg0 string, arg1 credentials.IAMRoleCredentials) s3.S3Client {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewS3Client", arg0, arg1)
@@ -57,13 +57,13 @@ func (m *MockS3ClientCreator) NewS3Client(arg0 string, arg1 credentials.IAMRoleC
 	return ret0
 }
 
-// NewS3Client indicates an expected call of NewS3Client
+// NewS3Client indicates an expected call of NewS3Client.
 func (mr *MockS3ClientCreatorMockRecorder) NewS3Client(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3Client", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3Client), arg0, arg1)
 }
 
-// NewS3ManagerClient mocks base method
+// NewS3ManagerClient mocks base method.
 func (m *MockS3ClientCreator) NewS3ManagerClient(arg0, arg1 string, arg2 credentials.IAMRoleCredentials) (s3.S3ManagerClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewS3ManagerClient", arg0, arg1, arg2)
@@ -72,7 +72,7 @@ func (m *MockS3ClientCreator) NewS3ManagerClient(arg0, arg1 string, arg2 credent
 	return ret0, ret1
 }
 
-// NewS3ManagerClient indicates an expected call of NewS3ManagerClient
+// NewS3ManagerClient indicates an expected call of NewS3ManagerClient.
 func (mr *MockS3ClientCreatorMockRecorder) NewS3ManagerClient(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewS3ManagerClient", reflect.TypeOf((*MockS3ClientCreator)(nil).NewS3ManagerClient), arg0, arg1, arg2)

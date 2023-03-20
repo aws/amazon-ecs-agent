@@ -25,30 +25,30 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockS3Client is a mock of S3Client interface
+// MockS3Client is a mock of S3Client interface.
 type MockS3Client struct {
 	ctrl     *gomock.Controller
 	recorder *MockS3ClientMockRecorder
 }
 
-// MockS3ClientMockRecorder is the mock recorder for MockS3Client
+// MockS3ClientMockRecorder is the mock recorder for MockS3Client.
 type MockS3ClientMockRecorder struct {
 	mock *MockS3Client
 }
 
-// NewMockS3Client creates a new mock instance
+// NewMockS3Client creates a new mock instance.
 func NewMockS3Client(ctrl *gomock.Controller) *MockS3Client {
 	mock := &MockS3Client{ctrl: ctrl}
 	mock.recorder = &MockS3ClientMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockS3Client) EXPECT() *MockS3ClientMockRecorder {
 	return m.recorder
 }
 
-// GetObject mocks base method
+// GetObject mocks base method.
 func (m *MockS3Client) GetObject(arg0 *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetObject", arg0)
@@ -57,7 +57,7 @@ func (m *MockS3Client) GetObject(arg0 *s3.GetObjectInput) (*s3.GetObjectOutput, 
 	return ret0, ret1
 }
 
-// GetObject indicates an expected call of GetObject
+// GetObject indicates an expected call of GetObject.
 func (mr *MockS3ClientMockRecorder) GetObject(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*MockS3Client)(nil).GetObject), arg0)
