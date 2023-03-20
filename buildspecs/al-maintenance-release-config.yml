@@ -38,6 +38,13 @@ phases:
       # Formatting file by copying over temp file
       - jq . agentVersionV2-${SRC_GITHUB_BRANCH}-COPY.json > agentVersionV2-${SRC_GITHUB_BRANCH}.json
 
+      # Checking if there's no new agent version
+      - |
+        if [[ $RELEASE_VER =~ "${CURR_VER}" ]] ; then
+          echo "Agent release version ${RELEASE_VER} is the same as the current version ${CURR_VER}, exiting..."
+          exit 1
+        fi
+
       # Uploading new agentVersionV2-<branch>.json and agent.json files
       - aws s3 cp ./agentVersionV2-${SRC_GITHUB_BRANCH}.json ${RESULTS_BUCKET_URI}/agentVersionV2/agentVersionV2-${SRC_GITHUB_BRANCH}.json
       - aws s3 cp ./agent.json ${RESULTS_BUCKET_URI}/${SRC_GITHUB_BRANCH}/agent.json
