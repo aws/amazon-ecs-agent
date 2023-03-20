@@ -68,8 +68,8 @@ phases:
 
       # Checking if there's no new agent version
       - |
-        if [[ $RELEASE_VER =~ "${CURR_VER}" ]] ; then
-          echo "Agent release version ${RELEASE_VER} is the same as the current version ${CURR_VER}, exiting..."
+        if [[ $AGENT_VERSION =~ "${CURR_VER}" ]] ; then
+          echo "Agent release version ${AGENT_VERSION} is the same as the current version ${CURR_VER}, exiting..."
           exit 1
         fi
 
