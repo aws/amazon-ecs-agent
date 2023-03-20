@@ -32,9 +32,9 @@ phases:
       # Downloading the agentVersionV2-<branch>.json (it is assumed that it already exists)
       - aws s3 cp ${RESULTS_BUCKET_URI}/agentVersionV2/agentVersionV2-${SRC_GITHUB_BRANCH}.json ./agentVersionV2-${SRC_GITHUB_BRANCH}.json
       # Grabbing the new current and release agent version
-      - CURR_VER=$(jq -r '.releaseAgentVersion' agentVersionV2-${SRC_GITHUB_BRANCH}.json)
+      - CURR_VER=$(jq -r '.agentReleaseVersion' agentVersionV2-${SRC_GITHUB_BRANCH}.json)
       # Outputting updated agentVersion-<branch>.json file
-      - cat <<< $(jq '.releaseAgentVersion = '\"$RELEASE_VER\"' | .currentAgentVersion = '\"$CURR_VER\"'' agentVersionV2-${SRC_GITHUB_BRANCH}.json) > agentVersionV2-${SRC_GITHUB_BRANCH}-COPY.json
+      - cat <<< $(jq '.agentReleaseVersion = '\"$RELEASE_VER\"' | .agentCurrentVersion = '\"$CURR_VER\"'' agentVersionV2-${SRC_GITHUB_BRANCH}.json) > agentVersionV2-${SRC_GITHUB_BRANCH}-COPY.json
       # Formatting file by copying over temp file
       - jq . agentVersionV2-${SRC_GITHUB_BRANCH}-COPY.json > agentVersionV2-${SRC_GITHUB_BRANCH}.json
 
