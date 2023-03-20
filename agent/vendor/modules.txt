@@ -262,7 +262,7 @@ github.com/sirupsen/logrus
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
+# github.com/vishvananda/netlink v1.2.1-beta.2
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
