@@ -84,18 +84,18 @@ ecs-init-${INIT_VERSION}.amzn2.aarch64.rpm
 ecs-init-${INIT_VERSION}.amzn2.aarch64.rpm.asc
 ecs-init-${INIT_VERSION}.amzn2.x86_64.rpm
 ecs-init-${INIT_VERSION}.amzn2.x86_64.rpm.asc
-ecs-init-${INIT_VERSION}.amzn2022.aarch64.rpm
-ecs-init-${INIT_VERSION}.amzn2022.aarch64.rpm.asc
-ecs-init-${INIT_VERSION}.amzn2022.x86_64.rpm
-ecs-init-${INIT_VERSION}.amzn2022.x86_64.rpm.asc
+ecs-init-${INIT_VERSION}.amzn2023.aarch64.rpm
+ecs-init-${INIT_VERSION}.amzn2023.aarch64.rpm.asc
+ecs-init-${INIT_VERSION}.amzn2023.x86_64.rpm
+ecs-init-${INIT_VERSION}.amzn2023.x86_64.rpm.asc
 ecs-init-latest.amzn2.aarch64.rpm
 ecs-init-latest.amzn2.aarch64.rpm.asc
 ecs-init-latest.amzn2.x86_64.rpm
 ecs-init-latest.amzn2.x86_64.rpm.asc
-ecs-init-latest.amzn2022.aarch64.rpm
-ecs-init-latest.amzn2022.aarch64.rpm.asc
-ecs-init-latest.amzn2022.x86_64.rpm
-ecs-init-latest.amzn2022.x86_64.rpm.asc"
+ecs-init-latest.amzn2023.aarch64.rpm
+ecs-init-latest.amzn2023.aarch64.rpm.asc
+ecs-init-latest.amzn2023.x86_64.rpm
+ecs-init-latest.amzn2023.x86_64.rpm.asc"
 
 # verify the files actually exist:
 for f in $files; do
