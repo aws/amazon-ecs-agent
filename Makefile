@@ -286,12 +286,10 @@ goimports:
 
 GOPATH=$(shell go env GOPATH)
 .get-deps-stamp:
-	go get golang.org/x/tools/cmd/cover
-	go get github.com/golang/mock/mockgen
-	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
-	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo/cmd/gocyclo
-	go get honnef.co/go/tools/cmd/staticcheck
+	go install github.com/golang/mock/mockgen@v1.6.0
+	go install golang.org/x/tools/cmd/goimports@v0.2.0
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
