@@ -9,6 +9,8 @@ phases:
     commands:
       # Copy release config
       - aws s3 cp $CODEBUILD_SRC_DIR_JSONArtifact/agent.json "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/agent.json"
+      # Copy the updated agentVersionV2-<branch>.json file
+      - aws s3 cp $CODEBUILD_SRC_DIR_JSONArtifact/agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json "$RESULTS_BUCKET_URI/agentVersionV2/agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json"
       
       # since the buildspecs are the primary artifacts, we need to change directory
       - cd $CODEBUILD_SRC_DIR_SignedArtifact
