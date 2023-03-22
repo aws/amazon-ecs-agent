@@ -290,7 +290,7 @@ GOPATH=$(shell go env GOPATH)
 	echo ${GOPATH}
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	# go get github.com/fzipp/gocyclo/cmd/gocyclo
+	go get github.com/fzipp/gocyclo/cmd/gocyclo
 	# go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
