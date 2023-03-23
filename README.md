@@ -1,6 +1,6 @@
 # Amazon ECS Container Agent
 
-![Amazon ECS logo](doc/ecs.png "Amazon ECS")
+![Amazon ECS logo](doc/ecs.png "Amazon ECS") 
 
 ![Build Status](https://github.com/aws/amazon-ecs-agent/workflows/Build/badge.svg?branch=dev)
 
