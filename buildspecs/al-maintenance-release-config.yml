@@ -3,7 +3,6 @@ version: 0.2
 phases:
   build:
     commands:
-      - GITHUB_SOURCE_BRANCH_NAME=$(echo ${CODEBUILD_WEBHOOK_HEAD_REF} | cut -d "/" -f3-)
       - GITHUB_DEST_BRANCH_NAME=$(echo ${CODEBUILD_WEBHOOK_BASE_REF} | cut -d "/" -f3-)
       - GIT_COMMIT_SHA=$(git rev-parse $GITHUB_DEST_BRANCH_NAME)
       - GIT_COMMIT_SHORT_SHA=$(git rev-parse --short=8 $GITHUB_DEST_BRANCH_NAME)
