@@ -707,6 +707,8 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 }
 
 // taskContainerMetricsUnsafe gets all container metrics for a task arn.
+//
+//gocyclo:ignore
 func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*ecstcs.ContainerMetric, error) {
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
@@ -723,10 +725,20 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		if engine.stopTrackingContainerUnsafe(container, taskArn) {
 			continue
 		}
+		// age is used to determine if we should or should not expect missing metrics.
+		// this is because recently-started containers would normally not have their metrics
+		// queue filled yet.
+		age := time.Since(container.containerMetadata.StartedAt)
+		// gracePeriod is the time that containers are allowed to have missing metrics
+		// without throwing/logging errors.
+		gracePeriod := time.Second * 30
 
 		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
+			if age < gracePeriod {
+				continue
+			}
 			logger.Error("Error collecting cloudwatch metrics for container", logger.Fields{
 				field.Container: dockerID,
 				field.Error:     err,
@@ -735,6 +747,9 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		}
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
+			if age < gracePeriod {
+				continue
+			}
 			logger.Error("Error collecting cloudwatch metrics for container", logger.Fields{
 				field.Container: dockerID,
 				field.Error:     err,
@@ -749,7 +764,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		}
 
 		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
-		if err != nil {
+		if err != nil && age > gracePeriod {
 			logger.Warn("Error getting storage stats for container", logger.Fields{
 				field.Container: dockerID,
 				field.Error:     err,
@@ -777,7 +792,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 						seelog.Debug("Skip adding network stats for pause container in Service Connect enabled task")
 					} else {
 						networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
-						if err != nil {
+						if err != nil && age > gracePeriod {
 							// we log the error and still continue to publish cpu, memory stats
 							logger.Warn("Error getting network stats for container", logger.Fields{
 								field.Container: dockerID,
@@ -795,7 +810,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 					// do not add network stats for pause container
 					if dockerContainer.Container.Type != apicontainer.ContainerCNIPause {
 						networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
-						if err != nil {
+						if err != nil && age > gracePeriod {
 							logger.Warn("Error getting network stats for container", logger.Fields{
 								field.TaskARN:   taskArn,
 								field.Container: dockerContainer.DockerID,

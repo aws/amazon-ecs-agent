@@ -254,7 +254,7 @@ dockerfree-cni-plugins:
 release-agent-internal: dockerfree-certs dockerfree-cni-plugins static
 	./scripts/build-agent-image
 
-# Default Agent target to build. Pulls cni plugins, builds agent image and save it to disk 
+# Default Agent target to build. Pulls cni plugins, builds agent image and save it to disk
 release-agent: get-cni-sources
 	$(MAKE) release-agent-internal
 
@@ -350,7 +350,7 @@ install-golang:
 .get-deps-stamp:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 	touch .get-deps-stamp
 
@@ -359,7 +359,7 @@ get-deps: .get-deps-stamp
 get-deps-init:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 
 amazon-linux-sources.tgz:

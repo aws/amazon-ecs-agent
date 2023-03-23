@@ -39,6 +39,7 @@ func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver 
 			DockerID:    dockerID,
 			Name:        dockerContainer.Container.Name,
 			NetworkMode: dockerContainer.Container.GetNetworkMode(),
+			StartedAt:   dockerContainer.Container.GetStartedAt(),
 		},
 		ctx:      ctx,
 		cancel:   cancel,

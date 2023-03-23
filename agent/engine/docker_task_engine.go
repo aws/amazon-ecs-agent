@@ -1752,6 +1752,15 @@ func (engine *DockerTaskEngine) provisionContainerResourcesAwsvpc(task *apitask.
 		}
 	}
 
+	logger.Info("Setting up CNI config for task", logger.Fields{
+		field.TaskID:        task.GetID(),
+		"cniContainerID":    cniConfig.ContainerID,
+		"cniPluginPath":     cniConfig.PluginsPath,
+		"cniID":             cniConfig.ID,
+		"cniBridgeName":     cniConfig.BridgeName,
+		"cniContainerNetNs": cniConfig.ContainerNetNS,
+	})
+
 	// Invoke the libcni to config the network namespace for the container
 	result, err := engine.cniClient.SetupNS(engine.ctx, cniConfig, cniSetupTimeout)
 	if err != nil {

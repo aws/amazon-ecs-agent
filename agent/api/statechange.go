@@ -149,14 +149,14 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 	}
 	contKnownStatus := cont.GetKnownStatus()
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
-		return event, errors.Errorf(
+		return event, ErrShouldNotSendEvent{fmt.Sprintf(
 			"create container state change event api: status not recognized by ECS: %v",
-			contKnownStatus)
+			contKnownStatus)}
 	}
 	if cont.GetSentStatus() >= contKnownStatus {
-		return event, errors.Errorf(
+		return event, ErrShouldNotSendEvent{fmt.Sprintf(
 			"create container state change event api: status [%s] already sent for container %s, task %s",
-			contKnownStatus.String(), cont.Name, task.Arn)
+			contKnownStatus.String(), cont.Name, task.Arn)}
 	}
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
