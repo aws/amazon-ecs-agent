@@ -37,8 +37,8 @@ Resources:
             Type: PLAINTEXT
             Value: !Ref ReleaseArtifactsBucketS3Uri
           - Name: GITHUB_SOURCE_BRANCH_NAME
-              Type: PLAINTEXT
-              Value: !Ref GithubSourceBranchName
+            Type: PLAINTEXT
+            Value: !Ref GithubSourceBranchName
       Name: !Ref 'AWS::StackName'
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleArn
