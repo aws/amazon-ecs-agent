@@ -286,6 +286,7 @@ goimports:
 
 GOPATH=$(shell go env GOPATH)
 .get-deps-stamp:
+	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
