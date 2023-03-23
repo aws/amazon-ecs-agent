@@ -508,10 +508,6 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
 		})
 	}
-	logger.Info("Task network mode initialized", logger.Fields{
-		field.TaskID:      task.GetID(),
-		field.NetworkMode: task.NetworkMode,
-	})
 }
 
 func (task *Task) initServiceConnectResources() error {

@@ -62,9 +62,10 @@ type UsageStats struct {
 
 // ContainerMetadata contains meta-data information for a container.
 type ContainerMetadata struct {
-	DockerID    string `json:"-"`
-	Name        string `json:"-"`
-	NetworkMode string `json:"-"`
+	DockerID    string    `json:"-"`
+	Name        string    `json:"-"`
+	NetworkMode string    `json:"-"`
+	StartedAt   time.Time `json:"-"`
 }
 
 // TaskMetadata contains meta-data information for a task.

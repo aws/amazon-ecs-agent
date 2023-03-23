@@ -169,62 +169,72 @@ func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
 func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
 	storageStatsSet := &ecstcs.StorageStatsSet{}
 	var err error
+	var errStr string
 	storageStatsSet.ReadSizeBytes, err = queue.getULongStatsSet(getStorageReadBytes)
 	if err != nil {
-		seelog.Warnf("Error getting storage read size bytes: %v", err)
+		errStr += fmt.Sprintf("error getting storage read size bytes: %v - ", err)
 	}
 	storageStatsSet.WriteSizeBytes, err = queue.getULongStatsSet(getStorageWriteBytes)
 	if err != nil {
-		seelog.Warnf("Error getting storage write size bytes: %v", err)
+		errStr += fmt.Sprintf("error getting storage write size bytes: %v - ", err)
 	}
-	return storageStatsSet, err
+	var errOut error
+	if len(errStr) > 0 {
+		errOut = fmt.Errorf(errStr)
+	}
+	return storageStatsSet, errOut
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.
 func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 	networkStatsSet := &ecstcs.NetworkStatsSet{}
 	var err error
+	var errStr string
 	networkStatsSet.RxBytes, err = queue.getULongStatsSet(getNetworkRxBytes)
 	if err != nil {
-		seelog.Warnf("Error getting network rx bytes: %v", err)
+		errStr += fmt.Sprintf("error getting network rx bytes: %v - ", err)
 	}
 	networkStatsSet.RxDropped, err = queue.getULongStatsSet(getNetworkRxDropped)
 	if err != nil {
-		seelog.Warnf("Error getting network rx dropped: %v", err)
+		errStr += fmt.Sprintf("error getting network rx dropped: %v - ", err)
 	}
 	networkStatsSet.RxErrors, err = queue.getULongStatsSet(getNetworkRxErrors)
 	if err != nil {
-		seelog.Warnf("Error getting network rx errors: %v", err)
+		errStr += fmt.Sprintf("error getting network rx errors: %v - ", err)
 	}
 	networkStatsSet.RxPackets, err = queue.getULongStatsSet(getNetworkRxPackets)
 	if err != nil {
-		seelog.Warnf("Error getting network rx packets: %v", err)
+		errStr += fmt.Sprintf("error getting network rx packets: %v - ", err)
 	}
 	networkStatsSet.TxBytes, err = queue.getULongStatsSet(getNetworkTxBytes)
 	if err != nil {
-		seelog.Warnf("Error getting network tx bytes: %v", err)
+		errStr += fmt.Sprintf("error getting network tx bytes: %v - ", err)
 	}
 	networkStatsSet.TxDropped, err = queue.getULongStatsSet(getNetworkTxDropped)
 	if err != nil {
-		seelog.Warnf("Error getting network tx dropped: %v", err)
+		errStr += fmt.Sprintf("error getting network tx dropped: %v - ", err)
 	}
 	networkStatsSet.TxErrors, err = queue.getULongStatsSet(getNetworkTxErrors)
 	if err != nil {
-		seelog.Warnf("Error getting network tx errors: %v", err)
+		errStr += fmt.Sprintf("error getting network tx errors: %v - ", err)
 	}
 	networkStatsSet.TxPackets, err = queue.getULongStatsSet(getNetworkTxPackets)
 	if err != nil {
-		seelog.Warnf("Error getting network tx packets: %v", err)
+		errStr += fmt.Sprintf("error getting network tx packets: %v - ", err)
 	}
 	networkStatsSet.RxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkRxPacketsPerSecond)
 	if err != nil {
-		seelog.Warnf("Error getting network rx bytes per second: %v", err)
+		errStr += fmt.Sprintf("error getting network rx bytes per second: %v - ", err)
 	}
 	networkStatsSet.TxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkTxPacketsPerSecond)
 	if err != nil {
-		seelog.Warnf("Error getting network tx bytes per second: %v", err)
+		errStr += fmt.Sprintf("error getting network tx bytes per second: %v - ", err)
 	}
-	return networkStatsSet, err
+	var errOut error
+	if len(errStr) > 0 {
+		errOut = fmt.Errorf(errStr)
+	}
+	return networkStatsSet, errOut
 }
 
 func getNetworkRxBytes(s *UsageStats) uint64 {
