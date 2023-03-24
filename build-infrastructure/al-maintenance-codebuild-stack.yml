@@ -5,6 +5,7 @@ Parameters:
     GithubFullRepoName:
       Type: String
       Description: Full name of the agent repository to use (e.g. https://github.com/aws/amazon-ecs-agent.git)
+      Default: https://github.com/aws/amazon-ecs-agent.git
     GithubBranchName:
       Type: String
       Description: Name of the base branch to use to build, PRs to which will trigger builds (e.g. refs/heads/AmazonLinuxLegacy)
