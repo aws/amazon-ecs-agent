@@ -1864,7 +1864,6 @@ func TestTaskFromACS(t *testing.T) {
 		Memory:              512,
 		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
-	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})

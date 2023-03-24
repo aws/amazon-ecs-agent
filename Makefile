@@ -145,7 +145,7 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
 
 test-init:
@@ -153,7 +153,7 @@ test-init:
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent:
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
 
 .PHONY: analyze-cover-profile

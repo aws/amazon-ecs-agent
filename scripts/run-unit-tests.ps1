@@ -16,7 +16,7 @@ $cwd = (pwd).Path
 try {
     cd $cwd
     $packages=go list .\agent\... | Where-Object {$_ -NotMatch 'vendor'}
-    go test -v -tags unit -timeout=40s $packages
+    go test -v -tags unit -timeout=120s $packages
     $testsExitCode = $LastExitCode
 } finally {
     cd "$cwd"

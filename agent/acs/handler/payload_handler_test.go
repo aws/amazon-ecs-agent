@@ -217,7 +217,6 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 		NetworkMode:         apitask.BridgeNetworkMode,
 	}
-	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	assert.Equal(t, expectedTask, addedTask, "added task is not expected")
 }
@@ -279,7 +278,6 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		NetworkMode:        apitask.BridgeNetworkMode,
 	}
-	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 	assert.Equal(t, expectedTask, addedTask, "received task is not expected")
 }
 
@@ -458,7 +456,6 @@ func TestPayloadBufferHandler(t *testing.T) {
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		NetworkMode:        apitask.BridgeNetworkMode,
 	}
-	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 	assert.Equal(t, expectedTask, addedTask, "received task is not expected")
 }
 
@@ -693,7 +690,6 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 		NetworkMode:        apitask.BridgeNetworkMode,
 	}
 	expectedTask.SetCredentialsID(expectedTaskCredentials.CredentialsID)
-	expectedTask.GetID() // to set the task setIdOnce (sync.Once) property
 
 	if !reflect.DeepEqual(addedTask, expectedTask) {
 		return fmt.Errorf("Mismatch between expected and added tasks, expected: %v, added: %v", expectedTask, addedTask)
