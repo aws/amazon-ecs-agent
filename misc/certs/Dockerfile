@@ -1,4 +1,4 @@
-FROM debian:buster-20201012-slim
+FROM debian:stable-20201012
 
 RUN apt-get update &&  \
     apt-get install -y ca-certificates && \
