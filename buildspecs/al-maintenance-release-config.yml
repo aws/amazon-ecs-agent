@@ -1,0 +1,9 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - sudo yum -y update
+  build:
+    commands:
+      - cd scripts && ./release-config.sh
