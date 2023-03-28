@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.70.1
+* Enhancement - Update the description of ECS_DYNAMIC_HOST_PORT_RANGE [#3609](https://github.com/aws/amazon-ecs-agent/pull/3609)
+* Enhancement - simplified ACS handler refactor [#3225](https://github.com/aws/amazon-ecs-agent/pull/3225)
+* Fix - change code suite to code services in readme [#3613](https://github.com/aws/amazon-ecs-agent/pull/3613)
+* Fix - Remove scripts/verify-agent-artifacts [#3617](https://github.com/aws/amazon-ecs-agent/pull/3617)
+* Enhancement - logging cleanup for unnecessary warn/error messages [#3621](https://github.com/aws/amazon-ecs-agent/pull/3621)
+* Enhancement - dependency updates [#3458](https://github.com/aws/amazon-ecs-agent/pull/3458), [#3606](https://github.com/aws/amazon-ecs-agent/pull/3606)
+
 ## 1.70.0
 * Enhancement - Update docker client library to latest [#3598](https://github.com/aws/amazon-ecs-agent/pull/3598)
 * Enhancement - Provide imageDigest for images from all container repositories [3576](https://github.com/aws/amazon-ecs-agent/pull/3576)
