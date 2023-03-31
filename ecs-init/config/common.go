@@ -112,6 +112,8 @@ var partitionBucketRegion = map[string]string{
 	endpoints.AwsPartitionID:      endpoints.UsEast1RegionID,
 	endpoints.AwsCnPartitionID:    endpoints.CnNorth1RegionID,
 	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
+	endpoints.AwsIsoPartitionID:   endpoints.UsIsoEast1RegionID,
+	endpoints.AwsIsoBPartitionID:  endpoints.UsIsobEast1RegionID,
 }
 
 // goarch is an injectable GOARCH runtime string. This controls the
