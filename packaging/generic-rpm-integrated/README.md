@@ -1,8 +1,8 @@
 ##Steps to build and install package:
 
-* Install build and install dependencies
+* Install rpm-build and other dependencies
   ```
-  rpm-build make gcc git wget rpmdevtools 
+  yum install rpm-build make gcc git wget rpmdevtools 
   ```
 * Build the package by running 
   ```
