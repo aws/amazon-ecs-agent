@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.70.2
+* Enhancement -  Update README for generic-rpm-integrated [#3631](https://github.com/aws/amazon-ecs-agent/pull/3631)
+* Fix - Add ISO partition for downloading agent appropriately [#3630](https://github.com/aws/amazon-ecs-agent/pull/3630)
+* Fix - Change disable metrics default for Windows in the README to false [#3615](https://github.com/aws/amazon-ecs-agent/pull/3615)
+* Fix - Skip testing memory swappiness for cgroupv2 [#3638](https://github.com/aws/amazon-ecs-agent/pull/3638)
+
 ## 1.70.1
 * Enhancement - Update the description of ECS_DYNAMIC_HOST_PORT_RANGE [#3609](https://github.com/aws/amazon-ecs-agent/pull/3609)
 * Enhancement - simplified ACS handler refactor [#3225](https://github.com/aws/amazon-ecs-agent/pull/3225)
