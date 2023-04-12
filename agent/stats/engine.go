@@ -99,6 +99,10 @@ type DockerStatsEngine struct {
 	taskToServiceConnectStats           map[string]*ServiceConnectStats
 	publishServiceConnectTickerInterval int32
 	publishMetricsTicker                *time.Ticker
+	// channels to send metrics to TACS Client
+	metricsChannel        chan<- ecstcs.TelemetryMessage
+	healthChannel         chan<- ecstcs.HealthMessage
+	instanceStatusChannel chan<- ecstcs.InstanceStatusMessage
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -141,7 +145,9 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
-func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream) *DockerStatsEngine {
+func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream,
+	metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage,
+	instanceStatusChannel chan<- ecstcs.InstanceStatusMessage) *DockerStatsEngine {
 	return &DockerStatsEngine{
 		client:                              client,
 		resolver:                            nil,
@@ -153,6 +159,9 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		taskToServiceConnectStats:           make(map[string]*ServiceConnectStats),
 		containerChangeEventStream:          containerChangeEventStream,
 		publishServiceConnectTickerInterval: 0,
+		metricsChannel:                      metricsChannel,
+		healthChannel:                       healthChannel,
+		instanceStatusChannel:               instanceStatusChannel,
 	}
 }
 
