@@ -1342,37 +1342,6 @@ func TestV4TaskMetadata(t *testing.T) {
 	assert.Equal(t, expectedV4TaskResponse, taskResponse)
 }
 
-func TestV4TaskMetadataError(t *testing.T) {
-	badV3EndpointID := "bad"
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-
-	gomock.InOrder(
-		state.EXPECT().TaskARNByV3EndpointID(badV3EndpointID).Return("", false),
-	)
-
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
-		containerInstanceArn, endpoint, acceptInsecureCert)
-
-	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", v4BasePath+badV3EndpointID+"/task", nil)
-	server.Handler.ServeHTTP(recorder, req)
-	res, err := ioutil.ReadAll(recorder.Body)
-
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusNotFound, recorder.Code)
-	assert.Equal(t,
-		"\"V4 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
-		string(res))
-}
-
 func TestV4TaskMetadataWithPulledContainers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1875,7 +1844,6 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 		"/v4/wrong-v3-endpoint-id",
 		"/v4/",
 		"/v4/stats",
-		"/v4/wrong-v3-endpoint-id/task",
 		"/v4/task",
 	}
 
@@ -1904,6 +1872,52 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 			req.RemoteAddr = remoteIP + ":" + remotePort
 			server.Handler.ServeHTTP(recorder, req)
 			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+		})
+	}
+}
+
+// Tests that v4 metadata endpoints return a 404 error when the v3EndpointID in the request is invalid.
+func TestV4TaskNotFoundError404(t *testing.T) {
+	testCases := []struct {
+		testPath     string
+		expectedBody string
+	}{
+		{
+			testPath:     "/v4/bad/task",
+			expectedBody: "\"V4 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
+		},
+		{
+			testPath:     "/v4/bad/taskWithTags",
+			expectedBody: "\"V4 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		containerInstanceArn, endpoint, acceptInsecureCert)
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Test path: %s", tc.testPath), func(t *testing.T) {
+			// Make every possible call to state fail
+			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false)
+
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", tc.testPath, nil)
+			req.RemoteAddr = remoteIP + ":" + remotePort
+			server.Handler.ServeHTTP(recorder, req)
+			res, err := ioutil.ReadAll(recorder.Body)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotFound, recorder.Code)
+			assert.Equal(t, tc.expectedBody, string(res))
 		})
 	}
 }
