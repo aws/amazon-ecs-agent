@@ -23,7 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/cihub/seelog"
-	"github.com/gorilla/mux"
 )
 
 // TaskMetadataPath specifies the relative URI path for serving task metadata.
@@ -36,17 +35,14 @@ var TaskWithTagsMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMux
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
 func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, vpcID, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		v3EndpointID := mux.Vars(r)[v3.V3EndpointIDMuxName]
-		taskArn, ok := state.TaskARNByV3EndpointID(v3EndpointID)
-		if !ok {
-			errMsg := fmt.Sprintf(
-				"V4 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
-				v3EndpointID)
-			responseJSON, err := json.Marshal(errMsg)
+		var taskArn, err = v3.GetTaskARNByRequest(r, state)
+		if err != nil {
+			ResponseJSON, err := json.Marshal(fmt.Sprintf("V4 task metadata handler: unable to get task arn from request: %s", err.Error()))
+
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeTaskMetadata)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, ResponseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
 
