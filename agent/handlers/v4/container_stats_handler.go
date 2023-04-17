@@ -76,8 +76,7 @@ func WriteV4ContainerStatsResponse(w http.ResponseWriter,
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return
 		}
-		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON,
-			utils.RequestTypeContainerStats)
+		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerStats)
 		return
 	}
 
