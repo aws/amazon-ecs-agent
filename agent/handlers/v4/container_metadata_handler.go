@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/cihub/seelog"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 )
 
@@ -32,16 +33,20 @@ var ContainerMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxNam
 // ContainerMetadataHandler returns the handler method for handling container metadata requests.
 func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		containerID, err := v3.GetContainerIDByRequest(r, state)
-		if err != nil {
-			responseJSON, err := json.Marshal(
-				fmt.Sprintf("V4 container metadata handler: unable to get container ID from request: %s", err.Error()))
+		v3EndpointID := mux.Vars(r)[v3.V3EndpointIDMuxName]
+		containerID, ok := state.DockerIDByV3EndpointID(v3EndpointID)
+		if !ok {
+			errMsg := fmt.Sprintf(
+				"V4 container metadata handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: %s",
+				v3EndpointID)
+			responseJSON, err := json.Marshal(errMsg)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, utils.RequestTypeContainerMetadata)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
+
 		containerResponse, err := GetContainerResponse(containerID, state)
 		if err != nil {
 			errResponseJSON, err := json.Marshal(err.Error())

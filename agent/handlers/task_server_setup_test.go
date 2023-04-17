@@ -1881,6 +1881,7 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 	testCases := []struct {
 		testPath     string
 		expectedBody string
+		taskFound    bool // Mock result for task lookup
 	}{
 		{
 			testPath:     "/v4/bad/task",
@@ -1889,6 +1890,23 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 		{
 			testPath:     "/v4/bad/taskWithTags",
 			expectedBody: "\"V4 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
+		},
+		{
+			testPath:     "/v4/bad",
+			expectedBody: "\"V4 container metadata handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: bad\"",
+		},
+		{
+			testPath:     "/v4/bad/stats",
+			expectedBody: "\"V4 container handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
+		},
+		{
+			testPath:     "/v4/bad/stats",
+			expectedBody: "\"V4 container handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
+			taskFound:    true,
+		},
+		{
+			testPath:     "/v4/bad/stats/task",
+			expectedBody: "\"V4 task stats handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
 		},
 	}
 
@@ -1906,8 +1924,8 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Test path: %s", tc.testPath), func(t *testing.T) {
-			// Make every possible call to state fail
-			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false)
+			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
+			state.EXPECT().DockerIDByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
 
 			recorder := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", tc.testPath, nil)
