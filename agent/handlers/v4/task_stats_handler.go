@@ -40,7 +40,7 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusNotFound, errResponseJSON, utils.RequestTypeContainerStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
 
