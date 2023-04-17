@@ -38,7 +38,6 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 		var taskArn, err = v3.GetTaskARNByRequest(r, state)
 		if err != nil {
 			ResponseJSON, err := json.Marshal(fmt.Sprintf("V4 task metadata handler: unable to get task arn from request: %s", err.Error()))
-
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}

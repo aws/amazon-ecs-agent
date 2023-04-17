@@ -42,7 +42,6 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
-
 		containerResponse, err := GetContainerResponse(containerID, state)
 		if err != nil {
 			errResponseJSON, err := json.Marshal(err.Error())

@@ -29,7 +29,6 @@ var TaskStatsPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils
 
 func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		taskArn, err := v3.GetTaskARNByRequest(r, state)
 		if err != nil {
 			errResponseJSON, err := json.Marshal(fmt.Sprintf("V4 task stats handler: unable to get task arn from request: %s", err.Error()))
@@ -39,7 +38,6 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 			utils.WriteJSONToResponse(w, http.StatusNotFound, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
-
 		WriteV4TaskStatsResponse(w, taskArn, state, statsEngine)
 	}
 }
