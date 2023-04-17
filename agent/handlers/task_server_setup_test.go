@@ -1905,8 +1905,8 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 			taskFound:    true,
 		},
 		{
-			testPath:     "/v4/bad/stats/task",
-			expectedBody: "\"V4 task stats handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
+			testPath:     "/v4/bad/task/stats",
+			expectedBody: "\"V4 task stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
 		},
 	}
 

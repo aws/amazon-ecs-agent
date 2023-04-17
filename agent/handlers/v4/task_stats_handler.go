@@ -23,21 +23,27 @@ import (
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
+	"github.com/gorilla/mux"
 )
 
 var TaskStatsPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task/stats"
 
 func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskArn, err := v3.GetTaskARNByRequest(r, state)
-		if err != nil {
-			errResponseJSON, err := json.Marshal(fmt.Sprintf("V4 task stats handler: unable to get task arn from request: %s", err.Error()))
+		v3EndpointID := mux.Vars(r)[v3.V3EndpointIDMuxName]
+		taskArn, ok := state.TaskARNByV3EndpointID(v3EndpointID)
+		if !ok {
+			errMsg := fmt.Sprintf(
+				"V4 task stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+				v3EndpointID)
+			ResponseJSON, err := json.Marshal(errMsg)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, ResponseJSON, utils.RequestTypeContainerStats)
 			return
 		}
+
 		WriteV4TaskStatsResponse(w, taskArn, state, statsEngine)
 	}
 }
