@@ -148,6 +148,8 @@ endif
 test:
 	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
@@ -156,10 +158,13 @@ test-init:
 test-silent:
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
+	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile.out
+analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
 	./scripts/analyze-cover-profile
+	./scripts/analyze-cover-profile-ecs-agent
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
@@ -434,6 +439,7 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
+	-rm -rf coverprofile-ecs-agent.out
 	-rm -rf coverprofile-init.out
 	# ecs-init & rpm cleanup
 	-rm -f ecs-init.spec
