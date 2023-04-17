@@ -19,6 +19,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1935,6 +1936,55 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, recorder.Code)
+			assert.Equal(t, tc.expectedBody, string(res))
+		})
+	}
+}
+
+// Tests that v4 stats endpoints return a 500 error on unexpected failures
+func TestV4Stats500Error(t *testing.T) {
+	testCases := []struct {
+		testPath     string
+		expectedBody string
+	}{
+		{
+			testPath:     fmt.Sprintf("/v4/%s/stats", v3EndpointID),
+			expectedBody: fmt.Sprintf("\"Unable to get container stats for: %s\"", containerID),
+		},
+		{
+			testPath:     fmt.Sprintf("/v4/%s/task/stats", v3EndpointID),
+			expectedBody: fmt.Sprintf("\"Unable to get task stats for: %s\"", taskARN),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Test path: %s", tc.testPath), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			auditLog := mock_audit.NewMockAuditLogger(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
+
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+				containerInstanceArn, endpoint, acceptInsecureCert)
+
+			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true).AnyTimes()
+			state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true).AnyTimes()
+			state.EXPECT().ContainerMapByArn(taskARN).Return(nil, false).AnyTimes()
+			statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).
+				Return(nil, nil, errors.New("failed")).AnyTimes()
+
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", tc.testPath, nil)
+			req.RemoteAddr = remoteIP + ":" + remotePort
+			server.Handler.ServeHTTP(recorder, req)
+			res, err := ioutil.ReadAll(recorder.Body)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 			assert.Equal(t, tc.expectedBody, string(res))
 		})
 	}

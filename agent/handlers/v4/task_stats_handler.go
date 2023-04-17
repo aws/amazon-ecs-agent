@@ -61,7 +61,8 @@ func WriteV4TaskStatsResponse(w http.ResponseWriter,
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return
 		}
-		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON,
+			utils.RequestTypeTaskStats)
 		return
 	}
 

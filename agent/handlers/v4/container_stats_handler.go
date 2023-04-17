@@ -34,7 +34,6 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 	return func(w http.ResponseWriter, r *http.Request) {
 		v3EndpointID := mux.Vars(r)[v3.V3EndpointIDMuxName]
 		taskArn, ok := state.TaskARNByV3EndpointID(v3EndpointID)
-		fmt.Println("heyhey", taskArn, ok)
 		if !ok {
 			errMsg := fmt.Sprintf(
 				"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
@@ -77,7 +76,8 @@ func WriteV4ContainerStatsResponse(w http.ResponseWriter,
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return
 		}
-		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerStats)
+		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON,
+			utils.RequestTypeContainerStats)
 		return
 	}
 
