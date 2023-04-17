@@ -1897,11 +1897,11 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 		},
 		{
 			testPath:     "/v4/bad/stats",
-			expectedBody: "\"V4 container handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
+			expectedBody: "\"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
 		},
 		{
 			testPath:     "/v4/bad/stats",
-			expectedBody: "\"V4 container handler: unable to get task arn from request:  unable to get task Arn from v3 endpoint ID: bad\"",
+			expectedBody: "\"V4 container stats handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: bad\"",
 			taskFound:    true,
 		},
 		{
@@ -1910,21 +1910,21 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 		},
 	}
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, endpoint, acceptInsecureCert)
-
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Test path: %s", tc.testPath), func(t *testing.T) {
-			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			auditLog := mock_audit.NewMockAuditLogger(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
+
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+				containerInstanceArn, endpoint, acceptInsecureCert)
+
+			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", tc.taskFound).AnyTimes()
 			state.EXPECT().DockerIDByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
 
 			recorder := httptest.NewRecorder()

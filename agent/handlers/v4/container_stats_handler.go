@@ -23,6 +23,7 @@ import (
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
+	"github.com/gorilla/mux"
 )
 
 // ContainerStatsPath specifies the relative URI path for serving container stats.
@@ -31,23 +32,31 @@ var ContainerStatsPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, 
 // ContainerStatsHandler returns the handler method for handling container stats requests.
 func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskArn, err := v3.GetTaskARNByRequest(r, state)
-		if err != nil {
-			errResponseJSON, err := json.Marshal(fmt.Sprintf("V4 container handler: unable to get task arn from request: %s", err.Error()))
+		v3EndpointID := mux.Vars(r)[v3.V3EndpointIDMuxName]
+		taskArn, ok := state.TaskARNByV3EndpointID(v3EndpointID)
+		fmt.Println("heyhey", taskArn, ok)
+		if !ok {
+			errMsg := fmt.Sprintf(
+				"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+				v3EndpointID)
+			ResponseJSON, err := json.Marshal(errMsg)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, ResponseJSON, utils.RequestTypeContainerStats)
 			return
 		}
 
-		containerID, err := v3.GetContainerIDByRequest(r, state)
-		if err != nil {
-			responseJSON, err := json.Marshal(fmt.Sprintf("V4 container stats handler: unable to get container ID from request: %s", err.Error()))
+		containerID, ok := state.DockerIDByV3EndpointID(v3EndpointID)
+		if !ok {
+			errMsg := fmt.Sprintf(
+				"V4 container stats handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: %s",
+				v3EndpointID)
+			responseJSON, err := json.Marshal(errMsg)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerStats)
 			return
 		}
 
