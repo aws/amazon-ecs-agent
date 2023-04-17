@@ -1800,8 +1800,6 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 		"/v3/wrong-v3-endpoint-id/stats",
 		"/v3/wrong-v3-endpoint-id/task/stats",
 		"/v3/task/stats",
-		"/v4/wrong-v3-endpoint-id/stats",
-		"/v4/wrong-v3-endpoint-id/task/stats",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference/dev1",
 	}
@@ -1842,10 +1840,6 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 		"/v3/stats",
 		"/v3/wrong-v3-endpoint-id/task",
 		"/v3/task",
-		"/v4/wrong-v3-endpoint-id",
-		"/v4/",
-		"/v4/stats",
-		"/v4/task",
 	}
 
 	ctrl := gomock.NewController(t)
@@ -1895,6 +1889,10 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 		{
 			testPath:     "/v4/bad",
 			expectedBody: "\"V4 container metadata handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: bad\"",
+		},
+		{
+			testPath:     "/v4/",
+			expectedBody: "\"V4 container metadata handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: \"",
 		},
 		{
 			testPath:     "/v4/bad/stats",
