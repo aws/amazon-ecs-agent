@@ -1939,8 +1939,9 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 	}
 }
 
-// Tests that v4 stats endpoints return a 500 error on unexpected failures
-func TestV4Stats500Error(t *testing.T) {
+// Tests that v4 metadata and stats endpoints return a 500 error on unexpected failures
+// like tasks or container unexpectedly missing from the state.
+func TestV4Unexpected500Error(t *testing.T) {
 	testCases := []struct {
 		testPath     string
 		expectedBody string
@@ -1952,6 +1953,14 @@ func TestV4Stats500Error(t *testing.T) {
 		{
 			testPath:     fmt.Sprintf("/v4/%s/task/stats", v3EndpointID),
 			expectedBody: fmt.Sprintf("\"Unable to get task stats for: %s\"", taskARN),
+		},
+		{
+			testPath:     fmt.Sprintf("/v4/%s", v3EndpointID),
+			expectedBody: fmt.Sprintf("\"unable to generate metadata for container '%s'\"", containerID),
+		},
+		{
+			testPath:     fmt.Sprintf("/v4/%s/task", v3EndpointID),
+			expectedBody: fmt.Sprintf("\"Unable to generate metadata for v4 task: '%s'\"", taskARN),
 		},
 	}
 
@@ -1969,9 +1978,14 @@ func TestV4Stats500Error(t *testing.T) {
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
 				containerInstanceArn, endpoint, acceptInsecureCert)
 
+			// Initial lookups succeed
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true).AnyTimes()
 			state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true).AnyTimes()
+
+			// Failures when getting metadata or stats
 			state.EXPECT().ContainerMapByArn(taskARN).Return(nil, false).AnyTimes()
+			state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes()
+			state.EXPECT().TaskByArn(taskARN).Return(nil, false).AnyTimes()
 			statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).
 				Return(nil, nil, errors.New("failed")).AnyTimes()
 
