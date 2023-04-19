@@ -50,22 +50,19 @@ func newCall(t TestHelper, receiver interface{}, method string, methodType refle
 	t.Helper()
 
 	// TODO: check arity, types.
-	mArgs := make([]Matcher, len(args))
+	margs := make([]Matcher, len(args))
 	for i, arg := range args {
 		if m, ok := arg.(Matcher); ok {
-			mArgs[i] = m
+			margs[i] = m
 		} else if arg == nil {
 			// Handle nil specially so that passing a nil interface value
 			// will match the typed nils of concrete args.
-			mArgs[i] = Nil()
+			margs[i] = Nil()
 		} else {
-			mArgs[i] = Eq(arg)
+			margs[i] = Eq(arg)
 		}
 	}
 
-	// callerInfo's skip should be updated if the number of calls between the user's test
-	// and this line changes, i.e. this code is wrapped in another anonymous function.
-	// 0 is us, 1 is RecordCallWithMethodType(), 2 is the generated recorder, and 3 is the user's test.
 	origin := callerInfo(3)
 	actions := []func([]interface{}) []interface{}{func([]interface{}) []interface{} {
 		// Synthesize the zero value for each of the return args' types.
@@ -76,7 +73,7 @@ func newCall(t TestHelper, receiver interface{}, method string, methodType refle
 		return rets
 	}}
 	return &Call{t: t, receiver: receiver, method: method, methodType: methodType,
-		args: mArgs, origin: origin, minCalls: 1, maxCalls: 1, actions: actions}
+		args: margs, origin: origin, minCalls: 1, maxCalls: 1, actions: actions}
 }
 
 // AnyTimes allows the expectation to be called 0 or more times
@@ -113,25 +110,19 @@ func (c *Call) DoAndReturn(f interface{}) *Call {
 	v := reflect.ValueOf(f)
 
 	c.addAction(func(args []interface{}) []interface{} {
-		c.t.Helper()
-		vArgs := make([]reflect.Value, len(args))
+		vargs := make([]reflect.Value, len(args))
 		ft := v.Type()
-		if c.methodType.NumIn() != ft.NumIn() {
-			c.t.Fatalf("wrong number of arguments in DoAndReturn func for %T.%v: got %d, want %d [%s]",
-				c.receiver, c.method, ft.NumIn(), c.methodType.NumIn(), c.origin)
-			return nil
-		}
 		for i := 0; i < len(args); i++ {
 			if args[i] != nil {
-				vArgs[i] = reflect.ValueOf(args[i])
+				vargs[i] = reflect.ValueOf(args[i])
 			} else {
 				// Use the zero value for the arg.
-				vArgs[i] = reflect.Zero(ft.In(i))
+				vargs[i] = reflect.Zero(ft.In(i))
 			}
 		}
-		vRets := v.Call(vArgs)
-		rets := make([]interface{}, len(vRets))
-		for i, ret := range vRets {
+		vrets := v.Call(vargs)
+		rets := make([]interface{}, len(vrets))
+		for i, ret := range vrets {
 			rets[i] = ret.Interface()
 		}
 		return rets
@@ -148,23 +139,17 @@ func (c *Call) Do(f interface{}) *Call {
 	v := reflect.ValueOf(f)
 
 	c.addAction(func(args []interface{}) []interface{} {
-		c.t.Helper()
-		if c.methodType.NumIn() != v.Type().NumIn() {
-			c.t.Fatalf("wrong number of arguments in Do func for %T.%v: got %d, want %d [%s]",
-				c.receiver, c.method, v.Type().NumIn(), c.methodType.NumIn(), c.origin)
-			return nil
-		}
-		vArgs := make([]reflect.Value, len(args))
+		vargs := make([]reflect.Value, len(args))
 		ft := v.Type()
 		for i := 0; i < len(args); i++ {
 			if args[i] != nil {
-				vArgs[i] = reflect.ValueOf(args[i])
+				vargs[i] = reflect.ValueOf(args[i])
 			} else {
 				// Use the zero value for the arg.
-				vArgs[i] = reflect.Zero(ft.In(i))
+				vargs[i] = reflect.Zero(ft.In(i))
 			}
 		}
-		v.Call(vArgs)
+		v.Call(vargs)
 		return nil
 	})
 	return c
@@ -316,9 +301,14 @@ func (c *Call) matches(args []interface{}) error {
 
 		for i, m := range c.args {
 			if !m.Matches(args[i]) {
+				got := fmt.Sprintf("%v", args[i])
+				if gs, ok := m.(GotFormatter); ok {
+					got = gs.Got(args[i])
+				}
+
 				return fmt.Errorf(
 					"expected call at %s doesn't match the argument at index %d.\nGot: %v\nWant: %v",
-					c.origin, i, formatGottenArg(m, args[i]), m,
+					c.origin, i, got, m,
 				)
 			}
 		}
@@ -341,7 +331,7 @@ func (c *Call) matches(args []interface{}) error {
 				// Non-variadic args
 				if !m.Matches(args[i]) {
 					return fmt.Errorf("expected call at %s doesn't match the argument at index %s.\nGot: %v\nWant: %v",
-						c.origin, strconv.Itoa(i), formatGottenArg(m, args[i]), m)
+						c.origin, strconv.Itoa(i), args[i], m)
 				}
 				continue
 			}
@@ -365,12 +355,12 @@ func (c *Call) matches(args []interface{}) error {
 			// matches all the remaining arguments or the lack of any.
 			// Convert the remaining arguments, if any, into a slice of the
 			// expected type.
-			vArgsType := c.methodType.In(c.methodType.NumIn() - 1)
-			vArgs := reflect.MakeSlice(vArgsType, 0, len(args)-i)
+			vargsType := c.methodType.In(c.methodType.NumIn() - 1)
+			vargs := reflect.MakeSlice(vargsType, 0, len(args)-i)
 			for _, arg := range args[i:] {
-				vArgs = reflect.Append(vArgs, reflect.ValueOf(arg))
+				vargs = reflect.Append(vargs, reflect.ValueOf(arg))
 			}
-			if m.Matches(vArgs.Interface()) {
+			if m.Matches(vargs.Interface()) {
 				// Got Foo(a, b, c, d, e) want Foo(matcherA, matcherB, gomock.Any())
 				// Got Foo(a, b, c, d, e) want Foo(matcherA, matcherB, someSliceMatcher)
 				// Got Foo(a, b) want Foo(matcherA, matcherB, gomock.Any())
@@ -383,16 +373,16 @@ func (c *Call) matches(args []interface{}) error {
 			// Got Foo(a, b, c, d) want Foo(matcherA, matcherB, matcherC, matcherD, matcherE)
 			// Got Foo(a, b, c, d, e) want Foo(matcherA, matcherB, matcherC, matcherD)
 			// Got Foo(a, b, c) want Foo(matcherA, matcherB)
+			return fmt.Errorf("Expected call at %s doesn't match the argument at index %s.\nGot: %v\nWant: %v",
+				c.origin, strconv.Itoa(i), args[i:], c.args[i])
 
-			return fmt.Errorf("expected call at %s doesn't match the argument at index %s.\nGot: %v\nWant: %v",
-				c.origin, strconv.Itoa(i), formatGottenArg(m, args[i:]), c.args[i])
 		}
 	}
 
 	// Check that all prerequisite calls have been satisfied.
 	for _, preReqCall := range c.preReqs {
 		if !preReqCall.satisfied() {
-			return fmt.Errorf("expected call at %s doesn't have a prerequisite call satisfied:\n%v\nshould be called before:\n%v",
+			return fmt.Errorf("Expected call at %s doesn't have a prerequisite call satisfied:\n%v\nshould be called before:\n%v",
 				c.origin, preReqCall, c)
 		}
 	}
@@ -434,12 +424,4 @@ func setSlice(arg interface{}, v reflect.Value) {
 
 func (c *Call) addAction(action func([]interface{}) []interface{}) {
 	c.actions = append(c.actions, action)
-}
-
-func formatGottenArg(m Matcher, arg interface{}) string {
-	got := fmt.Sprintf("%v (%T)", arg, arg)
-	if gs, ok := m.(GotFormatter); ok {
-		got = gs.Got(arg)
-	}
-	return got
 }
