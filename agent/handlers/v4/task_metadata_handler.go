@@ -41,11 +41,19 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, ResponseJSON, utils.RequestTypeTaskMetadata)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, ResponseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
 
-		task, _ := state.TaskByArn(taskArn)
+		task, ok := state.TaskByArn(taskArn)
+		if !ok {
+			errResponseJson, err := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
+			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJson, utils.RequestTypeTaskMetadata)
+			return
+		}
 
 		seelog.Infof("V4 taskMetadata handler: Writing response for task '%s'", taskArn)
 

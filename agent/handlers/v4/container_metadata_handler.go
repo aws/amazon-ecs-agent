@@ -39,7 +39,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, utils.RequestTypeContainerMetadata)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		containerResponse, err := GetContainerResponse(containerID, state)

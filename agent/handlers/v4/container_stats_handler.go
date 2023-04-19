@@ -37,7 +37,7 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
 
@@ -47,7 +47,7 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerStats)
 			return
 		}
 
@@ -68,7 +68,7 @@ func WriteV4ContainerStatsResponse(w http.ResponseWriter,
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return
 		}
-		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerStats)
+		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerStats)
 		return
 	}
 
