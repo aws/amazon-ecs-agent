@@ -27,7 +27,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	mock_io "github.com/aws/amazon-ecs-agent/agent/acs/update_handler/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -36,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	mock_http "github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
 	mock_client "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

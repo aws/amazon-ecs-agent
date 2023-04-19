@@ -14,9 +14,9 @@
 package handler
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )

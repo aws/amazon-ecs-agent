@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -37,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"

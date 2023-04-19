@@ -19,7 +19,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -30,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"

@@ -21,7 +21,7 @@ import (
 
 	"github.com/cihub/seelog"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
