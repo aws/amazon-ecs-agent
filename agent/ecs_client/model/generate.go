@@ -14,4 +14,4 @@
 package model
 
 // codegen tag required by AWS SDK generators
-//go:generate go run -tags codegen ../../gogenerate/awssdk.go -typesOnly=false -copyright_file ../../../scripts/copyright_file
+//go:generate go run -tags codegen ../../../ecs-agent/gogenerate/awssdk.go -typesOnly=false -copyright_file ../../../scripts/copyright_file

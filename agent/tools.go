@@ -17,5 +17,8 @@
 package tools
 
 import (
+	_ "github.com/aws/aws-sdk-go/private/model/api"
+	_ "github.com/aws/aws-sdk-go/private/util"
 	_ "github.com/golang/mock/mockgen/model"
+	_ "golang.org/x/tools/imports"
 )
