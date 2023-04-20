@@ -38,3 +38,5 @@ jobs:
           make analyze-cover-profile
           make test-init
           make analyze-cover-profile-init
+          make test-ecs-agent
+          make analyze-cover-profile-ecs-agent

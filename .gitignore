@@ -19,8 +19,8 @@ _bin/
 /misc/taskmetadata-validator/taskmetadata-validator
 /bin
 *.iml
-cover.out
-coverprofile.out
+cover*.out
+coverprofile*.out
 /amazon-ecs-init*
 /BUILDROOT/
 /x86_64/

@@ -146,8 +146,12 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./handlers -run=${TestName} && cd ..
 	go tool cover -func cover.out > coverprofile.out
+
+test-ecs-agent:
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../ecs-agent-cover.out -timeout=120s ./... -run=${TestName} && cd ..
+	go tool cover -func cover-ecs-agent.out > coverprofile-ecs-agent.out
 
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
@@ -159,11 +163,15 @@ test-silent:
 
 .PHONY: analyze-cover-profile
 analyze-cover-profile: coverprofile.out
-	./scripts/analyze-cover-profile
+	./scripts/analyze-cover-profile coverprofile.out
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
-	./scripts/analyze-cover-profile-init
+	./scripts/analyze-cover-profile coverprofile-init.out
+
+.PHONY: analyze-cover-profile-ecs-agent
+analyze-cover-profile-ecs-agent: ecs-agent-coverprofile.out
+	./scripts/analyze-cover-profile coverprofile-ecs-agent.out
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
@@ -338,6 +346,12 @@ static-check-init: gocyclo govet importcheck gogenerate-check-init
 	# use default checks of staticcheck tool, except style checks (-ST*)
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
 	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-init/...
+
+.PHONY: static-check-ecs-agent
+static-check-ecs-agent: gocyclo govet importcheck 
+	# use default checks of staticcheck tool, except style checks (-ST*)
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-agent/...
 
 .PHONY: goimports
 goimports:
