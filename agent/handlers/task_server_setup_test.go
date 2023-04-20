@@ -1952,9 +1952,10 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_api.NewMockECSClient(ctrl)
 
-			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
+			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
 				containerInstanceArn, endpoint, acceptInsecureCert)
+			require.NoError(t, err)
 
 			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", tc.taskFound).AnyTimes()
 			state.EXPECT().DockerIDByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
@@ -2007,9 +2008,10 @@ func TestV4Unexpected500Error(t *testing.T) {
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_api.NewMockECSClient(ctrl)
 
-			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
+			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
 				containerInstanceArn, endpoint, acceptInsecureCert)
+			require.NoError(t, err)
 
 			// Initial lookups succeed
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true).AnyTimes()
