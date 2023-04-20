@@ -3,6 +3,7 @@ module github.com/aws/amazon-ecs-agent/agent
 go 1.19
 
 require (
+	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
@@ -10,7 +11,6 @@ require (
 	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.9.1
 	github.com/deniswernert/udev v0.0.0-20170418162847-a12666f7b5a1
-	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/docker/docker v20.10.23+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
@@ -45,6 +45,7 @@ require (
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/didip/tollbooth v4.0.2+incompatible // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -71,3 +72,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent

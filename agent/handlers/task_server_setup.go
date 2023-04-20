@@ -16,7 +16,6 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -24,7 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	agentAPITaskProtectionV1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
-	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
@@ -32,8 +30,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 	"github.com/cihub/seelog"
-	"github.com/didip/tollbooth"
 	"github.com/gorilla/mux"
 )
 
@@ -48,7 +47,7 @@ const (
 )
 
 func taskServerSetup(credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger,
+	auditLogger auditinterface.AuditLogger,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
 	cluster string,
@@ -60,7 +59,8 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	vpcID string,
 	containerInstanceArn string,
 	apiEndpoint string,
-	acceptInsecureCert bool) *http.Server {
+	acceptInsecureCert bool) (*http.Server, error) {
+
 	muxRouter := mux.NewRouter()
 
 	// Set this to false so that for request like "//v3//metadata/task"
@@ -78,28 +78,13 @@ func taskServerSetup(credentialsManager credentials.Manager,
 
 	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, region, apiEndpoint, acceptInsecureCert)
 
-	limiter := tollbooth.NewLimiter(float64(steadyStateRate), nil)
-	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
-	limiter.SetBurst(burstRate)
-
-	// Log all requests and then pass through to muxRouter.
-	loggingMuxRouter := mux.NewRouter()
-
-	// rootPath is a path for any traffic to this endpoint, "root" mux name will not be used.
-	rootPath := "/" + handlersutils.ConstructMuxVar("root", handlersutils.AnythingRegEx)
-	loggingMuxRouter.Handle(rootPath, tollbooth.LimitHandler(
-		limiter, NewLoggingHandler(muxRouter)))
-
-	loggingMuxRouter.SkipClean(false)
-
-	server := http.Server{
-		Addr:         "127.0.0.1:" + strconv.Itoa(config.AgentCredentialsPort),
-		Handler:      loggingMuxRouter,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-	}
-
-	return &server
+	return tmds.NewServer(auditLogger,
+		tmds.WithRouter(muxRouter),
+		tmds.WithListenAddress(tmds.IPv6),
+		tmds.WithReadTimeout(readTimeout),
+		tmds.WithWriteTimeout(writeTimeout),
+		tmds.WithSteadyStateRate(float64(steadyStateRate)),
+		tmds.WithBurstRate(burstRate))
 }
 
 // v2HandlersSetup adds all handlers in v2 package to the mux router.
@@ -109,7 +94,7 @@ func v2HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger,
+	auditLogger auditinterface.AuditLogger,
 	availabilityZone string,
 	containerInstanceArn string) {
 	muxRouter.HandleFunc(v2.CredentialsPath, v2.CredentialsHandler(credentialsManager, auditLogger))
@@ -199,9 +184,13 @@ func ServeTaskHTTPEndpoint(
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, cfg.AWSRegion, statsEngine,
+	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, cfg.AWSRegion, statsEngine,
 		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, vpcID, containerInstanceArn, cfg.APIEndpoint,
 		cfg.AcceptInsecureCert)
+	if err != nil {
+		seelog.Errorf("Failed to set up Task Metadata Server: %v", err)
+		return
+	}
 
 	go func() {
 		<-ctx.Done()

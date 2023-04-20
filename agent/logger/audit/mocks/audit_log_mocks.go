@@ -21,7 +21,7 @@ package mock_audit
 import (
 	reflect "reflect"
 
-	request "github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
+	request "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	gomock "github.com/golang/mock/gomock"
 )
 
