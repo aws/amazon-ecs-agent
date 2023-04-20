@@ -24,6 +24,9 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
+# github.com/davecgh/go-spew v1.1.1
+## explicit
+github.com/davecgh/go-spew/spew
 # github.com/didip/tollbooth v4.0.2+incompatible
 ## explicit
 github.com/didip/tollbooth
@@ -39,6 +42,12 @@ github.com/jmespath/go-jmespath
 # github.com/patrickmn/go-cache v2.1.0+incompatible
 ## explicit
 github.com/patrickmn/go-cache
+# github.com/pmezard/go-difflib v1.0.0
+## explicit
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.8.2
+## explicit; go 1.13
+github.com/stretchr/testify/assert
 # golang.org/x/mod v0.8.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
@@ -67,3 +76,6 @@ golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/typeparams
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
+gopkg.in/yaml.v3

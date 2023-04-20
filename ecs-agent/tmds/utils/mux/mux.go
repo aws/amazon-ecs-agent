@@ -15,6 +15,12 @@ package mux
 const (
 	// AnythingRegEx is a regex pattern that matches anything.
 	AnythingRegEx = ".*"
+
+	// AnythingButSlashRegEx is a regex pattern that matches any string without slash.
+	AnythingButSlashRegEx = "[^/]*"
+
+	// AnythingButEmptyRegEx is a regex pattern that matches anything but an empty string.
+	AnythingButEmptyRegEx = ".+"
 )
 
 // ConstructMuxVar constructs the mux var that is used in the gorilla/mux styled
