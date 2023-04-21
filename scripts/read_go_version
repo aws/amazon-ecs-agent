@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eou pipefail
 go_version=$(cat -e GO_VERSION)
 go_version=${go_version%?}
