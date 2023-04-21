@@ -23,26 +23,8 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           ./scripts/static_check static-check
-
-  init-check:
-    name: Static Analysis Init
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
-      - name: get GO_VERSION
-        id: get-go-version
-        run:  |
-          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          ./scripts/read_go_version >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - name: run static checks
-        run: |
-          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           ./scripts/static_check static-check-init
+          ./scripts/static_check static-check-ecs-agent
 
   x-platform-build:
     name: Cross platform build
@@ -55,16 +37,7 @@ jobs:
         id: get-go-version
         run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          set -eou pipefail
-          go_version=$(cat -e GO_VERSION)
-          go_version=${go_version%?}
-          go_version_length=${#go_version}
-          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
-          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
-            echo "invalid GO version"
-            exit 1
-          fi
-          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+          ./scripts/read_go_version >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}

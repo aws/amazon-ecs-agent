@@ -339,6 +339,12 @@ static-check-init: gocyclo govet importcheck gogenerate-check-init
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
 	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-init/...
 
+.PHONY: static-check-ecs-agent
+static-check-ecs-agent: gocyclo govet importcheck
+	# use default checks of staticcheck tool, except style checks (-ST*)
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-agent/...
+
 .PHONY: goimports
 goimports:
 	goimports -w $(GOFMTFILES)
