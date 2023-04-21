@@ -1,4 +1,6 @@
 #!/bin/bash
+# Reads the Go version used for Agent on Linux platform from GO_VERSION file.
+# Outputs the version in GO_VERSION=<version> format.
 set -eou pipefail
 go_version=$(cat -e GO_VERSION)
 go_version=${go_version%?}
