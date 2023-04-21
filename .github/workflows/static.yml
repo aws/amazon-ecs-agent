@@ -30,7 +30,7 @@ jobs:
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - name: run static checks
-        run: ./scripts/static_check static-check
+        run: $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/scripts/static_check static-check
 
   init-check:
     name: Static Analysis Init
@@ -54,7 +54,7 @@ jobs:
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
       - name: run static checks
-        run: ./scripts/static_check static-check-init
+        run: $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/scripts/static_check static-check-init
 
   x-platform-build:
     name: Cross platform build
