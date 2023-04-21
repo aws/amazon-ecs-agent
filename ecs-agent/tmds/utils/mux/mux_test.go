@@ -15,8 +15,10 @@
 // permissions and limitations under the license.
 package mux
 
-import "testing"
-import "github.com/stretchr/testify/assert"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func TestConstructMuxVar(t *testing.T) {
 	testCases := []struct {
