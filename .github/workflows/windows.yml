@@ -41,3 +41,6 @@ jobs:
           $env:ZZZ_SKIP_WINDOWS_SERVER_VERSION_CHECK_NOT_SUPPORTED_IN_PRODUCTION = 'true'
           $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
           go test -v -tags unit -timeout=120s $packages
+          cd ../ecs-agent
+          $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
+          go test -v -tags unit -timeout=120s $packages
