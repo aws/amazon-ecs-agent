@@ -16,16 +16,7 @@ jobs:
         id: get-go-version
         run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          set -eou pipefail
-          go_version=$(cat -e GO_VERSION)
-          go_version=${go_version%?}
-          go_version_length=${#go_version}
-          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
-          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
-            echo "invalid GO version"
-            exit 1
-          fi
-          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+          ./scripts/read_go_version >> $GITHUB_OUTPUT
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
@@ -38,3 +29,5 @@ jobs:
           make analyze-cover-profile
           make test-init
           make analyze-cover-profile-init
+          make test-ecs-agent
+          make analyze-cover-profile-ecs-agent
