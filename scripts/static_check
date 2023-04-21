@@ -1,0 +1,7 @@
+#!/bin/sh
+export GOPATH=$GITHUB_WORKSPACE
+export PATH=$PATH:$(go env GOPATH)/bin
+export GO111MODULE=auto
+cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+make get-deps
+make $0

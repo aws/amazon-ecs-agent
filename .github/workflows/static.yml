@@ -12,16 +12,25 @@ jobs:
       - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
-      - id: setup
-        uses: ./setup_repo_action
-      - name: run static checks
-        run: |
-          export GOPATH=$GITHUB_WORKSPACE
-          export PATH=$PATH:$(go env GOPATH)/bin
-          export GO111MODULE=auto
+      - name: get GO_VERSION
+        id: get-go-version
+        run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make get-deps
-          make static-check
+          set -eou pipefail
+          go_version=$(cat -e GO_VERSION)
+          go_version=${go_version%?}
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "invalid GO version"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
+      - name: run static checks
+        run: ./scripts/static_check static-check
 
   init-check:
     name: Static Analysis Init
@@ -30,16 +39,22 @@ jobs:
       - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
-      - id: setup
-        uses: ./setup_repo_action
-      - name: run static checks
-        run: |
-          export GOPATH=$GITHUB_WORKSPACE
-          export PATH=$PATH:$(go env GOPATH)/bin
-          export GO111MODULE=auto
+      - name: get GO_VERSION
+        id: get-go-version
+        run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make get-deps-init
-          make static-check-init
+          set -eou pipefail
+          go_version=$(cat -e GO_VERSION)
+          go_version=${go_version%?}
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "invalid GO version"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - name: run static checks
+        run: ./scripts/static_check static-check-init
 
   x-platform-build:
     name: Cross platform build
