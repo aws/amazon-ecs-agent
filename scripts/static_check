@@ -1,4 +1,5 @@
 #!/bin/sh
+cd "$(dirname "$0")"
 export GOPATH=$GITHUB_WORKSPACE
 export PATH=$PATH:$(go env GOPATH)/bin
 export GO111MODULE=auto
