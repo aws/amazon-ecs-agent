@@ -33,12 +33,8 @@ jobs:
           path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
         run: |
-          export GOPATH=$GITHUB_WORKSPACE
-          export PATH=$PATH:$(go env GOPATH)/bin
-          export GO111MODULE=auto
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make get-deps
-          make static-check
+          ./scripts/static_check static-check
 
   init-check:
     name: Static Analysis Init
@@ -69,12 +65,8 @@ jobs:
           path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
         run: |
-          export GOPATH=$GITHUB_WORKSPACE
-          export PATH=$PATH:$(go env GOPATH)/bin
-          export GO111MODULE=auto
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make get-deps-init
-          make static-check-init
+          ./scripts/static_check static-check-init
 
   x-platform-build:
     name: Cross platform build
