@@ -3,9 +3,6 @@ description: 'Sets up the repository to run checks'
 runs:
   using: "composite"
     steps:
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
         id: get-go-version
         run:  |
