@@ -13,7 +13,7 @@ jobs:
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - id: setup
-        uses: ./actions/setup_repo
+        uses: ./setup_repo_action
       - name: run static checks
         run: |
           export GOPATH=$GITHUB_WORKSPACE
@@ -31,7 +31,7 @@ jobs:
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - id: setup
-        uses: ./actions/setup_repo
+        uses: ./setup_repo_action
       - name: run static checks
         run: |
           export GOPATH=$GITHUB_WORKSPACE
