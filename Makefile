@@ -160,12 +160,13 @@ test-silent:
 	go tool cover -func cover.out > coverprofile.out
 
 .PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile.out
-	./scripts/analyze-cover-profile
+analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
+	./scripts/analyze-cover-profile coverprofile.out
+	./scripts/analyze-cover-profile coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
-	./scripts/analyze-cover-profile-init
+	./scripts/analyze-cover-profile coverprofile-init.out
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
@@ -334,6 +335,7 @@ static-check: gocyclo govet importcheck gogenerate-check
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
 	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./ecs-agent/...
 
 .PHONY: static-check-init
 static-check-init: gocyclo govet importcheck gogenerate-check-init
