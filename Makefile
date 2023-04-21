@@ -153,17 +153,25 @@ test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
 
+test-ecs-agent:
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover-ecs-agent.out -timeout=120s ./... && cd ..
+	go tool cover -func cover-ecs-agent.out > coverprofile-ecs-agent.out
+
 test-silent:
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
 
 .PHONY: analyze-cover-profile
 analyze-cover-profile: coverprofile.out
-	./scripts/analyze-cover-profile
+	./scripts/analyze-cover-profile coverprofile.out
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
-	./scripts/analyze-cover-profile-init
+	./scripts/analyze-cover-profile coverprofile-init.out
+
+.PHONY: analyze-cover-profile-ecs-agent
+analyze-cover-profile-ecs-agent: coverprofile-ecs-agent.out
+	./scripts/analyze-cover-profile coverprofile-ecs-agent.out
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
