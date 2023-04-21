@@ -22,9 +22,13 @@ jobs:
       - name: run static checks
         run: |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          ./scripts/static_check static-check
-          ./scripts/static_check static-check-init
-          ./scripts/static_check static-check-ecs-agent
+          export GOPATH=$GITHUB_WORKSPACE
+          export PATH=$PATH:$(go env GOPATH)/bin
+          export GO111MODULE=auto
+          make get-deps
+          make static-check
+          make static-check-init
+          make static-check-ecs-agent
 
   x-platform-build:
     name: Cross platform build
