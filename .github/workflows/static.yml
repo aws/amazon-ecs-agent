@@ -19,9 +19,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
         run: |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
@@ -42,9 +39,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v3
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
       - name: run static checks
         run: |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
