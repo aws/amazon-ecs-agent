@@ -4,6 +4,8 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.36.0
+	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/tools v0.6.0
 )

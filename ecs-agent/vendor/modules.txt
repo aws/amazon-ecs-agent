@@ -17,12 +17,22 @@ github.com/aws/aws-sdk-go/private/model/api
 github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/util
+# github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
+## explicit
+github.com/cihub/seelog
+github.com/cihub/seelog/archive
+github.com/cihub/seelog/archive/gzip
+github.com/cihub/seelog/archive/tar
+github.com/cihub/seelog/archive/zip
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
+# github.com/pkg/errors v0.9.1
+## explicit
+github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
