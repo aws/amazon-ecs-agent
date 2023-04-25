@@ -1,15 +1,15 @@
-// copyright amazon.com inc. or its affiliates. all rights reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
-// licensed under the apache license, version 2.0 (the "license"). you may
-// not use this file except in compliance with the license. a copy of the
-// license is located at
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
 //
 //	http://aws.amazon.com/apache2.0/
 //
-// or in the "license" file accompanying this file. this file is distributed
-// on an "as is" basis, without warranties or conditions of any kind, either
-// express or implied. see the license for the specific language governing
-// permissions and limitations under the license.
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
 
 //go:generate mockgen -destination=mocks/mock_audit_logger.go -copyright_file=../../../scripts/copyright_file . AuditLogger
 
