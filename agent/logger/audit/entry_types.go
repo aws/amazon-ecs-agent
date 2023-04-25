@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	log "github.com/cihub/seelog"
 )
 
