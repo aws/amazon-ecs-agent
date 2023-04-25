@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.71.0
+* Enhancement - update docker client library to latest in ecs-init [#3635](https://github.com/aws/amazon-ecs-agent/pull/3635)
+* Enhancement - Update vendor directory of agent package. [#3645](https://github.com/aws/amazon-ecs-agent/pull/3645)
+* Enhancement - Add ecs-agent/ ACS model and cleanup gogenerate make [#3643](https://github.com/aws/amazon-ecs-agent/pull/3643)
+* Enhancement - Integrate ecs-agent module with CI. Add make targets for ecs-agent module [#3651](https://github.com/aws/amazon-ecs-agent/pull/3651)
+* Fix - Fix misleading error response codes for v4 metadata and stats endpoints for TMDE. The endpoints will now return a 404 Not Found error code when task/container is not found and a 500 Internal Server Error on unexpected failures. TMDE clients that branch logic based on error response status codes will behave differently. For example, clients that retry on 5XX errors but not on 4XX errors will no longer perform futile retries [#3644](https://github.com/aws/amazon-ecs-agent/pull/3644)
+
 ## 1.70.2
 * Enhancement -  Update README for generic-rpm-integrated [#3631](https://github.com/aws/amazon-ecs-agent/pull/3631)
 * Fix - Add ISO partition for downloading agent appropriately [#3630](https://github.com/aws/amazon-ecs-agent/pull/3630)
