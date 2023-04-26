@@ -30,7 +30,7 @@ func TestNewServerErrors(t *testing.T) {
 		assert.EqualError(t, err, "listenAddress cannot be empty")
 	})
 	t.Run("router is required", func(t *testing.T) {
-		_, err := NewServer(nil, WithListenAddress(IPv4))
+		_, err := NewServer(nil, WithListenAddress(AddressIPv4()))
 		assert.EqualError(t, err, "router cannot be nil")
 	})
 }
@@ -43,13 +43,17 @@ func TestServerSettings(t *testing.T) {
 	readTimeout := 10 * time.Second
 
 	server, err := NewServer(nil,
-		WithListenAddress(IPv6),
+		WithListenAddress(AddressIPv4()),
 		WithRouter(router),
 		WithWriteTimeout(writeTimeout),
 		WithReadTimeout(readTimeout))
 
 	require.NoError(t, err)
-	assert.Equal(t, IPv6, server.Addr)
+	assert.Equal(t, AddressIPv4(), server.Addr)
 	assert.Equal(t, writeTimeout, server.WriteTimeout)
 	assert.Equal(t, readTimeout, server.ReadTimeout)
+}
+
+func TestAddressIPv4(t *testing.T) {
+	assert.Equal(t, "127.0.0.1:51679", AddressIPv4())
 }
