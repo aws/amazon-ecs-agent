@@ -80,7 +80,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithRouter(muxRouter),
-		tmds.WithListenAddress(tmds.IPv6),
+		tmds.WithListenAddress(tmds.IPv4),
 		tmds.WithReadTimeout(readTimeout),
 		tmds.WithWriteTimeout(writeTimeout),
 		tmds.WithSteadyStateRate(float64(steadyStateRate)),
