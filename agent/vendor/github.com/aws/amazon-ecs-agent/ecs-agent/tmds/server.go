@@ -14,6 +14,7 @@ package tmds
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -27,9 +28,14 @@ import (
 )
 
 const (
-	IPv4 = "127.0.0.1:51679"
-	IPv6 = "[::1]:51679"
+	// TMDS port
+	Port = 51679
 )
+
+// IPv4 address for TMDS
+func AddressIPv4() string {
+	return fmt.Sprintf("127.0.0.1:%d", Port)
+}
 
 type Config struct {
 	listenAddress   string
