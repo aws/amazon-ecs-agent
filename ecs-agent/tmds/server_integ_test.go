@@ -18,6 +18,7 @@ package tmds
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -29,28 +30,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Tests that the server returned by NewServer() has request rate limiter set up
+// Tests that the request rate limits of a server created using NewServer() has effect.
 func TestRequestRateLimiter(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// Setup a simple router with a simple handler
-	router := mux.NewRouter()
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Hello world")
-	})
-
-	overLimitCallCount := 5
+	overLimitCallCount := 5 // number of requests that will exceed the rate limits
+	serverAddress := "127.0.0.1:3598"
 
 	// Setup a mock audit logger, audit logger is used for logging over limit calls
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	auditLogger := mock_audit.NewMockAuditLogger(ctrl)
 	auditLogger.EXPECT().
 		Log(gomock.Any(), http.StatusTooManyRequests, "").
 		Times(overLimitCallCount).
 		Return()
 
-	serverAddress := "127.0.0.1:3598"
+	// Setup a simple router with a simple handler
+	router := mux.NewRouter()
+	router.HandleFunc("/", helloWorldHandler())
 
 	// Setup the server with a low rate limit for testing
 	server, err := NewServer(auditLogger,
@@ -62,24 +58,12 @@ func TestRequestRateLimiter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start the server
-	go func() {
-		err := server.ListenAndServe()
-		if !errors.Is(err, http.ErrServerClosed) {
-			require.NoError(t, err)
-		}
-	}()
+	startServer(t, server)
 	defer server.Close()
 
 	client := http.DefaultClient
-
-	// wait for the server to come up
-	for i := 0; i < 5; i++ {
-		_, err = client.Get("http://" + serverAddress)
-		if err == nil {
-			break // server is up now
-		}
-		time.Sleep(1 * time.Second)
-	}
+	err = waitForServer(client, serverAddress)
+	require.NoError(t, err)
 
 	// send quick requests to exceed the rate limit and assert that they fail with 429
 	for i := 0; i < overLimitCallCount; i++ {
@@ -87,4 +71,74 @@ func TestRequestRateLimiter(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusTooManyRequests, res.StatusCode)
 	}
+}
+
+// Tests that the Write Timeout setting of a server created using NewServer() has effect.
+func TestRequestWriteTimeout(t *testing.T) {
+	// Setup a simple router with a simple hello world handler and a slow handler
+	router := mux.NewRouter()
+	router.HandleFunc("/", helloWorldHandler())
+	router.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
+		// add fake delay to the handler
+		time.Sleep(100 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "Hello world")
+	})
+
+	serverAddress := "127.0.0.1:3599"
+
+	// Setup the server with a low write timeout for testing
+	server, err := NewServer(nil,
+		WithRouter(router),
+		WithListenAddress(serverAddress),
+		WithWriteTimeout(50*time.Millisecond),
+		WithSteadyStateRate(10),
+		WithBurstRate(10),
+	)
+	require.NoError(t, err)
+
+	// Start the server
+	startServer(t, server)
+	defer server.Close()
+
+	client := http.DefaultClient
+	err = waitForServer(client, serverAddress)
+	require.NoError(t, err)
+
+	// An EOF error is expected when write timeout is exceeded
+	_, err = client.Get("http://" + serverAddress + "/slow")
+	require.ErrorIs(t, err, io.EOF)
+}
+
+// Returns an HTTP handler that responds with "Hello world"
+func helloWorldHandler() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "Hello world")
+	}
+}
+
+// Waits for the server to come up. Checks if the server is up by sending
+// repeated requests to it.
+func waitForServer(client *http.Client, serverAddress string) error {
+	var err error
+	// wait for the server to come up
+	for i := 0; i < 10; i++ {
+		_, err = client.Get("http://" + serverAddress)
+		if err == nil {
+			return nil // server is up now
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out waiting for server %s to come up: %w", serverAddress, err)
+}
+
+// Starts the HTTP server in a new goroutine
+func startServer(t *testing.T, server *http.Server) {
+	go func() {
+		err := server.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			require.NoError(t, err)
+		}
+	}()
 }
