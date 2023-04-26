@@ -1,3 +1,6 @@
+//go:build tools
+// +build tools
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,6 +14,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package audit
+package tools
 
-//go:generate mockgen -destination=mocks/audit_log_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/logger/audit InfoLogger
+// Some packages are required by tools we use but are not used explicitly in the code.
+// Import those packages so that they are copied to the vendor directory by go mod.
+import (
+	_ "github.com/golang/mock/mockgen/model"
+)

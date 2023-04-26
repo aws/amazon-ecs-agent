@@ -3,6 +3,7 @@ module github.com/aws/amazon-ecs-agent/agent
 go 1.19
 
 require (
+	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
@@ -71,3 +72,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent

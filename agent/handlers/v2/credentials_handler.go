@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/gorilla/mux"
 )
 
@@ -40,7 +40,7 @@ const (
 var CredentialsPath = credentials.V2CredentialsPath + "/" + utils.ConstructMuxVar(credentialsIDMuxName, utils.AnythingRegEx)
 
 // CredentialsHandler creates response for the 'v2/credentials' API.
-func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
+func CredentialsHandler(credentialsManager credentials.Manager, auditLogger auditinterface.AuditLogger) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credentialsID := getCredentialsID(r)
 		errPrefix := fmt.Sprintf("CredentialsV%dRequest: ", apiVersion)

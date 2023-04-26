@@ -22,8 +22,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	"github.com/cihub/seelog"
 )
 
@@ -57,7 +58,7 @@ const (
 
 // CredentialsHandler creates response for the 'v1/credentials' API. It returns a JSON response
 // containing credentials when found. The HTTP status code of 400 is returned otherwise.
-func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
+func CredentialsHandler(credentialsManager credentials.Manager, auditLogger auditinterface.AuditLogger) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		credentialsID := getCredentialsID(r)
 		errPrefix := fmt.Sprintf("CredentialsV%dRequest: ", apiVersion)
@@ -67,7 +68,7 @@ func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audi
 
 // CredentialsHandlerImpl is the major logic in CredentialsHandler, abstract this out
 // because v2.CredentialsHandler also uses the same logic.
-func CredentialsHandlerImpl(w http.ResponseWriter, r *http.Request, auditLogger audit.AuditLogger, credentialsManager credentials.Manager, credentialsID string, errPrefix string) {
+func CredentialsHandlerImpl(w http.ResponseWriter, r *http.Request, auditLogger auditinterface.AuditLogger, credentialsManager credentials.Manager, credentialsID string, errPrefix string) {
 	responseJSON, arn, roleType, errorMessage, err := processCredentialsRequest(credentialsManager, r, credentialsID, errPrefix)
 	if err != nil {
 		errResponseJSON, err := json.Marshal(errorMessage)
@@ -139,7 +140,7 @@ func processCredentialsRequest(credentialsManager credentials.Manager, r *http.R
 	return credentialsJSON, credentials.ARN, credentials.IAMRoleCredentials.RoleType, nil, nil
 }
 
-func writeCredentialsRequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger audit.AuditLogger, message []byte) {
+func writeCredentialsRequestResponse(w http.ResponseWriter, r *http.Request, httpStatusCode int, eventType string, arn string, auditLogger auditinterface.AuditLogger, message []byte) {
 	auditLogger.Log(request.LogRequest{Request: r, ARN: arn}, httpStatusCode, eventType)
 
 	handlersutils.WriteJSONToResponse(w, httpStatusCode, message, handlersutils.RequestTypeCreds)

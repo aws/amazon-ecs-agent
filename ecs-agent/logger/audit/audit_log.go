@@ -11,6 +11,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+//go:generate mockgen -destination=mocks/mock_audit_logger.go -copyright_file=../../../scripts/copyright_file . AuditLogger
+
 package audit
 
-//go:generate mockgen -destination=mocks/audit_log_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/logger/audit InfoLogger
+import "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+
+type AuditLogger interface {
+	Log(r request.LogRequest, httpResponseCode int, eventType string)
+	GetContainerInstanceArn() string
+	GetCluster() string
+}

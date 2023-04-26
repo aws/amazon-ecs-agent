@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/cihub/seelog"
 	"github.com/didip/tollbooth"
 	"github.com/gorilla/mux"
@@ -48,7 +49,7 @@ const (
 )
 
 func taskServerSetup(credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger,
+	auditLogger auditinterface.AuditLogger,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
 	cluster string,
@@ -109,7 +110,7 @@ func v2HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger,
+	auditLogger auditinterface.AuditLogger,
 	availabilityZone string,
 	containerInstanceArn string) {
 	muxRouter.HandleFunc(v2.CredentialsPath, v2.CredentialsHandler(credentialsManager, auditLogger))
