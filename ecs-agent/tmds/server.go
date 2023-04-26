@@ -28,26 +28,30 @@ import (
 )
 
 const (
-	// TMDS port
+	// TMDS IP and port
+	IPv4 = "127.0.0.1"
 	Port = 51679
 )
 
 // IPv4 address for TMDS
 func AddressIPv4() string {
-	return fmt.Sprintf("127.0.0.1:%d", Port)
+	return fmt.Sprintf("%s:%d", IPv4, Port)
 }
 
+// Configuration for TMDS
 type Config struct {
-	listenAddress   string
-	readTimeout     time.Duration
-	writeTimeout    time.Duration
-	steadyStateRate float64
-	burstRate       int
-	router          *mux.Router
+	listenAddress   string        // http server listen address
+	readTimeout     time.Duration // http server read timeout
+	writeTimeout    time.Duration // http server write timeout
+	steadyStateRate float64       // steady request rate limit
+	burstRate       int           // burst request rate limit
+	router          *mux.Router   // router with routes configured
 }
 
+// Function type for updating TMDS config
 type ConfigOpt func(*Config) error
 
+// Set TMDS listen address
 func WithListenAddress(listenAddr string) ConfigOpt {
 	return func(c *Config) error {
 		c.listenAddress = listenAddr
@@ -55,6 +59,7 @@ func WithListenAddress(listenAddr string) ConfigOpt {
 	}
 }
 
+// Set TMDS read timeout
 func WithReadTimeout(readTimeout time.Duration) ConfigOpt {
 	return func(c *Config) error {
 		c.readTimeout = readTimeout
@@ -62,6 +67,7 @@ func WithReadTimeout(readTimeout time.Duration) ConfigOpt {
 	}
 }
 
+// Set TMDS write timeout
 func WithWriteTimeout(writeTimeout time.Duration) ConfigOpt {
 	return func(c *Config) error {
 		c.writeTimeout = writeTimeout
@@ -69,6 +75,7 @@ func WithWriteTimeout(writeTimeout time.Duration) ConfigOpt {
 	}
 }
 
+// Set TMDS steady request rate limit
 func WithSteadyStateRate(steadyStateRate float64) ConfigOpt {
 	return func(c *Config) error {
 		c.steadyStateRate = steadyStateRate
@@ -76,6 +83,7 @@ func WithSteadyStateRate(steadyStateRate float64) ConfigOpt {
 	}
 }
 
+// Set TMDS burst request rate limit
 func WithBurstRate(burstRate int) ConfigOpt {
 	return func(c *Config) error {
 		c.burstRate = burstRate
@@ -83,6 +91,7 @@ func WithBurstRate(burstRate int) ConfigOpt {
 	}
 }
 
+// Set TMDS router
 func WithRouter(router *mux.Router) ConfigOpt {
 	return func(c *Config) error {
 		c.router = router
@@ -90,6 +99,7 @@ func WithRouter(router *mux.Router) ConfigOpt {
 	}
 }
 
+// Create a new HTTP Task Metadata Server (TMDS)
 func NewServer(auditLogger audit.AuditLogger, options ...ConfigOpt) (*http.Server, error) {
 	config := new(Config)
 	for _, opt := range options {
@@ -98,10 +108,10 @@ func NewServer(auditLogger audit.AuditLogger, options ...ConfigOpt) (*http.Serve
 		}
 	}
 
-	return setup(auditLogger, *config)
+	return setup(auditLogger, config)
 }
 
-func setup(auditLogger audit.AuditLogger, config Config) (*http.Server, error) {
+func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) {
 	if config.listenAddress == "" {
 		return nil, errors.New("listenAddress cannot be empty")
 	}
