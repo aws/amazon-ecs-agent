@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -108,6 +109,47 @@ func TestRequestWriteTimeout(t *testing.T) {
 	// An EOF error is expected when write timeout is exceeded
 	_, err = client.Get("http://" + serverAddress + "/slow")
 	require.ErrorIs(t, err, io.EOF)
+}
+
+// Tests that the server initialized with NewServer() preserves the routes on the
+// passed router instance.
+func TestRoutes(t *testing.T) {
+	// Setup a simple router with a couple of routes
+	router := mux.NewRouter()
+	router.HandleFunc("/", helloWorldHandler())
+	router.HandleFunc("/products/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "id:"+mux.Vars(r)["id"])
+	})
+
+	// setup the server
+	serverAddress := "127.0.0.1:3600"
+	server, err := NewServer(nil,
+		WithRouter(router),
+		WithListenAddress(serverAddress),
+		WithSteadyStateRate(10),
+		WithBurstRate(10),
+	)
+	require.NoError(t, err)
+
+	// Start the server
+	startServer(t, server)
+	defer server.Close()
+
+	// wait for the server to come up
+	client := http.DefaultClient
+	err = waitForServer(client, serverAddress)
+	require.NoError(t, err)
+
+	// send a test request to /products/{id} endpoint and read the body
+	res, err := client.Get("http://" + serverAddress + "/products/5")
+	require.NoError(t, err)
+	body, err := ioutil.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	// assertions
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, "id:5", string(body))
 }
 
 // Returns an HTTP handler that responds with "Hello world"
