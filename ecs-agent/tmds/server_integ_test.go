@@ -167,11 +167,11 @@ func waitForServer(client *http.Client, serverAddress string) error {
 	var err error
 	// wait for the server to come up
 	for i := 0; i < 10; i++ {
+		time.Sleep(100 * time.Millisecond)
 		_, err = client.Get("http://" + serverAddress)
 		if err == nil {
 			return nil // server is up now
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 	return fmt.Errorf("timed out waiting for server %s to come up: %w", serverAddress, err)
 }
