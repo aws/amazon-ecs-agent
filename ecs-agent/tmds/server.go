@@ -18,13 +18,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/didip/tollbooth"
-	"github.com/gorilla/mux"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging"
 	muxutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux"
+
+	"github.com/didip/tollbooth"
+	"github.com/gorilla/mux"
 )
 
 const (
