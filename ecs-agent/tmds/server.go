@@ -49,53 +49,47 @@ type Config struct {
 }
 
 // Function type for updating TMDS config
-type ConfigOpt func(*Config) error
+type ConfigOpt func(*Config)
 
 // Set TMDS listen address
 func WithListenAddress(listenAddr string) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.listenAddress = listenAddr
-		return nil
 	}
 }
 
 // Set TMDS read timeout
 func WithReadTimeout(readTimeout time.Duration) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.readTimeout = readTimeout
-		return nil
 	}
 }
 
 // Set TMDS write timeout
 func WithWriteTimeout(writeTimeout time.Duration) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.writeTimeout = writeTimeout
-		return nil
 	}
 }
 
 // Set TMDS steady request rate limit
 func WithSteadyStateRate(steadyStateRate float64) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.steadyStateRate = steadyStateRate
-		return nil
 	}
 }
 
 // Set TMDS burst request rate limit
 func WithBurstRate(burstRate int) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.burstRate = burstRate
-		return nil
 	}
 }
 
 // Set TMDS router
 func WithRouter(router *mux.Router) ConfigOpt {
-	return func(c *Config) error {
+	return func(c *Config) {
 		c.router = router
-		return nil
 	}
 }
 
@@ -103,18 +97,13 @@ func WithRouter(router *mux.Router) ConfigOpt {
 func NewServer(auditLogger audit.AuditLogger, options ...ConfigOpt) (*http.Server, error) {
 	config := new(Config)
 	for _, opt := range options {
-		if err := opt(config); err != nil {
-			return nil, err
-		}
+		opt(config)
 	}
 
 	return setup(auditLogger, config)
 }
 
 func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) {
-	if config.listenAddress == "" {
-		return nil, errors.New("listenAddress cannot be empty")
-	}
 	if config.router == nil {
 		return nil, errors.New("router cannot be nil")
 	}

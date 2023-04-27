@@ -25,10 +25,6 @@ import (
 )
 
 func TestNewServerErrors(t *testing.T) {
-	t.Run("listenAddress is required", func(t *testing.T) {
-		_, err := NewServer(nil)
-		assert.EqualError(t, err, "listenAddress cannot be empty")
-	})
 	t.Run("router is required", func(t *testing.T) {
 		_, err := NewServer(nil, WithListenAddress(AddressIPv4()))
 		assert.EqualError(t, err, "router cannot be nil")
