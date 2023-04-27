@@ -16,7 +16,8 @@
 FROM amazon/amazon-ecs-scratch:make
 
 COPY out/amazon-ecs-agent /agent
-COPY ["LICENSE", "NOTICE", "THIRD-PARTY", "/"]
+COPY ["LICENSE", "NOTICE", "/"]
+COPY agent/THIRD_PARTY.md /THIRD_PARTY
 
 COPY out/amazon-ecs-pause.tar /images/amazon-ecs-pause.tar
 
