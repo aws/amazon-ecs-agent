@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/hectane/go-acl/api"
 	"github.com/stretchr/testify/assert"
@@ -83,7 +84,7 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 		DockerReservedPort,
 		DockerReservedSSLPort,
 		AgentIntrospectionPort,
-		AgentCredentialsPort,
+		tmds.Port,
 		rdpPort,
 		rpcPort,
 		smbPort,

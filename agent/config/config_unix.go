@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 )
 
 const (
@@ -61,7 +62,7 @@ const (
 func DefaultConfig() Config {
 	return Config{
 		DockerEndpoint:                      "unix:///var/run/docker.sock",
-		ReservedPorts:                       []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		ReservedPorts:                       []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, tmds.Port},
 		ReservedPortsUDP:                    []uint16{},
 		DataDir:                             "/data/",
 		DataDirOnHost:                       "/var/lib/ecs",
