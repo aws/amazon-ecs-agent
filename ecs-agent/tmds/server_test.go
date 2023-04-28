@@ -25,9 +25,9 @@ import (
 )
 
 func TestNewServerErrors(t *testing.T) {
-	t.Run("router is required", func(t *testing.T) {
+	t.Run("handler is required", func(t *testing.T) {
 		_, err := NewServer(nil, WithListenAddress(AddressIPv4()))
-		assert.EqualError(t, err, "router cannot be nil")
+		assert.EqualError(t, err, "handler cannot be nil")
 	})
 }
 
@@ -40,7 +40,7 @@ func TestServerSettings(t *testing.T) {
 
 	server, err := NewServer(nil,
 		WithListenAddress(AddressIPv4()),
-		WithRouter(router),
+		WithHandler(router),
 		WithWriteTimeout(writeTimeout),
 		WithReadTimeout(readTimeout))
 
