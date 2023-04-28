@@ -25,6 +25,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/cihub/seelog"
 	"github.com/hectane/go-acl/api"
@@ -103,7 +104,7 @@ func DefaultConfig() Config {
 			DockerReservedPort,
 			DockerReservedSSLPort,
 			AgentIntrospectionPort,
-			AgentCredentialsPort,
+			tmds.Port,
 			rdpPort,
 			rpcPort,
 			smbPort,
