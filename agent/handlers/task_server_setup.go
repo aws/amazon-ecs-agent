@@ -79,7 +79,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, region, apiEndpoint, acceptInsecureCert)
 
 	return tmds.NewServer(auditLogger,
-		tmds.WithRouter(muxRouter),
+		tmds.WithHandler(muxRouter),
 		tmds.WithListenAddress(tmds.AddressIPv4()),
 		tmds.WithReadTimeout(readTimeout),
 		tmds.WithWriteTimeout(writeTimeout),
