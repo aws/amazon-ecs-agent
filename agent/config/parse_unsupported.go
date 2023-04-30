@@ -29,6 +29,10 @@ func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
 	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
+func parseGMSADomainlessCapability() BooleanDefaultFalse {
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+}
+
 var IsWindows2016 = func() (bool, error) {
 	return false, errors.New("unsupported platform")
 }

@@ -66,6 +66,7 @@ const (
 	capabilityFirelensConfigS3                             = "firelens.options.config.s3"
 	capabilityFullTaskSync                                 = "full-sync"
 	capabilityGMSA                                         = "gmsa"
+	capabilityGMSADomainless                               = "gmsa-domainless"
 	capabilityEFS                                          = "efs"
 	capabilityEFSAuth                                      = "efsAuth"
 	capabilityEnvFilesS3                                   = "env-files.s3"
@@ -271,6 +272,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// support GMSA capabilities
 	capabilities = agent.appendGMSACapabilities(capabilities)
 
+	// support GMSA domainless capabilities
+	capabilities = agent.appendGMSADomainlessCapabilities(capabilities)
+
 	// support efs auth on ecs capabilities
 	for _, cap := range agent.cfg.VolumePluginCapabilities {
 		capabilities = agent.appendEFSVolumePluginCapabilities(capabilities, cap)
@@ -314,6 +318,14 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Att
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.GMSACapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
+	}
+
+	return capabilities
+}
+
+func (agent *ecsAgent) appendGMSADomainlessCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if agent.cfg.GMSADomainlessCapable.Enabled() {
+		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSADomainless)
 	}
 
 	return capabilities

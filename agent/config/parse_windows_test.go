@@ -51,3 +51,63 @@ func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 
 	assert.False(t, parseFSxWindowsFileServerCapability().Enabled())
 }
+
+func TestParseDomainlessgMSACapabilityFalseOnW2016(t *testing.T) {
+	IsWindows2016 = func() (bool, error) {
+		return true, nil
+	}
+
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	fnQueryDomainlessGmsaPluginSubKeys = func() ([]string, error) {
+		return []string{}, nil
+	}
+
+	assert.False(t, parseGMSADomainlessCapability().Enabled())
+}
+
+func TestParseDomainlessgMSACapabilityFalsePluginNoEnv(t *testing.T) {
+	IsWindows2016 = func() (bool, error) {
+		return false, nil
+	}
+
+	os.Setenv("ECS_GMSA_SUPPORTED", "False")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	fnQueryDomainlessGmsaPluginSubKeys = func() ([]string, error) {
+		return []string{"{859E1386-BDB4-49E8-85C7-3070B13920E1}"}, nil
+	}
+
+	assert.False(t, parseGMSADomainlessCapability().Enabled())
+}
+
+func TestParseDomainlessgMSACapabilityFalseNoPlugin(t *testing.T) {
+	IsWindows2016 = func() (bool, error) {
+		return false, nil
+	}
+
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	fnQueryDomainlessGmsaPluginSubKeys = func() ([]string, error) {
+		return []string{}, nil
+	}
+
+	assert.False(t, parseGMSADomainlessCapability().Enabled())
+}
+
+func TestParseDomainlessgMSACapabilityTrue(t *testing.T) {
+	IsWindows2016 = func() (bool, error) {
+		return false, nil
+	}
+
+	os.Setenv("ECS_GMSA_SUPPORTED", "True")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	fnQueryDomainlessGmsaPluginSubKeys = func() ([]string, error) {
+		return []string{"{859E1386-BDB4-49E8-85C7-3070B13920E1}"}, nil
+	}
+
+	assert.True(t, parseGMSADomainlessCapability().Enabled())
+}
