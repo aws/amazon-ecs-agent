@@ -487,6 +487,8 @@ type Container struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	CredentialSpecs []*string `locationName:"credentialSpecs" type:"list"`
+
 	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
 
 	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
