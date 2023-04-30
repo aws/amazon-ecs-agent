@@ -24,7 +24,9 @@ import (
 	"unsafe"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/cihub/seelog"
+	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -32,12 +34,37 @@ const (
 	// to skip the windows server version check. This is useful for testing and
 	// should not be set for any non-test use-case.
 	envSkipWindowsServerVersionCheck = "ZZZ_SKIP_WINDOWS_SERVER_VERSION_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+	gmsaPluginGUID                   = "{859E1386-BDB4-49E8-85C7-3070B13920E1}"
+)
+
+var (
+	fnQueryDomainlessGmsaPluginSubKeys = queryDomainlessGmsaPluginSubKeys
 )
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
 func parseGMSACapability() BooleanDefaultFalse {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	return checkDomainJoinWithEnvOverride(envStatus)
+}
+
+// parseGMSADomainlessCapability is used to determine if gMSA domainless support can be enabled
+func parseGMSADomainlessCapability() BooleanDefaultFalse {
+	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), false)
+	if envStatus {
+		// gmsaDomainless is not supported on Windows 2016
+		isWindows2016, err := IsWindows2016()
+		if err != nil || isWindows2016 {
+			return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+		}
+
+		// gmsaDomainless is not supported if the plugin is not installed on the instance
+		installed, err := isDomainlessGmsaPluginInstalled()
+		if err != nil || !installed {
+			return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+		}
+		return BooleanDefaultFalse{Value: ExplicitlyEnabled}
+	}
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
 // parseFSxWindowsFileServerCapability is used to determine if fsxWindowsFileServer support can be enabled
@@ -113,4 +140,43 @@ var IsWindows2016 = func() (bool, error) {
 	isWS2016 := strings.Contains(str, "Microsoft Windows Server 2016 Datacenter")
 
 	return isWS2016, nil
+}
+
+var queryDomainlessGmsaPluginSubKeys = func() ([]string, error) {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\CCG\COMClasses\`, registry.READ)
+	if err != nil {
+		seelog.Errorf("Failed to open registry key SYSTEM\\CurrentControlSet\\Control\\CCG\\COMClasses with error: %v", err)
+		return nil, err
+	}
+	defer k.Close()
+	stat, err := k.Stat()
+	if err != nil {
+		seelog.Errorf("Failed to stat registry key SYSTEM\\CurrentControlSet\\Control\\CCG\\COMClasses with error: %v", err)
+		return nil, err
+	}
+	subKeys, err := k.ReadSubKeyNames(int(stat.SubKeyCount))
+	if err != nil {
+		seelog.Errorf("Failed to read subkeys of SYSTEM\\CurrentControlSet\\Control\\CCG\\COMClasses with error: %v", err)
+		return nil, err
+	}
+
+	seelog.Debugf("gMSA Subkeys are %+v", subKeys)
+	return subKeys, nil
+}
+
+// This function queries all gmsa plugin subkeys to check whether the Amazon ECS Plugin GUID is present.
+func isDomainlessGmsaPluginInstalled() (bool, error) {
+	subKeys, err := fnQueryDomainlessGmsaPluginSubKeys()
+	if err != nil {
+		seelog.Errorf("Failed to query gmsa plugin subkeys")
+		return false, err
+	}
+
+	for _, subKey := range subKeys {
+		if subKey == gmsaPluginGUID {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
