@@ -144,6 +144,7 @@ func DefaultConfig() Config {
 		PollMetrics:                         BooleanDefaultFalse{Value: NotSet},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		GMSADomainlessCapable:               BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		FSxWindowsFileServerCapable:         BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,

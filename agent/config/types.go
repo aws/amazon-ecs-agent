@@ -331,6 +331,10 @@ type Config struct {
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.
 	GMSACapable BooleanDefaultFalse
 
+	// GMSADomainlessCapable is the config option to indicate if gMSA domainless is supported.
+	// It should be enabled by if the container instance has a plugin to support active directory authentication.
+	GMSADomainlessCapable BooleanDefaultFalse
+
 	// VolumePluginCapabilities specifies the capabilities of the ecs volume plugin.
 	VolumePluginCapabilities []string
 

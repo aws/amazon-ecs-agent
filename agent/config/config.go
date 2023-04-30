@@ -587,6 +587,7 @@ func environmentConfig() (Config, error) {
 		CgroupCPUPeriod:                     parseCgroupCPUPeriod(),
 		SpotInstanceDrainingEnabled:         parseBooleanDefaultFalseConfig("ECS_ENABLE_SPOT_INSTANCE_DRAINING"),
 		GMSACapable:                         parseGMSACapability(),
+		GMSADomainlessCapable:               parseGMSADomainlessCapability(),
 		VolumePluginCapabilities:            parseVolumePluginCapabilities(),
 		FSxWindowsFileServerCapable:         parseFSxWindowsFileServerCapability(),
 		External:                            parseBooleanDefaultFalseConfig("ECS_EXTERNAL"),
