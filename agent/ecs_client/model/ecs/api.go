@@ -4980,6 +4980,8 @@ type ContainerDefinition struct {
 	// of CPU that is described in the task definition.
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	CredentialSpecs []*string `locationName:"credentialSpecs" type:"list"`
+
 	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
 
 	// When this parameter is true, networking is disabled within the container.
@@ -5442,6 +5444,12 @@ func (s *ContainerDefinition) SetCommand(v []*string) *ContainerDefinition {
 // SetCpu sets the Cpu field's value.
 func (s *ContainerDefinition) SetCpu(v int64) *ContainerDefinition {
 	s.Cpu = &v
+	return s
+}
+
+// SetCredentialSpecs sets the CredentialSpecs field's value.
+func (s *ContainerDefinition) SetCredentialSpecs(v []*string) *ContainerDefinition {
+	s.CredentialSpecs = v
 	return s
 }
 
