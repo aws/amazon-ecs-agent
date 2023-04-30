@@ -275,6 +275,7 @@
       "members":{
         "command":{"shape":"StringList"},
         "cpu":{"shape":"Integer"},
+        "credentialSpecs":{"shape":"StringList"},
         "entryPoint":{"shape":"StringList"},
         "environment":{"shape":"EnvironmentVariables"},
         "environmentFiles":{"shape":"EnvironmentFiles"},

@@ -813,6 +813,7 @@
         "dnsSearchDomains":{"shape":"StringList"},
         "extraHosts":{"shape":"HostEntryList"},
         "dockerSecurityOptions":{"shape":"StringList"},
+        "credentialSpecs":{"shape":"StringList"},
         "interactive":{"shape":"BoxedBoolean"},
         "pseudoTerminal":{"shape":"BoxedBoolean"},
         "dockerLabels":{"shape":"DockerLabelsMap"},
