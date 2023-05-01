@@ -52,7 +52,7 @@ func TestRequestRateLimiter(t *testing.T) {
 
 	// Setup the server with a low rate limit for testing
 	server, err := NewServer(auditLogger,
-		WithRouter(router),
+		WithHandler(router),
 		WithListenAddress(serverAddress),
 		WithSteadyStateRate(1),
 		WithBurstRate(1),
@@ -91,7 +91,7 @@ func TestRequestWriteTimeout(t *testing.T) {
 
 	// Setup the server with a low write timeout for testing
 	server, err := NewServer(nil,
-		WithRouter(router),
+		WithHandler(router),
 		WithListenAddress(serverAddress),
 		WithWriteTimeout(50*time.Millisecond),
 		WithSteadyStateRate(10),
@@ -126,7 +126,7 @@ func TestRoutes(t *testing.T) {
 	// setup the server
 	serverAddress := "127.0.0.1:3600"
 	server, err := NewServer(nil,
-		WithRouter(router),
+		WithHandler(router),
 		WithListenAddress(serverAddress),
 		WithSteadyStateRate(10),
 		WithBurstRate(10),

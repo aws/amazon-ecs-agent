@@ -45,7 +45,7 @@ type Config struct {
 	writeTimeout    time.Duration // http server write timeout
 	steadyStateRate float64       // steady request rate limit
 	burstRate       int           // burst request rate limit
-	router          *mux.Router   // router with routes configured
+	handler         http.Handler  // HTTP handler with routes configured
 }
 
 // Function type for updating TMDS config
@@ -86,10 +86,10 @@ func WithBurstRate(burstRate int) ConfigOpt {
 	}
 }
 
-// Set TMDS router
-func WithRouter(router *mux.Router) ConfigOpt {
+// Set TMDS handler
+func WithHandler(handler http.Handler) ConfigOpt {
 	return func(c *Config) {
-		c.router = router
+		c.handler = handler
 	}
 }
 
@@ -104,8 +104,8 @@ func NewServer(auditLogger audit.AuditLogger, options ...ConfigOpt) (*http.Serve
 }
 
 func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) {
-	if config.router == nil {
-		return nil, errors.New("router cannot be nil")
+	if config.handler == nil {
+		return nil, errors.New("handler cannot be nil")
 	}
 
 	// Define a reqeuest rate limiter
@@ -120,7 +120,7 @@ func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) 
 	// rootPath is a path for any traffic to this endpoint
 	rootPath := "/" + muxutils.ConstructMuxVar("root", muxutils.AnythingRegEx)
 	loggingMuxRouter.Handle(rootPath, tollbooth.LimitHandler(
-		limiter, logging.NewLoggingHandler(config.router)))
+		limiter, logging.NewLoggingHandler(config.handler)))
 
 	// explicitly enable path cleaning
 	loggingMuxRouter.SkipClean(false)
