@@ -23,6 +23,7 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/pkg/errors"
 
@@ -223,29 +224,42 @@ func NewAttachmentStateChangeEvent(eniAttachment *apieni.ENIAttachment) Attachme
 	}
 }
 
+func (c *ContainerStateChange) ToFields() logger.Fields {
+	return logger.Fields{
+		"eventType":       "ContainerStateChange",
+		"taskArn":         c.TaskArn,
+		"containerName":   c.ContainerName,
+		"containerStatus": c.Status.String(),
+		"exitCode":        strconv.Itoa(*c.ExitCode),
+		"reason":          c.Reason,
+		"portBindings":    c.PortBindings,
+	}
+}
+
 // String returns a human readable string representation of this object
 func (c *ContainerStateChange) String() string {
-	res := fmt.Sprintf("%s %s -> %s", c.TaskArn, c.ContainerName, c.Status.String())
+	res := fmt.Sprintf("containerName=%s containerStatus=%s", c.ContainerName, c.Status.String())
 	if c.ExitCode != nil {
-		res += ", Exit " + strconv.Itoa(*c.ExitCode) + ", "
+		res += " containerExitCode=" + strconv.Itoa(*c.ExitCode)
 	}
 	if c.Reason != "" {
-		res += ", Reason " + c.Reason
+		res += " containerReason=" + c.Reason
 	}
 	if len(c.PortBindings) != 0 {
-		res += fmt.Sprintf(", Ports %v", c.PortBindings)
+		res += fmt.Sprintf(" containerPortBindings=%v", c.PortBindings)
 	}
 	if c.Container != nil {
-		res += ", Known Sent: " + c.Container.GetSentStatus().String()
+		res += fmt.Sprintf(" containerKnownSentStatus=%s containerRuntimeID=%s containerIsEssential=%v",
+			c.Container.GetSentStatus().String(), c.Container.GetRuntimeID(), c.Container.IsEssential())
 	}
 	return res
 }
 
 // String returns a human readable string representation of ManagedAgentStateChange
 func (m *ManagedAgentStateChange) String() string {
-	res := fmt.Sprintf("%s %s %s -> %s", m.TaskArn, m.Container.Name, m.Name, m.Status.String())
+	res := fmt.Sprintf("containerName=%s managedAgentName=%s managedAgentStatus=%s", m.Container.Name, m.Name, m.Status.String())
 	if m.Reason != "" {
-		res += ", Reason " + m.Reason
+		res += " managedAgentReason=" + m.Reason
 	}
 	return res
 }
@@ -285,6 +299,31 @@ func (change *TaskStateChange) ShouldBeReported() bool {
 	}
 
 	return false
+}
+
+func (change *TaskStateChange) ToFields() logger.Fields {
+	fields := logger.Fields{
+		"eventType":  "TaskStateChange",
+		"taskArn":    change.TaskARN,
+		"taskStatus": change.Status.String(),
+		"taskReason": change.Reason,
+	}
+	if change.Task != nil {
+		fields["taskKnownSentStatus"] = change.Task.GetSentStatus().String()
+		fields["taskPullStartedAt"] = change.Task.GetPullStartedAt().UTC().Format(time.RFC3339)
+		fields["taskPullStoppedAt"] = change.Task.GetPullStoppedAt().UTC().Format(time.RFC3339)
+		fields["taskExecutionStoppedAt"] = change.Task.GetExecutionStoppedAt().UTC().Format(time.RFC3339)
+	}
+	if change.Attachment != nil {
+		fields["eniAttachment"] = change.Attachment.String()
+	}
+	for i, containerChange := range change.Containers {
+		fields["containerChange-"+strconv.Itoa(i)] = containerChange.String()
+	}
+	for i, managedAgentChange := range change.ManagedAgents {
+		fields["managedAgentChange-"+strconv.Itoa(i)] = managedAgentChange.String()
+	}
+	return fields
 }
 
 // String returns a human readable string representation of this object
