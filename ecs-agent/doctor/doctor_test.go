@@ -89,20 +89,20 @@ func TestAddHealthcheck(t *testing.T) {
 func TestGetCluster(t *testing.T) {
 	clusterName := "test-cluster"
 	newDoctor := Doctor{cluster: clusterName}
-	assert.Equal(t, newDoctor.GetCluster(), clusterName)
+	assert.Equal(t, clusterName, newDoctor.GetCluster())
 }
 
 func TestGetContainerInstanceArn(t *testing.T) {
 	containerInstanceArn := "this:is:a:test:container:instance:arn"
 	newDoctor := Doctor{containerInstanceArn: containerInstanceArn}
-	assert.Equal(t, newDoctor.GetContainerInstanceArn(), containerInstanceArn)
+	assert.Equal(t, containerInstanceArn, newDoctor.GetContainerInstanceArn())
 }
 
 func TestSetStatusReported(t *testing.T) {
 	newDoctor := Doctor{}
-	assert.Equal(t, newDoctor.HasStatusBeenReported(), false)
+	assert.Equal(t, false, newDoctor.HasStatusBeenReported())
 	newDoctor.SetStatusReported(true)
-	assert.Equal(t, newDoctor.HasStatusBeenReported(), true)
+	assert.Equal(t, true, newDoctor.HasStatusBeenReported())
 }
 
 func TestRunHealthchecks(t *testing.T) {
@@ -140,7 +140,7 @@ func TestRunHealthchecks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			newDoctor, _ := NewDoctor(tc.checks, TEST_CLUSTER, TEST_INSTANCE_ARN)
 			overallResult := newDoctor.RunHealthchecks()
-			assert.Equal(t, overallResult, tc.expectedResult)
+			assert.Equal(t, tc.expectedResult, overallResult)
 		})
 	}
 }
@@ -189,7 +189,7 @@ func TestAllRight(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			newDoctor := Doctor{}
 			overallResult := newDoctor.allRight(tc.testChecksResult)
-			assert.Equal(t, overallResult, tc.expectedResult)
+			assert.Equal(t, tc.expectedResult, overallResult)
 		})
 	}
 }
