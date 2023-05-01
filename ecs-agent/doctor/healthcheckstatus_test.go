@@ -18,6 +18,7 @@ package doctor
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,21 +39,19 @@ type testHealthcheckStatus struct {
 
 func TestUnmarshalHealthcheckStatus(t *testing.T) {
 	status := HealthcheckStatusInitializing
+	initializingStr := "INITIALIZING"
 
-	err := json.Unmarshal([]byte(`"INITIALIZING"`), &status)
-	if err != nil {
-		t.Error(err)
-	}
-	if status != HealthcheckStatusInitializing {
-		t.Error("INITIALIZING should unmarshal to INITIALIZING, not " + status.String())
-	}
+	err := json.Unmarshal([]byte(fmt.Sprintf(`"%s"`, initializingStr)), &status)
+	assert.NoError(t, err)
+	// INITIALIZING should unmarshal to INITIALIZING
+	assert.Equal(t, HealthcheckStatusInitializing, status)
+	assert.Equal(t, initializingStr, status.String())
 
 	var test testHealthcheckStatus
-	err = json.Unmarshal([]byte(`{"status":"IMPAIRED"}`), &test)
-	if err != nil {
-		t.Error(err)
-	}
-	if test.SomeStatus != HealthcheckStatusImpaired {
-		t.Error("IMPAIRED should unmarshal to IMPAIRED, not " + test.SomeStatus.String())
-	}
+	impairedStr := "IMPAIRED"
+	err = json.Unmarshal([]byte(fmt.Sprintf(`{"status":"%s"}`, impairedStr)), &test)
+	assert.NoError(t, err)
+	// IMPAIRED should unmarshal to IMPAIRED
+	assert.Equal(t, HealthcheckStatusImpaired, test.SomeStatus)
+	assert.Equal(t, impairedStr, test.SomeStatus.String())
 }

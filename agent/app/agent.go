@@ -23,8 +23,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 
-	"github.com/aws/amazon-ecs-agent/agent/doctor"
+	dockerdoctor "github.com/aws/amazon-ecs-agent/agent/doctor" // for Docker specific container instance health checks
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
@@ -588,7 +589,7 @@ func (agent *ecsAgent) initMetricsEngine() {
 // the healthchecks that the doctor should be running
 func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN string) (*doctor.Doctor, error) {
 	// configure the required healthchecks
-	runtimeHealthCheck := doctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
+	runtimeHealthCheck := dockerdoctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
 
 	// put the healthechecks in a list
 	healthcheckList := []doctor.Healthcheck{
