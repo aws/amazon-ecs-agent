@@ -58,6 +58,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
@@ -99,6 +100,10 @@ const (
 	inServiceState                 = "InService"
 	asgLifecyclePollWait           = time.Minute
 	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
+
+	// the size of the buffer for the metric/task health/instance health telemetry channels.
+	// This values needs to be tuned after all channel related implementation is done.
+	telemetryChannelDefaultBufferSize = 15
 )
 
 var (
@@ -815,7 +820,7 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 	return transientError{err}
 }
 
-// startAsyncRoutines starts all of the background methods
+// startAsyncRoutines starts all background methods
 func (agent *ecsAgent) startAsyncRoutines(
 	containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
@@ -842,7 +847,11 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Agent introspection api
 	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
 
-	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, telemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, telemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, telemetryChannelDefaultBufferSize)
+
+	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream, telemetryMessages, healthMessages, instanceStatusMessages)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
@@ -865,6 +874,12 @@ func (agent *ecsAgent) startAsyncRoutines(
 		TaskEngine:                    taskEngine,
 		StatsEngine:                   statsEngine,
 		Doctor:                        doctor,
+	}
+
+	err := statsEngine.MustInit(agent.ctx, taskEngine, agent.cfg.Cluster, agent.containerInstanceARN)
+	if err != nil {
+		seelog.Warnf("Error initializing metrics engine: %v", err)
+		return
 	}
 
 	// Start metrics session in a go routine

@@ -57,13 +57,6 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 		return
 	}
 
-	err = params.StatsEngine.MustInit(params.Ctx, params.TaskEngine, params.Cfg.Cluster,
-		params.ContainerInstanceArn)
-	if err != nil {
-		seelog.Warnf("Error initializing metrics engine: %v", err)
-		return
-	}
-
 	err = StartSession(params, params.StatsEngine)
 	if err != nil {
 		seelog.Warnf("Error starting metrics session with backend: %v", err)
@@ -72,7 +65,7 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 
 // StartSession creates a session with the backend and handles requests
 // using the passed in arguments.
-// The engine is expected to initialized and gathering container metrics by
+// The engine is expected to be initialized and gathering container metrics by
 // the time the websocket client starts using it.
 func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
 	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
@@ -134,7 +127,7 @@ func startSession(
 	}
 	seelog.Info("Connected to TCS endpoint")
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
-	// we receive a heartbeat from the server or when a publish metrics message
+	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
 	timer := time.NewTimer(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	defer timer.Stop()
