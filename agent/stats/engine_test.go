@@ -72,7 +72,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -222,7 +222,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -272,7 +272,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
-	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"))
+	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"), nil, nil, nil)
 	taskEngine := &MockTaskEngine{}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -283,7 +283,7 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineUninitialized(t *testing.T) {
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineUninitialized"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineUninitialized"), nil, nil, nil)
 	defer engine.removeAll()
 
 	engine.resolver = &DockerContainerMetadataResolver{}
@@ -302,7 +302,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 		KnownStatusUnsafe: apitaskstatus.TaskStopped,
 		Family:            "f1",
 	}, nil)
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -334,7 +334,7 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 		},
 	}, nil).Times(3)
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -378,7 +378,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 		},
 	}, nil).Times(2)
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -421,7 +421,7 @@ func TestMetricsDisabled(t *testing.T) {
 		},
 	}, nil).Times(2)
 
-	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"))
+	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -442,7 +442,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
-	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"))
+	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -541,7 +541,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, serv
 			State: &types.ContainerState{Pid: 23},
 		},
 	}, nil).AnyTimes()
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"))
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
