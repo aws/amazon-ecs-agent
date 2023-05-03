@@ -53,9 +53,10 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
 	dataClient := newTestDataClient(t)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		dataClient, taskEngine, aws.Int64(11))
+		dataClient, taskEngine, aws.Int64(11), manifestMessageIDAccessor)
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -147,9 +148,10 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
 	dataClient := newTestDataClient(t)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		dataClient, taskEngine, aws.Int64(11))
+		dataClient, taskEngine, aws.Int64(11), manifestMessageIDAccessor)
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -250,9 +252,10 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
 	dataClient := newTestDataClient(t)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		dataClient, taskEngine, aws.Int64(11))
+		dataClient, taskEngine, aws.Int64(11), manifestMessageIDAccessor)
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -339,9 +342,10 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
 	dataClient := newTestDataClient(t)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
 	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		dataClient, taskEngine, aws.Int64(11))
+		dataClient, taskEngine, aws.Int64(11), manifestMessageIDAccessor)
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -460,8 +464,10 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 
 			ctx := context.TODO()
 			mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+			manifestMessageIDAccessor := &manifestMessageIDAccessor{}
+
 			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-				data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber))
+				data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber), manifestMessageIDAccessor)
 
 			taskList := []*task.Task{
 				{Arn: "arn2", DesiredStatusUnsafe: apitaskstatus.TaskRunning},
@@ -554,8 +560,9 @@ func TestTaskManifestHandlerSendPendingTaskManifestMessageAck(t *testing.T) {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 	handler := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum))
+		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -590,8 +597,9 @@ func TestTaskManifestHandlerHandlePendingTaskStopVerificationAck(t *testing.T) {
 	ctx := context.TODO()
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 	handler := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
-		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum))
+		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)

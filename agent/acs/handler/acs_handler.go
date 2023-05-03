@@ -315,9 +315,12 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
 
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
+
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest,
+		manifestMessageIDAccessor)
 
 	defer taskManifestHandler.clearAcks()
 	taskManifestHandler.start()
