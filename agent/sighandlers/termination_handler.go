@@ -89,7 +89,7 @@ func FinalSave(state dockerstate.TaskEngineState, dataClient data.Client, taskEn
 
 	stateSaved := make(chan error)
 	go func() {
-		seelog.Debug("Saving state before shutting down")
+		seelog.Info("Saving state before shutting down")
 		saveTimer := time.AfterFunc(finalSaveTimeout, func() {
 			stateSaved <- errors.New("final save: timed out trying to save to disk")
 		})
