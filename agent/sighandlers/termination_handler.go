@@ -78,8 +78,9 @@ func FinalSave(state dockerstate.TaskEngineState, dataClient data.Client, taskEn
 	})
 
 	go func() {
-		seelog.Debug("Shutting down task engine for final save")
+		seelog.Info("Shutting down task engine for final save")
 		taskEngine.Disable()
+		seelog.Info("Task engine was disabled in the termination handler")
 		disableTimer.Stop()
 		engineDisabled <- nil
 	}()
@@ -93,6 +94,7 @@ func FinalSave(state dockerstate.TaskEngineState, dataClient data.Client, taskEn
 			stateSaved <- errors.New("final save: timed out trying to save to disk")
 		})
 		saveStateAll(state, dataClient)
+		seelog.Info("All state was saved to the DB in the termination handler")
 		saveTimer.Stop()
 		stateSaved <- nil
 	}()
@@ -100,7 +102,9 @@ func FinalSave(state dockerstate.TaskEngineState, dataClient data.Client, taskEn
 	saveErr := <-stateSaved
 
 	if disableErr != nil || saveErr != nil {
-		return apierrors.NewMultiError(disableErr, saveErr)
+		err := apierrors.NewMultiError(disableErr, saveErr)
+		seelog.Errorf("Termination handler failed: %v", err)
+		return err
 	}
 	return nil
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
@@ -207,16 +209,28 @@ func (engine *DockerTaskEngine) saveDockerContainerData(container *apicontainer.
 }
 
 func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
+	logger.Info("Starting deletion of task and its containers from the DB",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	id, err := utils.GetTaskID(task.Arn)
 	if err != nil {
 		seelog.Errorf("Failed to get task id from task ARN %s: %v", task.Arn, err)
 		return
 	}
 	err = engine.dataClient.DeleteTask(id)
+	logger.Info("Deleted task from the DB",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	if err != nil {
 		seelog.Errorf("Failed to remove data for task %s: %v", task.Arn, err)
 	}
 
+	logger.Info("Starting deletion of task's containers from the DB",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	for _, c := range task.Containers {
 		id, err := data.GetContainerID(c)
 		if err != nil {
@@ -226,8 +240,19 @@ func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
 		err = engine.dataClient.DeleteContainer(id)
 		if err != nil {
 			seelog.Errorf("Failed to remove data for container %s: %v", c.Name, err)
+		} else {
+			logger.Info("Deleted container from the DB",
+				logger.Fields{
+					field.TaskID:    task.GetID(),
+					field.Container: c.Name,
+				})
 		}
 	}
+
+	logger.Info("Deleted all containers of the task from the DB",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 }
 
 func (engine *DockerTaskEngine) removeENIAttachmentData(mac string) {

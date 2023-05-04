@@ -22,6 +22,8 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/cihub/seelog"
 )
 
@@ -449,9 +451,17 @@ func (state *DockerTaskEngineState) AddImageState(imageState *image.ImageState) 
 // RemoveTask removes a task from this state. It removes all containers and
 // other associated metadata. It does acquire the write lock.
 func (state *DockerTaskEngineState) RemoveTask(task *apitask.Task) {
+	logger.Info("Attempting to acquire state lock for removing task and its containers from in-memory state",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
+	logger.Info("State lock acquired for removing task and its containers from in-memory state",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	task, ok := state.tasks[task.Arn]
 	if !ok {
 		seelog.Warnf("Failed to locate task %s for removal from state", task.Arn)
@@ -464,7 +474,7 @@ func (state *DockerTaskEngineState) RemoveTask(task *apitask.Task) {
 
 	containerMap, ok := state.taskToID[task.Arn]
 	if !ok {
-		seelog.Warnf("Failed to locate containerMap for task %s for removal from state", task.Arn)
+		seelog.Warnf("Failed to locate containerMap for task %s for removal from in-memory state", task.Arn)
 		return
 	}
 	delete(state.taskToID, task.Arn)
@@ -475,6 +485,10 @@ func (state *DockerTaskEngineState) RemoveTask(task *apitask.Task) {
 		state.removeV3EndpointIDToTaskContainerUnsafe(dockerContainer.Container.V3EndpointID)
 	}
 	delete(state.taskToPulledContainer, task.Arn)
+	logger.Info("Deleted task and containers from in-memory state",
+		logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 }
 
 // taskToIPUnsafe gets the ip address for a given task arn
