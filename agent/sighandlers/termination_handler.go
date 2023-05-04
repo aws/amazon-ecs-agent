@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	engineDisableTimeout = 5 * time.Second
-	finalSaveTimeout     = 3 * time.Second
+	engineDisableTimeout = 2 * time.Minute
+	finalSaveTimeout     = 2 * time.Minute
 )
 
 // TerminationHandler defines a handler used for terminating the agent
