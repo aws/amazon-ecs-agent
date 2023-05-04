@@ -117,6 +117,12 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
