@@ -2592,6 +2592,9 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 // It will return a bool indicating if there was a change
 func (task *Task) UpdateStatus() bool {
 	change := task.updateTaskKnownStatus()
+	if change != apitaskstatus.TaskStatusNone {
+		logger.Debug("Task known status change", task.fieldsUnsafe())
+	}
 	// DesiredStatus can change based on a new known status
 	task.UpdateDesiredStatus()
 	return change != apitaskstatus.TaskStatusNone
@@ -2609,11 +2612,7 @@ func (task *Task) UpdateDesiredStatus() {
 // updateTaskDesiredStatusUnsafe determines what status the task should properly be at based on the containers' statuses
 // Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatusUnsafe() {
-	logger.Debug("Updating task's desired status", logger.Fields{
-		field.TaskID:        task.GetID(),
-		field.KnownStatus:   task.KnownStatusUnsafe.String(),
-		field.DesiredStatus: task.DesiredStatusUnsafe.String(),
-	})
+	logger.Debug("Updating task's desired status", task.fieldsUnsafe())
 
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
@@ -2622,13 +2621,8 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 			break
 		}
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
-			logger.Info("Essential container stopped; updating task desired status to stopped", logger.Fields{
-				field.TaskID:        task.GetID(),
-				field.Container:     cont.Name,
-				field.KnownStatus:   task.KnownStatusUnsafe.String(),
-				field.DesiredStatus: apitaskstatus.TaskStopped.String(),
-			})
 			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
+			logger.Info("Essential container stopped; updated task desired status to stopped", task.fieldsUnsafe())
 		}
 	}
 }
@@ -2914,6 +2908,19 @@ func (task *Task) stringUnsafe() string {
 		task.Family, task.Version, task.Arn,
 		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String(),
 		len(task.Containers), len(task.ENIs))
+}
+
+// fieldsUnsafe returns logger.Fields representing this object
+func (task *Task) fieldsUnsafe() logger.Fields {
+	return logger.Fields{
+		"taskFamily":        task.Family,
+		"taskVersion":       task.Version,
+		"taskArn":           task.Arn,
+		"taskKnownStatus":   task.KnownStatusUnsafe.String(),
+		"taskDesiredStatus": task.DesiredStatusUnsafe.String(),
+		"nContainers":       len(task.Containers),
+		"nENIs":             len(task.ENIs),
+	}
 }
 
 // GetID is used to retrieve the taskID from taskARN

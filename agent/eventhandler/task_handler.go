@@ -184,9 +184,8 @@ func (handler *TaskHandler) startDrainEventsTicker() {
 			// the tasksToContainerStates and tasksToManagedAgentStates maps based on the
 			// task arns of containers and managed agents that haven't been sent to ECS yet.
 			for _, taskEvent := range handler.taskStateChangesToSend() {
-				seelog.Infof(
-					"TaskHandler: Adding a state change event to send batched container/managed agent events: %s",
-					taskEvent.String())
+				logger.Debug("TaskHandler: Adding a state change event to send batched container/managed agent events",
+					taskEvent.ToFields())
 				// Force start the the task state change submission
 				// workflow by calling AddStateChangeEvent method.
 				handler.AddStateChangeEvent(taskEvent, handler.client)
