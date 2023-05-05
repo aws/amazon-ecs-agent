@@ -89,6 +89,10 @@ const (
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
 	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
+
+	credentialSpecPrefix = "credentialspec"
+
+	credentialSpecDomainlessPrefix = credentialSpecPrefix + "domainless"
 )
 
 var (
@@ -201,6 +205,8 @@ type Container struct {
 	Overrides ContainerOverrides `json:"overrides"`
 	// DockerConfig is the configuration used to create the container
 	DockerConfig DockerConfig `json:"dockerConfig"`
+	// CredentialSpecs is the configuration used for configuring gMSA authentication for the container
+	CredentialSpecs []string `json:"credentialSpecs,omitempty"`
 	// RegistryAuthentication is the auth data used to pull image
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
 	// HealthCheckType is the mechanism to use for the container health check
@@ -1366,6 +1372,22 @@ func (c *Container) GetCredentialSpec() (string, error) {
 }
 
 func (c *Container) getCredentialSpec() (string, error) {
+	credSpecHostConfig, err := c.getCredentialSpecFromHostConfig()
+	credSpecCredentialSpecsContainerField, err2 := c.getCredentialSpecFromCredentialSpecsContainerField()
+
+	// Prefer to use CredentialSpecsContainerField because of the upcoming docker runtime deprecation
+	if err2 == nil {
+		return credSpecCredentialSpecsContainerField, nil
+	}
+
+	if err == nil {
+		return credSpecHostConfig, nil
+	}
+
+	return "", errors.New("unable to obtain credentialspec from both hostConfig and credentialSpecs")
+}
+
+func (c *Container) getCredentialSpecFromHostConfig() (string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -1380,12 +1402,29 @@ func (c *Container) getCredentialSpec() (string, error) {
 	}
 
 	for _, opt := range hostConfig.SecurityOpt {
-		if strings.HasPrefix(opt, "credentialspec") {
+		if strings.HasPrefix(opt, credentialSpecPrefix) {
 			return opt, nil
 		}
 	}
 
 	return "", errors.New("unable to obtain credentialspec")
+}
+
+func (c *Container) getCredentialSpecFromCredentialSpecsContainerField() (string, error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.CredentialSpecs == nil || len(c.CredentialSpecs) == 0 {
+		return "", errors.New("empty container credentialSpecs")
+	}
+
+	for _, credentialSpec := range c.CredentialSpecs {
+		if strings.HasPrefix(credentialSpec, credentialSpecPrefix) || strings.HasPrefix(credentialSpec, credentialSpecDomainlessPrefix) {
+			return credentialSpec, nil
+		}
+	}
+
+	return "", errors.New("credentialspec not found in CredentialSpecs field")
 }
 
 func (c *Container) GetManagedAgentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {
