@@ -24,6 +24,7 @@ import (
 
 	pb "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient/credentialsfetcher"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -98,34 +99,35 @@ func TestCredentialsFetcherClient_AddKerberosLease(t *testing.T) {
 		name             string
 		credspecContents []string
 		response         CredentialsFetcherResponse
+		expectedError    string
 	}{
 		{
 			"invalid request empty credspec contents",
 			[]string{},
 			CredentialsFetcherResponse{},
+			"rpc error: code = InvalidArgument desc = credentialspecs should not be empty",
 		},
 		{
 			"valid request credspecs associated to gMSA account",
 			[]string{credspec_webapp01},
 			CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+			"",
 		},
 	}
 
 	ctx := context.Background()
 
 	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response, _ := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosLease(context.Background(), tt.credspecContents)
-			if response.LeaseID != tt.response.LeaseID {
-				assert.Error(t, err)
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosLease(context.Background(), tt.credspecContents)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				assert.Equal(t, tt.response, response)
 			}
 		})
 	}
@@ -139,6 +141,7 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) 
 		password         string
 		domain           string
 		response         CredentialsFetcherResponse
+		expectedError    string
 	}{
 		{
 			"invalid request empty credspec contents",
@@ -147,6 +150,7 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) 
 			"testpassword",
 			"testdomain",
 			CredentialsFetcherResponse{},
+			"rpc error: code = InvalidArgument desc = credentialspecs should not be empty",
 		},
 		{
 			"invalid request username, password or domain should not be empty",
@@ -155,6 +159,7 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) 
 			"",
 			"",
 			CredentialsFetcherResponse{},
+			"rpc error: code = InvalidArgument desc = username, password or domain should not be empty",
 		},
 		{
 			"valid request credspecs associated to gMSA account",
@@ -163,24 +168,23 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) 
 			"testpassword",
 			"testdomain",
 			CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+			"",
 		},
 	}
 
 	ctx := context.Background()
 
 	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response, _ := NewCredentialsFetcherClient(conn, time.Minute).AddNonDomainJoinedKerberosLease(context.Background(), tt.credspecContents, tt.username, tt.password, tt.domain)
-			if response.LeaseID != tt.response.LeaseID {
-				assert.Error(t, err)
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).AddNonDomainJoinedKerberosLease(context.Background(), tt.credspecContents, tt.username, tt.password, tt.domain)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				assert.Equal(t, tt.response, response)
 			}
 		})
 	}
@@ -188,11 +192,12 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) 
 
 func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosLease(t *testing.T) {
 	tests := []struct {
-		name     string
-		username string
-		password string
-		domain   string
-		response CredentialsFetcherResponse
+		name          string
+		username      string
+		password      string
+		domain        string
+		response      CredentialsFetcherResponse
+		expectedError string
 	}{
 		{
 			"invalid request username, password or domain should not be empty",
@@ -200,6 +205,7 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosLease(t *testing.T
 			"",
 			"",
 			CredentialsFetcherResponse{},
+			"rpc error: code = InvalidArgument desc = username, password or domain should not be empty",
 		},
 		{
 			"valid request credspecs associated to gMSA account",
@@ -207,24 +213,23 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosLease(t *testing.T
 			"testpassword",
 			"testdomain",
 			CredentialsFetcherResponse{LeaseID: "", KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+			"",
 		},
 	}
 
 	ctx := context.Background()
 
 	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewNonDomainJoinedKerberosLease(context.Background(), tt.username, tt.password, tt.domain)
-			if response.KerberosTicketPaths == nil {
-				assert.Error(t, err)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				assert.Equal(t, tt.response, response)
 			}
 		})
 	}
@@ -232,37 +237,38 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosLease(t *testing.T
 
 func TestCredentialsFetcherClient_DeleteKerberosLease(t *testing.T) {
 	tests := []struct {
-		name     string
-		leaseid  string
-		response CredentialsFetcherResponse
+		name          string
+		leaseid       string
+		response      CredentialsFetcherResponse
+		expectedError string
 	}{
 		{
 			"invalid request empty leaseid input",
 			"",
 			CredentialsFetcherResponse{},
+			"rpc error: code = InvalidArgument desc = invalid leaseid provided",
 		},
 		{
 			"valid request credspecs associated to gMSA account",
 			leaseid,
 			CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+			"",
 		},
 	}
 
 	ctx := context.Background()
 
 	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			response, err := NewCredentialsFetcherClient(conn, time.Minute).DeleteKerberosLease(context.Background(), tt.leaseid)
-			if response.LeaseID != tt.response.LeaseID {
-				assert.Error(t, err)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				assert.Equal(t, tt.response, response)
 			}
 		})
 	}

@@ -66,8 +66,7 @@ type CredentialsFetcherResponse struct {
 // to create kerberos tickets associated with gMSA accounts
 func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credentialspecs []string) (CredentialsFetcherResponse, error) {
 	if len(credentialspecs) == 0 {
-		seelog.Error("credentialspecs request should not be empty")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs should not be empty")
 	}
 
 	defer c.conn.Close()
@@ -98,12 +97,12 @@ func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credenti
 func (c CredentialsFetcherClient) AddNonDomainJoinedKerberosLease(ctx context.Context, credentialspecs []string, username string, password string, domain string) (CredentialsFetcherResponse, error) {
 	if len(credentialspecs) == 0 {
 		seelog.Error("credentialspecs request should not be empty")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs should not be empty")
 	}
 
 	if len(username) == 0 || len(password) == 0 || len(domain) == 0 {
 		seelog.Error("username, password or domain should not be empty")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "username, password or domain should not be empty")
 	}
 
 	defer c.conn.Close()
@@ -147,7 +146,7 @@ func (c CredentialsFetcherClient) RenewNonDomainJoinedKerberosLease(ctx context.
 
 	response, err := client.RenewNonDomainJoinedKerberosLease(ctx, request)
 	if err != nil {
-		seelog.Errorf("could not create kerberos tickets: %v", err)
+		seelog.Errorf("could not renew kerberos tickets: %v", err)
 		return CredentialsFetcherResponse{}, err
 	}
 
@@ -163,7 +162,7 @@ func (c CredentialsFetcherClient) RenewNonDomainJoinedKerberosLease(ctx context.
 func (c CredentialsFetcherClient) DeleteKerberosLease(ctx context.Context, leaseid string) (CredentialsFetcherResponse, error) {
 	if len(leaseid) == 0 {
 		seelog.Error("invalid leaseid provided")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "invalid leaseid provided")
 	}
 
 	defer c.conn.Close()
