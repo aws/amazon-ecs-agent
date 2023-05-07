@@ -24,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CredentialsFetcherServiceClient interface {
 	AddKerberosLease(ctx context.Context, in *CreateKerberosLeaseRequest, opts ...grpc.CallOption) (*CreateKerberosLeaseResponse, error)
+	AddNonDomainJoinedKerberosLease(ctx context.Context, in *CreateNonDomainJoinedKerberosLeaseRequest, opts ...grpc.CallOption) (*CreateNonDomainJoinedKerberosLeaseResponse, error)
+	RenewNonDomainJoinedKerberosLease(ctx context.Context, in *RenewNonDomainJoinedKerberosLeaseRequest, opts ...grpc.CallOption) (*RenewNonDomainJoinedKerberosLeaseResponse, error)
 	DeleteKerberosLease(ctx context.Context, in *DeleteKerberosLeaseRequest, opts ...grpc.CallOption) (*DeleteKerberosLeaseResponse, error)
 }
 
@@ -44,6 +46,24 @@ func (c *credentialsFetcherServiceClient) AddKerberosLease(ctx context.Context, 
 	return out, nil
 }
 
+func (c *credentialsFetcherServiceClient) AddNonDomainJoinedKerberosLease(ctx context.Context, in *CreateNonDomainJoinedKerberosLeaseRequest, opts ...grpc.CallOption) (*CreateNonDomainJoinedKerberosLeaseResponse, error) {
+	out := new(CreateNonDomainJoinedKerberosLeaseResponse)
+	err := c.cc.Invoke(ctx, "/credentialsfetcher.CredentialsFetcherService/AddNonDomainJoinedKerberosLease", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *credentialsFetcherServiceClient) RenewNonDomainJoinedKerberosLease(ctx context.Context, in *RenewNonDomainJoinedKerberosLeaseRequest, opts ...grpc.CallOption) (*RenewNonDomainJoinedKerberosLeaseResponse, error) {
+	out := new(RenewNonDomainJoinedKerberosLeaseResponse)
+	err := c.cc.Invoke(ctx, "/credentialsfetcher.CredentialsFetcherService/RenewNonDomainJoinedKerberosLease", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *credentialsFetcherServiceClient) DeleteKerberosLease(ctx context.Context, in *DeleteKerberosLeaseRequest, opts ...grpc.CallOption) (*DeleteKerberosLeaseResponse, error) {
 	out := new(DeleteKerberosLeaseResponse)
 	err := c.cc.Invoke(ctx, "/credentialsfetcher.CredentialsFetcherService/DeleteKerberosLease", in, out, opts...)
@@ -58,6 +78,8 @@ func (c *credentialsFetcherServiceClient) DeleteKerberosLease(ctx context.Contex
 // for forward compatibility
 type CredentialsFetcherServiceServer interface {
 	AddKerberosLease(context.Context, *CreateKerberosLeaseRequest) (*CreateKerberosLeaseResponse, error)
+	AddNonDomainJoinedKerberosLease(context.Context, *CreateNonDomainJoinedKerberosLeaseRequest) (*CreateNonDomainJoinedKerberosLeaseResponse, error)
+	RenewNonDomainJoinedKerberosLease(context.Context, *RenewNonDomainJoinedKerberosLeaseRequest) (*RenewNonDomainJoinedKerberosLeaseResponse, error)
 	DeleteKerberosLease(context.Context, *DeleteKerberosLeaseRequest) (*DeleteKerberosLeaseResponse, error)
 	mustEmbedUnimplementedCredentialsFetcherServiceServer()
 }
@@ -68,6 +90,12 @@ type UnimplementedCredentialsFetcherServiceServer struct {
 
 func (UnimplementedCredentialsFetcherServiceServer) AddKerberosLease(context.Context, *CreateKerberosLeaseRequest) (*CreateKerberosLeaseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddKerberosLease not implemented")
+}
+func (UnimplementedCredentialsFetcherServiceServer) AddNonDomainJoinedKerberosLease(context.Context, *CreateNonDomainJoinedKerberosLeaseRequest) (*CreateNonDomainJoinedKerberosLeaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddNonDomainJoinedKerberosLease not implemented")
+}
+func (UnimplementedCredentialsFetcherServiceServer) RenewNonDomainJoinedKerberosLease(context.Context, *RenewNonDomainJoinedKerberosLeaseRequest) (*RenewNonDomainJoinedKerberosLeaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenewNonDomainJoinedKerberosLease not implemented")
 }
 func (UnimplementedCredentialsFetcherServiceServer) DeleteKerberosLease(context.Context, *DeleteKerberosLeaseRequest) (*DeleteKerberosLeaseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteKerberosLease not implemented")
@@ -104,6 +132,42 @@ func _CredentialsFetcherService_AddKerberosLease_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CredentialsFetcherService_AddNonDomainJoinedKerberosLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNonDomainJoinedKerberosLeaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CredentialsFetcherServiceServer).AddNonDomainJoinedKerberosLease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/credentialsfetcher.CredentialsFetcherService/AddNonDomainJoinedKerberosLease",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CredentialsFetcherServiceServer).AddNonDomainJoinedKerberosLease(ctx, req.(*CreateNonDomainJoinedKerberosLeaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CredentialsFetcherService_RenewNonDomainJoinedKerberosLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenewNonDomainJoinedKerberosLeaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CredentialsFetcherServiceServer).RenewNonDomainJoinedKerberosLease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/credentialsfetcher.CredentialsFetcherService/RenewNonDomainJoinedKerberosLease",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CredentialsFetcherServiceServer).RenewNonDomainJoinedKerberosLease(ctx, req.(*RenewNonDomainJoinedKerberosLeaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CredentialsFetcherService_DeleteKerberosLease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteKerberosLeaseRequest)
 	if err := dec(in); err != nil {
@@ -132,6 +196,14 @@ var CredentialsFetcherService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddKerberosLease",
 			Handler:    _CredentialsFetcherService_AddKerberosLease_Handler,
+		},
+		{
+			MethodName: "AddNonDomainJoinedKerberosLease",
+			Handler:    _CredentialsFetcherService_AddNonDomainJoinedKerberosLease_Handler,
+		},
+		{
+			MethodName: "RenewNonDomainJoinedKerberosLease",
+			Handler:    _CredentialsFetcherService_RenewNonDomainJoinedKerberosLease_Handler,
 		},
 		{
 			MethodName: "DeleteKerberosLease",

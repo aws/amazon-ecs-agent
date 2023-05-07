@@ -49,3 +49,24 @@ func TestSkipDomainJoinCheckParseGMSACapability(t *testing.T) {
 
 	assert.True(t, parseGMSACapability().Enabled())
 }
+
+func TestParseGMSADomainLessCapabilitySupported(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("CREDENTIALS_FETCHER_HOST_DIR", "/var/run")
+
+	assert.True(t, parseGMSADomainlessCapability().Enabled())
+}
+
+func TestParseGMSADomainLessCapabilityUnSupported(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("CREDENTIALS_FETCHER_HOST_DIR", "")
+
+	assert.False(t, parseGMSADomainlessCapability().Enabled())
+}
+
+func TestSkipDomainLessCheckParseGMSACapability(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("ZZZ_SKIP_DOMAIN_LESS_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+
+	assert.True(t, parseGMSADomainlessCapability().Enabled())
+}
