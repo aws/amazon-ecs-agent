@@ -47,6 +47,26 @@ func (*mockCredentialsFetcherServer) AddKerberosLease(ctx context.Context, req *
 	return &pb.CreateKerberosLeaseResponse{LeaseId: leaseid, CreatedKerberosFilePaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}}, nil
 }
 
+func (*mockCredentialsFetcherServer) AddNonDomainJoinedKerberosLease(ctx context.Context, req *pb.CreateNonDomainJoinedKerberosLeaseRequest) (*pb.CreateNonDomainJoinedKerberosLeaseResponse, error) {
+	if len(req.GetCredspecContents()) == 0 {
+		return &pb.CreateNonDomainJoinedKerberosLeaseResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs request should not be empty")
+	}
+
+	if len(req.GetUsername()) == 0 || len(req.GetPassword()) == 0 || len(req.GetDomain()) == 0 {
+		return &pb.CreateNonDomainJoinedKerberosLeaseResponse{}, status.Errorf(codes.InvalidArgument, "username, password or domain should not be empty")
+	}
+
+	return &pb.CreateNonDomainJoinedKerberosLeaseResponse{LeaseId: leaseid, CreatedKerberosFilePaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}}, nil
+}
+
+func (*mockCredentialsFetcherServer) RenewNonDomainJoinedKerberosLease(ctx context.Context, req *pb.RenewNonDomainJoinedKerberosLeaseRequest) (*pb.RenewNonDomainJoinedKerberosLeaseResponse, error) {
+	if len(req.GetUsername()) == 0 || len(req.GetPassword()) == 0 || len(req.GetDomain()) == 0 {
+		return &pb.RenewNonDomainJoinedKerberosLeaseResponse{}, status.Errorf(codes.InvalidArgument, "username, password or domain should not be empty")
+	}
+
+	return &pb.RenewNonDomainJoinedKerberosLeaseResponse{RenewedKerberosFilePaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}}, nil
+}
+
 func (*mockCredentialsFetcherServer) DeleteKerberosLease(ctx context.Context, req *pb.DeleteKerberosLeaseRequest) (*pb.DeleteKerberosLeaseResponse, error) {
 	if len(req.GetLeaseId()) == 0 {
 		return &pb.DeleteKerberosLeaseResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs request should not be empty")
@@ -103,6 +123,105 @@ func TestCredentialsFetcherClient_AddKerberosLease(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			response, _ := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosLease(context.Background(), tt.credspecContents)
 			if response.LeaseID != tt.response.LeaseID {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosLease(t *testing.T) {
+	tests := []struct {
+		name             string
+		credspecContents []string
+		username         string
+		password         string
+		domain           string
+		response         CredentialsFetcherResponse
+	}{
+		{
+			"invalid request empty credspec contents",
+			[]string{},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			CredentialsFetcherResponse{},
+		},
+		{
+			"invalid request username, password or domain should not be empty",
+			[]string{credspec_webapp01},
+			"",
+			"",
+			"",
+			CredentialsFetcherResponse{},
+		},
+		{
+			"valid request credspecs associated to gMSA account",
+			[]string{credspec_webapp01},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+		},
+	}
+
+	ctx := context.Background()
+
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, _ := NewCredentialsFetcherClient(conn, time.Minute).AddNonDomainJoinedKerberosLease(context.Background(), tt.credspecContents, tt.username, tt.password, tt.domain)
+			if response.LeaseID != tt.response.LeaseID {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosLease(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		password string
+		domain   string
+		response CredentialsFetcherResponse
+	}{
+		{
+			"invalid request username, password or domain should not be empty",
+			"",
+			"",
+			"",
+			CredentialsFetcherResponse{},
+		},
+		{
+			"valid request credspecs associated to gMSA account",
+			"testusername",
+			"testpassword",
+			"testdomain",
+			CredentialsFetcherResponse{LeaseID: "", KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+		},
+	}
+
+	ctx := context.Background()
+
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewNonDomainJoinedKerberosLease(context.Background(), tt.username, tt.password, tt.domain)
+			if response.KerberosTicketPaths == nil {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
