@@ -16,7 +16,7 @@ package logging
 import (
 	"net/http"
 
-	"github.com/cihub/seelog"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 // LoggingHandler is used to log all requests for an endpoint.
@@ -29,6 +29,9 @@ func NewLoggingHandler(handler http.Handler) LoggingHandler {
 
 // ServeHTTP logs the method and remote address of the request.
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seelog.Debug("Handling http request", "method", r.Method, "from", r.RemoteAddr)
+	logger.Debug("Handling http request", logger.Fields{
+		"method": r.Method,
+		"from":   r.RemoteAddr,
+	})
 	lh.h.ServeHTTP(w, r)
 }

@@ -9,9 +9,11 @@ github.com/Microsoft/hcsshim/osversion
 ## explicit; go 1.19
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
+github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
+github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux

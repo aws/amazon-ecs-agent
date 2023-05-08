@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
 )
 
@@ -29,8 +28,8 @@ var (
 	statsTicker        = time.NewTicker(time.Minute * 2)
 )
 
-func StartRuntimeStatsLogger(cfg *config.Config) (flush func()) {
-	l, err := seelog.LoggerFromConfigAsString(runtimeStatsLogConfig(cfg))
+func StartRuntimeStatsLogger(runtimeStatsLogFile string) (flush func()) {
+	l, err := seelog.LoggerFromConfigAsString(runtimeStatsLogConfig(runtimeStatsLogFile))
 	if err != nil {
 		seelog.Errorf("Error initializing the runtime stats log: %v", err)
 		// If the logger cannot be initialized, use the provided dummy seelog.LoggerInterface, seelog.Disabled.
@@ -91,12 +90,12 @@ func logStats() {
 	prevStats = curStats
 }
 
-func runtimeStatsLogConfig(cfg *config.Config) string {
+func runtimeStatsLogConfig(runtimeStatsLogFile string) string {
 	config := `
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="main">
 		<console />
-		<rollingfile filename="` + cfg.RuntimeStatsLogFile + `" type="size"
+		<rollingfile filename="` + runtimeStatsLogFile + `" type="size"
 		 maxsize="` + strconv.Itoa(int(Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="3" />
 	</outputs>
 	<formats>

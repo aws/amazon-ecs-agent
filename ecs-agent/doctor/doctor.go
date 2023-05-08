@@ -16,8 +16,9 @@ package doctor
 import (
 	"sync"
 
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 var (
@@ -99,7 +100,10 @@ func (doc *Doctor) RunHealthchecks() bool {
 
 	for _, healthcheck := range doc.healthchecks {
 		res := healthcheck.RunCheck()
-		seelog.Debugf("instance healthcheck result: %v", res)
+		logger.Debug("Ran instance health check", logger.Fields{
+			"instanceHealthcheckType":   healthcheck.GetHealthcheckType(),
+			"instanceHealthCheckResult": res,
+		})
 		allChecksResult = append(allChecksResult, res)
 	}
 
