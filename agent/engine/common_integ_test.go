@@ -111,9 +111,11 @@ func setupGMSALinux(cfg *config.Config, state dockerstate.TaskEngineState, t *te
 		},
 		DockerClient: dockerClient,
 	}
+	hostResources := getTestHostResources()
+	hostResourceManager := engine.NewHostResourceManager(hostResources)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
@@ -202,9 +204,11 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetDataClient(data.NewNoopClient())
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
+	hostResources := getTestHostResources()
+	hostResourceManager := engine.NewHostResourceManager(hostResources)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		nil, execcmd.NewManager(), engineserviceconnect.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {

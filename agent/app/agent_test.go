@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -562,8 +563,10 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 		saveableOptionFactory: saveableOptionFactory,
 	}
 
+	hostResources := getTestHostResources()
+
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.Equal(t, "prev-container-inst", agent.containerInstanceARN)
@@ -624,9 +627,10 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,
 	}
+	hostResources := getTestHostResources()
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.NotEqual(t, "prev-container-inst", agent.containerInstanceARN)
@@ -686,8 +690,10 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 		saveableOptionFactory: saveableOptionFactory,
 	}
 
+	hostResources := getTestHostResources()
+
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.Error(t, err)
 	assert.IsType(t, clusterMismatchError{}, err)
 }
@@ -731,8 +737,10 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		saveableOptionFactory: saveableOptionFactory,
 	}
 
+	hostResources := getTestHostResources()
+
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
@@ -777,8 +785,10 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 		saveableOptionFactory: saveableOptionFactory,
 	}
 
+	hostResources := getTestHostResources()
+
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
@@ -816,8 +826,10 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	}
 
 	state := dockerstate.NewTaskEngineState()
+	hostResources := getTestHostResources()
+
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, execCmdMgr, serviceConnectManager)
+		credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	assert.NoError(t, err)
 	assert.Equal(t, testEC2InstanceID, instanceID)
 
@@ -1635,6 +1647,46 @@ func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
+}
+
+func getTestHostResources() map[string]*ecs.Resource {
+	hostResources := make(map[string]*ecs.Resource)
+	CPUs := int64(1024)
+	hostResources["CPU"] = &ecs.Resource{
+		Name:         utils.Strptr("CPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &CPUs,
+	}
+	//MEMORY
+	memory := int64(1024)
+	hostResources["MEMORY"] = &ecs.Resource{
+		Name:         utils.Strptr("MEMORY"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &memory,
+	}
+	//PORTS
+	ports := []*string{}
+	hostResources["PORTS"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: ports,
+	}
+
+	//PORTS_UDP
+	ports_udp := []*string{}
+	hostResources["PORTS_UDP"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS_UDP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: ports_udp,
+	}
+	//GPUs
+	numGPUs := int64(3)
+	hostResources["GPU"] = &ecs.Resource{
+		Name:         utils.Strptr("GPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &numGPUs,
+	}
+	return hostResources
 }
 
 func newTestDataClient(t *testing.T) data.Client {

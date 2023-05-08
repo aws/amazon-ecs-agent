@@ -306,6 +306,18 @@ func (client *APIECSClient) getResources() ([]*ecs.Resource, error) {
 	return []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}, nil
 }
 
+func (client *APIECSClient) GetHostResources() (map[string]*ecs.Resource, error) {
+	resources, err := client.getResources()
+	if err != nil {
+		return nil, err
+	}
+	resourceMap := make(map[string]*ecs.Resource)
+	for _, resource := range resources {
+		resourceMap[*resource.Name] = resource
+	}
+	return resourceMap, nil
+}
+
 func getCpuAndMemory() (int64, int64) {
 	memInfo, err := system.ReadMemInfo()
 	mem := int64(0)
