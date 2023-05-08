@@ -65,7 +65,8 @@ func TestCompatibilityEnabledSuccess(t *testing.T) {
 	defer cancel()
 
 	containerChangeEventStream := eventstream.NewEventStream("events", ctx)
-	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, execCmdMgr, serviceConnectManager)
+	hostResources := getTestHostResources()
+	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, hostResources, execCmdMgr, serviceConnectManager)
 
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskCPUMemLimit.Enabled())
@@ -106,7 +107,8 @@ func TestCompatibilityNotSetFail(t *testing.T) {
 	defer cancel()
 
 	containerChangeEventStream := eventstream.NewEventStream("events", ctx)
-	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, execCmdMgr, serviceConnectManager)
+	hostResources := getTestHostResources()
+	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, hostResources, execCmdMgr, serviceConnectManager)
 
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
@@ -146,7 +148,8 @@ func TestCompatibilityExplicitlyEnabledFail(t *testing.T) {
 	defer cancel()
 
 	containerChangeEventStream := eventstream.NewEventStream("events", ctx)
-	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, execCmdMgr, serviceConnectManager)
+	hostResources := getTestHostResources()
+	_, _, err := agent.newTaskEngine(containerChangeEventStream, creds, dockerstate.NewTaskEngineState(), images, hostResources, execCmdMgr, serviceConnectManager)
 
 	assert.Error(t, err)
 }
