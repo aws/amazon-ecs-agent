@@ -162,6 +162,7 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               serviceconnect.Manager
+	hostResourceManager                 *HostResourceManager
 	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
@@ -195,6 +196,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 	credentialsManager credentials.Manager,
 	containerChangeEventStream *eventstream.EventStream,
 	imageManager ImageManager,
+	hostResourceManager *HostResourceManager,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
@@ -214,6 +216,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
+		hostResourceManager:        hostResourceManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
 
