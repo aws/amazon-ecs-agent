@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/pkg/errors"

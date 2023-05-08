@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/containernetworking/cni/libcni"
 
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"

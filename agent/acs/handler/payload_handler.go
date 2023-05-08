@@ -16,8 +16,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"

@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 )

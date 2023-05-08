@@ -23,9 +23,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/pkg/errors"
 	prometheus "github.com/prometheus/client_model/go"
 )

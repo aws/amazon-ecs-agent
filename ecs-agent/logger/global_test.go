@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mock_seelog "github.com/aws/amazon-ecs-agent/agent/logger/mocks"
+	mock_seelog "github.com/aws/amazon-ecs-agent/ecs-agent/logger/mocks"
 )
 
 func TestGlobal_Init(t *testing.T) {
