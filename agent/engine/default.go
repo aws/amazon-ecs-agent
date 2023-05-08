@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
@@ -31,14 +32,15 @@ import (
 func NewTaskEngine(cfg *config.Config, client dockerapi.DockerClient,
 	credentialsManager credentials.Manager,
 	containerChangeEventStream *eventstream.EventStream,
-	imageManager ImageManager, state dockerstate.TaskEngineState,
+	imageManager ImageManager, hostResources map[string]*ecs.Resource, state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,
 	serviceConnectManager serviceconnect.Manager) TaskEngine {
 
+	hostResourceManager := NewHostResourceManager(hostResources)
 	taskEngine := NewDockerTaskEngine(cfg, client, credentialsManager,
-		containerChangeEventStream, imageManager,
+		containerChangeEventStream, imageManager, &hostResourceManager,
 		state, metadataManager, resourceFields, execCmdMgr, serviceConnectManager)
 
 	return taskEngine

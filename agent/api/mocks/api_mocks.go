@@ -264,6 +264,21 @@ func (mr *MockECSClientMockRecorder) DiscoverTelemetryEndpoint(arg0 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverTelemetryEndpoint", reflect.TypeOf((*MockECSClient)(nil).DiscoverTelemetryEndpoint), arg0)
 }
 
+// GetHostResources mocks base method.
+func (m *MockECSClient) GetHostResources() (map[string]*ecs.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHostResources")
+	ret0, _ := ret[0].(map[string]*ecs.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHostResources indicates an expected call of GetHostResources.
+func (mr *MockECSClientMockRecorder) GetHostResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHostResources", reflect.TypeOf((*MockECSClient)(nil).GetHostResources))
+}
+
 // GetResourceTags mocks base method.
 func (m *MockECSClient) GetResourceTags(arg0 string) ([]*ecs.Tag, error) {
 	m.ctrl.T.Helper()

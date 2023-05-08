@@ -298,17 +298,36 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitTerminal
 		}
 	}
+	hostResources, err := client.GetHostResources()
+	if err != nil {
+		seelog.Critical("Unable to fetch host resources")
+		return exitcodes.ExitError
+	}
+	numGPUs := int64(0)
 	if agent.cfg.GPUSupportEnabled {
 		err := agent.initializeGPUManager()
 		if err != nil {
 			seelog.Criticalf("Could not initialize Nvidia GPU Manager: %v", err)
 			return exitcodes.ExitError
 		}
+		// Find number of GPUs instance has
+		platformDevices := agent.getPlatformDevices()
+		for _, device := range platformDevices {
+			if *device.Type == ecs.PlatformDeviceTypeGpu {
+				numGPUs++
+			}
+		}
+	}
+
+	hostResources["GPU"] = &ecs.Resource{
+		Name:         utils.Strptr("GPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &numGPUs,
 	}
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
-		containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, agent.serviceconnectManager)
+		containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr, agent.serviceconnectManager)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -515,6 +534,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
+	hostResources map[string]*ecs.Resource,
 	execCmdMgr execcmd.Manager,
 	serviceConnectManager engineserviceconnect.Manager) (engine.TaskEngine, string, error) {
 
@@ -523,11 +543,11 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	if !agent.cfg.Checkpoint.Enabled() {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state,
+			containerChangeEventStream, imageManager, hostResources, state,
 			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectManager), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr, serviceConnectManager)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -552,7 +572,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		state.Reset()
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
-			containerChangeEventStream, imageManager, state, agent.metadataManager,
+			containerChangeEventStream, imageManager, hostResources, state, agent.metadataManager,
 			agent.resourceFields, execCmdMgr, serviceConnectManager), currentEC2InstanceID, nil
 	}
 
