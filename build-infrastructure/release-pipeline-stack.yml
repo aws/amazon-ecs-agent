@@ -95,6 +95,9 @@ Parameters:
   GithubBranchName:
     Type: String
     Description: The name of the branch to use to build (e.g. mainline, dev)
+  GithubSourceBranchName:
+    Type: String
+    Description: The name of the source branch (e.g. dev, featureBranch)
   SecretKeyArn:
     Type: String
     Description: The ARN of the secret key
@@ -673,6 +676,12 @@ Resources:
                   - s3:GetObjectVersion
                   - s3:GetBucketAcl
                   - s3:GetBucketLocation
+              - Sid: ResultsBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Ref ReleaseArtifactsBucketArn
+                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                Action: s3:*
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
@@ -698,6 +707,13 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         ImagePullCredentialsType: CODEBUILD
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        EnvironmentVariables:
+          - Name: RESULTS_BUCKET_URI
+            Type: PLAINTEXT
+            Value: !Ref ReleaseArtifactsBucketS3Uri
+          - Name: GITHUB_SOURCE_BRANCH_NAME
+            Type: PLAINTEXT
+            Value: !Ref GithubSourceBranchName
       Source:
         BuildSpec: buildspecs/release-config.yml
         Type: CODEPIPELINE
@@ -779,6 +795,9 @@ Resources:
           - Name: RESULTS_BUCKET_URI
             Type: PLAINTEXT
             Value: !Ref ReleaseArtifactsBucketS3Uri
+          - Name: GITHUB_SOURCE_BRANCH_NAME
+            Type: PLAINTEXT
+            Value: !Ref GithubSourceBranchName
       Source:
         BuildSpec: buildspecs/copy.yml
         Type: CODEPIPELINE
