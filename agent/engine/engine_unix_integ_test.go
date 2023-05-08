@@ -48,6 +48,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/containerd/cgroups"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -891,7 +893,10 @@ func TestSwapConfigurationTask(t *testing.T) {
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	state, _ := client.ContainerInspect(ctx, cid)
 	require.EqualValues(t, 314572800, state.HostConfig.MemorySwap)
-	require.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
+	// skip testing memory swappiness for cgroupv2, since this control has been removed in cgroupv2
+	if cgroups.Mode() != cgroups.Unified {
+		require.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
+	}
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)

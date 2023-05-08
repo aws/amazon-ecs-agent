@@ -15,7 +15,6 @@ package eventhandler
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -152,27 +151,19 @@ func (event *sendableEvent) send(
 	backoff retry.Backoff,
 	taskEvents *taskSendableEvents) error {
 
-	logger.Info("Sending state change to ECS", logger.Fields{
-		"eventType": eventType,
-		"eventData": event.toString(),
-	})
+	fields := event.toFields()
+	logger.Info("Sending state change to ECS", fields)
 	// Try submitting the change to ECS
 	if err := sendStatusToECS(client, event); err != nil {
-		logger.Error("Unretriable error sending state change to ECS", logger.Fields{
-			"eventType": eventType,
-			"eventData": event.toString(),
-			field.Error: err,
-		})
+		fields[field.Error] = err
+		logger.Error("Unretriable error sending state change to ECS", fields)
 		return err
 	}
 	// submitted; ensure we don't retry it
 	event.setSent()
 	// Mark event as sent
 	setChangeSent(event, dataClient)
-	logger.Debug("Submitted state change to ECS", logger.Fields{
-		"eventType": eventType,
-		"eventData": event.toString(),
-	})
+	logger.Debug("Submitted state change to ECS", fields)
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
 	return nil
@@ -234,14 +225,14 @@ func setTaskAttachmentSent(event *sendableEvent, dataClient data.Client) {
 	}
 }
 
-func (event *sendableEvent) toString() string {
+func (event *sendableEvent) toFields() logger.Fields {
 	event.lock.RLock()
 	defer event.lock.RUnlock()
 
 	if event.isContainerEvent {
-		return "ContainerChange: [" + event.containerChange.String() + fmt.Sprintf("] sent: %t", event.containerSent)
+		return event.containerChange.ToFields()
 	} else {
-		return "TaskChange: [" + event.taskChange.String() + fmt.Sprintf("] sent: %t", event.taskSent)
+		return event.taskChange.ToFields()
 	}
 }
 

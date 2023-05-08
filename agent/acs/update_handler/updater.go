@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -37,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"

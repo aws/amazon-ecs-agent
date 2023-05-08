@@ -22,7 +22,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -33,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"

@@ -14,8 +14,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+// The tools package manages tool dependencies with go.mod.
 package tools
 
+// Some packages are required by tools we use but are not used explicitly in the code.
+// Import such packages so that they are copied to the vendor directory by go mod.
 import (
+	_ "github.com/aws/aws-sdk-go/private/model/api"
+	_ "github.com/aws/aws-sdk-go/private/util"
 	_ "github.com/golang/mock/mockgen/model"
+	_ "golang.org/x/tools/imports"
 )

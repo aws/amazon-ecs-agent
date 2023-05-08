@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	"github.com/cihub/seelog"
 	"github.com/gorilla/mux"
 )

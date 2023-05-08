@@ -44,9 +44,6 @@ const (
 	// AgentIntrospectionPort is used to serve the metadata about the agent and to query the tasks being managed by the agent.
 	AgentIntrospectionPort = 51678
 
-	// AgentCredentialsPort is used to serve the credentials for tasks.
-	AgentCredentialsPort = 51679
-
 	// AgentPrometheusExpositionPort is used to expose Prometheus metrics that can be scraped by a Prometheus server
 	AgentPrometheusExpositionPort = 51680
 

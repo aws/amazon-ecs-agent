@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -50,6 +49,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -508,10 +508,6 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
 		})
 	}
-	logger.Info("Task network mode initialized", logger.Fields{
-		field.TaskID:      task.GetID(),
-		field.NetworkMode: task.NetworkMode,
-	})
 }
 
 func (task *Task) initServiceConnectResources() error {

@@ -121,10 +121,11 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 gogenerate:
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./agent/... ./ecs-agent/...
 	$(MAKE) goimports
 
 gogenerate-init:
-	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./agent/... ./ecs-init/...
+	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./ecs-init/...
 	$(MAKE) goimports
 
 # 'go' may not be on the $PATH for sudo tests
@@ -145,27 +146,32 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent:
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=60s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
+	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile.out
-	./scripts/analyze-cover-profile
+analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
+	./scripts/analyze-cover-profile coverprofile.out
+	./scripts/analyze-cover-profile coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
-	./scripts/analyze-cover-profile-init
+	./scripts/analyze-cover-profile coverprofile-init.out
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
+	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/... ./ecs-agent/...
 
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
@@ -254,7 +260,7 @@ dockerfree-cni-plugins:
 release-agent-internal: dockerfree-certs dockerfree-cni-plugins static
 	./scripts/build-agent-image
 
-# Default Agent target to build. Pulls cni plugins, builds agent image and save it to disk 
+# Default Agent target to build. Pulls cni plugins, builds agent image and save it to disk
 release-agent: get-cni-sources
 	$(MAKE) release-agent-internal
 
@@ -295,7 +301,7 @@ container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
-GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
+GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... ./ecs-agent/... \
 		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
 
 .PHONY: gocyclo
@@ -306,9 +312,9 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
+	go vet $(shell go list ./agent/... ./ecs-agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-GOFMTFILES:=$(shell find ./agent -not -path './agent/vendor/*' -type f -iregex '.*\.go')
+GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -type f -iregex '.*\.go')
 
 .PHONY: importcheck
 importcheck:
@@ -330,7 +336,7 @@ static-check: gocyclo govet importcheck gogenerate-check
 	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002,-SA4006" ./agent/... ./ecs-agent/...
 
 .PHONY: static-check-init
 static-check-init: gocyclo govet importcheck gogenerate-check-init
@@ -350,7 +356,7 @@ install-golang:
 .get-deps-stamp:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 	touch .get-deps-stamp
 
@@ -359,7 +365,7 @@ get-deps: .get-deps-stamp
 get-deps-init:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
-	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
+	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
 
 amazon-linux-sources.tgz:
@@ -434,6 +440,7 @@ clean:
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
 	-rm -rf coverprofile-init.out
+	-rm -rf coverprofile-ecs-agent.out
 	# ecs-init & rpm cleanup
 	-rm -f ecs-init.spec
 	-rm -f amazon-ecs-init.spec

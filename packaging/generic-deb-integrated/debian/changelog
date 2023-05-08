@@ -1,3 +1,21 @@
+amazon-ecs-init (1.71.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.71.0
+
+ -- Yiyuan Zhong <yiyzhong@amazon.com>  Tue, 25 Apr 2023 18:00:00 +0000
+
+amazon-ecs-init (1.70.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.70.2
+
+ -- Mythri Garaga Manjunatha <mythr@amazon.com>  Tue, 11 Apr 2023 18:00:00 +0000
+
+amazon-ecs-init (1.70.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.70.1
+
+ -- Yash Kulshrstha <kulshres@amazon.com>  Tue, 28 Mar 2023 18:00:00 +0000
+
 amazon-ecs-init (1.70.0-1) stable; urgency=medium
 
   * Cache Agent version 1.70.0

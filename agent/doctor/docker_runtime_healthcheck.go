@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/cihub/seelog"
 )
 
@@ -28,14 +29,14 @@ type dockerRuntimeHealthcheck struct {
 	// HealthcheckType is the reported healthcheck type
 	HealthcheckType string `json:"HealthcheckType,omitempty"`
 	// Status is the container health status
-	Status HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
+	Status doctor.HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
 	// Timestamp is the timestamp when container health status changed
 	TimeStamp time.Time `json:"TimeStamp,omitempty"`
 	// StatusChangeTime is the latest time the health status changed
 	StatusChangeTime time.Time `json:"StatusChangeTime,omitempty"`
 
 	// LastStatus is the last container health status
-	LastStatus HealthcheckStatus `json:"LastStatus,omitempty"`
+	LastStatus doctor.HealthcheckStatus `json:"LastStatus,omitempty"`
 	// LastTimeStamp is the timestamp of last container health status
 	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
 
@@ -46,27 +47,27 @@ type dockerRuntimeHealthcheck struct {
 func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHealthcheck {
 	nowTime := time.Now()
 	return &dockerRuntimeHealthcheck{
-		HealthcheckType:  HealthcheckTypeContainerRuntime,
-		Status:           HealthcheckStatusInitializing,
+		HealthcheckType:  doctor.HealthcheckTypeContainerRuntime,
+		Status:           doctor.HealthcheckStatusInitializing,
 		TimeStamp:        nowTime,
 		StatusChangeTime: nowTime,
 		client:           client,
 	}
 }
 
-func (dhc *dockerRuntimeHealthcheck) RunCheck() HealthcheckStatus {
+func (dhc *dockerRuntimeHealthcheck) RunCheck() doctor.HealthcheckStatus {
 	// TODO pass in context as an argument
 	res := dhc.client.SystemPing(context.TODO(), systemPingTimeout)
-	resultStatus := HealthcheckStatusOk
+	resultStatus := doctor.HealthcheckStatusOk
 	if res.Error != nil {
 		seelog.Infof("[DockerRuntimeHealthcheck] Docker Ping failed with error: %v", res.Error)
-		resultStatus = HealthcheckStatusImpaired
+		resultStatus = doctor.HealthcheckStatusImpaired
 	}
 	dhc.SetHealthcheckStatus(resultStatus)
 	return resultStatus
 }
 
-func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus HealthcheckStatus) {
+func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus doctor.HealthcheckStatus) {
 	dhc.lock.Lock()
 	defer dhc.lock.Unlock()
 	nowTime := time.Now()
@@ -89,7 +90,7 @@ func (dhc *dockerRuntimeHealthcheck) GetHealthcheckType() string {
 	return dhc.HealthcheckType
 }
 
-func (dhc *dockerRuntimeHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
+func (dhc *dockerRuntimeHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.Status
@@ -107,7 +108,7 @@ func (dhc *dockerRuntimeHealthcheck) GetStatusChangeTime() time.Time {
 	return dhc.StatusChangeTime
 }
 
-func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
+func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.LastStatus

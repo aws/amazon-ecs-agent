@@ -35,7 +35,7 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+			utils.WriteJSONToResponse(w, http.StatusNotFound, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
 		WriteV4TaskStatsResponse(w, taskArn, state, statsEngine)
@@ -55,7 +55,7 @@ func WriteV4TaskStatsResponse(w http.ResponseWriter,
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return
 		}
-		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+		utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeTaskStats)
 		return
 	}
 
