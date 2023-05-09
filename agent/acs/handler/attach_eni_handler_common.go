@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/cihub/seelog"
@@ -121,7 +122,7 @@ func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string,
 
 	switch attachmentType {
 	case apieni.ENIAttachmentTypeTaskENI:
-		taskId, _ := utils.TaskIdFromArn(taskARN)
+		taskId, _ := arn.TaskIdFromArn(taskARN)
 		logger.Info("Adding eni attachment info to state for task", logger.Fields{
 			field.TaskID:    taskId,
 			"attachmentARN": attachmentARN,

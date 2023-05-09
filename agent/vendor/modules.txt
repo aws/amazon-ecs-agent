@@ -19,6 +19,9 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws
