@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/async"
@@ -40,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -1069,8 +1072,10 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
 		Attachment: &apieni.ENIAttachment{
-			AttachmentARN: "eni_arn",
-			Status:        apieni.ENIAttached,
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
+				AttachmentARN: "eni_arn",
+				Status:        status.AttachmentAttached,
+			},
 		},
 	})
 	assert.NoError(t, err, "Unable to submit task state change with attachments")

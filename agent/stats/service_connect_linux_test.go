@@ -28,10 +28,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"

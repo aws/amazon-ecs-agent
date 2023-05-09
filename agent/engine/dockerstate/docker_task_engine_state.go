@@ -19,9 +19,9 @@ import (
 	"sync"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/cihub/seelog"
 )
 

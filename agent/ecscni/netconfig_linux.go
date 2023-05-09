@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"

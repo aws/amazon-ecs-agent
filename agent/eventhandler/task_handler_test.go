@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -39,6 +38,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_retry "github.com/aws/amazon-ecs-agent/agent/utils/retry/mock"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
@@ -376,9 +377,11 @@ func TestENISentStatusChange(t *testing.T) {
 	}
 
 	eniAttachment := &apieni.ENIAttachment{
-		TaskARN:          taskARN,
-		AttachStatusSent: false,
-		ExpiresAt:        time.Now().Add(time.Second),
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:          taskARN,
+			AttachStatusSent: false,
+			ExpiresAt:        time.Now().Add(time.Second),
+		},
 	}
 	timeoutFunc := func() {
 		eniAttachment.AttachStatusSent = true

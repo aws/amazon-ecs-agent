@@ -20,9 +20,10 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -90,9 +91,11 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &apieni.ENIAttachment{
-		TaskARN:       "taskarn",
-		AttachmentARN: "eni1",
-		MACAddress:    "mac1",
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:       "taskarn",
+			AttachmentARN: "eni1",
+		},
+		MACAddress: "mac1",
 	}
 
 	state.AddENIAttachment(attachment)

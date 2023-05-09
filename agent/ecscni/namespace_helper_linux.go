@@ -19,7 +19,7 @@ package ecscni
 import (
 	"context"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 

@@ -19,7 +19,7 @@ package ecscni
 import (
 	"regexp"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"

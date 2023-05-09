@@ -16,8 +16,8 @@ package data
 import (
 	"encoding/json"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
