@@ -17,7 +17,7 @@ import (
 	"context"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 )
 
 var _time ttime.Time = &ttime.DefaultTime{}
