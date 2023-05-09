@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -31,6 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -76,9 +77,11 @@ var (
 	}
 
 	testENIAttachment = &eni.ENIAttachment{
-		AttachmentARN:    testAttachmentArn,
-		AttachStatusSent: false,
-		MACAddress:       testMac,
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentARN:    testAttachmentArn,
+			AttachStatusSent: false,
+		},
+		MACAddress: testMac,
 	}
 )
 

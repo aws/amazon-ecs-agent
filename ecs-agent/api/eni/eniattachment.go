@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
@@ -35,23 +37,12 @@ const (
 
 // ENIAttachment contains the information of the eni attachment
 type ENIAttachment struct {
+	attachmentinfo.AttachmentInfo
 	// AttachmentType is the type of the eni attachment, can either be "task-eni" or "instance-eni"
 	AttachmentType string `json:"attachmentType"`
-	// TaskARN is the task identifier from ecs
-	TaskARN string `json:"taskArn"`
-	// AttachmentARN is the identifier for the eni attachment
-	AttachmentARN string `json:"attachmentArn"`
-	// AttachStatusSent indicates whether the attached status has been sent to backend
-	AttachStatusSent bool `json:"attachSent"`
 	// MACAddress is the mac address of eni
 	MACAddress string `json:"macAddress"`
-	// Status is the status of the eni: none/attached/detached
-	Status ENIAttachmentStatus `json:"status"`
-	// ExpiresAt is the timestamp past which the ENI Attachment is considered
-	// unsuccessful. The SubmitTaskStateChange API, with the attachment information
-	// should be invoked before this timestamp.
-	ExpiresAt time.Time `json:"expiresAt"`
-	// ackTimer is used to register the expirtation timeout callback for unsuccessful
+	// ackTimer is used to register the expiration timeout callback for unsuccessful
 	// ENI attachments
 	ackTimer ttime.Timer
 	// guard protects access to fields of this struct

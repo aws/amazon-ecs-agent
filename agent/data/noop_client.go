@@ -15,9 +15,9 @@ package data
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
 
 type noopClient struct{}

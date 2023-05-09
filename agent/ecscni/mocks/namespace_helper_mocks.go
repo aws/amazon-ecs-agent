@@ -22,8 +22,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	eni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
+	eni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	current "github.com/containernetworking/cni/pkg/types/current"
 	gomock "github.com/golang/mock/gomock"
 )

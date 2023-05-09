@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+
 	"github.com/deniswernert/udev"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -31,9 +33,10 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
@@ -84,9 +87,11 @@ func TestWatcherInit(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	taskEngineState.AddENIAttachment(&apieni.ENIAttachment{
-		MACAddress:       randomMAC,
-		AttachStatusSent: false,
-		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachStatusSent: false,
+			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+		},
+		MACAddress: randomMAC,
 	})
 	eventChannel := make(chan statechange.Event)
 
@@ -245,9 +250,11 @@ func TestReconcileENIsWithRetry(t *testing.T) {
 
 func getMockAttachment() *apieni.ENIAttachment {
 	return &apieni.ENIAttachment{
-		MACAddress:       randomMAC,
-		AttachStatusSent: false,
-		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachStatusSent: false,
+			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+		},
+		MACAddress: randomMAC,
 	}
 }
 
@@ -363,8 +370,11 @@ func TestUdevAddEvent(t *testing.T) {
 					Name:         randomDevice,
 				},
 			}, nil),
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&apieni.ENIAttachment{ExpiresAt: time.Unix(time.Now().Unix()+10, 0)}, true),
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
+				ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
+			},
+		}, true),
 	)
 
 	// Spin off event handler
@@ -376,7 +386,7 @@ func TestUdevAddEvent(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, status.AttachmentAttached, taskStateChange.Attachment.Status)
 
 	var waitForClose sync.WaitGroup
 	waitForClose.Add(2)

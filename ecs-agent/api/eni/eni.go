@@ -19,9 +19,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cihub/seelog"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -204,7 +204,9 @@ func (eni *ENI) GetLinkName() string {
 		// Find all interfaces on the instance.
 		ifaces, err := netInterfaces()
 		if err != nil {
-			seelog.Errorf("Failed to find link name: %v.", err)
+			logger.Error("Failed to find link name:", logger.Fields{
+				loggerfield.Error: err,
+			})
 			return ""
 		}
 		// Iterate over the list and find the interface with the ENI's MAC address.
@@ -218,7 +220,9 @@ func (eni *ENI) GetLinkName() string {
 		// assign the LinkName. Log that here since CNI will fail with the empty
 		// name.
 		if eni.LinkName == "" {
-			seelog.Errorf("Failed to find LinkName for MAC %s", eni.MacAddress)
+			logger.Error("Failed to find LinkName for given MAC", logger.Fields{
+				"mac": eni.MacAddress,
+			})
 		}
 	}
 

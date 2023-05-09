@@ -16,11 +16,12 @@ package handler
 import (
 	"time"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	"github.com/aws/amazon-ecs-agent/agent/data"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/cihub/seelog"
@@ -37,8 +38,7 @@ type attachInstanceENIHandler struct {
 	cluster           *string
 	containerInstance *string
 	acsClient         wsclient.ClientServer
-	state             dockerstate.TaskEngineState
-	dataClient        data.Client
+	eniHandler        acssession.ENIHandler
 }
 
 // newAttachInstanceENIHandler returns an instance of the attachInstanceENIHandler struct
@@ -46,8 +46,7 @@ func newAttachInstanceENIHandler(ctx context.Context,
 	cluster string,
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
-	taskEngineState dockerstate.TaskEngineState,
-	dataClient data.Client) attachInstanceENIHandler {
+	eniHandler acssession.ENIHandler) attachInstanceENIHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return attachInstanceENIHandler{
@@ -57,8 +56,7 @@ func newAttachInstanceENIHandler(ctx context.Context,
 		cluster:           aws.String(cluster),
 		containerInstance: aws.String(containerInstanceArn),
 		acsClient:         acsClient,
-		state:             taskEngineState,
-		dataClient:        dataClient,
+		eniHandler:        eniHandler,
 	}
 }
 
@@ -105,11 +103,23 @@ func (handler *attachInstanceENIHandler) handleSingleMessage(message *ecsacs.Att
 	// Send ACK
 	go sendAck(handler.acsClient, message.ClusterArn, message.ContainerInstanceArn, message.MessageId)
 
-	// Handle the attachment
-	attachmentARN := aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn)
-	mac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
 	expiresAt := receivedAt.Add(time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond)
-	return handleENIAttachment(apieni.ENIAttachmentTypeInstanceENI, attachmentARN, "", mac, expiresAt, handler.state, handler.dataClient)
+	eniAttachment := &apieni.ENIAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:              "",
+			AttachmentARN:        aws.StringValue(message.ElasticNetworkInterfaces[0].AttachmentArn),
+			Status:               status.AttachmentNone,
+			ExpiresAt:            expiresAt,
+			AttachStatusSent:     false,
+			ClusterARN:           aws.StringValue(message.ClusterArn),
+			ContainerInstanceARN: aws.StringValue(message.ContainerInstanceArn),
+		},
+		AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
+		MACAddress:     aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress),
+	}
+
+	// Handle the attachment
+	return handler.eniHandler.HandleENIAttachment(eniAttachment)
 }
 
 // validateAttachInstanceNetworkInterfacesMessage performs validation checks on the
