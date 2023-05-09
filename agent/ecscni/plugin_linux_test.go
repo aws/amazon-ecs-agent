@@ -28,8 +28,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"

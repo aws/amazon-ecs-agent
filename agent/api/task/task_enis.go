@@ -16,7 +16,7 @@ package task
 import (
 	"encoding/json"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
 
 // TaskENIs type enumerates the list of ENI objects as a type. It is used for

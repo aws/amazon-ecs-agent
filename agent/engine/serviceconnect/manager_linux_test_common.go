@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"

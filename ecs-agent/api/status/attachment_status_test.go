@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package eni
+package status
 
 import (
 	"testing"
@@ -24,19 +24,19 @@ import (
 
 func TestStatusToString(t *testing.T) {
 	testCases := []struct {
-		status ENIAttachmentStatus
+		status AttachmentStatus
 		str    string
 	}{
 		{
-			status: ENIAttachmentNone,
+			status: AttachmentNone,
 			str:    "NONE",
 		},
 		{
-			status: ENIAttached,
+			status: AttachmentAttached,
 			str:    "ATTACHED",
 		},
 		{
-			status: ENIDetached,
+			status: AttachmentDetached,
 			str:    "DETACHED",
 		},
 	}
@@ -51,22 +51,22 @@ func TestStatusToString(t *testing.T) {
 func TestShouldSend(t *testing.T) {
 	testCases := []struct {
 		name       string
-		status     ENIAttachmentStatus
+		status     AttachmentStatus
 		shouldSend bool
 	}{
 		{
 			name:       "NONE",
-			status:     ENIAttachmentNone,
+			status:     AttachmentNone,
 			shouldSend: false,
 		},
 		{
 			name:       "ATTACHED",
-			status:     ENIAttached,
+			status:     AttachmentAttached,
 			shouldSend: true,
 		},
 		{
 			name:       "DETACHED",
-			status:     ENIDetached,
+			status:     AttachmentDetached,
 			shouldSend: false,
 		},
 	}

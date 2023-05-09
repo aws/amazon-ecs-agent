@@ -25,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -33,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"

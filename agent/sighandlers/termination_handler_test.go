@@ -20,13 +20,14 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,9 +62,11 @@ func TestFinalSave(t *testing.T) {
 	}
 
 	eniAttachment := &apieni.ENIAttachment{
-		TaskARN:          taskARN,
-		AttachmentARN:    eniAttachmentArn,
-		AttachStatusSent: false,
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:          taskARN,
+			AttachmentARN:    eniAttachmentArn,
+			AttachStatusSent: false,
+		},
 	}
 	imageState := &image.ImageState{
 		Image: &image.Image{

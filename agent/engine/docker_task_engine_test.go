@@ -29,11 +29,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -65,6 +67,7 @@ import (
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -2498,11 +2501,13 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	expiresAt := time.Now().Unix() + 1
 	attachment := &apieni.ENIAttachment{
-		TaskARN:       "TaskARN",
-		AttachmentARN: "AttachmentARN",
-		MACAddress:    "MACAddress",
-		Status:        apieni.ENIAttachmentNone,
-		ExpiresAt:     time.Unix(expiresAt, 0),
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:       "TaskARN",
+			AttachmentARN: "AttachmentARN",
+			Status:        status.AttachmentNone,
+			ExpiresAt:     time.Unix(expiresAt, 0),
+		},
+		MACAddress: "MACAddress",
 	}
 	state.AddENIAttachment(attachment)
 
@@ -2532,11 +2537,13 @@ func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
 	attachment := &apieni.ENIAttachment{
-		TaskARN:          "TaskARN",
-		AttachmentARN:    testAttachmentArn,
-		MACAddress:       "MACAddress",
-		Status:           apieni.ENIAttachmentNone,
-		AttachStatusSent: false,
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:          "TaskARN",
+			AttachmentARN:    testAttachmentArn,
+			Status:           status.AttachmentNone,
+			AttachStatusSent: false,
+		},
+		MACAddress: "MACAddress",
 	}
 
 	// eni attachment data is removed if AttachStatusSent is unset

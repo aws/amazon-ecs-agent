@@ -290,8 +290,10 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.state,
-		acsSession.dataClient,
+		&dockerENIHandler{
+			state:      acsSession.state,
+			dataClient: acsSession.dataClient,
+		},
 	)
 	eniAttachHandler.start()
 	defer eniAttachHandler.stop()
@@ -304,8 +306,10 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.state,
-		acsSession.dataClient,
+		&dockerENIHandler{
+			state:      acsSession.state,
+			dataClient: acsSession.dataClient,
+		},
 	)
 	instanceENIAttachHandler.start()
 	defer instanceENIAttachHandler.stop()

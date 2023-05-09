@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/stretchr/testify/assert"
 )
 

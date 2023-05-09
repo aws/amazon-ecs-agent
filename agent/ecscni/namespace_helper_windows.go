@@ -22,8 +22,8 @@ import (
 	"net"
 	"strings"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
