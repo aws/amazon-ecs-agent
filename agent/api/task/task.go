@@ -45,11 +45,12 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -2927,7 +2928,7 @@ func (task *Task) fieldsUnsafe() logger.Fields {
 // Reference: http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arn-syntax-ecs
 func (task *Task) GetID() string {
 	task.setIdOnce.Do(func() {
-		id, err := utils.TaskIdFromArn(task.Arn)
+		id, err := arn.TaskIdFromArn(task.Arn)
 		if err != nil {
 			logger.Error("Error getting ID for task", logger.Fields{
 				field.TaskARN: task.Arn,
