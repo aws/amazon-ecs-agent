@@ -5,6 +5,9 @@ import (
 	"os"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	pb "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient/credentialsfetcher"
 	"github.com/cihub/seelog"
 	"google.golang.org/grpc"
@@ -63,8 +66,7 @@ type CredentialsFetcherResponse struct {
 // to create kerberos tickets associated with gMSA accounts
 func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credentialspecs []string) (CredentialsFetcherResponse, error) {
 	if len(credentialspecs) == 0 {
-		seelog.Error("credentialspecs request should not be empty")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs should not be empty")
 	}
 
 	defer c.conn.Close()
@@ -90,12 +92,77 @@ func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credenti
 	return credentialsFetcherResponse, nil
 }
 
+// AddNonDomainJoinedKerberosLease() invokes credentials fetcher daemon running on the host
+// to create kerberos tickets associated with gMSA accounts in domainless mode
+func (c CredentialsFetcherClient) AddNonDomainJoinedKerberosLease(ctx context.Context, credentialspecs []string, username string, password string, domain string) (CredentialsFetcherResponse, error) {
+	if len(credentialspecs) == 0 {
+		seelog.Error("credentialspecs request should not be empty")
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs should not be empty")
+	}
+
+	if len(username) == 0 || len(password) == 0 || len(domain) == 0 {
+		seelog.Error("username, password or domain should not be empty")
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "username, password or domain should not be empty")
+	}
+
+	defer c.conn.Close()
+	client := pb.NewCredentialsFetcherServiceClient(c.conn)
+
+	request := &pb.CreateNonDomainJoinedKerberosLeaseRequest{CredspecContents: credentialspecs, Username: username, Password: password, Domain: domain}
+
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	defer cancel()
+
+	response, err := client.AddNonDomainJoinedKerberosLease(ctx, request)
+	if err != nil {
+		seelog.Errorf("could not create kerberos tickets: %v", err)
+		return CredentialsFetcherResponse{}, err
+	}
+	seelog.Infof("created kerberos tickets and associated with LeaseID: %s", response.GetLeaseId())
+
+	credentialsFetcherResponse := CredentialsFetcherResponse{
+		LeaseID:             response.GetLeaseId(),
+		KerberosTicketPaths: response.GetCreatedKerberosFilePaths(),
+	}
+
+	return credentialsFetcherResponse, nil
+}
+
+// RenewNonDomainJoinedKerberosLease() invokes credentials fetcher daemon running on the host
+// to renew kerberos tickets associated with gMSA accounts in domainless mode
+func (c CredentialsFetcherClient) RenewNonDomainJoinedKerberosLease(ctx context.Context, username string, password string, domain string) (CredentialsFetcherResponse, error) {
+	if len(username) == 0 || len(password) == 0 || len(domain) == 0 {
+		seelog.Error("username, password or domain should not be empty")
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "username, password or domain should not be empty")
+	}
+
+	defer c.conn.Close()
+	client := pb.NewCredentialsFetcherServiceClient(c.conn)
+
+	request := &pb.RenewNonDomainJoinedKerberosLeaseRequest{Username: username, Password: password, Domain: domain}
+
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	defer cancel()
+
+	response, err := client.RenewNonDomainJoinedKerberosLease(ctx, request)
+	if err != nil {
+		seelog.Errorf("could not renew kerberos tickets: %v", err)
+		return CredentialsFetcherResponse{}, err
+	}
+
+	credentialsFetcherResponse := CredentialsFetcherResponse{
+		KerberosTicketPaths: response.GetRenewedKerberosFilePaths(),
+	}
+
+	return credentialsFetcherResponse, nil
+}
+
 // DeleteKerberosLease() invokes credentials fetcher daemon running on the host
 // to delete kerberos tickets of gMSA accounts associated with the leaseid
 func (c CredentialsFetcherClient) DeleteKerberosLease(ctx context.Context, leaseid string) (CredentialsFetcherResponse, error) {
 	if len(leaseid) == 0 {
 		seelog.Error("invalid leaseid provided")
-		return CredentialsFetcherResponse{}, nil
+		return CredentialsFetcherResponse{}, status.Errorf(codes.InvalidArgument, "invalid leaseid provided")
 	}
 
 	defer c.conn.Close()

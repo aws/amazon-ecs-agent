@@ -18,6 +18,7 @@ package config
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -26,7 +27,7 @@ import (
 )
 
 func parseGMSACapability() BooleanDefaultFalse {
-	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
+	envStatus := utils.ParseBool(os.Getenv(envGmsaEcsSupport), true)
 	if envStatus {
 		// Check if domain join check override is present
 		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
@@ -37,10 +38,10 @@ func parseGMSACapability() BooleanDefaultFalse {
 
 		// check if the credentials fetcher socket is created and exists
 		// this env variable is set in ecs-init module
-		if credentialsfetcherHostDir := os.Getenv("CREDENTIALS_FETCHER_HOST_DIR"); credentialsfetcherHostDir != "" {
+		if credentialsfetcherHostDir := os.Getenv(envCredentialsFetcherHostDir); credentialsfetcherHostDir != "" {
 			_, err := os.Stat(credentialsfetcherHostDir)
 			if err != nil {
-				if os.IsNotExist(err) {
+				if errors.Is(err, fs.ErrNotExist) {
 					seelog.Errorf("CREDENTIALS_FETCHER_HOST_DIR not found, err: %v", err)
 					return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 				}
@@ -72,7 +73,32 @@ func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
 	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 
+// parseGMSADomainlessCapability is used to determine if gMSA domainless support can be enabled
 func parseGMSADomainlessCapability() BooleanDefaultFalse {
+	envStatus := utils.ParseBool(os.Getenv(envGmsaEcsSupport), false)
+	if envStatus {
+		// Check if domain less check override is present
+		skipDomainLessCheck := utils.ParseBool(os.Getenv(envSkipDomainLessCheck), false)
+		if skipDomainLessCheck {
+			seelog.Infof("Skipping domain less validation based on environment override")
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
+		}
+
+		// check if the credentials fetcher socket is created and exists
+		// this env variable is set in ecs-init module
+		if credentialsfetcherHostDir := os.Getenv(envCredentialsFetcherHostDir); credentialsfetcherHostDir != "" {
+			_, err := os.Stat(credentialsfetcherHostDir)
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					seelog.Errorf("CREDENTIALS_FETCHER_HOST_DIR not found, err: %v", err)
+					return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+				}
+				seelog.Errorf("Error associated with CREDENTIALS_FETCHER_HOST_DIR, err: %v", err)
+			}
+			return BooleanDefaultFalse{Value: ExplicitlyEnabled}
+		}
+	}
+	seelog.Debug("env variables to support gMSA are not set")
 	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
 }
 

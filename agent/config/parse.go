@@ -35,6 +35,15 @@ const (
 	// domain join check validation. This is useful for integration and
 	// functional-tests but should not be set for any non-test use-case.
 	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+	// envSkipDomainLessCheck is an environment setting that can be used to skip
+	// domain less gMSA support check validation. This is useful for integration and
+	// functional-tests but should not be set for any non-test use-case.
+	envSkipDomainLessCheck = "ZZZ_SKIP_DOMAIN_LESS_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+	// envGmsaEcsSupport is an environment setting that can be used to enable gMSA support on ECS
+	envGmsaEcsSupport = "ECS_GMSA_SUPPORTED"
+	// envCredentialsFetcherHostDir is an environment setting that is set in ecs-init identifying
+	// location of the credentials-fetcher location on the machine
+	envCredentialsFetcherHostDir = "CREDENTIALS_FETCHER_HOST_DIR"
 )
 
 func parseCheckpoint(dataDir string) BooleanDefaultFalse {
