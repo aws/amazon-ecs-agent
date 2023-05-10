@@ -13,4 +13,4 @@
 
 package credentials
 
-//go:generate mockgen -destination=mocks/credentials_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/credentials Manager
+//go:generate mockgen -destination=mocks/credentials_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/credentials Manager

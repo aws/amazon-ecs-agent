@@ -35,8 +35,6 @@ import (
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -48,6 +46,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 
 	"github.com/aws/aws-sdk-go/aws"
