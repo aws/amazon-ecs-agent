@@ -31,16 +31,13 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	task_protection_v1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
@@ -48,9 +45,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	agentutils "github.com/aws/amazon-ecs-agent/agent/utils"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -241,14 +241,14 @@ var (
 		},
 		Type:   containerType,
 		Labels: labels,
-		Ports: []v1.PortResponse{
+		Ports: []tmdsresponse.PortResponse{
 			{
 				ContainerPort: containerPort,
 				Protocol:      containerPortProtocol,
 				HostPort:      containerPort,
 			},
 		},
-		Networks: []containermetadata.Network{
+		Networks: []tmdsresponse.Network{
 			{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: []string{eniIPv4Address},
@@ -347,13 +347,13 @@ var (
 		},
 		Type:   containerType,
 		Labels: labels,
-		Ports: []v1.PortResponse{
+		Ports: []tmdsresponse.PortResponse{
 			{
 				ContainerPort: containerPort,
 				Protocol:      containerPortProtocol,
 			},
 		},
-		Networks: []containermetadata.Network{
+		Networks: []tmdsresponse.Network{
 			{
 				NetworkMode:   bridgeMode,
 				IPv4Addresses: []string{bridgeIPAddr},
@@ -394,14 +394,14 @@ var (
 			},
 			Type:   containerType,
 			Labels: labels,
-			Ports: []v1.PortResponse{
+			Ports: []tmdsresponse.PortResponse{
 				{
 					ContainerPort: containerPort,
 					Protocol:      containerPortProtocol,
 					HostPort:      containerPort,
 				},
 			},
-			Networks: []containermetadata.Network{
+			Networks: []tmdsresponse.Network{
 				{
 					NetworkMode:   utils.NetworkModeAWSVPC,
 					IPv4Addresses: []string{eniIPv4Address},
@@ -409,7 +409,7 @@ var (
 			},
 		},
 		Networks: []v4.Network{{
-			Network: containermetadata.Network{
+			Network: tmdsresponse.Network{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: []string{eniIPv4Address},
 			},
@@ -484,7 +484,7 @@ var (
 	expectedV4BridgeContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedBridgeContainerResponse,
 		Networks: []v4.Network{{
-			Network: containermetadata.Network{
+			Network: tmdsresponse.Network{
 				NetworkMode:   bridgeMode,
 				IPv4Addresses: []string{bridgeIPAddr},
 			},
@@ -535,7 +535,7 @@ func TestInvalidPath(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 	msg := &utils.ErrorMessage{
-		Code:          v1.ErrNoIDInRequest,
+		Code:          tmdsv1.ErrNoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -546,7 +546,7 @@ func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 	msg := &utils.ErrorMessage{
-		Code:          v1.ErrNoIDInRequest,
+		Code:          tmdsv1.ErrNoIDInRequest,
 		Message:       "CredentialsV2Request: No ID in the request",
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -557,7 +557,7 @@ func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrInvalidIDInRequest,
+		Code:          tmdsv1.ErrInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -571,7 +571,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrInvalidIDInRequest,
+		Code:          tmdsv1.ErrInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -585,7 +585,7 @@ func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrCredentialsUninitialized,
+		Code:          tmdsv1.ErrCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials uninitialized for ID"),
 		HTTPErrorCode: http.StatusServiceUnavailable,
 	}
@@ -599,7 +599,7 @@ func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrCredentialsUninitialized,
+		Code:          tmdsv1.ErrCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials uninitialized for ID"),
 		HTTPErrorCode: http.StatusServiceUnavailable,
 	}

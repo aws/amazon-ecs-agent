@@ -35,10 +35,11 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -192,7 +193,7 @@ func (cs *ClientServerImpl) Connect() error {
 		ReadBufferSize:   readBufSize,
 		WriteBufferSize:  writeBufSize,
 		TLSClientConfig:  tlsConfig,
-		Proxy:            utils.Proxy,
+		Proxy:            httpproxy.Proxy,
 		NetDial:          timeoutDialer.Dial,
 		HandshakeTimeout: wsHandshakeTimeout,
 	}

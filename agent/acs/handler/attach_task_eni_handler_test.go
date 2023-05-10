@@ -22,12 +22,13 @@ import (
 	"testing"
 	"time"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -220,7 +221,12 @@ func TestENIAckSingleMessage(t *testing.T) {
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, dataClient)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+		&eniHandler{
+			state:      taskEngineState,
+			dataClient: dataClient,
+		},
+	)
 
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
@@ -263,7 +269,12 @@ func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, mockState, dataClient)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+		&eniHandler{
+			state:      mockState,
+			dataClient: dataClient,
+		},
+	)
 
 	// Set expiresAt to a value in the past
 	expiresAt := time.Unix(time.Now().Unix()-1, 0)
@@ -278,7 +289,11 @@ func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.
 		// error in starting the timer.
 		// Ensuring that statemanager.Save() is not invoked should be a strong
 		// enough check to ensure that the timer was started
-		mockState.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{ExpiresAt: expiresAt}, true),
+		mockState.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
+				ExpiresAt: expiresAt,
+			},
+		}, true),
 	)
 
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
@@ -313,7 +328,12 @@ func TestENIAckHappyPath(t *testing.T) {
 	dataClient := data.NewNoopClient()
 
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, dataClient)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+		&eniHandler{
+			state:      taskEngineState,
+			dataClient: dataClient,
+		},
+	)
 
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)

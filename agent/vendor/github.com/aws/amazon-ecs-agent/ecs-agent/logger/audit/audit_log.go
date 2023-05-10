@@ -15,10 +15,31 @@
 
 package audit
 
-import "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+import (
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+)
+
+const (
+	GetCredentialsEventType                = "GetCredentials"
+	GetCredentialsTaskExecutionEventType   = "GetCredentialsExecutionRole"
+	GetCredentialsInvalidRoleTypeEventType = "GetCredentialsInvalidRoleType"
+)
 
 type AuditLogger interface {
 	Log(r request.LogRequest, httpResponseCode int, eventType string)
 	GetContainerInstanceArn() string
 	GetCluster() string
+}
+
+// Returns a suitable audit log event type for the credentials role type
+func GetCredentialsEventTypeFromRoleType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return GetCredentialsEventType
+	case credentials.ExecutionRoleType:
+		return GetCredentialsTaskExecutionEventType
+	default:
+		return GetCredentialsInvalidRoleTypeEventType
+	}
 }

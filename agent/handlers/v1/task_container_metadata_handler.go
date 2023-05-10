@@ -20,6 +20,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/cihub/seelog"
 )
 
@@ -61,8 +62,8 @@ func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(htt
 		var err error
 		var responseJSON []byte
 		dockerTaskEngineState := taskEngine.State()
-		dockerID, dockerIDExists := utils.ValueFromRequest(r, dockerIDQueryField)
-		taskArn, taskARNExists := utils.ValueFromRequest(r, taskARNQueryField)
+		dockerID, dockerIDExists := commonutils.ValueFromRequest(r, dockerIDQueryField)
+		taskArn, taskARNExists := commonutils.ValueFromRequest(r, taskARNQueryField)
 		var status int
 		if dockerIDExists && taskARNExists {
 			seelog.Info("Request contains both ", dockerIDQueryField, " and ", taskARNQueryField, ". Expect at most one of these.")

@@ -24,17 +24,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -94,7 +93,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 // Example v1: /ecs/task-id
 // Example v2: ecstasks-$TASKID.slice
 func (task *Task) BuildCgroupRoot() (string, error) {
-	taskID, err := utils.TaskIdFromArn(task.Arn)
+	taskID, err := arn.TaskIdFromArn(task.Arn)
 	if err != nil {
 		return "", err
 	}

@@ -18,6 +18,7 @@ package fsxwindowsfileserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -708,5 +709,19 @@ func TestClearFSxWindowsFileServerResource(t *testing.T) {
 	defer func() { execCommand = exec.Command }()
 
 	err := fv.Cleanup()
+	assert.NoError(t, err)
+}
+
+func TestSpecialCharactersInPasswordPSCommand(t *testing.T) {
+	username := "Administrator"
+	password := "AWS@`~!@#$var%^&*()/1asd"
+
+	credsCommand := fmt.Sprintf(psCredentialCommandFormat, username, password)
+
+	// Perform actual exec to determine if the credentials are generated.
+	// Go tests are platform specific and therefore, this would work.
+	cmd := exec.Command("powershell.exe", credsCommand)
+	_, err := cmd.CombinedOutput()
+
 	assert.NoError(t, err)
 }

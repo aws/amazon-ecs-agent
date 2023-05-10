@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )
 
@@ -204,7 +205,7 @@ func (cfg *Config) Merge(rhs Config) *Config {
 				leftField.Set(reflect.ValueOf(right.Field(i).Interface()))
 			}
 		default:
-			if utils.ZeroOrNil(leftField.Interface()) {
+			if commonutils.ZeroOrNil(leftField.Interface()) {
 				leftField.Set(reflect.ValueOf(right.Field(i).Interface()))
 			}
 		}
@@ -395,7 +396,7 @@ func (cfg *Config) checkMissingAndDepreciated() error {
 	fatalFields := []string{}
 	for i := 0; i < cfgElem.NumField(); i++ {
 		cfgField := cfgElem.Field(i)
-		if utils.ZeroOrNil(cfgField.Interface()) {
+		if commonutils.ZeroOrNil(cfgField.Interface()) {
 			missingTag := cfgStructField.Field(i).Tag.Get("missing")
 			if len(missingTag) == 0 {
 				continue
@@ -429,7 +430,7 @@ func (cfg *Config) complete() bool {
 	cfgElem := reflect.ValueOf(cfg).Elem()
 
 	for i := 0; i < cfgElem.NumField(); i++ {
-		if utils.ZeroOrNil(cfgElem.Field(i).Interface()) {
+		if commonutils.ZeroOrNil(cfgElem.Field(i).Interface()) {
 			return false
 		}
 	}
@@ -464,7 +465,7 @@ func fileConfig() (Config, error) {
 	}
 
 	// Handle any deprecated keys correctly here
-	if utils.ZeroOrNil(cfg.Cluster) && !utils.ZeroOrNil(cfg.ClusterArn) {
+	if commonutils.ZeroOrNil(cfg.Cluster) && !commonutils.ZeroOrNil(cfg.ClusterArn) {
 		cfg.Cluster = cfg.ClusterArn
 	}
 	return cfg, nil

@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy"
 )
 
 // Taken from the default http.Client behavior
@@ -60,7 +60,7 @@ func New(timeout time.Duration, insecureSkipVerify bool) *http.Client {
 	// Note, these defaults are taken from the golang http library. We do not
 	// explicitly do not use theirs to avoid changing their behavior.
 	transport := &http.Transport{
-		Proxy: utils.Proxy,
+		Proxy: httpproxy.Proxy,
 		Dial: (&net.Dialer{
 			Timeout:   defaultDialTimeout,
 			KeepAlive: defaultDialKeepalive,

@@ -24,10 +24,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -296,8 +297,10 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &apieni.ENIAttachment{
-					ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
-					AttachStatusSent: false,
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
+						ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
+						AttachStatusSent: false,
+					},
 				},
 			}),
 			attachmentShouldBeSent: false,
@@ -311,8 +314,10 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &apieni.ENIAttachment{
-					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
-					AttachStatusSent: true,
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
+						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+						AttachStatusSent: true,
+					},
 				},
 			}),
 			attachmentShouldBeSent: false,
@@ -323,8 +328,10 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &apieni.ENIAttachment{
-					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
-					AttachStatusSent: false,
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
+						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
+						AttachStatusSent: false,
+					},
 				},
 			}),
 			attachmentShouldBeSent: true,
@@ -453,9 +460,11 @@ func TestSetAttachmentSentStatus(t *testing.T) {
 	dataClient := newTestDataClient(t)
 
 	testAttachment := &apieni.ENIAttachment{
-		AttachStatusSent: true,
-		ExpiresAt:        time.Unix(time.Now().Unix()+100, 0),
-		AttachmentARN:    testAttachmentARN,
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachStatusSent: true,
+			ExpiresAt:        time.Unix(time.Now().Unix()+100, 0),
+			AttachmentARN:    testAttachmentARN,
+		},
 	}
 	require.NoError(t, testAttachment.StartTimer(func() {}))
 	event := newSendableTaskEvent(api.TaskStateChange{

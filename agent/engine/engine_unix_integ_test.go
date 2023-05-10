@@ -46,7 +46,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/containerd/cgroups"

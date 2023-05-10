@@ -26,12 +26,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/containernetworking/cni/libcni"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
