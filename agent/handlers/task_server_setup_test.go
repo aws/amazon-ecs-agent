@@ -51,6 +51,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -535,7 +536,7 @@ func TestInvalidPath(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 	msg := &utils.ErrorMessage{
-		Code:          v1.ErrNoIDInRequest,
+		Code:          tmdsv1.ErrNoIDInRequest,
 		Message:       "CredentialsV1Request: No ID in the request",
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -546,7 +547,7 @@ func TestCredentialsV1RequestWithNoArguments(t *testing.T) {
 // query parameters are not specified for the credentials endpoint.
 func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 	msg := &utils.ErrorMessage{
-		Code:          v1.ErrNoIDInRequest,
+		Code:          tmdsv1.ErrNoIDInRequest,
 		Message:       "CredentialsV2Request: No ID in the request",
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -557,7 +558,7 @@ func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrInvalidIDInRequest,
+		Code:          tmdsv1.ErrInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -571,7 +572,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager does not contain the credentials id specified in the query.
 func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrInvalidIDInRequest,
+		Code:          tmdsv1.ErrInvalidIDInRequest,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
@@ -585,7 +586,7 @@ func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrCredentialsUninitialized,
+		Code:          tmdsv1.ErrCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV1Request: Credentials uninitialized for ID"),
 		HTTPErrorCode: http.StatusServiceUnavailable,
 	}
@@ -599,7 +600,7 @@ func TestCredentialsV1RequestWhenCredentialsUninitialized(t *testing.T) {
 // the credentials manager returns empty credentials.
 func TestCredentialsV2RequestWhenCredentialsUninitialized(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
-		Code:          v1.ErrCredentialsUninitialized,
+		Code:          tmdsv1.ErrCredentialsUninitialized,
 		Message:       fmt.Sprintf("CredentialsV2Request: Credentials uninitialized for ID"),
 		HTTPErrorCode: http.StatusServiceUnavailable,
 	}

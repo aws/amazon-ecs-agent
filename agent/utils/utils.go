@@ -30,6 +30,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils/httpproxy"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -42,28 +43,6 @@ func DefaultIfBlank(str string, default_value string) string {
 		return default_value
 	}
 	return str
-}
-
-func ZeroOrNil(obj interface{}) bool {
-	value := reflect.ValueOf(obj)
-	if !value.IsValid() {
-		return true
-	}
-	if obj == nil {
-		return true
-	}
-	switch value.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map:
-		return value.Len() == 0
-	}
-	zero := reflect.Zero(reflect.TypeOf(obj))
-	if !value.Type().Comparable() {
-		return false
-	}
-	if obj == zero.Interface() {
-		return true
-	}
-	return false
 }
 
 // SlicesDeepEqual checks if slice1 and slice2 are equal, disregarding order.
@@ -216,7 +195,7 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 	for _, file := range logfiles {
 		if strings.HasPrefix(file.Name(), filePrefix) {
 			desiredFile = file.Name()
-			if ZeroOrNil(desiredFile) {
+			if commonutils.ZeroOrNil(desiredFile) {
 				return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
 			}
 
