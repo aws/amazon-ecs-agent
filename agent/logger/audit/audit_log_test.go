@@ -25,8 +25,8 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_infologger "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

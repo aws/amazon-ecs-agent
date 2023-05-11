@@ -16,9 +16,9 @@ package factory
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	s3client "github.com/aws/amazon-ecs-agent/agent/s3"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"

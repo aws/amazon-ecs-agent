@@ -40,8 +40,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
@@ -53,6 +51,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"

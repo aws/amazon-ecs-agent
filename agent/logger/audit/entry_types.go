@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	log "github.com/cihub/seelog"
 )

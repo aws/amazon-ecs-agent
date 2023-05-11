@@ -26,8 +26,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -35,6 +33,8 @@ import (
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"

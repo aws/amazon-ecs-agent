@@ -24,8 +24,8 @@ import (
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"

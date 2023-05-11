@@ -32,10 +32,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/cihub/seelog"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/pkg/errors"
 )
 
