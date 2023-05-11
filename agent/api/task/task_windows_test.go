@@ -41,9 +41,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 )
 
 const (

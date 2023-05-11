@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
+	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )
 

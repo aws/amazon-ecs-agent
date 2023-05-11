@@ -21,8 +21,8 @@ package mock_factory
 import (
 	reflect "reflect"
 
-	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3 "github.com/aws/amazon-ecs-agent/agent/s3"
+	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )
 
