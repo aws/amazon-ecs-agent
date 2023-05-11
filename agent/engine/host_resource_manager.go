@@ -23,8 +23,8 @@ import (
 
 // HostResourceManager keeps account of each task in
 type HostResourceManager struct {
-	hostResource              map[string]*ecs.Resource
-	consumedResource          map[string]*ecs.Resource
+	hostResource     map[string]*ecs.Resource
+	consumedResource map[string]*ecs.Resource
 
 	taskConsumed map[string]bool //task.arn to boolean whether host resources consumed or not
 }
