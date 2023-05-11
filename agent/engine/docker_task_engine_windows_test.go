@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -131,6 +133,7 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 
 	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
 		testTask.Arn,
@@ -139,6 +142,7 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 		credentialsManager,
 		ssmClientCreator,
 		s3ClientCreator,
+		asmClientCreator,
 		nil)
 	assert.NoError(t, cerr)
 
@@ -210,6 +214,7 @@ func TestCredentialSpecResourceTaskFileErr(t *testing.T) {
 
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 
 	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
 		testTask.Arn,
@@ -218,6 +223,7 @@ func TestCredentialSpecResourceTaskFileErr(t *testing.T) {
 		credentialsManager,
 		ssmClientCreator,
 		s3ClientCreator,
+		asmClientCreator,
 		nil)
 	assert.NoError(t, cerr)
 
