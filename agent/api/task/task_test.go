@@ -35,6 +35,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
+	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -4781,12 +4782,14 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 
 	resFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
 			CredentialsManager: credentialsManager,
 			S3ClientCreator:    s3ClientCreator,
+			ASMClientCreator:   asmClientCreator,
 		},
 	}
 

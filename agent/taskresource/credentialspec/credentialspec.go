@@ -21,6 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -54,6 +55,9 @@ type CredentialSpecResourceCommon struct {
 	// s3ClientCreator is a factory interface that creates new S3 clients. This is
 	// needed mostly for testing.
 	s3ClientCreator s3factory.S3ClientCreator
+	// secretsManagerClientCreator is a factory interface that creates new secret manager clients. This is
+	// needed mostly for testing.
+	secretsmanagerClientCreator asmfactory.ClientCreator
 	// map to transform credentialspec values, key is an input credentialspec
 	// Examples: (windows)
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
@@ -80,6 +84,7 @@ func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.Resour
 	cs.credentialsManager = resourceFields.CredentialsManager
 	cs.ssmClientCreator = resourceFields.SSMClientCreator
 	cs.s3ClientCreator = resourceFields.S3ClientCreator
+	cs.secretsmanagerClientCreator = resourceFields.ASMClientCreator
 	cs.initStatusToTransition()
 }
 
