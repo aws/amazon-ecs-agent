@@ -170,6 +170,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		client.EXPECT().GetHostResources().Return(make(map[string]*ecs.Resource), nil),
 		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
@@ -226,6 +227,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		client.EXPECT().GetHostResources().Return(make(map[string]*ecs.Resource), nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
@@ -282,6 +284,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		client.EXPECT().GetHostResources().Return(make(map[string]*ecs.Resource), nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
@@ -323,6 +326,7 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		client.EXPECT().GetHostResources().Return(make(map[string]*ecs.Resource), nil),
 	)
 
 	cfg := getTestConfig()

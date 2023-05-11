@@ -49,17 +49,25 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 	}
 	//PORTS
 	//Copying ports from host resources as consumed ports for initializing
+	ports := []*string{}
+	if resourceMap != nil && resourceMap["PORTS"] != nil {
+		ports = resourceMap["PORTS"].StringSetValue
+	}
 	consumedResourceMap["PORTS"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: resourceMap["PORTS"].StringSetValue,
+		StringSetValue: ports,
 	}
 
 	//PORTS_UDP
+	portsUdp := []*string{}
+	if resourceMap != nil  && resourceMap["PORTS_UDP"] != nil {
+		portsUdp = resourceMap["PORTS_UDP"].StringSetValue
+	}
 	consumedResourceMap["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: resourceMap["PORTS_UDP"].StringSetValue,
+		StringSetValue: portsUdp,
 	}
 
 	//GPUs

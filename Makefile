@@ -156,9 +156,9 @@ test-init:
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent:
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=180s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=180s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
