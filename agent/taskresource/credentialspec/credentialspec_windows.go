@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -62,6 +63,7 @@ func NewCredentialSpecResource(taskARN, region string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
 	s3ClientCreator s3factory.S3ClientCreator,
+	asmClientCreator asmfactory.ClientCreator,
 	credentialSpecContainerMap map[string]string) (*CredentialSpecResource, error) {
 
 	s := &CredentialSpecResource{
