@@ -17,6 +17,7 @@
 package acsclient
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -25,10 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	mock_wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -108,10 +108,12 @@ const (
 
 var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
-var testCfg = &config.Config{
+var testCfg = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-east-1",
 }
+
+var testACSClientFactory = NewACSClientFactory()
 
 func TestMakeUnrecognizedRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -178,7 +180,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 		messageChannel <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
-	go cs.Serve()
+	go cs.Serve(context.Background())
 
 	expectedMessage := &ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{{
@@ -210,7 +212,7 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(context.Background())
 
 	expectedMessage := &ecsacs.IAMRoleCredentialsMessage{
 		MessageId: aws.String("123"),
@@ -243,7 +245,7 @@ func TestClosingConnection(t *testing.T) {
 	cs := testCS(conn)
 	defer cs.Close()
 
-	serveErr := cs.Serve()
+	serveErr := cs.Serve(context.Background())
 	assert.Error(t, serveErr)
 
 	err := cs.MakeRequest(&ecsacs.AckRequest{})
@@ -261,7 +263,7 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := New(server.URL, testCfg, testCreds, rwTimeout)
+	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg)
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
 		err = cs.Connect()
@@ -284,7 +286,7 @@ func TestConnect(t *testing.T) {
 	})
 
 	go func() {
-		_ = cs.Serve()
+		_ = cs.Serve(context.Background())
 	}()
 
 	go func() {
@@ -332,7 +334,7 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := New(testServer.URL, testCfg, testCreds, rwTimeout)
+	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg)
 	err := cs.Connect()
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok, "Connect error expected to be a WSError type")
@@ -340,7 +342,7 @@ func TestConnectClientError(t *testing.T) {
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	foo := New("localhost:443", testCfg, testCreds, rwTimeout)
+	foo := testACSClientFactory.New("localhost:443", testCreds, rwTimeout, testCfg)
 	cs := foo.(*clientServer)
 	cs.SetConnection(conn)
 	return cs
@@ -405,7 +407,7 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(context.Background())
 
 	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),
@@ -456,7 +458,7 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(context.Background())
 
 	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),

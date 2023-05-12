@@ -34,8 +34,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	mock_http "github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
-	mock_client "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	mock_client "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

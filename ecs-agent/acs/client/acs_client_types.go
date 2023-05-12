@@ -14,8 +14,8 @@
 package acsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 )
 
 var acsRecognizedTypes []interface{}
@@ -48,6 +48,7 @@ func init() {
 		ecsacs.ErrorMessage{},
 		ecsacs.AttachTaskNetworkInterfacesMessage{},
 		ecsacs.AttachInstanceNetworkInterfacesMessage{},
+		ecsacs.ConfirmAttachmentMessage{},
 		ecsacs.TaskManifestMessage{},
 		ecsacs.TaskStopVerificationAck{},
 		ecsacs.TaskStopVerificationMessage{},
