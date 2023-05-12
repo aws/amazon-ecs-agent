@@ -61,7 +61,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 
 	//PORTS_UDP
 	portsUdp := []*string{}
-	if resourceMap != nil  && resourceMap["PORTS_UDP"] != nil {
+	if resourceMap != nil && resourceMap["PORTS_UDP"] != nil {
 		portsUdp = resourceMap["PORTS_UDP"].StringSetValue
 	}
 	consumedResourceMap["PORTS_UDP"] = &ecs.Resource{
