@@ -42,6 +42,7 @@ const (
 )
 
 func TestTaskResponse(t *testing.T) {
+	t.FailNow()
 	expectedTaskResponseMap := map[string]interface{}{
 		"Arn":           "t1",
 		"DesiredStatus": "RUNNING",

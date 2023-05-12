@@ -34,6 +34,7 @@ jobs:
       - name: run tests
         working-directory:
         run: |
+          $ErrorActionPreference = "Stop"
           $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
           cd "$Env:GITHUB_WORKSPACE"
           cd "src/github.com/aws/amazon-ecs-agent/agent"
