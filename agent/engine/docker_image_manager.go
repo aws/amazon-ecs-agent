@@ -33,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -152,7 +151,9 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 	// Inspect image for obtaining Container's Image ID
 	imageInspected, err := imageManager.client.InspectImage(container.Image)
 	if err != nil {
-		seelog.Errorf("Error inspecting image %v: %v", container.Image, err)
+		fields := container.Fields()
+		fields["err"] = err
+		logger.Error("Error inspecting image", fields)
 		return err
 	}
 	container.ImageID = imageInspected.ID
@@ -177,7 +178,7 @@ func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *types.Im
 				resultRepoDigest = repoDigestSplitList[1]
 				return resultRepoDigest
 			} else {
-				seelog.Warnf("ImageRepoDigest doesn't have the right format: %v", imageRepoDigest)
+				logger.Warn(fmt.Sprintf("ImageRepoDigest doesn't have the right format: %v", imageRepoDigest), container.Fields())
 				return ""
 			}
 		}
@@ -272,7 +273,7 @@ func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *
 	for i, imageState := range imageManager.imageStates {
 		if imageState.Image.ImageID == imageStateToBeRemoved.Image.ImageID {
 			// Image State found; hence remove it
-			seelog.Infof("Removing Image State: [%s] from Image Manager", imageState.String())
+			logger.Debug("Image Manager: removing image state", imageState.Fields())
 			imageManager.imageStates = append(imageManager.imageStates[:i], imageManager.imageStates[i+1:]...)
 			imageManager.removeImageStateData(imageState.Image.ImageID)
 			return
@@ -282,14 +283,14 @@ func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *
 
 func (imageManager *dockerImageManager) getCandidateImagesForDeletion() []*image.ImageState {
 	if len(imageManager.imageStatesConsideredForDeletion) < 1 {
-		seelog.Debugf("Image Manager: Empty state!")
+		logger.Debug("Image Manager: Empty state!")
 		// no image states present in image manager
 		return nil
 	}
 	var imagesForDeletion []*image.ImageState
 	for _, imageState := range imageManager.imageStatesConsideredForDeletion {
 		if imageManager.isImageOldEnough(imageState) && imageState.HasNoAssociatedContainers() {
-			seelog.Infof("Candidate image for deletion: [%s]", imageState.String())
+			logger.Debug("Candidate image for deletion", imageState.Fields())
 			imagesForDeletion = append(imagesForDeletion, imageState)
 		}
 	}
@@ -346,7 +347,7 @@ func (imageManager *dockerImageManager) StartImageCleanupProcess(ctx context.Con
 	// If the image pull behavior is prefer cached, don't clean up the image,
 	// because the cached image is needed.
 	if imageManager.imagePullBehavior == config.ImagePullPreferCachedBehavior {
-		seelog.Info("Pull behavior is set to always use cache. Disabling cleanup")
+		logger.Info("Pull behavior is set to always use cache. Disabling cleanup")
 		return
 	}
 	// passing the cleanup interval as argument which would help during testing
@@ -367,10 +368,10 @@ func (imageManager *dockerImageManager) performPeriodicImageCleanup(ctx context.
 }
 
 func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) {
-	seelog.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
+	logger.Debug("Attempting to obtain ImagePullDeleteLock for removing images")
 	ImagePullDeleteLock.Lock()
-	seelog.Debug("Obtained ImagePullDeleteLock for removing images")
-	defer seelog.Debug("Released ImagePullDeleteLock after removing images")
+	logger.Debug("Obtained ImagePullDeleteLock for removing images")
+	defer logger.Debug("Released ImagePullDeleteLock after removing images")
 	defer ImagePullDeleteLock.Unlock()
 
 	imageManager.updateLock.Lock()
@@ -383,7 +384,9 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 		err := imageManager.removeLeastRecentlyUsedImage(ctx)
 		numECSImagesDeleted = i
 		if err != nil {
-			seelog.Infof("End of eligible images for deletion: %v; Still have %d image states being managed", err, len(imageManager.getAllImageStates()))
+			logger.Info("End of eligible images for deletion", logger.Fields{
+				"managedImagesRemaining": len(imageManager.getAllImageStates()),
+			})
 			break
 		}
 	}
@@ -399,20 +402,20 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Context) {
 	nonECSContainersIDs, err := imageManager.getNonECSContainerIDs(ctx)
 	if err != nil {
-		seelog.Errorf("Error getting non-ECS container IDs: %v", err)
+		logger.Error(fmt.Sprintf("Error getting non-ECS container IDs: %v", err))
 	}
 	var nonECSContainerRemoveAvailableIDs []string
 	for _, id := range nonECSContainersIDs {
 		response, icErr := imageManager.client.InspectContainer(ctx, id, dockerclient.InspectContainerTimeout)
 		if icErr != nil {
-			seelog.Errorf("Error inspecting non-ECS container id: %s - %v", id, icErr)
+			logger.Error(fmt.Sprintf("Error inspecting non-ECS container id: %s - %v", id, icErr))
 			continue
 		}
 
-		seelog.Debugf("Inspecting Non-ECS Container ID [%s] for removal, Finished [%s] Status [%s]", id, response.State.FinishedAt, response.State.Status)
+		logger.Debug(fmt.Sprintf("Inspecting Non-ECS Container ID [%s] for removal, Finished [%s] Status [%s]", id, response.State.FinishedAt, response.State.Status))
 		finishedTime, err := time.Parse(time.RFC3339Nano, response.State.FinishedAt)
 		if err != nil {
-			seelog.Errorf("Error parsing time string for container. id: %s, time: %s err: %s", id, response.State.FinishedAt, err)
+			logger.Error(fmt.Sprintf("Error parsing time string for container. id: %s, time: %s err: %s", id, response.State.FinishedAt, err))
 			continue
 		}
 
@@ -428,13 +431,17 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 		if numNonECSContainerDeleted == imageManager.numNonECSContainersToDelete {
 			break
 		}
-		seelog.Debugf("Removing non-ECS Container ID %s", id)
+		logger.Debug("Removing non-ECS container", logger.Fields{
+			"runtimeID": id,
+		})
 		err := imageManager.client.RemoveContainer(ctx, id, dockerclient.RemoveContainerTimeout)
 		if err == nil {
-			seelog.Infof("Removed Container ID: %s", id)
+			logger.Info("Removed non-ECS container", logger.Fields{
+				"runtimeID": id,
+			})
 			numNonECSContainerDeleted++
 		} else {
-			seelog.Errorf("Error Removing Container ID %s - %s", id, err)
+			logger.Error(fmt.Sprintf("Error Removing Container ID %s - %s", id, err))
 			continue
 		}
 	}
@@ -480,24 +487,29 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 		if !imageManager.nonECSImageOldEnough(image) {
 			continue
 		}
+		fields := logger.Fields{
+			"imageID":        image.ImageID,
+			"imageSizeBytes": image.Size,
+			"repoTags":       image.RepoTags,
+		}
 		if len(image.RepoTags) > 1 {
-			seelog.Debugf("Non-ECS image has more than one tag Image: %s (Tags: %s)", image.ImageID, image.RepoTags)
+			logger.Debug("Non-ECS image has more than one tag", fields)
 			for _, tag := range image.RepoTags {
 				err := imageManager.client.RemoveImage(ctx, tag, dockerclient.RemoveImageTimeout)
 				if err != nil {
-					seelog.Errorf("Error removing RepoTag (ImageID: %s, Tag: %s) %v", image.ImageID, tag, err)
+					logger.Error("Error removing non-ECS RepoTag", fields, logger.Fields{"err": err})
 				} else {
-					seelog.Infof("Image Tag Removed: %s (ImageID: %s)", tag, image.ImageID)
+					logger.Info("Non-ECS image tag removed", fields, logger.Fields{"imageTag": tag})
 					numImagesAlreadyDeleted++
 				}
 			}
 		} else {
-			seelog.Debugf("Removing non-ECS Image: %s (Tags: %s)", image.ImageID, image.RepoTags)
+			logger.Debug("Removing non-ECS image", fields)
 			err := imageManager.client.RemoveImage(ctx, image.ImageID, dockerclient.RemoveImageTimeout)
 			if err != nil {
-				seelog.Errorf("Error removing Image %s (Tags: %s) - %v", image.ImageID, image.RepoTags, err)
+				logger.Error("Error removing non-ECS image", fields, logger.Fields{"err": err})
 			} else {
-				seelog.Infof("Image removed: %s (Tags: %s)", image.ImageID, image.RepoTags)
+				logger.Info("Non-ECS image removed", fields)
 				numImagesAlreadyDeleted++
 			}
 		}
@@ -512,13 +524,14 @@ func (imageManager *dockerImageManager) getNonECSImages(ctx context.Context) []I
 	for _, imageID := range r.ImageIDs {
 		resp, err := imageManager.client.InspectImage(imageID)
 		if err != nil {
-			seelog.Errorf("Error inspecting non-ECS image: (ImageID: %s), %s", imageID, err)
+			logger.Error("Error inspecting non-ECS image", logger.Fields{"imageID": imageID, "err": err})
 			continue
 		}
 		createTime := time.Time{}
 		createTime, err = time.Parse(time.RFC3339, resp.Created)
 		if err != nil {
-			seelog.Warnf("Error parse the inspected non-ECS image created time (ImageID: %s), %v", imageID, err)
+			logger.Warn("Error parsing the inspected non-ECS image created time.",
+				logger.Fields{"imageID": imageID, "err": err})
 		}
 		allImages = append(allImages,
 			ImageWithSizeID{
@@ -588,13 +601,13 @@ func exclude(allList []string, exclusionList []string) []string {
 
 func (imageManager *dockerImageManager) imagesConsiderForDeletion(allImageStates []*image.ImageState) map[string]*image.ImageState {
 	var imagesConsiderForDeletionMap = make(map[string]*image.ImageState)
-	seelog.Info("Begin building map of eligible unused images for deletion")
+	logger.Debug("Begin building map of eligible unused images for deletion")
 	for _, imageState := range allImageStates {
 		if imageManager.isExcludedFromCleanup(imageState) {
 			//imageState that we want to keep
-			seelog.Debugf("Image excluded from deletion: [%s]", imageState.String())
+			logger.Debug("Image excluded from deletion", imageState.Fields())
 		} else {
-			seelog.Debugf("Image going to be considered for deletion: [%s]", imageState.String())
+			logger.Debug("Image going to be considered for deletion", imageState.Fields())
 			imagesConsiderForDeletionMap[imageState.Image.ImageID] = imageState
 		}
 	}
@@ -617,6 +630,7 @@ func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage(ctx context
 	if leastRecentlyUsedImage == nil {
 		return fmt.Errorf("No more eligible images for deletion")
 	}
+	logger.Info("Image ready for deletion", leastRecentlyUsedImage.Fields())
 	imageManager.removeImage(ctx, leastRecentlyUsedImage)
 	return nil
 }
@@ -624,10 +638,10 @@ func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage(ctx context
 func (imageManager *dockerImageManager) getUnusedImageForDeletion() *image.ImageState {
 	candidateImageStatesForDeletion := imageManager.getCandidateImagesForDeletion()
 	if len(candidateImageStatesForDeletion) < 1 {
-		seelog.Infof("No eligible images for deletion for this cleanup cycle")
+		logger.Debug("No eligible images for deletion for this cleanup cycle")
 		return nil
 	}
-	seelog.Infof("Found %d eligible images for deletion", len(candidateImageStatesForDeletion))
+	logger.Debug(fmt.Sprintf("Found %d eligible images for deletion", len(candidateImageStatesForDeletion)))
 	return imageManager.getLeastRecentlyUsedImage(candidateImageStatesForDeletion)
 }
 
@@ -648,24 +662,28 @@ func (imageManager *dockerImageManager) removeImage(ctx context.Context, leastRe
 
 func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID string, imageState *image.ImageState) {
 	if imageID == "" {
-		seelog.Errorf("Image ID to be deleted is null")
+		var fields logger.Fields
+		if imageState != nil {
+			fields = imageState.Fields()
+		}
+		logger.Error("Image ID to be deleted is null", fields)
 		return
 	}
-	seelog.Infof("Removing Image: %s", imageID)
+	logger.Debug(fmt.Sprintf("Removing Image: %s", imageID), imageState.Fields())
 	err := imageManager.client.RemoveImage(ctx, imageID, dockerclient.RemoveImageTimeout)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), imageNotFoundForDeletionError) {
-			seelog.Errorf("Image already removed from the instance: %v", err)
+			logger.Error(fmt.Sprintf("Image already removed from the instance: %v", imageID), imageState.Fields())
 		} else {
-			seelog.Errorf("Error removing Image %v - %v", imageID, err)
+			logger.Error(fmt.Sprintf("Error removing Image %v", imageID), imageState.Fields(), logger.Fields{"err": err})
 			delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
 			return
 		}
 	}
-	seelog.Infof("Image removed: %v", imageID)
+	logger.Info(fmt.Sprintf("Image removed: %v", imageID), imageState.Fields())
 	imageState.RemoveImageName(imageID)
 	if len(imageState.Image.Names) == 0 {
-		seelog.Infof("Cleaning up all tracking information for image %s as it has zero references", imageID)
+		logger.Info(fmt.Sprintf("Cleaning up all tracking information for image %s as it has zero references", imageID), imageState.Fields())
 		delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
 		imageManager.removeImageState(imageState)
 		imageManager.state.RemoveImageState(imageState)
