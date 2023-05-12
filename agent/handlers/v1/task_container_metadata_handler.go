@@ -19,7 +19,8 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	utiltypes "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/cihub/seelog"
 )
 
@@ -56,7 +57,7 @@ func createTaskResponse(task *apitask.Task, found bool, resourceID string, state
 // TaskContainerMetadataHandler creates response for the 'v1/tasks' API. Lists all tasks if the request
 // doesn't contain any fields. Returns a Task if either of 'dockerid' or
 // 'taskarn' are specified in the request.
-func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(http.ResponseWriter, *http.Request) {
+func TaskContainerMetadataHandler(taskEngine utiltypes.DockerStateResolver) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var responseJSON []byte

@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/types"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"

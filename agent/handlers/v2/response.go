@@ -23,7 +23,7 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"

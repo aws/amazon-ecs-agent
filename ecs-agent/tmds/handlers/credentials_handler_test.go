@@ -226,9 +226,7 @@ func testCredentialsHandlerError(
 
 	// Create a test reqeust
 	req, err := http.NewRequest("GET", tc.Path, nil)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 
 	// Serve the request and read the response
@@ -296,9 +294,7 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 
 	// Prepare and send a request
 	req, err := http.NewRequest("GET", path, nil)
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	handler := makeHandler(credManager, auditLogger)
 	handler.ServeHTTP(recorder, req)

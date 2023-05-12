@@ -19,7 +19,7 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"

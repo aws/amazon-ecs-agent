@@ -20,7 +20,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/pkg/errors"
 )

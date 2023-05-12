@@ -14,4 +14,4 @@
 package handlers
 
 //go:generate mockgen -destination=mocks/http/handlers_mocks.go -copyright_file=../../scripts/copyright_file net/http ResponseWriter
-//go:generate mockgen -destination=mocks/handlers_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/handlers/utils DockerStateResolver
+//go:generate mockgen -destination=mocks/handlers_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils DockerStateResolver
