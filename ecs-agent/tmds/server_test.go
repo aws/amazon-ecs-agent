@@ -34,6 +34,7 @@ func TestNewServerErrors(t *testing.T) {
 // Asserts that server-level settings passed to NewServer() function make their way to
 // the initialized server.
 func TestServerSettings(t *testing.T) {
+	t.FailNow()
 	router := mux.NewRouter()
 	writeTimeout := 5 * time.Second
 	readTimeout := 10 * time.Second
