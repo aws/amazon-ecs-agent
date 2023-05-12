@@ -62,6 +62,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -943,6 +944,7 @@ func (agent *ecsAgent) startACSSession(
 		taskHandler,
 		agent.latestSeqNumberTaskManifest,
 		doctor,
+		acsclient.NewACSClientFactory(),
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()

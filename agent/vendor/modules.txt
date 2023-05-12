@@ -7,6 +7,7 @@ github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/hcsshim/osversion
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.19
+github.com/aws/amazon-ecs-agent/ecs-agent/acs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo
@@ -36,6 +37,9 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
+github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
+github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws

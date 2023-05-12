@@ -19,13 +19,13 @@
 package acsclient
 
 import (
+	"context"
 	"errors"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/cihub/seelog"
 )
 
 // clientServer implements ClientServer for acs.
@@ -33,14 +33,22 @@ type clientServer struct {
 	wsclient.ClientServerImpl
 }
 
+type acsClientFactory struct{}
+
+// NewACSClientFactory creates a new ACS client factory object. This can be
+// used to create new ACS clients.
+func NewACSClientFactory() wsclient.ClientFactory {
+	return &acsClientFactory{}
+}
+
 // New returns a client/server to bidirectionally communicate with ACS
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func New(url string, cfg *config.Config, credentialProvider *credentials.Credentials, rwTimeout time.Duration) wsclient.ClientServer {
+func (*acsClientFactory) New(url string, credentialProvider *credentials.Credentials, rwTimeout time.Duration, cfg *wsclient.WSClientMinAgentConfig) wsclient.ClientServer {
 	cs := &clientServer{}
 	cs.URL = url
 	cs.CredentialProvider = credentialProvider
-	cs.AgentConfig = cfg
+	cs.Cfg = cfg
 	cs.ServiceError = &acsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
 	cs.TypeDecoder = NewACSDecoder()
@@ -51,12 +59,12 @@ func New(url string, cfg *config.Config, credentialProvider *credentials.Credent
 // Serve begins serving requests using previously registered handlers (see
 // AddRequestHandler). All request handlers should be added prior to making this
 // call as unhandled requests will be discarded.
-func (cs *clientServer) Serve() error {
-	seelog.Debug("ACS client starting websocket poll loop")
+func (cs *clientServer) Serve(ctx context.Context) error {
+	logger.Debug("ACS client starting websocket poll loop")
 	if !cs.IsReady() {
 		return errors.New("acs client: websocket not ready for connections")
 	}
-	return cs.ConsumeMessages()
+	return cs.ConsumeMessages(ctx)
 }
 
 // Close closes the underlying connection
