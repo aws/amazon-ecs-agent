@@ -45,3 +45,4 @@ jobs:
           cd ../ecs-agent
           $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
           go test -v -tags unit -timeout=120s $packages
+        shell: powershell
