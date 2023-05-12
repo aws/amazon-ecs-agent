@@ -431,7 +431,6 @@ func TestInitializeTaskENIDependenciesQueryCNICapabilitiesError(t *testing.T) {
 // cases where udev monitor initialization fails as well
 
 func TestDoStartCgroupInitHappyPath(t *testing.T) {
-	t.Skip("skip TestDoStartCgroupInitHappyPath")
 	ctrl, credentialsManager, state, imageManager, client,
 		dockerClient, _, _, execCmdMgr, _ := setup(t)
 	defer ctrl.Finish()
