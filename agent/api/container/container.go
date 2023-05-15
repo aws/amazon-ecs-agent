@@ -27,6 +27,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -516,11 +517,11 @@ func (c *Container) Fields() logger.Fields {
 		exitCode = strconv.Itoa(*c.GetKnownExitCode())
 	}
 	return logger.Fields{
-		"containerName":          c.Name,
-		"containerImage":         c.Image,
+		field.ContainerName:      c.Name,
+		field.ContainerImage:     c.Image,
 		"containerKnownStatus":   c.GetKnownStatus().String(),
 		"containerDesiredStatus": c.GetDesiredStatus().String(),
-		"containerExitCode":      exitCode,
+		field.ContainerExitCode:  exitCode,
 	}
 }
 

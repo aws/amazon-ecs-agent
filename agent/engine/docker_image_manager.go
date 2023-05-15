@@ -152,7 +152,7 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 	imageInspected, err := imageManager.client.InspectImage(container.Image)
 	if err != nil {
 		fields := container.Fields()
-		fields["err"] = err
+		fields[field.Error] = err
 		logger.Error("Error inspecting image", fields)
 		return err
 	}
@@ -488,16 +488,16 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 			continue
 		}
 		fields := logger.Fields{
-			"imageID":        image.ImageID,
-			"imageSizeBytes": image.Size,
-			"repoTags":       image.RepoTags,
+			field.ImageID:        image.ImageID,
+			field.ImageSizeBytes: image.Size,
+			"repoTags":           image.RepoTags,
 		}
 		if len(image.RepoTags) > 1 {
 			logger.Debug("Non-ECS image has more than one tag", fields)
 			for _, tag := range image.RepoTags {
 				err := imageManager.client.RemoveImage(ctx, tag, dockerclient.RemoveImageTimeout)
 				if err != nil {
-					logger.Error("Error removing non-ECS RepoTag", fields, logger.Fields{"err": err})
+					logger.Error("Error removing non-ECS RepoTag", fields, logger.Fields{field.Error: err})
 				} else {
 					logger.Info("Non-ECS image tag removed", fields, logger.Fields{"imageTag": tag})
 					numImagesAlreadyDeleted++
@@ -507,7 +507,7 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 			logger.Debug("Removing non-ECS image", fields)
 			err := imageManager.client.RemoveImage(ctx, image.ImageID, dockerclient.RemoveImageTimeout)
 			if err != nil {
-				logger.Error("Error removing non-ECS image", fields, logger.Fields{"err": err})
+				logger.Error("Error removing non-ECS image", fields, logger.Fields{field.Error: err})
 			} else {
 				logger.Info("Non-ECS image removed", fields)
 				numImagesAlreadyDeleted++
@@ -524,14 +524,14 @@ func (imageManager *dockerImageManager) getNonECSImages(ctx context.Context) []I
 	for _, imageID := range r.ImageIDs {
 		resp, err := imageManager.client.InspectImage(imageID)
 		if err != nil {
-			logger.Error("Error inspecting non-ECS image", logger.Fields{"imageID": imageID, "err": err})
+			logger.Error("Error inspecting non-ECS image", logger.Fields{field.ImageID: imageID, field.Error: err})
 			continue
 		}
 		createTime := time.Time{}
 		createTime, err = time.Parse(time.RFC3339, resp.Created)
 		if err != nil {
 			logger.Warn("Error parsing the inspected non-ECS image created time.",
-				logger.Fields{"imageID": imageID, "err": err})
+				logger.Fields{field.ImageID: imageID, field.Error: err})
 		}
 		allImages = append(allImages,
 			ImageWithSizeID{
@@ -675,7 +675,7 @@ func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID
 		if strings.Contains(strings.ToLower(err.Error()), imageNotFoundForDeletionError) {
 			logger.Error(fmt.Sprintf("Image already removed from the instance: %v", imageID), imageState.Fields())
 		} else {
-			logger.Error(fmt.Sprintf("Error removing Image %v", imageID), imageState.Fields(), logger.Fields{"err": err})
+			logger.Error(fmt.Sprintf("Error removing Image %v", imageID), imageState.Fields(), logger.Fields{field.Error: err})
 			delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
 			return
 		}

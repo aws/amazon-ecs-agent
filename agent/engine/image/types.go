@@ -203,12 +203,12 @@ func (imageState *ImageState) Fields() logger.Fields {
 	}
 
 	return logger.Fields{
-		"imageID":            imageID,
-		"imageNames":         names,
-		"imageSizeBytes":     size,
-		"referencedBy":       len(imageState.Containers),
-		"imagePulledAt":      imageState.PulledAt.UTC().Format(time.RFC3339),
-		"imageLastUsedAt":    imageState.LastUsedAt.UTC().Format(time.RFC3339),
-		"imagePullSucceeded": imageState.PullSucceeded,
+		field.ImageID:            imageID,
+		field.ImageNames:         names,
+		field.ImageSizeBytes:     size,
+		"referencedBy":           len(imageState.Containers),
+		field.ImagePulledAt:      imageState.PulledAt.UTC().Format(time.RFC3339),
+		field.ImageLastUsedAt:    imageState.LastUsedAt.UTC().Format(time.RFC3339),
+		field.ImagePullSucceeded: imageState.PullSucceeded,
 	}
 }
