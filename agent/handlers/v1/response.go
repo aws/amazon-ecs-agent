@@ -18,8 +18,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 )
 
 // MetadataResponse is the schema for the metadata response JSON object

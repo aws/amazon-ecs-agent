@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"net/http"
 
-	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+	handlersutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/cihub/seelog"
 )
 

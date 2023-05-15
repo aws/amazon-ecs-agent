@@ -23,7 +23,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConstructMuxVar(t *testing.T) {
@@ -85,4 +89,22 @@ func TestValueFromRequest(t *testing.T) {
 
 	assert.True(t, ok)
 	assert.Equal(t, "credid", val)
+}
+
+// Tests that an audit log is created by LimitReachHandler
+func TestLimitReachHandler(t *testing.T) {
+	// Prepare a request
+	req, err := http.NewRequest("GET", "/endpoint", nil)
+	require.NoError(t, err)
+
+	// Set up mock audit logger with a log expectation
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	auditLogger := mock_audit.NewMockAuditLogger(ctrl)
+	auditLogger.EXPECT().Log(request.LogRequest{Request: req}, http.StatusTooManyRequests, "")
+
+	// Send the request, assertion is performed by the expectation on the mock audit logger
+	handler := http.HandlerFunc(LimitReachedHandler(auditLogger))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
 }

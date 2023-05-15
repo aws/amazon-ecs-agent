@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging"
 	muxutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux"
 
@@ -111,7 +111,7 @@ func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) 
 	// Define a reqeuest rate limiter
 	limiter := tollbooth.
 		NewLimiter(config.steadyStateRate, nil).
-		SetOnLimitReached(limitReachedHandler(auditLogger)).
+		SetOnLimitReached(utils.LimitReachedHandler(auditLogger)).
 		SetBurst(config.burstRate)
 
 	// Log all requests and then pass through to muxRouter.
@@ -131,14 +131,4 @@ func setup(auditLogger audit.AuditLogger, config *Config) (*http.Server, error) 
 		ReadTimeout:  config.readTimeout,
 		WriteTimeout: config.writeTimeout,
 	}, nil
-}
-
-// LimitReachedHandler logs the throttled request in the credentials audit log
-func limitReachedHandler(auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		logRequest := request.LogRequest{
-			Request: r,
-		}
-		auditLogger.Log(logRequest, http.StatusTooManyRequests, "")
-	}
 }
