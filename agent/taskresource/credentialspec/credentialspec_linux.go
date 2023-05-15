@@ -26,12 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/cihub/seelog"
 
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -61,8 +63,17 @@ type CredentialSpecResource struct {
 
 // ServiceAccountInfo contains account info associated to a credentialspec
 type ServiceAccountInfo struct {
-	serviceAccountName string
-	domainName         string
+	serviceAccountName    string
+	domainName            string
+	domainlessGmsaUserArn string
+	credentialSpecContent string
+}
+
+// DomainlessUserCredentials represents user credentials for accessing the gMSA principals
+type DomainlessUserCredentials struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	DomainName string `json:"domainName"`
 }
 
 // CredentialSpec object schema
@@ -84,23 +95,51 @@ type CredentialSpecSchema struct {
 	} `json:"ActiveDirectoryConfig"`
 }
 
+// CredentialSpec domainless object schema
+type CredentialSpecDomainlessSchema struct {
+	CmsPlugins       []string `json:"CmsPlugins"`
+	DomainJoinConfig struct {
+		Sid                string `json:"Sid"`
+		MachineAccountName string `json:"MachineAccountName"`
+		GUID               string `json:"Guid"`
+		DNSTreeName        string `json:"DnsTreeName"`
+		DNSName            string `json:"DnsName"`
+		NetBiosName        string `json:"NetBiosName"`
+	} `json:"DomainJoinConfig"`
+	ActiveDirectoryConfig struct {
+		GroupManagedServiceAccounts []struct {
+			Name  string `json:"Name"`
+			Scope string `json:"Scope"`
+		} `json:"GroupManagedServiceAccounts"`
+		HostAccountConfig struct {
+			PortableCcgVersion string `json:"PortableCcgVersion"`
+			PluginGUID         string `json:"PluginGUID"`
+			PluginInput        struct {
+				CredentialArn string `json:"CredentialArn"`
+			} `json:"PluginInput"`
+		} `json:"HostAccountConfig"`
+	} `json:"ActiveDirectoryConfig"`
+}
+
 // NewCredentialSpecResource creates a new CredentialSpecResource object
 func NewCredentialSpecResource(taskARN, region string,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
 	s3ClientCreator s3factory.S3ClientCreator,
+	asmClientCreator asmfactory.ClientCreator,
 	credentialSpecContainerMap map[string]string) (*CredentialSpecResource, error) {
 	s := &CredentialSpecResource{
 		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
-			taskARN:                    taskARN,
-			region:                     region,
-			credentialsManager:         credentialsManager,
-			executionCredentialsID:     executionCredentialsID,
-			ssmClientCreator:           ssmClientCreator,
-			s3ClientCreator:            s3ClientCreator,
-			CredSpecMap:                make(map[string]string),
-			credentialSpecContainerMap: credentialSpecContainerMap,
+			taskARN:                     taskARN,
+			region:                      region,
+			credentialsManager:          credentialsManager,
+			executionCredentialsID:      executionCredentialsID,
+			ssmClientCreator:            ssmClientCreator,
+			s3ClientCreator:             s3ClientCreator,
+			secretsmanagerClientCreator: asmClientCreator,
+			CredSpecMap:                 make(map[string]string),
+			credentialSpecContainerMap:  credentialSpecContainerMap,
 		},
 		ServiceAccountInfoMap: make(map[string]ServiceAccountInfo),
 	}
@@ -117,10 +156,18 @@ func (cs *CredentialSpecResource) Create() error {
 		iamCredentials = executionCredentials.GetIAMRoleCredentials()
 	}
 
+	isDomainlessGmsa := false
 	var wg sync.WaitGroup
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
 	for credSpecStr := range cs.credentialSpecContainerMap {
-		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
+		isDomainlessGmsa = strings.Contains(credSpecStr, "credentialspecdomainless")
+		var credSpecSplit []string
+		if isDomainlessGmsa {
+			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspecdomainless:", 2)
+		} else {
+			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
+		}
+
 		if len(credSpecSplit) != 2 {
 			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
 			continue
@@ -129,7 +176,7 @@ func (cs *CredentialSpecResource) Create() error {
 		credSpecValue := credSpecSplit[1]
 		if strings.HasPrefix(credSpecValue, "file://") {
 			wg.Add(1)
-			go cs.handleCredentialspecFile(credSpecStr, &wg, errorEvents)
+			go cs.handleCredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, &wg, errorEvents)
 			continue
 		}
 
@@ -142,10 +189,10 @@ func (cs *CredentialSpecResource) Create() error {
 		switch parsedARNService {
 		case "s3":
 			wg.Add(1)
-			go cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+			go cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, iamCredentials, &wg, errorEvents)
 		case "ssm":
 			wg.Add(1)
-			go cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+			go cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, iamCredentials, &wg, errorEvents)
 		default:
 			err = errors.New("unsupported credentialspec ARN, only s3/ssm ARNs are valid")
 			cs.setTerminalReason(err.Error())
@@ -181,12 +228,62 @@ func (cs *CredentialSpecResource) Create() error {
 		return nil
 	}
 
-	err := cs.handleKerberosTicketCreation()
-	if err != nil {
-		cs.setTerminalReason(err.Error())
-		return err
+	if isDomainlessGmsa {
+		err := cs.handleDomainlessKerberosTicketCreation()
+		if err != nil {
+			cs.setTerminalReason(err.Error())
+			return err
+		}
+	} else {
+		err := cs.handleKerberosTicketCreation()
+		if err != nil {
+			cs.setTerminalReason(err.Error())
+			return err
+		}
 	}
+	return nil
+}
 
+func (cs *CredentialSpecResource) handleDomainlessKerberosTicketCreation() error {
+	// Create kerberos tickets for the gMSA service accounts in domain-less mode on the host location /var/credentials-fetcher/krbdir
+	var iamCredentials credentials.IAMRoleCredentials
+	for k, v := range cs.ServiceAccountInfoMap {
+		if v.domainlessGmsaUserArn != "" {
+			// get domain-user credentials from secrets manager
+			executionCredentials, ok := cs.credentialsManager.GetTaskCredentials(cs.getExecutionCredentialsID())
+			if ok {
+				iamCredentials = executionCredentials.GetIAMRoleCredentials()
+			}
+
+			asmClient := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+
+			asmSecretData, err := asm.GetSecretFromASM(v.domainlessGmsaUserArn, asmClient)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve credentials for domainless gMSA user %s: %w", v.domainlessGmsaUserArn, err)
+			}
+			creds := DomainlessUserCredentials{}
+			if err := json.Unmarshal([]byte(asmSecretData), &creds); err != nil {
+				return fmt.Errorf("failed to parse asmSecretData for the gMSA AD user: %w", err)
+			}
+			//set up server connection to communicate with credentials fetcher daemon
+			conn, err := credentialsfetcherclient.GetGrpcClientConnection()
+			if err != nil {
+				seelog.Errorf("failed to connect with credentials fetcher daemon: %s", err)
+				return err
+			}
+			seelog.Infof("grpc connection: %v", conn)
+
+			response, err := credentialsfetcherclient.NewCredentialsFetcherClient(conn, time.Minute).AddNonDomainJoinedKerberosLease(context.Background(),
+				[]string{v.credentialSpecContent}, creds.Username, creds.Password, creds.DomainName)
+
+			if err != nil {
+				cs.setTerminalReason(err.Error())
+				return fmt.Errorf("failed to create kerberos tickets associated service account %s: %w", v.domainlessGmsaUserArn, err)
+			}
+			seelog.Infof("credentials fetcher response leaseID: %v", cs.leaseID)
+			cs.CredSpecMap[k] = response.KerberosTicketPaths[0]
+		}
+	}
 	return nil
 }
 
@@ -226,27 +323,17 @@ func (cs *CredentialSpecResource) handleKerberosTicketCreation() error {
 	return nil
 }
 
-func (cs *CredentialSpecResource) handleCredentialspecFile(credentialSpec string, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleCredentialspecFile(originalCredentialSpecFile, credentialSpec string, isDomainlessGmsa bool, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
-	credSpecSplit := strings.SplitAfterN(credentialSpec, "credentialspec:", 2)
-	if len(credSpecSplit) != 2 {
-		seelog.Errorf("Invalid credentialspec: %s", credentialSpec)
-		err := errors.New("invalid credentialspec file specification")
-		cs.setTerminalReason(err.Error())
-		errorEvents <- err
-		return
-	}
-	credSpecFile := credSpecSplit[1]
-
-	if !strings.HasPrefix(credSpecFile, "file://") {
+	if !strings.HasPrefix(credentialSpec, "file://") {
 		err := errors.New("invalid credentialspec file specification")
 		cs.setTerminalReason(err.Error())
 		errorEvents <- err
 		return
 	}
 
-	fileName := strings.SplitAfterN(credSpecFile, "file://", 2)
+	fileName := strings.SplitAfterN(credentialSpec, "file://", 2)
 	data, err := os.ReadFile(fileName[1])
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -256,10 +343,15 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(credentialSpec string
 
 	credSpecData := string(data)
 
-	cs.updateCredSpecMapping(credentialSpec, credSpecData)
+	err = cs.updateCredSpecMapping(originalCredentialSpecFile, credSpecData, isDomainlessGmsa)
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
 }
 
-func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialSpec, credentialSpecS3ARN string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialSpecARN, credentialSpecS3ARN string, isDomainlessGmsa bool, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 	if iamCredentials == (credentials.IAMRoleCredentials{}) {
 		err := errors.New("credentialspec resource: unable to find execution role credentials")
@@ -267,7 +359,6 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialS
 		errorEvents <- err
 		return
 	}
-
 	_, err := arn.Parse(credentialSpecS3ARN)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -296,10 +387,15 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialS
 	json.Compact(credSpecJsonStringBytes, []byte(credSpecJsonStringUnformatted))
 	credSpecJsonString := credSpecJsonStringBytes.String()
 
-	cs.updateCredSpecMapping(originalCredentialSpec, credSpecJsonString)
+	err = cs.updateCredSpecMapping(originalCredentialSpecARN, credSpecJsonString, isDomainlessGmsa)
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
 }
 
-func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialSpec, credentialSpecSSMARN string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialSpecARN, credentialSpecSSMARN string, isDomainlessGmsa bool, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
 	if iamCredentials == (credentials.IAMRoleCredentials{}) {
@@ -337,37 +433,62 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 
 	ssmParamData := ssmParamMap[ssmParam[1]]
-	cs.updateCredSpecMapping(originalCredentialSpec, ssmParamData)
+	err = cs.updateCredSpecMapping(originalCredentialSpecARN, ssmParamData, isDomainlessGmsa)
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
 }
 
 // updateCredSpecMapping updates the mapping of credentialSpec input and the corresponding service account info(serviceAccountName, DomainNAme)
-func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecContent string) {
+func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecContent string, isDomainlessGmsa bool) error {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
+	var serviceAccountName string
+	var domainName string
+	var domainlessGmsaUserArn string
 	//parse json to extract the service account name and the domain name
-	var credentialSpecSchema CredentialSpecSchema
+	if isDomainlessGmsa {
+		var credentialSpecDomainlessSchema CredentialSpecDomainlessSchema
+		// Unmarshal or Decode the JSON to the interface for domainless gmsa.
+		err := json.Unmarshal([]byte(credSpecContent), &credentialSpecDomainlessSchema)
 
-	// Unmarshal or Decode the JSON to the interface.
-	err := json.Unmarshal([]byte(credSpecContent), &credentialSpecSchema)
-
-	if err != nil {
-		seelog.Errorf("Error unmarshalling credentialspec data %s", credSpecContent)
-		return
-	}
-
-	serviceAccountName := credentialSpecSchema.DomainJoinConfig.MachineAccountName
-	domainName := credentialSpecSchema.DomainJoinConfig.DNSName
-
-	if len(serviceAccountName) > 0 && len(domainName) > 0 {
-		cs.ServiceAccountInfoMap[credSpecInput] = ServiceAccountInfo{
-			serviceAccountName: serviceAccountName,
-			domainName:         domainName,
+		if err != nil {
+			return fmt.Errorf("error unmarshalling credentialspec domainless %s : %w", credSpecContent, err)
 		}
 
+		serviceAccountName = credentialSpecDomainlessSchema.DomainJoinConfig.MachineAccountName
+		domainName = credentialSpecDomainlessSchema.DomainJoinConfig.DNSName
+		pluginInput := credentialSpecDomainlessSchema.ActiveDirectoryConfig.HostAccountConfig.PluginInput
+		domainlessGmsaUserArn = pluginInput.CredentialArn
+
+	} else {
+		var credentialSpecSchema CredentialSpecSchema
+		// Unmarshal or Decode the JSON to the interface for domainjoined gmsa.
+		err := json.Unmarshal([]byte(credSpecContent), &credentialSpecSchema)
+
+		if err != nil {
+			return fmt.Errorf("Error unmarshalling credentialspec domain-joined %s : %w", credSpecContent, err)
+		}
+
+		serviceAccountName = credentialSpecSchema.DomainJoinConfig.MachineAccountName
+		domainName = credentialSpecSchema.DomainJoinConfig.DNSName
+		domainlessGmsaUserArn = ""
 		//build request array for credentials fetcher daemon
 		cs.credentialsFetcherRequest = append(cs.credentialsFetcherRequest, credSpecContent)
 	}
+
+	if len(serviceAccountName) > 0 && len(domainName) > 0 {
+		cs.ServiceAccountInfoMap[credSpecInput] = ServiceAccountInfo{
+			serviceAccountName:    serviceAccountName,
+			domainName:            domainName,
+			domainlessGmsaUserArn: domainlessGmsaUserArn,
+			credentialSpecContent: credSpecContent,
+		}
+	}
+	return nil
 }
 
 // Cleanup removes the credentialSpec created for the task
