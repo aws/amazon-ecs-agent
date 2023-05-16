@@ -497,7 +497,10 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 			for _, tag := range image.RepoTags {
 				err := imageManager.client.RemoveImage(ctx, tag, dockerclient.RemoveImageTimeout)
 				if err != nil {
-					logger.Error("Error removing non-ECS RepoTag", fields, logger.Fields{field.Error: err})
+					logger.Error("Error removing non-ECS RepoTag", fields, logger.Fields{
+						field.Error: err,
+						"imageTag":  tag,
+					})
 				} else {
 					logger.Info("Non-ECS image tag removed", fields, logger.Fields{"imageTag": tag})
 					numImagesAlreadyDeleted++
