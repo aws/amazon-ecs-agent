@@ -2090,9 +2090,8 @@ func (engine *DockerTaskEngine) stopDockerContainer(dockerID, containerName stri
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *apicontainer.Container) error {
-	logger.Info("Removing container", logger.Fields{
-		field.TaskID:    task.GetID(),
-		field.Container: container.Name,
+	logger.Info("Removing container", container.Fields(), logger.Fields{
+		field.TaskID: task.GetID(),
 	})
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {
