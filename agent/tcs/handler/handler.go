@@ -94,9 +94,9 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 		return err
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
-	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine,
-		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
-		params.DeregisterInstanceEventStream, params.Doctor)
+	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine, params.MetricsChannel,
+		params.HealthChannel, defaultHeartbeatTimeout, defaultHeartbeatJitter,
+		config.DefaultContainerMetricsPublishInterval, params.DeregisterInstanceEventStream, params.Doctor)
 }
 
 func startSession(
@@ -105,12 +105,14 @@ func startSession(
 	cfg *config.Config,
 	credentialProvider *credentials.Credentials,
 	statsEngine stats.Engine,
+	metricsChannel <-chan ecstcs.TelemetryMessage,
+	healthChannel <-chan ecstcs.HealthMessage,
 	heartbeatTimeout, heartbeatJitter,
 	publishMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	doctor *doctor.Doctor,
 ) error {
-	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
+	client := tcsclient.New(url, cfg, credentialProvider, statsEngine, metricsChannel, healthChannel,
 		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled(), doctor)
 	defer client.Close()
 

@@ -99,9 +99,10 @@ const (
 	asgLifecyclePollWait           = time.Minute
 	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
 
-	// the size of the buffer for the metric/task health/instance health telemetry channels.
-	// This values needs to be tuned after all channel related implementation is done.
-	telemetryChannelDefaultBufferSize = 15
+	// By default, TCS (or TACS) will reject metrics that are older than 5 minutes. Since our metrics collection interval
+	// is currently set to 20 seconds, setting a buffer size of 15 for each task and targeting at 1000 tasks (currently known maximum ~500)
+	// allows us to store exactly 5 minutes of metrics in these buffers in the case where we temporarily lose connect to TCS.
+	telemetryChannelDefaultBufferSize = 15000
 )
 
 var (
@@ -847,9 +848,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, telemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, telemetryChannelDefaultBufferSize)
-	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, telemetryChannelDefaultBufferSize)
 
-	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream, telemetryMessages, healthMessages, instanceStatusMessages)
+	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream, telemetryMessages, healthMessages)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
@@ -871,6 +871,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
 		StatsEngine:                   statsEngine,
+		MetricsChannel:                telemetryMessages,
+		HealthChannel:                 healthMessages,
 		Doctor:                        doctor,
 	}
 
@@ -879,6 +881,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 		seelog.Warnf("Error initializing metrics engine: %v", err)
 		return
 	}
+	go statsEngine.StartMetricsPublish()
 
 	// Start metrics session in a go routine
 	go tcshandler.StartMetricsSession(&telemetrySessionParams)

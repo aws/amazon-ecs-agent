@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/pkg/errors"
@@ -40,6 +41,8 @@ type TelemetrySessionParams struct {
 	ECSClient                     api.ECSClient
 	TaskEngine                    engine.TaskEngine
 	StatsEngine                   *stats.DockerStatsEngine
+	MetricsChannel                <-chan ecstcs.TelemetryMessage
+	HealthChannel                 <-chan ecstcs.HealthMessage
 	Doctor                        *doctor.Doctor
 	_time                         ttime.Time
 	_timeOnce                     sync.Once

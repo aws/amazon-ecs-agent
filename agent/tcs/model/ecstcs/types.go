@@ -38,16 +38,12 @@ func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*T
 }
 
 type TelemetryMessage struct {
-	Metadata    *MetricsMetadata
-	TaskMetrics []*TaskMetric
+	Metadata                   *MetricsMetadata
+	TaskMetrics                []*TaskMetric
+	IncludeServiceConnectStats bool
 }
 
 type HealthMessage struct {
-	Metadata      *MetricsMetadata
+	Metadata      *HealthMetadata
 	HealthMetrics []*TaskHealth
-}
-
-type InstanceStatusMessage struct {
-	Metadata *InstanceStatusMetadata
-	Statuses []*InstanceStatus
 }
