@@ -224,17 +224,10 @@ func testCredentialsHandlerError(
 	// The test case is responsible for setting up expectations on the mocks.
 	handler := tc.GetHandler(credManager, auditLogger)
 
-	// Create a test reqeust
-	req, err := http.NewRequest("GET", tc.Path, nil)
-	if err != nil {
-		require.NoError(t, err)
-	}
-	recorder := httptest.NewRecorder()
-
-	// Serve the request and read the response
-	handler.ServeHTTP(recorder, req)
+	// Send request and read response
+	recorder := recordCredentialsRequest(t, handler, tc.Path)
 	var response utils.ErrorMessage
-	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	require.NoError(t, err)
 
 	// Assert on response status code and body
@@ -295,20 +288,25 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 		credentials.TaskIAMRoleCredentials{ARN: taskArn, IAMRoleCredentials: creds}, true)
 
 	// Prepare and send a request
-	req, err := http.NewRequest("GET", path, nil)
-	if err != nil {
-		require.NoError(t, err)
-	}
-	recorder := httptest.NewRecorder()
 	handler := makeHandler(credManager, auditLogger)
-	handler.ServeHTTP(recorder, req)
+	recorder := recordCredentialsRequest(t, handler, path)
 
 	// Read the response
 	var response credentials.IAMRoleCredentials
-	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	require.NoError(t, err)
 
 	// Assert on status code and body
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.Equal(t, expectedCreds, response)
+}
+
+// Sends a request to the handler and records it
+func recordCredentialsRequest(t *testing.T, handler http.Handler, path string) *httptest.ResponseRecorder {
+	// Prepare and send a request
+	req, err := http.NewRequest("GET", path, nil)
+	require.NoError(t, err)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder
 }
