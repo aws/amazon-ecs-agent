@@ -1386,8 +1386,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				targetContainer, err = task.GetBridgeModePauseContainerForTaskContainer(targetContainer)
 				if err != nil {
 					return dockerapi.DockerContainerMetadata{
-						Error: dockerapi.CannotStartContainerError{FromError: errors.New(fmt.Sprintf("failed to start firelens"+
-							"container: %v", err))},
+						Error: dockerapi.CannotStartContainerError{FromError: errors.New(fmt.Sprintf(
+							"failed to start firelens container: %v", err))},
 					}
 				}
 			}
