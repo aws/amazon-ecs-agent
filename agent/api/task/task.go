@@ -424,7 +424,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return err
 	}
 
-	if task.requiresCredentialSpecResource() {
+	if task.requiresAnyCredentialSpecResource() {
 		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
 			logger.Error("Could not initialize credentialspec resource", logger.Fields{
 				field.TaskID: task.GetID(),
@@ -480,7 +480,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 
 	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
 	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
+		if container.RequiresAnyCredentialSpec() {
 			container.BuildResourceDependency(credentialspecResource.GetName(),
 				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
 				apicontainerstatus.ContainerCreated)
@@ -2987,11 +2987,22 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 	task.ResourcesMapUnsafe[resourceType] = append(task.ResourcesMapUnsafe[resourceType], resource)
 }
 
-// requiresCredentialSpecResource returns true if at least one container in the task
-// needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
+// requiresAnyCredentialSpecResource returns true if at least one container in the task
+// needs a valid credentialspec resource (domain-joined or domainless)
+func (task *Task) requiresAnyCredentialSpecResource() bool {
 	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
+		if container.RequiresAnyCredentialSpec() {
+			return true
+		}
+	}
+	return false
+}
+
+// RequiresDomainlessCredentialSpecResource returns true if at least one container in the task
+// needs a valid domainless credentialspec resource
+func (task *Task) RequiresDomainlessCredentialSpecResource() bool {
+	for _, container := range task.Containers {
+		if container.RequiresDomainlessCredentialSpec() {
 			return true
 		}
 	}
