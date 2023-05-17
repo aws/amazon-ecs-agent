@@ -1356,14 +1356,24 @@ func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicon
 	return false
 }
 
-// RequiresCredentialSpec checks if container needs a credentialspec resource
-func (c *Container) RequiresCredentialSpec() bool {
+// RequiresAnyCredentialSpec checks if container needs a credentialspec resource (domain-joined or domainless)
+func (c *Container) RequiresAnyCredentialSpec() bool {
 	credSpec, err := c.getCredentialSpec()
 	if err != nil || credSpec == "" {
 		return false
 	}
 
 	return true
+}
+
+// RequiresDomainlessCredentialSpec checks if container needs a domainless credentialspec resource
+func (c *Container) RequiresDomainlessCredentialSpec() bool {
+	credSpec, err := c.getCredentialSpec()
+	if err != nil || credSpec == "" {
+		return false
+	}
+
+	return strings.HasPrefix(credSpec, credentialSpecDomainlessPrefix)
 }
 
 // GetCredentialSpec is used to retrieve the current credentialspec resource

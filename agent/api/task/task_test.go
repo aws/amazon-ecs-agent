@@ -4638,7 +4638,7 @@ func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
 	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
 }
 
-func TestRequiresCredentialSpecResource(t *testing.T) {
+func TestRequiresAnyCredentialSpecResource(t *testing.T) {
 	container1 := &apicontainer.Container{}
 	task1 := &Task{
 		Arn:        "test",
@@ -4672,7 +4672,56 @@ func TestRequiresCredentialSpecResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expectedOutput, tc.task.requiresCredentialSpecResource())
+			assert.Equal(t, tc.expectedOutput, tc.task.requiresAnyCredentialSpecResource())
+		})
+	}
+
+}
+
+func TestRequiresDomainlessCredentialSpecResource(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	container2 := &apicontainer.Container{}
+	container2.DockerConfig.HostConfig = &hostConfig
+
+	testCases := []struct {
+		name           string
+		containers     []*apicontainer.Container
+		expectedOutput bool
+	}{
+		{
+			name:           "credentialspec_in_DockerConfig",
+			containers:     []*apicontainer.Container{{DockerConfig: apicontainer.DockerConfig{HostConfig: aws.String("{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}")}}},
+			expectedOutput: false,
+		},
+		{
+			name:           "credentialspec_in_CredentialSpecs",
+			containers:     []*apicontainer.Container{{CredentialSpecs: []string{"credentialspec:file://gmsa_gmsa-acct.json"}}},
+			expectedOutput: false,
+		},
+		{
+			name:           "no_credentialspec",
+			containers:     []*apicontainer.Container{},
+			expectedOutput: false,
+		},
+		{
+			name:           "credentialspecdomainless_in_container",
+			containers:     []*apicontainer.Container{{CredentialSpecs: []string{"credentialspecdomainless:file://gmsa_gmsa-acct.json"}}},
+			expectedOutput: true,
+		},
+		{
+			name:           "credentialspecdomainless_and_credentialspec_in_container",
+			containers:     []*apicontainer.Container{{CredentialSpecs: []string{"credentialspecdomainless:file://gmsa_gmsa-acct.json"}}, {DockerConfig: apicontainer.DockerConfig{HostConfig: aws.String("{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}")}}},
+			expectedOutput: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{
+				Arn:        "test",
+				Containers: tc.containers,
+			}
+			assert.Equal(t, tc.expectedOutput, task.RequiresDomainlessCredentialSpecResource())
 		})
 	}
 

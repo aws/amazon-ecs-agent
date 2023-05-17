@@ -17,11 +17,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -30,6 +32,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -234,49 +237,144 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 }
 
 // TestHandleRefreshMessageAckedWhenCredentialsUpdated tests that a credential message
-// is ackd when the credentials are updated successfully
+// is ackd when the credentials are updated successfully and the domainless gMSA plugin credentials are updated successfully
 func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	credentialsManager := credentials.NewManager()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	var ackRequested *ecsacs.IAMRoleCredentialsAckRequest
-
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
-		ackRequested = ackRequest
-		cancel()
-	}).Times(1)
-
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
-	// Return a task from the engine for GetTaskByArn
-	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
-
-	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
-	go handler.sendAcks()
-
-	// test adding a credentials message without the MessageId field
-	err := handler.handleSingleMessage(message)
-	if err != nil {
-		t.Errorf("Error updating credentials: %v", err)
+	testCases := []struct {
+		name                            string
+		taskArn                         string
+		domainlessGMSATaskExpectedInput bool
+		containers                      []*apicontainer.Container
+	}{
+		{
+			name:       "EmptyTaskSucceeds",
+			taskArn:    taskArn,
+			containers: []*apicontainer.Container{},
+		},
 	}
 
-	// Wait till we get an ack from the ackBuffer
-	select {
-	case <-ctx.Done():
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			credentialsManager := credentials.NewManager()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			var ackRequested *ecsacs.IAMRoleCredentialsAckRequest
+
+			mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+			mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
+				ackRequested = ackRequest
+				cancel()
+			}).Times(1)
+
+			taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+			// Return a task from the engine for GetTaskByArn
+			taskEngine.EXPECT().GetTaskByArn(tc.taskArn).Return(&apitask.Task{Arn: tc.taskArn, Containers: tc.containers}, true)
+
+			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task) error {
+				if tc.taskArn != task.Arn {
+					return errors.New(fmt.Sprintf("Expected taskArnInput to be %s, instead got %s", tc.taskArn, task.Arn))
+				}
+
+				return nil
+			}
+
+			defer func() {
+				checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = checkAndSetDomainlessGMSATaskExecutionRoleCredentials
+			}()
+
+			handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
+			go handler.sendAcks()
+
+			// test adding a credentials message without the MessageId field
+			err := handler.handleSingleMessage(message)
+			if err != nil {
+				t.Errorf("Error updating credentials: %v", err)
+			}
+
+			// Wait till we get an ack from the ackBuffer
+			select {
+			case <-ctx.Done():
+			}
+
+			if !reflect.DeepEqual(ackRequested, expectedAck) {
+				t.Errorf("Message between expected and requested ack. Expected: %v, Requested: %v", expectedAck, ackRequested)
+			}
+
+			creds, exist := credentialsManager.GetTaskCredentials(credentialsId)
+			if !exist {
+				t.Errorf("Expected credentials to exist for the task")
+			}
+			if !reflect.DeepEqual(creds, expectedCredentials) {
+				t.Errorf("Mismatch between expected credentials and credentials for task. Expected: %v, got: %v", expectedCredentials, creds)
+			}
+		})
+	}
+}
+
+// TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsNotSet tests if credential messages
+// are not acked when setting the domainlessGMSA Credentials fails
+func TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsError(t *testing.T) {
+	testCases := []struct {
+		name                                                   string
+		taskArn                                                string
+		containers                                             []*apicontainer.Container
+		domainlessGMSATaskExpectedInput                        bool
+		setDomainlessGMSATaskExecutionRoleCredentialsImplError error
+		expectedErrorString                                    string
+	}{
+		{
+			name:                            "ErrDomainlessTask",
+			taskArn:                         taskArn,
+			containers:                      []*apicontainer.Container{{CredentialSpecs: []string{"credentialspecdomainless:file://gmsa_gmsa-acct.json"}}},
+			domainlessGMSATaskExpectedInput: true,
+			setDomainlessGMSATaskExecutionRoleCredentialsImplError: errors.New("mock setDomainlessGMSATaskExecutionRoleCredentialsImplError"),
+			expectedErrorString: "unable to SetDomainlessGMSATaskExecutionRoleCredentials: mock setDomainlessGMSATaskExecutionRoleCredentialsImplError",
+		},
 	}
 
-	if !reflect.DeepEqual(ackRequested, expectedAck) {
-		t.Errorf("Message between expected and requested ack. Expected: %v, Requested: %v", expectedAck, ackRequested)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			credentialsManager := credentials.NewManager()
 
-	creds, exist := credentialsManager.GetTaskCredentials(credentialsId)
-	if !exist {
-		t.Errorf("Expected credentials to exist for the task")
-	}
-	if !reflect.DeepEqual(creds, expectedCredentials) {
-		t.Errorf("Mismatch between expected credentials and credentials for task. Expected: %v, got: %v", expectedCredentials, creds)
+			taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+			// Return a task from the engine for GetTaskByArn
+			taskEngine.EXPECT().GetTaskByArn(tc.taskArn).Return(&apitask.Task{Arn: tc.taskArn, Containers: tc.containers}, true)
+
+			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task) error {
+				if tc.taskArn != task.Arn {
+					return errors.New(fmt.Sprintf("Expected taskArnInput to be %s, instead got %s", tc.taskArn, task.Arn))
+				}
+
+				return tc.setDomainlessGMSATaskExecutionRoleCredentialsImplError
+			}
+
+			defer func() {
+				checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = checkAndSetDomainlessGMSATaskExecutionRoleCredentials
+			}()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			handler := newRefreshCredentialsHandler(ctx, cluster, containerInstance, nil, credentialsManager, taskEngine)
+
+			// Start a goroutine to listen for acks. Cancelling the context stops the goroutine
+			go func() {
+				for {
+					select {
+					// We never expect the message to be acked
+					case <-handler.ackRequest:
+						t.Fatalf("Received ack when none expected")
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+
+			err := handler.handleSingleMessage(message)
+			assert.EqualError(t, err, tc.expectedErrorString)
+			cancel()
+		})
 	}
 }
 
