@@ -22,8 +22,11 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
+github.com/aws/amazon-ecs-agent/ecs-agent/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks

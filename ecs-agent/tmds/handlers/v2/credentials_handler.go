@@ -17,10 +17,10 @@ import (
 	"fmt"
 	"net/http"
 
-	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	"github.com/gorilla/mux"
 )
 
