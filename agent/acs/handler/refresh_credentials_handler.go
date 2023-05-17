@@ -13,9 +13,8 @@
 package handler
 
 import (
-	"fmt"
-
 	"context"
+	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -23,6 +22,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
+
+	"github.com/pkg/errors"
+)
+
+var (
+	// For ease of unit testing
+	checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = checkAndSetDomainlessGMSATaskExecutionRoleCredentials
 )
 
 // refreshCredentialsHandler represents the refresh credentials operation for the ACS client
@@ -145,10 +151,11 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 	if !validRoleType(roleType) {
 		seelog.Errorf("Unknown RoleType for task in credentials message, roleType: %s arn: %s, messageId: %s", roleType, taskArn, messageId)
 	} else {
+		iamRoleCredentials := credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType)
 		err = refreshHandler.credentialsManager.SetTaskCredentials(
 			&(credentials.TaskIAMRoleCredentials{
 				ARN:                taskArn,
-				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
+				IAMRoleCredentials: iamRoleCredentials,
 			}))
 		if err != nil {
 			seelog.Errorf("Unable to update credentials for task, err: %v messageId: %s", err, messageId)
@@ -160,6 +167,12 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		}
 		if roleType == credentials.ExecutionRoleType {
 			task.SetExecutionRoleCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+			// Refresh domainless gMSA plugin credentials if needed
+			err = checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl(iamRoleCredentials, task)
+			if err != nil {
+				seelog.Errorf("Unable to SetDomainlessGMSATaskExecutionRoleCredentials for task %s, err: %v messageId: %s", taskArn, err, messageId)
+				return errors.Wrap(err, "unable to SetDomainlessGMSATaskExecutionRoleCredentials")
+			}
 		}
 	}
 

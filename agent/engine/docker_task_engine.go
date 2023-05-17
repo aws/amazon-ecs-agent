@@ -1423,7 +1423,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	// Populate credentialspec resource
-	if container.RequiresCredentialSpec() {
+	if container.RequiresAnyCredentialSpec() {
 		logger.Debug("Obtained container with credentialspec resource requirement for task", logger.Fields{
 			field.TaskID:    task.GetID(),
 			field.Container: container.Name,
