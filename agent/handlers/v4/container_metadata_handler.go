@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -103,12 +103,12 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := Network{Network: containermetadata.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
+			network := Network{Network: tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
 			networks = append(networks, network)
 		}
 	} else {
 		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := Network{Network: containermetadata.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
+		network := Network{Network: tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
 		networks = append(networks, network)
 	}
 	return networks, nil

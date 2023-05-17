@@ -35,11 +35,9 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	task_protection_v1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
-	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
@@ -50,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
@@ -242,14 +241,14 @@ var (
 		},
 		Type:   containerType,
 		Labels: labels,
-		Ports: []v1.PortResponse{
+		Ports: []tmdsresponse.PortResponse{
 			{
 				ContainerPort: containerPort,
 				Protocol:      containerPortProtocol,
 				HostPort:      containerPort,
 			},
 		},
-		Networks: []containermetadata.Network{
+		Networks: []tmdsresponse.Network{
 			{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: []string{eniIPv4Address},
@@ -348,13 +347,13 @@ var (
 		},
 		Type:   containerType,
 		Labels: labels,
-		Ports: []v1.PortResponse{
+		Ports: []tmdsresponse.PortResponse{
 			{
 				ContainerPort: containerPort,
 				Protocol:      containerPortProtocol,
 			},
 		},
-		Networks: []containermetadata.Network{
+		Networks: []tmdsresponse.Network{
 			{
 				NetworkMode:   bridgeMode,
 				IPv4Addresses: []string{bridgeIPAddr},
@@ -395,14 +394,14 @@ var (
 			},
 			Type:   containerType,
 			Labels: labels,
-			Ports: []v1.PortResponse{
+			Ports: []tmdsresponse.PortResponse{
 				{
 					ContainerPort: containerPort,
 					Protocol:      containerPortProtocol,
 					HostPort:      containerPort,
 				},
 			},
-			Networks: []containermetadata.Network{
+			Networks: []tmdsresponse.Network{
 				{
 					NetworkMode:   utils.NetworkModeAWSVPC,
 					IPv4Addresses: []string{eniIPv4Address},
@@ -410,7 +409,7 @@ var (
 			},
 		},
 		Networks: []v4.Network{{
-			Network: containermetadata.Network{
+			Network: tmdsresponse.Network{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: []string{eniIPv4Address},
 			},
@@ -485,7 +484,7 @@ var (
 	expectedV4BridgeContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedBridgeContainerResponse,
 		Networks: []v4.Network{{
-			Network: containermetadata.Network{
+			Network: tmdsresponse.Network{
 				NetworkMode:   bridgeMode,
 				IPv4Addresses: []string{bridgeIPAddr},
 			},

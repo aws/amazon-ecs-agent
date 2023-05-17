@@ -20,6 +20,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/docker/docker/api/types"
 )
 
@@ -82,19 +83,12 @@ type DockerMetadataClient interface {
 	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 }
 
-// Network is a struct that keeps track of metadata of a network interface
-type Network struct {
-	NetworkMode   string   `json:"NetworkMode,omitempty"`
-	IPv4Addresses []string `json:"IPv4Addresses,omitempty"`
-	IPv6Addresses []string `json:"IPv6Addresses,omitempty"`
-}
-
 // NetworkMetadata keeps track of the data we parse from the Network Settings
 // in docker containers. While most information is redundant with the internal
 // Network struct, we keeps this wrapper in case we wish to add data specifically
 // from the NetworkSettings
 type NetworkMetadata struct {
-	networks []Network
+	networks []tmdsresponse.Network
 }
 
 // DockerContainerMetadata keeps track of all metadata acquired from Docker inspection
@@ -147,7 +141,7 @@ type metadataSerializer struct {
 	ImageID                string                     `json:"ImageID,omitempty"`
 	ImageName              string                     `json:"ImageName,omitempty"`
 	Ports                  []apicontainer.PortBinding `json:"PortMappings,omitempty"`
-	Networks               []Network                  `json:"Networks,omitempty"`
+	Networks               []tmdsresponse.Network     `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
 	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
 	HostPrivateIPv4Address string                     `json:"HostPrivateIPv4Address,omitempty"`
