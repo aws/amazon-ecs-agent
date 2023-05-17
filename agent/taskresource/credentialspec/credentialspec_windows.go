@@ -66,7 +66,7 @@ var (
 	readCredentialSpecImpl                    = readCredentialSpec
 	writeCredentialSpecImpl                   = writeCredentialSpec
 	readWriteDomainlessCredentialSpecImpl     = readWriteDomainlessCredentialSpec
-	setTaskExecutionCredentialsRegKeysImpl    = setTaskExecutionCredentialsRegKeys
+	setTaskExecutionCredentialsRegKeysImpl    = SetTaskExecutionCredentialsRegKeys
 	handleNonFileDomainlessGMSACredSpecImpl   = handleNonFileDomainlessGMSACredSpec
 	deleteTaskExecutionCredentialsRegKeysImpl = deleteTaskExecutionCredentialsRegKeys
 )
@@ -496,7 +496,7 @@ func (cs *CredentialSpecResource) UnmarshallPlatformSpecificFields(credentialSpe
 // setTaskExecutionCredentialsRegKeys stores the taskExecutionRole IAM credentials to the task registry key
 // so that the domainless gMSA plugin may use these credentials to access the customer Active Directory authentication
 // information.
-func setTaskExecutionCredentialsRegKeys(taskCredentials credentials.IAMRoleCredentials, taskArn string) error {
+func SetTaskExecutionCredentialsRegKeys(taskCredentials credentials.IAMRoleCredentials, taskArn string) error {
 	if taskCredentials == (credentials.IAMRoleCredentials{}) {
 		err := errors.New("Unable to find execution role credentials while setting registry key for task " + taskArn)
 		return err
@@ -529,6 +529,7 @@ func setTaskExecutionCredentialsRegKeys(taskCredentials credentials.IAMRoleCrede
 		return errors.Wrapf(err, errMsg)
 	}
 
+	seelog.Infof("Successfully SetTaskExecutionCredentialsRegKeys for task %s", taskArn)
 	return nil
 }
 

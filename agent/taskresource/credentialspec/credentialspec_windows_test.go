@@ -1150,7 +1150,7 @@ func TestGetTargetMappingErr(t *testing.T) {
 
 func TestSetTaskExecutionCredentialsRegKeysErr(t *testing.T) {
 	var iamCredentials credentials.IAMRoleCredentials
-	err := setTaskExecutionCredentialsRegKeys(iamCredentials, "12345678")
+	err := SetTaskExecutionCredentialsRegKeys(iamCredentials, "12345678")
 	assert.EqualError(t, err, "Unable to find execution role credentials while setting registry key for task 12345678")
 }
 

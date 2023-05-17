@@ -73,9 +73,9 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	return int64(containerCPU)
 }
 
-// requiresCredentialSpecResource returns true if at least one container in the task
+// requiresAnyCredentialSpecResource returns true if at least one container in the task
 // needs a valid credentialspec resource
-func (task *Task) requiresCredentialSpecResource() bool {
+func (task *Task) requiresAnyCredentialSpecResource() bool {
 	return false
 }
 
