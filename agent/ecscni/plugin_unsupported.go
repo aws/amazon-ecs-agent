@@ -21,7 +21,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/containernetworking/cni/pkg/types/current"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 )
 
 const (
@@ -41,7 +41,7 @@ type cniPluginVersion struct{}
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
 // On unsupported platforms, we will return an error
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
+func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*cniTypesCurrent.Result, error) {
 	return nil, errors.New("unsupported platform")
 }
 

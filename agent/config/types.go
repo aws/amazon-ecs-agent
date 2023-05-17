@@ -16,8 +16,9 @@ package config
 import (
 	"time"
 
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
 // ImagePullBehaviorType is an enum variable type corresponding to different agent pull
@@ -247,12 +248,12 @@ type Config struct {
 	// will limit you to running one `awsvpc` task at a time. IPv4 addresses
 	// must be specified in decimal-octet form and also specify the subnet
 	// size (e.g., "169.254.172.42/22").
-	OverrideAWSVPCLocalIPv4Address *cnitypes.IPNet
+	OverrideAWSVPCLocalIPv4Address *cniTypes.IPNet
 
 	// AWSVPCAdditionalLocalRoutes allows the specification of routing table
 	// entries that will be added in the task's network namespace via the
 	// instance bridge interface rather than via the ENI.
-	AWSVPCAdditionalLocalRoutes []cnitypes.IPNet
+	AWSVPCAdditionalLocalRoutes []cniTypes.IPNet
 
 	// ContainerMetadataEnabled specifies if the agent should provide a metadata
 	// file for containers.

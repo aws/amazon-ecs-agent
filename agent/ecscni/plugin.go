@@ -22,15 +22,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types/current"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/pkg/errors"
-)
 
-const (
-	currentCNISpec = "0.3.1"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 // CNIClient defines the method of setting/cleaning up container namespace
@@ -40,7 +37,7 @@ type CNIClient interface {
 	// Capabilities returns the capabilities supported by a plugin
 	Capabilities(string) ([]string, error)
 	// SetupNS sets up the namespace of container
-	SetupNS(context.Context, *Config, time.Duration) (*current.Result, error)
+	SetupNS(context.Context, *Config, time.Duration) (*cniTypesCurrent.Result, error)
 	// CleanupNS cleans up the container namespace
 	CleanupNS(context.Context, *Config, time.Duration) error
 	// ReleaseIPResource marks the ip available in the ipam db
@@ -96,7 +93,7 @@ func (client *cniClient) init() {
 func (client *cniClient) SetupNS(
 	ctx context.Context,
 	cfg *Config,
-	timeout time.Duration) (*current.Result, error) {
+	timeout time.Duration) (*cniTypesCurrent.Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return client.setupNS(ctx, cfg)
