@@ -19,6 +19,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -142,17 +143,17 @@ func parseNetworkMetadata(settings *types.NetworkSettings, hostConfig *dockercon
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network
-	networkList := make([]Network, 0)
+	networkList := make([]tmdsresponse.Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
+			network := tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
 			networkList = append(networkList, network)
 		}
 	} else {
 		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
+		network := tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
 		networkList = append(networkList, network)
 	}
 

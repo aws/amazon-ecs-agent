@@ -17,10 +17,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/pkg/errors"
 )
@@ -45,7 +45,7 @@ type ContainerResponse struct {
 // interface(s) on top of what is supported by v4.
 // See `NetworkInterfaceProperties` for more details.
 type Network struct {
-	containermetadata.Network
+	tmdsresponse.Network
 	// NetworkInterfaceProperties specifies additional properties of the network
 	// of the network interface that are exposed via the metadata server.
 	// We currently populate this only for the `awsvpc` networking mode.
@@ -147,7 +147,7 @@ func NewContainerResponse(
 // look up the task information in the local state based on the id, which could be
 // either task arn or contianer id.
 func toV4NetworkResponse(
-	networks []containermetadata.Network,
+	networks []tmdsresponse.Network,
 	lookup func() (*apitask.Task, bool),
 ) ([]Network, error) {
 	var resp []Network
