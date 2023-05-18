@@ -2806,7 +2806,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	envVarPort := "FLUENT_PORT=24224"
 	envVarAWSVPCMode := "FLUENT_HOST=127.0.0.1"
 	eniIPv4Address := "10.0.0.2"
-	getTask := func(logDriverType string, networkMode string) *apitask.Task {
+	getTask := func(logDriverType string, networkMode string, enableServiceConnect bool) *apitask.Task {
 		rawHostConfigInput := dockercontainer.HostConfig{
 			LogConfig: dockercontainer.LogConfig{
 				Type: logDriverType,
@@ -2819,7 +2819,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		}
 		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 		require.NoError(t, err)
-		return &apitask.Task{
+		task := apitask.Task{
 			Arn:         taskARN,
 			Version:     taskVersion,
 			Family:      taskFamily,
@@ -2835,20 +2835,67 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					},
 					NetworkModeUnsafe: networkMode,
 				},
-				{
-					Name: "test-container",
-					FirelensConfig: &apicontainer.FirelensConfig{
-						Type: "fluentd",
-					},
-					NetworkModeUnsafe: networkMode,
-					NetworkSettingsUnsafe: &types.NetworkSettings{
-						DefaultNetworkSettings: types.DefaultNetworkSettings{
-							IPAddress: bridgeIPAddr,
-						},
-					},
+			},
+		}
+
+		appContainerBridgeIp := bridgeIPAddr
+		appContainerNetworkMode := networkMode
+		firelensContainerName := "test-firelens"
+
+		if enableServiceConnect {
+			appContainerBridgeIp = ""
+			appContainerNetworkMode = "container"
+		}
+		firelensContainer := &apicontainer.Container{
+			Name: firelensContainerName,
+			FirelensConfig: &apicontainer.FirelensConfig{
+				Type: "fluentd",
+			},
+			NetworkModeUnsafe: appContainerNetworkMode,
+			NetworkSettingsUnsafe: &types.NetworkSettings{
+				DefaultNetworkSettings: types.DefaultNetworkSettings{
+					IPAddress: appContainerBridgeIp,
 				},
 			},
 		}
+		task.Containers = append(task.Containers, firelensContainer)
+
+		if enableServiceConnect {
+			// add pause container for application container
+			applicationPauseContainer := &apicontainer.Container{
+				Name:              fmt.Sprintf("~internal~ecs~pause-%s", taskName),
+				NetworkModeUnsafe: networkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
+					},
+				},
+			}
+
+			// add pause container for firelensContainer
+			firelensPauseContainer := &apicontainer.Container{
+				Name:              fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
+				NetworkModeUnsafe: networkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
+					},
+				},
+			}
+			task.Containers = append(task.Containers, firelensPauseContainer)
+			task.Containers = append(task.Containers, applicationPauseContainer)
+
+			// dummy service connect config
+			task.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: "service-connect",
+			}
+			scContainer := &apicontainer.Container{
+				Name: "service-connect",
+			}
+			task.Containers = append(task.Containers, scContainer)
+		}
+
+		return &task
 	}
 	getTaskWithENI := func(logDriverType string, networkMode string) *apitask.Task {
 		rawHostConfigInput := dockercontainer.HostConfig{
@@ -2905,6 +2952,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	testCases := []struct {
 		name                           string
 		task                           *apitask.Task
+		enableServiceConnect           bool
 		expectedLogConfigType          string
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
@@ -2916,7 +2964,8 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	}{
 		{
 			name:                           "test container that uses firelens log driver with default mode",
-			task:                           getTask(logDriverTypeFirelens, ""),
+			task:                           getTask(logDriverTypeFirelens, "", false),
+			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
@@ -2928,7 +2977,21 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		},
 		{
 			name:                           "test container that uses firelens log driver with bridge mode",
-			task:                           getTask(logDriverTypeFirelens, networkModeBridge),
+			task:                           getTask(logDriverTypeFirelens, networkModeBridge, false),
+			enableServiceConnect:           false,
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
+			expectedBufferLimit:            "10000",
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedIPAddress:              envVarBridgeMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens log driver with bridge mode with Service Connect",
+			task:                           getTask(logDriverTypeFirelens, networkModeBridge, true),
+			enableServiceConnect:           true,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
@@ -2941,6 +3004,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		{
 			name:                           "test container that uses firelens log driver with awsvpc mode",
 			task:                           getTaskWithENI(logDriverTypeFirelens, networkModeAWSVPC),
+			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
@@ -2956,10 +3020,13 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			if tc.enableServiceConnect {
+				serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			}
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx context.Context,
 					config *dockercontainer.Config,
@@ -3073,104 +3140,185 @@ func TestGetBridgeIP(t *testing.T) {
 }
 
 func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
-	dockerMetaDataWithoutNetworkSettings := dockerapi.DockerContainerMetadata{
-		DockerID: containerID,
-		Volumes: []types.MountPoint{
-			{
-				Name:        "volume",
-				Source:      "/src/vol",
-				Destination: "/vol",
+	applicationContainerName := "logSenderTask"
+	firelensContainerName := "test-firelens"
+	bridgeIPAddr := "bridgeIP"
+
+	getTask := func(enableServiceConnect bool) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: "fluentd",
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
 			},
-		},
-	}
-	rawHostConfigInput := dockercontainer.HostConfig{
-		LogConfig: dockercontainer.LogConfig{
-			Type: "fluentd",
-			Config: map[string]string{
-				"key1": "value1",
-				"key2": "value2",
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		task := &apitask.Task{
+			Arn:     "arn:aws:ecs:region:account-id:task/task-id",
+			Version: "1",
+			Family:  "logSenderTaskFamily",
+			Containers: []*apicontainer.Container{
+				{
+					Name: applicationContainerName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+					NetworkModeUnsafe: apitask.BridgeNetworkMode,
+				},
+				{
+					Name: firelensContainerName,
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: "fluentd",
+					},
+					NetworkModeUnsafe: apitask.BridgeNetworkMode,
+				},
 			},
-		},
-	}
-	jsonBaseWithoutNetwork := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    containerID,
-			State: &types.ContainerState{Pid: containerPid},
-			HostConfig: &dockercontainer.HostConfig{
-				NetworkMode: containerNetworkMode,
-			},
-		},
+			NetworkMode: networkModeBridge,
+		}
+		if enableServiceConnect {
+			task.Containers[0].NetworkModeUnsafe = "container"
+			task.Containers[1].NetworkModeUnsafe = "container"
+
+			// add pause container for application container
+			applicationPauseContainer := &apicontainer.Container{
+				Name:              fmt.Sprintf("~internal~ecs~pause-%s", applicationContainerName),
+				NetworkModeUnsafe: apitask.BridgeNetworkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
+					},
+				},
+			}
+
+			// add pause container for firelensContainer
+			firelensPauseContainer := &apicontainer.Container{
+				Name:              fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
+				NetworkModeUnsafe: apitask.BridgeNetworkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
+					},
+				},
+			}
+			task.Containers = append(task.Containers, applicationPauseContainer)
+			task.Containers = append(task.Containers, firelensPauseContainer)
+
+			// dummy service connect config
+			task.ServiceConnectConfig = &serviceconnect.Config{
+				ContainerName: "service-connect",
+			}
+			scContainer := &apicontainer.Container{
+				Name: "service-connect",
+			}
+			task.Containers = append(task.Containers, scContainer)
+		}
+		return task
 	}
 
-	jsonBaseWithNetwork := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    containerID,
-			State: &types.ContainerState{Pid: containerPid},
-			HostConfig: &dockercontainer.HostConfig{
-				NetworkMode: containerNetworkMode,
-			},
+	testCases := []struct {
+		name                 string
+		enableServiceConnect bool
+		testTask             *apitask.Task
+	}{
+		{
+			name:                 "ServiceConnect_Enabled",
+			enableServiceConnect: true,
+			testTask:             getTask(true),
 		},
-		NetworkSettings: &types.NetworkSettings{
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: networkBridgeIP,
-			},
-			Networks: map[string]*network.EndpointSettings{
-				apitask.BridgeNetworkMode: &network.EndpointSettings{
-					IPAddress: networkBridgeIP,
-				},
-			},
+		{
+			name:                 "ServiceConnect_Not_Enabled",
+			enableServiceConnect: false,
+			testTask:             getTask(false),
 		},
 	}
-	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	require.NoError(t, err)
-	testTask := &apitask.Task{
-		Arn:     "arn:aws:ecs:region:account-id:task/task-id",
-		Version: "1",
-		Family:  "logSenderTaskFamily",
-		Containers: []*apicontainer.Container{
-			{
-				Name: "logSenderTask",
-				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: func() *string {
-						s := string(rawHostConfig)
-						return &s
-					}(),
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dockerMetaDataWithoutNetworkSettings := dockerapi.DockerContainerMetadata{
+				DockerID: containerID,
+				Volumes: []types.MountPoint{
+					{
+						Name:        "volume",
+						Source:      "/src/vol",
+						Destination: "/vol",
+					},
 				},
-				NetworkModeUnsafe: apitask.BridgeNetworkMode,
-			},
-			{
-				Name: "test-container",
-				FirelensConfig: &apicontainer.FirelensConfig{
-					Type: "fluentd",
+			}
+			jsonBaseWithoutNetwork := &types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: containerNetworkMode,
+					},
 				},
-				NetworkModeUnsafe: apitask.BridgeNetworkMode,
-			},
-		},
-	}
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
-	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
-		Container:  testTask.Containers[1],
-		DockerName: dockerContainerName,
-		DockerID:   containerID,
-	}, testTask)
+			}
 
-	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
-	client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerMetaDataWithoutNetworkSettings).AnyTimes()
-	gomock.InOrder(
-		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
-			Return(jsonBaseWithoutNetwork, nil),
-		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
-			Return(jsonBaseWithoutNetwork, nil),
-		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
-			Return(jsonBaseWithNetwork, nil),
-	)
-	ret := taskEngine.(*DockerTaskEngine).startContainer(testTask, testTask.Containers[1])
-	assert.NoError(t, ret.Error)
-	assert.Equal(t, jsonBaseWithNetwork.NetworkSettings, ret.NetworkSettings)
+			jsonBaseWithNetwork := &types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: containerNetworkMode,
+					},
+				},
+				NetworkSettings: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: networkBridgeIP,
+					},
+					Networks: map[string]*network.EndpointSettings{
+						apitask.BridgeNetworkMode: &network.EndpointSettings{
+							IPAddress: networkBridgeIP,
+						},
+					},
+				},
+			}
+			task := tc.testTask
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+			taskEngine.(*DockerTaskEngine).state.AddTask(task)
+			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+				Container:  task.Containers[1],
+				DockerName: dockerContainerName,
+				DockerID:   containerID,
+			}, task)
+			if tc.enableServiceConnect {
+				taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+					Container:  task.Containers[3],
+					DockerName: fmt.Sprintf("~internal~ecs~pause-%s", dockerContainerName),
+					DockerID:   "pauseContainerID",
+				}, task)
+			}
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerMetaDataWithoutNetworkSettings).AnyTimes()
+			if !tc.enableServiceConnect {
+				gomock.InOrder(
+					client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
+						Return(jsonBaseWithoutNetwork, nil),
+					client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
+						Return(jsonBaseWithoutNetwork, nil),
+					client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
+						Return(jsonBaseWithNetwork, nil),
+				)
+			}
+			ret := taskEngine.(*DockerTaskEngine).startContainer(task, task.Containers[1])
+			assert.NoError(t, ret.Error)
+			if !tc.enableServiceConnect {
+				assert.Equal(t, jsonBaseWithNetwork.NetworkSettings, ret.NetworkSettings)
+			} else {
+				assert.Equal(t, jsonBaseWithoutNetwork.NetworkSettings, ret.NetworkSettings)
+			}
+		})
+	}
+
 }
 
 func TestStartExecAgent(t *testing.T) {
