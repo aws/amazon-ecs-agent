@@ -14,18 +14,17 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handler
+package session
 
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
-	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 )
 
 const (
@@ -87,16 +86,16 @@ func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessa
 
 	ackSent := make(chan *ecsacs.HeartbeatAckRequest)
 
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(message *ecsacs.HeartbeatAckRequest) {
-		ackSent <- message
-		close(ackSent)
-	}).Times(1)
-
 	emptyHealthchecksList := []doctor.Healthcheck{}
 	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "testCluster", "this:is:an:instance:arn")
 
-	handleSingleHeartbeatMessage(mockWsClient, emptyDoctor, heartbeatReceived)
+	testResponseSender := func(response interface{}) error {
+		resp := response.(*ecsacs.HeartbeatAckRequest)
+		ackSent <- resp
+		return nil
+	}
+	testHeartbeatResponder := NewHeartbeatResponder(emptyDoctor, testResponseSender)
+	testHeartbeatResponder.(*heartbeatResponder).processHeartbeatMessage(heartbeatReceived)
 
 	// wait till we send an
 	heartbeatAckSent := <-ackSent

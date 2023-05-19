@@ -99,10 +99,6 @@ type RequestHandler interface{}
 //	    respond  func(interface{}) error
 //	    dispatcher actor.Dispatcher
 //	}
-//	func(d *payloadmessagedispatcher) RegisterResponder(respond func(interface{}) error) error {
-//	    d.respond = respond
-//	    return nil
-//	}
 //	func(d *payloadmessagedispatcher) HandlerFunc() RequestHandler {
 //	    return func(payload *ecsacs.PayloadMessage) {
 //	        message := &actor.DispatcherMessage{
@@ -118,9 +114,6 @@ type RequestHandler interface{}
 type RequestResponder interface {
 	// Name returns the name of the responder. This is used mostly for logging.
 	Name() string
-	// RegisterResponder registers a function that can be invoked in response
-	// to receiving and processing a websocket request message.
-	RegisterResponder(RespondFunc)
 	// HandlerFunc returns the RequestHandler callback for a particular
 	// websocket request message type.
 	HandlerFunc() RequestHandler

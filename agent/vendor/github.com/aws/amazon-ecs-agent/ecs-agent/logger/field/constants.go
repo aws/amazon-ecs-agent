@@ -49,4 +49,5 @@ const (
 	ContainerImage          = "containerImage"
 	ContainerExitCode       = "containerExitCode"
 	TMDSEndpointContainerID = "tmdsEndpointContainerID"
+	MessageID               = "messageID"
 )
