@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -321,7 +322,12 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	client.AddRequestHandler(HeartbeatHandlerFunc(client, acsSession.doctor))
+	responseSender := func(response interface{}) error {
+		return client.MakeRequest(response)
+	}
+
+	heartbeatResponder := acssession.NewHeartbeatResponder(acsSession.doctor, responseSender)
+	client.AddRequestHandler(heartbeatResponder.HandlerFunc())
 
 	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 

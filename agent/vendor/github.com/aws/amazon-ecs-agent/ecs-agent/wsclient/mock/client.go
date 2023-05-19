@@ -269,18 +269,6 @@ func (mr *MockRequestResponderMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRequestResponder)(nil).Name))
 }
 
-// RegisterResponder mocks base method.
-func (m *MockRequestResponder) RegisterResponder(arg0 wsclient.RespondFunc) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterResponder", arg0)
-}
-
-// RegisterResponder indicates an expected call of RegisterResponder.
-func (mr *MockRequestResponderMockRecorder) RegisterResponder(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterResponder", reflect.TypeOf((*MockRequestResponder)(nil).RegisterResponder), arg0)
-}
-
 // MockClientFactory is a mock of ClientFactory interface.
 type MockClientFactory struct {
 	ctrl     *gomock.Controller
