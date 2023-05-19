@@ -20,6 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/pkg/errors"
 )

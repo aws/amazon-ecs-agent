@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
