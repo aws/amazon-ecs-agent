@@ -263,19 +263,6 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		dataClient: acsSession.dataClient,
 	}
 
-	// Add handler to ack task ENI attach message
-	eniAttachHandler := newAttachTaskENIHandler(
-		acsSession.ctx,
-		cfg.Cluster,
-		acsSession.containerInstanceARN,
-		client,
-		eniHandler,
-	)
-	eniAttachHandler.start()
-	defer eniAttachHandler.stop()
-
-	client.AddRequestHandler(eniAttachHandler.handlerFunc())
-
 	// Add handler to ack instance ENI attach message
 	instanceENIAttachHandler := newAttachInstanceENIHandler(
 		acsSession.ctx,
@@ -325,9 +312,13 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	responseSender := func(response interface{}) error {
 		return client.MakeRequest(response)
 	}
-
-	heartbeatResponder := acssession.NewHeartbeatResponder(acsSession.doctor, responseSender)
-	client.AddRequestHandler(heartbeatResponder.HandlerFunc())
+	responders := []wsclient.RequestResponder{
+		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
+		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
+	}
+	for _, r := range responders {
+		client.AddRequestHandler(r.HandlerFunc())
+	}
 
 	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 

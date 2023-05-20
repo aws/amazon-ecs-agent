@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
@@ -45,10 +46,7 @@ import (
 )
 
 const (
-	clusterName          = "default"
-	containerInstanceArn = "instance"
-	payloadMessageId     = "123"
-	testTaskARN          = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	payloadMessageId = "123"
 )
 
 // testHelper wraps all the object required for the test
@@ -78,8 +76,8 @@ func setup(t *testing.T) *testHelper {
 		ctx,
 		taskEngine,
 		ecsClient,
-		clusterName,
-		containerInstanceArn,
+		testconst.ClusterName,
+		testconst.ContainerInstanceARN,
 		mockWsClient,
 		data.NewNoopClient(),
 		refreshCredentialsHandler{},
@@ -156,7 +154,7 @@ func TestHandlePayloadMessageSaveData(t *testing.T) {
 			err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
 				Tasks: []*ecsacs.Task{
 					{
-						Arn:           aws.String(testTaskARN),
+						Arn:           aws.String(testconst.TaskARN),
 						DesiredStatus: aws.String(tc.taskDesiredStatus),
 					},
 				},
@@ -309,7 +307,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 		}),
 	)
 
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, clusterName, containerInstanceArn, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
+	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 	tester.payloadHandler.refreshHandler = refreshCredsHandler
@@ -498,7 +496,7 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		}),
 	)
 
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, clusterName, containerInstanceArn, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
+	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 	tester.payloadHandler.refreshHandler = refreshCredsHandler
@@ -620,7 +618,7 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 			tester.cancel()
 		}),
 	)
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, clusterName, containerInstanceArn, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
+	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
 	defer refreshCredsHandler.clearAcks()
 	refreshCredsHandler.start()
 
