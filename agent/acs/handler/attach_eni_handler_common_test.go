@@ -173,3 +173,43 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 	assert.NoError(t, err)
 	assert.Len(t, res, 1)
 }
+
+// TestHandleExpiredENIAttachmentTaskENI tests handling an expired task eni
+func TestHandleExpiredENIAttachmentTaskENI(t *testing.T) {
+	testHandleExpiredENIAttachment(t, apieni.ENIAttachmentTypeTaskENI, taskArn)
+}
+
+// TestHandleExpiredENIAttachmentInstanceENI tests handling an expired instance eni
+func TestHandleExpiredENIAttachmentInstanceENI(t *testing.T) {
+	testHandleExpiredENIAttachment(t, apieni.ENIAttachmentTypeInstanceENI, "")
+}
+
+func testHandleExpiredENIAttachment(t *testing.T, attachmentType, taskArn string) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Set expiresAt to a value in the past.
+	expiresAt := time.Unix(time.Now().Unix()-1, 0)
+
+	taskEngineState := dockerstate.NewTaskEngineState()
+	dataClient := data.NewNoopClient()
+
+	eniAttachment := &apieni.ENIAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:       taskArn,
+			AttachmentARN: attachmentArn,
+			ExpiresAt:     expiresAt,
+		},
+		AttachmentType: attachmentType,
+		MACAddress:     randomMAC,
+	}
+	eniHandler := &eniHandler{
+		state:      taskEngineState,
+		dataClient: dataClient,
+	}
+
+	// Expect an error starting the timer because of <=0 duration.
+	err := eniHandler.HandleENIAttachment(eniAttachment)
+	assert.Error(t, err)
+	assert.Equal(t, true, eniAttachment.HasExpired())
+}

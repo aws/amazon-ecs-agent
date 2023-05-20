@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -466,7 +467,7 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 			manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
-			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+			newTaskManifest := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
 				data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber), manifestMessageIDAccessor)
 
 			taskList := []*task.Task{
@@ -481,8 +482,8 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 
 			message := &ecsacs.TaskManifestMessage{
 				MessageId:            aws.String(eniMessageId),
-				ClusterArn:           aws.String(clusterName),
-				ContainerInstanceArn: aws.String(containerInstanceArn),
+				ClusterArn:           aws.String(testconst.ClusterName),
+				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				Tasks: []*ecsacs.TaskIdentifier{
 					{
 						DesiredStatus: aws.String(apitaskstatus.TaskStoppedString),
@@ -561,7 +562,7 @@ func TestTaskManifestHandlerSendPendingTaskManifestMessageAck(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
-	handler := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+	handler := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
 		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
@@ -598,7 +599,7 @@ func TestTaskManifestHandlerHandlePendingTaskStopVerificationAck(t *testing.T) {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
-	handler := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+	handler := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
 		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
