@@ -27,6 +27,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
@@ -283,7 +284,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 				checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = checkAndSetDomainlessGMSATaskExecutionRoleCredentials
 			}()
 
-			handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
+			handler := newRefreshCredentialsHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWsClient, credentialsManager, taskEngine)
 			go handler.sendAcks()
 
 			// test adding a credentials message without the MessageId field
@@ -388,7 +389,7 @@ func TestRefreshCredentialsHandlerSendPendingAcks(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
 
-	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+	handler := newRefreshCredentialsHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		credentialsManager, taskEngine)
 
 	wg := sync.WaitGroup{}
@@ -436,7 +437,7 @@ func TestRefreshCredentialsHandler(t *testing.T) {
 	// Return a task from the engine for GetTaskByArn
 	taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{}, true)
 
-	handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
+	handler := newRefreshCredentialsHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWsClient, credentialsManager, taskEngine)
 	go handler.start()
 
 	handler.messageBuffer <- message

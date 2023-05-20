@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
@@ -42,8 +43,8 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 	}{
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				ClusterArn:               aws.String(clusterName),
-				ContainerInstanceArn:     aws.String(containerInstanceArn),
+				ClusterArn:               aws.String(testconst.ClusterName),
+				ContainerInstanceArn:     aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 			},
@@ -52,7 +53,7 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:                aws.String(eniMessageId),
-				ContainerInstanceArn:     aws.String(containerInstanceArn),
+				ContainerInstanceArn:     aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 			},
@@ -61,7 +62,7 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:                aws.String(eniMessageId),
-				ClusterArn:               aws.String(clusterName),
+				ClusterArn:               aws.String(testconst.ClusterName),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
 				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
 			},
@@ -70,7 +71,7 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:     aws.String(eniMessageId),
-				ClusterArn:    aws.String(clusterName),
+				ClusterArn:    aws.String(testconst.ClusterName),
 				WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
 			},
 			description: "Message without network interfaces should be invalid",
@@ -78,8 +79,8 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:            aws.String(eniMessageId),
-				ClusterArn:           aws.String(clusterName),
-				ContainerInstanceArn: aws.String(containerInstanceArn),
+				ClusterArn:           aws.String(testconst.ClusterName),
+				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
 						MacAddress: aws.String(randomMAC),
@@ -97,8 +98,8 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:            aws.String(eniMessageId),
-				ClusterArn:           aws.String(clusterName),
-				ContainerInstanceArn: aws.String(containerInstanceArn),
+				ClusterArn:           aws.String(testconst.ClusterName),
+				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{},
 				},
@@ -109,8 +110,8 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:            aws.String(eniMessageId),
-				ClusterArn:           aws.String(clusterName),
-				ContainerInstanceArn: aws.String(containerInstanceArn),
+				ClusterArn:           aws.String(testconst.ClusterName),
+				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
 						Ec2Id: aws.String("1"),
@@ -123,8 +124,8 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
 				MessageId:            aws.String(eniMessageId),
-				ClusterArn:           aws.String(clusterName),
-				ContainerInstanceArn: aws.String(containerInstanceArn),
+				ClusterArn:           aws.String(testconst.ClusterName),
+				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
 						MacAddress: aws.String(randomMAC),
@@ -153,7 +154,7 @@ func TestInstanceENIAckSingleMessage(t *testing.T) {
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	handler := newAttachInstanceENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+	handler := newAttachInstanceENIHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		&eniHandler{
 			state:      taskEngineState,
 			dataClient: dataClient,
@@ -176,8 +177,8 @@ func TestInstanceENIAckSingleMessage(t *testing.T) {
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:            aws.String(eniMessageId),
-		ClusterArn:           aws.String(clusterName),
-		ContainerInstanceArn: aws.String(containerInstanceArn),
+		ClusterArn:           aws.String(testconst.ClusterName),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
@@ -201,7 +202,7 @@ func TestInstanceENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	handler := newAttachInstanceENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+	handler := newAttachInstanceENIHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		&eniHandler{
 			state:      mockState,
 			dataClient: dataClient,
@@ -237,8 +238,8 @@ func TestInstanceENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:            aws.String(eniMessageId),
-		ClusterArn:           aws.String(clusterName),
-		ContainerInstanceArn: aws.String(containerInstanceArn),
+		ClusterArn:           aws.String(testconst.ClusterName),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
@@ -261,7 +262,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 	dataClient := data.NewNoopClient()
 
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	handler := newAttachInstanceENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient,
+	handler := newAttachInstanceENIHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		&eniHandler{
 			state:      taskEngineState,
 			dataClient: dataClient,
@@ -284,8 +285,8 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:            aws.String(eniMessageId),
-		ClusterArn:           aws.String(clusterName),
-		ContainerInstanceArn: aws.String(containerInstanceArn),
+		ClusterArn:           aws.String(testconst.ClusterName),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
