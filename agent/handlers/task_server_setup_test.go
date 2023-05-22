@@ -38,7 +38,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	task_protection_v1 "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
-	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
@@ -51,6 +50,7 @@ import (
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
+	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -839,21 +839,21 @@ func TestV2TaskWithTagsMetadata(t *testing.T) {
 				state.EXPECT().TaskByArn(taskARN).Return(task, true),
 				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 				ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
-					&ecs.Tag{
+					{
 						Key:   &contInstTag1Key,
 						Value: &contInstTag1Val,
 					},
-					&ecs.Tag{
+					{
 						Key:   &contInstTag2Key,
 						Value: &contInstTag2Val,
 					},
 				}, nil),
 				ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
-					&ecs.Tag{
+					{
 						Key:   &taskTag1Key,
 						Value: &taskTag1Val,
 					},
-					&ecs.Tag{
+					{
 						Key:   &taskTag2Key,
 						Value: &taskTag2Val,
 					},
@@ -1127,21 +1127,21 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &contInstTag2Key,
 				Value: &contInstTag2Val,
 			},
 		}, nil),
 		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &taskTag2Key,
 				Value: &taskTag2Val,
 			},
@@ -1469,21 +1469,21 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &contInstTag2Key,
 				Value: &contInstTag2Val,
 			},
 		}, nil),
 		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &taskTag2Key,
 				Value: &taskTag2Val,
 			},

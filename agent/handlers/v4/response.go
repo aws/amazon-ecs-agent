@@ -22,13 +22,14 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/pkg/errors"
 )
 
 // TaskResponse is the v4 Task response. It augments the v4 Container response
 // with the v2 task response object.
 type TaskResponse struct {
-	*v2.TaskResponse
+	*tmdsv2.TaskResponse
 	Containers  []ContainerResponse `json:"Containers,omitempty"`
 	VPCID       string              `json:"VPCID,omitempty"`
 	ServiceName string              `json:"ServiceName,omitempty"`
@@ -37,7 +38,7 @@ type TaskResponse struct {
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
 // with the v2 container response object.
 type ContainerResponse struct {
-	*v2.ContainerResponse
+	*tmdsv2.ContainerResponse
 	Networks []Network `json:"Networks,omitempty"`
 }
 

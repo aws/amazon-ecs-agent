@@ -22,6 +22,7 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -62,7 +63,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 }
 
 // GetContainerResponse gets container response for v3 metadata
-func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*v2.ContainerResponse, error) {
+func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*tmdsv2.ContainerResponse, error) {
 	containerResponse, err := v2.NewContainerResponseFromState(containerID, state, false)
 	if err != nil {
 		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
