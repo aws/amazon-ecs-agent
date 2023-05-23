@@ -16,19 +16,20 @@ package v4
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/pkg/errors"
 )
 
 // TaskResponse is the v4 Task response. It augments the v4 Container response
 // with the v2 task response object.
 type TaskResponse struct {
-	*v2.TaskResponse
+	*tmdsv2.TaskResponse
 	Containers  []ContainerResponse `json:"Containers,omitempty"`
 	VPCID       string              `json:"VPCID,omitempty"`
 	ServiceName string              `json:"ServiceName,omitempty"`
@@ -37,7 +38,7 @@ type TaskResponse struct {
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
 // with the v2 container response object.
 type ContainerResponse struct {
-	*v2.ContainerResponse
+	*tmdsv2.ContainerResponse
 	Networks []Network `json:"Networks,omitempty"`
 }
 
@@ -45,7 +46,7 @@ type ContainerResponse struct {
 // interface(s) on top of what is supported by v4.
 // See `NetworkInterfaceProperties` for more details.
 type Network struct {
-	containermetadata.Network
+	tmdsresponse.Network
 	// NetworkInterfaceProperties specifies additional properties of the network
 	// of the network interface that are exposed via the metadata server.
 	// We currently populate this only for the `awsvpc` networking mode.
@@ -147,7 +148,7 @@ func NewContainerResponse(
 // look up the task information in the local state based on the id, which could be
 // either task arn or contianer id.
 func toV4NetworkResponse(
-	networks []containermetadata.Network,
+	networks []tmdsresponse.Network,
 	lookup func() (*apitask.Task, bool),
 ) ([]Network, error) {
 	var resp []Network

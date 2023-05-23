@@ -34,7 +34,6 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -52,9 +51,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -1377,7 +1377,28 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				fluentNetworkPort: FluentNetworkPortValue,
 			})
 		} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
-			ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
+			targetContainer := task.GetFirelensContainer()
+			// For bridge-mode ServiceConnect-enabled tasks, we inject pause container for each application container
+			// including the firelens container. Therefore, when resolving the container IP, we should be checking that
+			// of the associated pause container.
+			if task.IsServiceConnectEnabled() {
+				var err error
+				targetContainer, err = task.GetBridgeModePauseContainerForTaskContainer(targetContainer)
+				if err != nil {
+					logger.Error("Failed to create container", logger.Fields{
+						field.TaskID:    task.GetID(),
+						field.Container: container.Name,
+						field.Error: errors.New(fmt.Sprintf(
+							"container uses awsfirelens log driver but we failed to resolve Firelens bridge IP: %v", err)),
+					})
+					return dockerapi.DockerContainerMetadata{
+						Error: dockerapi.CannotCreateContainerError{FromError: errors.New(fmt.Sprintf(
+							"failed to create container - container uses awsfirelens log driver but we failed to "+
+								"resolve Firelens bridge IP: %v", err))},
+					}
+				}
+			}
+			ipAddress, ok := getContainerHostIP(targetContainer.GetNetworkSettings())
 			if !ok {
 				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge mode"}
 				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
@@ -1629,34 +1650,68 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	// If container is a firelens container, fluent host is needed to be added to the environment variable for the task.
 	// For the supported network mode - bridge and awsvpc, the awsvpc take the host 127.0.0.1 but in bridge mode,
 	// there is a need to wait for the IP to be present before the container using the firelens can be created.
-	if container.GetFirelensConfig() != nil {
-		if !task.IsNetworkModeAWSVPC() && (container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode) {
-			_, gotContainerIP := getContainerHostIP(dockerContainerMD.NetworkSettings)
-			if !gotContainerIP {
-				getIPBridgeBackoff := retry.NewExponentialBackoff(minGetIPBridgeTimeout, maxGetIPBridgeTimeout, getIPBridgeRetryJitterMultiplier, getIPBridgeRetryDelayMultiplier)
-				contextWithTimeout, cancel := context.WithTimeout(engine.ctx, time.Minute)
-				defer cancel()
-				err := retry.RetryWithBackoffCtx(contextWithTimeout, getIPBridgeBackoff, func() error {
+	//
+	// For bridge-mode ServiceConnect-enabled tasks, we inject pause container for each application container
+	// including the firelens container. Therefore, when resolving the container IP, we should be checking that
+	// of the associated pause container. In such case, the firelens container has network mode "container" since it's
+	// launched into its pause container's network namespace.
+	if container.GetFirelensConfig() != nil && task.IsNetworkModeBridge() {
+		_, gotContainerIP := getContainerHostIP(dockerContainerMD.NetworkSettings)
+		if task.IsServiceConnectEnabled() {
+			targetContainer, err := task.GetBridgeModePauseContainerForTaskContainer(container)
+			if err != nil {
+				logger.Error("Failed to start Firelens container", logger.Fields{
+					field.TaskID:    task.GetID(),
+					field.Container: container.Name,
+					field.Error:     err,
+				})
+				return dockerapi.DockerContainerMetadata{
+					Error: dockerapi.CannotStartContainerError{FromError: errors.New(fmt.Sprintf(
+						"failed to start firelens container: %v", err))},
+				}
+			}
+			_, gotContainerIP = getContainerHostIP(targetContainer.GetNetworkSettings())
+		}
+
+		if !gotContainerIP {
+			getIPBridgeBackoff := retry.NewExponentialBackoff(minGetIPBridgeTimeout, maxGetIPBridgeTimeout, getIPBridgeRetryJitterMultiplier, getIPBridgeRetryDelayMultiplier)
+			contextWithTimeout, cancel := context.WithTimeout(engine.ctx, time.Minute)
+			defer cancel()
+			err := retry.RetryWithBackoffCtx(contextWithTimeout, getIPBridgeBackoff, func() error {
+				gotIPBridge := false
+				if task.IsServiceConnectEnabled() {
+					targetContainer, err := task.GetBridgeModePauseContainerForTaskContainer(container)
+					if err != nil {
+						return err
+					}
+					_, gotIPBridge = getContainerHostIP(targetContainer.GetNetworkSettings())
+					if gotIPBridge {
+						return nil
+					}
+				} else {
 					inspectOutput, err := engine.client.InspectContainer(engine.ctx, dockerContainerMD.DockerID,
 						dockerclient.InspectContainerTimeout)
 					if err != nil {
 						return err
 					}
-					_, gotIPBridge := getContainerHostIP(inspectOutput.NetworkSettings)
+					_, gotIPBridge = getContainerHostIP(inspectOutput.NetworkSettings)
 					if gotIPBridge {
 						dockerContainerMD.NetworkSettings = inspectOutput.NetworkSettings
 						return nil
-					} else {
-						return errors.New("Bridge IP not available to use for firelens")
-					}
-				})
-				if err != nil {
-					return dockerapi.DockerContainerMetadata{
-						Error: dockerapi.CannotStartContainerError{FromError: err},
 					}
 				}
+				return errors.New("Bridge IP not available to use for firelens")
+			})
+			if err != nil {
+				logger.Error("Failed to start Firelens container", logger.Fields{
+					field.TaskID:    task.GetID(),
+					field.Container: container.Name,
+					field.Error:     err,
+				})
+				return dockerapi.DockerContainerMetadata{
+					Error: dockerapi.CannotStartContainerError{FromError: err},
+				}
 			}
-
 		}
 	}
 	if execcmd.IsExecEnabledContainer(container) {
@@ -2090,9 +2145,8 @@ func (engine *DockerTaskEngine) stopDockerContainer(dockerID, containerName stri
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *apicontainer.Container) error {
-	logger.Info("Removing container", logger.Fields{
-		field.TaskID:    task.GetID(),
-		field.Container: container.Name,
+	logger.Info("Removing container", container.Fields(), logger.Fields{
+		field.TaskID: task.GetID(),
 	})
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {

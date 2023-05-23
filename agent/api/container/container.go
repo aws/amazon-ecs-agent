@@ -24,8 +24,10 @@ import (
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -507,6 +509,20 @@ func (c *Container) String() string {
 		ret += " - Exit: " + strconv.Itoa(*c.GetKnownExitCode())
 	}
 	return ret
+}
+
+func (c *Container) Fields() logger.Fields {
+	exitCode := "nil"
+	if c.GetKnownExitCode() != nil {
+		exitCode = strconv.Itoa(*c.GetKnownExitCode())
+	}
+	return logger.Fields{
+		field.ContainerName:      c.Name,
+		field.ContainerImage:     c.Image,
+		"containerKnownStatus":   c.GetKnownStatus().String(),
+		"containerDesiredStatus": c.GetDesiredStatus().String(),
+		field.ContainerExitCode:  exitCode,
+	}
 }
 
 // GetSteadyStateStatus returns the steady state status for the container. If

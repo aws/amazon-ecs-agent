@@ -18,8 +18,8 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 )
 
 // AgentMetadataPath is the Agent metadata path for v1 handler.

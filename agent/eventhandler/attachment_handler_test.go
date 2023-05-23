@@ -23,11 +23,12 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -264,10 +265,12 @@ func TestAttachmentChangeShouldBeSentAttachmentIsSent(t *testing.T) {
 func attachmentEvent(attachmentARN string) api.AttachmentStateChange {
 	return api.AttachmentStateChange{
 		Attachment: &apieni.ENIAttachment{
-			AttachmentType:   apieni.ENIAttachmentTypeInstanceENI,
-			AttachmentARN:    attachmentARN,
-			AttachStatusSent: false,
-			ExpiresAt:        time.Now().Add(time.Second),
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
+				AttachmentARN:    attachmentARN,
+				AttachStatusSent: false,
+				ExpiresAt:        time.Now().Add(time.Second),
+			},
+			AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
 		},
 	}
 }

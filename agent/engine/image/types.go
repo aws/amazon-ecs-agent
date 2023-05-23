@@ -188,5 +188,27 @@ func (imageState *ImageState) String() string {
 		image = imageState.Image.String()
 	}
 	return fmt.Sprintf("Image: [%s] referenced by %d containers; PulledAt: %s; LastUsedAt: %s; PullSucceeded: %t",
-		image, len(imageState.Containers), imageState.PulledAt.String(), imageState.LastUsedAt.String(), imageState.PullSucceeded)
+		image, len(imageState.Containers), imageState.PulledAt.UTC().Format(time.RFC3339),
+		imageState.LastUsedAt.UTC().Format(time.RFC3339), imageState.PullSucceeded)
+}
+
+func (imageState *ImageState) Fields() logger.Fields {
+	imageID := ""
+	names := []string{}
+	size := int64(-1)
+	if imageState.Image != nil {
+		imageID = imageState.Image.ImageID
+		names = imageState.Image.Names
+		size = imageState.Image.Size
+	}
+
+	return logger.Fields{
+		field.ImageID:            imageID,
+		field.ImageNames:         names,
+		field.ImageSizeBytes:     size,
+		"referencedBy":           len(imageState.Containers),
+		field.ImagePulledAt:      imageState.PulledAt.UTC().Format(time.RFC3339),
+		field.ImageLastUsedAt:    imageState.LastUsedAt.UTC().Format(time.RFC3339),
+		field.ImagePullSucceeded: imageState.PullSucceeded,
+	}
 }

@@ -31,7 +31,7 @@ jobs:
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent
-      - name: run tests
+      - name: run agent tests
         working-directory:
         run: |
           $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
@@ -41,6 +41,12 @@ jobs:
           $env:ZZZ_SKIP_WINDOWS_SERVER_VERSION_CHECK_NOT_SUPPORTED_IN_PRODUCTION = 'true'
           $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
           go test -v -tags unit -timeout=120s $packages
-          cd ../ecs-agent
+      - name: run ecs-agent tests
+        working-directory:
+        run: |
+          $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
+          cd "$Env:GITHUB_WORKSPACE"
+          cd "src/github.com/aws/amazon-ecs-agent/ecs-agent"
+          gcc --version
           $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
           go test -v -tags unit -timeout=120s $packages

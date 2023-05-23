@@ -28,7 +28,6 @@ import (
 	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -36,10 +35,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
@@ -284,14 +284,18 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
+	eniHandler := &eniHandler{
+		state:      acsSession.state,
+		dataClient: acsSession.dataClient,
+	}
+
 	// Add handler to ack task ENI attach message
 	eniAttachHandler := newAttachTaskENIHandler(
 		acsSession.ctx,
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.state,
-		acsSession.dataClient,
+		eniHandler,
 	)
 	eniAttachHandler.start()
 	defer eniAttachHandler.stop()
@@ -304,17 +308,19 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.state,
-		acsSession.dataClient,
+		eniHandler,
 	)
 	instanceENIAttachHandler.start()
 	defer instanceENIAttachHandler.stop()
 
 	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
 
+	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
+
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest,
+		manifestMessageIDAccessor)
 
 	defer taskManifestHandler.clearAcks()
 	taskManifestHandler.start()

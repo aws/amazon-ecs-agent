@@ -8,6 +8,12 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.19
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
+github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
+github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo
+github.com/aws/amazon-ecs-agent/ecs-agent/api/eni
+github.com/aws/amazon-ecs-agent/ecs-agent/api/status
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
@@ -15,8 +21,18 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
+github.com/aws/amazon-ecs-agent/ecs-agent/utils
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws
@@ -420,8 +436,6 @@ google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3

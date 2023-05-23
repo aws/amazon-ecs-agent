@@ -34,17 +34,18 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/fsx"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
 const (
+	psCredentialCommandFormat = "$(New-Object System.Management.Automation.PSCredential('%s', $(ConvertTo-SecureString '%s' -AsPlainText -Force)))"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 )
 
@@ -548,8 +549,12 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 	}
 
 	// formatting to keep powershell happy
-	creds := fmt.Sprintf("-Credential $(New-Object System.Management.Automation.PSCredential(\"%s\", $(ConvertTo-SecureString \"%s\" -AsPlainText -Force)))", username, password)
-	remotePathArg := fmt.Sprintf("-RemotePath \"%s\"", remotePath)
+	// Replace ' with '' so that Powershell would convert it back to '.
+	password = strings.ReplaceAll(password, "'", "''")
+	credsCommand := fmt.Sprintf(psCredentialCommandFormat, username, password)
+	credsArg := fmt.Sprintf("-Credential %s", credsCommand)
+
+	remotePathArg := fmt.Sprintf("-RemotePath '%s'", remotePath)
 
 	// New-SmbGlobalMapping cmdlet creates an SMB mapping between the container instance
 	// and SMB share (FSx for Windows File Server file-system)
@@ -558,7 +563,7 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 		"New-SmbGlobalMapping",
 		localPathArg,
 		remotePathArg,
-		creds,
+		credsArg,
 		"-Persistent $true",
 		"-RequirePrivacy $true",
 		"-ErrorAction Stop",

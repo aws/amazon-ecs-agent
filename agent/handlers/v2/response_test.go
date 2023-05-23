@@ -24,18 +24,20 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -310,6 +312,10 @@ func TestContainerResponse(t *testing.T) {
 					},
 				},
 			}
+			expectedHealthStatus := tmdsv2.HealthStatus{
+				Status: "HEALTHY",
+				Since:  container.Health.Since,
+			}
 			gomock.InOrder(
 				state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
 				state.EXPECT().TaskByID(containerID).Return(task, true),
@@ -318,6 +324,9 @@ func TestContainerResponse(t *testing.T) {
 			containerResponse, err := NewContainerResponseFromState(containerID, state, false)
 			assert.NoError(t, err)
 			assert.Equal(t, containerResponse.Health == nil, tc.result)
+			if !tc.result {
+				assert.Equal(t, *containerResponse.Health, expectedHealthStatus)
+			}
 			_, err = json.Marshal(containerResponse)
 			assert.NoError(t, err)
 		})
@@ -328,6 +337,9 @@ func TestTaskResponseMarshal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	nowStr := "2023-05-17T22:55:55.745786125Z"
+	now, err := time.Parse("2006-01-02T15:04:05.999999999Z", nowStr)
+	require.NoError(t, err)
 	expectedTaskResponseMap := map[string]interface{}{
 		"Cluster":          cluster,
 		"TaskARN":          taskARN,
@@ -364,6 +376,11 @@ func TestTaskResponseMarshal(t *testing.T) {
 						},
 						"NetworkMode": "awsvpc",
 					},
+				},
+				"Health": map[string]interface{}{
+					"status":      "HEALTHY",
+					"statusSince": nowStr,
+					"output":      "health check output",
 				},
 			},
 		},
@@ -408,6 +425,12 @@ func TestTaskResponseMarshal(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
+		HealthCheckType: apicontainer.DockerHealthCheckType,
+		Health: apicontainer.HealthStatus{
+			Status: apicontainerstatus.ContainerHealthy,
+			Since:  &now,
+			Output: "health check output",
+		},
 	}
 
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
@@ -431,21 +454,21 @@ func TestTaskResponseMarshal(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &contInstTag2Key,
 				Value: &contInstTag2Val,
 			},
 		}, nil),
 		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,
 			},
-			&ecs.Tag{
+			{
 				Key:   &taskTag2Key,
 				Value: &taskTag2Val,
 			},
@@ -687,4 +710,50 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 	assert.Equal(t, taskWithTagsResponse.Errors[1].StatusCode, errStatusCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].RequestId, taskTagsRequestId)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].ResourceARN, taskARN)
+}
+
+// Tests that TMDS Health Status created by metadata endpoint v2 is marshaled to the same JSON
+// as the source container health status. This test makes sure that the change in TMDS response
+// model from using container health status directly to using a new TMDS Health Status type
+// is transparent to customers.
+func TestDockerContainerHealthToV2HealthJSON(t *testing.T) {
+	tcs := []struct {
+		name   string
+		status apicontainerstatus.ContainerHealthStatus
+	}{
+		{
+			name:   "container healthy",
+			status: apicontainerstatus.ContainerHealthy,
+		},
+		{
+			name:   "container unhealthy",
+			status: apicontainerstatus.ContainerUnhealthy,
+		},
+		{
+			name:   "container health unknown",
+			status: apicontainerstatus.ContainerHealthUnknown,
+		},
+		{
+			name:   "container health invalid",
+			status: 2345,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Now()
+			apiHealth := &apicontainer.HealthStatus{
+				Status:   tc.status,
+				Since:    &now,
+				ExitCode: 5,
+				Output:   "some output",
+			}
+			apiHealthJSON, err := json.Marshal(apiHealth)
+			require.NoError(t, err)
+
+			tmdsHealthJSON, err := json.Marshal(dockerContainerHealthToV2Health(*apiHealth))
+			require.NoError(t, err)
+
+			assert.Equal(t, apiHealthJSON, tmdsHealthJSON)
+		})
+	}
 }

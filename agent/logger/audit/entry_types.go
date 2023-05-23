@@ -18,16 +18,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	log "github.com/cihub/seelog"
 )
 
 const (
-	getCredentialsEventType                = "GetCredentials"
-	getCredentialsTaskExecutionEventType   = "GetCredentialsExecutionRole"
-	getCredentialsInvalidRoleTypeEventType = "GetCredentialsInvalidRoleType"
-
 	// getCredentialsAuditLogVersion is the version of the audit log
 	// Version '1', the fields are:
 	// 1. event time
@@ -54,18 +51,6 @@ type commonAuditLogEntryFields struct {
 	theURL       string
 	userAgent    string
 	arn          string
-}
-
-// GetCredentialsEventType is the type for a GetCredentials request
-func GetCredentialsEventType(roleType string) string {
-	switch roleType {
-	case credentials.ApplicationRoleType:
-		return getCredentialsEventType
-	case credentials.ExecutionRoleType:
-		return getCredentialsTaskExecutionEventType
-	default:
-		return getCredentialsInvalidRoleTypeEventType
-	}
 }
 
 func (c *commonAuditLogEntryFields) string() string {
@@ -103,7 +88,7 @@ func constructCommonAuditLogEntryFields(r request.LogRequest, httpResponseCode i
 
 func constructAuditLogEntryByType(eventType string, cluster string, containerInstanceArn string) string {
 	switch eventType {
-	case getCredentialsEventType:
+	case audit.GetCredentialsEventType:
 		fields := &getCredentialsAuditLogEntryFields{
 			eventType:            eventType,
 			version:              getCredentialsAuditLogVersion,
@@ -111,7 +96,7 @@ func constructAuditLogEntryByType(eventType string, cluster string, containerIns
 			containerInstanceArn: populateField(containerInstanceArn),
 		}
 		return fields.string()
-	case getCredentialsTaskExecutionEventType:
+	case audit.GetCredentialsTaskExecutionEventType:
 		fields := &getCredentialsAuditLogEntryFields{
 			eventType:            eventType,
 			version:              getCredentialsAuditLogVersion,

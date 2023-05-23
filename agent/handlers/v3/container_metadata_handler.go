@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -62,7 +63,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 }
 
 // GetContainerResponse gets container response for v3 metadata
-func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*v2.ContainerResponse, error) {
+func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*tmdsv2.ContainerResponse, error) {
 	containerResponse, err := v2.NewContainerResponseFromState(containerID, state, false)
 	if err != nil {
 		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
@@ -78,7 +79,7 @@ func GetContainerResponse(containerID string, state dockerstate.TaskEngineState)
 }
 
 // GetContainerNetworkMetadata returns the network metadata for the container
-func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]containermetadata.Network, error) {
+func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]tmdsresponse.Network, error) {
 	dockerContainer, ok := state.ContainerByID(containerID)
 	if !ok {
 		return nil, errors.Errorf("Unable to find container '%s'", containerID)
@@ -98,17 +99,17 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network
-	networks := make([]containermetadata.Network, 0)
+	networks := make([]tmdsresponse.Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := containermetadata.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
+			network := tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
 			networks = append(networks, network)
 		}
 	} else {
 		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := containermetadata.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
+		network := tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
 		networks = append(networks, network)
 	}
 	return networks, nil

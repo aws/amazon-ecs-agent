@@ -18,6 +18,7 @@ package fsxwindowsfileserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -28,14 +29,14 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"
 	mock_fsxiface "github.com/aws/amazon-ecs-agent/agent/fsx/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/fsx"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -708,5 +709,19 @@ func TestClearFSxWindowsFileServerResource(t *testing.T) {
 	defer func() { execCommand = exec.Command }()
 
 	err := fv.Cleanup()
+	assert.NoError(t, err)
+}
+
+func TestSpecialCharactersInPasswordPSCommand(t *testing.T) {
+	username := "Administrator"
+	password := "AWS@`~!@#$var%^&*()/1asd"
+
+	credsCommand := fmt.Sprintf(psCredentialCommandFormat, username, password)
+
+	// Perform actual exec to determine if the credentials are generated.
+	// Go tests are platform specific and therefore, this would work.
+	cmd := exec.Command("powershell.exe", credsCommand)
+	_, err := cmd.CombinedOutput()
+
 	assert.NoError(t, err)
 }

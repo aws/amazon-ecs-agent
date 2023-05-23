@@ -22,9 +22,9 @@ import (
 	reflect "reflect"
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
-	eni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
+	eni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	gomock "github.com/golang/mock/gomock"
 )
 

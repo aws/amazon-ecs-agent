@@ -16,7 +16,7 @@ package container
 import (
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/docker/docker/api/types"
 )

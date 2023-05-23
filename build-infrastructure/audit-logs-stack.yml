@@ -45,18 +45,18 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub 'audit-logs-bucket-${AWS::AccountId}'
-
-  AuditLogsBucketPolicy:
-    DependsOn: AuditLogsBucket
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Sub 'audit-logs-bucket-${AWS::AccountId}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
       VersioningConfiguration:
         Status: Enabled
+
+  AuditLogsBucketPolicy:
+    DependsOn: AuditLogsBucket
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub 'audit-logs-bucket-${AWS::AccountId}'
       PolicyDocument:
         Version: 2012-10-17
         Statement:

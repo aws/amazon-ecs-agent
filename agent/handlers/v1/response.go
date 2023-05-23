@@ -15,11 +15,11 @@ package v1
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 )
 
 // MetadataResponse is the schema for the metadata response JSON object
@@ -46,28 +46,12 @@ type TasksResponse struct {
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string                      `json:"DockerId"`
-	DockerName string                      `json:"DockerName"`
-	Name       string                      `json:"Name"`
-	Ports      []PortResponse              `json:"Ports,omitempty"`
-	Networks   []containermetadata.Network `json:"Networks,omitempty"`
-	Volumes    []VolumeResponse            `json:"Volumes,omitempty"`
-}
-
-// VolumeResponse is the schema for the volume response JSON object
-type VolumeResponse struct {
-	DockerName  string `json:"DockerName,omitempty"`
-	Source      string `json:"Source,omitempty"`
-	Destination string `json:"Destination,omitempty"`
-}
-
-// PortResponse defines the schema for portmapping response JSON
-// object.
-type PortResponse struct {
-	ContainerPort uint16 `json:"ContainerPort,omitempty"`
-	Protocol      string `json:"Protocol,omitempty"`
-	HostPort      uint16 `json:"HostPort,omitempty"`
-	HostIp        string `json:"HostIp,omitempty"`
+	DockerID   string                        `json:"DockerId"`
+	DockerName string                        `json:"DockerName"`
+	Name       string                        `json:"Name"`
+	Ports      []tmdsresponse.PortResponse   `json:"Ports,omitempty"`
+	Networks   []tmdsresponse.Network        `json:"Networks,omitempty"`
+	Volumes    []tmdsresponse.VolumeResponse `json:"Volumes,omitempty"`
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
@@ -113,7 +97,7 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 	resp.Volumes = NewVolumesResponse(dockerContainer)
 
 	if eni != nil {
-		resp.Networks = []containermetadata.Network{
+		resp.Networks = []tmdsresponse.Network{
 			{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: eni.GetIPV4Addresses(),
@@ -125,9 +109,9 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 }
 
 // NewPortBindingsResponse creates PortResponse for a container.
-func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) []PortResponse {
+func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) []tmdsresponse.PortResponse {
 	container := dockerContainer.Container
-	resp := []PortResponse{}
+	resp := []tmdsresponse.PortResponse{}
 
 	bindings := container.GetKnownPortBindings()
 
@@ -138,7 +122,7 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 	}
 
 	for _, binding := range bindings {
-		port := PortResponse{
+		port := tmdsresponse.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
 		}
@@ -155,14 +139,14 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 }
 
 // NewVolumesResponse creates VolumeResponse for a container
-func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []VolumeResponse {
+func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []tmdsresponse.VolumeResponse {
 	container := dockerContainer.Container
-	var resp []VolumeResponse
+	var resp []tmdsresponse.VolumeResponse
 
 	volumes := container.GetVolumes()
 
 	for _, volume := range volumes {
-		volResp := VolumeResponse{
+		volResp := tmdsresponse.VolumeResponse{
 			DockerName:  volume.Name,
 			Source:      volume.Source,
 			Destination: volume.Destination,
