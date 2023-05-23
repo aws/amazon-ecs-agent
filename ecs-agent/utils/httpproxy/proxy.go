@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -363,4 +364,9 @@ func (m domainMatch) match(host, port string, ip net.IP) bool {
 		return m.port == "" || m.port == port
 	}
 	return false
+}
+
+// Proxy is an uncached version of http.ProxyFromEnvironment.
+func Proxy(req *http.Request) (*url.URL, error) {
+	return FromEnvironment().ProxyFunc()(req.URL)
 }

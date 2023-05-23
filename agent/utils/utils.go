@@ -21,15 +21,12 @@ import (
 	"io/ioutil"
 	"math"
 	"math/big"
-	"net/http"
-	"net/url"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/utils/httpproxy"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -242,9 +239,4 @@ func GetENIAttachmentId(eniAttachmentArn string) (string, error) {
 		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn invalid: %s", eniAttachmentArn)
 	}
 	return fields[len(fields)-1], nil
-}
-
-// Proxy is an uncached version of http.ProxyFromEnvironment.
-func Proxy(req *http.Request) (*url.URL, error) {
-	return httpproxy.FromEnvironment().ProxyFunc()(req.URL)
 }
