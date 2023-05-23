@@ -28,8 +28,6 @@ import (
 // TODO remove this once resource, consume are used
 //lint:file-ignore U1000 Ignore all unused code
 
-// initialHostResource keeps account of each task in
-
 const (
 	CPU      = "CPU"
 	GPU      = "GPU"
@@ -38,6 +36,7 @@ const (
 	PORTSUDP = "PORTS_UDP"
 )
 
+// HostResourceManager keeps account of host resources allocated for tasks set to be created/running tasks
 type HostResourceManager struct {
 	initialHostResource       map[string]*ecs.Resource
 	consumedResource          map[string]*ecs.Resource
