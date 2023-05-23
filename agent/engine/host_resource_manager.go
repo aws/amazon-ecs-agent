@@ -29,6 +29,15 @@ import (
 //lint:file-ignore U1000 Ignore all unused code
 
 // initialHostResource keeps account of each task in
+
+const (
+	CPU      = "CPU"
+	GPU      = "GPU"
+	MEMORY   = "MEMORY"
+	PORTSTCP = "PORTS_TCP"
+	PORTSUDP = "PORTS_UDP"
+)
+
 type HostResourceManager struct {
 	initialHostResource       map[string]*ecs.Resource
 	consumedResource          map[string]*ecs.Resource
@@ -57,11 +66,11 @@ func (e *ResourceIsNilForTask) Error() string {
 func (h *HostResourceManager) logResources(msg string, taskArn string) {
 	logger.Debug(msg, logger.Fields{
 		"taskArn":   taskArn,
-		"CPU":       *h.consumedResource["CPU"].IntegerValue,
-		"MEMORY":    *h.consumedResource["MEMORY"].IntegerValue,
-		"PORTS_TCP": h.consumedResource["PORTS_TCP"].StringSetValue,
-		"PORTS_UDP": h.consumedResource["PORTS_UDP"].StringSetValue,
-		"GPU":       *h.consumedResource["GPU"].IntegerValue,
+		"CPU":       *h.consumedResource[CPU].IntegerValue,
+		"MEMORY":    *h.consumedResource[MEMORY].IntegerValue,
+		"PORTS_TCP": h.consumedResource[PORTSTCP].StringSetValue,
+		"PORTS_UDP": h.consumedResource[PORTSUDP].StringSetValue,
+		"GPU":       *h.consumedResource[GPU].IntegerValue,
 	})
 }
 
@@ -92,40 +101,40 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 	}
 	if ok {
 		// CPU
-		cpu := *h.consumedResource["CPU"].IntegerValue + *resources["CPU"].IntegerValue
-		h.consumedResource["CPU"].SetIntegerValue(cpu)
+		cpu := *h.consumedResource[CPU].IntegerValue + *resources[CPU].IntegerValue
+		h.consumedResource[CPU].SetIntegerValue(cpu)
 
 		// MEM
-		mem := *h.consumedResource["MEMORY"].IntegerValue + *resources["MEMORY"].IntegerValue
-		h.consumedResource["MEMORY"].SetIntegerValue(mem)
+		mem := *h.consumedResource[MEMORY].IntegerValue + *resources[MEMORY].IntegerValue
+		h.consumedResource[MEMORY].SetIntegerValue(mem)
 
 		// PORTS
-		portsResource, ok := resources["PORTS_TCP"]
+		portsResource, ok := resources[PORTSTCP]
 		if ok {
 			taskPortsSlice := portsResource.StringSetValue
 			for _, port := range taskPortsSlice {
 				// Create a copy to assign it back as "PORTS_TCP"
-				newPortResource := h.consumedResource["PORTS_TCP"]
-				newPorts := append(h.consumedResource["PORTS_TCP"].StringSetValue, port)
+				newPortResource := h.consumedResource[PORTSTCP]
+				newPorts := append(h.consumedResource[PORTSTCP].StringSetValue, port)
 				newPortResource.StringSetValue = newPorts
-				h.consumedResource["PORTS_TCP"] = newPortResource
+				h.consumedResource[PORTSTCP] = newPortResource
 			}
 		}
 
 		// PORTS_UDP
-		portsResource, ok = resources["PORTS_UDP"]
+		portsResource, ok = resources[PORTSUDP]
 		if ok {
 			taskPortsSlice := portsResource.StringSetValue
 			for _, port := range taskPortsSlice {
-				newPortResource := h.consumedResource["PORTS_UDP"]
-				newPorts := append(h.consumedResource["PORTS_UDP"].StringSetValue, port)
+				newPortResource := h.consumedResource[PORTSUDP]
+				newPorts := append(h.consumedResource[PORTSUDP].StringSetValue, port)
 				newPortResource.StringSetValue = newPorts
-				h.consumedResource["PORTS_UDP"] = newPortResource
+				h.consumedResource[PORTSUDP] = newPortResource
 			}
 		}
 
 		// GPU
-		*h.consumedResource["GPU"].IntegerValue += *resources["GPU"].IntegerValue
+		*h.consumedResource[GPU].IntegerValue += *resources[GPU].IntegerValue
 
 		// Set consumed status
 		h.taskConsumed[taskArn] = true
@@ -186,31 +195,31 @@ func checkResourceExistsStringSet(resourceName string, resources map[string]*ecs
 // Checks all resources exists and their values are not nil
 func checkResourcesHealth(resources map[string]*ecs.Resource) error {
 	// CPU
-	errCpu := checkResourceExistsInt("CPU", resources)
+	errCpu := checkResourceExistsInt(CPU, resources)
 	if errCpu != nil {
 		return errCpu
 	}
 
 	// MEMORY
-	errMemory := checkResourceExistsInt("MEMORY", resources)
+	errMemory := checkResourceExistsInt(MEMORY, resources)
 	if errMemory != nil {
 		return errMemory
 	}
 
 	// PORTS_TCP
-	errPortsTcp := checkResourceExistsStringSet("PORTS_TCP", resources)
+	errPortsTcp := checkResourceExistsStringSet(PORTSTCP, resources)
 	if errPortsTcp != nil {
 		return errPortsTcp
 	}
 
 	// PORTS_UDP
-	errPortsUdp := checkResourceExistsStringSet("PORTS_UDP", resources)
+	errPortsUdp := checkResourceExistsStringSet(PORTSUDP, resources)
 	if errPortsUdp != nil {
 		return errPortsUdp
 	}
 
 	// GPU
-	errGpu := checkResourceExistsInt("GPU", resources)
+	errGpu := checkResourceExistsInt(GPU, resources)
 	if errGpu != nil {
 		return errGpu
 	}
@@ -227,31 +236,31 @@ func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bo
 	}
 
 	// CPU
-	cpuConsumable := h.checkConsumableIntType("CPU", resources)
+	cpuConsumable := h.checkConsumableIntType(CPU, resources)
 	if !cpuConsumable {
 		return false, nil
 	}
 
 	// MEM
-	memConsumable := h.checkConsumableIntType("MEMORY", resources)
+	memConsumable := h.checkConsumableIntType(MEMORY, resources)
 	if !memConsumable {
 		return false, nil
 	}
 
 	// PORTS
-	portsTcpConsumable := h.checkConsumableStringSetType("PORTS_TCP", resources)
+	portsTcpConsumable := h.checkConsumableStringSetType(PORTSTCP, resources)
 	if !portsTcpConsumable {
 		return false, nil
 	}
 
 	// PORTS_UDP
-	portsUdpConsumable := h.checkConsumableStringSetType("PORTS_UDP", resources)
+	portsUdpConsumable := h.checkConsumableStringSetType(PORTSUDP, resources)
 	if !portsUdpConsumable {
 		return false, nil
 	}
 
 	// GPU
-	gpuConsumable := h.checkConsumableIntType("GPU", resources)
+	gpuConsumable := h.checkConsumableIntType(GPU, resources)
 	if !gpuConsumable {
 		return false, nil
 	}
@@ -299,21 +308,21 @@ func (h *HostResourceManager) release(taskArn string, resources map[string]*ecs.
 			return err
 		}
 		// CPU
-		*h.consumedResource["CPU"].IntegerValue -= *resources["CPU"].IntegerValue
+		*h.consumedResource[CPU].IntegerValue -= *resources[CPU].IntegerValue
 
 		// MEM
-		*h.consumedResource["MEMORY"].IntegerValue -= *resources["MEMORY"].IntegerValue
+		*h.consumedResource[MEMORY].IntegerValue -= *resources[MEMORY].IntegerValue
 
 		// PORTS_TCP
-		newPortsTcp := removeSubSlice(h.consumedResource["PORTS_TCP"].StringSetValue, resources["PORTS_TCP"].StringSetValue)
-		h.consumedResource["PORTS_TCP"].StringSetValue = newPortsTcp
+		newPortsTcp := removeSubSlice(h.consumedResource[PORTSTCP].StringSetValue, resources[PORTSTCP].StringSetValue)
+		h.consumedResource[PORTSTCP].StringSetValue = newPortsTcp
 
 		// PORTS_UDP
-		newPortsUdp := removeSubSlice(h.consumedResource["PORTS_UDP"].StringSetValue, resources["PORTS_UDP"].StringSetValue)
-		h.consumedResource["PORTS_UDP"].StringSetValue = newPortsUdp
+		newPortsUdp := removeSubSlice(h.consumedResource[PORTSUDP].StringSetValue, resources[PORTSUDP].StringSetValue)
+		h.consumedResource[PORTSUDP].StringSetValue = newPortsUdp
 
 		// GPU
-		*h.consumedResource["GPU"].IntegerValue -= *resources["GPU"].IntegerValue
+		*h.consumedResource[GPU].IntegerValue -= *resources[GPU].IntegerValue
 
 		// Set consumed status
 		delete(h.taskConsumed, taskArn)
@@ -330,25 +339,25 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 	// assigns CPU, MEMORY, PORTS_TCP, PORTS_UDP from host
 	//CPU
 	CPUs := int64(0)
-	consumedResourceMap["CPU"] = &ecs.Resource{
-		Name:         utils.Strptr("CPU"),
+	consumedResourceMap[CPU] = &ecs.Resource{
+		Name:         utils.Strptr(CPU),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &CPUs,
 	}
 	//MEMORY
 	memory := int64(0)
-	consumedResourceMap["MEMORY"] = &ecs.Resource{
-		Name:         utils.Strptr("MEMORY"),
+	consumedResourceMap[MEMORY] = &ecs.Resource{
+		Name:         utils.Strptr(MEMORY),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &memory,
 	}
 	//PORTS_TCP
 	//Copying ports from host resources as consumed ports for initializing
 	portsTcp := []*string{}
-	if resourceMap != nil && resourceMap["PORTS_TCP"] != nil {
-		portsTcp = resourceMap["PORTS_TCP"].StringSetValue
+	if resourceMap != nil && resourceMap[PORTSTCP] != nil {
+		portsTcp = resourceMap[PORTSTCP].StringSetValue
 	}
-	consumedResourceMap["PORTS_TCP"] = &ecs.Resource{
+	consumedResourceMap[PORTSTCP] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsTcp,
@@ -356,19 +365,19 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 
 	//PORTS_UDP
 	portsUdp := []*string{}
-	if resourceMap != nil && resourceMap["PORTS_UDP"] != nil {
-		portsUdp = resourceMap["PORTS_UDP"].StringSetValue
+	if resourceMap != nil && resourceMap[PORTSUDP] != nil {
+		portsUdp = resourceMap[PORTSUDP].StringSetValue
 	}
-	consumedResourceMap["PORTS_UDP"] = &ecs.Resource{
-		Name:           utils.Strptr("PORTS_UDP"),
+	consumedResourceMap[PORTSUDP] = &ecs.Resource{
+		Name:           utils.Strptr(PORTSUDP),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUdp,
 	}
 
 	//GPUs
 	numGPUs := int64(0)
-	consumedResourceMap["GPU"] = &ecs.Resource{
-		Name:         utils.Strptr("GPU"),
+	consumedResourceMap[GPU] = &ecs.Resource{
+		Name:         utils.Strptr(GPU),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &numGPUs,
 	}
