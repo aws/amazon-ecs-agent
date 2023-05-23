@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
@@ -50,6 +49,7 @@ import (
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"

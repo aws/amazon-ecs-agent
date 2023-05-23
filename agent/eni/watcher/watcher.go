@@ -27,9 +27,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 
 const (

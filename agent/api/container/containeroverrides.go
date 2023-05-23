@@ -17,8 +17,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 )
 
 // ContainerOverrides are overrides applied to the container

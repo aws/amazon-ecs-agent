@@ -32,8 +32,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/bufiowrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

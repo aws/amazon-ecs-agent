@@ -25,9 +25,9 @@ import (
 	"time"
 	"unsafe"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

@@ -26,7 +26,7 @@ import (
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 

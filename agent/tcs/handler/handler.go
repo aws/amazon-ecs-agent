@@ -26,10 +26,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
 )
