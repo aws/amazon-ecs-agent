@@ -469,7 +469,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
-	credspecContainerMapping := task.getAllCredentialSpecRequirements()
+	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
 		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping)
 	if err != nil {
@@ -3019,7 +3019,7 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() map[string]string {
+func (task *Task) GetAllCredentialSpecRequirements() map[string]string {
 	reqsContainerMap := make(map[string]string)
 	for _, container := range task.Containers {
 		credentialSpec, err := container.GetCredentialSpec()

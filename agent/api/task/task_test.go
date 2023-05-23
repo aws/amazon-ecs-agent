@@ -4737,7 +4737,7 @@ func TestGetAllCredentialSpecRequirements(t *testing.T) {
 		Containers: []*apicontainer.Container{container},
 	}
 
-	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.GetAllCredentialSpecRequirements()
 
 	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
 	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp1"}
@@ -4758,7 +4758,7 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *
 		Containers: []*apicontainer.Container{c1, c2},
 	}
 
-	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.GetAllCredentialSpecRequirements()
 
 	credentialspecFileLocation := "credentialspec:file://gmsa_gmsa-acct.json"
 	expectedCredentialSpecContainerMap := map[string]string{credentialspecFileLocation: "webapp2"}
@@ -4785,7 +4785,7 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
 		Containers: []*apicontainer.Container{c1, c2, c3},
 	}
 
-	credentialSpecContainerMap := task.getAllCredentialSpecRequirements()
+	credentialSpecContainerMap := task.GetAllCredentialSpecRequirements()
 
 	credentialspec1 := "credentialspec:file://gmsa_gmsa-acct-1.json"
 	credentialspec2 := "credentialspec:file://gmsa_gmsa-acct-2.json"
