@@ -53,6 +53,8 @@ type CredentialSpecResource struct {
 	*CredentialSpecResourceCommon
 	// This stores the identifier associated with the kerberos tickets created for the task
 	leaseID string
+	// identify domainless or domain-joined gMSA
+	isDomainlessGmsa bool
 	//	This stores credspec  arn and the corresponding service account name, domain name
 	// * key := credentialspec:ssmARN, value := corresponding ServiceAccountInfo
 	// * key := credentialspec:asmARN, value := corresponding ServiceAccountInfo
@@ -156,60 +158,9 @@ func (cs *CredentialSpecResource) Create() error {
 		iamCredentials = executionCredentials.GetIAMRoleCredentials()
 	}
 
-	isDomainlessGmsa := false
-	var wg sync.WaitGroup
-	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	for credSpecStr := range cs.credentialSpecContainerMap {
-		isDomainlessGmsa = strings.Contains(credSpecStr, "credentialspecdomainless")
-		var credSpecSplit []string
-		if isDomainlessGmsa {
-			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspecdomainless:", 2)
-		} else {
-			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
-		}
-
-		if len(credSpecSplit) != 2 {
-			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
-			continue
-		}
-
-		credSpecValue := credSpecSplit[1]
-		if strings.HasPrefix(credSpecValue, "file://") {
-			wg.Add(1)
-			go cs.handleCredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, &wg, errorEvents)
-			continue
-		}
-
-		parsedARN, err := arn.Parse(credSpecValue)
-		if err != nil {
-			cs.setTerminalReason(err.Error())
-			return err
-		}
-		parsedARNService := parsedARN.Service
-		switch parsedARNService {
-		case "s3":
-			wg.Add(1)
-			go cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, iamCredentials, &wg, errorEvents)
-		case "ssm":
-			wg.Add(1)
-			go cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, isDomainlessGmsa, iamCredentials, &wg, errorEvents)
-		default:
-			err = errors.New("unsupported credentialspec ARN, only s3/ssm ARNs are valid")
-			cs.setTerminalReason(err.Error())
-			return err
-		}
-	}
-	wg.Wait()
-	close(errorEvents)
-	if len(errorEvents) > 0 {
-		var terminalReasons []string
-		for err := range errorEvents {
-			terminalReasons = append(terminalReasons, err.Error())
-		}
-
-		errorString := strings.Join(terminalReasons, ";")
-		cs.setTerminalReason(errorString)
-		return errors.New(errorString)
+	err := cs.retrieveCredentialSpecs(iamCredentials)
+	if err != nil {
+		return err
 	}
 
 	seelog.Infof("credentials fetcher daemon request: %v", cs.credentialsFetcherRequest)
@@ -228,7 +179,7 @@ func (cs *CredentialSpecResource) Create() error {
 		return nil
 	}
 
-	if isDomainlessGmsa {
+	if cs.isDomainlessGmsa {
 		err := cs.handleDomainlessKerberosTicketCreation()
 		if err != nil {
 			cs.setTerminalReason(err.Error())
@@ -240,6 +191,65 @@ func (cs *CredentialSpecResource) Create() error {
 			cs.setTerminalReason(err.Error())
 			return err
 		}
+	}
+	return nil
+}
+
+func (cs *CredentialSpecResource) retrieveCredentialSpecs(iamCredentials credentials.IAMRoleCredentials) error {
+	cs.isDomainlessGmsa = false
+	var wg sync.WaitGroup
+	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
+	for credSpecStr := range cs.credentialSpecContainerMap {
+		cs.isDomainlessGmsa = strings.Contains(credSpecStr, "credentialspecdomainless")
+		var credSpecSplit []string
+		if cs.isDomainlessGmsa {
+			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspecdomainless:", 2)
+		} else {
+			credSpecSplit = strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
+		}
+
+		if len(credSpecSplit) != 2 {
+			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
+			continue
+		}
+
+		credSpecValue := credSpecSplit[1]
+		if strings.HasPrefix(credSpecValue, "file://") {
+			wg.Add(1)
+			go cs.handleCredentialspecFile(credSpecStr, credSpecValue, &wg, errorEvents)
+			continue
+		}
+
+		parsedARN, err := arn.Parse(credSpecValue)
+		if err != nil {
+			cs.setTerminalReason(err.Error())
+			return err
+		}
+		parsedARNService := parsedARN.Service
+		switch parsedARNService {
+		case "s3":
+			wg.Add(1)
+			go cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+		case "ssm":
+			wg.Add(1)
+			go cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials, &wg, errorEvents)
+		default:
+			err = errors.New("unsupported credentialspec ARN, only s3/ssm ARNs are valid")
+			cs.setTerminalReason(err.Error())
+			return err
+		}
+	}
+	wg.Wait()
+	close(errorEvents)
+	if len(errorEvents) > 0 {
+		var terminalReasons []string
+		for err := range errorEvents {
+			terminalReasons = append(terminalReasons, err.Error())
+		}
+
+		errorString := strings.Join(terminalReasons, ";")
+		cs.setTerminalReason(errorString)
+		return errors.New(errorString)
 	}
 	return nil
 }
@@ -286,6 +296,58 @@ func (cs *CredentialSpecResource) handleDomainlessKerberosTicketCreation() error
 	}
 	return nil
 }
+func (cs *CredentialSpecResource) HandleDomainlessKerberosTicketRenewal(iamCredentials credentials.IAMRoleCredentials) error {
+	//update the region if it is not already set
+	err := cs.UpdateRegionFromTask()
+	if err != nil {
+		return err
+	}
+
+	err = cs.retrieveCredentialSpecs(iamCredentials)
+	if err != nil {
+		return err
+	}
+
+	visitedDomainlessUser := make(map[string]bool)
+	// Renew kerberos tickets for the gMSA service accounts in domain-less mode on the host location /var/credentials-fetcher/krbdir
+	for _, v := range cs.ServiceAccountInfoMap {
+		if v.domainlessGmsaUserArn != "" {
+			_, ok := visitedDomainlessUser[v.domainlessGmsaUserArn]
+			if !ok {
+				visitedDomainlessUser[v.domainlessGmsaUserArn] = true
+
+				// get domain-user credentials from secrets manager
+				asmClient := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+
+				asmSecretData, err := asm.GetSecretFromASM(v.domainlessGmsaUserArn, asmClient)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve credentials for domainless gMSA user %s: %w", v.domainlessGmsaUserArn, err)
+				}
+				creds := DomainlessUserCredentials{}
+				if err := json.Unmarshal([]byte(asmSecretData), &creds); err != nil {
+					return fmt.Errorf("failed to parse asmSecretData for the gMSA AD user: %w", err)
+				}
+				//set up server connection to communicate with credentials fetcher daemon
+				conn, err := credentialsfetcherclient.GetGrpcClientConnection()
+				if err != nil {
+					seelog.Errorf("failed to connect with credentials fetcher daemon: %s", err)
+					return err
+				}
+				seelog.Infof("grpc connection: %v", conn)
+
+				_, err = credentialsfetcherclient.NewCredentialsFetcherClient(conn, time.Minute).RenewNonDomainJoinedKerberosLease(context.Background(),
+					creds.Username, creds.Password, creds.DomainName)
+
+				if err != nil {
+					cs.setTerminalReason(err.Error())
+					return fmt.Errorf("failed to renew kerberos tickets associated service account %s: %w", v.domainlessGmsaUserArn, err)
+				}
+				seelog.Infof("renewal is successful: %v", cs.leaseID)
+			}
+		}
+	}
+	return nil
+}
 
 func (cs *CredentialSpecResource) handleKerberosTicketCreation() error {
 	// Create kerberos tickets for the gMSA service accounts on the host location /var/credentials-fetcher/krbdir
@@ -323,7 +385,7 @@ func (cs *CredentialSpecResource) handleKerberosTicketCreation() error {
 	return nil
 }
 
-func (cs *CredentialSpecResource) handleCredentialspecFile(originalCredentialSpecFile, credentialSpec string, isDomainlessGmsa bool, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleCredentialspecFile(originalCredentialSpecFile, credentialSpec string, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
 	if !strings.HasPrefix(credentialSpec, "file://") {
@@ -343,7 +405,7 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(originalCredentialSpe
 
 	credSpecData := string(data)
 
-	err = cs.updateCredSpecMapping(originalCredentialSpecFile, credSpecData, isDomainlessGmsa)
+	err = cs.updateCredSpecMapping(originalCredentialSpecFile, credSpecData)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		errorEvents <- err
@@ -351,7 +413,7 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(originalCredentialSpe
 	}
 }
 
-func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialSpecARN, credentialSpecS3ARN string, isDomainlessGmsa bool, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialSpecARN, credentialSpecS3ARN string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 	if iamCredentials == (credentials.IAMRoleCredentials{}) {
 		err := errors.New("credentialspec resource: unable to find execution role credentials")
@@ -387,7 +449,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialS
 	json.Compact(credSpecJsonStringBytes, []byte(credSpecJsonStringUnformatted))
 	credSpecJsonString := credSpecJsonStringBytes.String()
 
-	err = cs.updateCredSpecMapping(originalCredentialSpecARN, credSpecJsonString, isDomainlessGmsa)
+	err = cs.updateCredSpecMapping(originalCredentialSpecARN, credSpecJsonString)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		errorEvents <- err
@@ -395,7 +457,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialS
 	}
 }
 
-func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialSpecARN, credentialSpecSSMARN string, isDomainlessGmsa bool, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
+func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialSpecARN, credentialSpecSSMARN string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
 	if iamCredentials == (credentials.IAMRoleCredentials{}) {
@@ -433,7 +495,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 
 	ssmParamData := ssmParamMap[ssmParam[1]]
-	err = cs.updateCredSpecMapping(originalCredentialSpecARN, ssmParamData, isDomainlessGmsa)
+	err = cs.updateCredSpecMapping(originalCredentialSpecARN, ssmParamData)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		errorEvents <- err
@@ -442,7 +504,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 }
 
 // updateCredSpecMapping updates the mapping of credentialSpec input and the corresponding service account info(serviceAccountName, DomainNAme)
-func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecContent string, isDomainlessGmsa bool) error {
+func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecContent string) error {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
@@ -450,7 +512,7 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecC
 	var domainName string
 	var domainlessGmsaUserArn string
 	//parse json to extract the service account name and the domain name
-	if isDomainlessGmsa {
+	if cs.isDomainlessGmsa {
 		var credentialSpecDomainlessSchema CredentialSpecDomainlessSchema
 		// Unmarshal or Decode the JSON to the interface for domainless gmsa.
 		err := json.Unmarshal([]byte(credSpecContent), &credentialSpecDomainlessSchema)
@@ -488,6 +550,18 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, credSpecC
 			credentialSpecContent: credSpecContent,
 		}
 	}
+	return nil
+}
+
+// update region if is not set
+func (cs *CredentialSpecResource) UpdateRegionFromTask() error {
+	// Parse taskARN
+	parsedARN, err := arn.Parse(cs.taskARN)
+	if err != nil {
+		return err
+	}
+
+	cs.region = parsedARN.Region
 	return nil
 }
 
