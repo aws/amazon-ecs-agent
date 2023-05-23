@@ -3443,6 +3443,10 @@ func (task *Task) IsServiceConnectEnabled() bool {
 	return task.GetServiceConnectContainer() != nil
 }
 
+func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apicontainer.Container) bool {
+	return container.GetNetworkModeFromHostConfig() == "container" && task.IsServiceConnectEnabled()
+}
+
 // PopulateServiceConnectContainerMappingEnvVar populates APPNET_CONTAINER_IP_MAPPING env var for AppNet Agent container
 // aka SC container
 func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
