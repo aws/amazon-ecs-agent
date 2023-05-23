@@ -133,7 +133,8 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		}
 
 		// GPU
-		*h.consumedResource[GPU].IntegerValue += *resources[GPU].IntegerValue
+		gpu := *h.consumedResource[GPU].IntegerValue + *resources[GPU].IntegerValue
+		h.consumedResource[GPU].SetIntegerValue(gpu)
 
 		// Set consumed status
 		h.taskConsumed[taskArn] = true
@@ -153,13 +154,19 @@ func (h *HostResourceManager) checkConsumableIntType(resourceName string, resour
 
 func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, resources map[string]*ecs.Resource) bool {
 	resourceSlice := resources[resourceName].StringSetValue
+
+	// (optimizization) Get a resource specific map to ease look up
+	consumedResourceMap := make(map[string]struct{}, len(h.consumedResource[resourceName].StringSetValue))
+	for _, v := range h.consumedResource[resourceName].StringSetValue {
+		consumedResourceMap[*v] = struct{}{}
+	}
+
 	// Check intersection of resource StringSetValue is empty with consumedResource
 	for _, obj1 := range resourceSlice {
-		for _, obj2 := range h.consumedResource[resourceName].StringSetValue {
-			// If port is already reserved by some other task, this 'resources' object can not be consumed
-			if *obj1 == *obj2 {
-				return false
-			}
+		_, ok := consumedResourceMap[*obj1]
+		if ok {
+			// If resource is already reserved by some other task, this 'resources' object can not be consumed
+			return false
 		}
 	}
 	return true
