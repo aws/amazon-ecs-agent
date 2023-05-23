@@ -29,11 +29,11 @@ import (
 	"syscall"
 	"time"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/cihub/seelog"
 	bolt "go.etcd.io/bbolt"

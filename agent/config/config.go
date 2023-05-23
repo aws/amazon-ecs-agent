@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )

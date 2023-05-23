@@ -33,7 +33,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 
 // RestartAgentIfStopped restarts the ExecCommandAgent in the container passed as parameter, only for ExecCommandAgent-enabled containers.

@@ -16,7 +16,7 @@ package container
 import (
 	"strconv"
 
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/docker/go-connections/nat"
 )

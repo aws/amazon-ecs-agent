@@ -23,8 +23,8 @@ import (
 	"time"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"

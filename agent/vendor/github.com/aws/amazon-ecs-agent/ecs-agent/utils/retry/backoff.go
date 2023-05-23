@@ -13,4 +13,24 @@
 
 package retry
 
-//go:generate mockgen -destination=mock/retry_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/utils/retry Backoff
+import (
+	"math/rand"
+	"time"
+)
+
+type Backoff interface {
+	Reset()
+	Duration() time.Duration
+}
+
+// AddJitter adds an amount of jitter between 0 and the given jitter to the
+// given duration
+func AddJitter(duration time.Duration, jitter time.Duration) time.Duration {
+	var randJitter int64
+	if jitter.Nanoseconds() == 0 {
+		randJitter = 0
+	} else {
+		randJitter = rand.Int63n(jitter.Nanoseconds())
+	}
+	return time.Duration(duration.Nanoseconds() + randJitter)
+}
