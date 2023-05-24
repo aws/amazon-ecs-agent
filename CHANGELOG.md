@@ -1,4 +1,13 @@
 # Changelog
+## 1.71.2
+* Improvement - Add structured logging for Task and Docker Image Manager [#3677](https://github.com/aws/amazon-ecs-agent/pull/3677) [#3696](https://github.com/aws/amazon-ecs-agent/pull/3696)
+* Enhancement - Update dependencies to include security patches reported by dependabot for agent [#3632](https://github.com/aws/amazon-ecs-agent/pull/3632) [#3691](https://github.com/aws/amazon-ecs-agent/pull/3691)
+* Code Quality Improvement - Refactor common ENI attachment functionality [#3685](https://github.com/aws/amazon-ecs-agent/pull/3685)
+* Code Quality Improvement - Move handlers utils, v2 metadata models, v1 and v2 TMDS credentials endpoints  to ecs-agent module [#3698](https://github.com/aws/amazon-ecs-agent/pull/3698) [#3701](https://github.com/aws/amazon-ecs-agent/pull/3698) [#3705](https://github.com/aws/amazon-ecs-agent/pull/3705)
+* Code Quality Improvement - Add wsclient library to ecs-agent module [#3690](https://github.com/aws/amazon-ecs-agent/pull/3690)
+* Fix - Support firelens for bridge mode ServiceConnect task [#3693](https://github.com/aws/amazon-ecs-agent/pull/3693)
+* Fix - Support special characters in the password for FSx : windows [#3669](https://github.com/aws/amazon-ecs-agent/pull/3669)
+
 ## 1.71.1
 * Enhancement - Add new release config file called agentVersionV2-.json to our release CodePipeline project [#3680](https://github.com/aws/amazon-ecs-agent/pull/3680)
 * Enhancement - Update third party attribution files [#3655](https://github.com/aws/amazon-ecs-agent/pull/3655)
