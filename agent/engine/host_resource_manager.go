@@ -54,6 +54,14 @@ func (e *ResourceNotFoundForTask) Error() string {
 	return fmt.Sprintf("no %s in task resources", e.resource)
 }
 
+type InvalidHostResource struct {
+	resource string
+}
+
+func (e *InvalidHostResource) Error() string {
+	return fmt.Sprintf("no %s resource found in host resources", e.resource)
+}
+
 type ResourceIsNilForTask struct {
 	resource string
 }
@@ -71,6 +79,17 @@ func (h *HostResourceManager) logResources(msg string, taskArn string) {
 		"PORTS_UDP": h.consumedResource[PORTSUDP].StringSetValue,
 		"GPU":       *h.consumedResource[GPU].IntegerValue,
 	})
+}
+
+func (h *HostResourceManager) consumeIntType(resourceType string, resources map[string]*ecs.Resource) {
+	*h.consumedResource[resourceType].IntegerValue += *resources[resourceType].IntegerValue
+}
+
+func (h *HostResourceManager) consumeStringSetType(resourceType string, resources map[string]*ecs.Resource) {
+	resource, ok := resources[resourceType]
+	if ok {
+		h.consumedResource[resourceType].StringSetValue = append(h.consumedResource[resourceType].StringSetValue, resource.StringSetValue...)
+	}
 }
 
 // Returns if resources consumed or not and error status
@@ -99,29 +118,15 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		return false, err
 	}
 	if ok {
-		// CPU
-		cpu := *h.consumedResource[CPU].IntegerValue + *resources[CPU].IntegerValue
-		h.consumedResource[CPU].SetIntegerValue(cpu)
-
-		// MEM
-		mem := *h.consumedResource[MEMORY].IntegerValue + *resources[MEMORY].IntegerValue
-		h.consumedResource[MEMORY].SetIntegerValue(mem)
-
-		// PORTS
-		portsResource, ok := resources[PORTSTCP]
-		if ok {
-			h.consumedResource[PORTSTCP].StringSetValue = append(h.consumedResource[PORTSTCP].StringSetValue, portsResource.StringSetValue...)
+		for resourceKey := range resources {
+			if *resources[resourceKey].Type == "INTEGER" {
+				// CPU, MEMORY, GPU
+				h.consumeIntType(resourceKey, resources)
+			} else if *resources[resourceKey].Type == "STRINGSET" {
+				// PORTS_TCP, PORTS_UDP
+				h.consumeStringSetType(resourceKey, resources)
+			}
 		}
-
-		// PORTS_UDP
-		portsResource, ok = resources[PORTSUDP]
-		if ok {
-			h.consumedResource[PORTSUDP].StringSetValue = append(h.consumedResource[PORTSUDP].StringSetValue, portsResource.StringSetValue...)
-		}
-
-		// GPU
-		gpu := *h.consumedResource[GPU].IntegerValue + *resources[GPU].IntegerValue
-		h.consumedResource[GPU].SetIntegerValue(gpu)
 
 		// Set consumed status
 		h.taskConsumed[taskArn] = true
@@ -186,35 +191,33 @@ func checkResourceExistsStringSet(resourceName string, resources map[string]*ecs
 }
 
 // Checks all resources exists and their values are not nil
-func checkResourcesHealth(resources map[string]*ecs.Resource) error {
-	// CPU
-	errCpu := checkResourceExistsInt(CPU, resources)
-	if errCpu != nil {
-		return errCpu
-	}
+func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Resource) error {
+	for resourceKey, resourceVal := range resources {
+		_, ok := h.initialHostResource[resourceKey]
+		if !ok {
+			logger.Error(fmt.Sprintf("resource %s not found in ", resourceKey))
+			return &InvalidHostResource{resourceKey}
+		}
 
-	// MEMORY
-	errMemory := checkResourceExistsInt(MEMORY, resources)
-	if errMemory != nil {
-		return errMemory
-	}
+		// CPU, MEMORY, GPU are INTEGER;
+		// PORTS_TCP, PORTS_UDP are STRINGSET
+		// Check if either of these data types exist
+		if resourceVal.Type == nil || !(*resourceVal.Type == "INTEGER" || *resourceVal.Type == "STRINGSET") {
+			logger.Error(fmt.Sprintf("type not assigned for resource %s", resourceKey))
+			return fmt.Errorf("invalid resource type for %s", resourceKey)
+		}
 
-	// PORTS_TCP
-	errPortsTcp := checkResourceExistsStringSet(PORTSTCP, resources)
-	if errPortsTcp != nil {
-		return errPortsTcp
-	}
+		// CPU, MEMORY, GPU
+		if *resourceVal.Type == "INTEGER" {
+			err := checkResourceExistsInt(resourceKey, resources)
+			return err
+		}
 
-	// PORTS_UDP
-	errPortsUdp := checkResourceExistsStringSet(PORTSUDP, resources)
-	if errPortsUdp != nil {
-		return errPortsUdp
-	}
-
-	// GPU
-	errGpu := checkResourceExistsInt(GPU, resources)
-	if errGpu != nil {
-		return errGpu
+		// PORTS_TCP, PORTS_UDP
+		if *resourceVal.Type == "STRINGSET" {
+			err := checkResourceExistsStringSet(resourceKey, resources)
+			return err
+		}
 	}
 	return nil
 }
@@ -223,39 +226,25 @@ func checkResourcesHealth(resources map[string]*ecs.Resource) error {
 // we have for the host resources. Should not call host resource manager lock in this func
 // return values
 func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, error) {
-	err := checkResourcesHealth(resources)
+	err := h.checkResourcesHealth(resources)
 	if err != nil {
 		return false, err
 	}
 
-	// CPU
-	cpuConsumable := h.checkConsumableIntType(CPU, resources)
-	if !cpuConsumable {
-		return false, nil
-	}
+	for resourceKey := range resources {
+		if *resources[resourceKey].Type == "INTEGER" {
+			consumable := h.checkConsumableIntType(resourceKey, resources)
+			if !consumable {
+				return false, nil
+			}
+		}
 
-	// MEM
-	memConsumable := h.checkConsumableIntType(MEMORY, resources)
-	if !memConsumable {
-		return false, nil
-	}
-
-	// PORTS
-	portsTcpConsumable := h.checkConsumableStringSetType(PORTSTCP, resources)
-	if !portsTcpConsumable {
-		return false, nil
-	}
-
-	// PORTS_UDP
-	portsUdpConsumable := h.checkConsumableStringSetType(PORTSUDP, resources)
-	if !portsUdpConsumable {
-		return false, nil
-	}
-
-	// GPU
-	gpuConsumable := h.checkConsumableIntType(GPU, resources)
-	if !gpuConsumable {
-		return false, nil
+		if *resources[resourceKey].Type == "STRINGSET" {
+			consumable := h.checkConsumableStringSetType(resourceKey, resources)
+			if !consumable {
+				return false, nil
+			}
+		}
 	}
 
 	return true, nil
@@ -277,13 +266,18 @@ func removeSubSlice(s1 []*string, s2 []*string) []*string {
 		return s1
 	}
 
-	for ; end >= 0; end-- {
-		if *s1[end] == *s2[len(s2)-1] {
-			break
-		}
-	}
-	newSlice := append(s1[:begin], s1[end+1:]...)
+	end = begin + len(s2)
+	newSlice := append(s1[:begin], s1[end:]...)
 	return newSlice
+}
+
+func (h *HostResourceManager) releaseIntType(resourceType string, resources map[string]*ecs.Resource) {
+	*h.consumedResource[resourceType].IntegerValue -= *resources[resourceType].IntegerValue
+}
+
+func (h *HostResourceManager) releaseStringSetType(resourceType string, resources map[string]*ecs.Resource) {
+	newSlice := removeSubSlice(h.consumedResource[resourceType].StringSetValue, resources[resourceType].StringSetValue)
+	h.consumedResource[resourceType].StringSetValue = newSlice
 }
 
 // Returns error if task resource map has error, else releases resources
@@ -296,26 +290,19 @@ func (h *HostResourceManager) release(taskArn string, resources map[string]*ecs.
 	defer h.logResources("Consumed resources after task release call", taskArn)
 
 	if h.taskConsumed[taskArn] {
-		err := checkResourcesHealth(resources)
+		err := h.checkResourcesHealth(resources)
 		if err != nil {
 			return err
 		}
-		// CPU
-		*h.consumedResource[CPU].IntegerValue -= *resources[CPU].IntegerValue
 
-		// MEM
-		*h.consumedResource[MEMORY].IntegerValue -= *resources[MEMORY].IntegerValue
-
-		// PORTS_TCP
-		newPortsTcp := removeSubSlice(h.consumedResource[PORTSTCP].StringSetValue, resources[PORTSTCP].StringSetValue)
-		h.consumedResource[PORTSTCP].StringSetValue = newPortsTcp
-
-		// PORTS_UDP
-		newPortsUdp := removeSubSlice(h.consumedResource[PORTSUDP].StringSetValue, resources[PORTSUDP].StringSetValue)
-		h.consumedResource[PORTSUDP].StringSetValue = newPortsUdp
-
-		// GPU
-		*h.consumedResource[GPU].IntegerValue -= *resources[GPU].IntegerValue
+		for resourceKey := range resources {
+			if *resources[resourceKey].Type == "INTEGER" {
+				h.releaseIntType(resourceKey, resources)
+			}
+			if *resources[resourceKey].Type == "STRINGSET" {
+				h.releaseStringSetType(resourceKey, resources)
+			}
+		}
 
 		// Set consumed status
 		delete(h.taskConsumed, taskArn)
