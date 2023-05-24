@@ -110,26 +110,13 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		// PORTS
 		portsResource, ok := resources[PORTSTCP]
 		if ok {
-			taskPortsSlice := portsResource.StringSetValue
-			for _, port := range taskPortsSlice {
-				// Create a copy to assign it back as "PORTS_TCP"
-				newPortResource := h.consumedResource[PORTSTCP]
-				newPorts := append(h.consumedResource[PORTSTCP].StringSetValue, port)
-				newPortResource.StringSetValue = newPorts
-				h.consumedResource[PORTSTCP] = newPortResource
-			}
+			h.consumedResource[PORTSTCP].StringSetValue = append(h.consumedResource[PORTSTCP].StringSetValue, portsResource.StringSetValue...)
 		}
 
 		// PORTS_UDP
 		portsResource, ok = resources[PORTSUDP]
 		if ok {
-			taskPortsSlice := portsResource.StringSetValue
-			for _, port := range taskPortsSlice {
-				newPortResource := h.consumedResource[PORTSUDP]
-				newPorts := append(h.consumedResource[PORTSUDP].StringSetValue, port)
-				newPortResource.StringSetValue = newPorts
-				h.consumedResource[PORTSUDP] = newPortResource
-			}
+			h.consumedResource[PORTSUDP].StringSetValue = append(h.consumedResource[PORTSUDP].StringSetValue, portsResource.StringSetValue...)
 		}
 
 		// GPU
@@ -156,14 +143,14 @@ func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, 
 	resourceSlice := resources[resourceName].StringSetValue
 
 	// (optimizization) Get a resource specific map to ease look up
-	consumedResourceMap := make(map[string]struct{}, len(h.consumedResource[resourceName].StringSetValue))
-	for _, v := range h.consumedResource[resourceName].StringSetValue {
-		consumedResourceMap[*v] = struct{}{}
+	resourceMap := make(map[string]struct{}, len(resourceSlice))
+	for _, v := range resourceSlice {
+		resourceMap[*v] = struct{}{}
 	}
 
 	// Check intersection of resource StringSetValue is empty with consumedResource
-	for _, obj1 := range resourceSlice {
-		_, ok := consumedResourceMap[*obj1]
+	for _, obj1 := range h.consumedResource[resourceName].StringSetValue {
+		_, ok := resourceMap[*obj1]
 		if ok {
 			// If resource is already reserved by some other task, this 'resources' object can not be consumed
 			return false
