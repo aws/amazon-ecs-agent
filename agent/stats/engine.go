@@ -473,13 +473,14 @@ func (engine *DockerStatsEngine) publishMetrics(includeServiceConnectStats bool)
 	defer cancel()
 	metricsMetadata, taskMetrics, metricsErr := engine.GetInstanceMetrics(includeServiceConnectStats)
 	if metricsErr == nil {
-		select {
-		case engine.metricsChannel <- ecstcs.TelemetryMessage{
+		metricsMessage := ecstcs.TelemetryMessage{
 			Metadata:                   metricsMetadata,
 			TaskMetrics:                taskMetrics,
 			IncludeServiceConnectStats: includeServiceConnectStats,
-		}:
-			seelog.Debugf("sent telemetry message")
+		}
+		select {
+		case engine.metricsChannel <- metricsMessage:
+			seelog.Debugf("sent telemetry message: %v", metricsMessage)
 		case <-publishMetricsCtx.Done():
 			seelog.Errorf("timeout sending telemetry message, discarding metrics")
 		}
@@ -493,12 +494,13 @@ func (engine *DockerStatsEngine) publishHealth() {
 	defer cancel()
 	healthMetadata, taskHealthMetrics, healthErr := engine.GetTaskHealthMetrics()
 	if healthErr == nil {
-		select {
-		case engine.healthChannel <- ecstcs.HealthMessage{
+		healthMessage := ecstcs.HealthMessage{
 			Metadata:      healthMetadata,
 			HealthMetrics: taskHealthMetrics,
-		}:
-			seelog.Debugf("sent health message")
+		}
+		select {
+		case engine.healthChannel <- healthMessage:
+			seelog.Debugf("sent health message: %v", healthMessage)
 		case <-publishHealthCtx.Done():
 			seelog.Errorf("timeout sending health message, discarding metrics")
 		}
