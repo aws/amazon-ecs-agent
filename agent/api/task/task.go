@@ -3523,7 +3523,7 @@ func (task *Task) IsServiceConnectConnectionDraining() bool {
 // * GPU
 //   - Return num of gpus requested (len of GPUIDs field)
 //
-// TODO remove ToHostResources is used
+// TODO remove this once ToHostResources is used
 //
 //lint:file-ignore U1000 Ignore all unused code
 func (task *Task) ToHostResources() map[string]*ecs.Resource {
