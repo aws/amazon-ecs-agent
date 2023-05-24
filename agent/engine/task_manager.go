@@ -317,7 +317,7 @@ func (mtask *managedTask) waitForHostResources() {
 // waitSteady waits for a task to leave steady-state by waiting for a new
 // event, or a timeout.
 func (mtask *managedTask) waitSteady() {
-	logger.Info("Managed task at steady state", logger.Fields{
+	logger.Debug("Managed task at steady state", logger.Fields{
 		field.TaskID:      mtask.GetID(),
 		field.KnownStatus: mtask.GetKnownStatus().String(),
 	})
