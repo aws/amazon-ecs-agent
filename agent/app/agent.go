@@ -100,9 +100,11 @@ const (
 	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
 
 	// By default, TCS (or TACS) will reject metrics that are older than 5 minutes. Since our metrics collection interval
-	// is currently set to 20 seconds, setting a buffer size of 15 for each task and targeting at 1000 tasks (currently known maximum ~500)
-	// allows us to store exactly 5 minutes of metrics in these buffers in the case where we temporarily lose connect to TCS.
-	telemetryChannelDefaultBufferSize = 15000
+	// is currently set to 20 seconds, setting a buffer size of 15 allows us to store exactly 5 minutes of metrics in
+	// these buffers in the case where we temporarily lose connect to TCS. This value does not change with task number,
+	// as the number of messages in the channel is equal to the number of times we call `getInstanceMetrics`, which collects
+	// metrics from all tasks and containers and put them into one TelemetryMessage object.
+	telemetryChannelDefaultBufferSize = 15
 )
 
 var (

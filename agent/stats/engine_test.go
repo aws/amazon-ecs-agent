@@ -45,7 +45,7 @@ const (
 	DefaultNetworkMode                           = "default"
 	BridgeNetworkMode                            = "bridge"
 	SCContainerName                              = "service-connect"
-	testTelemetryChannelDefaultBufferSize        = 5000
+	testTelemetryChannelDefaultBufferSize        = 10
 	testTelemetryChannelBufferSizeForChannelFull = 1
 	testPublishMetricsInterval                   = 5 * time.Second
 )

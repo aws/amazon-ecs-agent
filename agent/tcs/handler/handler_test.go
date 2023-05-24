@@ -56,7 +56,7 @@ const (
 	testMessageId                         = "testMessageId"
 	testPublishMetricsInterval            = 1 * time.Second
 	testSendMetricsToChannelWaitTime      = 100 * time.Millisecond
-	testTelemetryChannelDefaultBufferSize = 5000
+	testTelemetryChannelDefaultBufferSize = 10
 )
 
 type mockStatsEngine struct {

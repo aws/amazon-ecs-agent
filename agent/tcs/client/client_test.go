@@ -51,7 +51,7 @@ const (
 	testContainerInstance                 = "containerInstance"
 	rwTimeout                             = time.Second
 	testPublishMetricRequestSizeLimit     = 1024
-	testTelemetryChannelDefaultBufferSize = 5000
+	testTelemetryChannelDefaultBufferSize = 10
 	testIncludeScStats                    = true
 	testNotIncludeScStats                 = false
 )
