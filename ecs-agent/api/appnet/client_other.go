@@ -18,15 +18,13 @@ package appnet
 import (
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-
 	prometheus "github.com/prometheus/client_model/go"
 )
 
-func (cl *client) GetStats(config serviceconnect.RuntimeConfig) (map[string]*prometheus.MetricFamily, error) {
+func (cl *client) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
 	return nil, fmt.Errorf("appnet client: GetStats is not supported in this platform")
 }
 
-func (cl *client) DrainInboundConnections(config serviceconnect.RuntimeConfig) error {
+func (cl *client) DrainInboundConnections(adminSocketPath string, drainRequest string) error {
 	return fmt.Errorf("appnet client: DrainInboundConnections is not supported in this platform")
 }

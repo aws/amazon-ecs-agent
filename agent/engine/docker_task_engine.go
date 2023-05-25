@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -49,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -2065,7 +2065,9 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	// Before attempting to stop any container, send drain signal for Appnet Agent to start draining connections
 	// (if not already in progress).
 	if task.IsServiceConnectEnabled() && !task.IsServiceConnectConnectionDraining() {
-		if err := engine.appnetClient.DrainInboundConnections(task.GetServiceConnectRuntimeConfig()); err != nil {
+		adminSocketPath := task.GetServiceConnectRuntimeConfig().AdminSocketPath
+		drainRequest := task.GetServiceConnectRuntimeConfig().DrainRequest
+		if err := engine.appnetClient.DrainInboundConnections(adminSocketPath, drainRequest); err != nil {
 			logger.Error("Error sending drain signal to Appnet Agent", logger.Fields{
 				field.TaskID: task.GetID(),
 				field.Error:  err,

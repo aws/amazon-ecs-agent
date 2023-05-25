@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -56,7 +56,9 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 
 // TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
-	stats, err := sc.appnetClient.GetStats(task.GetServiceConnectRuntimeConfig())
+	adminSocketPath := task.GetServiceConnectRuntimeConfig().AdminSocketPath
+	statsRequest := task.GetServiceConnectRuntimeConfig().StatsRequest
+	stats, err := sc.appnetClient.GetStats(adminSocketPath, statsRequest)
 	if err != nil {
 		logger.Error("Error retrieving Service Connect stats for task", logger.Fields{
 			field.TaskID: task.GetID(),

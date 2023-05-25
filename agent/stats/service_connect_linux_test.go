@@ -24,8 +24,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appnet"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
