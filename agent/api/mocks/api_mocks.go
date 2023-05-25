@@ -23,7 +23,6 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	serviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	request "github.com/aws/aws-sdk-go/aws/request"
 	gomock "github.com/golang/mock/gomock"
@@ -375,32 +374,32 @@ func (m *MockAppnetClient) EXPECT() *MockAppnetClientMockRecorder {
 }
 
 // DrainInboundConnections mocks base method.
-func (m *MockAppnetClient) DrainInboundConnections(arg0 serviceconnect.RuntimeConfig) error {
+func (m *MockAppnetClient) DrainInboundConnections(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DrainInboundConnections", arg0)
+	ret := m.ctrl.Call(m, "DrainInboundConnections", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DrainInboundConnections indicates an expected call of DrainInboundConnections.
-func (mr *MockAppnetClientMockRecorder) DrainInboundConnections(arg0 interface{}) *gomock.Call {
+func (mr *MockAppnetClientMockRecorder) DrainInboundConnections(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DrainInboundConnections", reflect.TypeOf((*MockAppnetClient)(nil).DrainInboundConnections), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DrainInboundConnections", reflect.TypeOf((*MockAppnetClient)(nil).DrainInboundConnections), arg0, arg1)
 }
 
 // GetStats mocks base method.
-func (m *MockAppnetClient) GetStats(arg0 serviceconnect.RuntimeConfig) (map[string]*io_prometheus_client.MetricFamily, error) {
+func (m *MockAppnetClient) GetStats(arg0, arg1 string) (map[string]*io_prometheus_client.MetricFamily, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStats", arg0)
+	ret := m.ctrl.Call(m, "GetStats", arg0, arg1)
 	ret0, _ := ret[0].(map[string]*io_prometheus_client.MetricFamily)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetStats indicates an expected call of GetStats.
-func (mr *MockAppnetClientMockRecorder) GetStats(arg0 interface{}) *gomock.Call {
+func (mr *MockAppnetClientMockRecorder) GetStats(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStats", reflect.TypeOf((*MockAppnetClient)(nil).GetStats), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStats", reflect.TypeOf((*MockAppnetClient)(nil).GetStats), arg0, arg1)
 }
 
 // MockECSTaskProtectionSDK is a mock of ECSTaskProtectionSDK interface.
