@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -48,15 +49,21 @@ import (
 )
 
 const (
-	testTaskArn                = "arn:aws:ecs:us-east-1:123:task/def"
-	testTaskDefinitionFamily   = "task-def"
-	testClusterArn             = "arn:aws:ecs:us-east-1:123:cluster/default"
-	testInstanceArn            = "arn:aws:ecs:us-east-1:123:container-instance/abc"
-	testMessageId              = "testMessageId"
-	testPublishMetricsInterval = 1 * time.Millisecond
+	testTaskArn                           = "arn:aws:ecs:us-east-1:123:task/def"
+	testTaskDefinitionFamily              = "task-def"
+	testClusterArn                        = "arn:aws:ecs:us-east-1:123:cluster/default"
+	testInstanceArn                       = "arn:aws:ecs:us-east-1:123:container-instance/abc"
+	testMessageId                         = "testMessageId"
+	testPublishMetricsInterval            = 1 * time.Second
+	testSendMetricsToChannelWaitTime      = 100 * time.Millisecond
+	testTelemetryChannelDefaultBufferSize = 10
 )
 
-type mockStatsEngine struct{}
+type mockStatsEngine struct {
+	metricsChannel       chan<- ecstcs.TelemetryMessage
+	healthChannel        chan<- ecstcs.HealthMessage
+	publishMetricsTicker *time.Ticker
+}
 
 var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
@@ -88,8 +95,43 @@ func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 	return
 }
 
-func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+func (engine *mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
+	return engine.publishMetricsTicker
+}
+
+// SimulateMetricsPublishToChannel simulates the behavior of `StartMetricsPublish` in DockerStatsEngine, which feeds metrics
+// to channel to TCS Client. There has to be at least one valid metrics sent, otherwise no request will be made to mockServer
+// in TestStartSession, specifically blocking `request := <-requestChan`
+func (engine *mockStatsEngine) SimulateMetricsPublishToChannel(ctx context.Context) {
+	engine.publishMetricsTicker = time.NewTicker(testPublishMetricsInterval)
+	for {
+		select {
+		case <-engine.publishMetricsTicker.C:
+			engine.metricsChannel <- ecstcs.TelemetryMessage{
+				Metadata: &ecstcs.MetricsMetadata{
+					Cluster:           aws.String(testClusterArn),
+					ContainerInstance: aws.String(testInstanceArn),
+					Fin:               aws.Bool(false),
+					Idle:              aws.Bool(false),
+					MessageId:         aws.String(testMessageId),
+				},
+				TaskMetrics: []*ecstcs.TaskMetric{
+					&ecstcs.TaskMetric{},
+				},
+				IncludeServiceConnectStats: false,
+			}
+
+			engine.healthChannel <- ecstcs.HealthMessage{
+				Metadata:      &ecstcs.HealthMetadata{},
+				HealthMetrics: []*ecstcs.TaskHealth{},
+			}
+
+		case <-ctx.Done():
+			defer close(engine.metricsChannel)
+			defer close(engine.healthChannel)
+			return
+		}
+	}
 }
 
 // TestDisableMetrics tests the StartMetricsSession will return immediately if
@@ -132,6 +174,10 @@ func TestStartSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
 	wait := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	wait.Add(1)
@@ -149,19 +195,27 @@ func TestStartSession(t *testing.T) {
 	}()
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
+
+	mockEngine := &mockStatsEngine{
+		metricsChannel: telemetryMessages,
+		healthChannel:  healthMessages,
+	}
+
 	// Start a session with the test server.
-	go startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
+	go startSession(ctx, server.URL, testCfg, testCreds, mockEngine, telemetryMessages, healthMessages,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
+	// Wait for 100 ms to make sure the session is ready to receive message from channel
+	time.Sleep(testSendMetricsToChannelWaitTime)
+	go mockEngine.SimulateMetricsPublishToChannel(ctx)
 
-	// startSession internally starts publishing metrics from the mockStatsEngine object.
-	time.Sleep(testPublishMetricsInterval)
+	// startSession internally starts publishing metrics from the mockStatsEngine object (poll msg out of channel).
+	time.Sleep(testPublishMetricsInterval * 2)
 
 	// Read request channel to get the metric data published to the server.
 	request := <-requestChan
 	cancel()
 	wait.Wait()
-
 	go func() {
 		for {
 			select {
@@ -213,8 +267,14 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
 	// Start a session with the test server.
-	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
+	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{
+		metricsChannel: telemetryMessages,
+		healthChannel:  healthMessages,
+	}, telemetryMessages, healthMessages,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 
@@ -250,8 +310,15 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
 	// Start a session with the test server.
-	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
+	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{
+		metricsChannel: telemetryMessages,
+		healthChannel:  healthMessages,
+	}, telemetryMessages, healthMessages,
 		50*time.Millisecond, 100*time.Millisecond,
 		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession

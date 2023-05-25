@@ -31,8 +31,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -41,9 +41,12 @@ import (
 )
 
 const (
-	DefaultNetworkMode = "default"
-	BridgeNetworkMode  = "bridge"
-	SCContainerName    = "service-connect"
+	DefaultNetworkMode                           = "default"
+	BridgeNetworkMode                            = "bridge"
+	SCContainerName                              = "service-connect"
+	testTelemetryChannelDefaultBufferSize        = 10
+	testTelemetryChannelBufferSizeForChannelFull = 1
+	testPublishMetricsInterval                   = 5 * time.Second
 )
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
@@ -71,8 +74,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	mockStatsChannel := make(chan *types.StatsJSON)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
-
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -222,7 +224,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -272,7 +274,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 }
 
 func TestStatsEngineInvalidTaskEngine(t *testing.T) {
-	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"), nil, nil, nil)
+	statsEngine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineInvalidTaskEngine"), nil, nil)
 	taskEngine := &MockTaskEngine{}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -283,7 +285,7 @@ func TestStatsEngineInvalidTaskEngine(t *testing.T) {
 }
 
 func TestStatsEngineUninitialized(t *testing.T) {
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineUninitialized"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineUninitialized"), nil, nil)
 	defer engine.removeAll()
 
 	engine.resolver = &DockerContainerMetadataResolver{}
@@ -302,7 +304,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 		KnownStatusUnsafe: apitaskstatus.TaskStopped,
 		Family:            "f1",
 	}, nil)
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineTerminalTask"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -314,6 +316,221 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 
 	engine.addAndStartStatsContainer("c1")
 	validateIdleContainerMetrics(t, engine)
+}
+
+func TestStartMetricsPublish(t *testing.T) {
+	testcases := []struct {
+		name                       string
+		hasPublishTicker           bool
+		expectedInstanceMessageNum int
+		expectedHealthMessageNum   int
+		expectedNonEmptyMetricsMsg bool
+		serviceConnectEnabled      bool
+		disableMetrics             bool
+		channelSize                int
+	}{
+		{
+			name:                       "NoPublishTicker",
+			hasPublishTicker:           false,
+			expectedInstanceMessageNum: 0,
+			expectedHealthMessageNum:   0,
+			expectedNonEmptyMetricsMsg: false,
+			serviceConnectEnabled:      false,
+			disableMetrics:             false,
+			channelSize:                testTelemetryChannelDefaultBufferSize,
+		},
+		{
+			name:                       "HappyCase",
+			hasPublishTicker:           true,
+			expectedInstanceMessageNum: 2, // 1 for immediate metrics publish, 1 for metrics publish after ticker
+			expectedHealthMessageNum:   2,
+			expectedNonEmptyMetricsMsg: true,
+			serviceConnectEnabled:      false,
+			disableMetrics:             false,
+			channelSize:                testTelemetryChannelDefaultBufferSize,
+		},
+		{
+			name:                       "MetricsDisabled",
+			hasPublishTicker:           true,
+			expectedInstanceMessageNum: 2,
+			expectedHealthMessageNum:   2,
+			expectedNonEmptyMetricsMsg: false,
+			serviceConnectEnabled:      false,
+			disableMetrics:             true,
+			channelSize:                testTelemetryChannelDefaultBufferSize,
+		},
+		{
+			name:                       "ChannelFull",
+			hasPublishTicker:           true,
+			expectedInstanceMessageNum: 1, // expecting discarding messages after channel is full
+			expectedHealthMessageNum:   1,
+			expectedNonEmptyMetricsMsg: true,
+			serviceConnectEnabled:      false,
+			disableMetrics:             false,
+			channelSize:                testTelemetryChannelBufferSizeForChannelFull,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			publishMetricsCfg := cfg
+			if tc.disableMetrics {
+				publishMetricsCfg.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			}
+
+			containerID := "c1"
+			t1 := &apitask.Task{
+				Arn:               "t1",
+				Family:            "f1",
+				KnownStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers: []*apicontainer.Container{
+					{Name: containerID},
+				},
+			}
+
+			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+
+			mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: 23},
+				},
+			}, nil).AnyTimes()
+
+			resolver.EXPECT().ResolveTask(containerID).AnyTimes().Return(t1, nil)
+			resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
+			resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
+				DockerID: containerID,
+				Container: &apicontainer.Container{
+					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+					HealthCheckType:   "docker",
+					Health: apicontainer.HealthStatus{
+						Status: apicontainerstatus.ContainerHealthy,
+						Since:  aws.Time(time.Now()),
+					},
+				},
+			}, nil).AnyTimes()
+
+			telemetryMessages := make(chan ecstcs.TelemetryMessage, tc.channelSize)
+			healthMessages := make(chan ecstcs.HealthMessage, tc.channelSize)
+
+			engine := NewDockerStatsEngine(&publishMetricsCfg, nil, eventStream("TestStartMetricsPublish"), telemetryMessages, healthMessages)
+			ctx, cancel := context.WithCancel(context.TODO())
+			engine.ctx = ctx
+			engine.resolver = resolver
+			engine.cluster = defaultCluster
+			engine.containerInstanceArn = defaultContainerInstance
+			engine.client = mockDockerClient
+			ticker := time.NewTicker(testPublishMetricsInterval)
+			if !tc.hasPublishTicker {
+				ticker = nil
+			}
+			engine.publishMetricsTicker = ticker
+
+			engine.addAndStartStatsContainer(containerID)
+			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
+
+			containerStats := createFakeContainerStats()
+			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats[0].Read = ts1
+			containers, _ := engine.tasksToContainers["t1"]
+
+			// Two docker stats sample can be one CW stats.
+			for _, statsContainer := range containers {
+				for i := 0; i < 2; i++ {
+					statsContainer.statsQueue.add(containerStats[i])
+					statsContainer.statsQueue.setLastStat(dockerStats[i])
+				}
+			}
+
+			go engine.StartMetricsPublish()
+
+			// wait 1s for first set of metrics sent (immediately), and then add a second set of stats
+			time.Sleep(time.Second)
+			for _, statsContainer := range containers {
+				for i := 0; i < 2; i++ {
+					statsContainer.statsQueue.add(containerStats[i])
+					statsContainer.statsQueue.setLastStat(dockerStats[i])
+				}
+			}
+
+			time.Sleep(testPublishMetricsInterval + time.Second)
+
+			assert.Len(t, telemetryMessages, tc.expectedInstanceMessageNum)
+			assert.Len(t, healthMessages, tc.expectedHealthMessageNum)
+
+			if tc.expectedInstanceMessageNum > 0 {
+				telemetryMessage := <-telemetryMessages
+				if tc.expectedNonEmptyMetricsMsg {
+					assert.NotEmpty(t, telemetryMessage.TaskMetrics)
+					assert.NotZero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+				} else {
+					assert.Empty(t, telemetryMessage.TaskMetrics)
+				}
+			}
+			if tc.expectedHealthMessageNum > 0 {
+				healthMessage := <-healthMessages
+				assert.NotEmpty(t, healthMessage.HealthMetrics)
+			}
+
+			// verify full channel behavior: the message is dropped
+			if tc.channelSize == testTelemetryChannelBufferSizeForChannelFull {
+
+				// add a third set of metrics. This time, change storageReadBytes to 0 to verify that the 2nd set of metrics
+				// are dropped as expected.
+				containerStats[0].storageReadBytes = uint64(0)
+				containerStats[1].storageReadBytes = uint64(0)
+				for _, statsContainer := range containers {
+					for i := 0; i < 2; i++ {
+						statsContainer.statsQueue.add(containerStats[i])
+						statsContainer.statsQueue.setLastStat(dockerStats[i])
+					}
+				}
+
+				telemetryMessage := <-telemetryMessages
+				healthMessage := <-healthMessages
+				assert.NotEmpty(t, telemetryMessage.TaskMetrics)
+				assert.NotEmpty(t, healthMessage.HealthMetrics)
+				assert.Zero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+			}
+
+			cancel()
+			if ticker != nil {
+				ticker.Stop()
+			}
+			close(telemetryMessages)
+			close(healthMessages)
+		})
+	}
+}
+
+func TestGetInstanceMetricsNonIdleEmptyError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetInstanceMetrics"), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.containerInstanceArn = "container_instance"
+
+	var err error
+	engine.tasksToContainers["t1"] = nil
+	engine.tasksToDefinitions["t1"] = &taskDefinition{
+		family:  "f1",
+		version: "1",
+	}
+
+	engine.resolver = resolver
+	_, taskMetric, err := engine.GetInstanceMetrics(false)
+	assert.Len(t, taskMetric, 0)
+	assert.Equal(t, err, EmptyMetricsError)
 }
 
 func TestGetTaskHealthMetrics(t *testing.T) {
@@ -334,7 +551,7 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 		},
 	}, nil).Times(3)
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -378,7 +595,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 		},
 	}, nil).Times(2)
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -397,6 +614,30 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	engine.resolver = resolver
 	_, _, err = engine.GetTaskHealthMetrics()
 	assert.Error(t, err, "empty metrics should cause an error")
+}
+
+func TestGetTaskHealthMetricsEmptyError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.containerInstanceArn = "container_instance"
+
+	var err error
+	engine.tasksToHealthCheckContainers["t1"] = nil
+	engine.tasksToDefinitions["t1"] = &taskDefinition{
+		family:  "f1",
+		version: "1",
+	}
+
+	engine.resolver = resolver
+	_, taskHealth, err := engine.GetTaskHealthMetrics()
+	assert.Len(t, taskHealth, 0)
+	assert.Equal(t, err, EmptyHealthMetricsError)
 }
 
 // TestMetricsDisabled tests container won't call docker api to collect stats
@@ -421,7 +662,7 @@ func TestMetricsDisabled(t *testing.T) {
 		},
 	}, nil).Times(2)
 
-	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -442,7 +683,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
 
-	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, client, eventStream("TestSynchronizeOnRestart"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -541,7 +782,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, serv
 			State: &types.ContainerState{Pid: 23},
 		},
 	}, nil).AnyTimes()
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
