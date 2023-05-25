@@ -14,71 +14,12 @@
 package v4
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
-
-// ContainerMetadataPath specifies the relative URI path for serving container metadata.
-var ContainerMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx)
-
-// ContainerMetadataHandler returns the handler method for handling container metadata requests.
-func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		containerID, err := v3.GetContainerIDByRequest(r, state)
-		if err != nil {
-			responseJSON, err := json.Marshal(
-				fmt.Sprintf("V4 container metadata handler: unable to get container ID from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
-			utils.WriteJSONToResponse(w, http.StatusNotFound, responseJSON, utils.RequestTypeContainerMetadata)
-			return
-		}
-		containerResponse, err := GetContainerResponse(containerID, state)
-		if err != nil {
-			errResponseJSON, err := json.Marshal(err.Error())
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
-			return
-		}
-		seelog.Infof("V4 container metadata handler: writing response for container '%s'", containerID)
-
-		responseJSON, err := json.Marshal(containerResponse)
-		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-			return
-		}
-		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerMetadata)
-	}
-}
-
-// GetContainerResponse gets container response for v4 metadata
-func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*tmdsv4.ContainerResponse, error) {
-	containerResponse, err := NewContainerResponse(containerID, state)
-	if err != nil {
-		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
-		return nil, errors.Errorf("unable to generate metadata for container '%s'", containerID)
-	}
-
-	// fill in network details if not set for NON AWSVPC Task
-	if containerResponse.Networks == nil {
-		if containerResponse.Networks, err = GetContainerNetworkMetadata(containerID, state); err != nil {
-			return nil, err
-		}
-	}
-	return containerResponse, nil
-}
 
 // GetContainerNetworkMetadata returns the network metadata for the container
 func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]tmdsv4.Network, error) {
