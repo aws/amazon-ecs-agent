@@ -48,6 +48,15 @@ const (
 	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
 	hostNetworkMode        = "host"
 	noneNetworkMode        = "none"
+	// defaultPublishServiceConnectTicker is every 3rd time service connect metrics will be sent to the backend
+	// Task metrics are published at 20s interval, thus task's service metrics will be published 60s.
+	defaultPublishServiceConnectTicker = 3
+	// publishMetricsTimeout is the duration that we wait for metrics/health info to be
+	// pushed to the TCS channels. In theory, this timeout should never be hit since
+	// the TCS handler should be continually reading from the channels and pushing to
+	// TCS, but when we lose connection to TCS, these channels back up. In case this
+	// happens, we need to have a timeout to prevent statsEngine channels from blocking.
+	publishMetricsTimeout = 1 * time.Second
 )
 
 var (
@@ -100,9 +109,8 @@ type DockerStatsEngine struct {
 	publishServiceConnectTickerInterval int32
 	publishMetricsTicker                *time.Ticker
 	// channels to send metrics to TACS Client
-	metricsChannel        chan<- ecstcs.TelemetryMessage
-	healthChannel         chan<- ecstcs.HealthMessage
-	instanceStatusChannel chan<- ecstcs.InstanceStatusMessage
+	metricsChannel chan<- ecstcs.TelemetryMessage
+	healthChannel  chan<- ecstcs.HealthMessage
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -146,8 +154,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream,
-	metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage,
-	instanceStatusChannel chan<- ecstcs.InstanceStatusMessage) *DockerStatsEngine {
+	metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage) *DockerStatsEngine {
 	return &DockerStatsEngine{
 		client:                              client,
 		resolver:                            nil,
@@ -161,7 +168,6 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		publishServiceConnectTickerInterval: 0,
 		metricsChannel:                      metricsChannel,
 		healthChannel:                       healthChannel,
-		instanceStatusChannel:               instanceStatusChannel,
 	}
 }
 
@@ -428,6 +434,79 @@ func (engine *DockerStatsEngine) addToStatsContainerMapUnsafe(
 	taskToContainerMap[taskARN][containerID] = statsContainer
 
 	return true
+}
+
+// StartMetricsPublish starts to collect and publish task and health metrics
+func (engine *DockerStatsEngine) StartMetricsPublish() {
+	if engine.publishMetricsTicker == nil {
+		seelog.Debug("Skipping reporting metrics through channel. Publish ticker is uninitialized")
+		return
+	}
+
+	// Publish metrics immediately after we start the loop and wait for ticks. This makes sure TACS side has correct
+	// TaskCount metrics in CX account (especially for short living tasks)
+	engine.publishMetrics(false)
+	engine.publishHealth()
+
+	for {
+		var includeServiceConnectStats bool
+		metricCounter := engine.GetPublishServiceConnectTickerInterval()
+		metricCounter++
+		if metricCounter == defaultPublishServiceConnectTicker {
+			includeServiceConnectStats = true
+			metricCounter = 0
+		}
+		engine.SetPublishServiceConnectTickerInterval(metricCounter)
+		select {
+		case <-engine.publishMetricsTicker.C:
+			seelog.Debugf("publishMetricsTicker triggered. Sending telemetry messages to tcsClient through channel")
+			go engine.publishMetrics(includeServiceConnectStats)
+			go engine.publishHealth()
+		case <-engine.ctx.Done():
+			return
+		}
+	}
+}
+
+func (engine *DockerStatsEngine) publishMetrics(includeServiceConnectStats bool) {
+	publishMetricsCtx, cancel := context.WithTimeout(engine.ctx, publishMetricsTimeout)
+	defer cancel()
+	metricsMetadata, taskMetrics, metricsErr := engine.GetInstanceMetrics(includeServiceConnectStats)
+	if metricsErr == nil {
+		metricsMessage := ecstcs.TelemetryMessage{
+			Metadata:                   metricsMetadata,
+			TaskMetrics:                taskMetrics,
+			IncludeServiceConnectStats: includeServiceConnectStats,
+		}
+		select {
+		case engine.metricsChannel <- metricsMessage:
+			seelog.Debugf("sent telemetry message: %v", metricsMessage)
+		case <-publishMetricsCtx.Done():
+			seelog.Errorf("timeout sending telemetry message, discarding metrics")
+		}
+	} else {
+		seelog.Warnf("Error collecting task metrics: %v", metricsErr)
+	}
+}
+
+func (engine *DockerStatsEngine) publishHealth() {
+	publishHealthCtx, cancel := context.WithTimeout(engine.ctx, publishMetricsTimeout)
+	defer cancel()
+	healthMetadata, taskHealthMetrics, healthErr := engine.GetTaskHealthMetrics()
+	if healthErr == nil {
+		healthMessage := ecstcs.HealthMessage{
+			Metadata:      healthMetadata,
+			HealthMetrics: taskHealthMetrics,
+		}
+		select {
+		case engine.healthChannel <- healthMessage:
+			seelog.Debugf("sent health message: %v", healthMessage)
+		case <-publishHealthCtx.Done():
+			seelog.Errorf("timeout sending health message, discarding metrics")
+		}
+	} else {
+		seelog.Warnf("Error collecting health metrics: %v", healthErr)
+	}
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.

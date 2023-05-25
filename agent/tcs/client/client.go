@@ -40,9 +40,6 @@ const (
 	tasksInMetricMessage = 10
 	// tasksInHealthMessage is the maximum number of tasks that can be sent in a message to the backend
 	tasksInHealthMessage = 10
-	// defaultPublishServiceConnectTicker is every 3rd time service connect metrics will be sent to the backend
-	// Task metrics are published at 20s interval, thus task's service metrics will be published 60s.
-	defaultPublishServiceConnectTicker = 3
 )
 
 var (
@@ -54,12 +51,13 @@ var (
 type clientServer struct {
 	statsEngine              stats.Engine
 	doctor                   *doctor.Doctor
-	publishHealthTicker      *time.Ticker
 	pullInstanceStatusTicker *time.Ticker
 	ctx                      context.Context
 	cancel                   context.CancelFunc
 	disableResourceMetrics   bool
 	publishMetricsInterval   time.Duration
+	metricsChannel           <-chan ecstcs.TelemetryMessage
+	healthChannel            <-chan ecstcs.HealthMessage
 	wsclient.ClientServerImpl
 }
 
@@ -70,6 +68,8 @@ func New(url string,
 	cfg *config.Config,
 	credentialProvider *credentials.Credentials,
 	statsEngine stats.Engine,
+	metricsChannel <-chan ecstcs.TelemetryMessage,
+	healthChannel <-chan ecstcs.HealthMessage,
 	publishMetricsInterval time.Duration,
 	rwTimeout time.Duration,
 	disableResourceMetrics bool,
@@ -77,8 +77,9 @@ func New(url string,
 ) wsclient.ClientServer {
 	cs := &clientServer{
 		statsEngine:              statsEngine,
+		metricsChannel:           metricsChannel,
+		healthChannel:            healthChannel,
 		doctor:                   doctor,
-		publishHealthTicker:      nil,
 		pullInstanceStatusTicker: nil,
 		publishMetricsInterval:   publishMetricsInterval,
 	}
@@ -110,23 +111,40 @@ func (cs *clientServer) Serve() error {
 	}
 
 	// Start the timer function to publish metrics to the backend.
-	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
 
-	go cs.publishMetrics()
-
-	go cs.publishHealthMetrics()
-
+	go cs.publishMessages()
 	go cs.publishInstanceStatus()
 
 	return cs.ConsumeMessages()
 }
 
+func (cs *clientServer) publishMessages() {
+	for {
+		select {
+		case <-cs.ctx.Done():
+			return
+		case metric := <-cs.metricsChannel:
+			seelog.Debugf("received telemetry message in metricsChannel")
+			includeServiceConnectStats := metric.IncludeServiceConnectStats
+			if !cs.disableResourceMetrics || includeServiceConnectStats {
+				err := cs.publishMetricsOnce(metric)
+				if err != nil {
+					seelog.Warnf("Error publishing metrics: %v", err)
+				}
+			}
+		case health := <-cs.healthChannel:
+			seelog.Debugf("received health message in healthChannel")
+			err := cs.publishHealthMetricsOnce(health)
+			if err != nil {
+				seelog.Warnf("Error publishing metrics: %v", err)
+			}
+		}
+	}
+}
+
 // Close closes the underlying connection.
 func (cs *clientServer) Close() error {
-	if cs.publishHealthTicker != nil {
-		cs.publishHealthTicker.Stop()
-	}
 	if cs.pullInstanceStatusTicker != nil {
 		cs.pullInstanceStatusTicker.Stop()
 	}
@@ -162,48 +180,17 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 	}
 }
 
-// publishMetrics invokes the PublishMetricsRequest on the clientserver object.
-func (cs *clientServer) publishMetrics() {
-	publishTicker := cs.statsEngine.GetPublishMetricsTicker()
-	if publishTicker == nil {
-		seelog.Debug("Skipping publishing metrics. Publish ticker is uninitialized")
-		return
-	}
-
-	// don't simply range over the ticker since its channel doesn't ever get closed
-	for {
-		select {
-		case <-publishTicker.C:
-			var includeServiceConnectStats bool
-			metricCounter := cs.statsEngine.GetPublishServiceConnectTickerInterval()
-			metricCounter++
-			if metricCounter == defaultPublishServiceConnectTicker {
-				includeServiceConnectStats = true
-				metricCounter = 0
-			}
-			cs.statsEngine.SetPublishServiceConnectTickerInterval(metricCounter)
-			if !cs.disableResourceMetrics || includeServiceConnectStats {
-				err := cs.publishMetricsOnce(includeServiceConnectStats)
-				if err != nil {
-					seelog.Warnf("Error publishing metrics: %v", err)
-				}
-			}
-		case <-cs.ctx.Done():
-			return
-		}
-	}
-}
-
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishMetricsOnce(includeServiceConnectStats bool) error {
+func (cs *clientServer) publishMetricsOnce(metrics ecstcs.TelemetryMessage) error {
 	// Get the list of objects to send to backend.
-	requests, err := cs.metricsToPublishMetricRequests(includeServiceConnectStats)
+	requests, err := cs.metricsToPublishMetricRequests(metrics)
 	if err != nil {
 		return err
 	}
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
+		seelog.Debugf("making publish metrics request")
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
@@ -214,13 +201,13 @@ func (cs *clientServer) publishMetricsOnce(includeServiceConnectStats bool) erro
 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
 // objects.
-func (cs *clientServer) metricsToPublishMetricRequests(includeServiceConnectStats bool) ([]*ecstcs.PublishMetricsRequest, error) {
-	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics(includeServiceConnectStats)
-	if err != nil {
-		return nil, err
-	}
+func (cs *clientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*ecstcs.PublishMetricsRequest, error) {
+	metadata, taskMetrics, includeServiceConnectStats := metrics.Metadata, metrics.TaskMetrics, metrics.IncludeServiceConnectStats
 
 	var requests []*ecstcs.PublishMetricsRequest
+	if metadata == nil {
+		return nil, seelog.Errorf("nil metrics metadata")
+	}
 	if *metadata.Idle {
 		metadata.Fin = aws.Bool(true)
 		// Idle instance, we have only one request to send to backend.
@@ -309,42 +296,16 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 	return &tempTaskMetric, messageTaskMetrics, requests
 }
 
-// publishHealthMetrics send the container health information to backend
-func (cs *clientServer) publishHealthMetrics() {
-	if cs.publishHealthTicker == nil {
-		seelog.Debug("Skipping publishing health metrics. Publish ticker is uninitialized")
-		return
-	}
-
-	// Publish metrics immediately after we connect and wait for ticks. This makes
-	// sure that there is no data loss when a scheduled metrics publishing fails
-	// due to a connection reset.
-	err := cs.publishHealthMetricsOnce()
-	if err != nil {
-		seelog.Warnf("Unable to publish health metrics: %v", err)
-	}
-	for {
-		select {
-		case <-cs.publishHealthTicker.C:
-			err := cs.publishHealthMetricsOnce()
-			if err != nil {
-				seelog.Warnf("Unable to publish health metrics: %v", err)
-			}
-		case <-cs.ctx.Done():
-			return
-		}
-	}
-}
-
 // publishHealthMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishHealthMetricsOnce() error {
+func (cs *clientServer) publishHealthMetricsOnce(health ecstcs.HealthMessage) error {
 	// Get the list of health request to send to backend.
-	requests, err := cs.createPublishHealthRequests()
+	requests, err := cs.createPublishHealthRequests(health)
 	if err != nil {
 		return err
 	}
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
+		seelog.Debugf("making publish health metrics request")
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
@@ -354,11 +315,8 @@ func (cs *clientServer) publishHealthMetricsOnce() error {
 }
 
 // createPublishHealthRequests creates the requests to publish container health
-func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRequest, error) {
-	metadata, taskHealthMetrics, err := cs.statsEngine.GetTaskHealthMetrics()
-	if err != nil {
-		return nil, err
-	}
+func (cs *clientServer) createPublishHealthRequests(health ecstcs.HealthMessage) ([]*ecstcs.PublishHealthRequest, error) {
+	metadata, taskHealthMetrics := health.Metadata, health.HealthMetrics
 
 	if metadata == nil || taskHealthMetrics == nil {
 		seelog.Debug("No container health metrics to report")

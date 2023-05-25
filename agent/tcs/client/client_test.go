@@ -23,7 +23,6 @@
 package tcsclient
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -46,12 +45,15 @@ import (
 )
 
 const (
-	testPublishMetricsInterval        = 1 * time.Second
-	testMessageId                     = "testMessageId"
-	testCluster                       = "default"
-	testContainerInstance             = "containerInstance"
-	rwTimeout                         = time.Second
-	testPublishMetricRequestSizeLimit = 1024
+	testPublishMetricsInterval            = 1 * time.Second
+	testMessageId                         = "testMessageId"
+	testCluster                           = "default"
+	testContainerInstance                 = "containerInstance"
+	rwTimeout                             = time.Second
+	testPublishMetricRequestSizeLimit     = 1024
+	testTelemetryChannelDefaultBufferSize = 10
+	testIncludeScStats                    = true
+	testNotIncludeScStats                 = false
 )
 
 const (
@@ -384,22 +386,18 @@ func TestPublishMetricsRequest(t *testing.T) {
 	}
 }
 
-func TestPublishMetricsOnceEmptyStatsError(t *testing.T) {
-	cs := clientServer{
-		statsEngine: &emptyStatsEngine{},
-	}
-	err := cs.publishMetricsOnce(false)
-
-	assert.Error(t, err, "Failed: expecting publishMerticOnce return err ")
-}
-
 func TestPublishOnceIdleStatsEngine(t *testing.T) {
 	cs := clientServer{
 		statsEngine: &idleStatsEngine{},
 	}
-	requests, err := cs.metricsToPublishMetricRequests(false)
+	metadata, taskMetrics, _ := cs.statsEngine.GetInstanceMetrics(testNotIncludeScStats)
+	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
+		Metadata:                   metadata,
+		TaskMetrics:                taskMetrics,
+		IncludeServiceConnectStats: testNotIncludeScStats,
+	})
 	if err != nil {
-		t.Fatal("Error creating publishmetricrequests: ", err)
+		t.Fatal("Error creating publishMetricRequests: ", err)
 	}
 	if len(requests) != 1 {
 		t.Errorf("Expected %d requests, got %d", 1, len(requests))
@@ -412,15 +410,20 @@ func TestPublishOnceIdleStatsEngine(t *testing.T) {
 
 func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	expectedRequests := 3
-	// Cretes 21 task metrics, which translate to 3 batches,
+	// Creates 21 task metrics, which translate to 3 batches,
 	// {[Task1, Task2, ...Task10], [Task11, Task12, ...Task20], [Task21]}
 	numTasks := (tasksInMetricMessage * (expectedRequests - 1)) + 1
 	cs := clientServer{
 		statsEngine: newNonIdleStatsEngine(numTasks),
 	}
-	requests, err := cs.metricsToPublishMetricRequests(false)
+	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics(testNotIncludeScStats)
+	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
+		Metadata:                   metadata,
+		TaskMetrics:                taskMetrics,
+		IncludeServiceConnectStats: testNotIncludeScStats,
+	})
 	if err != nil {
-		t.Fatal("Error creating publishmetricrequests: ", err)
+		t.Fatal("Error creating publishMetricRequests: ", err)
 	}
 	taskArns := make(map[string]bool)
 	for _, request := range requests {
@@ -476,9 +479,14 @@ func TestPublishServiceConnectStatsEngine(t *testing.T) {
 			cs := clientServer{
 				statsEngine: newServiceConnectStatsEngine(tc.numTasks),
 			}
-			requests, err := cs.metricsToPublishMetricRequests(true)
+			metadata, taskMetrics, _ := cs.statsEngine.GetInstanceMetrics(testIncludeScStats)
+			requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
+				Metadata:                   metadata,
+				TaskMetrics:                taskMetrics,
+				IncludeServiceConnectStats: testIncludeScStats,
+			})
 			if err != nil {
-				t.Fatal("Error creating publishmetricrequests: ", err)
+				t.Fatal("Error creating publishMetricRequests: ", err)
 			}
 
 			taskArns := make(map[string]bool)
@@ -513,7 +521,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
 		AWSRegion:          "us-east-1",
 		AcceptInsecureCert: true,
 	}
-	cs := New("https://aws.amazon.com/ecs", cfg, testCreds, &mockStatsEngine{},
+	cs := New("https://aws.amazon.com/ecs", cfg, testCreds, &mockStatsEngine{}, nil, nil,
 		testPublishMetricsInterval, rwTimeout, false, emptyDoctor).(*clientServer)
 	cs.SetConnection(conn)
 	return cs
@@ -571,76 +579,6 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	<-handledPayload
 }
 
-// TestMetricsDisabled tests that if metrics is disabled, only health metrics will be sent
-func TestMetricsDisabled(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
-	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
-
-	cfg := config.DefaultConfig()
-
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
-	cs.SetConnection(conn)
-
-	published := make(chan struct{})
-	read := make(chan struct{})
-
-	// stats engine should only be called for getting health metrics
-	mockStatsEngine.EXPECT().GetPublishMetricsTicker().Do(func() {
-		cancel()
-	}).Return(time.NewTicker(config.DefaultContainerMetricsPublishInterval)).Times(1)
-	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
-		Cluster:           aws.String("TestMetricsDisabled"),
-		ContainerInstance: aws.String("container_instance"),
-		Fin:               aws.Bool(true),
-		MessageId:         aws.String("message_id"),
-	}, []*ecstcs.TaskHealth{{}}, nil).MinTimes(1)
-	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
-	conn.EXPECT().ReadMessage().Do(func() {
-		read <- struct{}{}
-	}).Return(1, nil, nil).MinTimes(1)
-	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).MinTimes(1)
-	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Do(func(messageType int, data []byte) {
-		published <- struct{}{}
-	}).Return(nil).MinTimes(1)
-
-	go func() {
-		err := cs.Serve()
-		assert.NoError(t, err)
-	}()
-	<-published
-	<-read
-
-	// Wait for the context to be cancelled. This ensures that the publishMetrics() go routine started by cs.Serve()
-	// always runs and GetPublishMetricsTicker mock call is triggered.
-	select {
-	case <-ctx.Done():
-	}
-}
-
-func TestCreatePublishHealthRequestsEmpty(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
-	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
-	cfg := config.DefaultConfig()
-
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
-	cs.SetConnection(conn)
-
-	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(nil, nil, stats.EmptyHealthMetricsError)
-	_, err := cs.(*clientServer).createPublishHealthRequests()
-	assert.Equal(t, err, stats.EmptyHealthMetricsError)
-
-	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(nil, nil, nil)
-	_, err = cs.(*clientServer).createPublishHealthRequests()
-	assert.NoError(t, err)
-}
-
 func TestCreatePublishHealthRequests(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -649,7 +587,7 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
+	cs := New("", &cfg, testCreds, mockStatsEngine, nil, nil, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -687,7 +625,11 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 	}
 
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(testMetadata, testHealthMetrics, nil)
-	request, err := cs.(*clientServer).createPublishHealthRequests()
+	metadata, healthMetrics, _ := mockStatsEngine.GetTaskHealthMetrics()
+	request, err := cs.(*clientServer).createPublishHealthRequests(ecstcs.HealthMessage{
+		Metadata:      metadata,
+		HealthMetrics: healthMetrics,
+	})
 
 	assert.NoError(t, err)
 	assert.Len(t, request, 1)
