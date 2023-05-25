@@ -25,6 +25,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
 github.com/aws/amazon-ecs-agent/ecs-agent/utils

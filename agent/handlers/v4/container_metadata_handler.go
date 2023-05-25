@@ -22,6 +22,8 @@ import (
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -62,7 +64,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 }
 
 // GetContainerResponse gets container response for v4 metadata
-func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*ContainerResponse, error) {
+func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*tmdsv4.ContainerResponse, error) {
 	containerResponse, err := NewContainerResponse(containerID, state)
 	if err != nil {
 		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
@@ -79,7 +81,7 @@ func GetContainerResponse(containerID string, state dockerstate.TaskEngineState)
 }
 
 // GetContainerNetworkMetadata returns the network metadata for the container
-func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]Network, error) {
+func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]tmdsv4.Network, error) {
 	dockerContainer, ok := state.ContainerByID(containerID)
 	if !ok {
 		return nil, errors.Errorf("unable to find container '%s'", containerID)
@@ -98,17 +100,17 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network
-	networks := make([]Network, 0)
+	networks := make([]tmdsv4.Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := Network{Network: tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
+			network := tmdsv4.Network{Network: tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
 			networks = append(networks, network)
 		}
 	} else {
 		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := Network{Network: tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
+		network := tmdsv4.Network{Network: tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
 		networks = append(networks, network)
 	}
 	return networks, nil
