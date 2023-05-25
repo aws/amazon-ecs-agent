@@ -161,7 +161,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	var wg sync.WaitGroup
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
 	wg.Add(1)
-	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
 	wg.Wait()
 	close(errorEvents)
@@ -203,6 +203,7 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 			taskARN:                    taskARN,
 			credentialSpecContainerMap: credentialSpecContainerMap,
 		},
+		isDomainlessGmsa:      true,
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
 
@@ -233,7 +234,7 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 	var wg sync.WaitGroup
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
 	wg.Add(1)
-	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, true, iamCredentials, &wg, errorEvents)
+	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
 	wg.Wait()
 	close(errorEvents)
@@ -271,7 +272,7 @@ func TestHandleSSMCredentialspecFileARNParseErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, 1)
-	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
 	wg.Wait()
 	close(errorEvents)
@@ -320,7 +321,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
 	wg.Wait()
 	close(errorEvents)
@@ -380,7 +381,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -422,6 +423,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 			credentialSpecContainerMap: credentialSpecContainerMap,
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
+		isDomainlessGmsa:      true,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -444,7 +446,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, true, iamCredentials, &wg, errorEvents)
+	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -506,7 +508,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -530,7 +532,7 @@ func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, 1)
-	go cs.handleS3CredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, false, iamCredentials, &wg, errorEvents)
+	go cs.handleS3CredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials, &wg, errorEvents)
 
 	wg.Wait()
 	close(errorEvents)
@@ -595,7 +597,7 @@ func TestHandleCredentialSpecFile(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, false, &wg, errorEvents)
+	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -660,6 +662,7 @@ func TestHandleDomainlessCredentialSpecFile(t *testing.T) {
 			credentialSpecContainerMap: credentialSpecContainerMap,
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
+		isDomainlessGmsa:      true,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -670,7 +673,7 @@ func TestHandleDomainlessCredentialSpecFile(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, true, &wg, errorEvents)
+	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -721,7 +724,7 @@ func TestHandleCredentialSpecFileErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	errorEvents := make(chan error, len(cs.credentialSpecContainerMap))
-	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, false, &wg, errorEvents)
+	go cs.handleCredentialspecFile(CredentialSpec, credentialSpecARN, &wg, errorEvents)
 	wg.Wait()
 	close(errorEvents)
 
@@ -788,9 +791,10 @@ func TestUpdateTargetMapping(t *testing.T) {
 			CredSpecMap: credSpecMapData,
 		},
 		ServiceAccountInfoMap: credentialsFetcherInfoMap,
+		isDomainlessGmsa:      false,
 	}
 
-	cs.updateCredSpecMapping(inputCredSpec, credSpecData, false)
+	cs.updateCredSpecMapping(inputCredSpec, credSpecData)
 
 	expectedOutput := ServiceAccountInfo{
 		serviceAccountName:    "WebApp01",
@@ -817,9 +821,10 @@ func TestUpdateTargetMappingDomainless(t *testing.T) {
 			CredSpecMap: credSpecMapData,
 		},
 		ServiceAccountInfoMap: credentialsFetcherInfoMap,
+		isDomainlessGmsa:      true,
 	}
 
-	cs.updateCredSpecMapping(inputCredSpec, credSpecData, true)
+	cs.updateCredSpecMapping(inputCredSpec, credSpecData)
 
 	expectedOutput := ServiceAccountInfo{
 		serviceAccountName:    "WebApp01",
@@ -847,9 +852,10 @@ func TestUpdateTargetMappingError(t *testing.T) {
 			CredSpecMap: credSpecMapData,
 		},
 		ServiceAccountInfoMap: credentialsFetcherInfoMap,
+		isDomainlessGmsa:      true,
 	}
 
-	err := cs.updateCredSpecMapping(inputCredSpec, credSpecData, true)
+	err := cs.updateCredSpecMapping(inputCredSpec, credSpecData)
 
 	assert.EqualError(t, err, "error unmarshalling credentialspec domainless {\"xyz\"} : invalid character '}' after object key")
 }
@@ -922,4 +928,29 @@ func TestSkipCredentialFetcherInvocation(t *testing.T) {
 	actualKerberosTicketPath, err := cs.GetTargetMapping(credentialSpecSSMARN)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedKerberosTicketPath, actualKerberosTicketPath)
+}
+
+func TestUpdateRegionForTask(t *testing.T) {
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			taskARN: "arn:aws:ecs:us-west-2:123456789:task-definition/contoso-demo:1",
+			region:  "",
+		},
+	}
+
+	err := cs.UpdateRegionFromTask()
+	assert.NoError(t, err)
+	assert.Equal(t, cs.region, "us-west-2")
+}
+
+func TestUpdateRegionForTaskMaliformedInput(t *testing.T) {
+	cs := &CredentialSpecResource{
+		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+			taskARN: "arn:aws:ecs/123456789:task-definition/contoso-demo:1",
+			region:  "",
+		},
+	}
+
+	err := cs.UpdateRegionFromTask()
+	assert.Error(t, err)
 }
