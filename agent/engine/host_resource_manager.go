@@ -89,6 +89,13 @@ func (h *HostResourceManager) consumeStringSetType(resourceType string, resource
 	}
 }
 
+func (h *HostResourceManager) checkTaskConsumed(taskArn string) bool {
+	h.hostResourceManagerRWLock.Lock()
+	defer h.hostResourceManagerRWLock.Unlock()
+	_, ok := h.taskConsumed[taskArn]
+	return ok
+}
+
 // Returns if resources consumed or not and error status
 // false, nil -> did not consume, task should stay pending
 // false, err -> resources map has errors, task should fail as cannot schedule with 'wrong' resource map (this basically never happens)

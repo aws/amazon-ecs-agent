@@ -1636,11 +1636,11 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 // agent starts, container created, metadata file created, agent restarted, container recovered
 // during task engine init, metadata file updated
 func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
-	conf := &defaultConfig
+	conf := defaultConfig
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, serviceConnectManager := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, serviceConnectManager := mocks(t, ctx, &conf)
 	defer ctrl.Finish()
 
 	var metadataUpdateWG sync.WaitGroup

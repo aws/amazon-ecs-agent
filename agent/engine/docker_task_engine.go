@@ -316,13 +316,27 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 		return err
 	}
 	engine.synchronizeState()
-	go engine.monitorQueuedTasks()
+	go engine.monitorQueuedTasks(derivedCtx)
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
 	go engine.startPeriodicExecAgentsMonitoring(derivedCtx)
 	go engine.watchAppNetImage(derivedCtx)
 	return nil
+}
+
+func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
+	select {
+	case engine.monitorQueuedTaskEvent <- struct{}{}:
+	default:
+		waitingTaskQueueSingleLen := false
+		engine.waitingTasksLock.Lock()
+		waitingTaskQueueSingleLen = len(engine.waitingTaskQueue) == 1
+		engine.waitingTasksLock.Unlock()
+		if waitingTaskQueueSingleLen {
+			engine.monitorQueuedTaskEvent <- struct{}{}
+		}
+	}
 }
 
 func (engine *DockerTaskEngine) topTask() (*managedTask, error) {
@@ -336,9 +350,10 @@ func (engine *DockerTaskEngine) topTask() (*managedTask, error) {
 
 func (engine *DockerTaskEngine) enqueueTask(task *managedTask) {
 	engine.waitingTasksLock.Lock()
-	defer engine.waitingTasksLock.Unlock()
-	task.engine.waitingTaskQueue = append(task.engine.waitingTaskQueue, task)
-	engine.monitorQueuedTaskEvent <- struct{}{}
+	engine.waitingTaskQueue = append(engine.waitingTaskQueue, task)
+	engine.waitingTasksLock.Unlock()
+	logger.Debug("Enqueued task in Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
+	engine.wakeUpTaskQueueMonitor()
 }
 
 func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
@@ -347,52 +362,49 @@ func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
 	if len(engine.waitingTaskQueue) > 0 {
 		task := engine.waitingTaskQueue[0]
 		engine.waitingTaskQueue = engine.waitingTaskQueue[1:]
+		logger.Debug("Dequeued task from Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
 		return task, nil
 	}
 
 	return nil, fmt.Errorf("no tasks in waiting queue")
 }
 
-func (engine *DockerTaskEngine) monitorQueuedTasks() {
+func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
+	logger.Info("Monitoring Task Queue started")
 	for {
-		// Dequeue as many tasks as possible and start wake up their goroutines
-		for {
-			task, err := engine.topTask()
-			if err != nil {
-				break
-			}
-			taskHostResources := task.ToHostResources()
-			consumed := false
-			consumable, err := engine.hostResourceManager.consumableSafe(taskHostResources)
-			if err != nil {
-				engine.failWaitingTask(err)
-			}
-			if consumable {
-				// consume resources and continue
-				consumed, err = task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+		select {
+		case <-ctx.Done():
+			return
+		case <-engine.monitorQueuedTaskEvent:
+			// Dequeue as many tasks as possible and start wake up their goroutines
+			for {
+				task, err := engine.topTask()
+				if err != nil {
+					break
+				}
+				taskHostResources := task.ToHostResources()
+				consumed := false
+				consumable, err := engine.hostResourceManager.consumableSafe(taskHostResources)
 				if err != nil {
 					engine.failWaitingTask(err)
-				}
-				if consumed {
-					// dequeueTask always succeeds here because it will return 'task'
-					engine.startWaitingTask()
+				} else if consumable {
+					// consume resources and continue
+					consumed, err = task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+					if err != nil {
+						engine.failWaitingTask(err)
+					}
+					if consumed {
+						// dequeueTask always succeeds here because it will return 'task'
+						engine.startWaitingTask()
+					} else { // not consumed
+						break
+					}
+				} else { // not consumable
+					break
 				}
 			}
-
-			// If not able to consume, this means resources are available yet
-			// Block here until an event arrives
-			// Event arrives when
-			// - A stopping task stops
-			// - A new task enqueues
-			if !consumable || !consumed {
-				logger.Info("Resources not available, waiting")
-				<-engine.monitorQueuedTaskEvent
-			}
+			logger.Debug("No more tasks in Waiting Task Queue, waiting for new tasks")
 		}
-		// Block here after waitingTaskQueue is empty
-		// Wait for more tasks to enqueue and start the inner loop again
-		logger.Info("Task queue empty, waiting")
-		<-engine.monitorQueuedTaskEvent
 	}
 }
 
@@ -400,20 +412,13 @@ func (engine *DockerTaskEngine) failWaitingTask(err error) {
 	task, _ := engine.dequeueTask()
 	logger.Error(fmt.Sprintf("Error consuming resources due to invalid task config : %s", err.Error()), logger.Fields{field.TaskARN: task.Arn})
 	task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	// If the channel is not listening/already closed, because stopped, don't block
-	select {
-	case task.consumedHostResourceEvent <- struct{}{}:
-	default:
-	}
+	task.consumedHostResourceEvent <- struct{}{}
 }
 
 func (engine *DockerTaskEngine) startWaitingTask() {
 	task, _ := engine.dequeueTask()
 	logger.Info("Host resources consumed, progressing task", logger.Fields{field.TaskARN: task.Arn})
-	select {
-	case task.consumedHostResourceEvent <- struct{}{}:
-	default:
-	}
+	task.consumedHostResourceEvent <- struct{}{}
 }
 
 func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context) {

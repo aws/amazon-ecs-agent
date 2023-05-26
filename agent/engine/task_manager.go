@@ -176,7 +176,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		acsMessages:                   make(chan acsTransition),
 		dockerMessages:                make(chan dockerContainerChange),
 		resourceStateChangeEvent:      make(chan resourceStateChange),
-		consumedHostResourceEvent:     make(chan struct{}),
+		consumedHostResourceEvent:     make(chan struct{}, 1),
 		engine:                        engine,
 		cfg:                           engine.cfg,
 		stateChangeEvents:             engine.stateChangeEvents,
@@ -202,14 +202,8 @@ func (mtask *managedTask) overseeTask() {
 	// If this was a 'state restore', send all unsent statuses
 	mtask.emitCurrentStatus()
 
-	// Queue up tasks here
-	// Goroutine monitorQueuedTasks dequeues in FIFO order as resources become available
-	// Internal tasks are started right away as their resources are not accounted for
-	if !mtask.IsInternal {
-		mtask.engine.enqueueTask(mtask)
-		// Wait for host resources required by this task to become available
-		mtask.waitForHostResources()
-	}
+	// Wait for host resources required by this task to become available
+	mtask.waitForHostResources()
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
@@ -249,7 +243,7 @@ func (mtask *managedTask) overseeTask() {
 	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
 	mtask.cleanupCredentials()
 	// Send event to monitor queue task routine to check for any pending tasks to progress
-	mtask.engine.monitorQueuedTaskEvent <- struct{}{}
+	mtask.engine.wakeUpTaskQueueMonitor()
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
 	mtask.cleanupTask(retry.AddJitter(mtask.cfg.TaskCleanupWaitDuration, mtask.cfg.TaskCleanupWaitDurationJitter))
@@ -278,12 +272,18 @@ func (mtask *managedTask) emitCurrentStatus() {
 // the task. It will wait upon message on this task's consumedHostResourceEvent
 // channel from monitorQueuedTasks routine to wake up
 func (mtask *managedTask) waitForHostResources() {
-	for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
-		if mtask.GetDesiredStatus().Terminal() {
-			// If we end up here, that means we received a start then stop for this
-			// task before a task that was expected to stop before it could
-			// actually stop
-			break
+	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
+		// Queue up tasks here
+		// Goroutine monitorQueuedTasks dequeues in FIFO order as resources become available
+		// Internal tasks are started right away as their resources are not accounted for
+		mtask.engine.enqueueTask(mtask)
+		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
+			if mtask.GetDesiredStatus().Terminal() {
+				// If we end up here, that means we received a start then stop for this
+				// task before a task that was expected to stop before it could
+				// actually stop
+				break
+			}
 		}
 	}
 }
