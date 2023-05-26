@@ -285,7 +285,8 @@ var (
 		ExecutionStoppedAt: aws.Time(now.UTC()),
 		AvailabilityZone:   availabilityzone,
 	}
-	expectedAssociationsResponse = v3.AssociationsResponse{
+	expectedTaskResponseNoContainers = stripContainersFromV2TaskResponse(expectedTaskResponse)
+	expectedAssociationsResponse     = v3.AssociationsResponse{
 		Associations: []string{associationName},
 	}
 	expectedAssociationResponse = associationValue
@@ -528,6 +529,13 @@ func v4ContainerResponseFromV2(
 	}
 }
 
+// Returns a new v2 task response by stripping the "containers" field from the provided
+// task response.
+func stripContainersFromV2TaskResponse(response v2.TaskResponse) v2.TaskResponse {
+	response.Containers = nil
+	return response
+}
+
 func init() {
 	container.SetLabels(labels)
 	container1.SetLabels(labels)
@@ -752,52 +760,6 @@ func parseResponseBody(body *bytes.Buffer) (*credentials.IAMRoleCredentials, err
 	return &creds, nil
 }
 
-func TestV2TaskMetadata(t *testing.T) {
-	testCases := []struct {
-		path string
-	}{
-		{
-			v2BaseMetadataPath,
-		},
-		{
-			v2BaseMetadataPath + "/",
-		},
-	}
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("Testing path: %s", tc.path), func(t *testing.T) {
-			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-			auditLog := mock_audit.NewMockAuditLogger(ctrl)
-			statsEngine := mock_stats.NewMockEngine(ctrl)
-			ecsClient := mock_api.NewMockECSClient(ctrl)
-
-			gomock.InOrder(
-				state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
-				state.EXPECT().TaskByArn(taskARN).Return(task, true),
-				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-			)
-			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
-				containerInstanceArn, endpoint, acceptInsecureCert)
-			require.NoError(t, err)
-			recorder := httptest.NewRecorder()
-			req, _ := http.NewRequest("GET", tc.path, nil)
-			req.RemoteAddr = remoteIP + ":" + remotePort
-			server.Handler.ServeHTTP(recorder, req)
-			res, err := ioutil.ReadAll(recorder.Body)
-			assert.NoError(t, err)
-			assert.Equal(t, http.StatusOK, recorder.Code)
-			var taskResponse v2.TaskResponse
-			err = json.Unmarshal(res, &taskResponse)
-			assert.NoError(t, err)
-			assert.Equal(t, expectedTaskResponse, taskResponse)
-		})
-	}
-}
-
 func TestV2TaskWithTagsMetadata(t *testing.T) {
 	testCases := []struct {
 		path string
@@ -970,69 +932,6 @@ func TestV2TaskStats(t *testing.T) {
 			assert.Equal(t, dockerStats.NumProcs, containerStats.NumProcs)
 		})
 	}
-}
-
-func TestV3TaskMetadata(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-
-	gomock.InOrder(
-		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-	)
-	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
-		containerInstanceArn, endpoint, acceptInsecureCert)
-	require.NoError(t, err)
-	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
-	server.Handler.ServeHTTP(recorder, req)
-	res, err := ioutil.ReadAll(recorder.Body)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	var taskResponse v2.TaskResponse
-	err = json.Unmarshal(res, &taskResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedTaskResponse, taskResponse)
-}
-
-func TestV3BridgeTaskMetadata(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-
-	gomock.InOrder(
-		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
-		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
-		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
-	)
-	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, region, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
-		containerInstanceArn, endpoint, acceptInsecureCert)
-	require.NoError(t, err)
-	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
-	server.Handler.ServeHTTP(recorder, req)
-	res, err := ioutil.ReadAll(recorder.Body)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	var taskResponse v2.TaskResponse
-	err = json.Unmarshal(res, &taskResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedBridgeTaskResponse, taskResponse)
 }
 
 // Test API calls for propagating Tags to Task Metadata
@@ -1878,7 +1777,7 @@ func TestV4Unexpected500Error(t *testing.T) {
 
 // Types of TMDS responses, add more types as needed
 type TMDSResponse interface {
-	v2.ContainerResponse | v4.ContainerResponse | string
+	v2.ContainerResponse | v2.TaskResponse | v4.ContainerResponse | string
 }
 
 // Represents a test case for TMDS. Supports generic TMDS response body types using type parametesrs.
@@ -1918,7 +1817,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	// Initialize server
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient,
 		clusterName, region, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
 		containerInstanceArn, endpoint, acceptInsecureCert)
 	require.NoError(t, err)
 
@@ -1998,6 +1897,80 @@ func TestV2ContainerMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedContainerResponse,
+		})
+	})
+}
+
+func TestV2TaskMetadata(t *testing.T) {
+	t.Run("task not found by IP", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v2BaseMetadataPath,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().GetTaskByIPAddress(remoteIP).Return("", false),
+				)
+			},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponseBody: fmt.Sprintf(
+				"Unable to get task arn from request: unable to associate '%s' with task",
+				remoteIP),
+		})
+	})
+	t.Run("task not found by taskARN", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v2BaseMetadataPath,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
+				)
+			},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponseBody: fmt.Sprintf(
+				"Unable to generate metadata for task: '%s'",
+				taskARN),
+		})
+	})
+	t.Run("containerMap not found by ARN", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v2BaseMetadataPath,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(nil, false),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedTaskResponseNoContainers,
+		})
+	})
+	t.Run("happy case", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v2BaseMetadataPath,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedTaskResponse,
+		})
+	})
+	t.Run("happy case with slash", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v2BaseMetadataPath + "/",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedTaskResponse,
 		})
 	})
 }
@@ -2089,6 +2062,117 @@ func TestV3ContainerMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedBridgeContainerResponse,
+		})
+	})
+}
+
+func TestV3TaskMetadata(t *testing.T) {
+	t.Run("taskARN not found for v3EndpointID", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return("", false),
+				)
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponseBody: fmt.Sprintf(
+				"V3 task metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+				v3EndpointID),
+		})
+	})
+	t.Run("task not found by taskARN", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
+				)
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponseBody: fmt.Sprintf(
+				"Unable to generate metadata for task: '%s'",
+				taskARN),
+		})
+	})
+	t.Run("containerMap not found by Arn", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(nil, false),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedTaskResponseNoContainers,
+		})
+	})
+	t.Run("happy case", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedTaskResponse,
+		})
+	})
+	t.Run("bridge mode container not found", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+				)
+			},
+			expectedStatusCode:   http.StatusInternalServerError,
+			expectedResponseBody: fmt.Sprintf("Unable to find container '%s'", containerID),
+		})
+	})
+	t.Run("bridge mode container no network settings", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[string]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+				)
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponseBody: fmt.Sprintf(
+				"Unable to generate network response for container '%s'", containerID),
+		})
+	})
+	t.Run("happy case bridge mode", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
+			path: v3BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedBridgeTaskResponse,
 		})
 	})
 }
