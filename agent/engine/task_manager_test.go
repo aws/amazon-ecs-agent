@@ -30,7 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -1778,31 +1777,6 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 	assert.Equal(t, exitCode, *containerExitCode)
 	containerCreateTime := container.GetCreatedAt()
 	assert.Equal(t, timeNow, containerCreateTime)
-}
-
-func TestWaitForHostResources(t *testing.T) {
-	taskStopWG := utilsync.NewSequentialWaitGroup()
-	taskStopWG.Add(1, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-
-	mtask := &managedTask{
-		ctx:        ctx,
-		cancel:     cancel,
-		taskStopWG: taskStopWG,
-		Task: &apitask.Task{
-			StartSequenceNumber: 1,
-		},
-	}
-
-	var waitForHostResourcesWG sync.WaitGroup
-	waitForHostResourcesWG.Add(1)
-	go func() {
-		mtask.waitForHostResources()
-		waitForHostResourcesWG.Done()
-	}()
-
-	taskStopWG.Done(1)
-	waitForHostResourcesWG.Wait()
 }
 
 func TestWaitForResourceTransition(t *testing.T) {

@@ -234,9 +234,6 @@ type Task struct {
 	// is handled properly so that the state storage continues to work.
 	SentStatusUnsafe apitaskstatus.TaskStatus `json:"SentStatus"`
 
-	StartSequenceNumber int64
-	StopSequenceNumber  int64
-
 	// ExecutionCredentialsID is the ID of credentials that are used by agent to
 	// perform some action at the task level, such as pulling image from ECR
 	ExecutionCredentialsID string `json:"executionCredentialsID"`
@@ -311,11 +308,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	task := &Task{}
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
-	}
-	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
-		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
-		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
 	// Overrides the container command if it's set
@@ -2831,22 +2823,6 @@ func (task *Task) GetAppMesh() *apiappmesh.AppMesh {
 	return task.AppMesh
 }
 
-// GetStopSequenceNumber returns the stop sequence number of a task
-func (task *Task) GetStopSequenceNumber() int64 {
-	task.lock.RLock()
-	defer task.lock.RUnlock()
-
-	return task.StopSequenceNumber
-}
-
-// SetStopSequenceNumber sets the stop seqence number of a task
-func (task *Task) SetStopSequenceNumber(seqnum int64) {
-	task.lock.Lock()
-	defer task.lock.Unlock()
-
-	task.StopSequenceNumber = seqnum
-}
-
 // SetPullStartedAt sets the task pullstartedat timestamp and returns whether
 // this field was updated or not
 func (task *Task) SetPullStartedAt(timestamp time.Time) bool {
@@ -3522,10 +3498,6 @@ func (task *Task) IsServiceConnectConnectionDraining() bool {
 //
 // * GPU
 //   - Return num of gpus requested (len of GPUIDs field)
-//
-// TODO remove this once ToHostResources is used
-//
-//lint:file-ignore U1000 Ignore all unused code
 func (task *Task) ToHostResources() map[string]*ecs.Resource {
 	resources := make(map[string]*ecs.Resource)
 	// CPU

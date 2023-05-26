@@ -31,7 +31,6 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -84,7 +83,6 @@ func TestHandleDesiredStatusChangeSaveData(t *testing.T) {
 				engine: &DockerTaskEngine{
 					dataClient: dataClient,
 				},
-				taskStopWG: utilsync.NewSequentialWaitGroup(),
 			}
 			mtask.handleDesiredStatusChange(tc.targetDesiredStatus, int64(1))
 			tasks, err := dataClient.GetTasks()

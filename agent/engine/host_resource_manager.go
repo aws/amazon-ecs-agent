@@ -25,9 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-// TODO remove this once resource, consume are used
-//lint:file-ignore U1000 Ignore all unused code
-
 const (
 	CPU      = "CPU"
 	GPU      = "GPU"
@@ -220,6 +217,12 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 		}
 	}
 	return nil
+}
+
+func (h *HostResourceManager) consumableSafe(resources map[string]*ecs.Resource) (bool, error) {
+	h.hostResourceManagerRWLock.Lock()
+	defer h.hostResourceManagerRWLock.Unlock()
+	return h.consumable(resources)
 }
 
 // Helper function for consume to check if resources are consumable with the current account

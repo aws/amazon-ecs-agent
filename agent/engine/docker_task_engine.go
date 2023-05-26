@@ -53,7 +53,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
-	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -135,10 +134,12 @@ type DockerTaskEngine struct {
 	state        dockerstate.TaskEngineState
 	managedTasks map[string]*managedTask
 
-	taskStopGroup *utilsync.SequentialWaitGroup
+	// waitingTasksQueue is a FIFO queue of tasks waiting to acquire host resources
+	waitingTaskQueue []*managedTask
 
-	events            <-chan dockerapi.DockerContainerChangeEvent
-	stateChangeEvents chan statechange.Event
+	events                 <-chan dockerapi.DockerContainerChangeEvent
+	monitorQueuedTaskEvent chan struct{}
+	stateChangeEvents      chan statechange.Event
 
 	client       dockerapi.DockerClient
 	dataClient   data.Client
@@ -154,6 +155,8 @@ type DockerTaskEngine struct {
 	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	tasksLock sync.RWMutex
+	// waitingTasksLock is a mutext for operations on waitingTasksQueue
+	waitingTasksLock sync.RWMutex
 
 	credentialsManager                  credentials.Manager
 	_time                               ttime.Time
@@ -207,10 +210,10 @@ func NewDockerTaskEngine(cfg *config.Config,
 		client:     client,
 		dataClient: data.NewNoopClient(),
 
-		state:             state,
-		managedTasks:      make(map[string]*managedTask),
-		taskStopGroup:     utilsync.NewSequentialWaitGroup(),
-		stateChangeEvents: make(chan statechange.Event),
+		state:                  state,
+		managedTasks:           make(map[string]*managedTask),
+		stateChangeEvents:      make(chan statechange.Event),
+		monitorQueuedTaskEvent: make(chan struct{}),
 
 		credentialsManager: credentialsManager,
 
@@ -236,6 +239,39 @@ func NewDockerTaskEngine(cfg *config.Config,
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
 
 	return dockerTaskEngine
+}
+
+// Reconcile state of host resource manager with task status in managedTasks Slice
+// Should be done on task restarts
+// Also done periodically as a sanity restoration in case they happen to diverge,
+// Use managedTasks as the source of truth
+func (engine *DockerTaskEngine) reconcileHostResources() {
+	logger.Info("Reconciling host resources")
+	for _, task := range engine.state.AllTasks() {
+		taskStatus := task.GetKnownStatus()
+		resources := task.ToHostResources()
+
+		// Release stopped tasks host resources
+		// Call to release here for stopped tasks should always succeed
+		// Idempotent release call
+		if taskStatus.Terminal() {
+			err := engine.hostResourceManager.release(task.Arn, resources)
+			if err != nil {
+				logger.Critical("Failed to release resources during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+			}
+			continue
+		}
+
+		// Consume host resources if task has progressed
+		// Call to consume here should always succeed
+		// Idempotent consume call
+		if taskStatus > apitaskstatus.TaskCreated {
+			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
+			if err != nil || !consumed {
+				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+			}
+		}
+	}
 }
 
 func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
@@ -280,12 +316,104 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 		return err
 	}
 	engine.synchronizeState()
+	go engine.monitorQueuedTasks()
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
 	go engine.startPeriodicExecAgentsMonitoring(derivedCtx)
 	go engine.watchAppNetImage(derivedCtx)
 	return nil
+}
+
+func (engine *DockerTaskEngine) topTask() (*managedTask, error) {
+	engine.waitingTasksLock.Lock()
+	defer engine.waitingTasksLock.Unlock()
+	if len(engine.waitingTaskQueue) > 0 {
+		return engine.waitingTaskQueue[0], nil
+	}
+	return nil, fmt.Errorf("no tasks in waiting queue")
+}
+
+func (engine *DockerTaskEngine) enqueueTask(task *managedTask) {
+	engine.waitingTasksLock.Lock()
+	defer engine.waitingTasksLock.Unlock()
+	task.engine.waitingTaskQueue = append(task.engine.waitingTaskQueue, task)
+	engine.monitorQueuedTaskEvent <- struct{}{}
+}
+
+func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
+	engine.waitingTasksLock.Lock()
+	defer engine.waitingTasksLock.Unlock()
+	if len(engine.waitingTaskQueue) > 0 {
+		task := engine.waitingTaskQueue[0]
+		engine.waitingTaskQueue = engine.waitingTaskQueue[1:]
+		return task, nil
+	}
+
+	return nil, fmt.Errorf("no tasks in waiting queue")
+}
+
+func (engine *DockerTaskEngine) monitorQueuedTasks() {
+	for {
+		// Dequeue as many tasks as possible and start wake up their goroutines
+		for {
+			task, err := engine.topTask()
+			if err != nil {
+				break
+			}
+			taskHostResources := task.ToHostResources()
+			consumed := false
+			consumable, err := engine.hostResourceManager.consumableSafe(taskHostResources)
+			if err != nil {
+				engine.failWaitingTask(err)
+			}
+			if consumable {
+				// consume resources and continue
+				consumed, err = task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+				if err != nil {
+					engine.failWaitingTask(err)
+				}
+				if consumed {
+					// dequeueTask always succeeds here because it will return 'task'
+					engine.startWaitingTask()
+				}
+			}
+
+			// If not able to consume, this means resources are available yet
+			// Block here until an event arrives
+			// Event arrives when
+			// - A stopping task stops
+			// - A new task enqueues
+			if !consumable || !consumed {
+				logger.Info("Resources not available, waiting")
+				<-engine.monitorQueuedTaskEvent
+			}
+		}
+		// Block here after waitingTaskQueue is empty
+		// Wait for more tasks to enqueue and start the inner loop again
+		logger.Info("Task queue empty, waiting")
+		<-engine.monitorQueuedTaskEvent
+	}
+}
+
+func (engine *DockerTaskEngine) failWaitingTask(err error) {
+	task, _ := engine.dequeueTask()
+	logger.Error(fmt.Sprintf("Error consuming resources due to invalid task config : %s", err.Error()), logger.Fields{field.TaskARN: task.Arn})
+	task.SetDesiredStatus(apitaskstatus.TaskStopped)
+	// If the channel is not listening/already closed, because stopped, don't block
+	select {
+	case task.consumedHostResourceEvent <- struct{}{}:
+	default:
+	}
+}
+
+func (engine *DockerTaskEngine) startWaitingTask() {
+	task, _ := engine.dequeueTask()
+	logger.Info("Host resources consumed, progressing task", logger.Fields{field.TaskARN: task.Arn})
+	select {
+	case task.consumedHostResourceEvent <- struct{}{}:
+	default:
+	}
 }
 
 func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context) {
@@ -469,6 +597,9 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		engine.saveTaskData(task)
 	}
 
+	// Before starting managedTask goroutines, pre-allocate resources for already running
+	// tasks in host resource manager
+	engine.reconcileHostResources()
 	for _, task := range tasksToStart {
 		engine.startTask(task)
 	}
@@ -493,11 +624,6 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 		}
 
 		tasksToStart = append(tasksToStart, task)
-
-		// Put tasks that are stopped by acs but hasn't been stopped in wait group
-		if task.GetDesiredStatus().Terminal() && task.GetStopSequenceNumber() != 0 {
-			engine.taskStopGroup.Add(task.GetStopSequenceNumber(), 1)
-		}
 	}
 
 	return tasksToStart
@@ -785,6 +911,13 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
+	if task.GetKnownStatus().Terminal() {
+		resourcesToRelease := task.ToHostResources()
+		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease)
+		if err != nil {
+			logger.Critical("Failed to release resources after tast stopped", logger.Fields{field.TaskARN: task.Arn})
+		}
+	}
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
@@ -2124,16 +2257,13 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *api
 	logger.Debug("Putting update on the acs channel", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.DesiredStatus: updateDesiredStatus.String(),
-		field.Sequence:      update.StopSequenceNumber,
 	})
 	managedTask.emitACSTransition(acsTransition{
 		desiredStatus: updateDesiredStatus,
-		seqnum:        update.StopSequenceNumber,
 	})
 	logger.Debug("Update taken off the acs channel", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.DesiredStatus: updateDesiredStatus.String(),
-		field.Sequence:      update.StopSequenceNumber,
 	})
 }
 
