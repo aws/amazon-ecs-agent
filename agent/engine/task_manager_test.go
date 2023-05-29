@@ -830,6 +830,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, context.Background())
 	containerChangeEventStream.StartListening()
 
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	stateChangeEvents := make(chan statechange.Event)
 
 	task := &managedTask{
@@ -843,6 +844,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 			containerChangeEventStream: containerChangeEventStream,
 			stateChangeEvents:          stateChangeEvents,
 			dataClient:                 data.NewNoopClient(),
+			hostResourceManager:        &hostResourceManager,
 		},
 		stateChangeEvents:          stateChangeEvents,
 		containerChangeEventStream: containerChangeEventStream,
@@ -963,13 +965,15 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
 	stateChangeEvents := make(chan statechange.Event)
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	task := &managedTask{
 		Task: &apitask.Task{
 			Containers:          []*apicontainer.Container{},
 			DesiredStatusUnsafe: apitaskstatus.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
-			stateChangeEvents: stateChangeEvents,
+			stateChangeEvents:   stateChangeEvents,
+			hostResourceManager: &hostResourceManager,
 		},
 		stateChangeEvents: stateChangeEvents,
 		ctx:               context.TODO(),
