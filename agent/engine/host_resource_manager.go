@@ -199,7 +199,7 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 	for resourceKey, resourceVal := range resources {
 		_, ok := h.initialHostResource[resourceKey]
 		if !ok {
-			logger.Error(fmt.Sprintf("resource %s not found in ", resourceKey))
+			logger.Error(fmt.Sprintf("resource %s not found in host resources", resourceKey))
 			return &InvalidHostResource{resourceKey}
 		}
 
@@ -266,6 +266,9 @@ func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bo
 func removeSubSlice(s1 []*string, s2 []*string) []*string {
 	begin := 0
 	end := len(s1) - 1
+	if len(s2) == 0 {
+		return s1
+	}
 	for ; begin < len(s1); begin++ {
 		if *s1[begin] == *s2[0] {
 			break
