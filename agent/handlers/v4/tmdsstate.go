@@ -15,6 +15,7 @@ package v4
 import (
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
@@ -23,11 +24,29 @@ import (
 
 // Implements AgentState interface for TMDS v4.
 type TMDSAgentState struct {
-	state dockerstate.TaskEngineState
+	state                dockerstate.TaskEngineState
+	ecsClient            api.ECSClient
+	cluster              string
+	availabilityZone     string
+	vpcID                string
+	containerInstanceARN string
 }
 
-func NewTMDSAgentState(state dockerstate.TaskEngineState) *TMDSAgentState {
-	return &TMDSAgentState{state: state}
+func NewTMDSAgentState(
+	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
+	cluster string,
+	availabilityZone string,
+	vpcID string,
+	containerInstanceARN string,
+) *TMDSAgentState {
+	return &TMDSAgentState{state: state,
+		ecsClient:            ecsClient,
+		cluster:              cluster,
+		availabilityZone:     availabilityZone,
+		vpcID:                vpcID,
+		containerInstanceARN: containerInstanceARN,
+	}
 }
 
 // Returns container metadata in v4 format for the container identified by the provided
@@ -56,4 +75,53 @@ func (s *TMDSAgentState) GetContainerMetadata(v3EndpointID string) (tmdsv4.Conta
 	}
 
 	return *containerResponse, nil
+}
+
+// Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
+func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskResponse, error) {
+	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
+	if !ok {
+		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorLookupFailure(fmt.Sprintf(
+			"unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+			v3EndpointID))
+	}
+
+	task, ok := s.state.TaskByArn(taskARN)
+	if !ok {
+		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorMetadataFetchFailure(fmt.Sprintf(
+			"Unable to generate metadata for v4 task: '%s'", taskARN))
+	}
+
+	taskResponse, err := NewTaskResponse(taskARN, s.state, s.ecsClient, s.cluster,
+		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, false)
+	if err != nil {
+		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorMetadataFetchFailure(fmt.Sprintf(
+			"Unable to generate metadata for v4 task: '%s'", taskARN))
+	}
+
+	// for non-awsvpc task mode
+	if !task.IsNetworkModeAWSVPC() {
+		// fill in non-awsvpc network details for container responses here
+		responses := make([]tmdsv4.ContainerResponse, 0)
+		for _, containerResponse := range taskResponse.Containers {
+			networks, err := GetContainerNetworkMetadata(containerResponse.ID, s.state)
+			if err != nil {
+				seelog.Warnf("Error retrieving network metadata for container %s - %s",
+					containerResponse.ID, err)
+			}
+			containerResponse.Networks = networks
+			responses = append(responses, containerResponse)
+		}
+		taskResponse.Containers = responses
+	}
+
+	pulledContainers, _ := s.state.PulledContainerMapByArn(task.Arn)
+	// Convert each pulled container into v4 container response
+	// and append pulled containers to taskResponse.Containers
+	for _, dockerContainer := range pulledContainers {
+		taskResponse.Containers = append(taskResponse.Containers,
+			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
+	}
+
+	return *taskResponse, nil
 }

@@ -37,6 +37,12 @@ func ContainerMetadataPath() string {
 	return "/v4/" + utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx)
 }
 
+func TaskMetadataPath() string {
+	return fmt.Sprintf(
+		"/v4/%s/task",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
 // ContainerMetadataHandler returns the HTTP handler function for handling container metadata requests.
 func ContainerMetadataHandler(
 	agentState state.AgentState,
@@ -85,4 +91,54 @@ func getContainerErrorResponse(endpointContainerID string, err error) (int, stri
 	logger.Error("Unknown error encountered when handling container metadata fetch failure",
 		logger.Fields{field.Error: err})
 	return http.StatusInternalServerError, "failed to get container metadata"
+}
+
+// TaskMetadataHandler returns the HTTP handler function for handling task metadata requests.
+func TaskMetadataHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
+		taskMetadata, err := agentState.GetTaskMetadata(endpointContainerID)
+		if err != nil {
+			logger.Error("Failed to get v4 task metadata", logger.Fields{
+				field.TMDSEndpointContainerID: endpointContainerID,
+				field.Error:                   err,
+			})
+
+			responseCode, responseBody := getTaskErrorResponse(endpointContainerID, err)
+			utils.WriteJSONResponse(w, responseCode, responseBody, utils.RequestTypeTaskMetadata)
+
+			if utils.Is5XXStatus(responseCode) {
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)()
+			}
+
+			return
+		}
+
+		logger.Info("Writing response for v4 task metadata", logger.Fields{
+			field.TMDSEndpointContainerID: endpointContainerID,
+			field.TaskARN:                 taskMetadata.TaskARN,
+		})
+		utils.WriteJSONResponse(w, http.StatusOK, taskMetadata, utils.RequestTypeContainerMetadata)
+	}
+}
+
+// Returns an appropriate HTTP response status code and body for the task metadata error.
+func getTaskErrorResponse(endpointContainerID string, err error) (int, string) {
+	var errContainerLookupFailed *state.ErrorLookupFailure
+	if errors.As(err, &errContainerLookupFailed) {
+		return http.StatusNotFound, fmt.Sprintf("V4 task metadata handler: %s",
+			errContainerLookupFailed.ExternalReason())
+	}
+
+	var errFailedToGetContainerMetadata *state.ErrorMetadataFetchFailure
+	if errors.As(err, &errFailedToGetContainerMetadata) {
+		return http.StatusInternalServerError, errFailedToGetContainerMetadata.ExternalReason()
+	}
+
+	logger.Error("Unknown error encountered when handling task metadata fetch failure",
+		logger.Fields{field.Error: err})
+	return http.StatusInternalServerError, "failed to get task metadata"
 }
