@@ -315,6 +315,10 @@ func (client *APIECSClient) GetHostResources() (map[string]*ecs.Resource, error)
 	}
 	resourceMap := make(map[string]*ecs.Resource)
 	for _, resource := range resources {
+		if *resource.Name == "PORTS" {
+			// Except for RCI, TCP Ports are named as PORTS_TCP in agent for Host Resources purpose
+			resource.Name = utils.Strptr("PORTS_TCP")
+		}
 		resourceMap[*resource.Name] = resource
 	}
 	return resourceMap, nil
