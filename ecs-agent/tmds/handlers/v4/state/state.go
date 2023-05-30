@@ -11,8 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//go:generate mockgen -destination=mocks/state_mock.go -copyright_file=../../../../../scripts/copyright_file . AgentState
-
 package state
 
 import "fmt"
@@ -45,7 +43,7 @@ func NewErrorMetadataFetchFailure(externalReason string) *ErrorMetadataFetchFail
 }
 
 func (e *ErrorMetadataFetchFailure) Error() string {
-	return "container lookup failed"
+	return fmt.Sprintf("container lookup failed: %s", e.externalReason)
 }
 
 func (e *ErrorMetadataFetchFailure) ExternalReason() string {
