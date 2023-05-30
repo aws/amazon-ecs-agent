@@ -11,8 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//go:generate mockgen -destination=mocks/mock_entry.go -copyright_file=../../scripts/copyright_file . EntryFactory,Entry
-
 package metrics
 
 // EntryFactory specifies the factory interface for creating new Metric Entry objects.
