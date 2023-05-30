@@ -2173,3 +2173,57 @@ func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
 		})
 	}
 }
+
+// TestTaskWaitForHostResourceOnRestart tests task stopped by acs but hasn't
+// reached stopped should block the later task to start
+func TestTaskWaitForHostResources(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// 1 vCPU available on host
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	taskEngine := &DockerTaskEngine{
+		managedTasks:           make(map[string]*managedTask),
+		monitorQueuedTaskEvent: make(chan struct{}),
+		hostResourceManager:    &hostResourceManager,
+	}
+	go taskEngine.monitorQueuedTasks(ctx)
+	// 3 tasks requesting 0.5 vCPUs each
+	tasks := []*apitask.Task{}
+	for i := 0; i < 3; i++ {
+		task := testdata.LoadTask("sleep5")
+		task.Arn = fmt.Sprintf("arn%d", i)
+		task.CPU = float64(0.5)
+		mtask := &managedTask{
+			Task:                      task,
+			engine:                    taskEngine,
+			consumedHostResourceEvent: make(chan struct{}, 1),
+		}
+		tasks = append(tasks, task)
+		taskEngine.managedTasks[task.Arn] = mtask
+	}
+
+	// acquire for host resources order arn0, arn1, arn2
+	go func() {
+		taskEngine.managedTasks["arn0"].waitForHostResources()
+		taskEngine.managedTasks["arn1"].waitForHostResources()
+		taskEngine.managedTasks["arn2"].waitForHostResources()
+	}()
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify waiting queue is waiting at arn2
+	topTask, err := taskEngine.topTask()
+	assert.NoError(t, err)
+	assert.Equal(t, topTask.Arn, "arn2")
+
+	// Remove 1 task
+	taskResources := taskEngine.managedTasks["arn0"].ToHostResources()
+	taskEngine.hostResourceManager.release("arn0", taskResources)
+	taskEngine.wakeUpTaskQueueMonitor()
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify arn2 got dequeued
+	topTask, err = taskEngine.topTask()
+	assert.Error(t, err)
+}
