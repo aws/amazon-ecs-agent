@@ -13,7 +13,7 @@
 
 package tcsclient
 
-import "github.com/aws/amazon-ecs-agent/agent/wsclient"
+import "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 const errType = "TCSError"
 
@@ -32,7 +32,7 @@ type tcsError struct{}
 // ACS. It is expected that the passed in interface{} is really a struct which
 // has a 'Message' field of type *string. In that case, the Message will be
 // conveyed as part of the Error string as well as the type. It is safe to pass
-// anything into this constructor and it will also work reasonably well with
+// anything into this constructor, and it will also work reasonably well with
 // anything fulfilling the 'error' interface.
 func (te *tcsError) NewError(err interface{}) *wsclient.WSError {
 	return &wsclient.WSError{ErrObj: err, Type: errType, WSUnretriableErrors: &UnretriableErrors{}}

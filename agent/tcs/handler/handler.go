@@ -23,13 +23,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
-	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
 )
@@ -57,7 +56,7 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 		return
 	}
 
-	err = StartSession(params, params.StatsEngine)
+	err = StartSession(params)
 	if err != nil {
 		seelog.Warnf("Error starting metrics session with backend: %v", err)
 	}
@@ -67,10 +66,10 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 // using the passed in arguments.
 // The engine is expected to be initialized and gathering container metrics by
 // the time the websocket client starts using it.
-func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
+func StartSession(params *TelemetrySessionParams) error {
 	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
-		tcsError := startTelemetrySession(params, statsEngine)
+		tcsError := startTelemetrySession(params)
 		if tcsError == nil || tcsError == io.EOF {
 			seelog.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
@@ -87,14 +86,14 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 	}
 }
 
-func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
+func startTelemetrySession(params *TelemetrySessionParams) error {
 	tcsEndpoint, err := params.ECSClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
 		seelog.Errorf("tcs: unable to discover poll endpoint: %v", err)
 		return err
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
-	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine, params.MetricsChannel,
+	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, params.MetricsChannel,
 		params.HealthChannel, defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		config.DefaultContainerMetricsPublishInterval, params.DeregisterInstanceEventStream, params.Doctor)
 }
@@ -104,7 +103,6 @@ func startSession(
 	url string,
 	cfg *config.Config,
 	credentialProvider *credentials.Credentials,
-	statsEngine stats.Engine,
 	metricsChannel <-chan ecstcs.TelemetryMessage,
 	healthChannel <-chan ecstcs.HealthMessage,
 	heartbeatTimeout, heartbeatJitter,
@@ -112,8 +110,13 @@ func startSession(
 	deregisterInstanceEventStream *eventstream.EventStream,
 	doctor *doctor.Doctor,
 ) error {
-	client := tcsclient.New(url, cfg, credentialProvider, statsEngine, metricsChannel, healthChannel,
-		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled(), doctor)
+	client := tcsclient.New(url, &wsclient.WSClientMinAgentConfig{
+		AWSRegion:          cfg.AWSRegion,
+		AcceptInsecureCert: cfg.AcceptInsecureCert,
+		DockerEndpoint:     cfg.DockerEndpoint,
+		IsDocker:           true,
+	}, doctor, cfg.DisableMetrics.Enabled(), publishMetricsInterval,
+		credentialProvider, wsRWTimeout, metricsChannel, healthChannel)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
@@ -140,7 +143,7 @@ func startSession(
 	client.SetAnyRequestHandler(anyMessageHandler(client))
 	serveC := make(chan error, 1)
 	go func() {
-		serveC <- client.Serve()
+		serveC <- client.Serve(ctx)
 	}()
 	select {
 	case <-ctx.Done():

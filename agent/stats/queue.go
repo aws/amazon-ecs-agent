@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 )

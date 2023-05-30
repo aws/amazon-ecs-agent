@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
-	mock_wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
+	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go/aws"

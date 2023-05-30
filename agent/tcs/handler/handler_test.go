@@ -34,12 +34,12 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
-	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+	wsmock "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/docker/docker/api/types"
@@ -202,7 +202,7 @@ func TestStartSession(t *testing.T) {
 	}
 
 	// Start a session with the test server.
-	go startSession(ctx, server.URL, testCfg, testCreds, mockEngine, telemetryMessages, healthMessages,
+	go startSession(ctx, server.URL, testCfg, testCreds, telemetryMessages, healthMessages,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 	// Wait for 100 ms to make sure the session is ready to receive message from channel
@@ -271,12 +271,8 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
 
 	// Start a session with the test server.
-	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{
-		metricsChannel: telemetryMessages,
-		healthChannel:  healthMessages,
-	}, telemetryMessages, healthMessages,
-		defaultHeartbeatTimeout, defaultHeartbeatJitter,
-		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
+	err = startSession(ctx, server.URL, testCfg, testCreds, telemetryMessages, healthMessages, defaultHeartbeatTimeout,
+		defaultHeartbeatJitter, testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -315,12 +311,8 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
 
 	// Start a session with the test server.
-	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{
-		metricsChannel: telemetryMessages,
-		healthChannel:  healthMessages,
-	}, telemetryMessages, healthMessages,
-		50*time.Millisecond, 100*time.Millisecond,
-		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
+	err = startSession(ctx, server.URL, testCfg, testCreds, telemetryMessages, healthMessages, 50*time.Millisecond,
+		100*time.Millisecond, testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
 	assert.NoError(t, err, "Close the connection should cause the tcs client return error")
 
@@ -337,7 +329,7 @@ func TestDiscoverEndpointAndStartSession(t *testing.T) {
 	mockEcs := mock_api.NewMockECSClient(ctrl)
 	mockEcs.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return("", errors.New("error"))
 
-	err := startTelemetrySession(&TelemetrySessionParams{ECSClient: mockEcs}, nil)
+	err := startTelemetrySession(&TelemetrySessionParams{ECSClient: mockEcs})
 	if err == nil {
 		t.Error("Expected error from startTelemetrySession when DiscoverTelemetryEndpoint returns error")
 	}

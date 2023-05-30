@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

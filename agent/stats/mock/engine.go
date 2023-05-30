@@ -23,7 +23,7 @@ import (
 	time "time"
 
 	stats "github.com/aws/amazon-ecs-agent/agent/stats"
-	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	ecstcs "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	types "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
 )
