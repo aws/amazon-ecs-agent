@@ -1,6 +1,7 @@
+//go:build armbe || mips || mips64p32
 // +build armbe mips mips64p32
 
-package internal
+package sys
 
 import (
 	"unsafe"
