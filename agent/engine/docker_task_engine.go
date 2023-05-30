@@ -242,9 +242,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 }
 
 // Reconcile state of host resource manager with task status in managedTasks Slice
-// Should be done on task restarts
-// Also done periodically as a sanity restoration in case they happen to diverge,
-// Use managedTasks as the source of truth
+// Done on agent restarts
 func (engine *DockerTaskEngine) reconcileHostResources() {
 	logger.Info("Reconciling host resources")
 	for _, task := range engine.state.AllTasks() {
@@ -325,6 +323,8 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
 
+// Does a 'best effort' try to wake up monitorQueuedTasks. Always wakes up when
+// length of queue is 1
 func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
 	select {
 	case engine.monitorQueuedTaskEvent <- struct{}{}:
@@ -369,6 +369,13 @@ func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
 	return nil, fmt.Errorf("no tasks in waiting queue")
 }
 
+// monitorQueuedTasks starts as many tasks as possible based on FIFO order of waitingTaskQueue
+// and availability of host resources. When no more tasks can be started, it will wait on
+// monitorQueuedTaskEvent channel. This channel receives (best effort) messages when
+// - a task stops
+// - a new task is queued up
+// It does not need to receive all messages, as if the routine is going through the queue, it
+// may schedule more than one task for a single 'event' received
 func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 	logger.Info("Monitoring Task Queue started")
 	for {
@@ -394,12 +401,13 @@ func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 						engine.failWaitingTask(err)
 					}
 					if consumed {
-						// dequeueTask always succeeds here because it will return 'task'
 						engine.startWaitingTask()
-					} else { // not consumed
+					} else {
+						// not consumed
 						break
 					}
-				} else { // not consumable
+				} else {
+					// not consumable
 					break
 				}
 			}
@@ -917,6 +925,8 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
 	if task.GetKnownStatus().Terminal() {
+		// Always do (idempotent) release host resources whenever state change with
+		// known status == STOPPED is done to ensure sync between tasks and host resource manager
 		resourcesToRelease := task.ToHostResources()
 		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease)
 		if err != nil {

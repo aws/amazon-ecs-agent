@@ -269,12 +269,10 @@ func (mtask *managedTask) emitCurrentStatus() {
 }
 
 // waitForHostResources waits for host resources to become available to start
-// the task. It will wait upon message on this task's consumedHostResourceEvent
+// the task. It will wait for event on this task's consumedHostResourceEvent
 // channel from monitorQueuedTasks routine to wake up
 func (mtask *managedTask) waitForHostResources() {
 	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
-		// Queue up tasks here
-		// Goroutine monitorQueuedTasks dequeues in FIFO order as resources become available
 		// Internal tasks are started right away as their resources are not accounted for
 		mtask.engine.enqueueTask(mtask)
 		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
@@ -569,6 +567,8 @@ func getContainerEventLogFields(c api.ContainerStateChange) logger.Fields {
 
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	taskKnownStatus := task.GetKnownStatus()
+	// Always do (idempotent) release host resources whenever state change with
+	// known status == STOPPED is done to ensure sync between tasks and host resource manager
 	if taskKnownStatus.Terminal() {
 		resourcesToRelease := mtask.ToHostResources()
 		err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
