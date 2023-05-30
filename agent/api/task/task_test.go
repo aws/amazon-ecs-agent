@@ -1860,10 +1860,9 @@ func TestTaskFromACS(t *testing.T) {
 				Type: "elastic-inference",
 			},
 		},
-		StartSequenceNumber: 42,
-		CPU:                 2.0,
-		Memory:              512,
-		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+		CPU:                2.0,
+		Memory:             512,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 	}
 
 	seqNum := int64(42)
