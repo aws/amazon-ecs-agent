@@ -463,7 +463,7 @@ func v4ContainerResponseFromV2(
 	}
 }
 
-// Returns a standard v4 task response. This getter fucntion protects against tests mutating
+// Returns a standard v4 task response. This getter function protects against tests mutating
 // the response.
 func expectedV4TaskResponse() v4.TaskResponse {
 	return v4TaskResponseFromV2(
