@@ -480,7 +480,7 @@ func (engine *DockerStatsEngine) publishMetrics(includeServiceConnectStats bool)
 		}
 		select {
 		case engine.metricsChannel <- metricsMessage:
-			seelog.Debugf("sent telemetry message: %v", metricsMessage)
+			seelog.Debugf("sent telemetry message")
 		case <-publishMetricsCtx.Done():
 			seelog.Errorf("timeout sending telemetry message, discarding metrics")
 		}
@@ -500,7 +500,7 @@ func (engine *DockerStatsEngine) publishHealth() {
 		}
 		select {
 		case engine.healthChannel <- healthMessage:
-			seelog.Debugf("sent health message: %v", healthMessage)
+			seelog.Debugf("sent health message")
 		case <-publishHealthCtx.Done():
 			seelog.Errorf("timeout sending health message, discarding metrics")
 		}
