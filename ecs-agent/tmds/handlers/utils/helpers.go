@@ -14,6 +14,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -67,6 +68,22 @@ type ErrorMessage struct {
 	Code          string `json:"code"`
 	Message       string `json:"message"`
 	HTTPErrorCode int
+}
+
+// Marshals the provided response to JSON and writes it to the ResponseWriter with the provided
+// status code and application/json Content-Type header.
+// Writes an empty JSON '{}' response if JSON marshaling fails and logs the error.
+func WriteJSONResponse(
+	w http.ResponseWriter,
+	httpStatusCode int,
+	response interface{},
+	requestType string,
+) {
+	responseJSON, err := json.Marshal(response)
+	if e := WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
+	WriteJSONToResponse(w, httpStatusCode, responseJSON, requestType)
 }
 
 // WriteJSONToResponse writes the header, JSON response to a ResponseWriter, and
@@ -132,4 +149,8 @@ func LimitReachedHandler(auditLogger audit.AuditLogger) func(http.ResponseWriter
 		}
 		auditLogger.Log(logRequest, http.StatusTooManyRequests, "")
 	}
+}
+
+func Is5XXStatus(statusCode int) bool {
+	return 500 <= statusCode && statusCode <= 599
 }

@@ -18,6 +18,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,6 +85,32 @@ func TestWriteJSONToResponse(t *testing.T) {
 	assert.Equal(t, `"Unable to get task arn from request"`, bodyString)
 }
 
+// Tests that WriteJSONResponse marshals the provided response to JSON and writes it to
+// the response writer.
+func TestWriteJSONResponse(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	res := response.PortResponse{ContainerPort: 8080, Protocol: "TCP", HostPort: 80, HostIp: "IP"}
+	WriteJSONResponse(recorder, http.StatusOK, res, RequestTypeTaskMetadata)
+
+	var actualResponse response.PortResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &actualResponse)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, res, actualResponse)
+}
+
+// Tests that an empty JSON response is written by WriteJSONResponse if the provided response
+// is not convertible to JSON.
+func TestWriteJSONResponseError(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	res := func(k string) string { return k }
+	WriteJSONResponse(recorder, http.StatusOK, res, RequestTypeTaskMetadata)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	assert.Equal(t, "{}", recorder.Body.String())
+}
+
 func TestValueFromRequest(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/v1/credentials?id=credid", nil)
 	val, ok := ValueFromRequest(r, "id")
@@ -107,4 +135,20 @@ func TestLimitReachHandler(t *testing.T) {
 	handler := http.HandlerFunc(LimitReachedHandler(auditLogger))
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
+}
+
+func TestIs5XXStatus(t *testing.T) {
+	yes := []int{500, 501, 550, http.StatusInternalServerError, http.StatusServiceUnavailable, 580, 599}
+	for _, y := range yes {
+		t.Run(fmt.Sprintf("yes %d", y), func(t *testing.T) {
+			assert.True(t, Is5XXStatus(y))
+		})
+	}
+
+	no := []int{http.StatusTooEarly, http.StatusBadRequest, http.StatusTooManyRequests, 400, 450, 600, 200, 301}
+	for _, n := range no {
+		t.Run(fmt.Sprintf("no %d", n), func(t *testing.T) {
+			assert.False(t, Is5XXStatus(n))
+		})
+	}
 }
