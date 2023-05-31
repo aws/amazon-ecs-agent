@@ -213,7 +213,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		state:                  state,
 		managedTasks:           make(map[string]*managedTask),
 		stateChangeEvents:      make(chan statechange.Event),
-		monitorQueuedTaskEvent: make(chan struct{}),
+		monitorQueuedTaskEvent: make(chan struct{}, 1),
 
 		credentialsManager: credentialsManager,
 
@@ -263,7 +263,7 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 		// Consume host resources if task has progressed
 		// Call to consume here should always succeed
 		// Idempotent consume call
-		if !task.IsInternal && taskStatus > apitaskstatus.TaskCreated {
+		if !task.IsInternal && (taskStatus == apitaskstatus.TaskCreated || taskStatus == apitaskstatus.TaskPulled) {
 			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
 			if err != nil || !consumed {
 				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
@@ -323,19 +323,13 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
 
-// Does a 'best effort' try to wake up monitorQueuedTasks. Always wakes up when
-// length of queue is 1
+// Always wakes up when at least one event arrives on buffered channel monitorQueuedTaskEvent
+// but does not block if monitorQueuedTasks is already processing queued tasks
 func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
 	select {
 	case engine.monitorQueuedTaskEvent <- struct{}{}:
 	default:
-		waitingTaskQueueSingleLen := false
-		engine.waitingTasksLock.Lock()
-		waitingTaskQueueSingleLen = len(engine.waitingTaskQueue) == 1
-		engine.waitingTasksLock.Unlock()
-		if waitingTaskQueueSingleLen {
-			engine.monitorQueuedTaskEvent <- struct{}{}
-		}
+		// do nothing
 	}
 }
 
@@ -390,28 +384,18 @@ func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 					break
 				}
 				taskHostResources := task.ToHostResources()
-				consumed := false
-				consumable, err := engine.hostResourceManager.consumableSafe(taskHostResources)
+				consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
 				if err != nil {
 					engine.failWaitingTask(err)
-				} else if consumable {
-					// consume resources and continue
-					consumed, err = task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
-					if err != nil {
-						engine.failWaitingTask(err)
-					}
-					if consumed {
-						engine.startWaitingTask()
-					} else {
-						// not consumed
-						break
-					}
+				}
+				if consumed {
+					engine.startWaitingTask()
 				} else {
-					// not consumable
+					// not consumed, go to wait
 					break
 				}
 			}
-			logger.Debug("No more tasks in Waiting Task Queue, waiting for new tasks")
+			logger.Debug("No more tasks could be started at this moment, waiting")
 		}
 	}
 }
@@ -930,7 +914,7 @@ func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string)
 		resourcesToRelease := task.ToHostResources()
 		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease)
 		if err != nil {
-			logger.Critical("Failed to release resources after tast stopped", logger.Fields{field.TaskARN: task.Arn})
+			logger.Critical("Failed to release resources after test stopped", logger.Fields{field.TaskARN: task.Arn})
 		}
 	}
 	event, err := api.NewTaskStateChangeEvent(task, reason)

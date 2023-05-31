@@ -2174,8 +2174,7 @@ func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
 	}
 }
 
-// TestTaskWaitForHostResourceOnRestart tests task stopped by acs but hasn't
-// reached stopped should block the later task to start
+// TestTaskWaitForHostResources tests task queuing behavior based on available host resources
 func TestTaskWaitForHostResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -2184,7 +2183,7 @@ func TestTaskWaitForHostResources(t *testing.T) {
 	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	taskEngine := &DockerTaskEngine{
 		managedTasks:           make(map[string]*managedTask),
-		monitorQueuedTaskEvent: make(chan struct{}),
+		monitorQueuedTaskEvent: make(chan struct{}, 1),
 		hostResourceManager:    &hostResourceManager,
 	}
 	go taskEngine.monitorQueuedTasks(ctx)

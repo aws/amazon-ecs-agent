@@ -225,7 +225,7 @@ func skipIntegTestIfApplicable(t *testing.T) {
 	}
 }
 
-// Values in host resources from getTestHoustResources() should be looked at and CPU/Memory assigned
+// Values in host resources from getTestHostResources() should be looked at and CPU/Memory assigned
 // accordingly
 func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
 	return &apicontainer.Container{
