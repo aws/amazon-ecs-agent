@@ -3611,3 +3611,13 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 	})
 	return resources
 }
+
+func (task *Task) HasActiveContainers() bool {
+	for _, container := range task.Containers {
+		containerStatus := container.GetKnownStatus()
+		if containerStatus >= apicontainerstatus.ContainerPulled && containerStatus <= apicontainerstatus.ContainerResourcesProvisioned {
+			return true
+		}
+	}
+	return false
+}

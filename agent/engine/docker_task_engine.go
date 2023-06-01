@@ -260,10 +260,10 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 			continue
 		}
 
-		// Consume host resources if task has progressed
+		// Consume host resources if task has progressed (check if any container has progressed)
 		// Call to consume here should always succeed
 		// Idempotent consume call
-		if !task.IsInternal && (taskStatus == apitaskstatus.TaskCreated || taskStatus == apitaskstatus.TaskPulled) {
+		if !task.IsInternal && task.HasActiveContainers() {
 			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
 			if err != nil || !consumed {
 				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
