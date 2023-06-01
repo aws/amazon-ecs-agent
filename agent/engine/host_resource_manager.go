@@ -19,14 +19,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 )
-
-// TODO remove this once resource, consume are used
-//lint:file-ignore U1000 Ignore all unused code
 
 const (
 	CPU      = "CPU"
@@ -90,6 +87,13 @@ func (h *HostResourceManager) consumeStringSetType(resourceType string, resource
 	if ok {
 		h.consumedResource[resourceType].StringSetValue = append(h.consumedResource[resourceType].StringSetValue, resource.StringSetValue...)
 	}
+}
+
+func (h *HostResourceManager) checkTaskConsumed(taskArn string) bool {
+	h.hostResourceManagerRWLock.Lock()
+	defer h.hostResourceManagerRWLock.Unlock()
+	_, ok := h.taskConsumed[taskArn]
+	return ok
 }
 
 // Returns if resources consumed or not and error status
@@ -195,7 +199,7 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 	for resourceKey, resourceVal := range resources {
 		_, ok := h.initialHostResource[resourceKey]
 		if !ok {
-			logger.Error(fmt.Sprintf("resource %s not found in ", resourceKey))
+			logger.Error(fmt.Sprintf("resource %s not found in host resources", resourceKey))
 			return &InvalidHostResource{resourceKey}
 		}
 
@@ -256,6 +260,9 @@ func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bo
 func removeSubSlice(s1 []*string, s2 []*string) []*string {
 	begin := 0
 	end := len(s1) - 1
+	if len(s2) == 0 {
+		return s1
+	}
 	for ; begin < len(s1); begin++ {
 		if *s1[begin] == *s2[0] {
 			break

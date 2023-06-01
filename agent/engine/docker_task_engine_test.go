@@ -569,7 +569,6 @@ func TestStopWithPendingStops(t *testing.T) {
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 
 	sleepTask1 := testdata.LoadTask("sleep5")
-	sleepTask1.StartSequenceNumber = 5
 	sleepTask2 := testdata.LoadTask("sleep5")
 	sleepTask2.Arn = "arn2"
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
@@ -597,13 +596,11 @@ func TestStopWithPendingStops(t *testing.T) {
 	stopSleep2 := testdata.LoadTask("sleep5")
 	stopSleep2.Arn = "arn2"
 	stopSleep2.SetDesiredStatus(apitaskstatus.TaskStopped)
-	stopSleep2.StopSequenceNumber = 4
 	taskEngine.AddTask(stopSleep2)
 
 	taskEngine.AddTask(sleepTask1)
 	stopSleep1 := testdata.LoadTask("sleep5")
 	stopSleep1.SetDesiredStatus(apitaskstatus.TaskStopped)
-	stopSleep1.StopSequenceNumber = 5
 	taskEngine.AddTask(stopSleep1)
 	pullDone <- true
 	// this means the PullImage is only called once due to the task is stopped before it
@@ -1642,11 +1639,11 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 // agent starts, container created, metadata file created, agent restarted, container recovered
 // during task engine init, metadata file updated
 func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
-	conf := &defaultConfig
+	conf := defaultConfig
 	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, serviceConnectManager := mocks(t, ctx, conf)
+	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager, serviceConnectManager := mocks(t, ctx, &conf)
 	defer ctrl.Finish()
 
 	var metadataUpdateWG sync.WaitGroup
@@ -1870,81 +1867,6 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	dockerTaskEngine.synchronizeState()
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
 	assert.True(t, ok, "task wasnot started")
-}
-
-// TestTaskWaitForHostResourceOnRestart tests task stopped by acs but hasn't
-// reached stopped should block the later task to start
-func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
-	// Task 1 stopped by backend
-	taskStoppedByACS := testdata.LoadTask("sleep5")
-	taskStoppedByACS.SetDesiredStatus(apitaskstatus.TaskStopped)
-	taskStoppedByACS.SetStopSequenceNumber(1)
-	taskStoppedByACS.SetKnownStatus(apitaskstatus.TaskRunning)
-	// Task 2 has essential container stopped
-	taskEssentialContainerStopped := testdata.LoadTask("sleep5")
-	taskEssentialContainerStopped.Arn = "task_Essential_Container_Stopped"
-	taskEssentialContainerStopped.SetDesiredStatus(apitaskstatus.TaskStopped)
-	taskEssentialContainerStopped.SetKnownStatus(apitaskstatus.TaskRunning)
-	// Normal task 3 needs to be started
-	taskNotStarted := testdata.LoadTask("sleep5")
-	taskNotStarted.Arn = "task_Not_started"
-
-	conf := &defaultConfig
-	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, conf)
-	defer ctrl.Finish()
-
-	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
-	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
-	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
-
-	err := privateTaskEngine.Init(ctx)
-	assert.NoError(t, err)
-
-	taskEngine := privateTaskEngine.(*DockerTaskEngine)
-	taskEngine.State().AddTask(taskStoppedByACS)
-	taskEngine.State().AddTask(taskNotStarted)
-	taskEngine.State().AddTask(taskEssentialContainerStopped)
-
-	taskEngine.State().AddContainer(&apicontainer.DockerContainer{
-		Container:  taskStoppedByACS.Containers[0],
-		DockerID:   containerID + "1",
-		DockerName: dockerContainerName + "1",
-	}, taskStoppedByACS)
-	taskEngine.State().AddContainer(&apicontainer.DockerContainer{
-		Container:  taskNotStarted.Containers[0],
-		DockerID:   containerID + "2",
-		DockerName: dockerContainerName + "2",
-	}, taskNotStarted)
-	taskEngine.State().AddContainer(&apicontainer.DockerContainer{
-		Container:  taskEssentialContainerStopped.Containers[0],
-		DockerID:   containerID + "3",
-		DockerName: dockerContainerName + "3",
-	}, taskEssentialContainerStopped)
-
-	// these are performed in synchronizeState on restart
-	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).Return(apicontainerstatus.ContainerRunning, dockerapi.DockerContainerMetadata{
-		DockerID: containerID,
-	}).Times(3)
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
-	// start the two tasks
-	taskEngine.synchronizeState()
-
-	var waitStopWG sync.WaitGroup
-	waitStopWG.Add(1)
-	go func() {
-		// This is to confirm the other task is waiting
-		time.Sleep(1 * time.Second)
-		// Remove the task sequence number 1 from waitgroup
-		taskEngine.taskStopGroup.Done(1)
-		waitStopWG.Done()
-	}()
-
-	// task with sequence number 2 should wait until 1 is removed from the waitgroup
-	taskEngine.taskStopGroup.Wait(2)
-	waitStopWG.Wait()
 }
 
 // TestPullStartedStoppedAtWasSetCorrectly tests the PullStartedAt and PullStoppedAt
