@@ -171,12 +171,13 @@ github.com/sirupsen/logrus
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.0.0-20170529214944-3da985ce5951
-## explicit
+# golang.org/x/net v0.8.0
+## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
+golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+# golang.org/x/sys v0.6.0
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
@@ -190,5 +191,4 @@ gopkg.in/yaml.v3
 # gotest.tools/v3 v3.3.0
 ## explicit; go 1.13
 # github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
-# golang.org/x/net => golang.org/x/net v0.0.0-20170529214944-3da985ce5951
 # github.com/jmespath/go-jmespath => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
