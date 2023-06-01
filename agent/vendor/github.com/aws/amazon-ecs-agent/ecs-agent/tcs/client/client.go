@@ -30,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -100,7 +101,7 @@ func New(url string,
 // AddRequestHandler). All request handlers should be added prior to making this
 // call as unhandled requests will be discarded.
 func (cs *tcsClientServer) Serve(ctx context.Context) error {
-	seelog.Debug("TCS client starting websocket poll loop")
+	logger.Debug("TCS client starting websocket poll loop")
 	if !cs.IsReady() {
 		return fmt.Errorf("tcs client: websocket not ready for connections")
 	}
@@ -124,7 +125,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case metric := <-cs.metrics:
-			seelog.Debugf("received telemetry message in metricsChannel")
+			logger.Debug("received telemetry message in metricsChannel")
 			err := cs.publishMetricsOnce(metric)
 			if err != nil {
 				logger.Warn("Error publishing metrics", logger.Fields{
@@ -132,10 +133,12 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 				})
 			}
 		case health := <-cs.health:
-			seelog.Debugf("received health message in healthChannel")
+			logger.Debug("received health message in healthChannel")
 			err := cs.publishHealthOnce(health)
 			if err != nil {
-				seelog.Warnf("Error publishing metrics: %v", err)
+				logger.Warn("Error publishing metrics", logger.Fields{
+					field.Error: err,
+				})
 			}
 		}
 	}
@@ -151,7 +154,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		seelog.Debugf("making publish metrics request")
+		logger.Debug("making publish metrics request")
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
@@ -169,7 +172,7 @@ func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error 
 	}
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		seelog.Debugf("making publish health metrics request")
+		logger.Debug("making publish health metrics request")
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
@@ -283,7 +286,7 @@ func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMes
 	metadata, taskHealthMetrics := health.Metadata, health.HealthMetrics
 
 	if metadata == nil || taskHealthMetrics == nil {
-		seelog.Debug("No container health metrics to report")
+		logger.Debug("No container health metrics to report")
 		return nil, nil
 	}
 
@@ -377,7 +380,7 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 	// handles, pertain to the health of the tasks that are running on this
 	// container instance.
 	if cs.pullInstanceStatusTicker == nil {
-		seelog.Debug("Skipping publishing container instance statuses. Publish ticker is uninitialized")
+		logger.Debug("Skipping publishing container instance statuses. Publish ticker is uninitialized")
 		return
 	}
 
@@ -387,12 +390,14 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 			if !cs.doctor.HasStatusBeenReported() {
 				err := cs.publishInstanceStatusOnce()
 				if err != nil {
-					seelog.Warnf("Unable to publish instance status: %v", err)
+					logger.Warn("Unable to publish instance status", logger.Fields{
+						field.Error: err,
+					})
 				} else {
 					cs.doctor.SetStatusReported(true)
 				}
 			} else {
-				seelog.Debug("Skipping publishing container instance status message that was already sent")
+				logger.Debug("Skipping publishing container instance status message that was already sent")
 			}
 		case <-ctx.Done():
 			return

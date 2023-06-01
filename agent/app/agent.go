@@ -20,36 +20,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
-	dockerdoctor "github.com/aws/amazon-ecs-agent/agent/doctor" // for Docker specific container instance health checks
-	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
-
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	dockerdoctor "github.com/aws/amazon-ecs-agent/agent/doctor" // for Docker specific container instance health checks
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
+	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -63,12 +56,17 @@ import (
 	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
+
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -866,6 +864,13 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(agent.ctx, taskEngine, client, taskHandler, attachmentEventHandler)
 
+	err := statsEngine.MustInit(agent.ctx, taskEngine, agent.cfg.Cluster, agent.containerInstanceARN)
+	if err != nil {
+		seelog.Warnf("Error initializing metrics engine: %v", err)
+		return
+	}
+	go statsEngine.StartMetricsPublish()
+
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		Ctx:                           agent.ctx,
 		CredentialProvider:            agent.credentialProvider,
@@ -879,14 +884,6 @@ func (agent *ecsAgent) startAsyncRoutines(
 		HealthChannel:                 healthMessages,
 		Doctor:                        doctor,
 	}
-
-	err := statsEngine.MustInit(agent.ctx, taskEngine, agent.cfg.Cluster, agent.containerInstanceARN)
-	if err != nil {
-		seelog.Warnf("Error initializing metrics engine: %v", err)
-		return
-	}
-	go statsEngine.StartMetricsPublish()
-
 	// Start metrics session in a go routine
 	go tcshandler.StartMetricsSession(&telemetrySessionParams)
 }
