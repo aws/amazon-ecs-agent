@@ -11,8 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package handler deals with appropriately reacting to all ACS messages as well
-// as maintaining the connection to ACS.
 package eventstream
 
 import (

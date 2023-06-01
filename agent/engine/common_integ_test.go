@@ -37,12 +37,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	log "github.com/cihub/seelog"
 	"github.com/stretchr/testify/assert"
 )
