@@ -27,7 +27,7 @@ import (
 )
 
 func parseGMSACapability() BooleanDefaultFalse {
-	envStatus := utils.ParseBool(os.Getenv(envGmsaEcsSupport), true)
+	envStatus := utils.ParseBool(os.Getenv(envGmsaEcsSupport), false)
 	if envStatus {
 		// Check if domain join check override is present
 		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
