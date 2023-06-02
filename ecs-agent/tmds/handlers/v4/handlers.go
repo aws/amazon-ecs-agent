@@ -121,7 +121,7 @@ func TaskMetadataHandler(
 			field.TMDSEndpointContainerID: endpointContainerID,
 			field.TaskARN:                 taskMetadata.TaskARN,
 		})
-		utils.WriteJSONResponse(w, http.StatusOK, taskMetadata, utils.RequestTypeContainerMetadata)
+		utils.WriteJSONResponse(w, http.StatusOK, taskMetadata, utils.RequestTypeTaskMetadata)
 	}
 }
 
@@ -138,7 +138,8 @@ func getTaskErrorResponse(endpointContainerID string, err error) (int, string) {
 		return http.StatusInternalServerError, errFailedToGetContainerMetadata.ExternalReason()
 	}
 
-	logger.Error("Unknown error encountered when handling task metadata fetch failure",
-		logger.Fields{field.Error: err})
+	logger.Error("Unknown error encountered when handling task metadata fetch failure", logger.Fields{
+		field.Error: err,
+	})
 	return http.StatusInternalServerError, "failed to get task metadata"
 }

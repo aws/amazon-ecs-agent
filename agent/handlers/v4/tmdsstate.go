@@ -17,9 +17,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
-
-	"github.com/cihub/seelog"
 )
 
 // Implements AgentState interface for TMDS v4.
@@ -62,7 +62,10 @@ func (s *TMDSAgentState) GetContainerMetadata(v3EndpointID string) (tmdsv4.Conta
 
 	containerResponse, err := NewContainerResponse(containerID, s.state)
 	if err != nil {
-		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
+		logger.Error("Failed to get container metadata", logger.Fields{
+			field.Container: containerID,
+			field.Error:     err,
+		})
 		return tmdsv4.ContainerResponse{}, tmdsv4.NewErrorMetadataFetchFailure(fmt.Sprintf(
 			"unable to generate metadata for container '%s'", containerID))
 	}
@@ -95,6 +98,10 @@ func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskRespon
 	taskResponse, err := NewTaskResponse(taskARN, s.state, s.ecsClient, s.cluster,
 		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, false)
 	if err != nil {
+		logger.Error("Failed to get task metadata", logger.Fields{
+			field.TaskARN: taskARN,
+			field.Error:   err,
+		})
 		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorMetadataFetchFailure(fmt.Sprintf(
 			"Unable to generate metadata for v4 task: '%s'", taskARN))
 	}
@@ -106,8 +113,10 @@ func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskRespon
 		for _, containerResponse := range taskResponse.Containers {
 			networks, err := GetContainerNetworkMetadata(containerResponse.ID, s.state)
 			if err != nil {
-				seelog.Warnf("Error retrieving network metadata for container %s - %s",
-					containerResponse.ID, err)
+				logger.Warn("Error retrieving network metadata", logger.Fields{
+					field.Container: containerResponse.ID,
+					field.Error:     err,
+				})
 			}
 			containerResponse.Networks = networks
 			responses = append(responses, containerResponse)
