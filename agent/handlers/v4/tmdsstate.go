@@ -92,6 +92,7 @@ func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskRespon
 
 	task, ok := s.state.TaskByArn(taskARN)
 	if !ok {
+		logger.Error("Task not found in state", logger.Fields{field.TaskARN: taskARN})
 		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorMetadataFetchFailure(fmt.Sprintf(
 			"Unable to generate metadata for v4 task: '%s'", taskARN))
 	}
