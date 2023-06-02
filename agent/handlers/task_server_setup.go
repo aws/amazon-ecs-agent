@@ -139,8 +139,7 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	vpcID string,
 	containerInstanceArn string,
 ) {
-	tmdsAgentState := v4.NewTMDSAgentState(state, ecsClient, cluster, availabilityZone,
-		vpcID, containerInstanceArn)
+	tmdsAgentState := v4.NewTMDSAgentState(state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
 	metricsFactory := metrics.NewNopEntryFactory()
 	muxRouter.HandleFunc(tmdsv4.ContainerMetadataPath(), tmdsv4.ContainerMetadataHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(tmdsv4.TaskMetadataPath(), tmdsv4.TaskMetadataHandler(tmdsAgentState, metricsFactory))

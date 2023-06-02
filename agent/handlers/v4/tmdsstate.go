@@ -40,7 +40,8 @@ func NewTMDSAgentState(
 	vpcID string,
 	containerInstanceARN string,
 ) *TMDSAgentState {
-	return &TMDSAgentState{state: state,
+	return &TMDSAgentState{
+		state:                state,
 		ecsClient:            ecsClient,
 		cluster:              cluster,
 		availabilityZone:     availabilityZone,
