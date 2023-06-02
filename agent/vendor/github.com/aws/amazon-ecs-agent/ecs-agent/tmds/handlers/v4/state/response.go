@@ -28,11 +28,11 @@ const (
 // with the v2 task response object.
 type TaskResponse struct {
 	*v2.TaskResponse
-	Containers              []ContainerResponse     `json:"Containers,omitempty"`
-	VPCID                   string                  `json:"VPCID,omitempty"`
-	ServiceName             string                  `json:"ServiceName,omitempty"`
-	ClockDrift              ClockDrift              `json:"ClockDrift,omitempty"`
-	EphemeralStorageMetrics EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
+	Containers              []ContainerResponse      `json:"Containers,omitempty"`
+	VPCID                   string                   `json:"VPCID,omitempty"`
+	ServiceName             string                   `json:"ServiceName,omitempty"`
+	ClockDrift              *ClockDrift              `json:"ClockDrift,omitempty"`
+	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
 }
 
 // Instance's clock drift status
