@@ -128,6 +128,14 @@ var (
 		},
 		Containers: []state.ContainerResponse{containerResponse},
 		VPCID:      vpcID,
+		ClockDrift: state.ClockDrift{
+			ClockErrorBound:            1234,
+			ClockSynchronizationStatus: state.ClockStatusSynchronized,
+		},
+		EphemeralStorageMetrics: state.EphemeralStorageMetrics{
+			UtilizedMiBs: 500,
+			ReservedMiBs: 600,
+		},
 	}
 )
 

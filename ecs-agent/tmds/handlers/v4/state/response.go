@@ -13,17 +13,40 @@
 package state
 
 import (
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
+)
+
+const (
+	ClockStatusSynchronized    = "SYNCHRONIZED"
+	ClockStatusNotSynchronized = "NOT_SYNCHRONIZED"
 )
 
 // TaskResponse is the v4 Task response. It augments the v4 Container response
 // with the v2 task response object.
 type TaskResponse struct {
 	*v2.TaskResponse
-	Containers  []ContainerResponse `json:"Containers,omitempty"`
-	VPCID       string              `json:"VPCID,omitempty"`
-	ServiceName string              `json:"ServiceName,omitempty"`
+	Containers              []ContainerResponse     `json:"Containers,omitempty"`
+	VPCID                   string                  `json:"VPCID,omitempty"`
+	ServiceName             string                  `json:"ServiceName,omitempty"`
+	ClockDrift              ClockDrift              `json:"ClockDrift,omitempty"`
+	EphemeralStorageMetrics EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
+}
+
+// Instance's clock drift status
+type ClockDrift struct {
+	ClockErrorBound            float64    `json:"ClockErrorBound,omitempty"`
+	ReferenceTimestamp         *time.Time `json:"ReferenceTimestamp,omitempty"`
+	ClockSynchronizationStatus string     `json:"ClockSynchronizationStatus,omitempty"`
+}
+
+// EphemeralStorageMetrics struct that is specific to the TMDS response. This struct will show customers the
+// disk utilization and reservation metrics in MiBs to match the units used in other fields in TMDS.
+type EphemeralStorageMetrics struct {
+	UtilizedMiBs int64 `json:"Utilized"`
+	ReservedMiBs int64 `json:"Reserved"`
 }
 
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
