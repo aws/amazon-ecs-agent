@@ -28,9 +28,13 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	go.etcd.io/bbolt v1.3.5
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.6.0
 	golang.org/x/tools v0.6.0
+<<<<<<< HEAD
 	google.golang.org/grpc v1.53.0
+=======
+	google.golang.org/grpc v1.52.0
+>>>>>>> 5894643dd (Removed updated version on dependencies in go.mod for agent and ecs-agent)
 	google.golang.org/protobuf v1.28.1
 )
 
@@ -38,7 +42,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Microsoft/hcsshim v0.8.25 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cilium/ebpf v0.6.2 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
@@ -47,7 +51,7 @@ require (
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
