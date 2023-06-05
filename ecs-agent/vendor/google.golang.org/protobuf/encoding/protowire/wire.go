@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package protowire parses and formats the raw wire encoding.
-// See https://protobuf.dev/programming-guides/encoding.
+// See https://developers.google.com/protocol-buffers/docs/encoding.
 //
 // For marshaling and unmarshaling entire protobuf messages,
 // use the "google.golang.org/protobuf/proto" package instead.
@@ -21,16 +21,19 @@ import (
 type Number int32
 
 const (
-	MinValidNumber        Number = 1
-	FirstReservedNumber   Number = 19000
-	LastReservedNumber    Number = 19999
-	MaxValidNumber        Number = 1<<29 - 1
-	DefaultRecursionLimit        = 10000
+	MinValidNumber      Number = 1
+	FirstReservedNumber Number = 19000
+	LastReservedNumber  Number = 19999
+	MaxValidNumber      Number = 1<<29 - 1
 )
 
 // IsValid reports whether the field number is semantically valid.
+//
+// Note that while numbers within the reserved range are semantically invalid,
+// they are syntactically valid in the wire format.
+// Implementations may treat records with reserved field numbers as unknown.
 func (n Number) IsValid() bool {
-	return MinValidNumber <= n && n <= MaxValidNumber
+	return MinValidNumber <= n && n < FirstReservedNumber || LastReservedNumber < n && n <= MaxValidNumber
 }
 
 // Type represents the wire type.
@@ -52,7 +55,6 @@ const (
 	errCodeOverflow
 	errCodeReserved
 	errCodeEndGroup
-	errCodeRecursionDepth
 )
 
 var (
@@ -110,10 +112,6 @@ func ConsumeField(b []byte) (Number, Type, int) {
 // When parsing a group, the length includes the end group marker and
 // the end group is verified to match the starting field number.
 func ConsumeFieldValue(num Number, typ Type, b []byte) (n int) {
-	return consumeFieldValueD(num, typ, b, DefaultRecursionLimit)
-}
-
-func consumeFieldValueD(num Number, typ Type, b []byte, depth int) (n int) {
 	switch typ {
 	case VarintType:
 		_, n = ConsumeVarint(b)
@@ -128,9 +126,6 @@ func consumeFieldValueD(num Number, typ Type, b []byte, depth int) (n int) {
 		_, n = ConsumeBytes(b)
 		return n
 	case StartGroupType:
-		if depth < 0 {
-			return errCodeRecursionDepth
-		}
 		n0 := len(b)
 		for {
 			num2, typ2, n := ConsumeTag(b)
@@ -145,7 +140,7 @@ func consumeFieldValueD(num Number, typ Type, b []byte, depth int) (n int) {
 				return n0 - len(b)
 			}
 
-			n = consumeFieldValueD(num2, typ2, b, depth-1)
+			n = ConsumeFieldValue(num2, typ2, b)
 			if n < 0 {
 				return n // forward error code
 			}
@@ -512,7 +507,6 @@ func EncodeTag(num Number, typ Type) uint64 {
 }
 
 // DecodeZigZag decodes a zig-zag-encoded uint64 as an int64.
-//
 //	Input:  {…,  5,  3,  1,  0,  2,  4,  6, …}
 //	Output: {…, -3, -2, -1,  0, +1, +2, +3, …}
 func DecodeZigZag(x uint64) int64 {
@@ -520,7 +514,6 @@ func DecodeZigZag(x uint64) int64 {
 }
 
 // EncodeZigZag encodes an int64 as a zig-zag-encoded uint64.
-//
 //	Input:  {…, -3, -2, -1,  0, +1, +2, +3, …}
 //	Output: {…,  5,  3,  1,  0,  2,  4,  6, …}
 func EncodeZigZag(x int64) uint64 {
@@ -528,7 +521,6 @@ func EncodeZigZag(x int64) uint64 {
 }
 
 // DecodeBool decodes a uint64 as a bool.
-//
 //	Input:  {    0,    1,    2, …}
 //	Output: {false, true, true, …}
 func DecodeBool(x uint64) bool {
@@ -536,7 +528,6 @@ func DecodeBool(x uint64) bool {
 }
 
 // EncodeBool encodes a bool as a uint64.
-//
 //	Input:  {false, true}
 //	Output: {    0,    1}
 func EncodeBool(x bool) uint64 {

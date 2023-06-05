@@ -3,16 +3,14 @@
 // license that can be found in the LICENSE file.
 
 // Package filedesc provides functionality for constructing descriptors.
-//
-// The types in this package implement interfaces in the protoreflect package
-// related to protobuf descripriptors.
 package filedesc
 
 import (
 	"google.golang.org/protobuf/encoding/protowire"
-	"google.golang.org/protobuf/internal/genid"
+	"google.golang.org/protobuf/internal/fieldnum"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
+	pref "google.golang.org/protobuf/reflect/protoreflect"
+	preg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // Builder construct a protoreflect.FileDescriptor from the raw descriptor.
@@ -37,7 +35,7 @@ type Builder struct {
 	// TypeResolver resolves extension field types for descriptor options.
 	// If nil, it uses protoregistry.GlobalTypes.
 	TypeResolver interface {
-		protoregistry.ExtensionTypeResolver
+		preg.ExtensionTypeResolver
 	}
 
 	// FileRegistry is use to lookup file, enum, and message dependencies.
@@ -45,8 +43,8 @@ type Builder struct {
 	// If nil, it uses protoregistry.GlobalFiles.
 	FileRegistry interface {
 		FindFileByPath(string) (protoreflect.FileDescriptor, error)
-		FindDescriptorByName(protoreflect.FullName) (protoreflect.Descriptor, error)
-		RegisterFile(protoreflect.FileDescriptor) error
+		FindDescriptorByName(pref.FullName) (pref.Descriptor, error)
+		RegisterFile(pref.FileDescriptor) error
 	}
 }
 
@@ -54,8 +52,8 @@ type Builder struct {
 // If so, it permits looking up an enum or message dependency based on the
 // sub-list and element index into filetype.Builder.DependencyIndexes.
 type resolverByIndex interface {
-	FindEnumByIndex(int32, int32, []Enum, []Message) protoreflect.EnumDescriptor
-	FindMessageByIndex(int32, int32, []Enum, []Message) protoreflect.MessageDescriptor
+	FindEnumByIndex(int32, int32, []Enum, []Message) pref.EnumDescriptor
+	FindMessageByIndex(int32, int32, []Enum, []Message) pref.MessageDescriptor
 }
 
 // Indexes of each sub-list in filetype.Builder.DependencyIndexes.
@@ -69,7 +67,7 @@ const (
 
 // Out is the output of the Builder.
 type Out struct {
-	File protoreflect.FileDescriptor
+	File pref.FileDescriptor
 
 	// Enums is all enum descriptors in "flattened ordering".
 	Enums []Enum
@@ -96,10 +94,10 @@ func (db Builder) Build() (out Out) {
 
 	// Initialize resolvers and registries if unpopulated.
 	if db.TypeResolver == nil {
-		db.TypeResolver = protoregistry.GlobalTypes
+		db.TypeResolver = preg.GlobalTypes
 	}
 	if db.FileRegistry == nil {
-		db.FileRegistry = protoregistry.GlobalFiles
+		db.FileRegistry = preg.GlobalFiles
 	}
 
 	fd := newRawFile(db)
@@ -128,24 +126,24 @@ func (db *Builder) unmarshalCounts(b []byte, isFile bool) {
 			b = b[m:]
 			if isFile {
 				switch num {
-				case genid.FileDescriptorProto_EnumType_field_number:
+				case fieldnum.FileDescriptorProto_EnumType:
 					db.NumEnums++
-				case genid.FileDescriptorProto_MessageType_field_number:
+				case fieldnum.FileDescriptorProto_MessageType:
 					db.unmarshalCounts(v, false)
 					db.NumMessages++
-				case genid.FileDescriptorProto_Extension_field_number:
+				case fieldnum.FileDescriptorProto_Extension:
 					db.NumExtensions++
-				case genid.FileDescriptorProto_Service_field_number:
+				case fieldnum.FileDescriptorProto_Service:
 					db.NumServices++
 				}
 			} else {
 				switch num {
-				case genid.DescriptorProto_EnumType_field_number:
+				case fieldnum.DescriptorProto_EnumType:
 					db.NumEnums++
-				case genid.DescriptorProto_NestedType_field_number:
+				case fieldnum.DescriptorProto_NestedType:
 					db.unmarshalCounts(v, false)
 					db.NumMessages++
-				case genid.DescriptorProto_Extension_field_number:
+				case fieldnum.DescriptorProto_Extension:
 					db.NumExtensions++
 				}
 			}
