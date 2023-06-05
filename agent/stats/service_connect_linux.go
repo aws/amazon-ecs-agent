@@ -56,8 +56,9 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 
 // TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
-	adminSocketPath := task.GetServiceConnectRuntimeConfig().AdminSocketPath
-	statsRequest := task.GetServiceConnectRuntimeConfig().StatsRequest
+	serviceConnectConfig := task.GetServiceConnectRuntimeConfig()
+	adminSocketPath := serviceConnectConfig.AdminSocketPath
+	statsRequest := serviceConnectConfig.StatsRequest
 	stats, err := sc.appnetClient.GetStats(adminSocketPath, statsRequest)
 	if err != nil {
 		logger.Error("Error retrieving Service Connect stats for task", logger.Fields{

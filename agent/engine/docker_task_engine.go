@@ -2065,8 +2065,9 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	// Before attempting to stop any container, send drain signal for Appnet Agent to start draining connections
 	// (if not already in progress).
 	if task.IsServiceConnectEnabled() && !task.IsServiceConnectConnectionDraining() {
-		adminSocketPath := task.GetServiceConnectRuntimeConfig().AdminSocketPath
-		drainRequest := task.GetServiceConnectRuntimeConfig().DrainRequest
+		serviceConnectConfig := task.GetServiceConnectRuntimeConfig()
+		adminSocketPath := serviceConnectConfig.AdminSocketPath
+		drainRequest := serviceConnectConfig.DrainRequest
 		if err := engine.appnetClient.DrainInboundConnections(adminSocketPath, drainRequest); err != nil {
 			logger.Error("Error sending drain signal to Appnet Agent", logger.Fields{
 				field.TaskID: task.GetID(),
