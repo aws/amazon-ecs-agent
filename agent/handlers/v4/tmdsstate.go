@@ -83,6 +83,17 @@ func (s *TMDSAgentState) GetContainerMetadata(v3EndpointID string) (tmdsv4.Conta
 
 // Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
 func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskResponse, error) {
+	return s.getTaskMetadata(v3EndpointID, false)
+}
+
+// Returns task metadata including task and container instance tags in v4 format for the
+// task identified by the provided endpointContainerID.
+func (s *TMDSAgentState) GetTaskMetadataWithTags(v3EndpointID string) (tmdsv4.TaskResponse, error) {
+	return s.getTaskMetadata(v3EndpointID, true)
+}
+
+// Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
+func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) (tmdsv4.TaskResponse, error) {
 	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
 	if !ok {
 		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorLookupFailure(fmt.Sprintf(
@@ -98,7 +109,7 @@ func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskRespon
 	}
 
 	taskResponse, err := NewTaskResponse(taskARN, s.state, s.ecsClient, s.cluster,
-		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, false)
+		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, includeTags)
 	if err != nil {
 		logger.Error("Failed to get task metadata", logger.Fields{
 			field.TaskARN: taskARN,

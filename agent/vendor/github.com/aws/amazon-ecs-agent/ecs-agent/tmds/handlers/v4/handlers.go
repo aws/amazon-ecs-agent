@@ -37,9 +37,17 @@ func ContainerMetadataPath() string {
 	return "/v4/" + utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx)
 }
 
+// Returns the standard URI path for task metadata endpoint.
 func TaskMetadataPath() string {
 	return fmt.Sprintf(
 		"/v4/%s/task",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
+// Returns the standard URI path for task metadata with tags endpoint.
+func TaskMetadataWithTagsPath() string {
+	return fmt.Sprintf(
+		"/v4/%s/taskWithTags",
 		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
 }
 
@@ -98,9 +106,31 @@ func TaskMetadataHandler(
 	agentState state.AgentState,
 	metricsFactory metrics.EntryFactory,
 ) func(http.ResponseWriter, *http.Request) {
+	return taskMetadataHandler(agentState, metricsFactory, false)
+}
+
+// TaskMetadataHandler returns the HTTP handler function for handling task metadata with tags requests.
+func TaskMetadataWithTagsHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return taskMetadataHandler(agentState, metricsFactory, true)
+}
+
+func taskMetadataHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+	includeTags bool,
+) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
-		taskMetadata, err := agentState.GetTaskMetadata(endpointContainerID)
+		var taskMetadata state.TaskResponse
+		var err error
+		if includeTags {
+			taskMetadata, err = agentState.GetTaskMetadataWithTags(endpointContainerID)
+		} else {
+			taskMetadata, err = agentState.GetTaskMetadata(endpointContainerID)
+		}
 		if err != nil {
 			logger.Error("Failed to get v4 task metadata", logger.Fields{
 				field.TMDSEndpointContainerID: endpointContainerID,
