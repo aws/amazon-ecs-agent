@@ -54,15 +54,14 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
 	cluster string,
-	region string,
 	statsEngine stats.Engine,
 	steadyStateRate int,
 	burstRate int,
 	availabilityZone string,
 	vpcID string,
 	containerInstanceArn string,
-	apiEndpoint string,
-	acceptInsecureCert bool) (*http.Server, error) {
+	taskProtectionClientFactory agentAPITaskProtectionV1.TaskProtectionClientFactoryInterface,
+) (*http.Server, error) {
 
 	muxRouter := mux.NewRouter()
 
@@ -79,7 +78,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 
 	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, vpcID, containerInstanceArn)
 
-	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, region, apiEndpoint, acceptInsecureCert)
+	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, taskProtectionClientFactory)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
@@ -152,10 +151,13 @@ func v4HandlersSetup(muxRouter *mux.Router,
 }
 
 // agentAPIV1HandlersSetup adds handlers for Agent API V1
-func agentAPIV1HandlersSetup(muxRouter *mux.Router, state dockerstate.TaskEngineState, credentialsManager credentials.Manager, cluster string, region string, endpoint string, acceptInsecureCert bool) {
-	factory := agentAPITaskProtectionV1.TaskProtectionClientFactory{
-		Region: region, Endpoint: endpoint, AcceptInsecureCert: acceptInsecureCert,
-	}
+func agentAPIV1HandlersSetup(
+	muxRouter *mux.Router,
+	state dockerstate.TaskEngineState,
+	credentialsManager credentials.Manager,
+	cluster string,
+	factory agentAPITaskProtectionV1.TaskProtectionClientFactoryInterface,
+) {
 	muxRouter.
 		HandleFunc(
 			agentAPITaskProtectionV1.TaskProtectionPath(),
@@ -190,9 +192,12 @@ func ServeTaskHTTPEndpoint(
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, cfg.AWSRegion, statsEngine,
-		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, vpcID, containerInstanceArn, cfg.APIEndpoint,
-		cfg.AcceptInsecureCert)
+	taskProtectionClientFactory := agentAPITaskProtectionV1.TaskProtectionClientFactory{
+		Region: cfg.AWSRegion, Endpoint: cfg.APIEndpoint, AcceptInsecureCert: cfg.AcceptInsecureCert,
+	}
+	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster,
+		statsEngine, cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate,
+		availabilityZone, vpcID, containerInstanceArn, taskProtectionClientFactory)
 	if err != nil {
 		seelog.Criticalf("Failed to set up Task Metadata Server: %v", err)
 		return
