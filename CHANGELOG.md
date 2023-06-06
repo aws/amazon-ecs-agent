@@ -1,4 +1,21 @@
 # Changelog
+## 1.72.0
+* Feature - Add domainless gMSA support on windows/linux [#3735](https://github.com/aws/amazon-ecs-agent/pull/3735)
+* Enhancement - Update golang.org/x/net to v0.8.0 [#3730](https://github.com/aws/amazon-ecs-agent/pull/3730)
+* Enhancement - Change a log.Info message to log.Debug  [#3713](https://github.com/aws/amazon-ecs-agent/pull/3713)
+* Code Quality Improvement - Add more tests for v2, v3, and v4 container metadata handlers [#3708](https://github.com/aws/amazon-ecs-agent/pull/3708) 
+* Code Quality Improvement - Move utils/retry and api/errors to ecs-agent [#3711](https://github.com/aws/amazon-ecs-agent/pull/3711)
+* Code Quality Improvement - Move v4 metadata models to ecs-agent module [#3715](https://github.com/aws/amazon-ecs-agent/pull/3715)
+* Code Quality Improvement - Move ACS client to ecs-agent module and refactor [#3710](https://github.com/aws/amazon-ecs-agent/pull/3710)
+* Code Quality Improvement - Move statsEngine initiation from tcs session initialization, and adding channels to statsEngine [#3717](https://github.com/aws/amazon-ecs-agent/pull/3717)
+* Code Quality Improvement - Channel based docker stats engine implementation (DockerStatsEngine -> TCSClient) [#3683](https://github.com/aws/amazon-ecs-agent/pull/3683)
+* Code Quality Improvement - Remove telemetry message logging to avoid polluting debug log [#3725](https://github.com/aws/amazon-ecs-agent/pull/3725)
+* Code Quality Improvement - Add v4 container metadata handler to ecs-agent module [#3720](https://github.com/aws/amazon-ecs-agent/pull/3720)
+* Code Quality Improvement - Add more v2, v3, and v4 task metadata tests [#3722](https://github.com/aws/amazon-ecs-agent/pull/3722) 
+* Code Quality Improvement - Consume v4 container metadata handler from ecs-agent module [#3727](https://github.com/aws/amazon-ecs-agent/pull/3727)
+* Code Quality Improvement - Improve test coverage for taskWithTags endpoints [#3729](https://github.com/aws/amazon-ecs-agent/pull/3729) 
+* Fix - Update amazon-ecs-cni-plugins submodule [#3732](https://github.com/aws/amazon-ecs-agent/pull/3732)
+
 ## 1.71.2
 * Improvement - Add structured logging for Task and Docker Image Manager [#3677](https://github.com/aws/amazon-ecs-agent/pull/3677) [#3696](https://github.com/aws/amazon-ecs-agent/pull/3696)
 * Enhancement - Update dependencies to include security patches reported by dependabot for agent [#3632](https://github.com/aws/amazon-ecs-agent/pull/3632) [#3691](https://github.com/aws/amazon-ecs-agent/pull/3691)
