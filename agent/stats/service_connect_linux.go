@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -33,7 +32,7 @@ import (
 
 type ServiceConnectStats struct {
 	stats        []*ecstcs.GeneralMetricsWrapper
-	appnetClient api.AppnetClient
+	appnetClient appnet.AppnetClient
 	sent         bool
 	lock         sync.RWMutex
 }

@@ -143,7 +143,7 @@ type DockerTaskEngine struct {
 	client       dockerapi.DockerClient
 	dataClient   data.Client
 	cniClient    ecscni.CNIClient
-	appnetClient api.AppnetClient
+	appnetClient appnet.AppnetClient
 
 	containerChangeEventStream *eventstream.EventStream
 

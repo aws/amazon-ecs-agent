@@ -82,3 +82,14 @@ type AppnetClient interface {
 	GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error)
 	DrainInboundConnections(adminSocketPath string, drainRequest string) error
 }
+
+// ECSTaskProtectionSDK is an interface with customized ecs client that
+// implements the UpdateTaskProtection and GetTaskProtection
+type ECSTaskProtectionSDK interface {
+	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
+	UpdateTaskProtectionWithContext(ctx aws.Context, input *ecs.UpdateTaskProtectionInput,
+		opts ...request.Option) (*ecs.UpdateTaskProtectionOutput, error)
+	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
+	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
+		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
+}

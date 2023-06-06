@@ -16,14 +16,23 @@ package appnet
 import (
 	"context"
 	"fmt"
+	prometheus "github.com/prometheus/client_model/go"
 	"net"
 	"net/http"
 )
 
 type appnetClientCtxKey int
 
+// AppnetClient is an interface with customized Appnet client that
+// implements the GetStats and DrainInboundConnections
+type AppnetClient interface {
+	GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error)
+	DrainInboundConnections(adminSocketPath string, drainRequest string) error
+}
+
 type AppNetAgentClient struct {
 	udsHttpClient http.Client
+	AppnetClient
 }
 
 const (
