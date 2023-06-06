@@ -22,7 +22,7 @@ import (
 
 type appnetClientCtxKey int
 
-type client struct {
+type AppNetAgentClient struct {
 	udsHttpClient http.Client
 }
 
@@ -32,23 +32,24 @@ const (
 )
 
 // Client retrieves the singleton Appnet client
-func Client() *client {
-	return &client{
+func CreateClient(udsPath string) *AppNetAgentClient {
+	client := AppNetAgentClient{
 		udsHttpClient: http.Client{
 			Transport: &http.Transport{
-				DialContext: udsDialContext,
+				DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
+					if udsPath == "" {
+						udsPath, ok := ctx.Value(udsAddressKey).(string)
+						if !ok {
+							return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
+						}
+						if udsPath == "" {
+							return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
+						}
+					}
+					return net.Dial(unixNetworkName, udsPath)
+				},
 			},
 		},
 	}
-}
-
-func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
-	udsPath, ok := ctx.Value(udsAddressKey).(string)
-	if !ok {
-		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
-	}
-	if udsPath == "" {
-		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
-	}
-	return net.Dial(unixNetworkName, udsPath)
+	return &client
 }

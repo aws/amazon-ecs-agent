@@ -21,10 +21,10 @@ import (
 	prometheus "github.com/prometheus/client_model/go"
 )
 
-func (cl *client) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
+func (cl *AppNetAgentClient) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
 	return nil, fmt.Errorf("appnet client: GetStats is not supported in this platform")
 }
 
-func (cl *client) DrainInboundConnections(adminSocketPath string, drainRequest string) error {
+func (cl *AppNetAgentClient) DrainInboundConnections(adminSocketPath string, drainRequest string) error {
 	return fmt.Errorf("appnet client: DrainInboundConnections is not supported in this platform")
 }
