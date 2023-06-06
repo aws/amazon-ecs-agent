@@ -125,7 +125,7 @@ func UpdateTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsM
 				updateTaskProtectionRequestType)
 			return
 		}
-		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
+		ecsClient := factory.NewTaskProtectionClient(taskRoleCredential)
 
 		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
 		defer cancel()
@@ -221,7 +221,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 			return
 		}
 
-		ecsClient := factory.newTaskProtectionClient(taskRoleCredential)
+		ecsClient := factory.NewTaskProtectionClient(taskRoleCredential)
 
 		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
 		defer cancel()
@@ -286,7 +286,7 @@ func GetTaskProtectionHandler(state dockerstate.TaskEngineState, credentialsMana
 }
 
 // Helper function for retrieving credential from credentials manager and create ecs client
-func (factory TaskProtectionClientFactory) newTaskProtectionClient(taskRoleCredential credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
+func (factory TaskProtectionClientFactory) NewTaskProtectionClient(taskRoleCredential credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
 		WithCredentials(awscreds.NewStaticCredentials(taskCredential.AccessKeyID,
