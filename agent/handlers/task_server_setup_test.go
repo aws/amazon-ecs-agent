@@ -108,8 +108,6 @@ const (
 	macAddress                 = "06:96:9a:ce:a6:ce"
 	privateDNSName             = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
-	endpoint                   = "ecsEndpoint"
-	acceptInsecureCert         = true
 	taskCredentialsID          = "taskCredentialsId"
 )
 
