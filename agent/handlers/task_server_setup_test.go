@@ -2784,8 +2784,7 @@ func testAgentAPITaskProtectionV1Handler(t *testing.T, requestBody interface{}, 
 	assert.NotNil(t, recorder.Body)
 }
 
-// Tests that Agent API v1 GetTaskProtection handler is registered correctly
-func TestAgentAPIV1GetTaskProtectionHandler(t *testing.T) {
+func TestGetTaskProtection(t *testing.T) {
 	path := fmt.Sprintf("/api/%s/task-protection/v1/state", v3EndpointID)
 
 	// Set up some fake data
