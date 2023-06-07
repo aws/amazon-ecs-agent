@@ -1092,7 +1092,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	gomock.InOrder(
-		appnetClient.EXPECT().DrainInboundConnections(gomock.Any()).MaxTimes(1),
+		appnetClient.EXPECT().DrainInboundConnections(gomock.Any(), gomock.Any()).MaxTimes(1),
 		secondStop,
 		scStop,
 		cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
