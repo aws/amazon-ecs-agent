@@ -25,14 +25,14 @@ type appnetClientCtxKey int
 
 // AppnetClient is an interface with customized Appnet client that
 // implements the GetStats and DrainInboundConnections
-type AppnetClient interface {
+type AppNetClient interface {
 	GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error)
 	DrainInboundConnections(adminSocketPath string, drainRequest string) error
 }
 
 type AppNetAgentClient struct {
 	udsHttpClient http.Client
-	AppnetClient
+	AppNetClient
 }
 
 const (

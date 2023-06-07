@@ -25,14 +25,14 @@ type appnetClientCtxKey int
 
 // AppnetClient is an interface with customized Appnet client that
 // implements the GetStats and DrainInboundConnections
-type AppnetClient interface {
+type AppNetClient interface {
 	GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error)
 	DrainInboundConnections(adminSocketPath string, drainRequest string) error
 }
 
 type AppNetAgentClient struct {
 	udsHttpClient http.Client
-	AppnetClient
+	AppNetClient
 }
 
 const (
@@ -41,24 +41,24 @@ const (
 )
 
 // Client retrieves the singleton Appnet client
-func CreateClient(udsPath string) *AppNetAgentClient {
+func CreateClient() *AppNetAgentClient {
 	client := AppNetAgentClient{
 		udsHttpClient: http.Client{
 			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
-					if udsPath == "" {
-						udsPath, ok := ctx.Value(udsAddressKey).(string)
-						if !ok {
-							return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
-						}
-						if udsPath == "" {
-							return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
-						}
-					}
-					return net.Dial(unixNetworkName, udsPath)
-				},
+				DialContext: udsDialContext,
 			},
 		},
 	}
 	return &client
+}
+
+func udsDialContext(ctx context.Context, _, _ string) (net.Conn, error) {
+	udsAddress, ok := ctx.Value(udsAddressKey).(string)
+	if !ok {
+		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was not a string")
+	}
+	if udsAddress == "" {
+		return nil, fmt.Errorf("appnet client: Path to appnet admin socket was blank")
+	}
+	return net.Dial(unixNetworkName, udsAddress)
 }
