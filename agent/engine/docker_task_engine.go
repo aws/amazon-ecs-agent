@@ -215,7 +215,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
-		appnetClient:               appnet.CreateClient(""),
+		appnetClient:               appnet.CreateClient(),
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             serviceConnectManager,

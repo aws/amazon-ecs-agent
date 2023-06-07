@@ -49,7 +49,7 @@ var directionToMetricType = map[string]string{
 
 func newServiceConnectStats() (*ServiceConnectStats, error) {
 	return &ServiceConnectStats{
-		appnetClient: appnet.CreateClient(""),
+		appnetClient: appnet.CreateClient(),
 	}, nil
 }
 
