@@ -370,9 +370,8 @@ func TestPublishOnceIdleStatsEngine(t *testing.T) {
 	mockEngine := idleStatsEngine{}
 	metadata, taskMetrics, _ := mockEngine.GetInstanceMetrics(testNotIncludeScStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-		Metadata:                   metadata,
-		TaskMetrics:                taskMetrics,
-		IncludeServiceConnectStats: testNotIncludeScStats,
+		Metadata:    metadata,
+		TaskMetrics: taskMetrics,
 	})
 	if err != nil {
 		t.Fatal("Error creating publishMetricRequests: ", err)
@@ -397,9 +396,8 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	}
 	metadata, taskMetrics, err := mockEngine.GetInstanceMetrics(testNotIncludeScStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-		Metadata:                   metadata,
-		TaskMetrics:                taskMetrics,
-		IncludeServiceConnectStats: testNotIncludeScStats,
+		Metadata:    metadata,
+		TaskMetrics: taskMetrics,
 	})
 	if err != nil {
 		t.Fatal("Error creating publishMetricRequests: ", err)
@@ -459,9 +457,8 @@ func TestPublishServiceConnectStatsEngine(t *testing.T) {
 			mockEngine := newServiceConnectStatsEngine(tc.numTasks)
 			metadata, taskMetrics, _ := mockEngine.GetInstanceMetrics(testIncludeScStats)
 			requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-				Metadata:                   metadata,
-				TaskMetrics:                taskMetrics,
-				IncludeServiceConnectStats: testIncludeScStats,
+				Metadata:    metadata,
+				TaskMetrics: taskMetrics,
 			})
 			if err != nil {
 				t.Fatal("Error creating publishMetricRequests: ", err)

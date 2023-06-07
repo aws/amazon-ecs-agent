@@ -118,7 +118,6 @@ func (engine *mockStatsEngine) SimulateMetricsPublishToChannel(ctx context.Conte
 				TaskMetrics: []*ecstcs.TaskMetric{
 					&ecstcs.TaskMetric{},
 				},
-				IncludeServiceConnectStats: false,
 			}
 
 			engine.healthChannel <- ecstcs.HealthMessage{

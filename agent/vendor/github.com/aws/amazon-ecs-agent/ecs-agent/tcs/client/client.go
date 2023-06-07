@@ -125,14 +125,11 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			return
 		case metric := <-cs.metrics:
 			seelog.Debugf("received telemetry message in metricsChannel")
-			includeServiceConnectStats := metric.IncludeServiceConnectStats
-			if !cs.disableResourceMetrics || includeServiceConnectStats {
-				err := cs.publishMetricsOnce(metric)
-				if err != nil {
-					logger.Warn("Error publishing metrics", logger.Fields{
-						field.Error: err,
-					})
-				}
+			err := cs.publishMetricsOnce(metric)
+			if err != nil {
+				logger.Warn("Error publishing metrics", logger.Fields{
+					field.Error: err,
+				})
 			}
 		case health := <-cs.health:
 			seelog.Debugf("received health message in healthChannel")
