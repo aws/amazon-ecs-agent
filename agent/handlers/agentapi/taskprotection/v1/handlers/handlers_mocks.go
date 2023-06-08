@@ -49,16 +49,16 @@ func (m *MockTaskProtectionClientFactoryInterface) EXPECT() *MockTaskProtectionC
 	return m.recorder
 }
 
-// newTaskProtectionClient mocks base method.
-func (m *MockTaskProtectionClientFactoryInterface) newTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
+// NewTaskProtectionClient mocks base method.
+func (m *MockTaskProtectionClientFactoryInterface) NewTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "newTaskProtectionClient", arg0)
+	ret := m.ctrl.Call(m, "NewTaskProtectionClient", arg0)
 	ret0, _ := ret[0].(api.ECSTaskProtectionSDK)
 	return ret0
 }
 
-// newTaskProtectionClient indicates an expected call of newTaskProtectionClient.
-func (mr *MockTaskProtectionClientFactoryInterfaceMockRecorder) newTaskProtectionClient(arg0 interface{}) *gomock.Call {
+// NewTaskProtectionClient indicates an expected call of NewTaskProtectionClient.
+func (mr *MockTaskProtectionClientFactoryInterfaceMockRecorder) NewTaskProtectionClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "newTaskProtectionClient", reflect.TypeOf((*MockTaskProtectionClientFactoryInterface)(nil).newTaskProtectionClient), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaskProtectionClient", reflect.TypeOf((*MockTaskProtectionClientFactoryInterface)(nil).NewTaskProtectionClient), arg0)
 }
