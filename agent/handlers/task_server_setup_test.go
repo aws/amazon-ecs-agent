@@ -2988,8 +2988,6 @@ func TestGetTaskProtection(t *testing.T) {
 }
 
 func TestUpdateTaskProtection(t *testing.T) {
-	path := fmt.Sprintf("/api/%s/task-protection/v1/state", v3EndpointID)
-
 	// Set up some fake data
 	task := standardTask()
 	protectionEnabled := aws.Bool(true)
@@ -3039,277 +3037,230 @@ func TestUpdateTaskProtection(t *testing.T) {
 		}
 	}
 
+	// Helper function for creating a function that runs a test case
+	runTest := func(t *testing.T, tc TMDSTestCase[agentapi.TaskProtectionResponse]) func(*testing.T) {
+		return func(t *testing.T) {
+			tc.path = fmt.Sprintf("/api/%s/task-protection/v1/state", v3EndpointID)
+			tc.method = "PUT"
+			testTMDSRequest(t, tc)
+		}
+	}
+
 	// Test cases start here
-	t.Run("task ARN not found", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:        path,
-			method:      "PUT",
-			requestBody: happyReqBody,
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
-				gomock.InOrder(
-					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return("", false),
-				)
+	t.Run("task ARN not found", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody: happyReqBody,
+		setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			gomock.InOrder(
+				state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return("", false),
+			)
+		},
+		expectedStatusCode: http.StatusNotFound,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Code:    ecs.ErrCodeResourceNotFoundException,
+				Message: "Invalid request: no task was found",
 			},
-			expectedStatusCode: http.StatusNotFound,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Code:    ecs.ErrCodeResourceNotFoundException,
-					Message: "Invalid request: no task was found",
-				},
+		},
+	}))
+	t.Run("task not found", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody: happyReqBody,
+		setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			gomock.InOrder(
+				state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+				state.EXPECT().TaskByArn(taskARN).Return(nil, false),
+			)
+		},
+		expectedStatusCode: http.StatusInternalServerError,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Code:    ecs.ErrCodeServerException,
+				Message: "Failed to find a task for the request",
 			},
-		})
-	})
-	t.Run("task not found", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:        path,
-			method:      "PUT",
-			requestBody: happyReqBody,
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
-				gomock.InOrder(
-					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
-					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
-				)
+		},
+	}))
+	t.Run("task credentials not found", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:          happyReqBody,
+		setStateExpectations: happyStateExpectations,
+		setCredentialsManagerExpectations: func(credsManager *mock_credentials.MockManager) {
+			credsManager.
+				EXPECT().GetTaskCredentials(taskCredentialsID).
+				Return(credentials.TaskIAMRoleCredentials{}, false)
+		},
+		expectedStatusCode: http.StatusForbidden,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeAccessDeniedException,
+				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Code:    ecs.ErrCodeServerException,
-					Message: "Failed to find a task for the request",
-				},
-			},
-		})
-	})
-	t.Run("task credentials not found", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                 path,
-			method:               "PUT",
-			requestBody:          happyReqBody,
-			setStateExpectations: happyStateExpectations,
-			setCredentialsManagerExpectations: func(credsManager *mock_credentials.MockManager) {
-				credsManager.
-					EXPECT().GetTaskCredentials(taskCredentialsID).
-					Return(credentials.TaskIAMRoleCredentials{}, false)
-			},
-			expectedStatusCode: http.StatusForbidden,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
-					Message: "Invalid Request: no task IAM role credentials available for task",
-				},
-			},
-		})
-	})
-	t.Run("ecs call server exception", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeServerException, ecsErrMessage, nil),
-					http.StatusInternalServerError,
-					ecsRequestID,
-				),
+		},
+	}))
+	t.Run("ecs call server exception", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			nil,
+			awserr.NewRequestFailure(
+				awserr.New(ecs.ErrCodeServerException, ecsErrMessage, nil),
+				http.StatusInternalServerError,
+				ecsRequestID,
 			),
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				RequestID: &ecsRequestID,
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
-					Message: ecsErrMessage,
-				},
+		),
+		expectedStatusCode: http.StatusInternalServerError,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			RequestID: &ecsRequestID,
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeServerException,
+				Message: ecsErrMessage,
 			},
-		})
-	})
-	t.Run("ecs call access denied exception", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-					http.StatusBadRequest,
-					ecsRequestID,
-				),
+		},
+	}))
+	t.Run("ecs call access denied exception", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			nil,
+			awserr.NewRequestFailure(
+				awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
+				http.StatusBadRequest,
+				ecsRequestID,
 			),
-			expectedStatusCode: http.StatusBadRequest,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				RequestID: &ecsRequestID,
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
-					Message: ecsErrMessage,
-				},
+		),
+		expectedStatusCode: http.StatusBadRequest,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			RequestID: &ecsRequestID,
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeAccessDeniedException,
+				Message: ecsErrMessage,
 			},
-		})
-	})
-	t.Run("ecs call non-request-failure aws error", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil,
-				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
-					Message: ecsErrMessage,
-				},
+		},
+	}))
+	t.Run("ecs call non-request-failure aws error", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			nil,
+			awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+		expectedStatusCode: http.StatusInternalServerError,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeInvalidParameterException,
+				Message: ecsErrMessage,
 			},
-		})
-	})
-	t.Run("agent timeout", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
-			expectedStatusCode: http.StatusGatewayTimeout,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    request.CanceledErrorCode,
-					Message: "Timed out calling ECS Task Protection API",
-				},
+		},
+	}))
+	t.Run("agent timeout", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+		expectedStatusCode: http.StatusGatewayTimeout,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    request.CanceledErrorCode,
+				Message: "Timed out calling ECS Task Protection API",
 			},
-		})
-	})
-	t.Run("non-aws error", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil, errors.New("some error")),
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
-					Message: "some error",
-				},
+		},
+	}))
+	t.Run("non-aws error", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			nil, errors.New("some error")),
+		expectedStatusCode: http.StatusInternalServerError,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeServerException,
+				Message: "some error",
 			},
-		})
-	})
-	t.Run("ecs failure", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				&ecs.UpdateTaskProtectionOutput{
-					Failures: []*ecs.Failure{{
-						Arn:    aws.String(taskARN),
-						Reason: aws.String("ecs failure"),
-					}},
-				}, nil),
-			expectedStatusCode: http.StatusOK,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Failure: &ecs.Failure{
+		},
+	}))
+	t.Run("ecs failure", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			&ecs.UpdateTaskProtectionOutput{
+				Failures: []*ecs.Failure{{
 					Arn:    aws.String(taskARN),
 					Reason: aws.String("ecs failure"),
-				},
+				}},
+			}, nil),
+		expectedStatusCode: http.StatusOK,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Failure: &ecs.Failure{
+				Arn:    aws.String(taskARN),
+				Reason: aws.String("ecs failure"),
 			},
-		})
-	})
-	t.Run("empty request", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                 path,
-			method:               "PUT",
-			requestBody:          map[string]string{},
-			setStateExpectations: happyStateExpectations,
-			expectedStatusCode:   http.StatusBadRequest,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
-					Message: "Invalid request: does not contain 'ProtectionEnabled' field",
-				},
+		},
+	}))
+	t.Run("empty request", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:          map[string]string{},
+		setStateExpectations: happyStateExpectations,
+		expectedStatusCode:   http.StatusBadRequest,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeInvalidParameterException,
+				Message: "Invalid request: does not contain 'ProtectionEnabled' field",
 			},
-		})
-	})
-	t.Run("invalid type in request", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:   path,
-			method: "PUT",
-			requestBody: map[string]interface{}{
-				"ProtectionEnabled": true,
-				"ExpiresInMinutes":  "bad",
+		},
+	}))
+	t.Run("invalid type in request", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody: map[string]interface{}{
+			"ProtectionEnabled": true,
+			"ExpiresInMinutes":  "bad",
+		},
+		expectedStatusCode: http.StatusBadRequest,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Code:    ecs.ErrCodeInvalidParameterException,
+				Message: "UpdateTaskProtection: failed to decode request",
 			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Code:    ecs.ErrCodeInvalidParameterException,
-					Message: "UpdateTaskProtection: failed to decode request",
-				},
+		},
+	}))
+	t.Run("unknown fields in the request", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody: map[string]interface{}{
+			"ProtectionEnabled": true,
+			"ExpiresInMinutes":  5,
+			"Unknown":           "unknown",
+		},
+		expectedStatusCode: http.StatusBadRequest,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Code:    ecs.ErrCodeInvalidParameterException,
+				Message: "UpdateTaskProtection: failed to decode request",
 			},
-		})
-	})
-	t.Run("unknown fields in the request", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:   path,
-			method: "PUT",
-			requestBody: map[string]interface{}{
-				"ProtectionEnabled": true,
-				"ExpiresInMinutes":  5,
-				"Unknown":           "unknown",
+		},
+	}))
+	t.Run("non-JSON object request", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:        "bad",
+		expectedStatusCode: http.StatusBadRequest,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Code:    ecs.ErrCodeInvalidParameterException,
+				Message: "UpdateTaskProtection: failed to decode request",
 			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Code:    ecs.ErrCodeInvalidParameterException,
-					Message: "UpdateTaskProtection: failed to decode request",
-				},
-			},
-		})
-	})
-	t.Run("non-JSON object request", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:               path,
-			method:             "PUT",
-			requestBody:        "bad",
-			expectedStatusCode: http.StatusBadRequest,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Error: &agentapi.ErrorResponse{
-					Code:    ecs.ErrCodeInvalidParameterException,
-					Message: "UpdateTaskProtection: failed to decode request",
-				},
-			},
-		})
-	})
-	t.Run("happy case", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
-			path:                              path,
-			method:                            "PUT",
-			requestBody:                       happyReqBody,
-			setStateExpectations:              happyStateExpectations,
-			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
-			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
-			expectedStatusCode:                         http.StatusOK,
-			expectedResponseBody: agentapi.TaskProtectionResponse{
-				Protection: &protectedTask,
-			},
-		})
-	})
+		},
+	}))
+	t.Run("happy case", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                                happyReqBody,
+		setStateExpectations:                       happyStateExpectations,
+		setCredentialsManagerExpectations:          happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
+		expectedStatusCode:                         http.StatusOK,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Protection: &protectedTask,
+		},
+	}))
 }
