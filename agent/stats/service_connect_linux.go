@@ -32,7 +32,7 @@ import (
 
 type ServiceConnectStats struct {
 	stats        []*ecstcs.GeneralMetricsWrapper
-	appnetClient appnet.AppnetClient
+	appnetClient appnet.AppNetClient
 	sent         bool
 	lock         sync.RWMutex
 }
