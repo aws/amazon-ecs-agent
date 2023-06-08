@@ -112,8 +112,8 @@ func TestAttachENIMessageWithNoInterfaces(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = nil
 
 	err := validateAttachTaskNetworkInterfacesMessage(testAttachTaskENIMessage)
-	assert.EqualError(t, err, fmt.Sprintf("Incorrect number of ENIs for message ID %s. Obtained %d",
-		aws.StringValue(testAttachTaskENIMessage.MessageId), len(testAttachTaskENIMessage.ElasticNetworkInterfaces)))
+	assert.EqualError(t, err, fmt.Sprintf("No ENIs for message ID %s",
+		aws.StringValue(testAttachTaskENIMessage.MessageId)))
 
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = tempENIs
 }
@@ -136,8 +136,7 @@ func TestAttachENIMessageWithMultipleInterfaces(t *testing.T) {
 		})
 
 	err := validateAttachTaskNetworkInterfacesMessage(testAttachTaskENIMessage)
-	assert.EqualError(t, err, fmt.Sprintf("Incorrect number of ENIs for message ID %s. Obtained %d",
-		aws.StringValue(testAttachTaskENIMessage.MessageId), len(testAttachTaskENIMessage.ElasticNetworkInterfaces)))
+	assert.NoError(t, err)
 
 	// Remove appended ENI.
 	testAttachTaskENIMessage.ElasticNetworkInterfaces =

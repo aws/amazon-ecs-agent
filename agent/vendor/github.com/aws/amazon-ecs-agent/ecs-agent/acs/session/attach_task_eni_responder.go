@@ -67,6 +67,7 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskN
 		return
 	}
 
+	// Handle ENIs in the message.
 	messageID := aws.StringValue(message.MessageId)
 	for _, mENI := range message.ElasticNetworkInterfaces {
 		expiresAt := receivedAt.Add(time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond)
@@ -142,14 +143,15 @@ func validateAttachTaskNetworkInterfacesMessage(message *ecsacs.AttachTaskNetwor
 	}
 
 	enis := message.ElasticNetworkInterfaces
-	if len(enis) != 1 {
-		return errors.Errorf("Incorrect number of ENIs for message ID %s. Obtained %d", messageID, len(enis))
+	if len(enis) < 1 {
+		return errors.Errorf("No ENIs for message ID %s", messageID)
 	}
 
-	eni := enis[0]
-	err := apieni.ValidateTaskENI(eni)
-	if err != nil {
-		return err
+	for _, eni := range enis {
+		err := apieni.ValidateTaskENI(eni)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
