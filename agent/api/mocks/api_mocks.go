@@ -23,7 +23,7 @@ import (
 	reflect "reflect"
 
 	api "github.com/aws/amazon-ecs-agent/agent/api"
-	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	request "github.com/aws/aws-sdk-go/aws/request"
 	gomock "github.com/golang/mock/gomock"
 	io_prometheus_client "github.com/prometheus/client_model/go"
