@@ -20,8 +20,8 @@
 package tcsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 )
 
 var tcsTypes []interface{}

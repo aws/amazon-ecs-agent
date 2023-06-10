@@ -23,23 +23,20 @@
 package tcsclient
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
-	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	mock_wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -115,10 +112,6 @@ func (*mockStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ec
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
-	return nil, nil, fmt.Errorf("not implemented")
-}
-
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
@@ -132,17 +125,13 @@ func (*mockStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 }
 
 func (*mockStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
 }
 
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("empty stats")
-}
-
-func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
-	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -158,7 +147,7 @@ func (*emptyStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 }
 
 func (*emptyStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
 }
 
 type idleStatsEngine struct{}
@@ -171,10 +160,6 @@ func (*idleStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ec
 		MessageId:         aws.String(testMessageId),
 	}
 	return metadata, []*ecstcs.TaskMetric{}, nil
-}
-
-func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
-	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -190,7 +175,7 @@ func (*idleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32) {
 }
 
 func (*idleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
 }
 
 type nonIdleStatsEngine struct {
@@ -213,10 +198,6 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics(includeServiceConnectStats 
 	return metadata, taskMetrics, nil
 }
 
-func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
-	return nil, nil, fmt.Errorf("not implemented")
-}
-
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
@@ -230,7 +211,7 @@ func (*nonIdleStatsEngine) SetPublishServiceConnectTickerInterval(counter int32)
 }
 
 func (*nonIdleStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
 }
 
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
@@ -314,10 +295,6 @@ func (engine *serviceConnectStatsEngine) GetInstanceMetrics(includeServiceConnec
 	return metadata, taskMetrics, nil
 }
 
-func (*serviceConnectStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
-	return nil, nil, fmt.Errorf("not implemented")
-}
-
 func (*serviceConnectStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
@@ -331,7 +308,7 @@ func (*serviceConnectStatsEngine) SetPublishServiceConnectTickerInterval(counter
 }
 
 func (*serviceConnectStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return time.NewTicker(config.DefaultContainerMetricsPublishInterval)
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
 }
 
 func newServiceConnectStatsEngine(numTasks int) *serviceConnectStatsEngine {
@@ -344,6 +321,8 @@ func TestPayloadHandlerCalled(t *testing.T) {
 
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
+
+	ctx, _ := context.WithCancel(context.TODO())
 
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
@@ -360,7 +339,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(ctx)
 	defer cs.Close()
 
 	t.Log("Waiting for handler to return payload.")
@@ -387,14 +366,12 @@ func TestPublishMetricsRequest(t *testing.T) {
 }
 
 func TestPublishOnceIdleStatsEngine(t *testing.T) {
-	cs := clientServer{
-		statsEngine: &idleStatsEngine{},
-	}
-	metadata, taskMetrics, _ := cs.statsEngine.GetInstanceMetrics(testNotIncludeScStats)
+	cs := tcsClientServer{}
+	mockEngine := idleStatsEngine{}
+	metadata, taskMetrics, _ := mockEngine.GetInstanceMetrics(testNotIncludeScStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-		Metadata:                   metadata,
-		TaskMetrics:                taskMetrics,
-		IncludeServiceConnectStats: testNotIncludeScStats,
+		Metadata:    metadata,
+		TaskMetrics: taskMetrics,
 	})
 	if err != nil {
 		t.Fatal("Error creating publishMetricRequests: ", err)
@@ -413,14 +390,14 @@ func TestPublishOnceNonIdleStatsEngine(t *testing.T) {
 	// Creates 21 task metrics, which translate to 3 batches,
 	// {[Task1, Task2, ...Task10], [Task11, Task12, ...Task20], [Task21]}
 	numTasks := (tasksInMetricMessage * (expectedRequests - 1)) + 1
-	cs := clientServer{
-		statsEngine: newNonIdleStatsEngine(numTasks),
+	cs := tcsClientServer{}
+	mockEngine := nonIdleStatsEngine{
+		numTasks: numTasks,
 	}
-	metadata, taskMetrics, err := cs.statsEngine.GetInstanceMetrics(testNotIncludeScStats)
+	metadata, taskMetrics, err := mockEngine.GetInstanceMetrics(testNotIncludeScStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-		Metadata:                   metadata,
-		TaskMetrics:                taskMetrics,
-		IncludeServiceConnectStats: testNotIncludeScStats,
+		Metadata:    metadata,
+		TaskMetrics: taskMetrics,
 	})
 	if err != nil {
 		t.Fatal("Error creating publishMetricRequests: ", err)
@@ -476,14 +453,12 @@ func TestPublishServiceConnectStatsEngine(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cs := clientServer{
-				statsEngine: newServiceConnectStatsEngine(tc.numTasks),
-			}
-			metadata, taskMetrics, _ := cs.statsEngine.GetInstanceMetrics(testIncludeScStats)
+			cs := tcsClientServer{}
+			mockEngine := newServiceConnectStatsEngine(tc.numTasks)
+			metadata, taskMetrics, _ := mockEngine.GetInstanceMetrics(testIncludeScStats)
 			requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
-				Metadata:                   metadata,
-				TaskMetrics:                taskMetrics,
-				IncludeServiceConnectStats: testIncludeScStats,
+				Metadata:    metadata,
+				TaskMetrics: taskMetrics,
 			})
 			if err != nil {
 				t.Fatal("Error creating publishMetricRequests: ", err)
@@ -517,12 +492,12 @@ func TestPublishServiceConnectStatsEngine(t *testing.T) {
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	cfg := &config.Config{
+	cfg := &wsclient.WSClientMinAgentConfig{
 		AWSRegion:          "us-east-1",
 		AcceptInsecureCert: true,
 	}
-	cs := New("https://aws.amazon.com/ecs", cfg, testCreds, &mockStatsEngine{}, nil, nil,
-		testPublishMetricsInterval, rwTimeout, false, emptyDoctor).(*clientServer)
+	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
+		testCreds, rwTimeout, nil, nil).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -557,6 +532,8 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
+	ctx, _ := context.WithCancel(context.TODO())
+
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(1,
@@ -572,22 +549,26 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(ctx)
 	defer cs.Close()
 
 	t.Log("Waiting for handler to return payload.")
 	<-handledPayload
 }
 
-func TestCreatePublishHealthRequests(t *testing.T) {
+func TestHealthToPublishHealthRequests(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
-	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
-	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, nil, nil, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
+	cfg := &wsclient.WSClientMinAgentConfig{
+		AWSRegion:          "us-east-1",
+		AcceptInsecureCert: true,
+		IsDocker:           true,
+	}
+
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, testCreds, rwTimeout, nil, nil)
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -624,11 +605,9 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 		},
 	}
 
-	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(testMetadata, testHealthMetrics, nil)
-	metadata, healthMetrics, _ := mockStatsEngine.GetTaskHealthMetrics()
-	request, err := cs.(*clientServer).createPublishHealthRequests(ecstcs.HealthMessage{
-		Metadata:      metadata,
-		HealthMetrics: healthMetrics,
+	request, err := cs.(*tcsClientServer).healthToPublishHealthRequests(ecstcs.HealthMessage{
+		Metadata:      testMetadata,
+		HealthMetrics: testHealthMetrics,
 	})
 
 	assert.NoError(t, err)
@@ -646,6 +625,8 @@ func TestSessionClosed(t *testing.T) {
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
+	ctx, _ := context.WithCancel(context.TODO())
+
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(1,
@@ -660,12 +641,10 @@ func TestSessionClosed(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(ctx)
 	// wait for the session start
 	<-handledPayload
 	cs.Close()
-	_, ok := <-cs.(*clientServer).ctx.Done()
-	assert.False(t, ok, "channel should be closed")
 }
 
 func TestGetInstanceStatuses(t *testing.T) {
@@ -714,7 +693,7 @@ func TestGetInstanceStatuses(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			newDoctor, _ := doctor.NewDoctor(tc.checks, TEST_CLUSTER, TEST_INSTANCE_ARN)
-			cs := clientServer{
+			cs := tcsClientServer{
 				doctor: newDoctor,
 			}
 			cs.doctor.RunHealthchecks()
@@ -771,7 +750,7 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			newDoctor, _ := doctor.NewDoctor(tc.checks, TEST_CLUSTER, TEST_INSTANCE_ARN)
-			cs := clientServer{
+			cs := tcsClientServer{
 				doctor: newDoctor,
 			}
 			cs.doctor.RunHealthchecks()
@@ -809,6 +788,8 @@ func TestAckPublishInstanceStatusHandlerCalled(t *testing.T) {
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	cs := testCS(conn)
 
+	ctx, _ := context.WithCancel(context.TODO())
+
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(1,
@@ -824,7 +805,7 @@ func TestAckPublishInstanceStatusHandlerCalled(t *testing.T) {
 	}
 	cs.AddRequestHandler(reqHandler)
 
-	go cs.Serve()
+	go cs.Serve(ctx)
 	defer cs.Close()
 
 	t.Log("Waiting for handler to return payload.")

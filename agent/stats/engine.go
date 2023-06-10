@@ -38,7 +38,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 )
@@ -474,9 +474,8 @@ func (engine *DockerStatsEngine) publishMetrics(includeServiceConnectStats bool)
 	metricsMetadata, taskMetrics, metricsErr := engine.GetInstanceMetrics(includeServiceConnectStats)
 	if metricsErr == nil {
 		metricsMessage := ecstcs.TelemetryMessage{
-			Metadata:                   metricsMetadata,
-			TaskMetrics:                taskMetrics,
-			IncludeServiceConnectStats: includeServiceConnectStats,
+			Metadata:    metricsMetadata,
+			TaskMetrics: taskMetrics,
 		}
 		select {
 		case engine.metricsChannel <- metricsMessage:

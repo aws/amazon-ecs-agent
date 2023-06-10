@@ -24,6 +24,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/metrics
+github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
+github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
@@ -43,7 +45,9 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
+github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
+github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws

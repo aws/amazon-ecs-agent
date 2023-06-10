@@ -21,12 +21,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -40,6 +40,9 @@ const (
 	tasksInMetricMessage = 10
 	// tasksInHealthMessage is the maximum number of tasks that can be sent in a message to the backend
 	tasksInHealthMessage = 10
+	// DefaultContainerMetricsPublishInterval is the default interval that we publish
+	// metrics to the ECS telemetry backend (TACS)
+	DefaultContainerMetricsPublishInterval = 20 * time.Second
 )
 
 var (
@@ -47,17 +50,15 @@ var (
 	publishMetricRequestSizeLimit = 1024 * 1024
 )
 
-// clientServer implements wsclient.ClientServer interface for metrics backend.
-type clientServer struct {
-	statsEngine              stats.Engine
+// tcsClientServer implements wsclient.ClientServer interface for metrics backend.
+type tcsClientServer struct {
 	doctor                   *doctor.Doctor
 	pullInstanceStatusTicker *time.Ticker
-	ctx                      context.Context
-	cancel                   context.CancelFunc
 	disableResourceMetrics   bool
 	publishMetricsInterval   time.Duration
-	metricsChannel           <-chan ecstcs.TelemetryMessage
-	healthChannel            <-chan ecstcs.HealthMessage
+
+	metrics <-chan ecstcs.TelemetryMessage
+	health  <-chan ecstcs.HealthMessage
 	wsclient.ClientServerImpl
 }
 
@@ -65,77 +66,74 @@ type clientServer struct {
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
 func New(url string,
-	cfg *config.Config,
-	credentialProvider *credentials.Credentials,
-	statsEngine stats.Engine,
-	metricsChannel <-chan ecstcs.TelemetryMessage,
-	healthChannel <-chan ecstcs.HealthMessage,
-	publishMetricsInterval time.Duration,
-	rwTimeout time.Duration,
-	disableResourceMetrics bool,
+	cfg *wsclient.WSClientMinAgentConfig,
 	doctor *doctor.Doctor,
+	disableResourceMetrics bool,
+	publishMetricsInterval time.Duration,
+	credentialProvider *credentials.Credentials,
+	rwTimeout time.Duration,
+	metricsMessages <-chan ecstcs.TelemetryMessage,
+	healthMessages <-chan ecstcs.HealthMessage,
 ) wsclient.ClientServer {
-	cs := &clientServer{
-		statsEngine:              statsEngine,
-		metricsChannel:           metricsChannel,
-		healthChannel:            healthChannel,
+	cs := &tcsClientServer{
 		doctor:                   doctor,
 		pullInstanceStatusTicker: nil,
 		publishMetricsInterval:   publishMetricsInterval,
+		metrics:                  metricsMessages,
+		health:                   healthMessages,
+		disableResourceMetrics:   disableResourceMetrics,
+		ClientServerImpl: wsclient.ClientServerImpl{
+			URL:                url,
+			Cfg:                cfg,
+			CredentialProvider: credentialProvider,
+			RWTimeout:          rwTimeout,
+			MakeRequestHook:    signRequestFunc(url, cfg.AWSRegion, credentialProvider),
+			TypeDecoder:        NewTCSDecoder(),
+			RequestHandlers:    make(map[string]wsclient.RequestHandler),
+		},
 	}
-	cs.URL = url
-	cs.AgentConfig = cfg
-	cs.CredentialProvider = credentialProvider
 	cs.ServiceError = &tcsError{}
-	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
-	cs.MakeRequestHook = signRequestFunc(url, cs.AgentConfig.AWSRegion, credentialProvider)
-	cs.TypeDecoder = NewTCSDecoder()
-	cs.RWTimeout = rwTimeout
-	cs.disableResourceMetrics = disableResourceMetrics
-	// TODO make this context inherited from the handler
-	cs.ctx, cs.cancel = context.WithCancel(context.TODO())
 	return cs
 }
 
 // Serve begins serving requests using previously registered handlers (see
 // AddRequestHandler). All request handlers should be added prior to making this
 // call as unhandled requests will be discarded.
-func (cs *clientServer) Serve() error {
+func (cs *tcsClientServer) Serve(ctx context.Context) error {
 	seelog.Debug("TCS client starting websocket poll loop")
 	if !cs.IsReady() {
 		return fmt.Errorf("tcs client: websocket not ready for connections")
 	}
 
-	if cs.statsEngine == nil {
-		return fmt.Errorf("tcs client: uninitialized stats engine")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// Start the timer function to publish metrics to the backend.
+	go cs.publishMessages(ctx)
+
+	if cs.doctor != nil {
+		cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
+		go cs.publishInstanceStatus(ctx)
 	}
 
-	// Start the timer function to publish metrics to the backend.
-	cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
-
-	go cs.publishMessages()
-	go cs.publishInstanceStatus()
-
-	return cs.ConsumeMessages()
+	return cs.ConsumeMessages(ctx)
 }
 
-func (cs *clientServer) publishMessages() {
+func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 	for {
 		select {
-		case <-cs.ctx.Done():
+		case <-ctx.Done():
 			return
-		case metric := <-cs.metricsChannel:
+		case metric := <-cs.metrics:
 			seelog.Debugf("received telemetry message in metricsChannel")
-			includeServiceConnectStats := metric.IncludeServiceConnectStats
-			if !cs.disableResourceMetrics || includeServiceConnectStats {
-				err := cs.publishMetricsOnce(metric)
-				if err != nil {
-					seelog.Warnf("Error publishing metrics: %v", err)
-				}
+			err := cs.publishMetricsOnce(metric)
+			if err != nil {
+				logger.Warn("Error publishing metrics", logger.Fields{
+					field.Error: err,
+				})
 			}
-		case health := <-cs.healthChannel:
+		case health := <-cs.health:
 			seelog.Debugf("received health message in healthChannel")
-			err := cs.publishHealthMetricsOnce(health)
+			err := cs.publishHealthOnce(health)
 			if err != nil {
 				seelog.Warnf("Error publishing metrics: %v", err)
 			}
@@ -143,47 +141,10 @@ func (cs *clientServer) publishMessages() {
 	}
 }
 
-// Close closes the underlying connection.
-func (cs *clientServer) Close() error {
-	if cs.pullInstanceStatusTicker != nil {
-		cs.pullInstanceStatusTicker.Stop()
-	}
-
-	cs.cancel()
-	return cs.Disconnect()
-}
-
-// signRequestFunc is a MakeRequestHookFunc that signs each generated request
-func signRequestFunc(url, region string, credentialProvider *credentials.Credentials) wsclient.MakeRequestHookFunc {
-	return func(payload []byte) ([]byte, error) {
-		reqBody := bytes.NewReader(payload)
-
-		request, err := http.NewRequest("GET", url, reqBody)
-		if err != nil {
-			return nil, err
-		}
-
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
-		if err != nil {
-			return nil, err
-		}
-
-		request.Header.Add("Host", request.Host)
-		var dataBuffer bytes.Buffer
-		request.Header.Write(&dataBuffer)
-		io.WriteString(&dataBuffer, "\r\n")
-
-		data := dataBuffer.Bytes()
-		data = append(data, payload...)
-
-		return data, nil
-	}
-}
-
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishMetricsOnce(metrics ecstcs.TelemetryMessage) error {
+func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) error {
 	// Get the list of objects to send to backend.
-	requests, err := cs.metricsToPublishMetricRequests(metrics)
+	requests, err := cs.metricsToPublishMetricRequests(message)
 	if err != nil {
 		return err
 	}
@@ -199,10 +160,28 @@ func (cs *clientServer) publishMetricsOnce(metrics ecstcs.TelemetryMessage) erro
 	return nil
 }
 
+// publishHealthOnce is invoked by the ticker to periodically publish metrics to backend.
+func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error {
+	// Get the list of health request to send to backend.
+	requests, err := cs.healthToPublishHealthRequests(health)
+	if err != nil {
+		return err
+	}
+	// Make the publish metrics request to the backend.
+	for _, request := range requests {
+		seelog.Debugf("making publish health metrics request")
+		err = cs.MakeRequest(request)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
 // objects.
-func (cs *clientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*ecstcs.PublishMetricsRequest, error) {
-	metadata, taskMetrics, includeServiceConnectStats := metrics.Metadata, metrics.TaskMetrics, metrics.IncludeServiceConnectStats
+func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*ecstcs.PublishMetricsRequest, error) {
+	metadata, taskMetrics := metrics.Metadata, metrics.TaskMetrics
 
 	var requests []*ecstcs.PublishMetricsRequest
 	if metadata == nil {
@@ -236,7 +215,7 @@ func (cs *clientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryM
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
 
-		if includeServiceConnectStats {
+		if taskMetric.ServiceConnectMetricsWrapper != nil {
 			taskMetric, messageTaskMetrics, requests = cs.serviceConnectMetricsToPublishMetricRequests(requestMetadata, taskMetric, messageTaskMetrics, requests)
 		}
 		messageTaskMetrics = append(messageTaskMetrics, taskMetric)
@@ -263,8 +242,11 @@ func (cs *clientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryM
 // serviceConnectMetricsToPublishMetricRequests loops over all the SC metrics in a
 // task metric to add SC metrics until the message size is within 1 MB.
 // If adding a SC metric to the message exceeds the 1 MB limit, it will be sent in the new message
-func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMetadata *ecstcs.MetricsMetadata, taskMetric *ecstcs.TaskMetric,
-	messageTaskMetrics []*ecstcs.TaskMetric, requests []*ecstcs.PublishMetricsRequest) (*ecstcs.TaskMetric, []*ecstcs.TaskMetric, []*ecstcs.PublishMetricsRequest) {
+func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(requestMetadata *ecstcs.MetricsMetadata,
+	taskMetric *ecstcs.TaskMetric,
+	messageTaskMetrics []*ecstcs.TaskMetric,
+	requests []*ecstcs.PublishMetricsRequest,
+) (*ecstcs.TaskMetric, []*ecstcs.TaskMetric, []*ecstcs.PublishMetricsRequest) {
 	tempTaskMetric := *taskMetric
 	tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
@@ -296,26 +278,8 @@ func (cs *clientServer) serviceConnectMetricsToPublishMetricRequests(requestMeta
 	return &tempTaskMetric, messageTaskMetrics, requests
 }
 
-// publishHealthMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *clientServer) publishHealthMetricsOnce(health ecstcs.HealthMessage) error {
-	// Get the list of health request to send to backend.
-	requests, err := cs.createPublishHealthRequests(health)
-	if err != nil {
-		return err
-	}
-	// Make the publish metrics request to the backend.
-	for _, request := range requests {
-		seelog.Debugf("making publish health metrics request")
-		err = cs.MakeRequest(request)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// createPublishHealthRequests creates the requests to publish container health
-func (cs *clientServer) createPublishHealthRequests(health ecstcs.HealthMessage) ([]*ecstcs.PublishHealthRequest, error) {
+// healthToPublishHealthRequests creates the requests to publish container health
+func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMessage) ([]*ecstcs.PublishHealthRequest, error) {
 	metadata, taskHealthMetrics := health.Metadata, health.HealthMetrics
 
 	if metadata == nil || taskHealthMetrics == nil {
@@ -399,7 +363,7 @@ func copyTaskHealthMetrics(from []*ecstcs.TaskHealth) []*ecstcs.TaskHealth {
 // publishInstanceStatus queries the doctor.Doctor instance contained within cs,
 // converts the healthcheck results to an InstanceStatusRequest and then sends it
 // to the backend
-func (cs *clientServer) publishInstanceStatus() {
+func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 	// Note to disambiguate between health metrics and instance statuses
 	//
 	// Instance status checks are performed by the Doctor class in the doctor module
@@ -430,7 +394,7 @@ func (cs *clientServer) publishInstanceStatus() {
 			} else {
 				seelog.Debug("Skipping publishing container instance status message that was already sent")
 			}
-		case <-cs.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -439,7 +403,7 @@ func (cs *clientServer) publishInstanceStatus() {
 // publishInstanceStatusOnce gets called on a ticker to pull instance status
 // from the doctor instance contained within cs and sned that information to
 // the backend
-func (cs *clientServer) publishInstanceStatusOnce() error {
+func (cs *tcsClientServer) publishInstanceStatusOnce() error {
 	// Get the list of health request to send to backend.
 	request, err := cs.getPublishInstanceStatusRequest()
 	if err != nil {
@@ -459,7 +423,7 @@ func (cs *clientServer) publishInstanceStatusOnce() error {
 
 // GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
 // a sendable PublishInstanceStatusRequest
-func (cs *clientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
+func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
 	metadata := &ecstcs.InstanceStatusMetadata{
 		Cluster:           aws.String(cs.doctor.GetCluster()),
 		ContainerInstance: aws.String(cs.doctor.GetContainerInstanceArn()),
@@ -479,7 +443,7 @@ func (cs *clientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstan
 
 // getInstanceStatuses returns a list of instance statuses converted from what
 // the doctor knows about the registered healthchecks
-func (cs *clientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
+func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 	var instanceStatuses []*ecstcs.InstanceStatus
 
 	for _, healthcheck := range *cs.doctor.GetHealthchecks() {
@@ -492,4 +456,40 @@ func (cs *clientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 		instanceStatuses = append(instanceStatuses, instanceStatus)
 	}
 	return instanceStatuses
+}
+
+// Close closes the underlying connection.
+func (cs *tcsClientServer) Close() error {
+	if cs.pullInstanceStatusTicker != nil {
+		cs.pullInstanceStatusTicker.Stop()
+	}
+
+	return cs.Disconnect()
+}
+
+// signRequestFunc is a MakeRequestHookFunc that signs each generated request
+func signRequestFunc(url, region string, credentialProvider *credentials.Credentials) wsclient.MakeRequestHookFunc {
+	return func(payload []byte) ([]byte, error) {
+		reqBody := bytes.NewReader(payload)
+
+		request, err := http.NewRequest("GET", url, reqBody)
+		if err != nil {
+			return nil, err
+		}
+
+		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
+		if err != nil {
+			return nil, err
+		}
+
+		request.Header.Add("Host", request.Host)
+		var dataBuffer bytes.Buffer
+		request.Header.Write(&dataBuffer)
+		io.WriteString(&dataBuffer, "\r\n")
+
+		data := dataBuffer.Bytes()
+		data = append(data, payload...)
+
+		return data, nil
+	}
 }
