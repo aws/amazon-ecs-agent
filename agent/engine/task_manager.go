@@ -199,11 +199,15 @@ func (mtask *managedTask) overseeTask() {
 	// `desiredstatus`es which are a construct of the engine used only here,
 	// not present on the backend
 	mtask.UpdateStatus()
+
+	// Wait here until enough resources are available on host for the task to progress
+	// - Waits until host resource manager succesfully 'consume's task resources and returns
+	// - For tasks which have crossed this stage before (on agent restarts), resources are pre-consumed - returns immediately
+	// (resources are later 'release'd on Stopped task emitTaskEvent call)
+	mtask.waitForHostResources()
+
 	// If this was a 'state restore', send all unsent statuses
 	mtask.emitCurrentStatus()
-
-	// Wait for host resources required by this task to become available
-	mtask.waitForHostResources()
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
