@@ -2973,6 +2973,34 @@ func TestGetTaskProtection(t *testing.T) {
 			},
 		})
 	})
+	t.Run("more than one ecs failure", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+			path:                              path,
+			setStateExpectations:              happyStateExpectations,
+			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+				&ecs.GetTaskProtectionOutput{
+					Failures: []*ecs.Failure{
+						{
+							Arn:    aws.String(taskARN),
+							Reason: aws.String("ecs failure 1"),
+						},
+						{
+							Arn:    aws.String(taskARN),
+							Reason: aws.String("ecs failure 2"),
+						},
+					},
+				}, nil),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponseBody: agentapi.TaskProtectionResponse{
+				Error: &agentapi.ErrorResponse{
+					Arn:     taskARN,
+					Code:    ecs.ErrCodeServerException,
+					Message: "Unexpected error occurred",
+				},
+			},
+		})
+	})
 	t.Run("happy case", func(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
 			path:                              path,
@@ -3201,6 +3229,32 @@ func TestUpdateTaskProtection(t *testing.T) {
 			Failure: &ecs.Failure{
 				Arn:    aws.String(taskARN),
 				Reason: aws.String("ecs failure"),
+			},
+		},
+	}))
+	t.Run("more than on ecs failure", runTest(t, TMDSTestCase[agentapi.TaskProtectionResponse]{
+		requestBody:                       happyReqBody,
+		setStateExpectations:              happyStateExpectations,
+		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
+		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
+			&ecs.UpdateTaskProtectionOutput{
+				Failures: []*ecs.Failure{
+					{
+						Arn:    aws.String(taskARN),
+						Reason: aws.String("ecs failure 1"),
+					},
+					{
+						Arn:    aws.String(taskARN),
+						Reason: aws.String("ecs failure 2"),
+					},
+				},
+			}, nil),
+		expectedStatusCode: http.StatusInternalServerError,
+		expectedResponseBody: agentapi.TaskProtectionResponse{
+			Error: &agentapi.ErrorResponse{
+				Arn:     taskARN,
+				Code:    ecs.ErrCodeServerException,
+				Message: "Unexpected error occurred",
 			},
 		},
 	}))
