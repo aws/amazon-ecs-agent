@@ -2810,7 +2810,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: agentapi.TaskProtectionResponse{
 				Error: &agentapi.ErrorResponse{
 					Code:    ecs.ErrCodeResourceNotFoundException,
-					Message: "Invalid request: no task was found",
+					Message: "Failed to find a task for the request",
 				},
 			},
 		})
@@ -3058,7 +3058,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: agentapi.TaskProtectionResponse{
 			Error: &agentapi.ErrorResponse{
 				Code:    ecs.ErrCodeResourceNotFoundException,
-				Message: "Invalid request: no task was found",
+				Message: "Failed to find a task for the request",
 			},
 		},
 	}))
