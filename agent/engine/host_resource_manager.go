@@ -67,13 +67,25 @@ func (e *ResourceIsNilForTask) Error() string {
 	return fmt.Sprintf("resource %s is nil in task resources", e.resource)
 }
 
+func toStringSlice(s []*string) []string {
+	var t []string
+	for _, ptr := range s {
+		if ptr == nil {
+			t = append(t, "nil")
+		} else {
+			t = append(t, *ptr)
+		}
+	}
+	return t
+}
+
 func (h *HostResourceManager) logResources(msg string, taskArn string) {
 	logger.Debug(msg, logger.Fields{
 		"taskArn":   taskArn,
 		"CPU":       *h.consumedResource[CPU].IntegerValue,
 		"MEMORY":    *h.consumedResource[MEMORY].IntegerValue,
-		"PORTS_TCP": h.consumedResource[PORTSTCP].StringSetValue,
-		"PORTS_UDP": h.consumedResource[PORTSUDP].StringSetValue,
+		"PORTS_TCP": toStringSlice(h.consumedResource[PORTSTCP].StringSetValue),
+		"PORTS_UDP": toStringSlice(h.consumedResource[PORTSUDP].StringSetValue),
 		"GPU":       *h.consumedResource[GPU].IntegerValue,
 	})
 }
