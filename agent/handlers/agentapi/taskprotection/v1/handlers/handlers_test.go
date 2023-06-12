@@ -190,7 +190,7 @@ func TestUpdateTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	expectedResponse := types.TaskProtectionResponse{
 		Error: &types.ErrorResponse{
 			Code:    ecs.ErrCodeResourceNotFoundException,
-			Message: "Invalid request: no task was found",
+			Message: "Failed to find a task for the request",
 		},
 	}
 	testUpdateTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil, request,
@@ -456,7 +456,7 @@ func TestGetTaskProtectionHandlerTaskARNNotFound(t *testing.T) {
 	expectedResponse := types.TaskProtectionResponse{
 		Error: &types.ErrorResponse{
 			Code:    ecs.ErrCodeResourceNotFoundException,
-			Message: "Invalid request: no task was found",
+			Message: "Failed to find a task for the request",
 		},
 	}
 	testGetTaskProtectionHandler(t, mockState, testV3EndpointId, nil, nil,
