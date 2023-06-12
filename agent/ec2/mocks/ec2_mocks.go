@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 
 	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
-	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 	ec20 "github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"

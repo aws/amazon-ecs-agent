@@ -21,7 +21,7 @@ package mock_gpu
 import (
 	reflect "reflect"
 
-	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	gomock "github.com/golang/mock/gomock"
 )
 
