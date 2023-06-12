@@ -18,6 +18,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/status
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
+github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks

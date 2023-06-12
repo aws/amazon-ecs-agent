@@ -62,7 +62,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
@@ -70,6 +69,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 )
 
 var (

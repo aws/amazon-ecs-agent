@@ -44,7 +44,6 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -52,6 +51,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 	"github.com/stretchr/testify/assert"
 

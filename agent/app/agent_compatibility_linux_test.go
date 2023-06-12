@@ -25,8 +25,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
