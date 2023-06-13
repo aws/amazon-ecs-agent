@@ -3628,8 +3628,8 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 		"taskArn":   task.Arn,
 		"CPU":       *resources["CPU"].IntegerValue,
 		"MEMORY":    *resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": resources["PORTS_TCP"].StringSetValue,
-		"PORTS_UDP": resources["PORTS_UDP"].StringSetValue,
+		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
+		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
 		"GPU":       *resources["GPU"].IntegerValue,
 	})
 	return resources
