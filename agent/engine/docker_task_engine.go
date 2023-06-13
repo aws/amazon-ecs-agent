@@ -597,11 +597,13 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	}
 
 	tasks := engine.state.AllTasks()
-	// Pre-consume resources for tasks have progressed beyond resource check (waitingTaskQueue) stage.
+	// For normal task progress, overseeTask 'consume's resources through waitForHostResources in host_resource_manager before progressing
+	// For agent restarts (state restore), we pre-consume resources for tasks that had progressed beyond waitForHostResources stage -
+	// so these tasks do not wait during 'waitForHostResources' call again - do not go through queuing again
+	//
 	// Call reconcileHostResources before
-	// - filterTasksToStartUnsafe which will reconcile container statuses
-	// for the duration the agent was stopped
-	// - starting managedTask goroutines
+	// - filterTasksToStartUnsafe which will reconcile container statuses for the duration the agent was stopped
+	// - starting managedTask's overseeTask goroutines
 	engine.reconcileHostResources()
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
