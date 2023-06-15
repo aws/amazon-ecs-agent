@@ -204,6 +204,7 @@ func (mtask *managedTask) overseeTask() {
 	// - Waits until host resource manager succesfully 'consume's task resources and returns
 	// - For tasks which have crossed this stage before (on agent restarts), resources are pre-consumed - returns immediately
 	// - If the task is already stopped (knownStatus is STOPPED), does not attempt to consume resources - returns immediately
+	// - If an ACS StopTask arrives, host resources manager returns immediately. Host resource manager does not consume resources
 	// (resources are later 'release'd on Stopped task emitTaskEvent call)
 	mtask.waitForHostResources()
 
@@ -386,6 +387,14 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.TaskStatus, seqnum int64) {
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
+
+	// Isolate change of desired status updates from monitorQueuedTasks processing to prevent
+	// unexpected updates to host resource manager when tasks are being processed by monitorQueuedTasks
+	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks
+	// could be processing
+	mtask.engine.monitorQueuedTasksLock.Lock()
+	defer mtask.engine.monitorQueuedTasksLock.Unlock()
+
 	logger.Info("New acs transition", logger.Fields{
 		field.TaskID:        mtask.GetID(),
 		field.DesiredStatus: desiredStatus.String(),
@@ -1454,6 +1463,9 @@ func (mtask *managedTask) time() ttime.Time {
 }
 
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
+	// In case waitForHostResources returns on an event other than task's consumedHostResourceEvent
+	// release resources from host_resource_manager
+	go mtask.discardConsumedHostResourceEvents()
 	taskExecutionCredentialsID := mtask.GetExecutionCredentialsID()
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	cleanupTime := make(<-chan time.Time)
@@ -1514,6 +1526,22 @@ func (mtask *managedTask) discardEvents() {
 		case <-mtask.dockerMessages:
 		case <-mtask.acsMessages:
 		case <-mtask.resourceStateChangeEvent:
+		case <-mtask.ctx.Done():
+			return
+		}
+	}
+}
+
+func (mtask *managedTask) discardConsumedHostResourceEvents() {
+	for {
+		select {
+		case <-mtask.consumedHostResourceEvent:
+			logger.Info("Releasing resources in cleanup", logger.Fields{field.TaskARN: mtask.Arn})
+			resourcesToRelease := mtask.ToHostResources()
+			err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
+			if err != nil {
+				logger.Critical("Failed to release resources in discardConsumedHostResourceEvents", logger.Fields{field.TaskARN: mtask.Arn})
+			}
 		case <-mtask.ctx.Done():
 			return
 		}

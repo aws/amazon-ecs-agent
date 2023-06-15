@@ -1420,7 +1420,8 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			task := &managedTask{
-				ctx: ctx,
+				ctx:    ctx,
+				engine: &DockerTaskEngine{},
 				Task: &apitask.Task{
 					KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
