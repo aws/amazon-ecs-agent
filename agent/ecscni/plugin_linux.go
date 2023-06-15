@@ -22,12 +22,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 const (
@@ -45,10 +46,10 @@ func newCNIGuard() cniGuard {
 }
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
+func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*cniTypesCurrent.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
 
-	var bridgeResult cnitypes.Result
+	var bridgeResult cniTypes.Result
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
@@ -83,19 +84,8 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 		// Not every netns setup involves ECS Bridge Plugin
 		return nil, nil
 	}
-	if _, err := bridgeResult.GetAsVersion(currentCNISpec); err != nil {
-		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
-			currentCNISpec, err, bridgeResult.Version())
-		return nil, err
-	}
-	var curResult *current.Result
-	curResult, ok := bridgeResult.(*current.Result)
-	if !ok {
-		return nil, errors.Errorf(
-			"cni setup: unable to convert result to expected version '%v'", bridgeResult)
-	}
 
-	return curResult, nil
+	return cniTypesCurrent.GetResult(bridgeResult)
 }
 
 // ReleaseIPResource marks the ip available in the ipam db

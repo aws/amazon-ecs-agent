@@ -19,7 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/containernetworking/cni/libcni"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 )
 
 // newNetworkConfig converts a network config to libcni's NetworkConfig.
@@ -35,7 +35,7 @@ func newNetworkConfig(netcfg interface{}, plugin string, cniVersion string) (*li
 	}
 
 	netConfig := &libcni.NetworkConfig{
-		Network: &cnitypes.NetConf{
+		Network: &cniTypes.NetConf{
 			Type:       plugin,
 			CNIVersion: cniVersion,
 			Name:       defaultNetworkName,

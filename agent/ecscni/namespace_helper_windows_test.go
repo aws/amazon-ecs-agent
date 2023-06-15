@@ -24,14 +24,14 @@ import (
 	"testing"
 	"time"
 
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-
-	"github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
+	"github.com/docker/docker/api/types"
+
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/golang/mock/gomock"
 )
 
 const (
@@ -39,10 +39,10 @@ const (
 	containerExecID = "container1234"
 )
 
-// getECSBridgeResult returns an instance of current.Result.
-func getECSBridgeResult() *current.Result {
-	return &current.Result{
-		IPs: []*current.IPConfig{{
+// getECSBridgeResult returns an instance of cniTypesCurrent.Result.
+func getECSBridgeResult() *cniTypesCurrent.Result {
+	return &cniTypesCurrent.Result{
+		IPs: []*cniTypesCurrent.IPConfig{{
 			Address: net.IPNet{
 				IP:   net.ParseIP(ipv4),
 				Mask: net.CIDRMask(24, 32),
@@ -77,7 +77,7 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 			cniConfig := getCNIConfig()
 			cniConfig.BlockInstanceMetadata = tt.blockIMDS
 
-			cniConfig.AdditionalLocalRoutes = append(cniConfig.AdditionalLocalRoutes, cnitypes.IPNet{
+			cniConfig.AdditionalLocalRoutes = append(cniConfig.AdditionalLocalRoutes, cniTypes.IPNet{
 				IP:   net.ParseIP("10.0.0.0"),
 				Mask: net.CIDRMask(24, 32),
 			})

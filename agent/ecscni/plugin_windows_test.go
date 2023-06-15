@@ -24,14 +24,16 @@ import (
 	"testing"
 	"time"
 
-	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/containernetworking/cni/libcni"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
+
+	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
 
 const (
@@ -87,7 +89,7 @@ func TestSetupNS(t *testing.T) {
 
 	gomock.InOrder(
 		// vpc-eni plugin called to setup task namespace.
-		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 				assert.Equal(t, ECSVPCENIPluginExecutable, net.Network.Type, "plugin should be vpc-eni")
 			}).Times(2),
@@ -113,7 +115,7 @@ func TestSetupNSTimeout(t *testing.T) {
 
 	gomock.InOrder(
 		// vpc-eni plugin will be called.
-		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, errors.New("timeout")).Do(
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, errors.New("timeout")).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 			}).MaxTimes(setupNSMaxRetryCount),
 	)
@@ -135,10 +137,10 @@ func TestSetupNSWithRetry(t *testing.T) {
 
 	gomock.InOrder(
 		// First invocation of the plugin for setupNS will fail and the same will succeed in retry.
-		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, errors.New("timeout")).Do(
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, errors.New("timeout")).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 			}),
-		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 				assert.Equal(t, ECSVPCENIPluginExecutable, net.Network.Type, "first plugin should be vpc-eni")
 			}).Times(2),

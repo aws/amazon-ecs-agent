@@ -27,7 +27,7 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 )
 
 // NewBridgeNetworkConfig creates the config of bridge for ADD command, where
@@ -89,7 +89,7 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 		return IPAMConfig{}, err
 	}
 
-	routes := []*cnitypes.Route{
+	routes := []*cniTypes.Route{
 		{
 			Dst: *dst,
 		},
@@ -98,7 +98,7 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 	for _, route := range cfg.AdditionalLocalRoutes {
 		seelog.Debugf("[ECSCNI] Adding an additional route for %s", route)
 		ipNetRoute := (net.IPNet)(route)
-		routes = append(routes, &cnitypes.Route{Dst: ipNetRoute})
+		routes = append(routes, &cniTypes.Route{Dst: ipNetRoute})
 	}
 
 	ipamConfig := IPAMConfig{

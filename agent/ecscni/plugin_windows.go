@@ -24,16 +24,14 @@ import (
 	"sync"
 	"time"
 
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/containernetworking/cni/pkg/types/current"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 
 var (
@@ -52,8 +50,8 @@ func newCNIGuard() cniGuard {
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations.
 // For Windows, we will retry the setup before conceding error.
-func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
-	var result *current.Result
+func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*cniTypesCurrent.Result, error) {
+	var result *cniTypesCurrent.Result
 	var err error
 	backoff := retry.NewExponentialBackoff(setupNSBackoffMin, setupNSBackoffMax,
 		setupNSBackoffJitter, setupNSBackoffMultiple)
@@ -72,10 +70,10 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 }
 
 // doSetupNS invokes the CNI plugins to setup the task network namespace.
-func (client *cniClient) doSetupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
+func (client *cniClient) doSetupNS(ctx context.Context, cfg *Config) (*cniTypesCurrent.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
 
-	var ecsBridgeResult cnitypes.Result
+	var ecsBridgeResult cniTypes.Result
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       cfg.ContainerNetNS,
@@ -108,19 +106,7 @@ func (client *cniClient) doSetupNS(ctx context.Context, cfg *Config) (*current.R
 
 	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", cfg.ContainerID)
 
-	if _, err := ecsBridgeResult.GetAsVersion(currentCNISpec); err != nil {
-		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
-			currentCNISpec, err, ecsBridgeResult.Version())
-		return nil, err
-	}
-	var curResult *current.Result
-	curResult, ok := ecsBridgeResult.(*current.Result)
-	if !ok {
-		return nil, errors.Errorf(
-			"cni setup: unable to convert result to expected version '%v'", ecsBridgeResult)
-	}
-
-	return curResult, nil
+	return cniTypesCurrent.GetResult(ecsBridgeResult)
 }
 
 // ReleaseIPResource marks the ip available in the ipam db

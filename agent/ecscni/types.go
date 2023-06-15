@@ -15,7 +15,7 @@ package ecscni
 
 import (
 	"github.com/containernetworking/cni/libcni"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 )
 
 const (
@@ -51,13 +51,13 @@ type Config struct {
 	// BridgeName is the name used to create the bridge
 	BridgeName string
 	// IPAMV4Address is the ipv4 used to assign from ipam
-	IPAMV4Address *cnitypes.IPNet
+	IPAMV4Address *cniTypes.IPNet
 	// ID is the information associate with ip in ipam
 	ID string
 	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
 	BlockInstanceMetadata bool
 	// AdditionalLocalRoutes specifies additional routes to be added to the task namespace
-	AdditionalLocalRoutes []cnitypes.IPNet
+	AdditionalLocalRoutes []cniTypes.IPNet
 	// NetworkConfigs is the list of CNI network configurations to be invoked
 	NetworkConfigs []*NetworkConfig
 	// InstanceENIDNSServerList stores the list of dns servers for the primary instance ENI.

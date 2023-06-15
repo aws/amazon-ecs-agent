@@ -24,7 +24,7 @@ import (
 	time "time"
 
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
-	current "github.com/containernetworking/cni/pkg/types/current"
+	types100 "github.com/containernetworking/cni/pkg/types/100"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -95,10 +95,10 @@ func (mr *MockCNIClientMockRecorder) ReleaseIPResource(arg0, arg1, arg2 interfac
 }
 
 // SetupNS mocks base method.
-func (m *MockCNIClient) SetupNS(arg0 context.Context, arg1 *ecscni.Config, arg2 time.Duration) (*current.Result, error) {
+func (m *MockCNIClient) SetupNS(arg0 context.Context, arg1 *ecscni.Config, arg2 time.Duration) (*types100.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetupNS", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*current.Result)
+	ret0, _ := ret[0].(*types100.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

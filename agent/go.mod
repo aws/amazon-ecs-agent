@@ -8,7 +8,7 @@ require (
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v1.0.4
-	github.com/containernetworking/cni v0.8.1
+	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v0.9.1
 	github.com/deniswernert/udev v0.0.0-20170418162847-a12666f7b5a1
 	github.com/docker/docker v20.10.24+incompatible
@@ -56,6 +56,7 @@ require (
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
+	github.com/onsi/ginkgo/v2 v2.7.0 // indirect
 	github.com/onsi/gomega v1.25.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect

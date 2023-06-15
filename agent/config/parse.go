@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -216,8 +216,8 @@ func parseInstanceAttributes(errs []error) (map[string]string, []error) {
 	return instanceAttributes, errs
 }
 
-func parseAdditionalLocalRoutes(errs []error) ([]cnitypes.IPNet, []error) {
-	var additionalLocalRoutes []cnitypes.IPNet
+func parseAdditionalLocalRoutes(errs []error) ([]cniTypes.IPNet, []error) {
+	var additionalLocalRoutes []cniTypes.IPNet
 	additionalLocalRoutesEnv := os.Getenv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES")
 	if additionalLocalRoutesEnv != "" {
 		err := json.Unmarshal([]byte(additionalLocalRoutesEnv), &additionalLocalRoutes)
