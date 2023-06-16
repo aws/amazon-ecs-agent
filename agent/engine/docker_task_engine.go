@@ -155,8 +155,13 @@ type DockerTaskEngine struct {
 	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	tasksLock sync.RWMutex
-	// waitingTasksLock is a mutext for operations on waitingTasksQueue
+	// waitingTasksLock is a mutex for operations on waitingTasksQueue
 	waitingTasksLock sync.RWMutex
+
+	// monitorQueuedTasksLock is a mutex for operations in the monitorQueuedTasks which
+	// allocate host resources and wakes up waiting host resources. This should be used
+	// for synchronizing task desired status updates and queue operations
+	monitorQueuedTasksLock sync.RWMutex
 
 	credentialsManager                  credentials.Manager
 	_time                               ttime.Time
@@ -392,21 +397,47 @@ func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 				if err != nil {
 					break
 				}
-				taskHostResources := task.ToHostResources()
-				consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
-				if err != nil {
-					engine.failWaitingTask(err)
-				}
-				if consumed {
-					engine.startWaitingTask()
-				} else {
-					// not consumed, go to wait
+				dequeuedTask := engine.tryDequeueWaitingTasks(task)
+				if !dequeuedTask {
 					break
 				}
 			}
 			logger.Debug("No more tasks could be started at this moment, waiting")
 		}
 	}
+}
+
+func (engine *DockerTaskEngine) tryDequeueWaitingTasks(task *managedTask) bool {
+	// Isolate monitorQueuedTasks processing from changes of desired status updates to prevent
+	// unexpected updates to host resource manager when tasks are being processed by monitorQueuedTasks
+	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks
+	// could be processing
+	engine.monitorQueuedTasksLock.Lock()
+	defer engine.monitorQueuedTasksLock.Unlock()
+	taskDesiredStatus := task.GetDesiredStatus()
+	if taskDesiredStatus.Terminal() {
+		logger.Info("Task desired status changed to STOPPED while waiting for host resources, progressing without consuming resources", logger.Fields{field.TaskARN: task.Arn})
+		engine.returnWaitingTask()
+		return true
+	}
+	taskHostResources := task.ToHostResources()
+	consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+	if err != nil {
+		engine.failWaitingTask(err)
+		return true
+	}
+	if consumed {
+		engine.startWaitingTask()
+		return true
+	}
+	return false
+	// not consumed, go to wait
+}
+
+// To be called when resources are not to be consumed by host resource manager, just dequeues and returns
+func (engine *DockerTaskEngine) returnWaitingTask() {
+	task, _ := engine.dequeueTask()
+	task.consumedHostResourceEvent <- struct{}{}
 }
 
 func (engine *DockerTaskEngine) failWaitingTask(err error) {
