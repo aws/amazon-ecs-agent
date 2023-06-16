@@ -36,7 +36,6 @@ import (
 )
 
 const (
-	// wsRWTimeout is the duration of read and write deadline for the websocket connection
 	deregisterContainerInstanceHandler = "TCSDeregisterContainerInstanceHandler"
 	ContainerRuntimeDocker             = "Docker"
 )

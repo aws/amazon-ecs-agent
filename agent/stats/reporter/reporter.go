@@ -37,26 +37,8 @@ type DockerTelemetrySession struct {
 	containerInstanceArn string
 }
 
-func (session *DockerTelemetrySession) Start(ctx context.Context) error {
-	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
-	for {
-		endpoint, tcsError := discoverPollEndpoint(session.containerInstanceArn, session.ecsClient)
-		if tcsError == nil {
-			tcsError = session.s.StartTelemetrySession(ctx, endpoint)
-		}
-		switch tcsError {
-		case context.Canceled, context.DeadlineExceeded:
-			return tcsError
-		case io.EOF, nil:
-			logger.Info("TCS Websocket connection closed for a valid reason")
-			backoff.Reset()
-		default:
-			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
-			time.Sleep(backoff.Duration())
-		}
-	}
-}
-
+// NewDockerTelemetrySession returns creates a DockerTelemetrySession, which has a tcshandler.TelemetrySession embedded.
+// tcshandler.TelemetrySession contains the logic to manage the TCSClient and corresponding websocket connection
 func NewDockerTelemetrySession(
 	containerInstanceArn string,
 	credentialProvider *credentials.Credentials,
@@ -111,6 +93,30 @@ func NewDockerTelemetrySession(
 	return &DockerTelemetrySession{session, ecsClient, containerInstanceArn}
 }
 
+// Start "overloads" tcshandler.TelemetrySession's Start with extra handling of discoverTelemetryEndpoint result.
+// discoverTelemetryEndpoint and tcshandler.TelemetrySession's StartTelemetrySession errors are handled
+// (retryWithBackoff or return) in a combined manner
+func (session *DockerTelemetrySession) Start(ctx context.Context) error {
+	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
+	for {
+		endpoint, tcsError := discoverPollEndpoint(session.containerInstanceArn, session.ecsClient)
+		if tcsError == nil {
+			tcsError = session.s.StartTelemetrySession(ctx, endpoint)
+		}
+		switch tcsError {
+		case context.Canceled, context.DeadlineExceeded:
+			return tcsError
+		case io.EOF, nil:
+			logger.Info("TCS Websocket connection closed for a valid reason")
+			backoff.Reset()
+		default:
+			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
+			time.Sleep(backoff.Duration())
+		}
+	}
+}
+
+// generateVersionInfo generates the agentVersion, agentHash and containerRuntimeVersion from dockerTaskEngine state
 func generateVersionInfo(taskEngine engine.TaskEngine) (string, string, string) {
 	agentVersion := version.Version
 	agentHash := version.GitHashString()
@@ -122,6 +128,7 @@ func generateVersionInfo(taskEngine engine.TaskEngine) (string, string, string) 
 	return agentVersion, agentHash, containerRuntimeVersion
 }
 
+// discoverPollEndpoint calls DiscoverTelemetryEndpoint to get the TCS endpoint url for TCS client to connect
 func discoverPollEndpoint(containerInstanceArn string, ecsClient api.ECSClient) (string, error) {
 	tcsEndpoint, err := ecsClient.DiscoverTelemetryEndpoint(containerInstanceArn)
 	if err != nil {
