@@ -23,6 +23,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"io"
 	"net"
 	"net/http"
@@ -70,6 +72,17 @@ const (
 	// ExitTerminal indicates the agent run into error that's not recoverable
 	// no need to restart
 	ExitTerminal = 5
+
+	// disconnectTimeout is the maximum time taken by the server side (TACS/ACS) to send a
+	// disconnect payload for the Agent.
+	disconnectTimeout = 30 * time.Minute
+
+	// disconnectJitterMax is the maximum jitter time chosen as reasonable initial value
+	// to prevent mass retries at the same time from multiple clients/tasks synchronizing.
+	disconnectJitterMax = 5 * time.Minute
+
+	// dateTimeFormat is a string format to format time for better readability: YYYY-MM-DD hh:mm:ss
+	dateTimeFormat = "2006-01-02 15:04:05"
 )
 
 // ReceivedMessage is the intermediate message used to unmarshal a
@@ -125,6 +138,7 @@ type RespondFunc func(interface{}) error
 
 // ClientServer is a combined client and server for the backend websocket connection
 type ClientServer interface {
+	NewHeartbeatTimeoutHandler(t time.Time, heartbeatTimeout time.Duration, heartbeatTimeoutJitter time.Duration) *time.Timer
 	AddRequestHandler(RequestHandler)
 	// SetAnyRequestHandler takes a function with the signature 'func(i
 	// interface{})' and calls it with every message the server passes down.
@@ -134,7 +148,7 @@ type ClientServer interface {
 	MakeRequest(input interface{}) error
 	WriteMessage(input []byte) error
 	WriteCloseMessage() error
-	Connect() error
+	Connect(disconnectMetricName string) error
 	IsConnected() bool
 	SetConnection(conn wsconn.WebsocketConn)
 	Disconnect(...interface{}) error
@@ -176,7 +190,8 @@ type ClientServerImpl struct {
 	// for the websocket connection
 	RWTimeout time.Duration
 	// writeLock needed to ensure that only one routine is writing to the socket
-	writeLock sync.RWMutex
+	writeLock      sync.RWMutex
+	MetricsFactory metrics.EntryFactory
 	ClientServer
 	ServiceError
 	TypeDecoder
@@ -190,7 +205,7 @@ type MakeRequestHookFunc func([]byte) ([]byte, error)
 // Connect opens a connection to the backend and upgrades it to a websocket. Calls to
 // 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
-func (cs *ClientServerImpl) Connect() error {
+func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
 	logger.Info("Establishing a Websocket connection", logger.Fields{
 		"url": cs.URL,
 	})
@@ -278,6 +293,23 @@ func (cs *ClientServerImpl) Connect() error {
 
 	cs.conn = websocketConn
 	logger.Debug(fmt.Sprintf("Established a Websocket connection to %s", cs.URL))
+
+	startTime := time.Now()
+	logger.Info(("Websocket connection established."), logger.Fields{
+		"ConnectTime":            startTime.Format(dateTimeFormat),
+		"ExpectedDisconnectTime": startTime.Add(disconnectTimeout).Format(dateTimeFormat),
+	})
+	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
+	// call f as goroutine after timeout. The timeout is currently set to 30m+jitter(5m max) to match max duration
+	// of connection with server(ACS/TACS). This timer is meant to handle s.startTCSSession running in blocking mode
+	// beyond 30m+jitter as s.startTCSSession has 2 possible paths: returns with error or continue running
+	// in blocking mode.
+	// Happy path: it returns with error, then timer stops, goroutine to disconnect never starts.
+	// Edge case: it continues to run beyond the maximum duration of TCS connection. Timer starts goroutine
+	// from DisconnectTimeoutTimer to disconnect; guard against hanging connection to unhealthy TCS host.
+	disconnectTimer := cs.newDisconnectTimeoutHandler(startTime, disconnectMetricName)
+	defer disconnectTimer.Stop()
+
 	return nil
 }
 
@@ -564,4 +596,48 @@ func permissibleCloseCode(err error) bool {
 		websocket.CloseAbnormalClosure,   // websocket error code 1006
 		websocket.CloseGoingAway,         // websocket error code 1001
 		websocket.CloseInternalServerErr) // websocket error code 1011
+}
+
+// newDisconnectTimeoutHandler returns new timer object to disconnect from TCS connection start time, with goroutine
+// to disconnect from client.
+func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time, metricName string) *time.Timer {
+	maxConnectionDuration := retry.AddJitter(disconnectTimeout, disconnectJitterMax)
+	timer := time.AfterFunc(maxConnectionDuration, func() {
+		err := cs.closeClient(startTime, maxConnectionDuration)
+		cs.MetricsFactory.New(metricName).Done(err)()
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
+		}
+	})
+	return timer
+}
+
+// newHeartbeatTimeoutHandler returns new timer object to disconnect from TCS based on connection start time.
+func (cs *ClientServerImpl) NewHeartbeatTimeoutHandler(startTime time.Time,
+	heartbeatTimeout time.Duration,
+	heartbeatJitter time.Duration) *time.Timer {
+
+	maxConnectionDuration := retry.AddJitter(heartbeatTimeout, heartbeatJitter)
+	timer := time.AfterFunc(maxConnectionDuration, func() {
+		err := cs.closeClient(startTime, maxConnectionDuration)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
+		}
+	})
+	return timer
+}
+
+// closeTCSClient will attempt to close the provided client, retries are not recommended
+// as failure modes for this are when client is not found or already closed.
+func (cs *ClientServerImpl) closeClient(startTime time.Time, timeoutDuration time.Duration) error {
+	logger.Warn(("Closing connection"), logger.Fields{
+		"ConnectionStartTime":  startTime.Format(dateTimeFormat),
+		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),
+	})
+	err := cs.Disconnect()
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Error disconnecting; client already closed. %s", err))
+	}
+	logger.Info("Disconnected from server.")
+	return err
 }

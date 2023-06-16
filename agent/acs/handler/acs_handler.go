@@ -17,6 +17,7 @@ package handler
 
 import (
 	"context"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net/url"
 	"strconv"
@@ -35,7 +36,6 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -233,7 +233,8 @@ func (acsSession *session) startSessionOnce() error {
 		url,
 		acsSession.credentialsProvider,
 		wsRWTimeout,
-		minAgentCfg)
+		minAgentCfg,
+		metrics.NewNopEntryFactory())
 	defer client.Close()
 
 	return acsSession.startACSSession(client)
@@ -281,7 +282,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.addUpdateRequestHandlers(client)
 	}
 
-	err := client.Connect()
+	err := client.Connect(metrics.ACSDisconnectTimeoutMetricName)
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
@@ -290,11 +291,12 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	seelog.Info("Connected to ACS endpoint")
 	// Start a connection timer; agent close its ACS websocket connection
 	// after this timer expires
+	startTime := time.Now()
 	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter)
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
-	heartbeatTimer := newHeartbeatTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
+	heartbeatTimer := client.NewHeartbeatTimeoutHandler(startTime, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	// Any message from the server resets the heartbeat timer
 	client.SetAnyRequestHandler(anyMessageHandler(heartbeatTimer, client))
 	defer heartbeatTimer.Stop()
