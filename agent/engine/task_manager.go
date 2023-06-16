@@ -1463,9 +1463,6 @@ func (mtask *managedTask) time() ttime.Time {
 }
 
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
-	// In case waitForHostResources returns on an event other than task's consumedHostResourceEvent
-	// release resources from host_resource_manager
-	go mtask.discardConsumedHostResourceEvents()
 	taskExecutionCredentialsID := mtask.GetExecutionCredentialsID()
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	cleanupTime := make(<-chan time.Time)
@@ -1526,22 +1523,6 @@ func (mtask *managedTask) discardEvents() {
 		case <-mtask.dockerMessages:
 		case <-mtask.acsMessages:
 		case <-mtask.resourceStateChangeEvent:
-		case <-mtask.ctx.Done():
-			return
-		}
-	}
-}
-
-func (mtask *managedTask) discardConsumedHostResourceEvents() {
-	for {
-		select {
-		case <-mtask.consumedHostResourceEvent:
-			logger.Info("Releasing resources in cleanup", logger.Fields{field.TaskARN: mtask.Arn})
-			resourcesToRelease := mtask.ToHostResources()
-			err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
-			if err != nil {
-				logger.Critical("Failed to release resources in discardConsumedHostResourceEvents", logger.Fields{field.TaskARN: mtask.Arn})
-			}
 		case <-mtask.ctx.Done():
 			return
 		}
