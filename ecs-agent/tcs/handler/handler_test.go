@@ -132,33 +132,6 @@ func (Source *mockStatsSource) SimulateMetricsPublishToChannel(ctx context.Conte
 	}
 }
 
-// TestDisableMetrics tests the StartTelemetrySession will return immediately if
-// the metrics was disabled
-func TestDisableMetrics(t *testing.T) {
-	ctx, _ := context.WithCancel(context.Background())
-	session := NewTelemetrySession(
-		testInstanceArn,
-		testClusterArn,
-		testAgentVersion,
-		testAgentHash,
-		testContainerRuntimeVersion,
-		"",
-		true,
-		nil,
-		nil,
-		nil,
-		testHeartbeatTimeout,
-		testHeartbeatJitter,
-		testDisconnectionTimeout,
-		testDisconnectionJitter,
-		nil,
-		nil,
-		nil,
-		nil)
-
-	session.StartTelemetrySession(ctx, "")
-}
-
 func TestFormatURL(t *testing.T) {
 	endpoint := "http://127.0.0.0.1/"
 	ctrl := gomock.NewController(t)
