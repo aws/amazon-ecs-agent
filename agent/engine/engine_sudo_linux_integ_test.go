@@ -941,6 +941,159 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
+func TestGMSATaskFileS3Err(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+	cfg.TaskCleanupWaitDuration = 3 * time.Second
+	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.AWSRegion = "us-west-2"
+
+	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	testContainer := createTestContainer()
+	testContainer.Name = "testGMSATaskFile"
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:arn:aws:::s3:testbucket/test-gmsa.json\"]}"
+	testContainer.DockerConfig.HostConfig = &hostConfig
+
+	testTask := &apitask.Task{
+		Arn:                 "testGMSAFileTaskARN",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{testContainer},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = getLongRunningCommand()
+
+	go taskEngine.AddTask(testTask)
+
+	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	assert.Error(t, err)
+	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
+}
+
+func TestGMSATaskFileSSMErr(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+	cfg.TaskCleanupWaitDuration = 3 * time.Second
+	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.AWSRegion = "us-west-2"
+
+	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	testContainer := createTestContainer()
+	testContainer.Name = "testGMSATaskFile"
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:aws:arn:ssm:us-west-2:123456789012:document/test-gmsa.json\"]}"
+	testContainer.DockerConfig.HostConfig = &hostConfig
+
+	testTask := &apitask.Task{
+		Arn:                 "testGMSAFileTaskARN",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{testContainer},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = getLongRunningCommand()
+
+	go taskEngine.AddTask(testTask)
+
+	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	assert.Error(t, err)
+	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
+}
+
+func TestGMSANotRunningErr(t *testing.T) {
+	t.Setenv("ECS_GMSA_SUPPORTED", "True")
+	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
+	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "False")
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+	cfg.TaskCleanupWaitDuration = 3 * time.Second
+	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.AWSRegion = "us-west-2"
+
+	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	// Setup test gmsa file
+	credentialSpecDataDir := "/tmp"
+	testFileName := "test-gmsa.json"
+	testCredSpecFilePath := filepath.Join(credentialSpecDataDir, testFileName)
+	_, err := os.Create(testCredSpecFilePath)
+	require.NoError(t, err)
+
+	// add local credentialspec file
+	testCredSpecData := []byte(`{
+    "CmsPlugins":  [
+                       "ActiveDirectory"
+                   ],
+    "DomainJoinConfig":  {
+                             "Sid":  "S-1-5-21-975084816-3050680612-2826754290",
+                             "MachineAccountName":  "gmsa-acct-test",
+                             "Guid":  "92a07e28-bd9f-4bf3-b1f7-0894815a5257",
+                             "DnsTreeName":  "gmsa.test.com",
+                             "DnsName":  "gmsa.test.com",
+                             "NetBiosName":  "gmsa"
+                         },
+    "ActiveDirectoryConfig":  {
+                                  "GroupManagedServiceAccounts":  [
+                                                                      {
+                                                                          "Name":  "gmsa-acct-test",
+                                                                          "Scope":  "gmsa.test.com"
+                                                                      }
+                                                                  ]
+                              }
+}`)
+
+	err = ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
+	require.NoError(t, err)
+
+	testContainer := createTestContainer()
+	testContainer.Name = "testGMSATaskFile"
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file:///tmp/test-gmsa.json\"]}"
+	testContainer.DockerConfig.HostConfig = &hostConfig
+
+	testTask := &apitask.Task{
+		Arn:                 "testGMSAFileTaskARN",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{testContainer},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = getLongRunningCommand()
+
+	go taskEngine.AddTask(testTask)
+
+	err = verifyTaskIsRunning(stateChangeEvents, testTask)
+	assert.Error(t, err)
+	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
+}
+
 func verifyContainerBindMount(client *sdkClient.Client, id, expectedBind string) error {
 	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
 	if err != nil {
