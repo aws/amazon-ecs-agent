@@ -28,6 +28,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/metrics
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
+github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response

@@ -37,7 +37,6 @@ type TelemetrySessionParams struct {
 	CredentialProvider            *credentials.Credentials
 	Cfg                           *config.Config
 	DeregisterInstanceEventStream *eventstream.EventStream
-	AcceptInvalidCert             bool
 	ECSClient                     api.ECSClient
 	TaskEngine                    engine.TaskEngine
 	StatsEngine                   *stats.DockerStatsEngine
