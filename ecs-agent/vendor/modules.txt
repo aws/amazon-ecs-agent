@@ -41,6 +41,18 @@ github.com/didip/tollbooth
 github.com/didip/tollbooth/errors
 github.com/didip/tollbooth/libstring
 github.com/didip/tollbooth/limiter
+# github.com/docker/docker v24.0.2+incompatible
+## explicit
+github.com/docker/docker/api/types/blkiodev
+github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/mount
+github.com/docker/docker/api/types/strslice
+# github.com/docker/go-connections v0.4.0
+## explicit
+github.com/docker/go-connections/nat
+# github.com/docker/go-units v0.5.0
+## explicit
+github.com/docker/go-units
 # github.com/golang/mock v1.4.1
 ## explicit; go 1.11
 github.com/golang/mock/gomock
@@ -52,6 +64,8 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
+# github.com/google/go-cmp v0.5.5
+## explicit; go 1.8
 # github.com/google/uuid v1.0.0
 ## explicit
 github.com/google/uuid
@@ -167,3 +181,5 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# gotest.tools/v3 v3.4.0
+## explicit; go 1.13
