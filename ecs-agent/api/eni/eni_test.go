@@ -20,10 +20,11 @@ import (
 	"net"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 )
 
 const (
@@ -201,15 +202,15 @@ func TestENIFromACS(t *testing.T) {
 // TestValidateENIFromACS tests the validation of enis from acs
 func TestValidateENIFromACS(t *testing.T) {
 	acsENI := getTestACSENI()
-	err := ValidateTaskENI(acsENI)
+	err := ValidateENI(acsENI)
 	assert.NoError(t, err)
 
 	acsENI.Ipv6Addresses = nil
-	err = ValidateTaskENI(acsENI)
+	err = ValidateENI(acsENI)
 	assert.NoError(t, err)
 
 	acsENI.Ipv4Addresses = nil
-	err = ValidateTaskENI(acsENI)
+	err = ValidateENI(acsENI)
 	assert.Error(t, err)
 }
 
@@ -233,7 +234,7 @@ func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
 		MacAddress: aws.String("mac"),
 	}
 
-	err := ValidateTaskENI(acsENI)
+	err := ValidateENI(acsENI)
 	assert.Error(t, err)
 
 }
@@ -257,7 +258,7 @@ func TestInvalidENIInvalidInterfaceAssociationProtocol(t *testing.T) {
 		},
 		MacAddress: aws.String("mac"),
 	}
-	err := ValidateTaskENI(acsENI)
+	err := ValidateENI(acsENI)
 	assert.Error(t, err)
 }
 

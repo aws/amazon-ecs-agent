@@ -19,17 +19,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
+
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
-
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 )
 
 // eniHandler remove ENI attachment from agent state after the ENI ack timeout
@@ -131,16 +128,5 @@ func (eniHandler *eniHandler) removeENIAttachmentData(mac string) {
 		if err != nil {
 			seelog.Errorf("Failed to remove data for eni attachment %s: %v", attachmentId, err)
 		}
-	}
-}
-
-// sendAck sends ack for a certain ACS message
-func sendAck(acsClient wsclient.ClientServer, clusterArn *string, containerInstanceArn *string, messageId *string) {
-	if err := acsClient.MakeRequest(&ecsacs.AckRequest{
-		Cluster:           clusterArn,
-		ContainerInstance: containerInstanceArn,
-		MessageId:         messageId,
-	}); err != nil {
-		seelog.Warnf("Failed to ack request with messageId: %s, error: %v", aws.StringValue(messageId), err)
 	}
 }

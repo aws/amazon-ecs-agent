@@ -40,8 +40,8 @@ type attachTaskENIResponder struct {
 	respond    wsclient.RespondFunc
 }
 
-// NewAttachTaskENIResponder returns an instance of the attachENIHandler struct.
-func NewAttachTaskENIResponder(eniHandler ENIHandler, responseSender wsclient.RespondFunc) *attachTaskENIResponder {
+// NewAttachTaskENIResponder returns an instance of the attachTaskENIResponder struct.
+func NewAttachTaskENIResponder(eniHandler ENIHandler, responseSender wsclient.RespondFunc) wsclient.RequestResponder {
 	r := &attachTaskENIResponder{
 		eniHandler: eniHandler,
 	}
@@ -148,7 +148,7 @@ func validateAttachTaskNetworkInterfacesMessage(message *ecsacs.AttachTaskNetwor
 	}
 
 	for _, eni := range enis {
-		err := apieni.ValidateTaskENI(eni)
+		err := apieni.ValidateENI(eni)
 		if err != nil {
 			return err
 		}
