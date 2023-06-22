@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+mockgen -package driver -destination=./driver/mock_mount.go -source ./driver/mount.go
+mockgen -package mounter -destination=./mounter/mock_mount_windows.go -source ./mounter/safe_mounter_windows.go
+
+# Fixes "Mounter Type cannot implement 'Mounter' as it has a non-exported method and is defined in a different package"
+# See https://github.com/kubernetes/mount-utils/commit/a20fcfb15a701977d086330b47b7efad51eb608e for context.
+sed -i '/type MockMounter struct {/a \\tmount_utils.Interface' ./driver/mock_mount.go
+sed -i '/type MockProxyMounter struct {/a \\tmount.Interface' ./mounter/mock_mount_windows.go
