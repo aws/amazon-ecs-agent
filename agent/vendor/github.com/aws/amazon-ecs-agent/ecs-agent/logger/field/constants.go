@@ -50,4 +50,5 @@ const (
 	ContainerExitCode       = "containerExitCode"
 	TMDSEndpointContainerID = "tmdsEndpointContainerID"
 	MessageID               = "messageID"
+	RequestType             = "requestType"
 )

@@ -36,7 +36,6 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	agentapihandlers "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	v4stats "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
@@ -3002,7 +3001,10 @@ func TestGetTaskProtection(t *testing.T) {
 	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
 		gomock.InOrder(
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
 	happyCredentialsManagerExpectations := func(credsManager *mock_credentials.MockManager) {
@@ -3261,7 +3263,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 	}
 	ecsRequestID := "reqid"
 	ecsErrMessage := "ecs error message"
-	happyReqBody := &agentapihandlers.TaskProtectionRequest{
+	happyReqBody := &tpinterface.TaskProtectionRequest{
 		ProtectionEnabled: protectionEnabled,
 		ExpiresInMinutes:  expirationMinutes,
 	}
@@ -3270,7 +3272,10 @@ func TestUpdateTaskProtection(t *testing.T) {
 	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
 		gomock.InOrder(
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
 	happyCredentialsManagerExpectations := func(credsManager *mock_credentials.MockManager) {
