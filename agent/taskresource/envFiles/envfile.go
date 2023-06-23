@@ -16,6 +16,7 @@ package envFiles
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/utils/dotenv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -558,25 +559,9 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 	defer file.Close()
 
 	scanner := envfile.bufio.NewScanner(file)
-	envVars := make(map[string]string)
-	lineNum := 0
+	content := ""
 	for scanner.Scan() {
-		lineNum += 1
-		line := scanner.Text()
-		// if line starts with a #, ignore
-		if strings.HasPrefix(line, commentIndicator) {
-			continue
-		}
-		// only read the line that has "="
-		if strings.Contains(line, envVariableDelimiter) {
-			variables := strings.SplitN(line, envVariableDelimiter, 2)
-			// verify that there is at least a character on each side
-			if len(variables[0]) > 0 && len(variables[1]) > 0 {
-				envVars[variables[0]] = variables[1]
-			} else {
-				seelog.Infof("Not applying line %d of environment file %s, key or value is empty.", lineNum, envfilePath)
-			}
-		}
+		content += scanner.Text() + "\n"
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -584,7 +569,16 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 		return nil, err
 	}
 
-	return envVars, nil
+	envVars, err := dotenv.UnmarshalWithLookup(content, nil)
+
+	for k, v := range envVars {
+		if len(k) == 0 || len(v) == 0 {
+			seelog.Errorf("Ignoring key=%s value=%s in environment file %s as key or value is empty.", k, v, envfilePath)
+			delete(envVars, k)
+		}
+	}
+
+	return envVars, err
 }
 
 // GetAppliedStatus safely returns the currently applied status of the resource
