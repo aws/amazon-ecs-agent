@@ -263,19 +263,6 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		dataClient: acsSession.dataClient,
 	}
 
-	// Add handler to ack instance ENI attach message
-	instanceENIAttachHandler := newAttachInstanceENIHandler(
-		acsSession.ctx,
-		cfg.Cluster,
-		acsSession.containerInstanceARN,
-		client,
-		eniHandler,
-	)
-	instanceENIAttachHandler.start()
-	defer instanceENIAttachHandler.stop()
-
-	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
-
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
 	// Add TaskManifestHandler
@@ -314,6 +301,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 	responders := []wsclient.RequestResponder{
 		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
+		acssession.NewAttachInstanceENIResponder(eniHandler, responseSender),
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
 	}
 	for _, r := range responders {
