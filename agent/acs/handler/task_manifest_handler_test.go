@@ -481,7 +481,7 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			)
 
 			message := &ecsacs.TaskManifestMessage{
-				MessageId:            aws.String(eniMessageId),
+				MessageId:            aws.String(testconst.MessageID),
 				ClusterArn:           aws.String(testconst.ClusterName),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				Tasks: []*ecsacs.TaskIdentifier{
