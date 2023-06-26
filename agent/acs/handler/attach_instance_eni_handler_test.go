@@ -22,6 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -30,9 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestInvalidAttachInstanceENIMessage tests various invalid formats of AttachInstanceNetworkInterfacesMessage
@@ -46,70 +47,70 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 				ClusterArn:               aws.String(testconst.ClusterName),
 				ContainerInstanceArn:     aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
-				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs:            aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message without message id should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:                aws.String(eniMessageId),
+				MessageId:                aws.String(testconst.MessageID),
 				ContainerInstanceArn:     aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
-				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs:            aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message without cluster arn should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:                aws.String(eniMessageId),
+				MessageId:                aws.String(testconst.MessageID),
 				ClusterArn:               aws.String(testconst.ClusterName),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{},
-				WaitTimeoutMs:            aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs:            aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message without container instance arn should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:     aws.String(eniMessageId),
+				MessageId:     aws.String(testconst.MessageID),
 				ClusterArn:    aws.String(testconst.ClusterName),
-				WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message without network interfaces should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:            aws.String(eniMessageId),
+				MessageId:            aws.String(testconst.MessageID),
 				ClusterArn:           aws.String(testconst.ClusterName),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
-						MacAddress: aws.String(randomMAC),
+						MacAddress: aws.String(testconst.RandomMAC),
 						Ec2Id:      aws.String("1"),
 					},
 					{
-						MacAddress: aws.String(randomMAC),
+						MacAddress: aws.String(testconst.RandomMAC),
 						Ec2Id:      aws.String("2"),
 					},
 				},
-				WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message with multiple network interfaces should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:            aws.String(eniMessageId),
+				MessageId:            aws.String(testconst.MessageID),
 				ClusterArn:           aws.String(testconst.ClusterName),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{},
 				},
-				WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message without network details should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:            aws.String(eniMessageId),
+				MessageId:            aws.String(testconst.MessageID),
 				ClusterArn:           aws.String(testconst.ClusterName),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
@@ -117,18 +118,18 @@ func TestInvalidAttachInstanceENIMessage(t *testing.T) {
 						Ec2Id: aws.String("1"),
 					},
 				},
-				WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+				WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 			},
 			description: "Message with a network interface without macAddress should be invalid",
 		},
 		{
 			message: &ecsacs.AttachInstanceNetworkInterfacesMessage{
-				MessageId:            aws.String(eniMessageId),
+				MessageId:            aws.String(testconst.MessageID),
 				ClusterArn:           aws.String(testconst.ClusterName),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
-						MacAddress: aws.String(randomMAC),
+						MacAddress: aws.String(testconst.RandomMAC),
 						Ec2Id:      aws.String("1"),
 					},
 				},
@@ -164,7 +165,7 @@ func TestInstanceENIAckSingleMessage(t *testing.T) {
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), testconst.MessageID)
 		ackSent.Done()
 	})
 
@@ -172,17 +173,17 @@ func TestInstanceENIAckSingleMessage(t *testing.T) {
 
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
 		Ec2Id:         aws.String("1"),
-		MacAddress:    aws.String(randomMAC),
+		MacAddress:    aws.String(testconst.RandomMAC),
 		AttachmentArn: aws.String(attachmentArn),
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
-		MessageId:            aws.String(eniMessageId),
+		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testconst.ClusterName),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
-		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+		WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 	}
 
 	handler.messageBuffer <- message
@@ -215,7 +216,7 @@ func TestInstanceENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), testconst.MessageID)
 		ackSent.Done()
 	})
 	gomock.InOrder(
@@ -224,7 +225,7 @@ func TestInstanceENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *
 		// Ensuring that statemanager.Save() is not invoked should be a strong
 		// enough check to ensure that the timer was started (since StartTimer would be
 		// the only place to return error)
-		mockState.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockState.EXPECT().ENIByMac(testconst.RandomMAC).Return(&apieni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: expiresAt,
 			},
@@ -233,17 +234,17 @@ func TestInstanceENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *
 
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
 		Ec2Id:         aws.String("1"),
-		MacAddress:    aws.String(randomMAC),
+		MacAddress:    aws.String(testconst.RandomMAC),
 		AttachmentArn: aws.String("attachmentarn"),
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
-		MessageId:            aws.String(eniMessageId),
+		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testconst.ClusterName),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
-		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+		WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 	}
 
 	// Expect an error starting the timer because of <=0 duration
@@ -272,7 +273,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		assert.Equal(t, aws.StringValue(ackRequest.MessageId), eniMessageId)
+		assert.Equal(t, aws.StringValue(ackRequest.MessageId), testconst.MessageID)
 		ackSent.Done()
 		handler.stop()
 	})
@@ -281,16 +282,16 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 
 	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
 		Ec2Id:      aws.String("1"),
-		MacAddress: aws.String(randomMAC),
+		MacAddress: aws.String(testconst.RandomMAC),
 	}
 	message := &ecsacs.AttachInstanceNetworkInterfacesMessage{
-		MessageId:            aws.String(eniMessageId),
+		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testconst.ClusterName),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			&mockNetInterface1,
 		},
-		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+		WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 	}
 
 	handler.messageBuffer <- message

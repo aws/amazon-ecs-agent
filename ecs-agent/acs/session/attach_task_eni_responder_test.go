@@ -28,48 +28,38 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
 
-const (
-	eniMessageId      = "123"
-	randomMAC         = "00:0a:95:9d:68:16"
-	waitTimeoutMillis = 1000
-
-	interfaceProtocol = "default"
-	gatewayIpv4       = "192.168.1.1/24"
-	ipv4Address       = "ipv4"
-)
-
 var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
-	MessageId:            aws.String(eniMessageId),
+	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterName),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
-			MacAddress:                   aws.String(randomMAC),
-			InterfaceAssociationProtocol: aws.String(interfaceProtocol),
-			SubnetGatewayIpv4Address:     aws.String(gatewayIpv4),
+			MacAddress:                   aws.String(testconst.RandomMAC),
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
-					PrivateAddress: aws.String(ipv4Address),
+					PrivateAddress: aws.String(testconst.IPv4Address),
 				},
 			},
 		},
 	},
 	TaskArn:       aws.String(testconst.TaskARN),
-	WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
+	WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 }
 
-// TestAttachENIEmptyMessage checks the validator against an
+// TestAttachTaskENIEmptyMessage checks the validator against an
 // empty AttachTaskNetworkInterfacesMessage
-func TestAttachENIEmptyMessage(t *testing.T) {
+func TestAttachTaskENIEmptyMessage(t *testing.T) {
 	err := validateAttachTaskNetworkInterfacesMessage(nil)
 	assert.EqualError(t, err, "Message is empty")
 }
 
-// TestAttachENIMessageWithNoMessageId checks the validator against an
+// TestAttachTaskENIMessageWithNoMessageId checks the validator against an
 // AttachTaskNetworkInterfacesMessage without a messageId
-func TestAttachENIMessageWithNoMessageId(t *testing.T) {
+func TestAttachTaskENIMessageWithNoMessageId(t *testing.T) {
 	tempMessageId := testAttachTaskENIMessage.MessageId
 	testAttachTaskENIMessage.MessageId = nil
 
@@ -79,9 +69,9 @@ func TestAttachENIMessageWithNoMessageId(t *testing.T) {
 	testAttachTaskENIMessage.MessageId = tempMessageId
 }
 
-// TestAttachENIMessageWithNoClusterArn checks the validator against an
+// TestAttachTaskENIMessageWithNoClusterArn checks the validator against an
 // AttachTaskNetworkInterfacesMessage without a ClusterArn
-func TestAttachENIMessageWithNoClusterArn(t *testing.T) {
+func TestAttachTaskENIMessageWithNoClusterArn(t *testing.T) {
 	tempClusterArn := testAttachTaskENIMessage.ClusterArn
 	testAttachTaskENIMessage.ClusterArn = nil
 
@@ -92,9 +82,9 @@ func TestAttachENIMessageWithNoClusterArn(t *testing.T) {
 	testAttachTaskENIMessage.ClusterArn = tempClusterArn
 }
 
-// TestAttachENIMessageWithNoContainerInstanceArn checks the validator against an
+// TestAttachTaskENIMessageWithNoContainerInstanceArn checks the validator against an
 // AttachTaskNetworkInterfacesMessage without a ContainerInstanceArn
-func TestAttachENIMessageWithNoContainerInstanceArn(t *testing.T) {
+func TestAttachTaskENIMessageWithNoContainerInstanceArn(t *testing.T) {
 	tempContainerInstanceArn := testAttachTaskENIMessage.ContainerInstanceArn
 	testAttachTaskENIMessage.ContainerInstanceArn = nil
 
@@ -105,9 +95,9 @@ func TestAttachENIMessageWithNoContainerInstanceArn(t *testing.T) {
 	testAttachTaskENIMessage.ContainerInstanceArn = tempContainerInstanceArn
 }
 
-// TestAttachENIMessageWithNoInterfaces checks the validator against an
+// TestAttachTaskENIMessageWithNoInterfaces checks the validator against an
 // AttachTaskNetworkInterfacesMessage without any interface
-func TestAttachENIMessageWithNoInterfaces(t *testing.T) {
+func TestAttachTaskENIMessageWithNoInterfaces(t *testing.T) {
 	tempENIs := testAttachTaskENIMessage.ElasticNetworkInterfaces
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = nil
 
@@ -118,19 +108,19 @@ func TestAttachENIMessageWithNoInterfaces(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = tempENIs
 }
 
-// TestAttachENIMessageWithMultipleInterfaceschecks checks the validator against an
+// TestAttachTaskENIMessageWithMultipleInterfaceschecks checks the validator against an
 // AttachTaskNetworkInterfacesMessage with multiple interfaces
-func TestAttachENIMessageWithMultipleInterfaces(t *testing.T) {
+func TestAttachTaskENIMessageWithMultipleInterfaces(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = append(testAttachTaskENIMessage.ElasticNetworkInterfaces,
 		&ecsacs.ElasticNetworkInterface{
 			Ec2Id:                        aws.String("2"),
-			MacAddress:                   aws.String(randomMAC),
-			InterfaceAssociationProtocol: aws.String(interfaceProtocol),
-			SubnetGatewayIpv4Address:     aws.String(gatewayIpv4),
+			MacAddress:                   aws.String(testconst.RandomMAC),
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
-					PrivateAddress: aws.String(ipv4Address),
+					PrivateAddress: aws.String(testconst.IPv4Address),
 				},
 			},
 		})
@@ -143,9 +133,9 @@ func TestAttachENIMessageWithMultipleInterfaces(t *testing.T) {
 		testAttachTaskENIMessage.ElasticNetworkInterfaces[:len(testAttachTaskENIMessage.ElasticNetworkInterfaces)-1]
 }
 
-// TestAttachENIMessageWithInvalidNetworkDetails checks the validator against an
+// TestAttachTaskENIMessageWithInvalidNetworkDetails checks the validator against an
 // AttachTaskNetworkInterfacesMessage with invalid network details
-func TestAttachENIMessageWithInvalidNetworkDetails(t *testing.T) {
+func TestAttachTaskENIMessageWithInvalidNetworkDetails(t *testing.T) {
 	tempIpv4Addresses := testAttachTaskENIMessage.ElasticNetworkInterfaces[0].Ipv4Addresses
 	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].Ipv4Addresses = nil
 	err := validateAttachTaskNetworkInterfacesMessage(testAttachTaskENIMessage)
@@ -188,9 +178,9 @@ func TestAttachENIMessageWithInvalidNetworkDetails(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = tempInterfaceAssociationProtocol
 }
 
-// TestAttachENIMessageWithMissingTaskArn checks the validator against an
+// TestAttachTaskENIMessageWithMissingTaskArn checks the validator against an
 // AttachTaskNetworkInterfacesMessage without a task ARN
-func TestAttachENIMessageWithMissingTaskArn(t *testing.T) {
+func TestAttachTaskENIMessageWithMissingTaskArn(t *testing.T) {
 	tempTaskArn := testAttachTaskENIMessage.TaskArn
 	testAttachTaskENIMessage.TaskArn = nil
 
@@ -201,9 +191,9 @@ func TestAttachENIMessageWithMissingTaskArn(t *testing.T) {
 	testAttachTaskENIMessage.TaskArn = tempTaskArn
 }
 
-// TestAttachENIMessageWithMissingTimeout checks the validator against an
+// TestAttachTaskENIMessageWithMissingTimeout checks the validator against an
 // AttachTaskNetworkInterfacesMessage without a wait timeout
-func TestAttachENIMessageWithMissingTimeout(t *testing.T) {
+func TestAttachTaskENIMessageWithMissingTimeout(t *testing.T) {
 	tempWaitTimeoutMs := testAttachTaskENIMessage.WaitTimeoutMs
 	testAttachTaskENIMessage.WaitTimeoutMs = nil
 

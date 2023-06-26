@@ -288,7 +288,7 @@ type ENIIPV6Address struct {
 
 // ENIFromACS validates the given ACS ENI information and creates an ENI object from it.
 func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
-	err := ValidateTaskENI(acsENI)
+	err := ValidateENI(acsENI)
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +340,8 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	return eni, nil
 }
 
-// ValidateTaskENI validates the ENI information sent from ACS.
-func ValidateTaskENI(acsENI *ecsacs.ElasticNetworkInterface) error {
+// ValidateENI validates the ENI information sent from ACS.
+func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 	// At least one IPv4 address should be associated with the ENI.
 	if len(acsENI.Ipv4Addresses) < 1 {
 		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
