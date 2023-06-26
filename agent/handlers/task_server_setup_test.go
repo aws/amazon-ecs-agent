@@ -44,6 +44,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	mock_taskprotection "github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
@@ -3016,7 +3017,7 @@ func TestGetTaskProtection(t *testing.T) {
 			ctrl *gomock.Controller,
 			factory *task_protection_v1.MockTaskProtectionClientFactoryInterface,
 		) {
-			client := mock_api.NewMockECSTaskProtectionSDK(ctrl)
+			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().GetTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
 			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
 		}
@@ -3284,7 +3285,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			ctrl *gomock.Controller,
 			factory *task_protection_v1.MockTaskProtectionClientFactoryInterface,
 		) {
-			client := mock_api.NewMockECSTaskProtectionSDK(ctrl)
+			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().UpdateTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
 			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
 		}
