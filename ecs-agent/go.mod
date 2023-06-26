@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/didip/tollbooth v4.0.2+incompatible
-	github.com/docker/docker v24.0.2+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/golang/mock v1.4.1
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
@@ -34,8 +34,8 @@ require (
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.23.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools/v3 v3.4.0 // indirect
 )
