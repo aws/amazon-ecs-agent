@@ -1,5 +1,0 @@
-FROM scratch
-
-COPY csi-driver /bin/
-
-ENTRYPOINT ["/bin/csi-driver"]
