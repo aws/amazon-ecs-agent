@@ -47,8 +47,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/agent/stats/reporter"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
@@ -871,21 +871,18 @@ func (agent *ecsAgent) startAsyncRoutines(
 	}
 	go statsEngine.StartMetricsPublish()
 
-	telemetrySessionParams := tcshandler.TelemetrySessionParams{
-		Ctx:                           agent.ctx,
-		CredentialProvider:            agent.credentialProvider,
-		Cfg:                           agent.cfg,
-		ContainerInstanceArn:          agent.containerInstanceARN,
-		DeregisterInstanceEventStream: deregisterInstanceEventStream,
-		ECSClient:                     client,
-		TaskEngine:                    taskEngine,
-		StatsEngine:                   statsEngine,
-		MetricsChannel:                telemetryMessages,
-		HealthChannel:                 healthMessages,
-		Doctor:                        doctor,
+	session, err := reporter.NewDockerTelemetrySession(agent.containerInstanceARN, agent.credentialProvider, agent.cfg, deregisterInstanceEventStream,
+		client, taskEngine, telemetryMessages, healthMessages, doctor)
+	if err != nil {
+		seelog.Warnf("Error creating telemetry session: %v", err)
+		return
 	}
-	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(&telemetrySessionParams)
+	if session == nil {
+		seelog.Infof("Metrics disabled on the instance.")
+		return
+	}
+
+	go session.Start(agent.ctx)
 }
 
 func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client api.ECSClient) {
