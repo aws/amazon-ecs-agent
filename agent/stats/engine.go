@@ -38,6 +38,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -78,7 +79,7 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
-	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
+	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 	GetPublishServiceConnectTickerInterval() int32
 	SetPublishServiceConnectTickerInterval(int32)
@@ -957,7 +958,7 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
