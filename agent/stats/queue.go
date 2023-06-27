@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
@@ -36,7 +37,7 @@ type Queue struct {
 	buffer                []UsageStats
 	maxSize               int
 	lastStat              *types.StatsJSON
-	lastNetworkStatPerSec *NetworkStatsPerSec
+	lastNetworkStatPerSec *stats.NetworkStatsPerSec
 	lock                  sync.RWMutex
 }
 
@@ -129,7 +130,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 		}
 
 		if stat.NetworkStats != nil {
-			networkStatPerSec := &NetworkStatsPerSec{
+			networkStatPerSec := &stats.NetworkStatsPerSec{
 				RxBytesPerSecond: stat.NetworkStats.RxBytesPerSecond,
 				TxBytesPerSecond: stat.NetworkStats.TxBytesPerSecond,
 			}
@@ -148,7 +149,7 @@ func (queue *Queue) GetLastStat() *types.StatsJSON {
 	return queue.lastStat
 }
 
-func (queue *Queue) GetLastNetworkStatPerSec() *NetworkStatsPerSec {
+func (queue *Queue) GetLastNetworkStatPerSec() *stats.NetworkStatsPerSec {
 	queue.lock.RLock()
 	defer queue.lock.RUnlock()
 
