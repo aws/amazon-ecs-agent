@@ -79,6 +79,11 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 		return false
 	}
 
+	//  internal task state change does not need to be sent
+	if tevent.Task.IsInternal {
+		return false
+	}
+
 	// Task event should be sent
 	if tevent.Task.GetSentStatus() < tevent.Status {
 		return true
