@@ -62,6 +62,16 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		shouldBeSent bool
 	}{
 		{
+			// We don't send a task event to backend if it is an internal task
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: apitaskstatus.TaskRunning,
+				Task: &apitask.Task{
+					IsInternal: true,
+				},
+			}),
+			shouldBeSent: false,
+		},
+		{
 			// We don't send a task event to backend if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
