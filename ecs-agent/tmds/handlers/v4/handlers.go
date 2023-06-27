@@ -51,6 +51,18 @@ func TaskMetadataWithTagsPath() string {
 		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
 }
 
+// Returns a standard URI path for v4 container stats endpoint.
+func ContainerStatsPath() string {
+	return fmt.Sprintf("/v4/%s/stats",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
+// Returns a standard URI path for v4 task stats endpoint.
+func TaskStatsPath() string {
+	return fmt.Sprintf("/v4/%s/task/stats",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
 // ContainerMetadataHandler returns the HTTP handler function for handling container metadata requests.
 func ContainerMetadataHandler(
 	agentState state.AgentState,
@@ -172,4 +184,68 @@ func getTaskErrorResponse(endpointContainerID string, err error) (int, string) {
 		field.Error: err,
 	})
 	return http.StatusInternalServerError, "failed to get task metadata"
+}
+
+func ContainerStatsHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return statsHandler(agentState.GetContainerStats, metricsFactory, utils.RequestTypeContainerStats)
+}
+
+func TaskStatsHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return statsHandler(agentState.GetTaskStats, metricsFactory, utils.RequestTypeTaskStats)
+}
+
+func statsHandler[R state.StatsResponse | map[string]*state.StatsResponse](
+	getStats func(string) (R, error),
+	metricsFactory metrics.EntryFactory,
+	requestType string,
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
+		stats, err := getStats(endpointContainerID)
+		if err != nil {
+			logger.Error("Failed to get v4 stats", logger.Fields{
+				field.TMDSEndpointContainerID: endpointContainerID,
+				field.Error:                   err,
+				field.TMDSRequestType:         requestType,
+			})
+
+			responseCode, responseBody := getStatsErrorResponse(endpointContainerID, err)
+			utils.WriteJSONResponse(w, responseCode, responseBody, requestType)
+
+			if utils.Is5XXStatus(responseCode) {
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)()
+			}
+
+			return
+		}
+
+		logger.Info("Writing response for v4 stats", logger.Fields{
+			field.TMDSEndpointContainerID: endpointContainerID,
+			field.TMDSRequestType:         requestType,
+		})
+		utils.WriteJSONResponse(w, http.StatusOK, stats, requestType)
+	}
+}
+
+func getStatsErrorResponse(endpointContainerID string, err error) (int, string) {
+	var errLookupFailure *state.ErrorStatsLookupFailure
+	if errors.As(err, &errLookupFailure) {
+		return http.StatusNotFound, errLookupFailure.ExternalReason()
+	}
+
+	var errStatsFetchFailure *state.ErrorStatsFetchFailure
+	if errors.As(err, &errStatsFetchFailure) {
+		return http.StatusInternalServerError, errStatsFetchFailure.ExternalReason()
+	}
+
+	logger.Error("Unknown error encountered when handling stats fetch error", logger.Fields{
+		field.Error: err,
+	})
+	return http.StatusInternalServerError, "failed to get stats"
 }
