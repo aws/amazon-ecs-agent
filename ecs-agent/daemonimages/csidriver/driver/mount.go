@@ -13,12 +13,6 @@
 
 package driver
 
-import (
-	mountutils "k8s.io/mount-utils"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
-)
-
 // Mounter is the interface implemented by NodeMounter.
 type Mounter interface {
 	PathExists(path string) (bool, error)
@@ -26,14 +20,12 @@ type Mounter interface {
 
 // NodeMounter implements Mounter.
 type NodeMounter struct {
-	*mountutils.SafeFormatAndMount
+}
+
+func (nm NodeMounter) PathExists(path string) (bool, error) {
+	return false, nil
 }
 
 func newNodeMounter() (Mounter, error) {
-	// mounter.NewSafeMounter returns a SafeFormatAndMount
-	safeMounter, err := mounter.NewSafeMounter()
-	if err != nil {
-		return nil, err
-	}
-	return &NodeMounter{safeMounter}, nil
+	return NodeMounter{}, nil
 }
