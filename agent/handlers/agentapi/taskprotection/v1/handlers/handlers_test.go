@@ -29,7 +29,6 @@ import (
 	tpfactory "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
 	mock_api "github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
