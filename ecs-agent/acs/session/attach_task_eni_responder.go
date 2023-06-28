@@ -51,6 +51,10 @@ func NewAttachTaskENIResponder(eniHandler ENIHandler, responseSender wsclient.Re
 
 func (*attachTaskENIResponder) Name() string { return "attach task ENI responder" }
 
+func (r *attachTaskENIResponder) RegisterResponder(respond wsclient.RespondFunc) {
+	r.respond = respond
+}
+
 func (r *attachTaskENIResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }

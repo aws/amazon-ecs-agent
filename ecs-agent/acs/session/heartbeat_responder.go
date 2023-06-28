@@ -43,6 +43,10 @@ func (*heartbeatResponder) Name() string {
 	return "heartbeat message responder"
 }
 
+func (r *heartbeatResponder) RegisterResponder(respond wsclient.RespondFunc) {
+	r.respond = respond
+}
+
 func (r *heartbeatResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.processHeartbeatMessage
 }
