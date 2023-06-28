@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
@@ -25,6 +26,7 @@ import (
 // Implements AgentState interface for TMDS v4.
 type TMDSAgentState struct {
 	state                dockerstate.TaskEngineState
+	statsEngine          stats.Engine
 	ecsClient            api.ECSClient
 	cluster              string
 	availabilityZone     string
@@ -34,6 +36,7 @@ type TMDSAgentState struct {
 
 func NewTMDSAgentState(
 	state dockerstate.TaskEngineState,
+	statsEngine stats.Engine,
 	ecsClient api.ECSClient,
 	cluster string,
 	availabilityZone string,
@@ -41,10 +44,9 @@ func NewTMDSAgentState(
 	containerInstanceARN string,
 ) *TMDSAgentState {
 	return &TMDSAgentState{
-		state:                state,
-		ecsClient:            ecsClient,
-		cluster:              cluster,
-		availabilityZone:     availabilityZone,
+		state:       state,
+		statsEngine: statsEngine,
+		ecsClient:   ecsClient, cluster: cluster, availabilityZone: availabilityZone,
 		vpcID:                vpcID,
 		containerInstanceARN: containerInstanceARN,
 	}
@@ -146,4 +148,50 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 	}
 
 	return *taskResponse, nil
+}
+func (s *TMDSAgentState) GetContainerStats(v3EndpointID string) (tmdsv4.StatsResponse, error) {
+	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
+	if !ok {
+		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
+			"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+			v3EndpointID))
+	}
+
+	containerID, ok := s.state.DockerIDByV3EndpointID(v3EndpointID)
+	if !ok {
+		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
+			"V4 container stats handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: %s",
+			v3EndpointID))
+	}
+
+	dockerStats, network_rate_stats, err := s.statsEngine.ContainerDockerStats(taskARN, containerID)
+	if err != nil {
+		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsFetchFailure(fmt.Sprintf(
+			"Unable to get container stats for: %s", containerID))
+	}
+
+	return tmdsv4.StatsResponse{
+		StatsJSON:          dockerStats,
+		Network_rate_stats: network_rate_stats,
+	}, nil
+}
+
+func (s *TMDSAgentState) GetTaskStats(v3EndpointID string) (map[string]*tmdsv4.StatsResponse, error) {
+	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
+	if !ok {
+		return nil, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
+			"V4 task stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+			v3EndpointID))
+	}
+
+	taskStatsResponse, err := NewV4TaskStatsResponse(taskARN, s.state, s.statsEngine)
+	if err != nil {
+		logger.Error("Failed to get v4 task stats response for the task", logger.Fields{
+			field.TaskARN: taskARN,
+			field.Error:   err,
+		})
+		return nil, tmdsv4.NewErrorStatsFetchFailure(fmt.Sprintf("Unable to get task stats for: %s", taskARN))
+	}
+
+	return taskStatsResponse, nil
 }
