@@ -34,6 +34,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2
