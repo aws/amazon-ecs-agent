@@ -1,5 +1,5 @@
-//go:build !linux && !darwin
-// +build !linux,!darwin
+//go:build linux || darwin
+// +build linux darwin
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,13 +14,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package fs
+package mounter
 
 import (
-	"fmt"
+	"k8s.io/mount-utils"
+	utilexec "k8s.io/utils/exec"
 )
 
-// Info unsupported returns 0 values for available and capacity and an error.
-func Info(path string) (int64, int64, int64, int64, int64, int64, error) {
-	return 0, 0, 0, 0, 0, 0, fmt.Errorf("fsinfo not supported for this build")
+func NewSafeMounter() (*mount.SafeFormatAndMount, error) {
+	return &mount.SafeFormatAndMount{
+		Interface: mount.New(""),
+		Exec:      utilexec.New(),
+	}, nil
 }
