@@ -2,8 +2,8 @@
 ## explicit; go 1.13
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/Microsoft/hcsshim v0.8.6
-## explicit
+# github.com/Microsoft/hcsshim v0.8.25
+## explicit; go 1.13
 github.com/Microsoft/hcsshim/osversion
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0-00010101000000-000000000000 => ../ecs-agent
 ## explicit; go 1.19
@@ -221,6 +221,8 @@ github.com/godbus/dbus/v5
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
+# github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
+## explicit
 # github.com/golang/mock v1.4.1
 ## explicit; go 1.11
 github.com/golang/mock/gomock
@@ -325,6 +327,8 @@ github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.5
 ## explicit; go 1.12
 go.etcd.io/bbolt
+# go.opencensus.io v0.22.3
+## explicit; go 1.13
 # golang.org/x/mod v0.8.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
