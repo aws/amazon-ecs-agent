@@ -319,6 +319,13 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 
 	envfileContentLine1 := "key1=value"
 	envFileContentLine2 := "key2=val1=val2"
+	envFileContentLine3 := `key3=val1\nval2`
+	envFileContentLine4 := `key4="val1\nval2\tval3\r\nval4\\val5"`
+	envFileContentLine5 := `key5={"hello": "json"}`
+	envFileContentLine6 := `key6="now
+supports
+multiline
+values"`
 
 	tempOpen := open
 	open = func(name string) (oswrapper.File, error) {
@@ -333,6 +340,14 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 		mockScanner.EXPECT().Text().Return(envfileContentLine1),
 		mockScanner.EXPECT().Scan().Return(true),
 		mockScanner.EXPECT().Text().Return(envFileContentLine2),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine3),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine4),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine5),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine6),
 		mockScanner.EXPECT().Scan().Return(false),
 		mockScanner.EXPECT().Err().Return(nil),
 	)
@@ -343,6 +358,10 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	assert.Equal(t, 1, len(envVarsList))
 	assert.Equal(t, "value", envVarsList[0]["key1"])
 	assert.Equal(t, "val1=val2", envVarsList[0]["key2"])
+	assert.Equal(t, "val1\\nval2", envVarsList[0]["key3"])                    // shell escape sequence should not happen when value is not quoted.
+	assert.Equal(t, "val1\nval2\tval3\r\nval4\\val5", envVarsList[0]["key4"]) // test case for shell escape sequences
+	assert.Equal(t, "{\"hello\": \"json\"}", envVarsList[0]["key5"])
+	assert.Equal(t, "now\nsupports\nmultiline\nvalues", envVarsList[0]["key6"])
 }
 
 func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {
