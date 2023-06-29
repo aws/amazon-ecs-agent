@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 )
 

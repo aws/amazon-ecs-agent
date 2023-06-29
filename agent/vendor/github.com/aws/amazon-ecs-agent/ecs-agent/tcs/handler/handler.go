@@ -54,7 +54,7 @@ type telemetrySession struct {
 	agentHash                     string
 	containerRuntimeVersion       string
 	endpoint                      string
-	disableContainerHealthMetrics bool
+	disableMetrics                bool
 	credentialsProvider           *credentials.Credentials
 	cfg                           *wsclient.WSClientMinAgentConfig
 	deregisterInstanceEventStream *eventstream.EventStream
@@ -75,7 +75,7 @@ func NewTelemetrySession(
 	agentHash string,
 	containerRuntimeVersion string,
 	endpoint string,
-	disableContainerHealthMetrics bool,
+	disableMetrics bool,
 	credentialsProvider *credentials.Credentials,
 	cfg *wsclient.WSClientMinAgentConfig,
 	deregisterInstanceEventStream *eventstream.EventStream,
@@ -95,7 +95,7 @@ func NewTelemetrySession(
 		agentHash:                     agentHash,
 		containerRuntimeVersion:       containerRuntimeVersion,
 		endpoint:                      endpoint,
-		disableContainerHealthMetrics: disableContainerHealthMetrics,
+		disableMetrics:                disableMetrics,
 		credentialsProvider:           credentialsProvider,
 		cfg:                           cfg,
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
@@ -130,11 +130,6 @@ func (session *telemetrySession) Start(ctx context.Context) error {
 
 // StartTelemetrySession creates a session with the backend and handles requests.
 func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endpoint string) error {
-	if session.disableContainerHealthMetrics {
-		logger.Warn("Metrics were disabled, not starting the telemetry session")
-		return nil
-	}
-
 	wsRWTimeout := 2*session.heartbeatTimeout + session.heartbeatJitterMax
 
 	var containerRuntime string
@@ -144,7 +139,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endp
 
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
-	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableContainerHealthMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
+	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
 		session.credentialsProvider, wsRWTimeout, session.metricsChannel, session.healthChannel)
 	defer client.Close()
 

@@ -11,10 +11,12 @@ github.com/aws/amazon-ecs-agent/ecs-agent/acs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst
+github.com/aws/amazon-ecs-agent/ecs-agent/api
 github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo
 github.com/aws/amazon-ecs-agent/ecs-agent/api/eni
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
+github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/status
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
