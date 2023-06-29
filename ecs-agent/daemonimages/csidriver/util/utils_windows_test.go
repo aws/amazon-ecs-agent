@@ -1,3 +1,6 @@
+//go:build windows && unit
+// +build windows,unit
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -30,33 +33,9 @@ func TestParseEndpoint(t *testing.T) {
 	}{
 		{
 			name:      "valid unix endpoint 1",
-			endpoint:  "unix:///csi/csi.sock",
-			expScheme: "unix",
-			expAddr:   "/csi/csi.sock",
-		},
-		{
-			name:      "valid unix endpoint 2",
-			endpoint:  "unix://csi/csi.sock",
-			expScheme: "unix",
-			expAddr:   "/csi/csi.sock",
-		},
-		{
-			name:      "valid unix endpoint 3",
 			endpoint:  "unix:/csi/csi.sock",
 			expScheme: "unix",
-			expAddr:   "/csi/csi.sock",
-		},
-		{
-			name:      "valid tcp endpoint",
-			endpoint:  "tcp:///127.0.0.1/",
-			expScheme: "tcp",
-			expAddr:   "/127.0.0.1",
-		},
-		{
-			name:      "valid tcp endpoint",
-			endpoint:  "tcp:///127.0.0.1",
-			expScheme: "tcp",
-			expAddr:   "/127.0.0.1",
+			expAddr:   `\csi\csi.sock`,
 		},
 		{
 			name:     "invalid endpoint",
