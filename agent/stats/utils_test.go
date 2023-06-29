@@ -51,7 +51,7 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 				"usage": %d,
 				"max_usage": %d,
 				"stats": {
-					"cache": %d,
+					"total_inactive_file": %d,
 					"rss": %d
 				},
 				"privateworkingset": %d
