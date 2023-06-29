@@ -36,10 +36,11 @@ type UsageInfo struct {
 
 // Info returns (available bytes, byte capacity, byte usage, total inodes, inodes free, inode usage, error)
 // for the filesystem that path resides upon.
-func Info(path string) (int64, int64, int64, int64, int64, int64, error) {
-	var freeBytesAvailable, totalNumberOfBytes, totalNumberOfFreeBytes int64
-	var err error
-
+func Info(path string) (
+	available int64, capacity int64, used int64,
+	totalInodes int64, freeInodes int64, usedInodes int64,
+	err error) {
+	var totalNumberOfFreeBytes int64
 	// The equivalent linux call supports calls against files but the syscall for windows
 	// fails for files with error code: The directory name is invalid. (#99173)
 	// https://docs.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
@@ -49,15 +50,27 @@ func Info(path string) (int64, int64, int64, int64, int64, int64, error) {
 		procGetDiskFreeSpaceEx.Addr(),
 		4,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(path))),
-		uintptr(unsafe.Pointer(&freeBytesAvailable)),
-		uintptr(unsafe.Pointer(&totalNumberOfBytes)),
+		uintptr(unsafe.Pointer(&available)),
+		uintptr(unsafe.Pointer(&capacity)),
 		uintptr(unsafe.Pointer(&totalNumberOfFreeBytes)),
 		0,
 		0,
 	)
 	if ret == 0 {
-		return 0, 0, 0, 0, 0, 0, err
+		available = 0
+		capacity = 0
+		used = 0
+
+		totalInodes = 0
+		freeInodes = 0
+		usedInodes = 0
+
+		return
 	}
 
-	return freeBytesAvailable, totalNumberOfBytes, totalNumberOfBytes - freeBytesAvailable, 0, 0, 0, nil
+	used = capacity - available
+	totalInodes = 0
+	freeInodes = 0
+	usedInodes = 0
+	return
 }

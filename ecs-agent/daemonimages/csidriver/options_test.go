@@ -55,7 +55,7 @@ func TestGetServerOptions(t *testing.T) {
 			name: "No argument is given",
 			testFunc: func(t *testing.T) {
 				_, err := testFunc(t, nil)
-				assert.NotNil(t, err)
+				assert.EqualError(t, err, "no argument is provided")
 			},
 		},
 	}

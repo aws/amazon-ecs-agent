@@ -25,6 +25,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version"
 )
 
+// Driver encapsulates the GRPC server and the node service which implements all necessary interfaces, such as
+// the EBS volume stats interface.
 type Driver struct {
 	nodeService
 
@@ -32,10 +34,12 @@ type Driver struct {
 	options *DriverOptions
 }
 
+// DriverOptions supports to custom the endpoint of the GRPC server.
 type DriverOptions struct {
 	endpoint string
 }
 
+// NewDriver creates a new driver.
 func NewDriver(options ...func(*DriverOptions)) (*Driver, error) {
 	driverInfo := version.GetVersionInfo()
 	klog.InfoS("Driver Information",

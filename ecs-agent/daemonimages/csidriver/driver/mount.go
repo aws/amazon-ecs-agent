@@ -13,19 +13,21 @@
 
 package driver
 
-// Mounter is the interface implemented by NodeMounter.
 type Mounter interface {
 	PathExists(path string) (bool, error)
 }
 
 // NodeMounter implements Mounter.
 type NodeMounter struct {
+	// TODO
 }
 
 func (nm NodeMounter) PathExists(path string) (bool, error) {
+	// TODO
 	return false, nil
 }
 
 func newNodeMounter() (Mounter, error) {
+	// TODO
 	return NodeMounter{}, nil
 }

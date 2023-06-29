@@ -19,7 +19,7 @@ import (
 	"os"
 )
 
-const EmptyCSIEndpoint = ""
+const emptyCSIEndpoint = ""
 
 type ServerOptions struct {
 	// Endpoint is the endpoint that the driver server should listen on.
@@ -28,14 +28,18 @@ type ServerOptions struct {
 
 func GetServerOptions(fs *flag.FlagSet) (*ServerOptions, error) {
 	serverOptions := &ServerOptions{}
-	fs.StringVar(&serverOptions.Endpoint, "endpoint", EmptyCSIEndpoint, "Endpoint for the CSI driver server")
+	fs.StringVar(&serverOptions.Endpoint, "endpoint", emptyCSIEndpoint, "Endpoint for the CSI driver server")
 
 	args := os.Args[1:]
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
 
-	if serverOptions.Endpoint == EmptyCSIEndpoint {
+	if len(args) == 0 {
+		return nil, errors.New("no argument is provided")
+	}
+
+	if serverOptions.Endpoint == emptyCSIEndpoint {
 		return nil, errors.New("no endpoint is provided")
 	}
 

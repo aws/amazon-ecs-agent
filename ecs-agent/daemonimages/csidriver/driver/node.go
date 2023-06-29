@@ -17,9 +17,11 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
-// nodeService represents the node service of CSI driver
+// nodeService represents the node service of CSI driver.
 type nodeService struct {
 	mounter Mounter
+	// UnimplementedNodeServer implements all interfaces with empty implementation. As one mini version of csi driver,
+	// we only need to override the necessary interfaces.
 	csi.UnimplementedNodeServer
 }
 

@@ -27,25 +27,33 @@ type UsageInfo struct {
 
 // Info linux returns (available bytes, byte capacity, byte usage, total inodes, inodes free, inode usage, error)
 // for the filesystem that path resides upon.
-func Info(path string) (int64, int64, int64, int64, int64, int64, error) {
+func Info(path string) (
+	available int64, capacity int64, used int64,
+	totalInodes int64, freeInodes int64, usedInodes int64,
+	err error,
+) {
 	statfs := &unix.Statfs_t{}
-	err := unix.Statfs(path, statfs)
+	err = unix.Statfs(path, statfs)
 	if err != nil {
-		return 0, 0, 0, 0, 0, 0, err
+		available = 0
+		capacity = 0
+		used = 0
+
+		totalInodes = 0
+		freeInodes = 0
+		usedInodes = 0
+		return
 	}
 
 	// Available is blocks available * fragment size
-	available := int64(statfs.Bavail) * int64(statfs.Bsize)
-
+	available = int64(statfs.Bavail) * int64(statfs.Bsize)
 	// Capacity is total block count * fragment size
-	capacity := int64(statfs.Blocks) * int64(statfs.Bsize)
+	capacity = int64(statfs.Blocks) * int64(statfs.Bsize)
+	// Used is block being used * fragment size (aka block size).
+	used = (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize)
 
-	// Usage is block being used * fragment size (aka block size).
-	usage := (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize)
-
-	inodes := int64(statfs.Files)
-	inodesFree := int64(statfs.Ffree)
-	inodesUsed := inodes - inodesFree
-
-	return available, capacity, usage, inodes, inodesFree, inodesUsed, nil
+	totalInodes = int64(statfs.Files)
+	freeInodes = int64(statfs.Ffree)
+	usedInodes = totalInodes - freeInodes
+	return
 }

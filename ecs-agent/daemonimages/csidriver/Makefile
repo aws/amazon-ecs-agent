@@ -3,15 +3,11 @@ GO111MODULE=on
 GOPATH=$(shell go env GOPATH)
 BUILD_DATE=$(shell date -u -Iseconds)
 
-SOURCEDIR=./
-CSI_DRIVER_SOURCES=$(shell find $(SOURCEDIR) -name '*.go')
-
 OS?=linux
 ARCH?=amd64
 
-# Build binary for linux only
 .PHONY: bin/csi-driver
-bin/csi-driver: $(CSI_DRIVER_SOURCES)
+bin/csi-driver:
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags "\
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemon_images/csi-driver/version.version=$(CSI_DRIVER_VERSION)\" \
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemon_images/csi-driver/version.buildDate=$(BUILD_DATE)\"" \
