@@ -26,14 +26,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/types"
+	tpfactory "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
 	mock_api "github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	tpinterface "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -67,32 +68,6 @@ func TestTaskProtectionPath(t *testing.T) {
 	assert.Equal(t, "/api/{v3EndpointIDMuxName:[^/]*}/task-protection/v1/state", TaskProtectionPath())
 }
 
-// TestGetECSClientHappyCase tests newTaskProtectionClient uses credential in credentials manager and
-// returns an ECS client with correct status code and error
-func TestGetECSClientHappyCase(t *testing.T) {
-
-	testIAMRoleCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{
-			AccessKeyID:     testAccessKey,
-			SecretAccessKey: testSecretKey,
-			SessionToken:    testSessionToken,
-		},
-	}
-
-	factory := TaskProtectionClientFactory{
-		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
-	}
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ret := factory.NewTaskProtectionClient(testIAMRoleCredentials)
-	_, ok := ret.(api.ECSTaskProtectionSDK)
-
-	// Assert response
-	assert.True(t, ok)
-}
-
 func getRequestWithUnknownFields(t *testing.T) map[string]interface{} {
 	request := TaskProtectionRequest{ProtectionEnabled: utils.BoolPtr(false)}
 	requestJSON, err := json.Marshal(request)
@@ -107,7 +82,8 @@ func getRequestWithUnknownFields(t *testing.T) map[string]interface{} {
 
 // Helper function for running tests for UpdateTaskProtection handler
 func testUpdateTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineState,
-	v3EndpointID string, credentialsManager credentials.Manager, factory TaskProtectionClientFactoryInterface,
+	v3EndpointID string, credentialsManager credentials.Manager,
+	factory tpinterface.TaskProtectionClientFactoryInterface,
 	request interface{}, expectedResponse interface{}, expectedResponseCode int) {
 	// Prepare request
 	requestBytes, err := json.Marshal(request)
@@ -249,7 +225,7 @@ func TestUpdateTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	}
 	testTask.SetCredentialsID(testTaskCredentialsId)
 
-	factory := TaskProtectionClientFactory{
+	factory := tpfactory.TaskProtectionClientFactory{
 		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
 	}
 
@@ -399,7 +375,7 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			mockManager := mock_credentials.NewMockManager(ctrl)
-			mockFactory := NewMockTaskProtectionClientFactoryInterface(ctrl)
+			mockFactory := tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl)
 			mockECSClient := mock_api.NewMockECSTaskProtectionSDK(ctrl)
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
@@ -423,7 +399,9 @@ func TestUpdateTaskProtectionHandler_PostCall(t *testing.T) {
 }
 
 func testGetTaskProtectionHandler(t *testing.T, state dockerstate.TaskEngineState,
-	v3EndpointID string, credentialsManager credentials.Manager, factory TaskProtectionClientFactoryInterface, expectedResponse interface{}, expectedResponseCode int) {
+	v3EndpointID string, credentialsManager credentials.Manager,
+	factory tpinterface.TaskProtectionClientFactoryInterface,
+	expectedResponse interface{}, expectedResponseCode int) {
 	// Prepare request
 	bodyReader := bytes.NewReader([]byte{})
 	req, err := http.NewRequest("GET", "", bodyReader)
@@ -492,7 +470,7 @@ func TestGetTaskProtectionHandlerTaskRoleCredentialsNotFound(t *testing.T) {
 	}
 	testTask.SetCredentialsID(testTaskCredentialsId)
 
-	factory := TaskProtectionClientFactory{
+	factory := tpfactory.TaskProtectionClientFactory{
 		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
 	}
 
@@ -638,7 +616,7 @@ func TestGetTaskProtectionHandler_PostCall(t *testing.T) {
 
 			mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			mockManager := mock_credentials.NewMockManager(ctrl)
-			mockFactory := NewMockTaskProtectionClientFactoryInterface(ctrl)
+			mockFactory := tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl)
 			mockECSClient := mock_api.NewMockECSTaskProtectionSDK(ctrl)
 
 			mockState.EXPECT().TaskARNByV3EndpointID(gomock.Eq(testV3EndpointId)).Return(testTaskArn, true)
