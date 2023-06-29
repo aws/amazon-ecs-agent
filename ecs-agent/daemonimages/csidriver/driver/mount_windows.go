@@ -16,16 +16,9 @@
 
 package driver
 
-import (
-	"fmt"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
-)
+import "errors"
 
 func (m *NodeMounter) PathExists(path string) (bool, error) {
-	proxyMounter, ok := m.SafeFormatAndMount.Interface.(*mounter.CSIProxyMounter)
-	if !ok {
-		return false, fmt.Errorf("failed to cast mounter to csi proxy mounter")
-	}
-	return proxyMounter.ExistsPath(path)
+	// TODO
+	return false, errors.New("not supported")
 }

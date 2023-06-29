@@ -38,7 +38,6 @@ func TestPathExists(t *testing.T) {
 	}
 
 	exists, err := mountObj.PathExists(targetPath)
-
 	if err != nil {
 		t.Fatalf("Expect no error but got: %v", err)
 	}
