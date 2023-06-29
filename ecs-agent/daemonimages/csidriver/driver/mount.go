@@ -13,6 +13,8 @@
 
 package driver
 
+// Mounter defines an interface for many volume related options. As of now, only
+// 'PathExists' is added to determine if a file path exists on the node.
 type Mounter interface {
 	PathExists(path string) (bool, error)
 }

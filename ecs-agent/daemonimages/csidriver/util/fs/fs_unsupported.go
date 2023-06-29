@@ -1,5 +1,5 @@
-//go:build !linux && !darwin && !windows
-// +build !linux,!darwin,!windows
+//go:build !linux && !darwin
+// +build !linux,!darwin
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
