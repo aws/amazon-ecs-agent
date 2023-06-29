@@ -19,6 +19,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/compose-spec/compose-go/template"
 )
 
 var utf8BOM = []byte("\uFEFF")
@@ -156,4 +158,18 @@ func readFile(filename string, lookupFn LookupFn) (map[string]string, error) {
 	defer file.Close()
 
 	return ParseWithLookup(file, lookupFn)
+}
+
+func expandVariables(value string, envMap map[string]string, lookupFn LookupFn) (string, error) {
+	retVal, err := template.Substitute(value, func(k string) (string, bool) {
+		if v, ok := lookupFn(k); ok {
+			return v, true
+		}
+		v, ok := envMap[k]
+		return v, ok
+	})
+	if err != nil {
+		return value, err
+	}
+	return retVal, nil
 }

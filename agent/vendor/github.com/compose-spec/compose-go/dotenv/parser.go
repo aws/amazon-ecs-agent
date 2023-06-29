@@ -149,8 +149,8 @@ func (p *parser) extractVarValue(src string, envMap map[string]string, lookupFn 
 		// Remove inline comments on unquoted lines
 		value, _, _ = strings.Cut(value, " #")
 		value = strings.TrimRightFunc(value, unicode.IsSpace)
-		retVal := string(value)
-		return retVal, rest, nil
+		retVal, err := expandVariables(string(value), envMap, lookupFn)
+		return retVal, rest, err
 	}
 
 	// lookup quoted string terminator
@@ -172,7 +172,10 @@ func (p *parser) extractVarValue(src string, envMap map[string]string, lookupFn 
 		if quote == prefixDoubleQuote {
 			// expand standard shell escape sequences & then interpolate
 			// variables on the result
-			retVal := expandEscapes(value)
+			retVal, err := expandVariables(expandEscapes(value), envMap, lookupFn)
+			if err != nil {
+				return "", "", err
+			}
 			value = retVal
 		}
 

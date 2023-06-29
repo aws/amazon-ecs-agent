@@ -16,7 +16,6 @@ package envFiles
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/agent/utils/dotenv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+	"github.com/compose-spec/compose-go/dotenv"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
