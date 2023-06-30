@@ -323,17 +323,8 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	return nil
 }
 
-// Method to wake up 'monitorQueuedTasks' goroutine, called when
-// - a new task enqueues in waitingTaskQueue
-// - a task stops (overseeTask)
-// as these are the events when resources change/can change on the host
-// Always wakes up when at least one event arrives on buffered channel (size 1) 'monitorQueuedTaskEvent'
+// Always wakes up when at least one event arrives on buffered channel monitorQueuedTaskEvent
 // but does not block if monitorQueuedTasks is already processing queued tasks
-// Buffered channel of size 1 is sufficient because we only want to go through the queue
-// once at any point and schedule as many tasks as possible (as many resources are available)
-// Calls on 'wakeUpTaskQueueMonitor' when 'monitorQueuedTasks' is doing work are redundant
-// as new tasks are enqueued at the end and will be taken into account in the continued loop
-// if permitted by design
 func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
 	select {
 	case engine.monitorQueuedTaskEvent <- struct{}{}:
@@ -603,8 +594,8 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		engine.saveTaskData(task)
 	}
 
-	// Before starting managedTask goroutines, pre-allocate resources for tasks which
-	// which have progressed beyond resource check (waitingTaskQueue) stage
+	// Before starting managedTask goroutines, pre-allocate resources for already running
+	// tasks in host resource manager
 	engine.reconcileHostResources()
 	for _, task := range tasksToStart {
 		engine.startTask(task)
