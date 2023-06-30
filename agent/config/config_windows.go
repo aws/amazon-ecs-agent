@@ -145,7 +145,7 @@ func DefaultConfig() Config {
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		GMSADomainlessCapable:               BooleanDefaultFalse{Value: ExplicitlyDisabled},
-		FSxWindowsFileServerCapable:         BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		FSxWindowsFileServerCapable:         BooleanDefaultTrue{Value: NotSet},
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
 		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),

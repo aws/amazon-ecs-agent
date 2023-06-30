@@ -103,7 +103,7 @@ func DefaultConfig() Config {
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 		GMSACapable:                         parseGMSACapability(),
 		GMSADomainlessCapable:               parseGMSADomainlessCapability(),
-		FSxWindowsFileServerCapable:         BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		FSxWindowsFileServerCapable:         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},

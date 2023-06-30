@@ -43,6 +43,16 @@ func TestParseGMSACapabilityUnsupported(t *testing.T) {
 	assert.False(t, parseGMSACapability().Enabled())
 }
 
+func TestParseFSxWindowsFileServerCapabilityUsingEnv(t *testing.T) {
+	t.Setenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED", "True")
+
+	assert.False(t, parseFSxWindowsFileServerCapability().Enabled())
+}
+
+func TestParseFSxWindowsFileServerCapabilityDefault(t *testing.T) {
+	assert.False(t, parseFSxWindowsFileServerCapability().Enabled())
+}
+
 func TestSkipDomainJoinCheckParseGMSACapability(t *testing.T) {
 	t.Setenv("ECS_GMSA_SUPPORTED", "True")
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")

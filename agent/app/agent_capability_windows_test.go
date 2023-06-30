@@ -258,7 +258,7 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			FSxWindowsFileServerCapable: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			FSxWindowsFileServerCapable: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 		},
 	}
 
@@ -280,7 +280,7 @@ func TestAppendFSxWindowsFileServerCapabilitiesFalse(t *testing.T) {
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
-			FSxWindowsFileServerCapable: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+			FSxWindowsFileServerCapable: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled},
 		},
 	}
 
