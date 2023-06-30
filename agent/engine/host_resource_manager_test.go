@@ -3,8 +3,8 @@ package engine
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/stretchr/testify/assert"
 )
 

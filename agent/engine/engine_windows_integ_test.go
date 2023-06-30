@@ -75,15 +75,13 @@ var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), docker
 // TODO implement this
 func isDockerRunning() bool { return true }
 
-// Values in host resources from getTestHoustResources() should be looked at and CPU/Memory assigned
-// accordingly
 func createTestContainer() *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "windows",
 		Image:               testBaseImage,
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		CPU:                 256,
+		CPU:                 512,
 		Memory:              256,
 	}
 }

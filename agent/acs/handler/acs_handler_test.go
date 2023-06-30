@@ -1418,6 +1418,7 @@ func validateAddedTask(expectedTask apitask.Task, addedTask apitask.Task) error 
 		Family:              addedTask.Family,
 		Version:             addedTask.Version,
 		DesiredStatusUnsafe: addedTask.GetDesiredStatus(),
+		StartSequenceNumber: addedTask.StartSequenceNumber,
 	}
 
 	if !reflect.DeepEqual(expectedTask, taskToCompareFromAdded) {
