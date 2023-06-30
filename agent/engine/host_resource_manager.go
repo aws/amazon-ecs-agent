@@ -23,7 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -73,8 +72,8 @@ func (h *HostResourceManager) logResources(msg string, taskArn string) {
 		"taskArn":   taskArn,
 		"CPU":       *h.consumedResource[CPU].IntegerValue,
 		"MEMORY":    *h.consumedResource[MEMORY].IntegerValue,
-		"PORTS_TCP": aws.StringValueSlice(h.consumedResource[PORTSTCP].StringSetValue),
-		"PORTS_UDP": aws.StringValueSlice(h.consumedResource[PORTSUDP].StringSetValue),
+		"PORTS_TCP": h.consumedResource[PORTSTCP].StringSetValue,
+		"PORTS_UDP": h.consumedResource[PORTSUDP].StringSetValue,
 		"GPU":       *h.consumedResource[GPU].IntegerValue,
 	})
 }

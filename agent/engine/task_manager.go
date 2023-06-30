@@ -199,16 +199,11 @@ func (mtask *managedTask) overseeTask() {
 	// `desiredstatus`es which are a construct of the engine used only here,
 	// not present on the backend
 	mtask.UpdateStatus()
-
-	// Wait here until enough resources are available on host for the task to progress
-	// - Waits until host resource manager succesfully 'consume's task resources and returns
-	// - For tasks which have crossed this stage before (on agent restarts), resources are pre-consumed - returns immediately
-	// - If the task is already stopped (knownStatus is STOPPED), does not attempt to consume resources - returns immediately
-	// (resources are later 'release'd on Stopped task emitTaskEvent call)
-	mtask.waitForHostResources()
-
 	// If this was a 'state restore', send all unsent statuses
 	mtask.emitCurrentStatus()
+
+	// Wait for host resources required by this task to become available
+	mtask.waitForHostResources()
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
@@ -277,13 +272,6 @@ func (mtask *managedTask) emitCurrentStatus() {
 // the task. It will wait for event on this task's consumedHostResourceEvent
 // channel from monitorQueuedTasks routine to wake up
 func (mtask *managedTask) waitForHostResources() {
-	if mtask.GetKnownStatus().Terminal() {
-		// Task's known status is STOPPED. No need to wait in this case and proceed to cleanup
-		// This is relevant when agent restarts and a task has stopped - do not attempt
-		// to consume resources in host resource manager
-		return
-	}
-
 	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
 		// Internal tasks are started right away as their resources are not accounted for
 		mtask.engine.enqueueTask(mtask)
