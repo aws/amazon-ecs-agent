@@ -109,6 +109,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 				},
 			},
 		},
+		StartSequenceNumber: 42,
 	}
 
 	seqNum := int64(42)
