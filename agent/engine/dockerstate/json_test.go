@@ -124,6 +124,8 @@ const (
           "KnownStatus": "RUNNING",
           "KnownTime": "2017-11-01T20:24:21.449897483Z",
           "SentStatus": "RUNNING",
+          "StartSequenceNumber": 9,
+          "StopSequenceNumber": 0,
           "ENI": {
             "ec2Id": "eni-abcd",
             "IPV4Addresses": [

@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -830,7 +831,6 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, context.Background())
 	containerChangeEventStream.StartListening()
 
-	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	stateChangeEvents := make(chan statechange.Event)
 
 	task := &managedTask{
@@ -844,7 +844,6 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 			containerChangeEventStream: containerChangeEventStream,
 			stateChangeEvents:          stateChangeEvents,
 			dataClient:                 data.NewNoopClient(),
-			hostResourceManager:        &hostResourceManager,
 		},
 		stateChangeEvents:          stateChangeEvents,
 		containerChangeEventStream: containerChangeEventStream,
@@ -965,15 +964,13 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 
 func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) {
 	stateChangeEvents := make(chan statechange.Event)
-	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	task := &managedTask{
 		Task: &apitask.Task{
 			Containers:          []*apicontainer.Container{},
 			DesiredStatusUnsafe: apitaskstatus.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
-			stateChangeEvents:   stateChangeEvents,
-			hostResourceManager: &hostResourceManager,
+			stateChangeEvents: stateChangeEvents,
 		},
 		stateChangeEvents: stateChangeEvents,
 		ctx:               context.TODO(),
@@ -1783,6 +1780,31 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 	assert.Equal(t, timeNow, containerCreateTime)
 }
 
+func TestWaitForHostResources(t *testing.T) {
+	taskStopWG := utilsync.NewSequentialWaitGroup()
+	taskStopWG.Add(1, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	mtask := &managedTask{
+		ctx:        ctx,
+		cancel:     cancel,
+		taskStopWG: taskStopWG,
+		Task: &apitask.Task{
+			StartSequenceNumber: 1,
+		},
+	}
+
+	var waitForHostResourcesWG sync.WaitGroup
+	waitForHostResourcesWG.Add(1)
+	go func() {
+		mtask.waitForHostResources()
+		waitForHostResourcesWG.Done()
+	}()
+
+	taskStopWG.Done(1)
+	waitForHostResourcesWG.Wait()
+}
+
 func TestWaitForResourceTransition(t *testing.T) {
 	task := &managedTask{
 		Task: &apitask.Task{
@@ -2172,57 +2194,4 @@ func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
 			assert.Equal(t, tc.err, transition.reason)
 		})
 	}
-}
-
-// TestTaskWaitForHostResources tests task queuing behavior based on available host resources
-func TestTaskWaitForHostResources(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	// 1 vCPU available on host
-	hostResourceManager := NewHostResourceManager(getTestHostResources())
-	taskEngine := &DockerTaskEngine{
-		managedTasks:           make(map[string]*managedTask),
-		monitorQueuedTaskEvent: make(chan struct{}, 1),
-		hostResourceManager:    &hostResourceManager,
-	}
-	go taskEngine.monitorQueuedTasks(ctx)
-	// 3 tasks requesting 0.5 vCPUs each
-	tasks := []*apitask.Task{}
-	for i := 0; i < 3; i++ {
-		task := testdata.LoadTask("sleep5")
-		task.Arn = fmt.Sprintf("arn%d", i)
-		task.CPU = float64(0.5)
-		mtask := &managedTask{
-			Task:                      task,
-			engine:                    taskEngine,
-			consumedHostResourceEvent: make(chan struct{}, 1),
-		}
-		tasks = append(tasks, task)
-		taskEngine.managedTasks[task.Arn] = mtask
-	}
-
-	// acquire for host resources order arn0, arn1, arn2
-	go func() {
-		taskEngine.managedTasks["arn0"].waitForHostResources()
-		taskEngine.managedTasks["arn1"].waitForHostResources()
-		taskEngine.managedTasks["arn2"].waitForHostResources()
-	}()
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify waiting queue is waiting at arn2
-	topTask, err := taskEngine.topTask()
-	assert.NoError(t, err)
-	assert.Equal(t, topTask.Arn, "arn2")
-
-	// Remove 1 task
-	taskResources := taskEngine.managedTasks["arn0"].ToHostResources()
-	taskEngine.hostResourceManager.release("arn0", taskResources)
-	taskEngine.wakeUpTaskQueueMonitor()
-
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify arn2 got dequeued
-	topTask, err = taskEngine.topTask()
-	assert.Error(t, err)
 }

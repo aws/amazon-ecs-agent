@@ -42,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -53,7 +54,6 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -1861,9 +1861,10 @@ func TestTaskFromACS(t *testing.T) {
 				Type: "elastic-inference",
 			},
 		},
-		CPU:                2.0,
-		Memory:             512,
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		StartSequenceNumber: 42,
+		CPU:                 2.0,
+		Memory:              512,
+		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
 
 	seqNum := int64(42)
