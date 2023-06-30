@@ -340,8 +340,8 @@ type Config struct {
 	VolumePluginCapabilities []string
 
 	// FSxWindowsFileServerCapable is the config option to indicate if fsxWindowsFileServer is supported.
-	// It should be enabled by default only if the container instance is part of a valid active directory domain.
-	FSxWindowsFileServerCapable BooleanDefaultFalse
+	// It is enabled by default on Windows and can be overridden by the ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED environment variable.
+	FSxWindowsFileServerCapable BooleanDefaultTrue
 
 	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
 	External BooleanDefaultFalse

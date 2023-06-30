@@ -52,6 +52,14 @@ func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 	assert.False(t, parseFSxWindowsFileServerCapability().Enabled())
 }
 
+func TestParseFSxWindowsFileServerCapabilityDefault(t *testing.T) {
+	IsWindows2016 = func() (bool, error) {
+		return false, nil
+	}
+
+	assert.True(t, parseFSxWindowsFileServerCapability().Enabled())
+}
+
 func TestParseDomainlessgMSACapabilityFalseOnW2016(t *testing.T) {
 	IsWindows2016 = func() (bool, error) {
 		return true, nil

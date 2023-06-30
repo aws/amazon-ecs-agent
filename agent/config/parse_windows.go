@@ -68,15 +68,17 @@ func parseGMSADomainlessCapability() BooleanDefaultFalse {
 }
 
 // parseFSxWindowsFileServerCapability is used to determine if fsxWindowsFileServer support can be enabled
-func parseFSxWindowsFileServerCapability() BooleanDefaultFalse {
-	// fsxwindowsfileserver is not supported on Windows 2016 and non-domain-joined container instances
+func parseFSxWindowsFileServerCapability() BooleanDefaultTrue {
+	// fsxwindowsfileserver is not supported on Windows 2016.
 	status, err := IsWindows2016()
 	if err != nil || status == true {
-		return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+		return BooleanDefaultTrue{Value: ExplicitlyDisabled}
 	}
 
-	envStatus := utils.ParseBool(os.Getenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED"), true)
-	return checkDomainJoinWithEnvOverride(envStatus)
+	// By default, or if ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED is set as true, agent will
+	// broadcast the FSx capability. Only when ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED is
+	// explicitly set as false, the instance will not broadcast FSx capability.
+	return parseBooleanDefaultTrueConfig("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED")
 }
 
 func checkDomainJoinWithEnvOverride(envStatus bool) BooleanDefaultFalse {
