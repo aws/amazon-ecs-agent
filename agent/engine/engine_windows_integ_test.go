@@ -552,11 +552,9 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 		},
 		DockerClient: dockerClient,
 	}
-	hostResources := getTestHostResources()
-	hostResourceManager := NewHostResourceManager(hostResources)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
@@ -796,11 +794,9 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	imageManager.SetDataClient(data.NewNoopClient())
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir)
-	hostResources := getTestHostResources()
-	hostResourceManager := NewHostResourceManager(hostResources)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
 		nil, execCmdMgr, engineserviceconnect.NewManager())
 	taskEngine.monitorExecAgentsInterval = time.Second
 	taskEngine.MustInit(context.TODO())
