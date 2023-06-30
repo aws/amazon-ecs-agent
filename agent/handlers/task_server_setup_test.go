@@ -47,7 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
-	tpinterface "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
+	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tptypes "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
@@ -785,7 +785,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	recorder := httptest.NewRecorder()
@@ -822,7 +822,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	recorder := httptest.NewRecorder()
@@ -881,7 +881,7 @@ func TestV3ContainerAssociations(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType, nil)
@@ -913,7 +913,7 @@ func TestV3ContainerAssociation(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType+"/"+associationName, nil)
@@ -944,7 +944,7 @@ func TestV4ContainerAssociations(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/associations/"+associationType, nil)
@@ -976,7 +976,7 @@ func TestV4ContainerAssociation(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/associations/"+associationType+"/"+associationName, nil)
@@ -1003,7 +1003,7 @@ func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	for testPath, expectedPath := range testPathsMap {
@@ -1046,7 +1046,7 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1086,7 +1086,7 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1125,7 +1125,7 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1195,7 +1195,7 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-				containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 			require.NoError(t, err)
 
 			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", tc.taskFound).AnyTimes()
@@ -1251,7 +1251,7 @@ func TestV4Unexpected500Error(t *testing.T) {
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-				containerInstanceArn, tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl))
+				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 			require.NoError(t, err)
 
 			// Initial lookups succeed
@@ -1308,7 +1308,7 @@ type TMDSTestCase[R TMDSResponse] struct {
 	setECSClientExpectations func(ecsClient *mock_api.MockECSClient)
 	// Function to set expectations on mock Task Protection Client Factory
 	setTaskProtectionClientFactoryExpectations func(
-		ctrl *gomock.Controller, factory *tpinterface.MockTaskProtectionClientFactoryInterface)
+		ctrl *gomock.Controller, factory *tp.MockTaskProtectionClientFactoryInterface)
 	// Function to set expectations on mock Credentials Manager
 	setCredentialsManagerExpectations func(credsManager *mock_credentials.MockManager)
 	// Expected HTTP status code of the response
@@ -1335,7 +1335,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	credsManager := mock_credentials.NewMockManager(ctrl)
-	taskProtectionClientFactory := tpinterface.NewMockTaskProtectionClientFactoryInterface(ctrl)
+	taskProtectionClientFactory := tp.NewMockTaskProtectionClientFactoryInterface(ctrl)
 
 	// Set expectations on mocks
 	auditLog.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
@@ -3013,11 +3013,11 @@ func TestGetTaskProtection(t *testing.T) {
 			Return(taskRoleCredentials(), true)
 	}
 	taskProtectionClientFactoryExpectations := func(output *ecs.GetTaskProtectionOutput, err error) func(
-		*gomock.Controller, *tpinterface.MockTaskProtectionClientFactoryInterface,
+		*gomock.Controller, *tp.MockTaskProtectionClientFactoryInterface,
 	) {
 		return func(
 			ctrl *gomock.Controller,
-			factory *tpinterface.MockTaskProtectionClientFactoryInterface,
+			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
 			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().GetTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
@@ -3263,7 +3263,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 	}
 	ecsRequestID := "reqid"
 	ecsErrMessage := "ecs error message"
-	happyReqBody := &tpinterface.TaskProtectionRequest{
+	happyReqBody := &tp.TaskProtectionRequest{
 		ProtectionEnabled: protectionEnabled,
 		ExpiresInMinutes:  expirationMinutes,
 	}
@@ -3284,11 +3284,11 @@ func TestUpdateTaskProtection(t *testing.T) {
 			Return(taskRoleCredentials(), true)
 	}
 	taskProtectionClientFactoryExpectations := func(output *ecs.UpdateTaskProtectionOutput, err error) func(
-		*gomock.Controller, *tpinterface.MockTaskProtectionClientFactoryInterface,
+		*gomock.Controller, *tp.MockTaskProtectionClientFactoryInterface,
 	) {
 		return func(
 			ctrl *gomock.Controller,
-			factory *tpinterface.MockTaskProtectionClientFactoryInterface,
+			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
 			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().UpdateTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)

@@ -31,7 +31,7 @@ import (
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
-	tphandlers "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
+	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
@@ -65,7 +65,7 @@ func taskServerSetup(
 	availabilityZone string,
 	vpcID string,
 	containerInstanceArn string,
-	taskProtectionClientFactory tphandlers.TaskProtectionClientFactoryInterface,
+	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
 ) (*http.Server, error) {
 
 	muxRouter := mux.NewRouter()
@@ -167,19 +167,19 @@ func agentAPIV1HandlersSetup(
 	credentialsManager credentials.Manager,
 	cluster string,
 	agentState *v4.TMDSAgentState,
-	factory tphandlers.TaskProtectionClientFactoryInterface,
+	factory tp.TaskProtectionClientFactoryInterface,
 	metricsFactory metrics.EntryFactory,
 ) {
 	muxRouter.
 		HandleFunc(
-			tphandlers.TaskProtectionPath(),
-			tphandlers.UpdateTaskProtectionHandler(agentState, credentialsManager,
+			tp.TaskProtectionPath(),
+			tp.UpdateTaskProtectionHandler(agentState, credentialsManager,
 				factory, cluster, metricsFactory, ecsCallTimeout)).
 		Methods("PUT")
 	muxRouter.
 		HandleFunc(
-			tphandlers.TaskProtectionPath(),
-			tphandlers.GetTaskProtectionHandler(agentState, credentialsManager,
+			tp.TaskProtectionPath(),
+			tp.GetTaskProtectionHandler(agentState, credentialsManager,
 				factory, cluster, metricsFactory, ecsCallTimeout)).
 		Methods("GET")
 }
