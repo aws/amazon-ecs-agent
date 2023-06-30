@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	ExpectedProtectionResponseLength = 1
+	expectedProtectionResponseLength = 1
 	ecsCallTimedOutError             = "Timed out calling ECS Task Protection API"
 	taskMetadataFetchFailureMsg      = "Failed to find a task for the request"
 )
@@ -310,10 +310,10 @@ func logAndValidateECSResponse(
 	})
 
 	if len(failures) > 0 {
-		if len(failures) > ExpectedProtectionResponseLength {
+		if len(failures) > expectedProtectionResponseLength {
 			err := fmt.Errorf(
 				"expect at most %v failure in response, get %v",
-				ExpectedProtectionResponseLength, len(failures))
+				expectedProtectionResponseLength, len(failures))
 			logger.Error("Unexpected number of failures", logger.Fields{
 				field.Error:       err,
 				field.TaskARN:     task.TaskARN,
@@ -329,10 +329,10 @@ func logAndValidateECSResponse(
 		return http.StatusOK, &response
 	}
 
-	if len(protectedTasks) > ExpectedProtectionResponseLength {
+	if len(protectedTasks) > expectedProtectionResponseLength {
 		err := fmt.Errorf(
 			"expect %v protectedTask in response when no failure, get %v",
-			ExpectedProtectionResponseLength, len(protectedTasks))
+			expectedProtectionResponseLength, len(protectedTasks))
 		logger.Error("Unexpected number of protections", logger.Fields{
 			field.Error:       err,
 			field.TaskARN:     task.TaskARN,
