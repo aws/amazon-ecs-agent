@@ -41,6 +41,10 @@ const (
 	// Default websocket client disconnection timeout initiated by agent
 	defaultDisconnectionTimeout = 15 * time.Minute
 	defaultDisconnectionJitter  = 30 * time.Minute
+	backoffMin                  = 1 * time.Second
+	backoffMax                  = 1 * time.Minute
+	jitterMultiple              = 0.2
+	multiple                    = 2
 )
 
 type DockerTelemetrySession struct {
@@ -107,22 +111,25 @@ func NewDockerTelemetrySession(
 // discoverTelemetryEndpoint and tcshandler.TelemetrySession's StartTelemetrySession errors are handled
 // (retryWithBackoff or return) in a combined manner
 func (session *DockerTelemetrySession) Start(ctx context.Context) error {
-	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
+	backoff := retry.NewExponentialBackoff(backoffMin, backoffMax, jitterMultiple, multiple)
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("TCS session exited cleanly.")
+			logger.Info("ECS Telemetry service (TCS) session exited cleanly.")
 			return nil
 		default:
 		}
 		endpoint, tcsError := discoverPollEndpoint(session.containerInstanceArn, session.ecsClient)
 		if tcsError == nil {
+			// returning from StartTelemetrySession indicates a disconnection, need to reconnect.
 			tcsError = session.s.StartTelemetrySession(ctx, endpoint)
 		}
 		if tcsError == nil || tcsError == io.EOF {
+			// reset backoff when TCS closed for a valid reason, such as connection expiring due to inactivity
 			logger.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		} else {
+			// backoff when there is unexpected error, such as invalid frame sent through connection.
 			logger.Error("Error: lost websocket connection with ECS Telemetry service (TCS)", logger.Fields{
 				field.Error: tcsError,
 			})
