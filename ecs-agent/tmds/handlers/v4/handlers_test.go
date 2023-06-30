@@ -107,8 +107,13 @@ var (
 			}},
 		},
 	}
-	now          = time.Now()
-	taskResponse = state.TaskResponse{
+	now           = time.Now()
+	credentialsID = "credentialsID"
+)
+
+// Returns a standard agent task response
+func taskResponse() *state.TaskResponse {
+	return &state.TaskResponse{
 		TaskResponse: &v2.TaskResponse{
 			Cluster:       clusterName,
 			TaskARN:       taskARN,
@@ -136,8 +141,9 @@ var (
 			UtilizedMiBs: 500,
 			ReservedMiBs: 600,
 		},
+		CredentialsID: credentialsID,
 	}
-)
+}
 
 func TestContainerMetadata(t *testing.T) {
 	var setup = func(t *testing.T) (*mux.Router, *gomock.Controller, *mock_state.MockAgentState,
@@ -238,14 +244,17 @@ func TestTaskMetadata(t *testing.T) {
 	}
 
 	t.Run("happy case", func(t *testing.T) {
+		metadata := taskResponse()
+		expectedTaskResponse := taskResponse()
+		expectedTaskResponse.CredentialsID = "" // credentials ID not expected
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
 			GetTaskMetadata(endpointContainerID).
-			Return(taskResponse, nil)
+			Return(*metadata, nil)
 		testTMDSRequest(t, handler, TMDSTestCase[state.TaskResponse]{
 			path:                 path,
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: taskResponse,
+			expectedResponseBody: *expectedTaskResponse,
 		})
 	})
 	t.Run("task lookup failure", func(t *testing.T) {
