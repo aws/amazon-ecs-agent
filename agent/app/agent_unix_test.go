@@ -116,7 +116,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -461,7 +460,6 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
@@ -626,8 +624,6 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
-	mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes()
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
@@ -638,7 +634,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
 		mockGPUManager.EXPECT().GetDriverVersion().Return("396.44"),
-		mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes(),
+		mockGPUManager.EXPECT().GetDevices().Return(devices),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetDataClient(gomock.Any()),
@@ -721,7 +717,6 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 
 	cfg := getTestConfig()
 	cfg.GPUSupportEnabled = true
@@ -771,7 +766,6 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("error")).AnyTimes()
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 
 	cfg := getTestConfig()
 	cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
