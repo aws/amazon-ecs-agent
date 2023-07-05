@@ -39,6 +39,10 @@ const (
 	// ContainerServiceConnectRelay represents the internal container type
 	// for the relay to share connections to management infrastructure.
 	ContainerServiceConnectRelay
+
+	// ContainerManagedDaemon represents the internal container type
+	// for Managed Daemons
+	ContainerManagedDaemon
 )
 
 // ContainerType represents the type of the internal container created

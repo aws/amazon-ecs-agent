@@ -16,4 +16,24 @@
 
 package utils
 
+import (
+	"fmt"
+	"io/fs"
+	"os"
+)
+
 func GetCanonicalPath(path string) string { return path }
+
+func MkdirAllAndChown(path string, perm fs.FileMode, uid, gid int) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(path, perm)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to mkdir %s: %+v", path, err)
+	}
+	if err = os.Chown(path, uid, gid); err != nil {
+		return fmt.Errorf("failed to chown %s: %+v", path, err)
+	}
+	return nil
+}
