@@ -32,10 +32,10 @@ import (
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -115,9 +115,7 @@ func (engine *mockStatsEngine) SimulateMetricsPublishToChannel(ctx context.Conte
 					Idle:              aws.Bool(false),
 					MessageId:         aws.String(testMessageId),
 				},
-				TaskMetrics: []*ecstcs.TaskMetric{
-					&ecstcs.TaskMetric{},
-				},
+				TaskMetrics: []*ecstcs.TaskMetric{{}},
 			}
 
 			engine.healthChannel <- ecstcs.HealthMessage{
