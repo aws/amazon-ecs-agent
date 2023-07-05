@@ -1,3 +1,9 @@
+amazon-ecs-init (1.73.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.73.1
+
+ -- Michael Ye <yemike@amazon.com>  Wed, 05 Jul 2023 18:00:00 +0000
+
 amazon-ecs-init (1.73.0-1) stable; urgency=medium
 
   * Cache Agent version 1.73.0
