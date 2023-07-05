@@ -115,9 +115,7 @@ func (engine *mockStatsEngine) SimulateMetricsPublishToChannel(ctx context.Conte
 					Idle:              aws.Bool(false),
 					MessageId:         aws.String(testMessageId),
 				},
-				TaskMetrics: []*ecstcs.TaskMetric{
-					&ecstcs.TaskMetric{},
-				},
+				TaskMetrics: []*ecstcs.TaskMetric{{}},
 			}
 
 			engine.healthChannel <- ecstcs.HealthMessage{
