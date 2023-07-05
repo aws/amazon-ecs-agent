@@ -4891,18 +4891,12 @@ func getTestTaskResourceMap(cpu int64, mem int64, ports []*string, portsUdp []*s
 }
 
 func TestToHostResources(t *testing.T) {
-	//Prepare a simple hostConfig with memory reservation field for test cases
-	hostConfig := dockercontainer.HostConfig{
-		// 400 MiB
-		Resources: dockercontainer.Resources{
-			MemoryReservation: int64(419430400),
-		},
-	}
+	// Prepare simple hostConfigs with and without memory reservation field for test cases
 
-	rawHostConfig, err := json.Marshal(&hostConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Host Config with Memory Reservation 400 MiB
+	rawHostConfigMemReservation := "{\"Ulimits\":[],\"MemoryReservation\":419430400,\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}"
+	// Basic host config with a few fields like network mode
+	rawHostConfigNetworkMode := "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}"
 
 	// Prefer task level, and check gpu assignment
 	testTask1 := &Task{
@@ -4913,7 +4907,7 @@ func TestToHostResources(t *testing.T) {
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation)),
 				},
 				GPUIDs: []string{"gpu1", "gpu2"},
 			},
@@ -4927,7 +4921,7 @@ func TestToHostResources(t *testing.T) {
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation)),
 				},
 			},
 		},
@@ -4953,7 +4947,7 @@ func TestToHostResources(t *testing.T) {
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation)),
 				},
 				Ports: []apicontainer.PortBinding{
 					{
@@ -4983,6 +4977,31 @@ func TestToHostResources(t *testing.T) {
 		},
 	}
 
+	// A combination of containers with different configs with memory sourcing from different sources
+	testTask5 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				CPU:    uint(200),
+				Memory: uint(600),
+				// Should get 400 from Docker MemoryReservation field
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigMemReservation)),
+				},
+			},
+			{
+				CPU:    uint(200),
+				Memory: uint(600),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigNetworkMode)),
+				},
+			},
+			{
+				CPU:    uint(200),
+				Memory: uint(800),
+			},
+		},
+	}
+
 	portsTCP := []uint16{10}
 	portsUDP := []uint16{20}
 
@@ -5006,19 +5025,27 @@ func TestToHostResources(t *testing.T) {
 			task:              testTask4,
 			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), utils.Uint16SliceToStringSlice(portsTCP), utils.Uint16SliceToStringSlice(portsUDP), int64(0)),
 		},
+		{
+			task:              testTask5,
+			expectedResources: getTestTaskResourceMap(int64(600), int64(1800), []*string{}, []*string{}, int64(0)),
+		},
 	}
 
 	for _, tc := range testCases {
 		calcResources := tc.task.ToHostResources()
 
+		for _, resource := range []string{"CPU", "MEMORY", "GPU", "PORTS_TCP", "PORTS_UDP"} {
+			assert.NotNil(t, calcResources[resource], fmt.Sprintf("Error converting resource %s - got nil", resource))
+		}
+
 		//CPU
-		assert.Equal(t, tc.expectedResources["CPU"].IntegerValue, calcResources["CPU"].IntegerValue, "Error converting task CPU tesources")
+		assert.Equal(t, *tc.expectedResources["CPU"].IntegerValue, *calcResources["CPU"].IntegerValue, "Error converting task CPU resources")
 
 		//MEMORY
-		assert.Equal(t, tc.expectedResources["MEMORY"].IntegerValue, calcResources["MEMORY"].IntegerValue, "Error converting task Memory tesources")
+		assert.Equal(t, *tc.expectedResources["MEMORY"].IntegerValue, *calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
 
 		//GPU
-		assert.Equal(t, tc.expectedResources["GPU"].IntegerValue, calcResources["GPU"].IntegerValue, "Error converting task GPU tesources")
+		assert.Equal(t, *tc.expectedResources["GPU"].IntegerValue, *calcResources["GPU"].IntegerValue, "Error converting task GPU resources")
 
 		//PORTS
 		for _, expectedPort := range tc.expectedResources["PORTS_TCP"].StringSetValue {
