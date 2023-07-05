@@ -24,6 +24,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -47,9 +48,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 				mockMounter := NewMockMounter(mockCtl)
 				VolumePath := "./test"
 				err := os.MkdirAll(VolumePath, 0644)
-				if err != nil {
-					t.Fatalf("fail to create dir: %v", err)
-				}
+				require.NoError(t, err, "fail to create dir")
 				defer os.RemoveAll(VolumePath)
 
 				mockMounter.EXPECT().PathExists(VolumePath).Return(true, nil)
@@ -63,9 +62,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 					VolumePath: VolumePath,
 				}
 				_, err = awsDriver.NodeGetVolumeStats(context.TODO(), req)
-				if err != nil {
-					t.Fatalf("Expect no error but got: %v", err)
-				}
+				require.NoError(t, err, "fail to get volume stats")
 			},
 		},
 		{

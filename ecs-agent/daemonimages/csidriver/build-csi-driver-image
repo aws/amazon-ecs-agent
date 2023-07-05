@@ -16,8 +16,7 @@
 
 set -ex
 
-ROOT=$(pwd)
-cd "${ROOT}"
+echo $(pwd)
 VERSION="v$(cat ./container/VERSION)"
 
 architecture=""

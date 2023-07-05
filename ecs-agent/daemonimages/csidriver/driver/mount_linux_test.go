@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPathExists(t *testing.T) {
@@ -33,17 +35,10 @@ func TestPathExists(t *testing.T) {
 	targetPath := filepath.Join(dir, "notafile")
 
 	mountObj, err := newNodeMounter()
-	if err != nil {
-		t.Fatalf("error creating mounter %v", err)
-	}
+	require.NoError(t, err, "error when creating mounter")
 
 	exists, err := mountObj.PathExists(targetPath)
-	if err != nil {
-		t.Fatalf("Expect no error but got: %v", err)
-	}
+	require.NoError(t, err, "error when checking if the path exists")
 
-	if exists {
-		t.Fatalf("Expected file %s to not exist", targetPath)
-	}
-
+	require.False(t, exists, "expect file not exist")
 }
