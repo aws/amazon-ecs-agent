@@ -17,10 +17,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"

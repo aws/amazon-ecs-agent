@@ -17,7 +17,6 @@ package handler
 
 import (
 	"context"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net/url"
 	"strconv"
@@ -36,6 +35,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"

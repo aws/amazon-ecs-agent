@@ -23,8 +23,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"io"
 	"net"
 	"net/http"
@@ -34,6 +32,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
@@ -588,9 +589,9 @@ func websocketScheme(httpScheme string) (string, error) {
 // See https://github.com/gorilla/websocket/blob/87f6f6a22ebfbc3f89b9ccdc7fddd1b914c095f9/conn.go#L650
 func permissibleCloseCode(err error) bool {
 	return websocket.IsCloseError(err,
-		websocket.CloseNormalClosure,   // websocket error code 1000
-		websocket.CloseAbnormalClosure, // websocket error code 1006
-		websocket.CloseGoingAway,       // websocket error code 1001
+		websocket.CloseNormalClosure,     // websocket error code 1000
+		websocket.CloseAbnormalClosure,   // websocket error code 1006
+		websocket.CloseGoingAway,         // websocket error code 1001
 		websocket.CloseInternalServerErr) // websocket error code 1011
 }
 

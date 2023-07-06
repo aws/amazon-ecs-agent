@@ -14,8 +14,9 @@
 package wsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
