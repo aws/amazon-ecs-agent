@@ -14,6 +14,7 @@
 package ecsclient
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
@@ -24,12 +25,14 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -53,6 +56,12 @@ const (
 	// ecsMaxNetworkBindingsLength is the maximum length of the ecs.NetworkBindings list sent as part of the
 	// container state change payload. Currently, this is enforced only when containerPortRanges are requested.
 	ecsMaxNetworkBindingsLength = 100
+	// Following constants used for SetInstanceIdentity retry with exponential backoff
+	setInstanceIdRetryTimeOut         = 30 * time.Second
+	setInstanceIdRetryBackoffMin      = 100 * time.Millisecond
+	setInstanceIdRetryBackoffMax      = 5 * time.Second
+	setInstanceIdRetryBackoffJitter   = 0.2
+	setInstanceIdRetryBackoffMultiple = 2
 )
 
 // APIECSClient implements ECSClient
@@ -226,7 +235,24 @@ func (client *APIECSClient) setInstanceIdentity(registerRequest ecs.RegisterCont
 	}
 
 	iidRetrieved := true
-	instanceIdentityDoc, err := client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
+	backoff := retry.NewExponentialBackoff(setInstanceIdRetryBackoffMin, setInstanceIdRetryBackoffMax,
+		setInstanceIdRetryBackoffJitter, setInstanceIdRetryBackoffMultiple)
+	ctx, cancel := context.WithTimeout(context.Background(), setInstanceIdRetryTimeOut)
+	defer cancel()
+	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
+		var attemptErr error
+		seelog.Debugf("Attempting to get Instance Identity Document")
+		instanceIdentityDoc, attemptErr = client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
+		if attemptErr != nil {
+			seelog.Debugf("Unable to get instance identity document, retrying: %v", attemptErr)
+			// force credentials to expire in case they are stale but not expired
+			client.credentialProvider.Expire()
+			client.credentialProvider = instancecreds.GetCredentials(client.config.External.Enabled())
+			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
+		}
+		seelog.Debugf("Successfully retrieved Instance Identity Document")
+		return nil
+	})
 	if err != nil {
 		seelog.Errorf("Unable to get instance identity document: %v", err)
 		iidRetrieved = false
