@@ -46,7 +46,7 @@ const (
 )
 
 const (
-	stats = `# TYPE MetricFamily3 histogram
+	testStats = `# TYPE MetricFamily3 histogram
 		MetricFamily3{dimensionX="value1", dimensionY="value2", le="0.5"} 1
 		MetricFamily3{dimensionX="value1", dimensionY="value2", le="1"} 2
 		MetricFamily3{dimensionX="value1", dimensionY="value2", le="5"} 3
@@ -144,7 +144,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			// simulate appnet server providing service connect metrics
 			r := mux.NewRouter()
 			r.HandleFunc(testStatsRestPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, "%v", stats)
+				fmt.Fprintf(w, "%v", testStats)
 			}))
 			ts := httptest.NewUnstartedServer(r)
 			l, err := net.Listen("unix", testUDSPath)
