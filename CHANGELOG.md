@@ -1,4 +1,16 @@
 # Changelog
+## 1.73.1
+* Fix - Revert task resource accounting to avoid tasks stuck in PENDING on oversubscribed instance. [#3781](https://github.com/aws/amazon-ecs-agent/pull/3781)
+* Code Quality Improvement - Improve test coverage of v2, v3, and v4 container stats endpoints [#3758](https://github.com/aws/amazon-ecs-agent/pull/3758)
+* Code Quality Improvement - Improve test coverage of v2, v3, and v4 task stats endpoints. [#3761](https://github.com/aws/amazon-ecs-agent/pull/3761)
+* Code Quality Improvement - Move ECSTaskProtectionSDK interface to ecs-agent [#3756](https://github.com/aws/amazon-ecs-agent/pull/3756)
+* Code Quality Improvement - Downgrade the docker version used in the ecs-agent/go.mod to v20.10.24 [#3767](https://github.com/aws/amazon-ecs-agent/pull/3767)
+* Enhancement - Add the EBS volume metrics collector to ecs-agent. [#3766](https://github.com/aws/amazon-ecs-agent/pull/3766)
+* Code Quality Improvement - Refactor ACS attach instance ENI message handling [#3765](https://github.com/aws/amazon-ecs-agent/pull/3765)
+* Bug - Skip sending internal task events to ECS control plane [#3772](https://github.com/aws/amazon-ecs-agent/pull/3772)
+* Code Quality Improvement - Move TMDS task protection types to ecs-agent (refactoring only). [#3764](https://github.com/aws/amazon-ecs-agent/pull/3764)
+* Code Quality Improvement - Add missing copyright header to files [#3777](https://github.com/aws/amazon-ecs-agent/pull/3777)
+
 ## 1.73.0
 * Feature - Task Resource Accounting - Adds host resource manager in docker task engine which keeps account of host resources for tasks started on the host. Removes task serialization and uses host resource manager to start tasks on the host as soon as resources become available for a task. [#3684](https://github.com/aws/amazon-ecs-agent/pull/3684) [#3706](https://github.com/aws/amazon-ecs-agent/pull/3706) [#3700](https://github.com/aws/amazon-ecs-agent/pull/3700) [#3723](https://github.com/aws/amazon-ecs-agent/pull/3723) [#3741](https://github.com/aws/amazon-ecs-agent/pull/3741) [#3747](https://github.com/aws/amazon-ecs-agent/pull/3747) [#3750](https://github.com/aws/amazon-ecs-agent/pull/3750)
 * Enhancement - Update containernetworking/cni dependency to v1.1.2 and the vpc-cni plugin version [#3702](https://github.com/aws/amazon-ecs-agent/pull/3702)
