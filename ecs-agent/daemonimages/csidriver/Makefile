@@ -22,12 +22,12 @@ build-csi-driver: bin/csi-driver
 test:
 	go test -v -race -tags unit -timeout=60s ./...
 
-# please include this `mockgen` into PATH
-bin/mockgen:
+.PHONY: get-deps
+get-deps:
 	go install github.com/golang/mock/mockgen@v1.6.0
 
 .PHONY: mockgen
-mockgen: bin/mockgen
+mockgen:
 	./update-gomock
 
 .PHONY: clean
