@@ -8,12 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	mount_utils "k8s.io/mount-utils"
 )
 
 // MockMounter is a mock of Mounter interface.
 type MockMounter struct {
-	mount_utils.Interface
 	ctrl     *gomock.Controller
 	recorder *MockMounterMockRecorder
 }

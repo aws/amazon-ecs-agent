@@ -18,12 +18,6 @@ package driver
 
 import "errors"
 
-// IsBlockDevice checks if the given path is a block device
-func (d *nodeService) IsBlockDevice(fullPath string) (bool, error) {
-	// TODO
-	return false, errors.New("not supported")
-}
-
 // getBlockSizeBytes gets the size of the disk in bytes
 func (d *nodeService) getBlockSizeBytes(devicePath string) (int64, error) {
 	// TODO

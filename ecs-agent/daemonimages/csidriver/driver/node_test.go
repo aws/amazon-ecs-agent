@@ -19,6 +19,7 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -85,11 +86,11 @@ func TestNodeGetVolumeStats(t *testing.T) {
 					VolumePath: VolumePath,
 				}
 				_, err := awsDriver.NodeGetVolumeStats(context.TODO(), req)
-				expectErr(t, err, codes.NotFound)
+				expectErrorCode(t, err, codes.NotFound)
 			},
 		},
 		{
-			name: "fail can't determine block device",
+			name: "fail can't determine block device due to no such file",
 			testFunc: func(t *testing.T) {
 				mockCtl := gomock.NewController(t)
 				defer mockCtl.Finish()
@@ -108,7 +109,8 @@ func TestNodeGetVolumeStats(t *testing.T) {
 					VolumePath: VolumePath,
 				}
 				_, err := awsDriver.NodeGetVolumeStats(context.TODO(), req)
-				expectErr(t, err, codes.Internal)
+				expectErrorCode(t, err, codes.Internal)
+				expectErrorMessage(t, err, fmt.Sprintf("failed to determine whether %s is block device:", VolumePath))
 			},
 		},
 		{
@@ -131,7 +133,7 @@ func TestNodeGetVolumeStats(t *testing.T) {
 					VolumePath: VolumePath,
 				}
 				_, err := awsDriver.NodeGetVolumeStats(context.TODO(), req)
-				expectErr(t, err, codes.Internal)
+				expectErrorCode(t, err, codes.Internal)
 			},
 		},
 	}
@@ -142,17 +144,30 @@ func TestNodeGetVolumeStats(t *testing.T) {
 
 }
 
-func expectErr(t *testing.T, actualErr error, expectedCode codes.Code) {
-	if actualErr == nil {
-		t.Fatalf("Expect error but got no error")
-	}
+func expectErrorCode(t *testing.T, actualErr error, expectedCode codes.Code) {
+	require.NotNil(t, actualErr, "Expect error but got no error")
 
 	status, ok := status.FromError(actualErr)
-	if !ok {
-		t.Fatalf("Failed to get error status code from error: %v", actualErr)
-	}
+	require.True(t, ok, fmt.Sprintf("Failed to get error status from error: %v", actualErr))
 
-	if status.Code() != expectedCode {
-		t.Fatalf("Expected error code %d, got %d message %s", codes.InvalidArgument, status.Code(), status.Message())
-	}
+	require.Equal(
+		t,
+		expectedCode,
+		status.Code(),
+		fmt.Sprintf("Expected error code %d, got %d message %s", codes.InvalidArgument, status.Code(), status.Message()),
+	)
+}
+
+func expectErrorMessage(t *testing.T, actualErr error, expectedPartialMsg string) {
+	require.NotNil(t, actualErr, "Expect error but got no error")
+
+	status, ok := status.FromError(actualErr)
+	require.True(t, ok, fmt.Sprintf("Failed to get error status from error: %v", actualErr))
+
+	require.Containsf(
+		t,
+		status.Message(),
+		expectedPartialMsg,
+		fmt.Sprintf("Expected partial error message %s", expectedPartialMsg),
+	)
 }

@@ -18,14 +18,6 @@ build-csi-driver: bin/csi-driver
 	./build-csi-driver-image
 	$(MAKE) clean
 
-.PHONY: test
-test:
-	go test -v -race -tags unit -timeout=60s ./...
-
-.PHONY: get-deps
-get-deps:
-	go install github.com/golang/mock/mockgen@v1.6.0
-
 .PHONY: mockgen
 mockgen:
 	./update-gomock

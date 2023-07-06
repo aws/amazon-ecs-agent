@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/volume"
 )
 
@@ -62,7 +63,7 @@ func (d *nodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 		return nil, status.Errorf(codes.NotFound, "path %s does not exist", req.VolumePath)
 	}
 
-	isBlock, err := d.IsBlockDevice(req.VolumePath)
+	isBlock, err := util.IsBlockDevice(req.VolumePath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to determine whether %s is block device: %v", req.VolumePath, err)
 	}
