@@ -44,9 +44,11 @@ func NewTMDSAgentState(
 	containerInstanceARN string,
 ) *TMDSAgentState {
 	return &TMDSAgentState{
-		state:       state,
-		statsEngine: statsEngine,
-		ecsClient:   ecsClient, cluster: cluster, availabilityZone: availabilityZone,
+		state:                state,
+		statsEngine:          statsEngine,
+		ecsClient:            ecsClient,
+		cluster:              cluster,
+		availabilityZone:     availabilityZone,
 		vpcID:                vpcID,
 		containerInstanceARN: containerInstanceARN,
 	}
