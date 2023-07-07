@@ -303,7 +303,68 @@ func TestBuildLinuxResourceSpecCPUMem(t *testing.T) {
 		},
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// BuildLinuxResourceSpec tested with pid limits passed in.
+func TestBuildLinuxResourceSpecCPUMem_WithPidLimits(t *testing.T) {
+	taskMemoryLimit := int64(taskMemoryLimit)
+
+	task := &Task{
+		Arn:    validTaskArn,
+		CPU:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
+	}
+
+	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
+	expectedTaskMemory := taskMemoryLimit * bytesPerMegabyte
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Quota:  &expectedTaskCPUQuota,
+			Period: &expectedTaskCPUPeriod,
+		},
+		Memory: &specs.LinuxMemory{
+			Limit: &expectedTaskMemory,
+		},
+		Pids: &specs.LinuxPids{
+			Limit: int64(100),
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 100)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// no pid limits expected when BuildLinuxResourceSpec receives an invalid value.
+func TestBuildLinuxResourceSpecCPUMem_NegativeInvalidPidLimits(t *testing.T) {
+	taskMemoryLimit := int64(taskMemoryLimit)
+
+	task := &Task{
+		Arn:    validTaskArn,
+		CPU:    float64(taskVCPULimit),
+		Memory: taskMemoryLimit,
+	}
+
+	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
+	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
+	expectedTaskMemory := taskMemoryLimit * bytesPerMegabyte
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Quota:  &expectedTaskCPUQuota,
+			Period: &expectedTaskCPUPeriod,
+		},
+		Memory: &specs.LinuxMemory{
+			Limit: &expectedTaskMemory,
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, -1)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -325,7 +386,7 @@ func TestBuildLinuxResourceSpecCPU(t *testing.T) {
 		},
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -340,7 +401,7 @@ func TestBuildLinuxResourceSpecIncreasedTaskCPULimit(t *testing.T) {
 		CPU: increasedTaskVCPULimit,
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
 
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
 	expectedTaskCPUQuota := int64(increasedTaskVCPULimit * float64(expectedTaskCPUPeriod))
@@ -371,7 +432,34 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 		},
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
+}
+
+// TestBuildLinuxResourceSpecWithoutTaskCPULimits validates behavior of CPU Shares
+// validate that pid limits are also inserted correctly
+func TestBuildLinuxResourceSpecWithoutTaskCPULimits_WithPidLimits(t *testing.T) {
+	task := &Task{
+		Arn: validTaskArn,
+		Containers: []*apicontainer.Container{
+			{
+				Name: "C1",
+			},
+		},
+	}
+	expectedCPUShares := uint64(minimumCPUShare)
+	expectedLinuxResourceSpec := specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Shares: &expectedCPUShares,
+		},
+		Pids: &specs.LinuxPids{
+			Limit: int64(100),
+		},
+	}
+
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 100)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -395,7 +483,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits(t *testing.T
 		},
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -420,7 +508,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPUWithLessThanMinimumContainerCPULimi
 		},
 	}
 
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -443,7 +531,7 @@ func TestBuildLinuxResourceSpecInvalidMem(t *testing.T) {
 	}
 
 	expectedLinuxResourceSpec := specs.LinuxResources{}
-	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod)
+	linuxResourceSpec, err := task.BuildLinuxResourceSpec(defaultCPUPeriod, 0)
 
 	assert.Error(t, err)
 	assert.EqualValues(t, expectedLinuxResourceSpec, linuxResourceSpec)
@@ -593,7 +681,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	assert.NoError(t, task.initializeCgroupResourceSpec("cgroupPath", defaultCPUPeriod, &taskresource.ResourceFields{
+	assert.NoError(t, task.initializeCgroupResourceSpec("cgroupPath", defaultCPUPeriod, 0, &taskresource.ResourceFields{
 		Control: mockControl,
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			IOUtil: mockIO,
@@ -617,7 +705,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 		ResourcesMapUnsafe:     make(map[string][]taskresource.TaskResource),
 	}
-	assert.Error(t, task.initializeCgroupResourceSpec("", time.Millisecond, nil))
+	assert.Error(t, task.initializeCgroupResourceSpec("", time.Millisecond, 0, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }
@@ -638,7 +726,7 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 		ResourcesMapUnsafe:     make(map[string][]taskresource.TaskResource),
 	}
-	assert.Error(t, task.initializeCgroupResourceSpec("", time.Millisecond, nil))
+	assert.Error(t, task.initializeCgroupResourceSpec("", time.Millisecond, 0, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }

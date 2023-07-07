@@ -182,3 +182,13 @@ func isDomainlessGmsaPluginInstalled() (bool, error) {
 
 	return false, nil
 }
+
+func parseTaskPidsLimit() int {
+	pidsLimitEnvVal := os.Getenv("ECS_TASK_PIDS_LIMIT")
+	if pidsLimitEnvVal == "" {
+		seelog.Debug("Environment variable empty: ECS_TASK_PIDS_LIMIT")
+		return 0
+	}
+	seelog.Warnf(`"ECS_TASK_PIDS_LIMIT" is not supported on windows`)
+	return 0
+}

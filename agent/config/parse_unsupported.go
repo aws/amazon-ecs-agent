@@ -41,3 +41,7 @@ var IsWindows2016 = func() (bool, error) {
 func GetOSFamily() string {
 	return strings.ToUpper(OSType)
 }
+
+func parseTaskPidsLimit() int {
+	return 0
+}

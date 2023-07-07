@@ -58,7 +58,7 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
-func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, taskPidsLimit int, resourceFields *taskresource.ResourceFields) error {
 	if !task.MemoryCPULimitsEnabled {
 		if task.CPU > 0 || task.Memory > 0 {
 			// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance
@@ -74,7 +74,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 	if err != nil {
 		return errors.Wrapf(err, "cgroup resource: unable to determine cgroup root for task")
 	}
-	resSpec, err := task.BuildLinuxResourceSpec(cGroupCPUPeriod)
+	resSpec, err := task.BuildLinuxResourceSpec(cGroupCPUPeriod, taskPidsLimit)
 	if err != nil {
 		return errors.Wrapf(err, "cgroup resource: unable to build resource spec for task")
 	}
@@ -122,7 +122,7 @@ func buildCgroupV2Root(taskID string) string {
 }
 
 // BuildLinuxResourceSpec returns a linuxResources object for the task cgroup
-func (task *Task) BuildLinuxResourceSpec(cGroupCPUPeriod time.Duration) (specs.LinuxResources, error) {
+func (task *Task) BuildLinuxResourceSpec(cGroupCPUPeriod time.Duration, taskPidsLimit int) (specs.LinuxResources, error) {
 	linuxResourceSpec := specs.LinuxResources{}
 
 	// If task level CPU limits are requested, set CPU quota + CPU period
@@ -146,6 +146,14 @@ func (task *Task) BuildLinuxResourceSpec(cGroupCPUPeriod time.Duration) (specs.L
 			return specs.LinuxResources{}, err
 		}
 		linuxResourceSpec.Memory = &linuxMemorySpec
+	}
+
+	// Set task pids limit if set via ECS_TASK_PIDS_LIMIT env var
+	if taskPidsLimit > 0 {
+		pidsLimit := &specs.LinuxPids{
+			Limit: int64(taskPidsLimit),
+		}
+		linuxResourceSpec.Pids = pidsLimit
 	}
 
 	return linuxResourceSpec, nil

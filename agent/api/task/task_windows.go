@@ -133,7 +133,7 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	return int64(containerCPU)
 }
 
-func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, taskPidsLimit int, resourceFields *taskresource.ResourceFields) error {
 	if !task.MemoryCPULimitsEnabled {
 		if task.CPU > 0 || task.Memory > 0 {
 			// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance

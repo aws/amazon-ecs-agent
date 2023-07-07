@@ -596,6 +596,7 @@ func environmentConfig() (Config, error) {
 		ShouldExcludeIPv6PortBinding:        parseBooleanDefaultTrueConfig("ECS_EXCLUDE_IPV6_PORTBINDING"),
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
+		TaskPidsLimit:                       parseTaskPidsLimit(),
 	}, err
 }
 
