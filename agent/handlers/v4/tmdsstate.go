@@ -119,6 +119,8 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 			"Unable to generate metadata for v4 task: '%s'", taskARN))
 	}
 
+	taskResponse.CredentialsID = task.GetCredentialsID()
+
 	// for non-awsvpc task mode
 	if !task.IsNetworkModeAWSVPC() {
 		// fill in non-awsvpc network details for container responses here

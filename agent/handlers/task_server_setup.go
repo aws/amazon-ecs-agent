@@ -22,7 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	tpfactory "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection"
-	tphandlers "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection/v1/handlers"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
@@ -32,8 +31,7 @@ import (
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
-	tpinterface "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
-
+	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
@@ -50,9 +48,13 @@ const (
 	// writeTimeout specifies the maximum duration before timing out write of the response.
 	// The value is set to 5 seconds as per AWS SDK defaults.
 	writeTimeout = 5 * time.Second
+
+	// Timeout for ECS calls. Must be lower than server write timeout defined above.
+	ecsCallTimeout = 4 * time.Second
 )
 
-func taskServerSetup(credentialsManager credentials.Manager,
+func taskServerSetup(
+	credentialsManager credentials.Manager,
 	auditLogger auditinterface.AuditLogger,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
@@ -63,7 +65,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	availabilityZone string,
 	vpcID string,
 	containerInstanceArn string,
-	taskProtectionClientFactory tpinterface.TaskProtectionClientFactoryInterface,
+	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
 ) (*http.Server, error) {
 
 	muxRouter := mux.NewRouter()
@@ -75,13 +77,18 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	muxRouter.HandleFunc(tmdsv1.CredentialsPath,
 		tmdsv1.CredentialsHandler(credentialsManager, auditLogger))
 
+	tmdsAgentState := v4.NewTMDSAgentState(state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
+	metricsFactory := metrics.NewNopEntryFactory()
+
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
 
 	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
 
-	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, vpcID, containerInstanceArn)
+	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, vpcID, containerInstanceArn,
+		tmdsAgentState, metricsFactory)
 
-	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, taskProtectionClientFactory)
+	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, tmdsAgentState,
+		taskProtectionClientFactory, metricsFactory)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
@@ -140,9 +147,9 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	availabilityZone string,
 	vpcID string,
 	containerInstanceArn string,
+	tmdsAgentState *v4.TMDSAgentState,
+	metricsFactory metrics.EntryFactory,
 ) {
-	tmdsAgentState := v4.NewTMDSAgentState(state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
-	metricsFactory := metrics.NewNopEntryFactory()
 	muxRouter.HandleFunc(tmdsv4.ContainerMetadataPath(), tmdsv4.ContainerMetadataHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(tmdsv4.TaskMetadataPath(), tmdsv4.TaskMetadataHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(tmdsv4.TaskMetadataWithTagsPath(), tmdsv4.TaskMetadataWithTagsHandler(tmdsAgentState, metricsFactory))
@@ -159,17 +166,21 @@ func agentAPIV1HandlersSetup(
 	state dockerstate.TaskEngineState,
 	credentialsManager credentials.Manager,
 	cluster string,
-	factory tpinterface.TaskProtectionClientFactoryInterface,
+	agentState *v4.TMDSAgentState,
+	factory tp.TaskProtectionClientFactoryInterface,
+	metricsFactory metrics.EntryFactory,
 ) {
 	muxRouter.
 		HandleFunc(
-			tphandlers.TaskProtectionPath(),
-			tphandlers.UpdateTaskProtectionHandler(state, credentialsManager, factory, cluster)).
+			tp.TaskProtectionPath(),
+			tp.UpdateTaskProtectionHandler(agentState, credentialsManager,
+				factory, cluster, metricsFactory, ecsCallTimeout)).
 		Methods("PUT")
 	muxRouter.
 		HandleFunc(
-			tphandlers.TaskProtectionPath(),
-			tphandlers.GetTaskProtectionHandler(state, credentialsManager, factory, cluster)).
+			tp.TaskProtectionPath(),
+			tp.GetTaskProtectionHandler(agentState, credentialsManager,
+				factory, cluster, metricsFactory, ecsCallTimeout)).
 		Methods("GET")
 }
 
