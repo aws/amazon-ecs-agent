@@ -80,3 +80,32 @@ func TestSkipDomainLessCheckParseGMSACapability(t *testing.T) {
 
 	assert.True(t, parseGMSADomainlessCapability().Enabled())
 }
+
+func TestParseTaskPidsLimit(t *testing.T) {
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "1")
+	assert.Equal(t, 1, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "10")
+	assert.Equal(t, 10, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "100")
+	assert.Equal(t, 100, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "10000")
+	assert.Equal(t, 10000, parseTaskPidsLimit())
+	// test the upper limit minus 1
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "4194304")
+	assert.Equal(t, 4194304, parseTaskPidsLimit())
+	// test the upper limit
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "4194305")
+	assert.Equal(t, 0, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "0")
+	assert.Equal(t, 0, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "-1")
+	assert.Equal(t, 0, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "foobar")
+	assert.Equal(t, 0, parseTaskPidsLimit())
+	t.Setenv("ECS_TASK_PIDS_LIMIT", "")
+	assert.Equal(t, 0, parseTaskPidsLimit())
+}
+
+func TestParseTaskPidsLimit_Unset(t *testing.T) {
+	assert.Equal(t, 0, parseTaskPidsLimit())
+}

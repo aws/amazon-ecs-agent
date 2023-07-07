@@ -44,7 +44,7 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
-func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, taskPidsLimit int, resourceFields *taskresource.ResourceFields) error {
 	if !task.MemoryCPULimitsEnabled {
 		if task.CPU > 0 || task.Memory > 0 {
 			// Client-side validation/warning if a task with task-level CPU/memory limits specified somehow lands on an instance

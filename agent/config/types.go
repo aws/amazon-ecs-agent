@@ -370,4 +370,10 @@ type Config struct {
 	// uses to assign host ports from, for a container port range mapping.
 	// This defaults to the platform specific ephemeral host port range
 	DynamicHostPortRange string
+
+	// TaskPidsLimit specifies the per-task pids limit cgroup setting for each
+	// task launched on this container instance. This setting maps to the pids.max
+	// cgroup setting at the ECS task level.
+	// see https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid
+	TaskPidsLimit int
 }

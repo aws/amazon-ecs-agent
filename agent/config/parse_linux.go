@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -109,4 +110,28 @@ var IsWindows2016 = func() (bool, error) {
 // GetOSFamily returns "LINUX" as operating system family for linux based ecs instances.
 func GetOSFamily() string {
 	return strings.ToUpper(OSType)
+}
+
+func parseTaskPidsLimit() int {
+	var taskPidsLimit int
+	pidsLimitEnvVal := os.Getenv("ECS_TASK_PIDS_LIMIT")
+	if pidsLimitEnvVal == "" {
+		seelog.Debug("Environment variable empty: ECS_TASK_PIDS_LIMIT")
+		return 0
+	}
+
+	taskPidsLimit, err := strconv.Atoi(strings.TrimSpace(pidsLimitEnvVal))
+	if err != nil {
+		seelog.Warnf(`Invalid format for "ECS_TASK_PIDS_LIMIT", expected an integer but got [%v]: %v`, pidsLimitEnvVal, err)
+		return 0
+	}
+
+	// 4194304 is a defacto limit set by runc on Amazon Linux (4*1024*1024), so
+	// we should use the same to avoid runtime container failures.
+	if taskPidsLimit <= 0 || taskPidsLimit > 4194304 {
+		seelog.Warnf(`Invalid value for "ECS_TASK_PIDS_LIMIT", expected integer greater than 0 and less than 4194305, but got [%v]`, taskPidsLimit)
+		return 0
+	}
+
+	return taskPidsLimit
 }
