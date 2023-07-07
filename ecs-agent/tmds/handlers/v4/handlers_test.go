@@ -26,12 +26,14 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/docker/docker/api/types"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,8 +109,23 @@ var (
 			}},
 		},
 	}
-	now           = time.Now()
-	credentialsID = "credentialsID"
+	now            = time.Now()
+	credentialsID  = "credentialsID"
+	containerStats = state.StatsResponse{
+		StatsJSON: &types.StatsJSON{
+			Stats:    types.Stats{NumProcs: 2},
+			Name:     "name",
+			ID:       "id",
+			Networks: map[string]types.NetworkStats{"a": {RxBytes: 5}},
+		},
+		Network_rate_stats: &stats.NetworkStatsPerSec{
+			RxBytesPerSecond: 10,
+			TxBytesPerSecond: 15,
+		},
+	}
+	taskStats = map[string]*state.StatsResponse{
+		containerID: &containerStats,
+	}
 )
 
 // Returns a standard agent task response
@@ -306,8 +323,199 @@ func TestTaskMetadata(t *testing.T) {
 	})
 }
 
+func TestContainerStatsPath(t *testing.T) {
+	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/stats", ContainerStatsPath())
+}
+
+func TestTaskStatsPath(t *testing.T) {
+	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/task/stats", TaskStatsPath())
+}
+
+func TestContainerStats(t *testing.T) {
+	// path for the stats endpoint
+	path := fmt.Sprintf("/v4/%s/stats", endpointContainerID)
+
+	// helper function to setup mocks and a handler with container stats endpoint
+	setup := func() (
+		*mock_state.MockAgentState, *gomock.Controller, *mock_metrics.MockEntryFactory, http.Handler,
+	) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		agentState := mock_state.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		router := mux.NewRouter()
+		router.HandleFunc(
+			ContainerStatsPath(),
+			ContainerStatsHandler(agentState, metricsFactory))
+
+		return agentState, ctrl, metricsFactory, router
+	}
+
+	// Test cases start here
+	t.Run("stats lookup failure", func(t *testing.T) {
+		agentState, _, _, handler := setup()
+		agentState.EXPECT().
+			GetContainerStats(endpointContainerID).
+			Return(state.StatsResponse{}, state.NewErrorStatsLookupFailure(externalReason))
+		testTMDSRequest(t, handler, TMDSTestCase[string]{
+			path:                 path,
+			expectedStatusCode:   http.StatusNotFound,
+			expectedResponseBody: externalReason,
+		})
+	})
+
+	internalServerErrorCases := []struct {
+		err          error
+		responseBody string
+	}{
+		{
+			err:          state.NewErrorStatsFetchFailure(externalReason),
+			responseBody: externalReason,
+		},
+		{
+			err:          errors.New("unknown error"),
+			responseBody: "failed to get stats",
+		},
+	}
+	for _, tc := range internalServerErrorCases {
+		t.Run("stats fetch failure", func(t *testing.T) {
+			agentState, ctrl, metricsFactory, handler := setup()
+
+			// Expectations
+			agentState.EXPECT().
+				GetContainerStats(endpointContainerID).
+				Return(state.StatsResponse{}, tc.err)
+
+			// Expect InternalServerError metric to be published with the error.
+			entry := mock_metrics.NewMockEntry(ctrl)
+			metricPublished := false // tracks if a metrics entry was published
+			entry.EXPECT().Done(tc.err).Return(func() {
+				// Set metricsPublished to true if metric was published.
+				metricPublished = true
+			})
+			metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
+
+			// Make test request
+			testTMDSRequest(t, handler, TMDSTestCase[string]{
+				path:                 path,
+				expectedStatusCode:   http.StatusInternalServerError,
+				expectedResponseBody: tc.responseBody,
+			})
+
+			// assert the metrics entry was published
+			assert.True(t, metricPublished)
+		})
+	}
+
+	t.Run("happy case", func(t *testing.T) {
+		agentState, _, _, handler := setup()
+		agentState.EXPECT().
+			GetContainerStats(endpointContainerID).
+			Return(containerStats, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[state.StatsResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: containerStats,
+		})
+	})
+}
+
+func TestTaskStats(t *testing.T) {
+	// path for the stats endpoint
+	path := fmt.Sprintf("/v4/%s/task/stats", endpointContainerID)
+
+	// helper function to setup mocks and a handler with container stats endpoint
+	setup := func() (
+		*mock_state.MockAgentState, *gomock.Controller, *mock_metrics.MockEntryFactory, http.Handler,
+	) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		agentState := mock_state.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		router := mux.NewRouter()
+		router.HandleFunc(
+			TaskStatsPath(),
+			TaskStatsHandler(agentState, metricsFactory))
+
+		return agentState, ctrl, metricsFactory, router
+	}
+
+	// Test cases start here
+	t.Run("stats lookup failure", func(t *testing.T) {
+		agentState, _, _, handler := setup()
+		agentState.EXPECT().
+			GetTaskStats(endpointContainerID).
+			Return(nil, state.NewErrorStatsLookupFailure(externalReason))
+		testTMDSRequest(t, handler, TMDSTestCase[string]{
+			path:                 path,
+			expectedStatusCode:   http.StatusNotFound,
+			expectedResponseBody: externalReason,
+		})
+	})
+
+	internalServerErrorCases := []struct {
+		err          error
+		responseBody string
+	}{
+		{
+			err:          state.NewErrorStatsFetchFailure(externalReason),
+			responseBody: externalReason,
+		},
+		{
+			err:          errors.New("unknown error"),
+			responseBody: "failed to get stats",
+		},
+	}
+	for _, tc := range internalServerErrorCases {
+		t.Run("stats fetch failure", func(t *testing.T) {
+			// setup
+			agentState, ctrl, metricsFactory, handler := setup()
+			metricPublished := false // tracks if a metrics entry was published
+
+			// expect GetContainerStats to be called that should return an error
+			agentState.EXPECT().
+				GetTaskStats(endpointContainerID).
+				Return(nil, tc.err)
+
+			// expect InternalServerError metric to be published with the error.
+			// set metricsPublished to true if metric was published
+			entry := mock_metrics.NewMockEntry(ctrl)
+			entry.EXPECT().Done(tc.err).Return(func() { metricPublished = true })
+			metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
+
+			// Go
+			testTMDSRequest(t, handler, TMDSTestCase[string]{
+				path:                 path,
+				expectedStatusCode:   http.StatusInternalServerError,
+				expectedResponseBody: tc.responseBody,
+			})
+
+			// confirm the metrics entry was published
+			assert.True(t, metricPublished)
+		})
+	}
+
+	t.Run("happy case", func(t *testing.T) {
+		agentState, _, _, handler := setup()
+		agentState.EXPECT().
+			GetTaskStats(endpointContainerID).
+			Return(taskStats, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[map[string]*state.StatsResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: taskStats,
+		})
+	})
+}
+
 type TMDSResponse interface {
-	string | state.ContainerResponse | state.TaskResponse
+	string |
+		state.ContainerResponse |
+		state.TaskResponse |
+		state.StatsResponse |
+		map[string]*state.StatsResponse
 }
 
 type TMDSTestCase[R TMDSResponse] struct {
