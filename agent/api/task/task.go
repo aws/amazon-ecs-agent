@@ -356,9 +356,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	task.adjustForPlatform(cfg)
 
-	// TODO, add rudimentary plugin support and call any plugins that want to
-	// hook into this
-	if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
+	// Initialize cgroup resource spec definition for later cgroup resource creation.
+	// This sets up the cgroup spec for cpu, memory, and pids limits for the task.
+	// Actual cgroup creation happens later.
+	if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, cfg.TaskPidsLimit, resourceFields); err != nil {
 		logger.Error("Could not initialize resource", logger.Fields{
 			field.TaskID: task.GetID(),
 			field.Error:  err,

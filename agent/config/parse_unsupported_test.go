@@ -29,3 +29,7 @@ func TestParseGMSACapabilitySupported(t *testing.T) {
 func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 	assert.False(t, parseGMSACapability().Enabled())
 }
+
+func TestParseTaskPidsLimit(t *testing.T) {
+	assert.Zero(t, parseTaskPidsLimit())
+}
