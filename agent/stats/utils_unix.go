@@ -49,7 +49,7 @@ func getMemUsage(mem types.MemoryStats) uint64 {
 			return mem.Usage - v
 		}
 	}
-	if v, ok := mem.Stats["cache"]; ok && v < mem.Usage {
+	if v, ok := mem.Stats["total_inactive_file"]; ok && v < mem.Usage {
 		return mem.Usage - v
 	}
 	return mem.Usage
