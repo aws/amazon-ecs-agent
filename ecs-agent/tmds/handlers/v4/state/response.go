@@ -15,8 +15,11 @@ package state
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
+
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -90,4 +93,10 @@ type NetworkInterfaceProperties struct {
 	PrivateDNSName string `json:"PrivateDNSName,omitempty"`
 	// SubnetGatewayIPV4Address is the IPv4 gateway address for the network interface.
 	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,omitempty"`
+}
+
+// StatsResponse is the v4 Stats response for a container.
+type StatsResponse struct {
+	*types.StatsJSON
+	Network_rate_stats *stats.NetworkStatsPerSec `json:"network_rate_stats,omitempty"`
 }

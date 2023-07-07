@@ -94,8 +94,3 @@ type taskDefinition struct {
 	family  string
 	version string
 }
-
-type NetworkStatsPerSec struct {
-	RxBytesPerSecond float32 `json:"rx_bytes_per_sec"`
-	TxBytesPerSecond float32 `json:"tx_bytes_per_sec"`
-}

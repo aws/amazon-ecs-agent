@@ -10,7 +10,6 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-
 package v4
 
 import (
@@ -22,6 +21,8 @@ import (
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	response "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+
 	"github.com/cihub/seelog"
 )
 
@@ -72,7 +73,7 @@ func WriteV4ContainerStatsResponse(w http.ResponseWriter,
 		return
 	}
 
-	containerStatsResponse := StatsResponse{
+	containerStatsResponse := response.StatsResponse{
 		StatsJSON:          dockerStats,
 		Network_rate_stats: network_rate_stats,
 	}

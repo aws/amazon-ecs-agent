@@ -37,8 +37,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
-	v4stats "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	mock_taskprotection "github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks"
@@ -46,6 +44,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tptypes "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types"
@@ -1286,9 +1285,9 @@ type TMDSResponse interface {
 		v4.TaskResponse |
 		tptypes.TaskProtectionResponse |
 		types.StatsJSON |
-		v4stats.StatsResponse |
+		v4.StatsResponse |
 		map[string]*types.StatsJSON |
-		map[string]*v4stats.StatsResponse |
+		map[string]*v4.StatsResponse |
 		string
 }
 
@@ -2861,7 +2860,7 @@ func TestV4ContainerStats(t *testing.T) {
 			RxBytesPerSecond: 52,
 			TxBytesPerSecond: 84,
 		}
-		testTMDSRequest(t, TMDSTestCase[v4stats.StatsResponse]{
+		testTMDSRequest(t, TMDSTestCase[v4.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -2874,7 +2873,7 @@ func TestV4ContainerStats(t *testing.T) {
 					Return(&dockerStats, &networkStats, nil)
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponseBody: v4stats.StatsResponse{
+			expectedResponseBody: v4.StatsResponse{
 				StatsJSON:          &dockerStats,
 				Network_rate_stats: &networkStats,
 			},
@@ -2913,7 +2912,7 @@ func TestV4TaskStats(t *testing.T) {
 	})
 	t.Run("containerMap empty", func(t *testing.T) {
 		containerMap := map[string]*apicontainer.DockerContainer{}
-		testTMDSRequest(t, TMDSTestCase[map[string]*v4stats.StatsResponse]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*v4.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -2922,14 +2921,14 @@ func TestV4TaskStats(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*v4stats.StatsResponse{},
+			expectedResponseBody: map[string]*v4.StatsResponse{},
 		})
 	})
 	t.Run("stats not found for a container", func(t *testing.T) {
 		containerMap := map[string]*apicontainer.DockerContainer{
 			containerName: {DockerID: containerID},
 		}
-		testTMDSRequest(t, TMDSTestCase[map[string]*v4stats.StatsResponse]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*v4.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -2942,7 +2941,7 @@ func TestV4TaskStats(t *testing.T) {
 					Return(nil, nil, errors.New("some error"))
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponseBody: map[string]*v4stats.StatsResponse{
+			expectedResponseBody: map[string]*v4.StatsResponse{
 				containerID: {
 					StatsJSON: nil, Network_rate_stats: nil,
 				}},
@@ -2957,7 +2956,7 @@ func TestV4TaskStats(t *testing.T) {
 			TxBytesPerSecond: 84,
 		}
 		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
-		testTMDSRequest(t, TMDSTestCase[map[string]*v4stats.StatsResponse]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*v4.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -2970,7 +2969,7 @@ func TestV4TaskStats(t *testing.T) {
 					Return(&dockerStats, &networkStats, nil)
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponseBody: map[string]*v4stats.StatsResponse{containerID: {
+			expectedResponseBody: map[string]*v4.StatsResponse{containerID: {
 				StatsJSON:          &dockerStats,
 				Network_rate_stats: &networkStats,
 			}},
