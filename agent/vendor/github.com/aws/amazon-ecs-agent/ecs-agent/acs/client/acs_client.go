@@ -21,8 +21,9 @@ package acsclient
 import (
 	"context"
 	"errors"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"

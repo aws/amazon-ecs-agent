@@ -172,7 +172,8 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		}
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
-	err = client.Connect()
+
+	err = client.Connect(metrics.TCSDisconnectTimeoutMetricName)
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,

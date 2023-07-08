@@ -23,8 +23,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"io"
 	"net"
 	"net/http"
@@ -34,6 +32,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
@@ -190,7 +191,8 @@ type ClientServerImpl struct {
 	// for the websocket connection
 	RWTimeout time.Duration
 	// writeLock needed to ensure that only one routine is writing to the socket
-	writeLock      sync.RWMutex
+	writeLock sync.RWMutex
+	// MetricsFactory needed to emit metrics for monitoring.
 	MetricsFactory metrics.EntryFactory
 	ClientServer
 	ServiceError
@@ -301,12 +303,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
 	})
 	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
 	// call f as goroutine after timeout. The timeout is currently set to 30m+jitter(5m max) to match max duration
-	// of connection with server(ACS/TACS). This timer is meant to handle s.startTCSSession running in blocking mode
-	// beyond 30m+jitter as s.startTCSSession has 2 possible paths: returns with error or continue running
-	// in blocking mode.
-	// Happy path: it returns with error, then timer stops, goroutine to disconnect never starts.
-	// Edge case: it continues to run beyond the maximum duration of TCS connection. Timer starts goroutine
-	// from DisconnectTimeoutTimer to disconnect; guard against hanging connection to unhealthy TCS host.
+	// of connection with server(ACS/TACS).
 	disconnectTimer := cs.newDisconnectTimeoutHandler(startTime, disconnectMetricName)
 	defer disconnectTimer.Stop()
 
@@ -598,7 +595,7 @@ func permissibleCloseCode(err error) bool {
 		websocket.CloseInternalServerErr) // websocket error code 1011
 }
 
-// newDisconnectTimeoutHandler returns new timer object to disconnect from TCS connection start time, with goroutine
+// newDisconnectTimeoutHandler returns new timer object to disconnect from server connection start time, with goroutine
 // to disconnect from client.
 func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time, metricName string) *time.Timer {
 	maxConnectionDuration := retry.AddJitter(disconnectTimeout, disconnectJitterMax)
@@ -612,7 +609,7 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time, met
 	return timer
 }
 
-// newHeartbeatTimeoutHandler returns new timer object to disconnect from TCS based on connection start time.
+// newHeartbeatTimeoutHandler returns new timer object to disconnect from server based on connection start time.
 func (cs *ClientServerImpl) NewHeartbeatTimeoutHandler(startTime time.Time,
 	heartbeatTimeout time.Duration,
 	heartbeatJitter time.Duration) *time.Timer {
@@ -627,7 +624,7 @@ func (cs *ClientServerImpl) NewHeartbeatTimeoutHandler(startTime time.Time,
 	return timer
 }
 
-// closeTCSClient will attempt to close the provided client, retries are not recommended
+// closeClient will attempt to close the provided client, retries are not recommended
 // as failure modes for this are when client is not found or already closed.
 func (cs *ClientServerImpl) closeClient(startTime time.Time, timeoutDuration time.Duration) error {
 	logger.Warn(("Closing connection"), logger.Fields{
