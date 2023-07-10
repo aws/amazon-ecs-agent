@@ -77,6 +77,7 @@ func New(url string,
 	rwTimeout time.Duration,
 	metricsMessages <-chan ecstcs.TelemetryMessage,
 	healthMessages <-chan ecstcs.HealthMessage,
+	metricsFactory metrics.EntryFactory,
 ) wsclient.ClientServer {
 	cs := &tcsClientServer{
 		doctor:                   doctor,
@@ -93,9 +94,7 @@ func New(url string,
 			MakeRequestHook:    signRequestFunc(url, cfg.AWSRegion, credentialProvider),
 			TypeDecoder:        NewTCSDecoder(),
 			RequestHandlers:    make(map[string]wsclient.RequestHandler),
-			//TODO: MetricsFactory needs to be passed from handlers. To use metrics package,
-			// handlers need to be moved to ecs-agent. The move is pending through PR in review.
-			MetricsFactory: metrics.NewNopEntryFactory(),
+			MetricsFactory:     metricsFactory,
 		},
 	}
 	cs.ServiceError = &tcsError{}
