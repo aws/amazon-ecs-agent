@@ -482,7 +482,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		}).Return("poll-endpoint", nil),
 		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes(),
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
-			// Ensures that the test waits until telemetry session has bee started
+			// Ensures that the test waits until telemetry session has been started
 			discoverEndpointsInvoked.Done()
 		}).Return("telemetry-endpoint", nil),
 		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(

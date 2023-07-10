@@ -1,3 +1,16 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+// http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package reporter
 
 import (
@@ -19,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -29,6 +41,10 @@ const (
 	// Default websocket client disconnection timeout initiated by agent
 	defaultDisconnectionTimeout = 15 * time.Minute
 	defaultDisconnectionJitter  = 30 * time.Minute
+	backoffMin                  = 1 * time.Second
+	backoffMax                  = 1 * time.Minute
+	jitterMultiple              = 0.2
+	multiple                    = 2
 )
 
 type DockerTelemetrySession struct {
@@ -48,22 +64,20 @@ func NewDockerTelemetrySession(
 	taskEngine engine.TaskEngine,
 	metricsChannel <-chan ecstcs.TelemetryMessage,
 	healthChannel <-chan ecstcs.HealthMessage,
-	doctor *doctor.Doctor) *DockerTelemetrySession {
+	doctor *doctor.Doctor) (*DockerTelemetrySession, error) {
 	ok, cfgParseErr := isContainerHealthMetricsDisabled(cfg)
 	if cfgParseErr != nil {
-		seelog.Warnf("Error starting metrics session: %v", cfgParseErr)
-		return nil
+		logger.Warn("Error starting metrics session", logger.Fields{
+			field.Error: cfgParseErr,
+		})
+		return nil, cfgParseErr
 	}
 	if ok {
-		seelog.Warnf("Metrics were disabled, not starting the telemetry session")
-		return nil
+		logger.Warn("Metrics were disabled, not starting the telemetry session")
+		return nil, nil
 	}
 
 	agentVersion, agentHash, containerRuntimeVersion := generateVersionInfo(taskEngine)
-	if cfg == nil {
-		logger.Error("Config is empty in the tcs session parameter")
-		return nil
-	}
 
 	session := tcshandler.NewTelemetrySession(
 		containerInstanceArn,
@@ -90,27 +104,35 @@ func NewDockerTelemetrySession(
 		healthChannel,
 		doctor,
 	)
-	return &DockerTelemetrySession{session, ecsClient, containerInstanceArn}
+	return &DockerTelemetrySession{session, ecsClient, containerInstanceArn}, nil
 }
 
 // Start "overloads" tcshandler.TelemetrySession's Start with extra handling of discoverTelemetryEndpoint result.
 // discoverTelemetryEndpoint and tcshandler.TelemetrySession's StartTelemetrySession errors are handled
 // (retryWithBackoff or return) in a combined manner
 func (session *DockerTelemetrySession) Start(ctx context.Context) error {
-	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
+	backoff := retry.NewExponentialBackoff(backoffMin, backoffMax, jitterMultiple, multiple)
 	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("ECS Telemetry service (TCS) session exited cleanly.")
+			return nil
+		default:
+		}
 		endpoint, tcsError := discoverPollEndpoint(session.containerInstanceArn, session.ecsClient)
 		if tcsError == nil {
+			// returning from StartTelemetrySession indicates a disconnection, need to reconnect.
 			tcsError = session.s.StartTelemetrySession(ctx, endpoint)
 		}
-		switch tcsError {
-		case context.Canceled, context.DeadlineExceeded:
-			return tcsError
-		case io.EOF, nil:
+		if tcsError == nil || tcsError == io.EOF {
+			// reset backoff when TCS closed for a valid reason, such as connection expiring due to inactivity
 			logger.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
-		default:
-			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
+		} else {
+			// backoff when there is unexpected error, such as invalid frame sent through connection.
+			logger.Error("Error: lost websocket connection with ECS Telemetry service (TCS)", logger.Fields{
+				field.Error: tcsError,
+			})
 			time.Sleep(backoff.Duration())
 		}
 	}
