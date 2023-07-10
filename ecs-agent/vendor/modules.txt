@@ -100,6 +100,9 @@ github.com/jmespath/go-jmespath
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/moby/sys/mountinfo v0.6.2
+## explicit; go 1.16
+github.com/moby/sys/mountinfo
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -283,3 +286,11 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
+# k8s.io/mount-utils v0.26.0-alpha.0
+## explicit; go 1.19
+k8s.io/mount-utils
+# k8s.io/utils v0.0.0-20230505201702-9f6742963106
+## explicit; go 1.18
+k8s.io/utils/exec
+k8s.io/utils/io
+k8s.io/utils/keymutex

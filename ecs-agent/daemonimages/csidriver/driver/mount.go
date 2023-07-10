@@ -13,6 +13,12 @@
 
 package driver
 
+import (
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
+
+	mountutils "k8s.io/mount-utils"
+)
+
 // Mounter defines an interface for many volume related options. As of now, only
 // 'PathExists' is added to determine if a file path exists on the node.
 type Mounter interface {
@@ -21,15 +27,14 @@ type Mounter interface {
 
 // NodeMounter implements Mounter.
 type NodeMounter struct {
-	// TODO
-}
-
-func (nm NodeMounter) PathExists(path string) (bool, error) {
-	// TODO
-	return false, nil
+	*mountutils.SafeFormatAndMount
 }
 
 func newNodeMounter() (Mounter, error) {
-	// TODO
-	return NodeMounter{}, nil
+	// mounter.NewSafeMounter returns a SafeFormatAndMount
+	safeMounter, err := mounter.NewSafeMounter()
+	if err != nil {
+		return nil, err
+	}
+	return &NodeMounter{safeMounter}, nil
 }

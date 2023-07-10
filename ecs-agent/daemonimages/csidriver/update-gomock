@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -euo pipefail
+
+mockgen -package driver -destination=./driver/mock_mount.go -source ./driver/mount.go

@@ -22,6 +22,8 @@ require (
 	google.golang.org/grpc v1.52.0
 	k8s.io/apimachinery v0.26.0-alpha.0
 	k8s.io/klog/v2 v2.100.1
+	k8s.io/mount-utils v0.26.0-alpha.0
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 )
 
 require (
@@ -35,6 +37,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
