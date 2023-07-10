@@ -83,7 +83,7 @@ func (e *ErrorStatsFetchFailure) ExternalReason() string {
 }
 
 func (e *ErrorStatsFetchFailure) Error() string {
-	return fmt.Sprintf("stats lookup failed: %s", e.externalReason)
+	return fmt.Sprintf("failed to get stats: %s: %v", e.externalReason, e.cause)
 }
 
 func (e *ErrorStatsFetchFailure) Unwrap() error {

@@ -98,6 +98,12 @@ func TestAsErrorStatsFetchFailure(t *testing.T) {
 	})
 }
 
+// Tests Error() method of ErrorStatsFetchFailure type
+func TestErrorStatsFetchFailureMessage(t *testing.T) {
+	var err error = NewErrorStatsFetchFailure("external reason", errors.New("cause"))
+	assert.Equal(t, "failed to get stats: external reason: cause", err.Error())
+}
+
 func TestAsErrorStatsLookupFailure(t *testing.T) {
 	t.Run("as works no wrap", func(t *testing.T) {
 		var target *ErrorStatsLookupFailure
