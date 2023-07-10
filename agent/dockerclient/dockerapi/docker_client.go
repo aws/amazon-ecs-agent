@@ -580,8 +580,8 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		EndpointsConfig: make(map[string]*network.EndpointSettings),
 	}
 
-	networkAliasName, containerNameExists := config.Labels[NetworkAliasDockerLabel]
-	if containerNameExists && hostConfig.NetworkMode.IsUserDefined() {
+	networkAliasName, networkAliasExists := config.Labels[NetworkAliasDockerLabel]
+	if networkAliasExists && hostConfig.NetworkMode.IsUserDefined() {
 		networkConfig.EndpointsConfig[hostConfig.NetworkMode.UserDefined()] = &network.EndpointSettings{
 			Aliases: []string{networkAliasName},
 		}
