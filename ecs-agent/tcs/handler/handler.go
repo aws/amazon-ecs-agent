@@ -201,8 +201,6 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
 	heartBeatTimer := session.newHeartbeatTimeoutHandler(client, startTime)
-	defer heartBeatTimer.Stop()
-
 	client.AddRequestHandler(heartbeatHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
