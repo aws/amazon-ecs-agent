@@ -394,4 +394,9 @@ type Config struct {
 
 	// NodeUnstageTimeout is the amount of time to wait for unstaging an EBS TA volume
 	NodeUnstageTimeout time.Duration
+	// OverrideBridgeNetworkName is a custom bridge name used for docker container - it has to be created before an agent start
+	OverrideBridgeNetworkName string `trim:"true"`
+
+	// AddContainerNameAsNetworkAlias specifies whether container name should be added as network alias
+	AddContainerNameAsNetworkAlias BooleanDefaultTrue
 }
