@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -89,7 +90,7 @@ func NewDockerTelemetrySession(
 		defaultHeartbeatJitter,
 		defaultDisconnectionTimeout,
 		defaultDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		metricsChannel,
 		healthChannel,
 		doctor,

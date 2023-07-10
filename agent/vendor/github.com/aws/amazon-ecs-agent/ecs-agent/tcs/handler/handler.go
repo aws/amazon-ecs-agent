@@ -200,19 +200,11 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
-<<<<<<< HEAD
 	heartBeatTimer := session.newHeartbeatTimeoutHandler(client, startTime)
-=======
-	startTime := time.Now()
-	heartBeatTimer := client.NewHeartbeatTimeoutHandler(startTime, session.heartbeatTimeout, session.heartbeatJitterMax)
->>>>>>> cbbd483b7 (wsclient: update the tcs handler in ecs-agent)
-	defer heartBeatTimer.Stop()
-
 	client.AddRequestHandler(heartbeatHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishInstanceStatusHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
-<<<<<<< HEAD
 	client.SetAnyRequestHandler(anyMessageHandler(client, wsRWTimeout))
 	return client.Serve(ctx)
 }
@@ -225,20 +217,6 @@ func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
 			field.Error: err,
 		})
 		return "", err
-=======
-
-	client.SetAnyRequestHandler(anyMessageHandler(client, wsRWTimeout))
-	serveC := make(chan error, 1)
-	go func() {
-		serveC <- client.Serve(ctx)
-	}()
-	select {
-	case <-ctx.Done():
-		// outer context done, agent is exiting
-		client.Disconnect()
-	case err := <-serveC:
-		return err
->>>>>>> cbbd483b7 (wsclient: update the tcs handler in ecs-agent)
 	}
 	return tcsEndpoint, nil
 }
