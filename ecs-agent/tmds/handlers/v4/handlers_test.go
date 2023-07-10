@@ -370,7 +370,7 @@ func TestContainerStats(t *testing.T) {
 		responseBody string
 	}{
 		{
-			err:          state.NewErrorStatsFetchFailure(externalReason),
+			err:          state.NewErrorStatsFetchFailure(externalReason, errors.New("cause")),
 			responseBody: externalReason,
 		},
 		{
@@ -460,7 +460,7 @@ func TestTaskStats(t *testing.T) {
 		responseBody string
 	}{
 		{
-			err:          state.NewErrorStatsFetchFailure(externalReason),
+			err:          state.NewErrorStatsFetchFailure(externalReason, errors.New("cause")),
 			responseBody: externalReason,
 		},
 		{

@@ -153,6 +153,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 
 	return *taskResponse, nil
 }
+
 func (s *TMDSAgentState) GetContainerStats(v3EndpointID string) (tmdsv4.StatsResponse, error) {
 	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
 	if !ok {
@@ -170,8 +171,9 @@ func (s *TMDSAgentState) GetContainerStats(v3EndpointID string) (tmdsv4.StatsRes
 
 	dockerStats, network_rate_stats, err := s.statsEngine.ContainerDockerStats(taskARN, containerID)
 	if err != nil {
-		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsFetchFailure(fmt.Sprintf(
-			"Unable to get container stats for: %s", containerID))
+		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsFetchFailure(
+			fmt.Sprintf("Unable to get container stats for: %s", containerID),
+			err)
 	}
 
 	return tmdsv4.StatsResponse{
@@ -190,11 +192,9 @@ func (s *TMDSAgentState) GetTaskStats(v3EndpointID string) (map[string]*tmdsv4.S
 
 	taskStatsResponse, err := NewV4TaskStatsResponse(taskARN, s.state, s.statsEngine)
 	if err != nil {
-		logger.Error("Failed to get v4 task stats response for the task", logger.Fields{
-			field.TaskARN: taskARN,
-			field.Error:   err,
-		})
-		return nil, tmdsv4.NewErrorStatsFetchFailure(fmt.Sprintf("Unable to get task stats for: %s", taskARN))
+		return nil, tmdsv4.NewErrorStatsFetchFailure(
+			fmt.Sprintf("Unable to get task stats for: %s", taskARN),
+			err)
 	}
 
 	return taskStatsResponse, nil

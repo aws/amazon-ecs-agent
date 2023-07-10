@@ -71,10 +71,11 @@ func (e *ErrorStatsLookupFailure) Error() string {
 // be fetched for some reason.
 type ErrorStatsFetchFailure struct {
 	externalReason string // Reason to be returned in TMDS response
+	cause          error
 }
 
-func NewErrorStatsFetchFailure(externalReason string) *ErrorStatsFetchFailure {
-	return &ErrorStatsFetchFailure{externalReason}
+func NewErrorStatsFetchFailure(externalReason string, cause error) *ErrorStatsFetchFailure {
+	return &ErrorStatsFetchFailure{externalReason, cause}
 }
 
 func (e *ErrorStatsFetchFailure) ExternalReason() string {
@@ -83,6 +84,10 @@ func (e *ErrorStatsFetchFailure) ExternalReason() string {
 
 func (e *ErrorStatsFetchFailure) Error() string {
 	return fmt.Sprintf("stats lookup failed: %s", e.externalReason)
+}
+
+func (e *ErrorStatsFetchFailure) Unwrap() error {
+	return e.cause
 }
 
 // Interface for interacting with Agent State relevant to TMDS
@@ -107,12 +112,12 @@ type AgentState interface {
 	// Returns container stats in v4 format for the container identified by the provided
 	// endpointContainerID.
 	// Returns ErrorStatsLookupFailure if container lookup fails.
-	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	// Returns ErrorStatsFetchFailure if something else goes wrong.
 	GetContainerStats(endpointContainerID string) (StatsResponse, error)
 
 	// Returns task stats in v4 format for the task identified by the provided
 	// endpointContainerID.
 	// Returns ErrorStatsLookupFailure if container lookup fails.
-	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	// Returns ErrorStatsFetchFailure if something else goes wrong.
 	GetTaskStats(endpointContainerID string) (map[string]*StatsResponse, error)
 }

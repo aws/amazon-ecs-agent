@@ -71,10 +71,11 @@ func (e *ErrorStatsLookupFailure) Error() string {
 // be fetched for some reason.
 type ErrorStatsFetchFailure struct {
 	externalReason string // Reason to be returned in TMDS response
+	cause          error
 }
 
-func NewErrorStatsFetchFailure(externalReason string) *ErrorStatsFetchFailure {
-	return &ErrorStatsFetchFailure{externalReason}
+func NewErrorStatsFetchFailure(externalReason string, cause error) *ErrorStatsFetchFailure {
+	return &ErrorStatsFetchFailure{externalReason, cause}
 }
 
 func (e *ErrorStatsFetchFailure) ExternalReason() string {
@@ -83,6 +84,10 @@ func (e *ErrorStatsFetchFailure) ExternalReason() string {
 
 func (e *ErrorStatsFetchFailure) Error() string {
 	return fmt.Sprintf("stats lookup failed: %s", e.externalReason)
+}
+
+func (e *ErrorStatsFetchFailure) Unwrap() error {
+	return e.cause
 }
 
 // Interface for interacting with Agent State relevant to TMDS
