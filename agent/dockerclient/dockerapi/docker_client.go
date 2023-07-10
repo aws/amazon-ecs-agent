@@ -71,6 +71,8 @@ const (
 	dockerContainerDieEvent = "die"
 	// dockerContainerEventExitCodeAttribute is the attribute name to get exit code from Docker event attribute.
 	dockerContainerEventExitCodeAttribute = "exitCode"
+	// NetworkAliasDockerLabel is a nanme of docker label to set a network alias value
+	NetworkAliasDockerLabel = "com.amazonaws.ecs.network-alias"
 )
 
 // Timelimits for docker operations enforced above docker
@@ -574,7 +576,18 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, name)
+	networkConfig := network.NetworkingConfig{
+		EndpointsConfig: make(map[string]*network.EndpointSettings),
+	}
+
+	networkAliasName, containerNameExists := config.Labels[NetworkAliasDockerLabel]
+	if containerNameExists && hostConfig.NetworkMode.IsUserDefined() {
+		networkConfig.EndpointsConfig[hostConfig.NetworkMode.UserDefined()] = &network.EndpointSettings{
+			Aliases: []string{networkAliasName},
+		}
+	}
+
+	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &networkConfig, nil, name)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}

@@ -370,4 +370,10 @@ type Config struct {
 	// uses to assign host ports from, for a container port range mapping.
 	// This defaults to the platform specific ephemeral host port range
 	DynamicHostPortRange string
+
+	// OverrideBridgeNetworkName is a custom bridge name used for docker container - it has to be created before an agent start
+	OverrideBridgeNetworkName string `trim:"true"`
+
+	// AddContainerNameAsNetworkAlias specifies whether container name should be added as network alias
+	AddContainerNameAsNetworkAlias BooleanDefaultTrue
 }
