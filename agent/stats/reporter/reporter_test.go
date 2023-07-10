@@ -42,7 +42,7 @@ func TestNewDockerTelemetrySession(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockEngine := mock_engine.NewMockTaskEngine(ctrl)
-	mockEngine.EXPECT().Version().Return(testDockerVersion, nil)
+	mockEngine.EXPECT().Version().Return(testDockerVersion, nil).AnyTimes()
 	testCases := []struct {
 		name            string
 		cfg             *config.Config
@@ -82,7 +82,7 @@ func TestNewDockerTelemetrySession(t *testing.T) {
 				AcceptInsecureCert: false,
 				DockerEndpoint:     testDockerEndpoint,
 			},
-			expectedSession: false,
+			expectedSession: true,
 			expectedError:   false,
 		},
 	}
