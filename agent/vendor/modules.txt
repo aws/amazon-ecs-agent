@@ -55,7 +55,6 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
-github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
 # github.com/aws/aws-sdk-go v1.36.0
 ## explicit; go 1.11

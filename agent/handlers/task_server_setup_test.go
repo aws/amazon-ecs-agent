@@ -1169,7 +1169,7 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 		},
 		{
 			testPath:     "/v4/bad/stats",
-			expectedBody: "\"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
+			expectedBody: "\"V4 container stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: bad\"",
 		},
 		{
 			testPath:     "/v4/bad/stats",
@@ -2818,7 +2818,7 @@ func TestV4ContainerStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusNotFound,
 			expectedResponseBody: fmt.Sprintf(
-				"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+				"V4 container stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
 				v3EndpointID),
 		})
 	})

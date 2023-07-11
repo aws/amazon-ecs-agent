@@ -361,7 +361,7 @@ func TestContainerStats(t *testing.T) {
 		testTMDSRequest(t, handler, TMDSTestCase[string]{
 			path:                 path,
 			expectedStatusCode:   http.StatusNotFound,
-			expectedResponseBody: externalReason,
+			expectedResponseBody: "V4 container stats handler: " + externalReason,
 		})
 	})
 
@@ -451,7 +451,7 @@ func TestTaskStats(t *testing.T) {
 		testTMDSRequest(t, handler, TMDSTestCase[string]{
 			path:                 path,
 			expectedStatusCode:   http.StatusNotFound,
-			expectedResponseBody: externalReason,
+			expectedResponseBody: "V4 task stats handler: " + externalReason,
 		})
 	})
 

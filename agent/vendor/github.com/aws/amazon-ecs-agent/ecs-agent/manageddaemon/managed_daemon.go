@@ -82,17 +82,13 @@ func NewManagedDaemon(
 // defined in /var/lib/ecs/deps/daemons and will return an array
 // of valid ManagedDeamon objects
 func ImportAll() []*ManagedDaemon {
-	// TODO parse files in /deps/daemons
-	// TODO validate that each daemon has an image tar
-	// TODO validate that there is one MountPoint with
-	// SourceVolume: 'agentCommunicationMount'
-	// TODO validate that there is one MountPoint with
-	// SourceVolume: 'applicationLogMount'
+	// TODO parse taskdef json files in /deps/daemons
+	// TODO validate that each daemon has a corresponding image tar
 	ebsManagedDaemon := NewManagedDaemon("ebs-csi-driver",
 		"public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver",
 		"v1.20.0")
-	// todo add healthcheck
-	// todo add mount points
+	// TODO add healthcheck
+	// TODO add mount points
 	return []*ManagedDaemon{ebsManagedDaemon}
 }
 
@@ -240,7 +236,7 @@ func (md *ManagedDaemon) AddMountPoint(mp *MountPoint) error {
 // is not found
 func (md *ManagedDaemon) UpdateMountPointBySourceVolume(mp *MountPoint) error {
 	mountIndex := md.GetMountPointIndex(mp)
-	if mountIndex < 0 {
+	if mountIndex == -1 {
 		return fmt.Errorf("MountPoint %s not found; will not update", mp.SourceVolume)
 	}
 	md.mountPoints[mountIndex] = mp
@@ -253,7 +249,7 @@ func (md *ManagedDaemon) UpdateMountPointBySourceVolume(mp *MountPoint) error {
 // is not found
 func (md *ManagedDaemon) DeleteMountPoint(mp *MountPoint) error {
 	mountIndex := md.GetMountPointIndex(mp)
-	if mountIndex < 0 {
+	if mountIndex == -1 {
 		return fmt.Errorf("MountPoint %s not found; will not delete", mp.SourceVolume)
 	}
 	md.mountPoints = append(md.mountPoints[:mountIndex], md.mountPoints[mountIndex+1:]...)

@@ -158,14 +158,14 @@ func (s *TMDSAgentState) GetContainerStats(v3EndpointID string) (tmdsv4.StatsRes
 	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
 	if !ok {
 		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
-			"V4 container handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+			"unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
 			v3EndpointID))
 	}
 
 	containerID, ok := s.state.DockerIDByV3EndpointID(v3EndpointID)
 	if !ok {
 		return tmdsv4.StatsResponse{}, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
-			"V4 container stats handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: %s",
+			"unable to get container ID from request: unable to get docker ID from v3 endpoint ID: %s",
 			v3EndpointID))
 	}
 
@@ -186,7 +186,7 @@ func (s *TMDSAgentState) GetTaskStats(v3EndpointID string) (map[string]*tmdsv4.S
 	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
 	if !ok {
 		return nil, tmdsv4.NewErrorStatsLookupFailure(fmt.Sprintf(
-			"V4 task stats handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
+			"unable to get task arn from request: unable to get task Arn from v3 endpoint ID: %s",
 			v3EndpointID))
 	}
 

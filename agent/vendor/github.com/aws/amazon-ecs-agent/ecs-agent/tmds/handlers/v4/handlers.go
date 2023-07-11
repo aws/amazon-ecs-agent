@@ -30,6 +30,8 @@ import (
 const (
 	EndpointContainerIDMuxName = "endpointContainerIDMuxName"
 	version                    = "v4"
+	containerStatsErrorPrefix  = "V4 container stats handler"
+	taskStatsErrorPrefix       = "V4 task stats handler"
 )
 
 // ContainerMetadataPath specifies the relative URI path for serving container metadata.
@@ -191,7 +193,8 @@ func ContainerStatsHandler(
 	agentState state.AgentState,
 	metricsFactory metrics.EntryFactory,
 ) func(http.ResponseWriter, *http.Request) {
-	return statsHandler(agentState.GetContainerStats, metricsFactory, utils.RequestTypeContainerStats)
+	return statsHandler(agentState.GetContainerStats, metricsFactory,
+		utils.RequestTypeContainerStats, containerStatsErrorPrefix)
 }
 
 // Returns an HTTP handler for v4 task stats endpoint
@@ -199,7 +202,8 @@ func TaskStatsHandler(
 	agentState state.AgentState,
 	metricsFactory metrics.EntryFactory,
 ) func(http.ResponseWriter, *http.Request) {
-	return statsHandler(agentState.GetTaskStats, metricsFactory, utils.RequestTypeTaskStats)
+	return statsHandler(agentState.GetTaskStats, metricsFactory,
+		utils.RequestTypeTaskStats, taskStatsErrorPrefix)
 }
 
 // Generic function that returns an HTTP handler for container or task stats endpoint
@@ -208,6 +212,7 @@ func statsHandler[R state.StatsResponse | map[string]*state.StatsResponse](
 	getStats func(string) (R, error), // container stats or task stats getter function
 	metricsFactory metrics.EntryFactory,
 	requestType string, // container stats or task stats request type
+	errorPrefix string,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract endpoint container ID
@@ -222,7 +227,7 @@ func statsHandler[R state.StatsResponse | map[string]*state.StatsResponse](
 				field.RequestType:             requestType,
 			})
 
-			responseCode, responseBody := getStatsErrorResponse(endpointContainerID, err)
+			responseCode, responseBody := getStatsErrorResponse(endpointContainerID, err, errorPrefix)
 			utils.WriteJSONResponse(w, responseCode, responseBody, requestType)
 
 			if utils.Is5XXStatus(responseCode) {
@@ -242,11 +247,12 @@ func statsHandler[R state.StatsResponse | map[string]*state.StatsResponse](
 }
 
 // Returns appropriate HTTP status code and response body for stats endpoint error cases.
-func getStatsErrorResponse(endpointContainerID string, err error) (int, string) {
+func getStatsErrorResponse(endpointContainerID string, err error, errorPrefix string) (int, string) {
 	// 404 if lookup failure
 	var errLookupFailure *state.ErrorStatsLookupFailure
 	if errors.As(err, &errLookupFailure) {
-		return http.StatusNotFound, errLookupFailure.ExternalReason()
+		return http.StatusNotFound, fmt.Sprintf(
+			"%s: %s", errorPrefix, errLookupFailure.ExternalReason())
 	}
 
 	// 500 if any other known failure
