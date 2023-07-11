@@ -25,7 +25,7 @@ import (
 // NewV4TaskStatsResponse returns a new v4 task stats response object
 func NewV4TaskStatsResponse(taskARN string,
 	state dockerstate.TaskEngineState,
-	statsEngine stats.Engine) (map[string]response.StatsResponse, error) {
+	statsEngine stats.Engine) (map[string]*response.StatsResponse, error) {
 
 	containerMap, ok := state.ContainerMapByArn(taskARN)
 	if !ok {
@@ -34,14 +34,14 @@ func NewV4TaskStatsResponse(taskARN string,
 			taskARN)
 	}
 
-	resp := make(map[string]response.StatsResponse)
+	resp := make(map[string]*response.StatsResponse)
 	for _, dockerContainer := range containerMap {
 		containerID := dockerContainer.DockerID
 		dockerStats, network_rate_stats, err := statsEngine.ContainerDockerStats(taskARN, containerID)
 		if err != nil {
 			seelog.Warnf("V4 task stats response: Unable to get stats for container '%s' for task '%s': %v",
 				containerID, taskARN, err)
-			resp[containerID] = response.StatsResponse{}
+			resp[containerID] = &response.StatsResponse{}
 			continue
 		}
 
@@ -50,7 +50,7 @@ func NewV4TaskStatsResponse(taskARN string,
 			Network_rate_stats: network_rate_stats,
 		}
 
-		resp[containerID] = statsResponse
+		resp[containerID] = &statsResponse
 	}
 
 	return resp, nil

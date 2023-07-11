@@ -66,3 +66,59 @@ func TestAsErrorMetadataFetchFailure(t *testing.T) {
 		require.False(t, errors.As(errors.New("other error"), &target))
 	})
 }
+
+func TestUnwrapErrorStatsFetchFailure(t *testing.T) {
+	t.Run("unwrap works", func(t *testing.T) {
+		cause := errors.New("cause")
+		var err error = NewErrorStatsFetchFailure("external reason", cause)
+		assert.Equal(t, cause, errors.Unwrap(err))
+	})
+	t.Run("unwrap with no cause", func(t *testing.T) {
+		var err error = NewErrorStatsFetchFailure("external reason", nil)
+		assert.Nil(t, errors.Unwrap(err))
+	})
+}
+
+func TestAsErrorStatsFetchFailure(t *testing.T) {
+	t.Run("as works no wrap", func(t *testing.T) {
+		var target *ErrorStatsFetchFailure
+		var err = NewErrorStatsFetchFailure("containerID", errors.New("cause"))
+		require.True(t, errors.As(err, &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as works wrapped", func(t *testing.T) {
+		var err = NewErrorStatsFetchFailure("reason", nil)
+		var target *ErrorStatsFetchFailure
+		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as should fail when no match", func(t *testing.T) {
+		var target *ErrorStatsFetchFailure
+		require.False(t, errors.As(errors.New("other error"), &target))
+	})
+}
+
+// Tests Error() method of ErrorStatsFetchFailure type
+func TestErrorStatsFetchFailureMessage(t *testing.T) {
+	var err error = NewErrorStatsFetchFailure("external reason", errors.New("cause"))
+	assert.Equal(t, "failed to get stats: external reason: cause", err.Error())
+}
+
+func TestAsErrorStatsLookupFailure(t *testing.T) {
+	t.Run("as works no wrap", func(t *testing.T) {
+		var target *ErrorStatsLookupFailure
+		var err = NewErrorStatsLookupFailure("containerID")
+		require.True(t, errors.As(err, &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as works wrapped", func(t *testing.T) {
+		var err = NewErrorStatsLookupFailure("reason")
+		var target *ErrorStatsLookupFailure
+		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as should fail when no match", func(t *testing.T) {
+		var target *ErrorStatsLookupFailure
+		require.False(t, errors.As(errors.New("other error"), &target))
+	})
+}

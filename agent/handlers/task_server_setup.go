@@ -77,7 +77,7 @@ func taskServerSetup(
 	muxRouter.HandleFunc(tmdsv1.CredentialsPath,
 		tmdsv1.CredentialsHandler(credentialsManager, auditLogger))
 
-	tmdsAgentState := v4.NewTMDSAgentState(state, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
+	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
 	metricsFactory := metrics.NewNopEntryFactory()
 
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
@@ -153,8 +153,8 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	muxRouter.HandleFunc(tmdsv4.ContainerMetadataPath(), tmdsv4.ContainerMetadataHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(tmdsv4.TaskMetadataPath(), tmdsv4.TaskMetadataHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(tmdsv4.TaskMetadataWithTagsPath(), tmdsv4.TaskMetadataWithTagsHandler(tmdsAgentState, metricsFactory))
-	muxRouter.HandleFunc(v4.ContainerStatsPath, v4.ContainerStatsHandler(state, statsEngine))
-	muxRouter.HandleFunc(v4.TaskStatsPath, v4.TaskStatsHandler(state, statsEngine))
+	muxRouter.HandleFunc(tmdsv4.ContainerStatsPath(), tmdsv4.ContainerStatsHandler(tmdsAgentState, metricsFactory))
+	muxRouter.HandleFunc(tmdsv4.TaskStatsPath(), tmdsv4.TaskStatsHandler(tmdsAgentState, metricsFactory))
 	muxRouter.HandleFunc(v4.ContainerAssociationsPath, v4.ContainerAssociationsHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPathWithSlash, v4.ContainerAssociationHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPath, v4.ContainerAssociationHandler(state))
