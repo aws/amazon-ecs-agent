@@ -35,7 +35,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -364,4 +366,44 @@ func enableExecCommandAgentForContainer(container *apicontainer.Container, state
 			ManagedAgentState: state,
 		},
 	}
+}
+
+func getTestHostResources() map[string]*ecs.Resource {
+	hostResources := make(map[string]*ecs.Resource)
+	CPUs := int64(1024)
+	hostResources["CPU"] = &ecs.Resource{
+		Name:         utils.Strptr("CPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &CPUs,
+	}
+	//MEMORY
+	memory := int64(1024)
+	hostResources["MEMORY"] = &ecs.Resource{
+		Name:         utils.Strptr("MEMORY"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &memory,
+	}
+	//PORTS
+	ports_tcp := []*string{}
+	hostResources["PORTS_TCP"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS_TCP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: ports_tcp,
+	}
+
+	//PORTS_UDP
+	ports_udp := []*string{}
+	hostResources["PORTS_UDP"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS_UDP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: ports_udp,
+	}
+	//GPUs
+	numGPUs := int64(3)
+	hostResources["GPU"] = &ecs.Resource{
+		Name:         utils.Strptr("GPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &numGPUs,
+	}
+	return hostResources
 }

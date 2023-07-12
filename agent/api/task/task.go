@@ -25,6 +25,7 @@ import (
 	"time"
 
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
+	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -47,6 +48,7 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
@@ -233,9 +235,6 @@ type Task struct {
 	// is handled properly so that the state storage continues to work.
 	SentStatusUnsafe apitaskstatus.TaskStatus `json:"SentStatus"`
 
-	StartSequenceNumber int64
-	StopSequenceNumber  int64
-
 	// ExecutionCredentialsID is the ID of credentials that are used by agent to
 	// perform some action at the task level, such as pulling image from ECR
 	ExecutionCredentialsID string `json:"executionCredentialsID"`
@@ -310,11 +309,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	task := &Task{}
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
-	}
-	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
-		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
-		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
 	// Overrides the container command if it's set
@@ -2824,22 +2818,6 @@ func (task *Task) GetAppMesh() *apiappmesh.AppMesh {
 	return task.AppMesh
 }
 
-// GetStopSequenceNumber returns the stop sequence number of a task
-func (task *Task) GetStopSequenceNumber() int64 {
-	task.lock.RLock()
-	defer task.lock.RUnlock()
-
-	return task.StopSequenceNumber
-}
-
-// SetStopSequenceNumber sets the stop seqence number of a task
-func (task *Task) SetStopSequenceNumber(seqnum int64) {
-	task.lock.Lock()
-	defer task.lock.Unlock()
-
-	task.StopSequenceNumber = seqnum
-}
-
 // SetPullStartedAt sets the task pullstartedat timestamp and returns whether
 // this field was updated or not
 func (task *Task) SetPullStartedAt(timestamp time.Time) bool {
@@ -3524,4 +3502,145 @@ func (task *Task) IsServiceConnectConnectionDraining() bool {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 	return task.ServiceConnectConnectionDrainingUnsafe
+}
+
+// ToHostResources will convert a task to a map of resources which ECS takes into account when scheduling tasks on instances
+// * CPU
+//   - If task level CPU is set, use that
+//   - Else add up container CPUs
+//
+// * Memory
+//   - If task level memory is set, use that
+//   - Else add up container level
+//   - If memoryReservation field is set, use that
+//   - Else use memory field
+//
+// * Ports (TCP/UDP)
+//   - Only account for hostPort
+//   - Don't need to account for awsvpc mode, each task gets its own namespace
+//
+// * GPU
+//   - Return num of gpus requested (len of GPUIDs field)
+func (task *Task) ToHostResources() map[string]*ecs.Resource {
+	resources := make(map[string]*ecs.Resource)
+	// CPU
+	if task.CPU > 0 {
+		// cpu unit is vcpu at task level
+		// convert to cpushares
+		taskCPUint64 := int64(task.CPU * 1024)
+		resources["CPU"] = &ecs.Resource{
+			Name:         utils.Strptr("CPU"),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: &taskCPUint64,
+		}
+	} else {
+		// cpu unit is cpushares at container level
+		containerCPUint64 := int64(0)
+		for _, container := range task.Containers {
+			containerCPUint64 += int64(container.CPU)
+		}
+		resources["CPU"] = &ecs.Resource{
+			Name:         utils.Strptr("CPU"),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: &containerCPUint64,
+		}
+	}
+
+	// Memory
+	if task.Memory > 0 {
+		// memory unit is MiB at task level
+		taskMEMint64 := task.Memory
+		resources["MEMORY"] = &ecs.Resource{
+			Name:         utils.Strptr("MEMORY"),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: &taskMEMint64,
+		}
+	} else {
+		containerMEMint64 := int64(0)
+		// To parse memory reservation / soft limit
+		hostConfig := &dockercontainer.HostConfig{}
+
+		for _, c := range task.Containers {
+			if c.DockerConfig.HostConfig != nil {
+				err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+				if err != nil || hostConfig.MemoryReservation <= 0 {
+					// container memory unit is MiB, keeping as is
+					containerMEMint64 += int64(c.Memory)
+				} else {
+					// Soft limit is specified in MiB units but translated to bytes while being transferred to Agent
+					// Converting back to MiB
+					containerMEMint64 += hostConfig.MemoryReservation / (1024 * 1024)
+				}
+			} else {
+				// container memory unit is MiB, keeping as is
+				containerMEMint64 += int64(c.Memory)
+			}
+		}
+		resources["MEMORY"] = &ecs.Resource{
+			Name:         utils.Strptr("MEMORY"),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: &containerMEMint64,
+		}
+	}
+
+	// PORTS_TCP and PORTS_UDP
+	var tcpPortSet []uint16
+	var udpPortSet []uint16
+
+	// AWSVPC tasks have 'host' ports mapped to task ENI, not to host
+	// So don't need to keep an 'account' of awsvpc tasks with host ports fields assigned
+	if !task.IsNetworkModeAWSVPC() {
+		for _, c := range task.Containers {
+			for _, port := range c.Ports {
+				hostPort := port.HostPort
+				protocol := port.Protocol
+				if hostPort > 0 && protocol == container.TransportProtocolTCP {
+					tcpPortSet = append(tcpPortSet, hostPort)
+				} else if hostPort > 0 && protocol == container.TransportProtocolUDP {
+					udpPortSet = append(udpPortSet, hostPort)
+				}
+			}
+		}
+	}
+	resources["PORTS_TCP"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS_TCP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: utils.Uint16SliceToStringSlice(tcpPortSet),
+	}
+	resources["PORTS_UDP"] = &ecs.Resource{
+		Name:           utils.Strptr("PORTS_UDP"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: utils.Uint16SliceToStringSlice(udpPortSet),
+	}
+
+	// GPU
+	var num_gpus int64
+	num_gpus = 0
+	for _, c := range task.Containers {
+		num_gpus += int64(len(c.GPUIDs))
+	}
+	resources["GPU"] = &ecs.Resource{
+		Name:         utils.Strptr("GPU"),
+		Type:         utils.Strptr("INTEGER"),
+		IntegerValue: &num_gpus,
+	}
+	logger.Debug("Task host resources to account for", logger.Fields{
+		"taskArn":   task.Arn,
+		"CPU":       *resources["CPU"].IntegerValue,
+		"MEMORY":    *resources["MEMORY"].IntegerValue,
+		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
+		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
+		"GPU":       *resources["GPU"].IntegerValue,
+	})
+	return resources
+}
+
+func (task *Task) HasActiveContainers() bool {
+	for _, container := range task.Containers {
+		containerStatus := container.GetKnownStatus()
+		if containerStatus >= apicontainerstatus.ContainerPulled && containerStatus <= apicontainerstatus.ContainerResourcesProvisioned {
+			return true
+		}
+	}
+	return false
 }
