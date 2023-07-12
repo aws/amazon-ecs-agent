@@ -478,6 +478,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
+		state.EXPECT().AllTasks().Return(nil),
 		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 			// Ensures that the test waits until acs session has bee started
 			discoverEndpointsInvoked.Done()
@@ -645,6 +646,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
+		state.EXPECT().AllTasks().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
 		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
 			// Ensures that the test waits until acs session has been started
