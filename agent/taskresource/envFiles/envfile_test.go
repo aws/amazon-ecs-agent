@@ -319,6 +319,7 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 
 	envfileContentLine1 := "key1=value"
 	envFileContentLine2 := "key2=val1=val2"
+	envFileContentLine3 := "key3="
 
 	tempOpen := open
 	open = func(name string) (oswrapper.File, error) {
@@ -333,6 +334,8 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 		mockScanner.EXPECT().Text().Return(envfileContentLine1),
 		mockScanner.EXPECT().Scan().Return(true),
 		mockScanner.EXPECT().Text().Return(envFileContentLine2),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine3),
 		mockScanner.EXPECT().Scan().Return(false),
 		mockScanner.EXPECT().Err().Return(nil),
 	)
@@ -343,6 +346,9 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	assert.Equal(t, 1, len(envVarsList))
 	assert.Equal(t, "value", envVarsList[0]["key1"])
 	assert.Equal(t, "val1=val2", envVarsList[0]["key2"])
+	key3Value, ok := envVarsList[0]["key3"]
+	assert.True(t, ok)
+	assert.Equal(t, "", key3Value)
 }
 
 func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {
