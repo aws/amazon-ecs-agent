@@ -4891,18 +4891,16 @@ func getTestTaskResourceMap(cpu int64, mem int64, ports []*string, portsUdp []*s
 }
 
 func TestToHostResources(t *testing.T) {
-	//Prepare a simple hostConfig with memory reservation field for test cases
-	hostConfig := dockercontainer.HostConfig{
-		// 400 MiB
-		Resources: dockercontainer.Resources{
-			MemoryReservation: int64(419430400),
-		},
-	}
+	// Prepare simple hostConfigs with and without memory reservation field for test cases
 
-	rawHostConfig, err := json.Marshal(&hostConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Host Config with Memory Reservation 400 MiB
+	rawHostConfigMemReservation400MiB := "{\"Ulimits\":[],\"MemoryReservation\":419430400,\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}"
+	// Host Config with Memory Reservation 600 MiB
+	rawHostConfigMemReservation600MiB := "{\"Ulimits\":[],\"MemoryReservation\":629145600,\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}"
+	// Basic host config with a few fields like network mode
+	rawHostConfigBridgeMode := "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}"
+	// Basic host config with a few fields like awsvpc mode
+	rawHostConfigAwsVpcMode := "{\"NetworkMode\":\"awsvpc\",\"CapAdd\":[],\"CapDrop\":[]}"
 
 	// Prefer task level, and check gpu assignment
 	testTask1 := &Task{
@@ -4913,33 +4911,49 @@ func TestToHostResources(t *testing.T) {
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation400MiB)),
 				},
 				GPUIDs: []string{"gpu1", "gpu2"},
 			},
 		},
 	}
 
-	// If task not set, use container level (MemoryReservation pref)
+	// If task not set, use container level (MemoryReservation pref), verify mem reservation from multiple containers is accounted correctly
 	testTask2 := &Task{
 		Containers: []*apicontainer.Container{
 			{
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation400MiB)),
+				},
+			},
+			{
+				CPU:    uint(1200),
+				Memory: uint(1200),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigMemReservation600MiB)),
 				},
 			},
 		},
 	}
 
-	// If task not set, if MemoryReservation not set, use container level hard limit (c.Memory)
+	// If task not set, if MemoryReservation not set, use container level hard limit (c.Memory), verify memory from multiple containers is accounted correclty
 	testTask3 := &Task{
 		Containers: []*apicontainer.Container{
 			{
-				CPU:          uint(1200),
-				Memory:       uint(1200),
-				DockerConfig: apicontainer.DockerConfig{},
+				CPU:    uint(1200),
+				Memory: uint(1200),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigBridgeMode)),
+				},
+			},
+			{
+				CPU:    uint(1200),
+				Memory: uint(500),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigBridgeMode)),
+				},
 			},
 		},
 	}
@@ -4953,7 +4967,83 @@ func TestToHostResources(t *testing.T) {
 				CPU:    uint(1200),
 				Memory: uint(1200),
 				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
+					HostConfig: strptr(string(rawHostConfigMemReservation400MiB)),
+				},
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 10,
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 11,
+						HostPort:      11,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 20,
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPort: 21,
+						HostPort:      21,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+					{
+						ContainerPortRange: "99-999",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPortRange: "121-221",
+						BindIP:             "",
+						Protocol:           apicontainer.TransportProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+
+	// A combination of containers with different configs with memory sourcing from different sources
+	testTask5 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				CPU:    uint(200),
+				Memory: uint(600),
+				// Should get 400 from Docker MemoryReservation field
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigMemReservation400MiB)),
+				},
+			},
+			{
+				CPU:    uint(200),
+				Memory: uint(600),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigBridgeMode)),
+				},
+			},
+			{
+				CPU:    uint(200),
+				Memory: uint(800),
+			},
+		},
+	}
+
+	// Do not account ports for awsvpc mode
+	testTask6 := &Task{
+		CPU:    1.0,
+		Memory: int64(512),
+		Containers: []*apicontainer.Container{
+			{
+				CPU:    uint(1200),
+				Memory: uint(1200),
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfigAwsVpcMode)),
 				},
 				Ports: []apicontainer.PortBinding{
 					{
@@ -4981,10 +5071,11 @@ func TestToHostResources(t *testing.T) {
 				},
 			},
 		},
+		NetworkMode: AWSVPCNetworkMode,
 	}
 
-	portsTCP := []uint16{10}
-	portsUDP := []uint16{20}
+	portsTCP := []uint16{10, 11}
+	portsUDP := []uint16{20, 21}
 
 	testCases := []struct {
 		task              *Task
@@ -4996,29 +5087,41 @@ func TestToHostResources(t *testing.T) {
 		},
 		{
 			task:              testTask2,
-			expectedResources: getTestTaskResourceMap(int64(1200), int64(400), []*string{}, []*string{}, int64(0)),
+			expectedResources: getTestTaskResourceMap(int64(2400), int64(1000), []*string{}, []*string{}, int64(0)),
 		},
 		{
 			task:              testTask3,
-			expectedResources: getTestTaskResourceMap(int64(1200), int64(1200), []*string{}, []*string{}, int64(0)),
+			expectedResources: getTestTaskResourceMap(int64(2400), int64(1700), []*string{}, []*string{}, int64(0)),
 		},
 		{
 			task:              testTask4,
 			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), utils.Uint16SliceToStringSlice(portsTCP), utils.Uint16SliceToStringSlice(portsUDP), int64(0)),
+		},
+		{
+			task:              testTask5,
+			expectedResources: getTestTaskResourceMap(int64(600), int64(1800), []*string{}, []*string{}, int64(0)),
+		},
+		{
+			task:              testTask6,
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), []*string{}, []*string{}, int64(0)),
 		},
 	}
 
 	for _, tc := range testCases {
 		calcResources := tc.task.ToHostResources()
 
+		for _, resource := range []string{"CPU", "MEMORY", "GPU", "PORTS_TCP", "PORTS_UDP"} {
+			assert.NotNil(t, calcResources[resource], fmt.Sprintf("Error converting resource %s - got nil", resource))
+		}
+
 		//CPU
-		assert.Equal(t, tc.expectedResources["CPU"].IntegerValue, calcResources["CPU"].IntegerValue, "Error converting task CPU tesources")
+		assert.Equal(t, *tc.expectedResources["CPU"].IntegerValue, *calcResources["CPU"].IntegerValue, "Error converting task CPU resources")
 
 		//MEMORY
-		assert.Equal(t, tc.expectedResources["MEMORY"].IntegerValue, calcResources["MEMORY"].IntegerValue, "Error converting task Memory tesources")
+		assert.Equal(t, *tc.expectedResources["MEMORY"].IntegerValue, *calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
 
 		//GPU
-		assert.Equal(t, tc.expectedResources["GPU"].IntegerValue, calcResources["GPU"].IntegerValue, "Error converting task GPU tesources")
+		assert.Equal(t, *tc.expectedResources["GPU"].IntegerValue, *calcResources["GPU"].IntegerValue, "Error converting task GPU resources")
 
 		//PORTS
 		for _, expectedPort := range tc.expectedResources["PORTS_TCP"].StringSetValue {

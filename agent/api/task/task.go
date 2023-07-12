@@ -3557,10 +3557,11 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 		}
 	} else {
 		containerMEMint64 := int64(0)
-		// To parse memory reservation / soft limit
-		hostConfig := &dockercontainer.HostConfig{}
 
 		for _, c := range task.Containers {
+			// To parse memory reservation / soft limit
+			hostConfig := &dockercontainer.HostConfig{}
+
 			if c.DockerConfig.HostConfig != nil {
 				err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 				if err != nil || hostConfig.MemoryReservation <= 0 {
