@@ -1227,7 +1227,7 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 		testTask := createTestTask(taskArn)
 
 		// create container
-		A := createTestContainerWithImageAndName(baseImageForOS, "A")
+		A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A-%d", i))
 		A.EntryPoint = &entryPointForOS
 		A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
 		A.Essential = true
@@ -1282,6 +1282,99 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 		// task[1] stops after normal execution
 		verifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[1])
+
+		close(finished)
+	}()
+
+	waitFinished(t, finished, testTimeout)
+}
+
+// This task verifies resources are properly released for all tasks for the case where
+// stopTask is received from ACS for a task which is queued up in waitingTasksQueue
+func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
+	testTimeout := 1 * time.Minute
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	tasks := []*apitask.Task{}
+	stopTasks := []*apitask.Task{}
+	for i := 0; i < 2; i++ {
+		taskArn := fmt.Sprintf("IntegTaskArn-%d", i)
+		testTask := createTestTask(taskArn)
+		testTask.Memory = int64(768)
+
+		// create container
+		A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A-%d", i))
+		A.EntryPoint = &entryPointForOS
+		A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
+		A.Essential = true
+		A.StopTimeout = uint(6)
+		testTask.Containers = []*apicontainer.Container{
+			A,
+		}
+
+		tasks = append(tasks, testTask)
+
+		// Stop task payloads from ACS for the tasks
+		stopTask := createTestTask(fmt.Sprintf("IntegTaskArn-%d", i))
+		stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
+		stopTask.Containers = []*apicontainer.Container{}
+		stopTasks = append(stopTasks, stopTask)
+	}
+
+	// goroutine to schedule tasks
+	go func() {
+		taskEngine.AddTask(tasks[0])
+		time.Sleep(2 * time.Second)
+
+		// single managedTask which should have started
+		assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
+
+		// stopTask[0] - stop running task[0], this task will go to STOPPING due to trap handler defined and STOPPED after 6s
+		taskEngine.AddTask(stopTasks[0])
+
+		time.Sleep(2 * time.Second)
+
+		// this task (task[1]) goes in waitingTasksQueue because not enough memory available
+		taskEngine.AddTask(tasks[1])
+
+		time.Sleep(2 * time.Second)
+
+		// stopTask[1] - stop waiting task - task[1]
+		taskEngine.AddTask(stopTasks[1])
+	}()
+
+	finished := make(chan interface{})
+
+	// goroutine to verify task running order and verify assertions
+	go func() {
+		// 1st task goes to RUNNING
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, tasks[0])
+
+		time.Sleep(2500 * time.Millisecond)
+
+		// At this time, task[0] stopTask is received, and SIGTERM sent to task
+		// but the task[0] is still RUNNING due to trap handler
+		assert.Equal(t, apitaskstatus.TaskRunning, tasks[0].GetKnownStatus(), "task 0 known status should be RUNNING")
+		assert.Equal(t, apitaskstatus.TaskStopped, tasks[0].GetDesiredStatus(), "task 0 status should be STOPPED")
+
+		time.Sleep(2 * time.Second)
+
+		// task[1] stops while in waitingTasksQueue while task[0] is in progress
+		// This is because it is still waiting to progress, has no containers created
+		// and does not need to wait for stopTimeout, can immediately STSC out
+		verifyTaskIsStopped(stateChangeEvents, tasks[1])
+
+		// task[0] stops
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, tasks[0])
+
+		// Verify resources are properly released in host resource manager
+		assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(tasks[0].Arn), "task 0 resources not released")
+		assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(tasks[1].Arn), "task 1 resources not released")
 
 		close(finished)
 	}()
