@@ -43,6 +43,7 @@ import (
 const (
 	// readTimeout specifies the maximum duration before timing out read of the request.
 	// The value is set to 5 seconds as per AWS SDK defaults.
+	// Dummy change
 	readTimeout = 5 * time.Second
 
 	// writeTimeout specifies the maximum duration before timing out write of the response.
