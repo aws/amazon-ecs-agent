@@ -232,6 +232,19 @@
       "type":"list",
       "member":{"shape":"AttachmentProperty"}
     },
+    "Attribute":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "value":{"shape":"String"},
+        "targetType":{"shape":"TargetType"},
+        "targetId":{"shape":"String"}
+      }
+    },
+    "Attributes":{
+      "type":"list",
+      "member":{"shape":"Attribute"}
+    },
     "AuthStrategy":{
       "type":"string",
       "enum":["ExecutionRole"]
@@ -275,7 +288,6 @@
       "members":{
         "command":{"shape":"StringList"},
         "cpu":{"shape":"Integer"},
-        "credentialSpecs":{"shape":"StringList"},
         "entryPoint":{"shape":"StringList"},
         "environment":{"shape":"EnvironmentVariables"},
         "environmentFiles":{"shape":"EnvironmentFiles"},
@@ -301,7 +313,8 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"}
+        "containerArn":{"shape":"String"},
+        "credentialSpecs":{"shape":"StringList"}
       }
     },
     "ContainerCondition":{
@@ -820,6 +833,10 @@
       "key":{"shape":"String"},
       "value":{"shape":"String"}
     },
+    "TargetType":{
+      "type":"string",
+      "enum":["task"]
+    },
     "Task":{
       "type":"structure",
       "members":{
@@ -846,7 +863,8 @@
         "launchType":{"shape":"String"},
         "attachments":{"shape":"AttachmentList"},
         "networkMode":{"shape":"String"},
-        "serviceName":{"shape":"String"}
+        "serviceName":{"shape":"String"},
+        "attributes":{"shape":"Attributes"}
       }
     },
     "TaskIdentifier":{

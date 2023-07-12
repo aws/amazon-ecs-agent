@@ -327,6 +327,28 @@ func (s AttachmentProperty) GoString() string {
 	return s.String()
 }
 
+type Attribute struct {
+	_ struct{} `type:"structure"`
+
+	Name *string `locationName:"name" type:"string"`
+
+	TargetId *string `locationName:"targetId" type:"string"`
+
+	TargetType *string `locationName:"targetType" type:"string" enum:"TargetType"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s Attribute) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Attribute) GoString() string {
+	return s.String()
+}
+
 type BadRequestException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
@@ -1820,6 +1842,8 @@ type Task struct {
 	Associations []*Association `locationName:"associations" type:"list"`
 
 	Attachments []*Attachment `locationName:"attachments" type:"list"`
+
+	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
 	Containers []*Container `locationName:"containers" type:"list"`
 
