@@ -925,3 +925,37 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 	assert.Equal(t, len(inputCapabilities), len(capabilities))
 	assert.EqualValues(t, capabilities, inputCapabilities)
 }
+
+func TestIsGuardDutySupported(t *testing.T) {
+	testCases := []struct {
+		name                         string
+		expectedIsGuardDutySupported bool
+	}{
+		{
+			name:                         "shouldReturnTrueIfFilePathExists",
+			expectedIsGuardDutySupported: true,
+		},
+		{
+			name:                         "shouldReturnFalseIfFilePathNotExists",
+			expectedIsGuardDutySupported: false,
+		},
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.expectedIsGuardDutySupported {
+				pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+					return true, nil
+				}
+			} else {
+				pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+					return false, nil
+				}
+			}
+			isSupported := defaultIsGuardDutySupported()
+			assert.Equal(t, tc.expectedIsGuardDutySupported, isSupported)
+		})
+	}
+}

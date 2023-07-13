@@ -27,6 +27,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -231,4 +233,14 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 
 func defaultIsPlatformExecSupported() (bool, error) {
 	return true, nil
+}
+
+func defaultIsGuardDutySupported() bool {
+	isEnabled, err := pathExists(config.GuardDutyServiceFilePath, false)
+	if err != nil {
+		logger.Debug("Unable to determine if GuardDuty is installed, not reporting the capability", logger.Fields{
+			field.Error: err,
+		})
+	}
+	return isEnabled
 }

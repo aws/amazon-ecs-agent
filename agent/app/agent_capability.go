@@ -77,6 +77,7 @@ const (
 	capabilityExecCertsRelativePath                        = "certs"
 	capabilityExternal                                     = "external"
 	capabilityServiceConnect                               = "service-connect-v1"
+	capabilityGuardDuty                                    = "guard-duty-patrol"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -113,6 +114,7 @@ var (
 	pathExists              = defaultPathExists
 	getSubDirectories       = defaultGetSubDirectories
 	isPlatformExecSupported = defaultIsPlatformExecSupported
+	isGuardDutySupported    = defaultIsGuardDutySupported
 
 	// List of capabilities that are not supported on external capacity.
 	externalUnsupportedCapabilities = []string{
@@ -188,6 +190,7 @@ var (
 //	ecs.capability.execute-command
 //	ecs.capability.external
 //	ecs.capability.service-connect-v1
+//	ecs.capability.guard-duty-patrol
 //	ecs.capability.network.container-port-range
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
@@ -298,6 +301,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
 
+	// add GuardDuty capabilities if applicable
+	capabilities = agent.appendGuardDutyCapabilities(capabilities)
+
 	return capabilities, nil
 }
 
@@ -319,7 +325,6 @@ func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*
 	if agent.cfg.GMSACapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
 	}
-
 	return capabilities
 }
 
@@ -494,6 +499,13 @@ func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attr
 	}
 	for _, serviceConnectCapability := range supportedAppnetInterfaceVerToCapabilities {
 		capabilities = appendNameOnlyAttribute(capabilities, serviceConnectCapability)
+	}
+	return capabilities
+}
+
+func (agent *ecsAgent) appendGuardDutyCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if isGuardDutySupported() {
+		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGuardDuty)
 	}
 	return capabilities
 }

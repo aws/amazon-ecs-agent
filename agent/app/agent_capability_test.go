@@ -58,8 +58,12 @@ func TestCapabilities(t *testing.T) {
 		// appendExecCapabilities() requires at least 1 version to exist
 		return []string{"3.0.236.0"}, nil
 	}
+	isGuardDutySupported = func() bool {
+		return true
+	}
 	defer func() {
 		getSubDirectories = defaultGetSubDirectories
+		isGuardDutySupported = defaultIsGuardDutySupported
 	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -136,6 +140,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityExec,
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilityGuardDuty,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -1158,8 +1163,12 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 		// appendExecCapabilities() requires at least 1 version to exist
 		return []string{"3.0.236.0"}, nil
 	}
+	isGuardDutySupported = func() bool {
+		return true
+	}
 	defer func() {
 		getSubDirectories = defaultGetSubDirectories
+		isGuardDutySupported = defaultIsGuardDutySupported
 	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1236,6 +1245,7 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilityGuardDuty,
 	}
 
 	var expectedCapabilities []*ecs.Attribute

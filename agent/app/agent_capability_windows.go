@@ -142,3 +142,7 @@ func defaultIsPlatformExecSupported() (bool, error) {
 	}
 	return true, nil
 }
+
+func defaultIsGuardDutySupported() bool {
+	return false
+}
