@@ -379,6 +379,13 @@ func TestRegisterContainerInstance(t *testing.T) {
 		cfg  *config.Config
 	}{
 		{
+			name: "retry GetDynamicData",
+			cfg: &config.Config{
+				Cluster:   configuredCluster,
+				AWSRegion: "us-west-2",
+			},
+		},
+		{
 			name: "basic case",
 			cfg: &config.Config{
 				Cluster:   configuredCluster,
@@ -446,7 +453,14 @@ func TestRegisterContainerInstance(t *testing.T) {
 			if tc.cfg.NoIID {
 				expectedIID = ""
 				expectedIIDSig = ""
+			} else if tc.name == "retry GetDynamicData" {
+				gomock.InOrder(
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("", errors.New("fake unit test error")),
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return(expectedIID, nil),
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return(expectedIIDSig, nil),
+				)
 			} else {
+				//basic case
 				gomock.InOrder(
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return(expectedIID, nil),
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return(expectedIIDSig, nil),
