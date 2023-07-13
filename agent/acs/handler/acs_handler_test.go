@@ -18,7 +18,6 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -31,6 +30,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
