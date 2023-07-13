@@ -201,8 +201,12 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
 <<<<<<< HEAD
+<<<<<<< HEAD
 	heartBeatTimer := session.newHeartbeatTimeoutHandler(client, startTime)
 =======
+=======
+
+>>>>>>> fd92105f8 (Updated unit tests.)
 	startTime := time.Now()
 	heartBeatTimer := newHeartbeatTimeoutHandler(client, startTime, session.heartbeatTimeout, session.heartbeatJitterMax)
 	defer heartBeatTimer.Stop()
@@ -214,6 +218,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	client.AddRequestHandler(ackPublishInstanceStatusHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.SetAnyRequestHandler(anyMessageHandler(client, wsRWTimeout))
 	return client.Serve(ctx)
+<<<<<<< HEAD
 }
 
 func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
@@ -269,6 +274,8 @@ func closeTCSClient(client wsclient.ClientServer, startTime time.Time, timeoutDu
 	}
 	logger.Info("Disconnected from tcs")
 	return err
+=======
+>>>>>>> fd92105f8 (Updated unit tests.)
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.

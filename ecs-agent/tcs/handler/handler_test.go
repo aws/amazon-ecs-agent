@@ -315,8 +315,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	}
 }
 
-// TestConnectionInactiveTimeout tests the tcs client reconnect when it loses network
-// connection, or it's inactive for too long
+// TestConnectionInactiveTimeout tests the tcs client should time out when it's inactive for too long
 func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
@@ -357,7 +356,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
-		5*time.Second,
+		2*time.Second,
 		100*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
@@ -403,7 +402,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		TCSurl: server.URL,
 	}
 	ctx := context.Background()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(1500 * time.Millisecond)
 	ctx, cancelCtx := context.WithDeadline(ctx, deadline)
 	defer cancelCtx()
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
