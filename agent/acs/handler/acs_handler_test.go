@@ -18,6 +18,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1152,6 +1153,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			emptyDoctor,
 			acsclient.NewACSClientFactory(),
 			nil,
+			metrics.NewNopEntryFactory(),
 		)
 		acsSession.Start()
 		// StartSession should never return unless the context is canceled
@@ -1250,7 +1252,8 @@ func TestHandlerCorrectlySetsSendCredentials(t *testing.T) {
 		aws.Int64(10),
 		emptyDoctor,
 		mockClientFactory,
-		nil)
+		nil,
+		metrics.NewNopEntryFactory())
 	acsSession.(*session)._heartbeatTimeout = 20 * time.Millisecond
 	acsSession.(*session)._heartbeatJitter = 10 * time.Millisecond
 	acsSession.(*session).connectionTime = 30 * time.Millisecond
@@ -1349,7 +1352,8 @@ func TestHandlerReconnectCorrectlySetsAcsUrl(t *testing.T) {
 		aws.Int64(10),
 		emptyDoctor,
 		mockClientFactory,
-		nil)
+		nil,
+		metrics.NewNopEntryFactory())
 	acsSession.(*session).backoff = mockBackoff
 	acsSession.(*session)._heartbeatTimeout = 20 * time.Millisecond
 	acsSession.(*session)._heartbeatJitter = 10 * time.Millisecond
