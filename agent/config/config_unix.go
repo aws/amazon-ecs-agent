@@ -56,6 +56,9 @@ const (
 	minimumContainerCreateTimeout = 1 * time.Minute
 	// default docker inactivity time is extra time needed on container extraction
 	defaultImagePullInactivityTimeout = 1 * time.Minute
+
+	// GuardDutyServiceFilePath TODO: update path once finalized. using guardDuty.service as a temporary placeholder
+	GuardDutyServiceFilePath = "/usr/lib/systemd/system/guardDuty.service"
 )
 
 // DefaultConfig returns the default configuration for Linux
