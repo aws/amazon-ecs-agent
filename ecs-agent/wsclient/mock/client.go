@@ -79,6 +79,20 @@ func (mr *MockClientServerMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockClientServer)(nil).Close))
 }
 
+// CloseClient mocks base method.
+func (m *MockClientServer) CloseClient(arg0 time.Time, arg1 time.Duration) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloseClient", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CloseClient indicates an expected call of CloseClient.
+func (mr *MockClientServerMockRecorder) CloseClient(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseClient", reflect.TypeOf((*MockClientServer)(nil).CloseClient), arg0, arg1)
+}
+
 // Connect mocks base method.
 func (m *MockClientServer) Connect(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -137,20 +151,6 @@ func (m *MockClientServer) MakeRequest(arg0 interface{}) error {
 func (mr *MockClientServerMockRecorder) MakeRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeRequest", reflect.TypeOf((*MockClientServer)(nil).MakeRequest), arg0)
-}
-
-// NewHeartbeatTimeoutHandler mocks base method.
-func (m *MockClientServer) NewHeartbeatTimeoutHandler(arg0 time.Time, arg1, arg2 time.Duration) *time.Timer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewHeartbeatTimeoutHandler", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*time.Timer)
-	return ret0
-}
-
-// NewHeartbeatTimeoutHandler indicates an expected call of NewHeartbeatTimeoutHandler.
-func (mr *MockClientServerMockRecorder) NewHeartbeatTimeoutHandler(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewHeartbeatTimeoutHandler", reflect.TypeOf((*MockClientServer)(nil).NewHeartbeatTimeoutHandler), arg0, arg1, arg2)
 }
 
 // Serve mocks base method.
