@@ -98,11 +98,9 @@ func (m *MockEntry) EXPECT() *MockEntryMockRecorder {
 }
 
 // Done mocks base method.
-func (m *MockEntry) Done(arg0 error) func() {
+func (m *MockEntry) Done(arg0 error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Done", arg0)
-	ret0, _ := ret[0].(func())
-	return ret0
+	m.ctrl.Call(m, "Done", arg0)
 }
 
 // Done indicates an expected call of Done.

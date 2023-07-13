@@ -83,7 +83,7 @@ func ContainerMetadataHandler(
 			utils.WriteJSONResponse(w, responseCode, responseBody, utils.RequestTypeContainerMetadata)
 
 			if utils.Is5XXStatus(responseCode) {
-				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)()
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)
 			}
 
 			return
@@ -155,7 +155,7 @@ func taskMetadataHandler(
 			utils.WriteJSONResponse(w, responseCode, responseBody, utils.RequestTypeTaskMetadata)
 
 			if utils.Is5XXStatus(responseCode) {
-				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)()
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)
 			}
 
 			return
@@ -231,7 +231,7 @@ func statsHandler[R state.StatsResponse | map[string]*state.StatsResponse](
 			utils.WriteJSONResponse(w, responseCode, responseBody, requestType)
 
 			if utils.Is5XXStatus(responseCode) {
-				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)()
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)
 			}
 
 			return

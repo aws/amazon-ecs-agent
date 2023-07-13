@@ -76,7 +76,7 @@ func GetTaskProtectionHandler(
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
 			if utils.Is5XXStatus(errResponseCode) {
-				successMetric.WithCount(0).Done(nil)()
+				successMetric.WithCount(0).Done(nil)
 			}
 			return
 		}
@@ -89,7 +89,7 @@ func GetTaskProtectionHandler(
 		taskCreds, errResponseCode, errResponseBody := getTaskCredentials(credentialsManager, *task)
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
@@ -104,7 +104,7 @@ func GetTaskProtectionHandler(
 		if err != nil {
 			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
@@ -113,14 +113,14 @@ func GetTaskProtectionHandler(
 			responseBody.ProtectedTasks, responseBody.Failures, *task, requestType)
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
 			types.NewTaskProtectionResponseProtection(responseBody.ProtectedTasks[0]), requestType)
-		successMetric.WithCount(1).Done(nil)()
+		successMetric.WithCount(1).Done(nil)
 	}
 }
 
@@ -162,7 +162,7 @@ func UpdateTaskProtectionHandler(
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
 			if utils.Is5XXStatus(errResponseCode) {
-				successMetric.WithCount(0).Done(nil)()
+				successMetric.WithCount(0).Done(nil)
 			}
 			return
 		}
@@ -193,7 +193,7 @@ func UpdateTaskProtectionHandler(
 		taskCreds, errResponseCode, errResponseBody := getTaskCredentials(credentialsManager, *task)
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
@@ -210,7 +210,7 @@ func UpdateTaskProtectionHandler(
 		if err != nil {
 			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
@@ -219,14 +219,14 @@ func UpdateTaskProtectionHandler(
 			response.ProtectedTasks, response.Failures, *task, requestType)
 		if errResponseBody != nil {
 			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
-			successMetric.WithCount(0).Done(nil)()
+			successMetric.WithCount(0).Done(nil)
 			return
 		}
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
 			types.NewTaskProtectionResponseProtection(response.ProtectedTasks[0]), requestType)
-		successMetric.WithCount(1).Done(nil)()
+		successMetric.WithCount(1).Done(nil)
 	}
 }
 

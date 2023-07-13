@@ -208,7 +208,7 @@ func TestContainerMetadata(t *testing.T) {
 		err := state.NewErrorMetadataFetchFailure(externalReason)
 		entry := mock_metrics.NewMockEntry(ctrl)
 
-		entry.EXPECT().Done(err).Return(func() {})
+		entry.EXPECT().Done(err)
 		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 		agentState.EXPECT().
 			GetContainerMetadata(endpointContainerID).
@@ -226,7 +226,7 @@ func TestContainerMetadata(t *testing.T) {
 		err := errors.New("unknown")
 		entry := mock_metrics.NewMockEntry(ctrl)
 
-		entry.EXPECT().Done(err).Return(func() {})
+		entry.EXPECT().Done(err)
 		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 		agentState.EXPECT().
 			GetContainerMetadata(endpointContainerID).
@@ -291,7 +291,7 @@ func TestTaskMetadata(t *testing.T) {
 		err := state.NewErrorMetadataFetchFailure(externalReason)
 		entry := mock_metrics.NewMockEntry(ctrl)
 
-		entry.EXPECT().Done(err).Return(func() {})
+		entry.EXPECT().Done(err)
 		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 		agentState.EXPECT().
 			GetTaskMetadata(endpointContainerID).
@@ -309,7 +309,7 @@ func TestTaskMetadata(t *testing.T) {
 		err := errors.New("unknown")
 		entry := mock_metrics.NewMockEntry(ctrl)
 
-		entry.EXPECT().Done(err).Return(func() {})
+		entry.EXPECT().Done(err)
 		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 		agentState.EXPECT().
 			GetTaskMetadata(endpointContainerID).
@@ -389,11 +389,7 @@ func TestContainerStats(t *testing.T) {
 
 			// Expect InternalServerError metric to be published with the error.
 			entry := mock_metrics.NewMockEntry(ctrl)
-			metricPublished := false // tracks if a metrics entry was published
-			entry.EXPECT().Done(tc.err).Return(func() {
-				// Set metricsPublished to true if metric was published.
-				metricPublished = true
-			})
+			entry.EXPECT().Done(tc.err)
 			metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 
 			// Make test request
@@ -402,9 +398,6 @@ func TestContainerStats(t *testing.T) {
 				expectedStatusCode:   http.StatusInternalServerError,
 				expectedResponseBody: tc.responseBody,
 			})
-
-			// assert the metrics entry was published
-			assert.True(t, metricPublished)
 		})
 	}
 
@@ -472,7 +465,6 @@ func TestTaskStats(t *testing.T) {
 		t.Run("stats fetch failure", func(t *testing.T) {
 			// setup
 			agentState, ctrl, metricsFactory, handler := setup()
-			metricPublished := false // tracks if a metrics entry was published
 
 			// expect GetContainerStats to be called that should return an error
 			agentState.EXPECT().
@@ -480,9 +472,8 @@ func TestTaskStats(t *testing.T) {
 				Return(nil, tc.err)
 
 			// expect InternalServerError metric to be published with the error.
-			// set metricsPublished to true if metric was published
 			entry := mock_metrics.NewMockEntry(ctrl)
-			entry.EXPECT().Done(tc.err).Return(func() { metricPublished = true })
+			entry.EXPECT().Done(tc.err)
 			metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
 
 			// Go
@@ -491,9 +482,6 @@ func TestTaskStats(t *testing.T) {
 				expectedStatusCode:   http.StatusInternalServerError,
 				expectedResponseBody: tc.responseBody,
 			})
-
-			// confirm the metrics entry was published
-			assert.True(t, metricPublished)
 		})
 	}
 
