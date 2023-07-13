@@ -97,6 +97,7 @@ type session struct {
 	ctx                             context.Context
 	cancel                          context.CancelFunc
 	backoff                         retry.Backoff
+	metricsFactory                  metrics.EntryFactory
 	clientFactory                   wsclient.ClientFactory
 	sendCredentials                 bool
 	latestSeqNumTaskManifest        *int64
@@ -127,6 +128,7 @@ func NewSession(
 	doctor *doctor.Doctor,
 	clientFactory wsclient.ClientFactory,
 	addUpdateRequestHandlers func(wsclient.ClientServer),
+	metricsFactory metrics.EntryFactory,
 ) Session {
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -149,6 +151,7 @@ func NewSession(
 		backoff:                         backoff,
 		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
 		doctor:                          doctor,
+		metricsFactory:                  metricsFactory,
 		clientFactory:                   clientFactory,
 		addUpdateRequestHandlers:        addUpdateRequestHandlers,
 		sendCredentials:                 true,
@@ -234,7 +237,7 @@ func (acsSession *session) startSessionOnce() error {
 		acsSession.credentialsProvider,
 		wsRWTimeout,
 		minAgentCfg,
-		metrics.NewNopEntryFactory())
+		acsSession.metricsFactory)
 	defer client.Close()
 
 	return acsSession.startACSSession(client)
