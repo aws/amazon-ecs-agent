@@ -296,7 +296,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
-	heartbeatTimer := client.NewHeartbeatTimeoutHandler(startTime, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
+	heartbeatTimer := newHeartbeatTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
 	// Any message from the server resets the heartbeat timer
 	client.SetAnyRequestHandler(anyMessageHandler(heartbeatTimer, client))
 	defer heartbeatTimer.Stop()
@@ -316,6 +316,20 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	defer backoffResetTimer.Stop()
 
 	return client.Serve(acsSession.ctx)
+}
+
+// newHeartbeatTimer creates a new time object, with a callback to
+// disconnect from ACS on inactivity
+func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
+	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
+		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
+		if err := client.Close(); err != nil {
+			seelog.Warnf("Error disconnecting: %v", err)
+		}
+		seelog.Info("Disconnected from ACS")
+	})
+
+	return timer
 }
 
 func (acsSession *session) computeReconnectDelay(isInactiveInstance bool) time.Duration {
@@ -370,17 +384,17 @@ func (acsSession *session) acsURL(endpoint string) string {
 
 // newHeartbeatTimer creates a new time object, with a callback to
 // disconnect from ACS on inactivity
-func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
-	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
-		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
-		if err := client.Close(); err != nil {
-			seelog.Warnf("Error disconnecting: %v", err)
-		}
-		seelog.Info("Disconnected from ACS")
-	})
-
-	return timer
-}
+//func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
+//	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
+//		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
+//		if err := client.Close(); err != nil {
+//			seelog.Warnf("Error disconnecting: %v", err)
+//		}
+//		seelog.Info("Disconnected from ACS")
+//	})
+//
+//	return timer
+//}
 
 // newConnectionTimer creates a new timer, after which agent closes
 // its websocket connection

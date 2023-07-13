@@ -139,7 +139,6 @@ type RespondFunc func(interface{}) error
 
 // ClientServer is a combined client and server for the backend websocket connection
 type ClientServer interface {
-	NewHeartbeatTimeoutHandler(t time.Time, heartbeatTimeout time.Duration, heartbeatTimeoutJitter time.Duration) *time.Timer
 	AddRequestHandler(RequestHandler)
 	// SetAnyRequestHandler takes a function with the signature 'func(i
 	// interface{})' and calls it with every message the server passes down.
@@ -155,6 +154,7 @@ type ClientServer interface {
 	Disconnect(...interface{}) error
 	Serve(ctx context.Context) error
 	SetReadDeadline(t time.Time) error
+	CloseClient(t time.Time, dur time.Duration) error
 	io.Closer
 }
 
@@ -600,23 +600,8 @@ func permissibleCloseCode(err error) bool {
 func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time, metricName string) *time.Timer {
 	maxConnectionDuration := retry.AddJitter(disconnectTimeout, disconnectJitterMax)
 	timer := time.AfterFunc(maxConnectionDuration, func() {
-		err := cs.closeClient(startTime, maxConnectionDuration)
+		err := cs.CloseClient(startTime, maxConnectionDuration)
 		cs.MetricsFactory.New(metricName).Done(err)()
-		if err != nil {
-			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
-		}
-	})
-	return timer
-}
-
-// newHeartbeatTimeoutHandler returns new timer object to disconnect from server based on connection start time.
-func (cs *ClientServerImpl) NewHeartbeatTimeoutHandler(startTime time.Time,
-	heartbeatTimeout time.Duration,
-	heartbeatJitter time.Duration) *time.Timer {
-
-	maxConnectionDuration := retry.AddJitter(heartbeatTimeout, heartbeatJitter)
-	timer := time.AfterFunc(maxConnectionDuration, func() {
-		err := cs.closeClient(startTime, maxConnectionDuration)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
 		}
@@ -626,7 +611,7 @@ func (cs *ClientServerImpl) NewHeartbeatTimeoutHandler(startTime time.Time,
 
 // closeClient will attempt to close the provided client, retries are not recommended
 // as failure modes for this are when client is not found or already closed.
-func (cs *ClientServerImpl) closeClient(startTime time.Time, timeoutDuration time.Duration) error {
+func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration time.Duration) error {
 	logger.Warn(("Closing connection"), logger.Fields{
 		"ConnectionStartTime":  startTime.Format(dateTimeFormat),
 		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),

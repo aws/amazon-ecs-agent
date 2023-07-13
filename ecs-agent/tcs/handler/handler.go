@@ -200,7 +200,10 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
-	heartBeatTimer := session.newHeartbeatTimeoutHandler(client, startTime)
+	startTime = time.Now()
+	heartBeatTimer := newHeartbeatTimeoutHandler(client, startTime, session.heartbeatTimeout, session.heartbeatJitterMax)
+	defer heartBeatTimer.Stop()
+
 	client.AddRequestHandler(heartbeatHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
@@ -311,6 +314,23 @@ func anyMessageHandler(client wsclient.ClientServer, wsRWTimeout time.Duration) 
 			})
 		}
 	}
+}
+
+// newHeartbeatTimeoutHandler returns new timer object to disconnect from tacs server based on connection start time.
+func newHeartbeatTimeoutHandler(cs wsclient.ClientServer,
+	startTime time.Time,
+	heartbeatTimeout time.Duration,
+	heartbeatJitter time.Duration,
+) *time.Timer {
+
+	maxConnectionDuration := retry.AddJitter(heartbeatTimeout, heartbeatJitter)
+	timer := time.AfterFunc(maxConnectionDuration, func() {
+		err := cs.CloseClient(startTime, maxConnectionDuration)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("Attempted disconnecting; tcs client already closed. %s", err))
+		}
+	})
+	return timer
 }
 
 // formatURL returns formatted url for tcs endpoint.
