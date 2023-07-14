@@ -163,6 +163,11 @@ const (
 // TaskOverrides are the overrides applied to a task
 type TaskOverrides struct{}
 
+type TaskAttribute struct {
+	Name  string `json:"Name"`
+	Value string `json:"Value,omitempty"`
+}
+
 // Task is the internal representation of a task in the ECS agent
 type Task struct {
 	// Arn is the unique identifier for the task
@@ -298,6 +303,8 @@ type Task struct {
 	NetworkMode string `json:"NetworkMode,omitempty"`
 
 	IsInternal bool `json:"IsInternal,omitempty"`
+
+	Attributes []TaskAttribute `json:"Attributes,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received

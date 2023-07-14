@@ -33,12 +33,13 @@ type MetadataResponse struct {
 
 // TaskResponse is the schema for the task response JSON object
 type TaskResponse struct {
-	Arn           string              `json:"Arn"`
-	DesiredStatus string              `json:"DesiredStatus,omitempty"`
-	KnownStatus   string              `json:"KnownStatus"`
-	Family        string              `json:"Family"`
-	Version       string              `json:"Version"`
-	Containers    []ContainerResponse `json:"Containers"`
+	Arn           string                  `json:"Arn"`
+	DesiredStatus string                  `json:"DesiredStatus,omitempty"`
+	KnownStatus   string                  `json:"KnownStatus"`
+	Family        string                  `json:"Family"`
+	Version       string                  `json:"Version"`
+	Containers    []ContainerResponse     `json:"Containers"`
+	Attributes    []apitask.TaskAttribute `json:"Attributes,omitempty"`
 }
 
 // TasksResponse is the schema for the tasks response JSON object
@@ -87,6 +88,7 @@ func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.D
 		Family:        task.Family,
 		Version:       task.Version,
 		Containers:    containers,
+		Attributes:    task.Attributes,
 	}
 }
 

@@ -47,6 +47,7 @@ const (
 	volName        = "volume1"
 	volSource      = "/var/lib/volume1"
 	volDestination = "/volume"
+	attributeName  = "attribute1"
 )
 
 var (
@@ -93,6 +94,11 @@ var (
 		Containers: []ContainerResponse{
 			expectedContainerResponse,
 		},
+		Attributes: []apitask.TaskAttribute{
+			{
+				Name: attributeName,
+			},
+		},
 	}
 )
 
@@ -110,6 +116,11 @@ func TestTaskResponse(t *testing.T) {
 						Address: eniIPv4Address,
 					},
 				},
+			},
+		},
+		Attributes: []apitask.TaskAttribute{
+			{
+				Name: attributeName,
 			},
 		},
 	}
