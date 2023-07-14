@@ -1666,6 +1666,15 @@ func TestTaskFromACS(t *testing.T) {
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
 		ServiceName:   strptr("myService"),
+		Attributes: []*ecsacs.Attribute{
+			{
+				Name:  strptr("myAttribute1"),
+				Value: strptr("foo"),
+			},
+			{
+				Name: strptr("myAttribute2"),
+			},
+		},
 		Containers: []*ecsacs.Container{
 			{
 				Name:        strptr("myName"),
@@ -1766,7 +1775,16 @@ func TestTaskFromACS(t *testing.T) {
 		Family:              "myFamily",
 		Version:             "1",
 		ServiceName:         "myService",
-		NetworkMode:         BridgeNetworkMode,
+		Attributes: []TaskAttribute{
+			{
+				Name:  "myAttribute1",
+				Value: "foo",
+			},
+			{
+				Name: "myAttribute2",
+			},
+		},
+		NetworkMode: BridgeNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
 				Name:        "myName",
