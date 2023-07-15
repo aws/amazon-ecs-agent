@@ -208,7 +208,8 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		// Cancel trying to connect to ACS on the 11th attempt
 		// Failure to retry on Connect() errors should cause the
 		// test to time out as the context is never cancelled
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			cancel()
 		}).Return(nil).MinTimes(1),
 	)
@@ -349,7 +350,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		// The backoff.Reset() method is expected to be invoked when the connection
 		// is closed with io.EOF
 		mockBackoff.EXPECT().Reset(),
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			// cancel the context on the 2nd connect attempt, which should stop
 			// the test
 			cancel()
@@ -369,6 +370,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		ctx:                             ctx,
 		cancel:                          cancel,
 		clientFactory:                   mockClientFactory,
+		metricsFactory:                  metrics.NewNopEntryFactory(),
 		latestSeqNumTaskManifest:        aws.Int64(10),
 		_heartbeatTimeout:               20 * time.Millisecond,
 		_heartbeatJitter:                10 * time.Millisecond,
@@ -421,7 +423,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 		// the backoff. Also, no calls to backoff.Reset() are expected
 		// in this code path.
 		mockBackoff.EXPECT().Duration().Return(time.Millisecond),
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			cancel()
 		}).Return(io.EOF),
 		mockBackoff.EXPECT().Reset().AnyTimes(),
@@ -551,10 +553,10 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 	var firstConnectionAttemptTime time.Time
 	inactiveInstanceReconnectDelay := 200 * time.Millisecond
 	gomock.InOrder(
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			firstConnectionAttemptTime = time.Now()
 		}).Return(fmt.Errorf("InactiveInstanceException:")),
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			reconnectDelay := time.Now().Sub(firstConnectionAttemptTime)
 			reconnectDelayTime := time.Now()
 			t.Logf("Delay between successive connections: %v", reconnectDelay)
@@ -845,7 +847,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	mockWsClient.EXPECT().Serve(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+	mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 		// Serve() cancels the context
 		cancel()
 	}).Return(nil).MinTimes(1)
@@ -1262,12 +1264,12 @@ func TestHandlerCorrectlySetsSendCredentials(t *testing.T) {
 	gomock.InOrder(
 		// When the websocket client connects to ACS for the first
 		// time, 'sendCredentials' should be set to true
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			assert.Equal(t, true, acsSession.(*session).sendCredentials)
 		}).Return(nil),
 		// For all subsequent connections to ACS, 'sendCredentials'
 		// should be set to false
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			assert.Equal(t, false, acsSession.(*session).sendCredentials)
 		}).Return(nil).AnyTimes(),
 	)
@@ -1333,7 +1335,7 @@ func TestHandlerReconnectCorrectlySetsAcsUrl(t *testing.T) {
 		mockClientFactory.EXPECT().
 			New(subsequentAcsURL, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(mockWsClient),
-		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func() {
+		mockWsClient.EXPECT().Connect(gomock.Any()).Do(func(interface{}) {
 			cancel()
 		}).Return(nil),
 	)
