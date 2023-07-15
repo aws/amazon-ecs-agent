@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 	"github.com/aws/aws-sdk-go/aws"
@@ -263,10 +264,10 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg)
+	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
-		err = cs.Connect()
+		err = cs.Connect(metrics.ACSDisconnectTimeoutMetricName)
 		if err == nil {
 			break
 		}
@@ -334,15 +335,15 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg)
-	err := cs.Connect()
+	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	err := cs.Connect(metrics.ACSDisconnectTimeoutMetricName)
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok, "Connect error expected to be a WSError type")
 	assert.EqualError(t, err, "InvalidClusterException: Invalid cluster")
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	foo := testACSClientFactory.New("localhost:443", testCreds, rwTimeout, testCfg)
+	foo := testACSClientFactory.New("localhost:443", testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	cs := foo.(*clientServer)
 	cs.SetConnection(conn)
 	return cs

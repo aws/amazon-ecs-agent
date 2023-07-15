@@ -42,7 +42,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const dockerEndpoint = "/var/run/docker.sock"
+const (
+	dockerEndpoint                  = "/var/run/docker.sock"
+	mockDisconnectTimeoutMetricName = "DisconnectTimeout"
+)
 
 // Close closes the underlying connection. Implement Close() in this file
 // as ClientServerImpl doesn't implement it. This is needed by the
@@ -58,7 +61,7 @@ func TestClientProxy(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer("http://www.amazon.com", types, 1)
-	err := cs.Connect()
+	err := cs.Connect(mockDisconnectTimeoutMetricName)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
 }
@@ -87,7 +90,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	require.NoError(t, cs.Connect(mockDisconnectTimeoutMetricName))
 
 	executeTenRequests := func() {
 		for i := 0; i < 10; i++ {
@@ -135,7 +138,7 @@ func TestProxyVariableCustomValue(t *testing.T) {
 	testString := "Custom no proxy string"
 	os.Setenv("NO_PROXY", testString)
 	types := []interface{}{ecsacs.AckRequest{}}
-	require.NoError(t, getTestClientServer(mockServer.URL, types, 1).Connect())
+	require.NoError(t, getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName))
 
 	assert.Equal(t, os.Getenv("NO_PROXY"), testString, "NO_PROXY should match user-supplied variable")
 }
@@ -152,7 +155,7 @@ func TestProxyVariableDefaultValue(t *testing.T) {
 
 	os.Unsetenv("NO_PROXY")
 	types := []interface{}{ecsacs.AckRequest{}}
-	getTestClientServer(mockServer.URL, types, 1).Connect()
+	getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName)
 
 	expectedEnvVar := "169.254.169.254,169.254.170.2," + dockerEndpoint
 
@@ -172,7 +175,7 @@ func TestHandleMessagePermissibleCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	require.NoError(t, cs.Connect(mockDisconnectTimeoutMetricName))
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	go func() {
@@ -195,7 +198,7 @@ func TestHandleMessageUnexpectedCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	require.NoError(t, cs.Connect(mockDisconnectTimeoutMetricName))
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	ctx := context.Background()
@@ -219,7 +222,7 @@ func TestHandleNonHTTPSEndpoint(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	require.NoError(t, cs.Connect(mockDisconnectTimeoutMetricName))
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
@@ -244,7 +247,7 @@ func TestHandleIncorrectURLScheme(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServerURL.String(), types, 1)
-	err := cs.Connect()
+	err := cs.Connect(mockDisconnectTimeoutMetricName)
 
 	assert.Error(t, err, "Expected error for incorrect URL scheme")
 }
@@ -389,7 +392,7 @@ func TestWriteCloseMessage(t *testing.T) {
 
 	types := []interface{}{ecsacs.PayloadMessage{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	cs.Connect()
+	cs.Connect(mockDisconnectTimeoutMetricName)
 
 	defer cs.Close()
 
@@ -412,7 +415,7 @@ func TestCtxCancel(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 2)
-	require.NoError(t, cs.Connect())
+	require.NoError(t, cs.Connect(mockDisconnectTimeoutMetricName))
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	go func() {
