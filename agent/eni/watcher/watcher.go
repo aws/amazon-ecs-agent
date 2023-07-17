@@ -27,8 +27,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 
@@ -142,7 +142,7 @@ func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 
 	// We found an ENI, which has the expiration time set in future and
 	// needs to be acknowledged as having been 'attached' to the Instance
-	if eni.AttachmentType == apieni.ENIAttachmentTypeInstanceENI {
+	if eni.AttachmentType == ni.ENIAttachmentTypeInstanceENI {
 		go eniWatcher.emitInstanceENIAttachedEvent(eni)
 	} else {
 		go eniWatcher.emitTaskENIAttachedEvent(eni)
@@ -152,7 +152,7 @@ func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 
 // emitTaskENIChangeEvent sends a state change event for a task ENI attachment to the event channel with eni status as
 // attached
-func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment) {
+func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = status.AttachmentAttached
 	log.Infof("Emitting task ENI attached event for: %s", eni.String())
 	eniWatcher.eniChangeEvent <- api.TaskStateChange{
@@ -163,7 +163,7 @@ func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment
 
 // emitInstanceENIChangeEvent sends a state change event for an instance ENI attachment to the event channel with eni
 // status as attached
-func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *apieni.ENIAttachment) {
+func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = status.AttachmentAttached
 	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
 	eniWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)

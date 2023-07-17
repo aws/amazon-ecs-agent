@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,7 +65,7 @@ func TestSendENIStateChange(t *testing.T) {
 	ctx := context.TODO()
 
 	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
@@ -111,7 +111,7 @@ func TestSendENIStateChangeAlreadySent(t *testing.T) {
 	ctx := context.TODO()
 
 	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: true,
 				ExpiresAt:        time.Now().Add(expirationTimeAddition),
@@ -136,7 +136,7 @@ func TestSendENIStateChangeExpired(t *testing.T) {
 	ctx := context.TODO()
 
 	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: false,
 				ExpiresAt:        time.Now().Add(expirationTimeSubtraction),
@@ -162,7 +162,7 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false),
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
@@ -193,7 +193,7 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 		// ENIByMAC returns an error for exipred ENI attachment, which should
 		// mean that it doesn't get retried.
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&apieni.ENIAttachment{
+			&ni.ENIAttachment{
 				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					AttachStatusSent: false,
 					ExpiresAt:        time.Now().Add(expirationTimeSubtraction),
@@ -220,11 +220,11 @@ func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
 	ctx := context.TODO()
 
 	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
-			AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
+			AttachmentType: ni.ENIAttachmentTypeInstanceENI,
 		}, true),
 	)
 
@@ -249,11 +249,11 @@ func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
 	ctx := context.TODO()
 
 	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
-			AttachmentType: apieni.ENIAttachmentTypeTaskENI,
+			AttachmentType: ni.ENIAttachmentTypeTaskENI,
 		}, true),
 	)
 

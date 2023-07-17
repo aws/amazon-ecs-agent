@@ -17,7 +17,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 )
@@ -85,7 +85,7 @@ func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.D
 }
 
 // NewContainerResponse creates ContainerResponse for a container.
-func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) ContainerResponse {
+func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ni.NetworkInterface) ContainerResponse {
 	container := dockerContainer.Container
 	resp := ContainerResponse{
 		Name:       container.Name,
@@ -109,7 +109,7 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 }
 
 // NewPortBindingsResponse creates PortResponse for a container.
-func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *apieni.ENI) []tmdsresponse.PortResponse {
+func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni *ni.NetworkInterface) []tmdsresponse.PortResponse {
 	container := dockerContainer.Container
 	resp := []tmdsresponse.PortResponse{}
 

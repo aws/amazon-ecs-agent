@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessage{
@@ -177,7 +177,7 @@ func TestAttachInstanceENIMessageWithInvalidNetworkDetails(t *testing.T) {
 	assert.EqualError(t, err, fmt.Sprintf("invalid interface association protocol: %s",
 		aws.StringValue(unsupportedInterfaceAssociationProtocol)))
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
-		aws.String(apieni.VLANInterfaceAssociationProtocol)
+		aws.String(ni.VLANInterfaceAssociationProtocol)
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, "vlan interface properties missing")
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =

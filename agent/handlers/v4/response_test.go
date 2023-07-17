@@ -27,7 +27,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -74,14 +74,14 @@ func TestNewTaskContainerResponses(t *testing.T) {
 		ServiceName:         serviceName,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
 				},
-				IPV6Addresses: []*apieni.ENIIPV6Address{
+				IPV6Addresses: []*ni.IPV6Address{
 					{
 						Address: eniIPv6Address,
 					},

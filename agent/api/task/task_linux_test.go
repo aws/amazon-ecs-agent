@@ -24,8 +24,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
-	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -37,7 +35,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -103,7 +103,7 @@ func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 
 func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask := &Task{
-		ENIs: []*apieni.ENI{{}},
+		ENIs: []*ni.NetworkInterface{{}},
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -136,10 +136,10 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 	serializedConfig := string(bytes)
 
 	testTask := &Task{
-		AppMesh: &apiappmesh.AppMesh{
+		AppMesh: &nlappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs:        []*apieni.ENI{{}},
+		ENIs:        []*ni.NetworkInterface{{}},
 		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
@@ -183,10 +183,10 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 	serializedConfig := string(bytes)
 
 	testTask := &Task{
-		AppMesh: &apiappmesh.AppMesh{
+		AppMesh: &nlappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs:        []*apieni.ENI{{}},
+		ENIs:        []*ni.NetworkInterface{{}},
 		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
@@ -220,10 +220,10 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 
 func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) {
 	testTask := &Task{
-		AppMesh: &apiappmesh.AppMesh{
+		AppMesh: &nlappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENIs:        []*apieni.ENI{{}},
+		ENIs:        []*ni.NetworkInterface{{}},
 		NetworkMode: AWSVPCNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
@@ -1398,22 +1398,22 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			testTask := &Task{}
 			testTask.NetworkMode = AWSVPCNetworkMode
-			testTask.AddTaskENI(&apieni.ENI{
+			testTask.AddTaskENI(&ni.NetworkInterface{
 				ID:                           "TestBuildCNIConfigTrunkBranchENI",
 				MacAddress:                   mac,
-				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
-				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
+				InterfaceAssociationProtocol: ni.VLANInterfaceAssociationProtocol,
+				InterfaceVlanProperties: &ni.InterfaceVlanProperties{
 					VlanID:                   "1234",
 					TrunkInterfaceMacAddress: "macTrunk",
 				},
 				SubnetGatewayIPV4Address: ipv4Gateway + ipv4Block,
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Primary: true,
 						Address: ipv4,
 					},
 				},
-				IPV6Addresses: []*apieni.ENIIPV6Address{
+				IPV6Addresses: []*ni.IPV6Address{
 					{
 						Address: ipv6,
 					},

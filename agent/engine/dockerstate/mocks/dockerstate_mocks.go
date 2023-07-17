@@ -24,8 +24,8 @@ import (
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
-	eni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -77,7 +77,7 @@ func (mr *MockTaskEngineStateMockRecorder) AddEBSAttachment(arg0 interface{}) *g
 }
 
 // AddENIAttachment mocks base method.
-func (m *MockTaskEngineState) AddENIAttachment(arg0 *eni.ENIAttachment) {
+func (m *MockTaskEngineState) AddENIAttachment(arg0 *networkinterface.ENIAttachment) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddENIAttachment", arg0)
 }
@@ -137,10 +137,10 @@ func (mr *MockTaskEngineStateMockRecorder) AddTaskIPAddress(arg0, arg1 interface
 }
 
 // AllENIAttachments mocks base method.
-func (m *MockTaskEngineState) AllENIAttachments() []*eni.ENIAttachment {
+func (m *MockTaskEngineState) AllENIAttachments() []*networkinterface.ENIAttachment {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllENIAttachments")
-	ret0, _ := ret[0].([]*eni.ENIAttachment)
+	ret0, _ := ret[0].([]*networkinterface.ENIAttachment)
 	return ret0
 }
 
@@ -238,10 +238,10 @@ func (mr *MockTaskEngineStateMockRecorder) DockerIDByV3EndpointID(arg0 interface
 }
 
 // ENIByMac mocks base method.
-func (m *MockTaskEngineState) ENIByMac(arg0 string) (*eni.ENIAttachment, bool) {
+func (m *MockTaskEngineState) ENIByMac(arg0 string) (*networkinterface.ENIAttachment, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ENIByMac", arg0)
-	ret0, _ := ret[0].(*eni.ENIAttachment)
+	ret0, _ := ret[0].(*networkinterface.ENIAttachment)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

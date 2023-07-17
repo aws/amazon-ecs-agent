@@ -20,8 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +32,7 @@ const (
 func TestManageENIAttachments(t *testing.T) {
 	testClient := newTestClient(t)
 
-	testEniAttachment := &eni.ENIAttachment{
+	testEniAttachment := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:    testAttachmentArn,
 			AttachStatusSent: false,
@@ -49,7 +48,7 @@ func TestManageENIAttachments(t *testing.T) {
 	assert.Equal(t, true, res[0].AttachStatusSent)
 	assert.Equal(t, testAttachmentArn, res[0].AttachmentARN)
 
-	testEniAttachment2 := &eni.ENIAttachment{
+	testEniAttachment2 := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:    testAttachmentArn2,
 			AttachStatusSent: true,
@@ -71,7 +70,7 @@ func TestManageENIAttachments(t *testing.T) {
 func TestSaveENIAttachmentInvalidID(t *testing.T) {
 	testClient := newTestClient(t)
 
-	testEniAttachment := &eni.ENIAttachment{
+	testEniAttachment := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:    "invalid-arn",
 			AttachStatusSent: false,

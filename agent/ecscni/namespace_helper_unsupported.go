@@ -21,11 +21,11 @@ import (
 
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
 // This is applicable only for Windows.
-func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *cniTypesCurrent.Result) error {
+func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *ni.NetworkInterface, config *Config, result *cniTypesCurrent.Result) error {
 	return nil
 }

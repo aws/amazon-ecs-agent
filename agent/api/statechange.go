@@ -23,8 +23,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,7 +73,7 @@ type ManagedAgentStateChange struct {
 // SubmitTaskStateChange API
 type TaskStateChange struct {
 	// Attachment is the eni attachment object to send
-	Attachment *apieni.ENIAttachment
+	Attachment *ni.ENIAttachment
 	// TaskArn is the unique identifier for the task
 	TaskARN string
 	// Status is the status to send
@@ -99,7 +99,7 @@ type TaskStateChange struct {
 // SubmitAttachmentStateChanges API
 type AttachmentStateChange struct {
 	// Attachment is the eni attachment object to send
-	Attachment *apieni.ENIAttachment
+	Attachment *ni.ENIAttachment
 }
 
 type ErrShouldNotSendEvent struct {
@@ -218,7 +218,7 @@ func NewManagedAgentChangeEvent(task *apitask.Task, cont *apicontainer.Container
 }
 
 // NewAttachmentStateChangeEvent creates a new attachment state change event
-func NewAttachmentStateChangeEvent(eniAttachment *apieni.ENIAttachment) AttachmentStateChange {
+func NewAttachmentStateChangeEvent(eniAttachment *ni.ENIAttachment) AttachmentStateChange {
 	return AttachmentStateChange{
 		Attachment: eniAttachment,
 	}

@@ -36,7 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
@@ -86,7 +86,7 @@ func TestWatcherInit(t *testing.T) {
 	assert.NoError(t, err)
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	taskEngineState.AddENIAttachment(&apieni.ENIAttachment{
+	taskEngineState.AddENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachStatusSent: false,
 			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
@@ -248,8 +248,8 @@ func TestReconcileENIsWithRetry(t *testing.T) {
 	}
 }
 
-func getMockAttachment() *apieni.ENIAttachment {
-	return &apieni.ENIAttachment{
+func getMockAttachment() *ni.ENIAttachment {
+	return &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachStatusSent: false,
 			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
@@ -370,7 +370,7 @@ func TestUdevAddEvent(t *testing.T) {
 					Name:         randomDevice,
 				},
 			}, nil),
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
 			},

@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -61,12 +60,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -118,16 +118,16 @@ var (
 	defaultConfig config.Config
 	nsResult      = mockSetupNSResult()
 
-	mockENI = &apieni.ENI{
+	mockENI = &ni.NetworkInterface{
 		ID: "eni-id",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,
 			},
 		},
 		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
+		IPV6Addresses: []*ni.IPV6Address{
 			{
 				Address: ipv6,
 			},
@@ -2423,7 +2423,7 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 	state := dockerTaskEngine.State()
 	testTask := testdata.LoadTask("sleep5")
 	expiresAt := time.Now().Unix() + 1
-	attachment := &apieni.ENIAttachment{
+	attachment := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       "TaskARN",
 			AttachmentARN: "AttachmentARN",
@@ -2459,7 +2459,7 @@ func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).dataClient = dataClient
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
-	attachment := &apieni.ENIAttachment{
+	attachment := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          "TaskARN",
 			AttachmentARN:    testAttachmentArn,
@@ -2837,9 +2837,9 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			Version:     taskVersion,
 			Family:      taskFamily,
 			NetworkMode: networkMode,
-			ENIs: []*apieni.ENI{
+			ENIs: []*ni.NetworkInterface{
 				{
-					IPV4Addresses: []*apieni.ENIIPV4Address{
+					IPV4Addresses: []*ni.IPV4Address{
 						{
 							Address: eniIPv4Address,
 						},

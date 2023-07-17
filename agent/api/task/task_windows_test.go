@@ -32,7 +32,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -571,12 +571,12 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 func TestBuildCNIConfig(t *testing.T) {
 	testTask := &Task{}
 	testTask.NetworkMode = AWSVPCNetworkMode
-	testTask.AddTaskENI(&apieni.ENI{
+	testTask.AddTaskENI(&ni.NetworkInterface{
 		ID:                           "TestBuildCNIConfig",
 		MacAddress:                   mac,
-		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
+		InterfaceAssociationProtocol: ni.DefaultInterfaceAssociationProtocol,
 		SubnetGatewayIPV4Address:     "10.0.1.0/24",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,

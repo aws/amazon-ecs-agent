@@ -51,13 +51,13 @@ var (
 	testENI = &ENI{
 		ID:                           "eni-123",
 		InterfaceAssociationProtocol: DefaultInterfaceAssociationProtocol,
-		IPV4Addresses: []*ENIIPV4Address{
+		IPV4Addresses: []*IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4Addr,
 			},
 		},
-		IPV6Addresses: []*ENIIPV6Address{
+		IPV6Addresses: []*IPV6Address{
 			{
 				Address: ipv6Addr,
 			},

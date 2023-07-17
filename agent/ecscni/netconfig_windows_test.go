@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,14 +36,14 @@ const (
 	invalidMACAddress       = "12:34;56-78"
 )
 
-func getTaskENI() *apieni.ENI {
-	return &apieni.ENI{
+func getTaskENI() *ni.NetworkInterface {
+	return &ni.NetworkInterface{
 		ID:                           "TestENI",
 		LinkName:                     linkName,
 		MacAddress:                   mac,
-		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
+		InterfaceAssociationProtocol: ni.DefaultInterfaceAssociationProtocol,
 		SubnetGatewayIPV4Address:     validVPCGatewayCIDR,
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,

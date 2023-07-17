@@ -31,7 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -724,7 +724,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 
 func TestTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENIs                  []*apieni.ENI
+		ENIs                  []*ni.NetworkInterface
 		NetworkMode           string
 		ServiceConnectEnabled bool
 		StatsEmpty            bool
@@ -737,7 +737,7 @@ func TestTaskNetworkStatsSet(t *testing.T) {
 	}
 }
 
-func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, serviceConnectEnabled, emptyStats bool) {
+func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterface, serviceConnectEnabled, emptyStats bool) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)

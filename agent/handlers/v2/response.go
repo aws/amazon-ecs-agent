@@ -21,7 +21,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -154,7 +154,7 @@ func NewContainerResponseFromState(
 // TODO: remove includeV4Metadata from NewContainerResponse
 func NewContainerResponse(
 	dockerContainer *apicontainer.DockerContainer,
-	eni *apieni.ENI,
+	eni *ni.NetworkInterface,
 	includeV4Metadata bool,
 ) tmdsv2.ContainerResponse {
 	container := dockerContainer.Container

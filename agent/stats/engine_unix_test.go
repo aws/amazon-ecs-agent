@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -35,11 +35,11 @@ import (
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENIs        []*apieni.ENI
+		ENIs        []*ni.NetworkInterface
 		NetworkMode string
 		StatsEmpty  bool
 	}{
-		{[]*apieni.ENI{{ID: "ec2Id"}}, "awsvpc", true},
+		{[]*ni.NetworkInterface{{ID: "ec2Id"}}, "awsvpc", true},
 		{nil, "host", true},
 		{nil, "bridge", false},
 		{nil, "none", true},
@@ -71,7 +71,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 	t1 := &apitask.Task{
 		Arn:               "t1",
 		Family:            "f1",
-		ENIs:              []*apieni.ENI{{ID: "ec2Id"}},
+		ENIs:              []*ni.NetworkInterface{{ID: "ec2Id"}},
 		NetworkMode:       apitask.AWSVPCNetworkMode,
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{

@@ -21,9 +21,8 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/cihub/seelog"
 )
 
@@ -36,7 +35,7 @@ type TaskEngineState interface {
 	// Currently, ServiceConnect AppNet Relay task is the only internal task.
 	AllExternalTasks() []*apitask.Task
 	// AllENIAttachments returns all of the eni attachments
-	AllENIAttachments() []*apieni.ENIAttachment
+	AllENIAttachments() []*ni.ENIAttachment
 	// AllImageStates returns all of the image.ImageStates
 	AllImageStates() []*image.ImageState
 	// GetAllContainerIDs returns all of the Container Ids
@@ -62,11 +61,11 @@ type TaskEngineState interface {
 	// AddImageState adds an image.ImageState to be stored
 	AddImageState(imageState *image.ImageState)
 	// AddENIAttachment adds an eni attachment from acs to be stored
-	AddENIAttachment(eni *apieni.ENIAttachment)
+	AddENIAttachment(eni *ni.ENIAttachment)
 	// RemoveENIAttachment removes an eni attachment to stop tracking
 	RemoveENIAttachment(mac string)
 	// ENIByMac returns the specific ENIAttachment of the given mac address
-	ENIByMac(mac string) (*apieni.ENIAttachment, bool)
+	ENIByMac(mac string) (*ni.ENIAttachment, bool)
 	// RemoveTask removes a task from the state
 	RemoveTask(task *apitask.Task)
 	// Reset resets all the fileds in the state
@@ -119,8 +118,8 @@ type DockerTaskEngineState struct {
 	taskToID               map[string]map[string]*apicontainer.DockerContainer // taskarn -> (containername -> c.DockerContainer)
 	taskToPulledContainer  map[string]map[string]*apicontainer.DockerContainer // taskarn -> (containername -> c.DockerContainer)
 	idToContainer          map[string]*apicontainer.DockerContainer            // DockerId -> c.DockerContainer
-	eniAttachments         map[string]*apieni.ENIAttachment                    // ENIMac -> apieni.ENIAttachment
 	ebsAttachments         map[string]*apiresource.ResourceAttachment          // VolumeID -> apiresource.ResourceAttachment
+	eniAttachments         map[string]*ni.ENIAttachment                        // ENIMac -> ni.ENIAttachment
 	imageStates            map[string]*image.ImageState
 	ipToTask               map[string]string // ip address -> task arn
 	v3EndpointIDToTask     map[string]string // container's v3 endpoint id -> taskarn
@@ -148,8 +147,8 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.taskToPulledContainer = make(map[string]map[string]*apicontainer.DockerContainer)
 	state.idToContainer = make(map[string]*apicontainer.DockerContainer)
 	state.imageStates = make(map[string]*image.ImageState)
-	state.eniAttachments = make(map[string]*apieni.ENIAttachment)
 	state.ebsAttachments = make(map[string]*apiresource.ResourceAttachment)
+	state.eniAttachments = make(map[string]*ni.ENIAttachment)
 	state.ipToTask = make(map[string]string)
 	state.v3EndpointIDToTask = make(map[string]string)
 	state.v3EndpointIDToDockerID = make(map[string]string)
@@ -214,15 +213,15 @@ func (state *DockerTaskEngineState) allImageStatesUnsafe() []*image.ImageState {
 }
 
 // AllENIAttachments returns all the enis managed by ecs on the instance
-func (state *DockerTaskEngineState) AllENIAttachments() []*apieni.ENIAttachment {
+func (state *DockerTaskEngineState) AllENIAttachments() []*ni.ENIAttachment {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
 	return state.allENIAttachmentsUnsafe()
 }
 
-func (state *DockerTaskEngineState) allENIAttachmentsUnsafe() []*apieni.ENIAttachment {
-	var allENIAttachments []*apieni.ENIAttachment
+func (state *DockerTaskEngineState) allENIAttachmentsUnsafe() []*ni.ENIAttachment {
+	var allENIAttachments []*ni.ENIAttachment
 	for _, v := range state.eniAttachments {
 		allENIAttachments = append(allENIAttachments, v)
 	}
@@ -230,8 +229,8 @@ func (state *DockerTaskEngineState) allENIAttachmentsUnsafe() []*apieni.ENIAttac
 	return allENIAttachments
 }
 
-// ENIByMac returns the eni object that match the given mac address
-func (state *DockerTaskEngineState) ENIByMac(mac string) (*apieni.ENIAttachment, bool) {
+// ENIByMac returns the eni object that match the give mac address
+func (state *DockerTaskEngineState) ENIByMac(mac string) (*ni.ENIAttachment, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
@@ -240,7 +239,7 @@ func (state *DockerTaskEngineState) ENIByMac(mac string) (*apieni.ENIAttachment,
 }
 
 // AddENIAttachment adds the eni into the state
-func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *apieni.ENIAttachment) {
+func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *ni.ENIAttachment) {
 	if eniAttachment == nil {
 		seelog.Debug("Cannot add empty eni attachment information")
 		return

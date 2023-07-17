@@ -19,14 +19,14 @@ import (
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 // NamespaceHelper defines the methods for performing additional actions to setup/clean the task namespace.
 // Task namespace in awsvpc network mode is configured using pause container which is the first container
 // launched for the task. These commands are executed inside that container.
 type NamespaceHelper interface {
-	ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *cniTypesCurrent.Result) error
+	ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *ni.NetworkInterface, config *Config, result *cniTypesCurrent.Result) error
 }
 
 // helper is the client for executing methods of NamespaceHelper interface.

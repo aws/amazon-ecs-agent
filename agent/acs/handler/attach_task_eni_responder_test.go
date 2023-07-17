@@ -32,7 +32,7 @@ import (
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
@@ -112,7 +112,7 @@ func TestTaskENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		// the task engine state.
 		mockState.EXPECT().
 			ENIByMac(testconst.RandomMAC).
-			Return(&apieni.ENIAttachment{
+			Return(&ni.ENIAttachment{
 				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					ExpiresAt: expiresAt,
 				},
