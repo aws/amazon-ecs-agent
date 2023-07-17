@@ -14,6 +14,8 @@
 package v1
 
 import (
+	"time"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -31,12 +33,13 @@ type MetadataResponse struct {
 
 // TaskResponse is the schema for the task response JSON object
 type TaskResponse struct {
-	Arn           string              `json:"Arn"`
-	DesiredStatus string              `json:"DesiredStatus,omitempty"`
-	KnownStatus   string              `json:"KnownStatus"`
-	Family        string              `json:"Family"`
-	Version       string              `json:"Version"`
-	Containers    []ContainerResponse `json:"Containers"`
+	Arn           string                  `json:"Arn"`
+	DesiredStatus string                  `json:"DesiredStatus,omitempty"`
+	KnownStatus   string                  `json:"KnownStatus"`
+	Family        string                  `json:"Family"`
+	Version       string                  `json:"Version"`
+	Containers    []ContainerResponse     `json:"Containers"`
+	Attributes    []apitask.TaskAttribute `json:"Attributes,omitempty"`
 }
 
 // TasksResponse is the schema for the tasks response JSON object
@@ -49,6 +52,10 @@ type ContainerResponse struct {
 	DockerID   string                        `json:"DockerId"`
 	DockerName string                        `json:"DockerName"`
 	Name       string                        `json:"Name"`
+	Image      string                        `json:"Image"`
+	ImageID    string                        `json:"ImageID"`
+	CreatedAt  *time.Time                    `json:"CreatedAt,omitempty"`
+	StartedAt  *time.Time                    `json:"StartedAt,omitempty"`
 	Ports      []tmdsresponse.PortResponse   `json:"Ports,omitempty"`
 	Networks   []tmdsresponse.Network        `json:"Networks,omitempty"`
 	Volumes    []tmdsresponse.VolumeResponse `json:"Volumes,omitempty"`
@@ -81,6 +88,7 @@ func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.D
 		Family:        task.Family,
 		Version:       task.Version,
 		Containers:    containers,
+		Attributes:    task.Attributes,
 	}
 }
 
@@ -89,6 +97,8 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 	container := dockerContainer.Container
 	resp := ContainerResponse{
 		Name:       container.Name,
+		Image:      container.Image,
+		ImageID:    container.ImageID,
 		DockerID:   dockerContainer.DockerID,
 		DockerName: dockerContainer.DockerName,
 	}
@@ -104,6 +114,14 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 				IPv6Addresses: eni.GetIPV6Addresses(),
 			},
 		}
+	}
+	if createdAt := container.GetCreatedAt(); !createdAt.IsZero() {
+		createdAt = createdAt.UTC()
+		resp.CreatedAt = &createdAt
+	}
+	if startedAt := container.GetStartedAt(); !startedAt.IsZero() {
+		startedAt = startedAt.UTC()
+		resp.StartedAt = &startedAt
 	}
 	return resp
 }

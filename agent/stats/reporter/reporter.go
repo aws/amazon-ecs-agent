@@ -73,8 +73,7 @@ func NewDockerTelemetrySession(
 		return nil, cfgParseErr
 	}
 	if ok {
-		logger.Warn("Metrics were disabled, not starting the telemetry session")
-		return nil, nil
+		logger.Warn("Both metrics and health were disabled, but still starting the telemetry session for service connect metrics")
 	}
 
 	agentVersion, agentHash, containerRuntimeVersion := generateVersionInfo(taskEngine)
