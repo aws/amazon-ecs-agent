@@ -22,4 +22,8 @@ const (
 	GetTaskProtectionMetricName    = metadataServerMetricNamespace + ".GetTaskProtection"
 	UpdateTaskProtectionMetricName = metadataServerMetricNamespace + ".UpdateTaskProtection"
 	AuthConfigMetricName           = metadataServerMetricNamespace + ".AuthConfig"
+
+	// AttachResourceResponder
+	attachResourceResponderNamespace = "ResourceAttachment"
+	ResourceValidationMetricName     = attachResourceResponderNamespace + ".Validation"
 )
