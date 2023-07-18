@@ -19,8 +19,6 @@ package wsclient
 import (
 	"context"
 	"errors"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"net"
 	"net/url"
@@ -29,6 +27,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
