@@ -42,12 +42,9 @@ type Entry interface {
 	// for reporting numerical values related to any operation, for instance the data transfer
 	// rate for an image pull operation.
 	WithGauge(value interface{}) Entry
-	// Done makes a metric operation as complete. It records the end time of the operation
-	// and returns a function pointer that can be used to flush the metrics to a
-	// persistent store. Callers can optionally defer the function pointer. Example:
-	//
-	// defer lookupMetric.Done(nil) ()
-	Done(err error) func()
+	// Done makes a metric operation as complete. It records the end time of the operation and
+	// flushes the metric to a persistent store.
+	Done(err error)
 }
 
 // nopEntryFactory implements the EntryFactory interface with no-ops.
@@ -73,4 +70,4 @@ func newNopEntry(op string) Entry {
 func (e *nopEntry) WithFields(f map[string]interface{}) Entry { return e }
 func (e *nopEntry) WithCount(count int) Entry                 { return e }
 func (e *nopEntry) WithGauge(value interface{}) Entry         { return e }
-func (e *nopEntry) Done(err error) func()                     { return func() {} }
+func (e *nopEntry) Done(err error)                            {}

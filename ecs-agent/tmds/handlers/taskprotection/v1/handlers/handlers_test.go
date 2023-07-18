@@ -65,7 +65,6 @@ type TestCase struct {
 	setMetricsExpectations      func(ctrl *gomock.Controller, metricsFactory *mock_metrics.MockEntryFactory)
 	expectedStatusCode          int
 	expectedResponseBody        types.TaskProtectionResponse
-	postAssertions              func(t *testing.T) // Any extra assertions for the test case
 }
 
 func testTaskProtectionRequest(t *testing.T, tc TestCase) {
@@ -127,11 +126,6 @@ func testTaskProtectionRequest(t *testing.T, tc TestCase) {
 	// Assert status code and body
 	assert.Equal(t, tc.expectedStatusCode, recorder.Code)
 	assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
-
-	// Run any post assertions
-	if tc.postAssertions != nil {
-		tc.postAssertions(t)
-	}
 }
 
 func TestGetTaskProtection(t *testing.T) {
@@ -173,7 +167,6 @@ func TestGetTaskProtection(t *testing.T) {
 	t.Run("request failure", func(t *testing.T) {
 		ecsRequestID := "reqID"
 		ecsErrMessage := "ecs error"
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
@@ -183,7 +176,7 @@ func TestGetTaskProtection(t *testing.T) {
 					http.StatusBadRequest,
 					ecsRequestID,
 				)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
@@ -193,17 +186,15 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("agent timeout", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
 				awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -212,18 +203,16 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("non-request-failure aws error", func(t *testing.T) {
 		ecsErrMessage := "ecs error"
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
 				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -232,28 +221,24 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("non-aws error", func(t *testing.T) {
 		err := errors.New("some error")
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations:      factoryExpectations(happyECSInput, nil, err),
-			setMetricsExpectations:      metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations:      metricsExpectations(metricName, 0),
 			expectedStatusCode:          http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn: taskARN, Code: ecs.ErrCodeServerException, Message: err.Error(),
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("ecs failure", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		ecsFailure := makeECSFailure("ecs failure")
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
@@ -261,23 +246,21 @@ func TestGetTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
 				Failures: []*ecs.Failure{ecsFailure},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Failure: ecsFailure,
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("more than one ecs failure", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
 				Failures: []*ecs.Failure{makeECSFailure("1"), makeECSFailure("2")},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -286,11 +269,9 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: "Unexpected error occurred",
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		protectedTask := ecsProtectedTask()
 		testTaskProtectionRequest(t, TestCase{
 			setAgentStateExpectations:   happyStateExpectations,
@@ -298,10 +279,9 @@ func TestGetTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
 				ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 1, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 1),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody:   types.TaskProtectionResponse{Protection: &protectedTask},
-			postAssertions:         func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 }
@@ -401,7 +381,6 @@ func TestUpdateTaskProtection(t *testing.T) {
 	t.Run("request failure", func(t *testing.T) {
 		ecsRequestID := "reqID"
 		ecsErrMessage := "ecs error"
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
@@ -412,7 +391,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					http.StatusBadRequest,
 					ecsRequestID,
 				)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
@@ -422,18 +401,16 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("agent timeout", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
 				awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -442,19 +419,17 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("non-request-failure aws error", func(t *testing.T) {
 		ecsErrMessage := "ecs error"
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
 				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -463,30 +438,26 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("non-aws error", func(t *testing.T) {
 		err := errors.New("some error")
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations:      factoryExpectations(happyECSInput, nil, err),
-			setMetricsExpectations:      metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations:      metricsExpectations(metricName, 0),
 			expectedStatusCode:          http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn: taskARN, Code: ecs.ErrCodeServerException, Message: err.Error(),
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("ecs failure", func(t *testing.T) {
 		ecsFailure := makeECSFailure("ecs failure")
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
@@ -494,16 +465,14 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
 				Failures: []*ecs.Failure{ecsFailure},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Failure: ecsFailure,
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("more than one ecs failure", func(t *testing.T) {
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
@@ -511,7 +480,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
 				Failures: []*ecs.Failure{makeECSFailure("1"), makeECSFailure("2")},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
@@ -520,12 +489,10 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: "Unexpected error occurred",
 				},
 			},
-			postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
 		protectedTask := ecsProtectedTask()
-		metricsPublishCount := 0 // tracks the number of times metrics were published
 		testTaskProtectionRequest(t, TestCase{
 			requestBody:                 happyRequestBody,
 			setAgentStateExpectations:   happyStateExpectations,
@@ -533,10 +500,9 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
 				ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 1, &metricsPublishCount),
+			setMetricsExpectations: metricsExpectations(metricName, 1),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody:   types.TaskProtectionResponse{Protection: &protectedTask},
-			postAssertions:         func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 		})
 	})
 }
@@ -562,16 +528,13 @@ func ecsProtectedTask() ecs.ProtectedTask {
 func metricsExpectations(
 	name string,
 	count int,
-	doneCallCountPtr *int, // incremented when 'Done()' function is called for publishing metrics
 ) func(*gomock.Controller, *mock_metrics.MockEntryFactory) {
 	return func(ctrl *gomock.Controller, metricsFactory *mock_metrics.MockEntryFactory) {
 		entry := mock_metrics.NewMockEntry(ctrl)
 		gomock.InOrder(
 			metricsFactory.EXPECT().New(name).Return(entry),
 			entry.EXPECT().WithCount(count).Return(entry),
-			entry.EXPECT().Done(nil).Return(func() {
-				*doneCallCountPtr++ // increment done call count
-			}),
+			entry.EXPECT().Done(nil),
 		)
 	}
 }
@@ -585,12 +548,11 @@ func happyCredsManagerExpectations(credsManager *mock_credentials.MockManager) {
 
 // Returns a test case for Task Metadata fetch failure case.
 func taskMetadataFetchErrorCase(err error, metricName string, reqBody interface{}) TestCase {
-	metricsPublishCount := 0 // tracks the number of times metrics were published
 	return TestCase{
 		setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
 			agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, err)
 		},
-		setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+		setMetricsExpectations: metricsExpectations(metricName, 0),
 		requestBody:            reqBody,
 		expectedStatusCode:     http.StatusInternalServerError,
 		expectedResponseBody: types.TaskProtectionResponse{
@@ -599,7 +561,6 @@ func taskMetadataFetchErrorCase(err error, metricName string, reqBody interface{
 				Message: "Failed to find a task for the request",
 			},
 		},
-		postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 	}
 }
 
@@ -627,14 +588,13 @@ func taskMetadataLookupFailureCase(metricName string, reqBody interface{}) TestC
 
 // Creates a test case for Task Role credentials not found case.
 func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}) TestCase {
-	metricsPublishCount := 0 // tracks the number of times metrics were published
 	return TestCase{
 		setAgentStateExpectations: happyStateExpectations,
 		setCredsManagerExpectations: func(credsManager *mock_credentials.MockManager) {
 			credsManager.EXPECT().GetTaskCredentials(taskRoleCredsID).
 				Return(credentials.TaskIAMRoleCredentials{}, false)
 		},
-		setMetricsExpectations: metricsExpectations(metricName, 0, &metricsPublishCount),
+		setMetricsExpectations: metricsExpectations(metricName, 0),
 		requestBody:            reqBody,
 		expectedStatusCode:     http.StatusForbidden,
 		expectedResponseBody: types.TaskProtectionResponse{
@@ -644,7 +604,6 @@ func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}) TestCase 
 				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
 		},
-		postAssertions: func(t *testing.T) { assert.Equal(t, 1, metricsPublishCount) },
 	}
 }
 
