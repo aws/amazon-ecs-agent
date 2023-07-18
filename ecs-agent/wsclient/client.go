@@ -607,7 +607,7 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
 
 	timer := time.AfterFunc(maxConnectionDuration, func() {
 		err := cs.CloseClient(startTime, maxConnectionDuration)
-		cs.MetricsFactory.New(metricName).Done(err)()
+		cs.MetricsFactory.New(metricName).Done(err)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
 		}
