@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	handlersutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
@@ -87,12 +86,12 @@ func CredentialsHandlerImpl(
 			return
 		}
 		writeCredentialsRequestResponse(w, r, errorMessage.HTTPErrorCode,
-			audit.GetCredentialsEventTypeFromRoleType(roleType), arn, auditLogger, errResponseJSON)
+			auditinterface.GetCredentialsEventTypeFromRoleType(roleType), arn, auditLogger, errResponseJSON)
 		return
 	}
 
 	writeCredentialsRequestResponse(w, r, http.StatusOK,
-		audit.GetCredentialsEventTypeFromRoleType(roleType), arn, auditLogger, responseJSON)
+		auditinterface.GetCredentialsEventTypeFromRoleType(roleType), arn, auditLogger, responseJSON)
 }
 
 // processCredentialsRequest returns the response json containing credentials for the
