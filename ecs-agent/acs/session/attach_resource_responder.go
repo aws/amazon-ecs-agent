@@ -69,7 +69,7 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 
 	// Validate fields in the message.
 	attachmentProperties, err := validateAttachResourceMessage(message)
-	r.metricsFactory.New(metrics.ResourceValidationMetricName).Done(err)()
+	r.metricsFactory.New(metrics.ResourceValidationMetricName).Done(err)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error validating %s received from ECS", AttachResourceMessageName), logger.Fields{
 			field.Error: err,
