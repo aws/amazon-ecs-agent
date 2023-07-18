@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package utils
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
