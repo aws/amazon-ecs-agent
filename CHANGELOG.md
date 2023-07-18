@@ -1,4 +1,21 @@
 # Changelog
+## 1.74.0
+* Enhancement - Update go version to 1.19.10 [#3799](https://github.com/aws/amazon-ecs-agent/pull/3799)
+* Enhancement - Add EBS volume stats implementation in the csi driver daemon and add one makefile rule to build the tar file [#3774](https://github.com/aws/amazon-ecs-agent/pull/3774)
+* Enhancement - Add daemon manager package with initial daemon task creation methods [#3789](https://github.com/aws/amazon-ecs-agent/pull/3789)
+* Enhancement - Enable FSx capability by default for Windows [#3780](https://github.com/aws/amazon-ecs-agent/pull/3780)
+* Enhancement - Update error prefix of v4 container stats endpoint for task lookup failure case [#3794](https://github.com/aws/amazon-ecs-agent/pull/3794)
+* Enhancement - Update Agent to be more resilient in case of unauthenticated timeouts with IMDS [#3795](https://github.com/aws/amazon-ecs-agent/pull/3795)
+* Bug - Always report service connect metrics when both health and task metrics are disabled [#3786](https://github.com/aws/amazon-ecs-agent/pull/3786)
+* Bug - Allow variables to be set to empty string in envFiles [#3797](https://github.com/aws/amazon-ecs-agent/pull/3797)
+* Code Quality Improvement - Move task protection handler to ecs-agent module [#3779](https://github.com/aws/amazon-ecs-agent/pull/3779)
+* Code Quality Improvement - Move TMDS v4 container stats types to ecs-agent module [#3785](https://github.com/aws/amazon-ecs-agent/pull/3785)
+* Code Quality Improvement - Move v4 TMDS container and task stats endpoint handlers to ecs-agent module [#3791](https://github.com/aws/amazon-ecs-agent/pull/3791)
+* Code Quality Improvement - Integrate with tcsHandler in ecs-agent module [#3743](https://github.com/aws/amazon-ecs-agent/pull/3743)
+* Code Quality Improvement - Update metrics interface to couple metric completion and publish [#3803](https://github.com/aws/amazon-ecs-agent/pull/3803)
+* Code Quality Improvement - Add ACS attach resource responder to ecs-agent [#3807](https://github.com/aws/amazon-ecs-agent/pull/3807) [#3810](https://github.com/aws/amazon-ecs-agent/pull/3810)
+* Code Quality Improvement - Add THIRD_PARTY.md attribution file to ecs-agent [#3808](https://github.com/aws/amazon-ecs-agent/pull/3808)
+
 ## 1.73.1
 * Fix - Revert task resource accounting to avoid tasks stuck in PENDING on oversubscribed instance. [#3781](https://github.com/aws/amazon-ecs-agent/pull/3781)
 * Code Quality Improvement - Improve test coverage of v2, v3, and v4 container stats endpoints [#3758](https://github.com/aws/amazon-ecs-agent/pull/3758)
