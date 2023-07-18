@@ -356,7 +356,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
-		2*time.Second,
+		5*time.Second,
 		100*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,

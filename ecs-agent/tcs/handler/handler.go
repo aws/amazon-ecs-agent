@@ -173,34 +173,22 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
 
-	err = client.Connect(metrics.TCSDisconnectTimeoutMetricName)
+	disconnectTimer, err := client.Connect(metrics.TCSDisconnectTimeoutMetricName,
+		wsclient.WSclientDisconnectTimeout,
+		wsclient.WSclientDisconnectJitterMax)
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,
 		})
 		return err
 	}
-	startTime := time.Now()
-	logger.Info("Connected to TCS endpoint", logger.Fields{
-		"TCSConnectTime":            startTime.Format(dateTimeFormat),
-		"ExpectedTCSDisconnectTime": startTime.Add(session.disconnectTimeout).Format(dateTimeFormat),
-	})
 
-	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
-	// call f as goroutine after timeout. The timeout is currently set to 30m+jitter(5m max) to match max duration
-	// of connection with TCS. This timer is meant to handle s.startTCSSession running in blocking mode
-	// beyond 30m+jitter as s.startTCSSession has 2 possible paths: returns with error or continue running
-	// in blocking mode.
-	// Happy path: it returns with error, then timer stops, goroutine to disconnect never starts.
-	// Edge case: it continues to run beyond the maximum duration of TCS connection. Timer starts goroutine
-	// from DisconnectTimeoutTimer to disconnect; guard against hanging connection to unhealthy TCS host.
-	disconnectTimer := session.newDisconnectTimeoutHandler(client, startTime)
 	defer disconnectTimer.Stop()
-
+	logger.Info("Connected to TCS endpoint")
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
-	startTime = time.Now()
+	startTime := time.Now()
 	heartBeatTimer := newHeartbeatTimeoutHandler(client, startTime, session.heartbeatTimeout, session.heartbeatJitterMax)
 	defer heartBeatTimer.Stop()
 

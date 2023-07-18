@@ -39,7 +39,7 @@ func (client *TestECSClient) DiscoverTelemetryEndpoint(url string) (string, erro
 // TODO replace with gomock
 // closeWS - send msg to this channel to close the ws connection from server side
 // serverChan - use this channel to send messages to server, which server would in turn write on ws connection
-// requestsChan - use this channel to receive msgs from server
+// requestsChan - use this channel to confirm msgs were received on server side
 // errChan - use this channel to receive errors. Server reads/writes message on ws connection and sends error if any on this channel.
 func GetMockServer(closeWS <-chan []byte) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string)

@@ -172,14 +172,21 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		}
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
+<<<<<<< HEAD
 
 	err = client.Connect(metrics.TCSDisconnectTimeoutMetricName)
+=======
+	disconnectTimer, err := client.Connect(metrics.TCSDisconnectTimeoutMetricName,
+		wsclient.WSclientDisconnectTimeout,
+		wsclient.WSclientDisconnectJitterMax)
+>>>>>>> 943757abc (Updated tests for wsclient, tcs, acs handlers)
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,
 		})
 		return err
 	}
+<<<<<<< HEAD
 	startTime := time.Now()
 	logger.Info("Connected to TCS endpoint", logger.Fields{
 		"TCSConnectTime":            startTime.Format(dateTimeFormat),
@@ -197,6 +204,10 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	disconnectTimer := session.newDisconnectTimeoutHandler(client, startTime)
 	defer disconnectTimer.Stop()
 
+=======
+	defer disconnectTimer.Stop()
+	logger.Info("Connected to TCS endpoint")
+>>>>>>> 943757abc (Updated tests for wsclient, tcs, acs handlers)
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.

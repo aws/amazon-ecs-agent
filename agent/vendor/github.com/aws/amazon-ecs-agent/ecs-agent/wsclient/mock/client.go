@@ -94,17 +94,18 @@ func (mr *MockClientServerMockRecorder) CloseClient(arg0, arg1 interface{}) *gom
 }
 
 // Connect mocks base method.
-func (m *MockClientServer) Connect(arg0 string) error {
+func (m *MockClientServer) Connect(arg0 string, arg1, arg2 time.Duration) (*time.Timer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "Connect", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*time.Timer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Connect indicates an expected call of Connect.
-func (mr *MockClientServerMockRecorder) Connect(arg0 interface{}) *gomock.Call {
+func (mr *MockClientServerMockRecorder) Connect(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClientServer)(nil).Connect), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClientServer)(nil).Connect), arg0, arg1, arg2)
 }
 
 // Disconnect mocks base method.

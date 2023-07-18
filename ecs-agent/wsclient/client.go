@@ -76,11 +76,11 @@ const (
 
 	// disconnectTimeout is the maximum time taken by the server side (TACS/ACS) to send a
 	// disconnect payload for the Agent.
-	disconnectTimeout = 30 * time.Minute
+	WSclientDisconnectTimeout = 30 * time.Minute
 
 	// disconnectJitterMax is the maximum jitter time chosen as reasonable initial value
 	// to prevent mass retries at the same time from multiple clients/tasks synchronizing.
-	disconnectJitterMax = 5 * time.Minute
+	WSclientDisconnectJitterMax = 5 * time.Minute
 
 	// dateTimeFormat is a string format to format time for better readability: YYYY-MM-DD hh:mm:ss
 	dateTimeFormat = "2006-01-02 15:04:05"
@@ -148,7 +148,7 @@ type ClientServer interface {
 	MakeRequest(input interface{}) error
 	WriteMessage(input []byte) error
 	WriteCloseMessage() error
-	Connect(disconnectMetricName string) error
+	Connect(disconnectMetricName string, disconnectTimeout time.Duration, disconnectJitterMax time.Duration) (*time.Timer, error)
 	IsConnected() bool
 	SetConnection(conn wsconn.WebsocketConn)
 	Disconnect(...interface{}) error
@@ -207,18 +207,21 @@ type MakeRequestHookFunc func([]byte) ([]byte, error)
 // Connect opens a connection to the backend and upgrades it to a websocket. Calls to
 // 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
-func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
+func (cs *ClientServerImpl) Connect(disconnectMetricName string,
+	disconnectTimeout time.Duration,
+	disconnectJitterMax time.Duration) (*time.Timer, error) {
+
 	logger.Info("Establishing a Websocket connection", logger.Fields{
 		"url": cs.URL,
 	})
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	wsScheme, err := websocketScheme(parsedURL.Scheme)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsedURL.Scheme = wsScheme
 
@@ -229,7 +232,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
 	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialProvider, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
@@ -276,17 +279,17 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
 			var readErr error
 			resp, readErr = io.ReadAll(httpResponse.Body)
 			if readErr != nil {
-				return fmt.Errorf("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
+				return nil, fmt.Errorf("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
 			}
 			// If there's a response, we can try to unmarshal it into one of the
 			// modeled error types
 			possibleError, _, decodeErr := DecodeData(resp, cs.TypeDecoder)
 			if decodeErr == nil {
-				return cs.NewError(possibleError)
+				return nil, cs.NewError(possibleError)
 			}
 		}
 		logger.Warn(fmt.Sprintf("Error creating a websocket client: %v", err))
-		return errors.Wrapf(err, "websocket client: unable to dial %s response: %s",
+		return nil, errors.Wrapf(err, "websocket client: unable to dial %s response: %s",
 			parsedURL.Host, string(resp))
 	}
 
@@ -297,17 +300,11 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string) error {
 	logger.Debug(fmt.Sprintf("Established a Websocket connection to %s", cs.URL))
 
 	startTime := time.Now()
-	logger.Info(("Websocket connection established."), logger.Fields{
-		"ConnectTime":            startTime.Format(dateTimeFormat),
-		"ExpectedDisconnectTime": startTime.Add(disconnectTimeout).Format(dateTimeFormat),
-	})
 	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
 	// call f as goroutine after timeout. The timeout is currently set to 30m+jitter(5m max) to match max duration
 	// of connection with server(ACS/TACS).
-	disconnectTimer := cs.newDisconnectTimeoutHandler(startTime, disconnectMetricName)
-	defer disconnectTimer.Stop()
-
-	return nil
+	disconnectTimer := cs.newDisconnectTimeoutHandler(startTime, disconnectMetricName, disconnectTimeout, disconnectJitterMax)
+	return disconnectTimer, nil
 }
 
 // IsReady gives a boolean response that informs the caller if the websocket
@@ -597,8 +594,17 @@ func permissibleCloseCode(err error) bool {
 
 // newDisconnectTimeoutHandler returns new timer object to disconnect from server connection start time, with goroutine
 // to disconnect from client.
-func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time, metricName string) *time.Timer {
+func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
+	metricName string,
+	disconnectTimeout time.Duration,
+	disconnectJitterMax time.Duration) *time.Timer {
+
 	maxConnectionDuration := retry.AddJitter(disconnectTimeout, disconnectJitterMax)
+	logger.Info(("Websocket connection established."), logger.Fields{
+		"ConnectTime":            startTime.Format(dateTimeFormat),
+		"ExpectedDisconnectTime": startTime.Add(disconnectTimeout).Format(dateTimeFormat),
+	})
+
 	timer := time.AfterFunc(maxConnectionDuration, func() {
 		err := cs.CloseClient(startTime, maxConnectionDuration)
 		cs.MetricsFactory.New(metricName).Done(err)()
@@ -617,6 +623,7 @@ func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration tim
 		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),
 	})
 	err := cs.Disconnect()
+	//err := cs.WriteCloseMessage()
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error disconnecting; client already closed. %s", err))
 	}
