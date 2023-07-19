@@ -267,7 +267,7 @@ func TestConnect(t *testing.T) {
 	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
-		err = cs.Connect(metrics.ACSDisconnectTimeoutMetricName)
+		err = cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.WSclientDisconnectTimeout, wsclient.WSclientDisconnectJitterMax)
 		if err == nil {
 			break
 		}
@@ -336,7 +336,7 @@ func TestConnectClientError(t *testing.T) {
 	defer testServer.Close()
 
 	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
-	err := cs.Connect(metrics.ACSDisconnectTimeoutMetricName)
+	err := cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.WSclientDisconnectTimeout, wsclient.WSclientDisconnectJitterMax)
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok, "Connect error expected to be a WSError type")
 	assert.EqualError(t, err, "InvalidClusterException: Invalid cluster")
