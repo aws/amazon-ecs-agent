@@ -18,7 +18,6 @@ package tcshandler
 
 import (
 	"errors"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"io"
 	"math/rand"
 	"net/url"
@@ -26,6 +25,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"context"
 
