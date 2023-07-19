@@ -172,64 +172,32 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		}
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
-<<<<<<< HEAD
 
-	err = client.Connect(metrics.TCSDisconnectTimeoutMetricName)
-=======
 	disconnectTimer, err := client.Connect(metrics.TCSDisconnectTimeoutMetricName,
-		wsclient.WSclientDisconnectTimeout,
-		wsclient.WSclientDisconnectJitterMax)
->>>>>>> 943757abc (Updated tests for wsclient, tcs, acs handlers)
+		session.disconnectTimeout,
+		session.disconnectJitterMax)
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,
 		})
 		return err
 	}
-<<<<<<< HEAD
-	startTime := time.Now()
-	logger.Info("Connected to TCS endpoint", logger.Fields{
-		"TCSConnectTime":            startTime.Format(dateTimeFormat),
-		"ExpectedTCSDisconnectTime": startTime.Add(session.disconnectTimeout).Format(dateTimeFormat),
-	})
 
-	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
-	// call f as goroutine after timeout. The timeout is currently set to 30m+jitter(5m max) to match max duration
-	// of connection with TCS. This timer is meant to handle s.startTCSSession running in blocking mode
-	// beyond 30m+jitter as s.startTCSSession has 2 possible paths: returns with error or continue running
-	// in blocking mode.
-	// Happy path: it returns with error, then timer stops, goroutine to disconnect never starts.
-	// Edge case: it continues to run beyond the maximum duration of TCS connection. Timer starts goroutine
-	// from DisconnectTimeoutTimer to disconnect; guard against hanging connection to unhealthy TCS host.
-	disconnectTimer := session.newDisconnectTimeoutHandler(client, startTime)
-	defer disconnectTimer.Stop()
-
-=======
 	defer disconnectTimer.Stop()
 	logger.Info("Connected to TCS endpoint")
->>>>>>> 943757abc (Updated tests for wsclient, tcs, acs handlers)
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a published metrics message
 	// is acked.
-<<<<<<< HEAD
-<<<<<<< HEAD
-	heartBeatTimer := session.newHeartbeatTimeoutHandler(client, startTime)
-=======
-=======
-
->>>>>>> fd92105f8 (Updated unit tests.)
 	startTime := time.Now()
 	heartBeatTimer := newHeartbeatTimeoutHandler(client, startTime, session.heartbeatTimeout, session.heartbeatJitterMax)
 	defer heartBeatTimer.Stop()
 
->>>>>>> b8eea3b32 (Move heartbeathandler back to acs,tcs)
 	client.AddRequestHandler(heartbeatHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishInstanceStatusHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.SetAnyRequestHandler(anyMessageHandler(client, wsRWTimeout))
 	return client.Serve(ctx)
-<<<<<<< HEAD
 }
 
 func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
@@ -285,8 +253,6 @@ func closeTCSClient(client wsclient.ClientServer, startTime time.Time, timeoutDu
 	}
 	logger.Info("Disconnected from tcs")
 	return err
-=======
->>>>>>> fd92105f8 (Updated unit tests.)
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.

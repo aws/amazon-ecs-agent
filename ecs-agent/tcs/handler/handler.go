@@ -174,8 +174,8 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	}
 
 	disconnectTimer, err := client.Connect(metrics.TCSDisconnectTimeoutMetricName,
-		wsclient.WSclientDisconnectTimeout,
-		wsclient.WSclientDisconnectJitterMax)
+		session.disconnectTimeout,
+		session.disconnectJitterMax)
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,

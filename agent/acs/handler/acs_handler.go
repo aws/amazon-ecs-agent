@@ -157,8 +157,8 @@ func NewSession(
 		sendCredentials:                 true,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
-		connectionTime:                  connectionTime,
-		connectionJitter:                connectionJitter,
+		connectionTime:                  wsclient.WSclientDisconnectTimeout,
+		connectionJitter:                wsclient.WSclientDisconnectJitterMax,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 }
@@ -286,8 +286,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	disconnectTimer, err := client.Connect(metrics.ACSDisconnectTimeoutMetricName,
-		wsclient.WSclientDisconnectTimeout,
-		wsclient.WSclientDisconnectJitterMax)
+		acsSession.connectionTime,
+		acsSession.connectionJitter)
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
