@@ -33,13 +33,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"

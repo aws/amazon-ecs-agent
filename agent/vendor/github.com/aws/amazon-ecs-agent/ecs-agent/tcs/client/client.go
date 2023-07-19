@@ -21,11 +21,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
