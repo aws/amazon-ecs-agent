@@ -18,8 +18,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -28,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
