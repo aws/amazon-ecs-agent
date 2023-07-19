@@ -229,6 +229,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       30 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -445,6 +446,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 		_heartbeatJitter:              10 * time.Millisecond,
 		connectionTime:                30 * time.Millisecond,
 		connectionJitter:              10 * time.Millisecond,
+		metricsFactory:                metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -511,6 +513,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 		connectionTime:                  30 * time.Millisecond,
 		connectionJitter:                10 * time.Millisecond,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+		metricsFactory:                  metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -587,6 +590,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 		connectionTime:                  30 * time.Millisecond,
 		connectionJitter:                10 * time.Millisecond,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+		metricsFactory:                  metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -649,6 +653,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       30 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -706,6 +711,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       30 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 
 	// The session error channel would have an event when the Start() method returns
@@ -760,6 +766,7 @@ func TestHandlerStopsWhenContextIsError(t *testing.T) {
 		clientFactory:        mockClientFactory,
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 
 	// The session error channel would have an event when the Start() method returns
@@ -813,6 +820,7 @@ func TestHandlerStopsWhenContextIsErrorReconnectDelay(t *testing.T) {
 		_heartbeatTimeout:               20 * time.Millisecond,
 		_heartbeatJitter:                10 * time.Millisecond,
 		_inactiveInstanceReconnectDelay: 1 * time.Hour,
+		metricsFactory:                  metrics.NewNopEntryFactory(),
 	}
 
 	// The session error channel would have an event when the Start() method returns
@@ -874,6 +882,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       30 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 	go func() {
 		acsSession.Start()
@@ -945,6 +954,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       30 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 	go acsSession.startACSSession(mockWsClient)
 
@@ -994,6 +1004,7 @@ func TestConnectionIsClosedAfterTimeIsUp(t *testing.T) {
 		_heartbeatJitter:     10 * time.Millisecond,
 		connectionTime:       20 * time.Millisecond,
 		connectionJitter:     10 * time.Millisecond,
+		metricsFactory:       metrics.NewNopEntryFactory(),
 	}
 
 	go func() {
@@ -1068,6 +1079,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			credentialsManager:       rolecredentials.NewManager(),
 			latestSeqNumTaskManifest: aws.Int64(12),
 			doctor:                   emptyDoctor,
+			metricsFactory:           metrics.NewNopEntryFactory(),
 		}
 		acsSession.Start()
 		ended <- true
