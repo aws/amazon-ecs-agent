@@ -2175,12 +2175,13 @@ func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
 	}
 }
 
-// TestTaskWaitForHostResources tests task queuing behavior based on available host resources
-func TestTaskWaitForHostResources(t *testing.T) {
+// TestTaskWaitForHostResourcesWithIdenticalRequests tests task queuing behavior based on available host resources
+// for tasks with identical resource requests
+func TestTaskWaitForHostResourcesWithIdenticalRequests(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	// 1 vCPU available on host
+	// 1 vCPU available on the host
 	hostResourceManager := NewHostResourceManager(getTestHostResources())
 	taskEngine := &DockerTaskEngine{
 		managedTasks:           make(map[string]*managedTask),
@@ -2188,8 +2189,8 @@ func TestTaskWaitForHostResources(t *testing.T) {
 		hostResourceManager:    &hostResourceManager,
 	}
 	go taskEngine.monitorQueuedTasks(ctx)
+
 	// 3 tasks requesting 0.5 vCPUs each
-	tasks := []*apitask.Task{}
 	for i := 0; i < 3; i++ {
 		task := testdata.LoadTask("sleep5")
 		task.Arn = fmt.Sprintf("arn%d", i)
@@ -2199,7 +2200,6 @@ func TestTaskWaitForHostResources(t *testing.T) {
 			engine:                    taskEngine,
 			consumedHostResourceEvent: make(chan struct{}, 1),
 		}
-		tasks = append(tasks, task)
 		taskEngine.managedTasks[task.Arn] = mtask
 	}
 
@@ -2211,19 +2211,94 @@ func TestTaskWaitForHostResources(t *testing.T) {
 	}()
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify waiting queue is waiting at arn2
-	topTask, err := taskEngine.topTask()
+	// Verify waiting queue has arn2 only
+	task, err := taskEngine.getTaskByIndex(0)
 	assert.NoError(t, err)
-	assert.Equal(t, topTask.Arn, "arn2")
+	assert.Equal(t, "arn2", task.Arn)
+	assert.Equal(t, 1, len(taskEngine.waitingTaskQueue))
 
-	// Remove 1 task
+	// Remove task arn0
 	taskResources := taskEngine.managedTasks["arn0"].ToHostResources()
-	taskEngine.hostResourceManager.release("arn0", taskResources)
+	err = taskEngine.hostResourceManager.release("arn0", taskResources)
+	assert.NoError(t, err)
 	taskEngine.wakeUpTaskQueueMonitor()
 
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify arn2 got dequeued
-	topTask, err = taskEngine.topTask()
+	// Verify arn2 got dequeued and the queue is empty
+	_, err = taskEngine.getTaskByIndex(0)
 	assert.Error(t, err)
+	assert.Empty(t, taskEngine.waitingTaskQueue)
+}
+
+// TestTaskWaitForHostResourcesWithDifferentRequests tests task queuing behavior based on available host resources
+// for tasks with different resource requests
+func TestTaskWaitForHostResourcesWithDifferentRequests(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// 1024 MiB memory available on the host
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	taskEngine := &DockerTaskEngine{
+		managedTasks:           make(map[string]*managedTask),
+		monitorQueuedTaskEvent: make(chan struct{}, 1),
+		hostResourceManager:    &hostResourceManager,
+	}
+	go taskEngine.monitorQueuedTasks(ctx)
+
+	// 3 tasks with different memory requirements
+	mem := []int64{512, 256, 1024}
+	for i := 0; i < 3; i++ {
+		task := testdata.LoadTask("sleep5")
+		task.Arn = fmt.Sprintf("arn%d", i)
+		task.Memory = mem[i]
+		task.CPU = float64(0)
+		mtask := &managedTask{
+			Task:                      task,
+			engine:                    taskEngine,
+			consumedHostResourceEvent: make(chan struct{}, 1),
+		}
+		taskEngine.managedTasks[task.Arn] = mtask
+	}
+
+	// acquire for host resources order arn0, arn1, arn2
+	go func() {
+		taskEngine.managedTasks["arn0"].waitForHostResources()
+		taskEngine.managedTasks["arn1"].waitForHostResources()
+		taskEngine.managedTasks["arn2"].waitForHostResources()
+	}()
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify waiting queue has arn2 only
+	task, err := taskEngine.getTaskByIndex(0)
+	assert.NoError(t, err)
+	assert.Equal(t, "arn2", task.Arn)
+	assert.Equal(t, 1, len(taskEngine.waitingTaskQueue))
+
+	// Remove task arn0
+	taskResources := taskEngine.managedTasks["arn0"].ToHostResources()
+	err = taskEngine.hostResourceManager.release("arn0", taskResources)
+	assert.NoError(t, err)
+	taskEngine.wakeUpTaskQueueMonitor()
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify waiting queue still has arn2 since enough resources were not freed up for it
+	task, err = taskEngine.getTaskByIndex(0)
+	assert.NoError(t, err)
+	assert.Equal(t, "arn2", task.Arn)
+	assert.Equal(t, 1, len(taskEngine.waitingTaskQueue))
+
+	// Remove task arn1
+	taskResources = taskEngine.managedTasks["arn1"].ToHostResources()
+	err = taskEngine.hostResourceManager.release("arn1", taskResources)
+	assert.NoError(t, err)
+	taskEngine.wakeUpTaskQueueMonitor()
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify arn2 got dequeued and the queue is empty
+	_, err = taskEngine.getTaskByIndex(0)
+	assert.Error(t, err)
+	assert.Empty(t, taskEngine.waitingTaskQueue)
 }

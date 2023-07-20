@@ -376,14 +376,14 @@ func getTestHostResources() map[string]*ecs.Resource {
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &CPUs,
 	}
-	//MEMORY
+	// MEMORY
 	memory := int64(1024)
 	hostResources["MEMORY"] = &ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &memory,
 	}
-	//PORTS
+	// PORTS
 	ports_tcp := []*string{}
 	hostResources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
@@ -391,14 +391,14 @@ func getTestHostResources() map[string]*ecs.Resource {
 		StringSetValue: ports_tcp,
 	}
 
-	//PORTS_UDP
+	// PORTS_UDP
 	ports_udp := []*string{}
 	hostResources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: ports_udp,
 	}
-	//GPUs
+	// GPUs
 	numGPUs := int64(3)
 	hostResources["GPU"] = &ecs.Resource{
 		Name:         utils.Strptr("GPU"),

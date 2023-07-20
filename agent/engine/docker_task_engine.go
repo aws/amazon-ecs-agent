@@ -260,7 +260,11 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 		if taskStatus.Terminal() {
 			err := engine.hostResourceManager.release(task.Arn, resources)
 			if err != nil {
-				logger.Critical("Failed to release resources during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+				logger.Critical("Failed to release resources during reconciliation",
+					logger.Fields{
+						field.TaskARN: task.Arn,
+						field.Error:   err,
+					})
 			}
 			continue
 		}
@@ -271,7 +275,11 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 		if !task.IsInternal && task.HasActiveContainers() {
 			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
 			if err != nil || !consumed {
-				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+				logger.Critical("Failed to consume resources for created/running tasks during reconciliation",
+					logger.Fields{
+						field.TaskARN: task.Arn,
+						field.Error:   err,
+					})
 			}
 		}
 	}
@@ -347,34 +355,38 @@ func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
 	}
 }
 
-func (engine *DockerTaskEngine) topTask() (*managedTask, error) {
+// getTaskByIndex returns the task from waitingTaskQueue at the given index
+func (engine *DockerTaskEngine) getTaskByIndex(index int) (*managedTask, error) {
 	engine.waitingTasksLock.Lock()
 	defer engine.waitingTasksLock.Unlock()
-	if len(engine.waitingTaskQueue) > 0 {
-		return engine.waitingTaskQueue[0], nil
+	waitingTaskQueueLength := len(engine.waitingTaskQueue)
+	// empty queue
+	if waitingTaskQueueLength == 0 {
+		return nil, fmt.Errorf("no tasks in the waiting queue")
 	}
-	return nil, fmt.Errorf("no tasks in waiting queue")
+	// invalid index
+	if index < 0 || index >= waitingTaskQueueLength {
+		return nil, fmt.Errorf("invalid index: %v", index)
+	}
+	return engine.waitingTaskQueue[index], nil
 }
 
 func (engine *DockerTaskEngine) enqueueTask(task *managedTask) {
 	engine.waitingTasksLock.Lock()
 	engine.waitingTaskQueue = append(engine.waitingTaskQueue, task)
 	engine.waitingTasksLock.Unlock()
-	logger.Debug("Enqueued task in Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
+	logger.Debug("Enqueued task in the waiting task queue", logger.Fields{field.TaskARN: task.Arn})
 	engine.wakeUpTaskQueueMonitor()
 }
 
-func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
+// dequeueTaskByIndex dequeues a task from the waitingTaskQueue at the given index
+func (engine *DockerTaskEngine) dequeueTaskByIndex(index int) *managedTask {
 	engine.waitingTasksLock.Lock()
 	defer engine.waitingTasksLock.Unlock()
-	if len(engine.waitingTaskQueue) > 0 {
-		task := engine.waitingTaskQueue[0]
-		engine.waitingTaskQueue = engine.waitingTaskQueue[1:]
-		logger.Debug("Dequeued task from Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
-		return task, nil
-	}
-
-	return nil, fmt.Errorf("no tasks in waiting queue")
+	task := engine.waitingTaskQueue[index]
+	engine.waitingTaskQueue = append(engine.waitingTaskQueue[:index], engine.waitingTaskQueue[index+1:]...)
+	logger.Debug("Dequeued task from the waiting task queue", logger.Fields{field.TaskARN: task.Arn})
+	return task
 }
 
 // monitorQueuedTasks starts as many tasks as possible based on FIFO order of waitingTaskQueue
@@ -391,15 +403,19 @@ func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-engine.monitorQueuedTaskEvent:
-			// Dequeue as many tasks as possible and start wake up their goroutines
+			// Dequeue as many tasks as possible and start waking up their goroutines
+			index := 0
 			for {
-				task, err := engine.topTask()
+				task, err := engine.getTaskByIndex(index)
 				if err != nil {
+					// either the queue is empty or we've traversed through all the tasks in the queue
 					break
 				}
-				dequeuedTask := engine.tryDequeueWaitingTasks(task)
+				dequeuedTask := engine.tryDequeueWaitingTasks(task, index)
 				if !dequeuedTask {
-					break
+					// if the task was not dequeued, increment index so that we can process the next task in the queue
+					// else, keep index as is since by de-queuing, the queue is shifted to the left by 1
+					index += 1
 				}
 			}
 			logger.Debug("No more tasks could be started at this moment, waiting")
@@ -407,49 +423,57 @@ func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
 	}
 }
 
-func (engine *DockerTaskEngine) tryDequeueWaitingTasks(task *managedTask) bool {
+// tryDequeueWaitingTasks tries to dequeue a task at the given index from the waitingTaskQueue
+// it returns true if it was able to dequeue, false otherwise
+func (engine *DockerTaskEngine) tryDequeueWaitingTasks(task *managedTask, index int) bool {
 	// Isolate monitorQueuedTasks processing from changes of desired status updates to prevent
 	// unexpected updates to host resource manager when tasks are being processed by monitorQueuedTasks
-	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks
-	// could be processing
+	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks could be processing
 	engine.monitorQueuedTasksLock.Lock()
 	defer engine.monitorQueuedTasksLock.Unlock()
 	taskDesiredStatus := task.GetDesiredStatus()
+	// dequeue terminal task
 	if taskDesiredStatus.Terminal() {
-		logger.Info("Task desired status changed to STOPPED while waiting for host resources, progressing without consuming resources", logger.Fields{field.TaskARN: task.Arn})
-		engine.returnWaitingTask()
+		logger.Info("Task desired status changed to STOPPED while waiting for host resources, "+
+			"progressing without consuming resources", logger.Fields{field.TaskARN: task.Arn})
+		engine.returnWaitingTask(index)
 		return true
 	}
 	taskHostResources := task.ToHostResources()
 	consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+	// the task has an invalid task resource map; dequeue it and set its desired status to terminal
 	if err != nil {
-		engine.failWaitingTask(err)
+		logger.Error("Error consuming resources due to invalid task resource map", logger.Fields{
+			field.TaskARN: task.Arn,
+			field.Error:   err,
+		})
+		engine.failWaitingTask(index)
 		return true
 	}
 	if consumed {
-		engine.startWaitingTask()
+		// the task consumed resources as needed; dequeue it
+		logger.Info("Host resources consumed, progressing task", logger.Fields{field.TaskARN: task.Arn})
+		engine.startWaitingTask(index)
 		return true
 	}
+	// the task could not consume resources; it stays in the waitingTaskQueue
 	return false
-	// not consumed, go to wait
 }
 
 // To be called when resources are not to be consumed by host resource manager, just dequeues and returns
-func (engine *DockerTaskEngine) returnWaitingTask() {
-	task, _ := engine.dequeueTask()
+func (engine *DockerTaskEngine) returnWaitingTask(index int) {
+	task := engine.dequeueTaskByIndex(index)
 	task.consumedHostResourceEvent <- struct{}{}
 }
 
-func (engine *DockerTaskEngine) failWaitingTask(err error) {
-	task, _ := engine.dequeueTask()
-	logger.Error(fmt.Sprintf("Error consuming resources due to invalid task config : %s", err.Error()), logger.Fields{field.TaskARN: task.Arn})
+func (engine *DockerTaskEngine) failWaitingTask(index int) {
+	task := engine.dequeueTaskByIndex(index)
 	task.SetDesiredStatus(apitaskstatus.TaskStopped)
 	task.consumedHostResourceEvent <- struct{}{}
 }
 
-func (engine *DockerTaskEngine) startWaitingTask() {
-	task, _ := engine.dequeueTask()
-	logger.Info("Host resources consumed, progressing task", logger.Fields{field.TaskARN: task.Arn})
+func (engine *DockerTaskEngine) startWaitingTask(index int) {
+	task := engine.dequeueTaskByIndex(index)
 	task.consumedHostResourceEvent <- struct{}{}
 }
 
