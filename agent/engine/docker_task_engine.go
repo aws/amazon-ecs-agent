@@ -46,7 +46,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -135,10 +134,12 @@ type DockerTaskEngine struct {
 	state        dockerstate.TaskEngineState
 	managedTasks map[string]*managedTask
 
-	taskStopGroup *utilsync.SequentialWaitGroup
+	// waitingTasksQueue is a FIFO queue of tasks waiting to acquire host resources
+	waitingTaskQueue []*managedTask
 
-	events            <-chan dockerapi.DockerContainerChangeEvent
-	stateChangeEvents chan statechange.Event
+	events                 <-chan dockerapi.DockerContainerChangeEvent
+	monitorQueuedTaskEvent chan struct{}
+	stateChangeEvents      chan statechange.Event
 
 	client       dockerapi.DockerClient
 	dataClient   data.Client
@@ -154,6 +155,13 @@ type DockerTaskEngine struct {
 	// all tasks, it must not acquire it for any significant duration
 	// The write mutex should be taken when adding and removing tasks from managedTasks.
 	tasksLock sync.RWMutex
+	// waitingTasksLock is a mutex for operations on waitingTasksQueue
+	waitingTasksLock sync.RWMutex
+
+	// monitorQueuedTasksLock is a mutex for operations in the monitorQueuedTasks which
+	// allocate host resources and wakes up waiting host resources. This should be used
+	// for synchronizing task desired status updates and queue operations
+	monitorQueuedTasksLock sync.RWMutex
 
 	credentialsManager                  credentials.Manager
 	_time                               ttime.Time
@@ -162,6 +170,7 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               serviceconnect.Manager
+	hostResourceManager                 *HostResourceManager
 	serviceconnectRelay                 *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
@@ -195,6 +204,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 	credentialsManager credentials.Manager,
 	containerChangeEventStream *eventstream.EventStream,
 	imageManager ImageManager,
+	hostResourceManager *HostResourceManager,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
@@ -205,15 +215,16 @@ func NewDockerTaskEngine(cfg *config.Config,
 		client:     client,
 		dataClient: data.NewNoopClient(),
 
-		state:             state,
-		managedTasks:      make(map[string]*managedTask),
-		taskStopGroup:     utilsync.NewSequentialWaitGroup(),
-		stateChangeEvents: make(chan statechange.Event),
+		state:                  state,
+		managedTasks:           make(map[string]*managedTask),
+		stateChangeEvents:      make(chan statechange.Event),
+		monitorQueuedTaskEvent: make(chan struct{}, 1),
 
 		credentialsManager: credentialsManager,
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
+		hostResourceManager:        hostResourceManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 		appnetClient:               appnet.Client(),
 
@@ -233,6 +244,37 @@ func NewDockerTaskEngine(cfg *config.Config,
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
 
 	return dockerTaskEngine
+}
+
+// Reconcile state of host resource manager with task status in managedTasks Slice
+// Done on agent restarts
+func (engine *DockerTaskEngine) reconcileHostResources() {
+	logger.Info("Reconciling host resources")
+	for _, task := range engine.state.AllTasks() {
+		taskStatus := task.GetKnownStatus()
+		resources := task.ToHostResources()
+
+		// Release stopped tasks host resources
+		// Call to release here for stopped tasks should always succeed
+		// Idempotent release call
+		if taskStatus.Terminal() {
+			err := engine.hostResourceManager.release(task.Arn, resources)
+			if err != nil {
+				logger.Critical("Failed to release resources during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+			}
+			continue
+		}
+
+		// Consume host resources if task has progressed (check if any container has progressed)
+		// Call to consume here should always succeed
+		// Idempotent consume call
+		if !task.IsInternal && task.HasActiveContainers() {
+			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
+			if err != nil || !consumed {
+				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+			}
+		}
+	}
 }
 
 func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
@@ -277,12 +319,138 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 		return err
 	}
 	engine.synchronizeState()
+	go engine.monitorQueuedTasks(derivedCtx)
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
 	go engine.startPeriodicExecAgentsMonitoring(derivedCtx)
 	go engine.watchAppNetImage(derivedCtx)
 	return nil
+}
+
+// Method to wake up 'monitorQueuedTasks' goroutine, called when
+// - a new task enqueues in waitingTaskQueue
+// - a task stops (overseeTask)
+// as these are the events when resources change/can change on the host
+// Always wakes up when at least one event arrives on buffered channel (size 1) 'monitorQueuedTaskEvent'
+// but does not block if monitorQueuedTasks is already processing queued tasks
+// Buffered channel of size 1 is sufficient because we only want to go through the queue
+// once at any point and schedule as many tasks as possible (as many resources are available)
+// Calls on 'wakeUpTaskQueueMonitor' when 'monitorQueuedTasks' is doing work are redundant
+// as new tasks are enqueued at the end and will be taken into account in the continued loop
+// if permitted by design
+func (engine *DockerTaskEngine) wakeUpTaskQueueMonitor() {
+	select {
+	case engine.monitorQueuedTaskEvent <- struct{}{}:
+	default:
+		// do nothing
+	}
+}
+
+func (engine *DockerTaskEngine) topTask() (*managedTask, error) {
+	engine.waitingTasksLock.Lock()
+	defer engine.waitingTasksLock.Unlock()
+	if len(engine.waitingTaskQueue) > 0 {
+		return engine.waitingTaskQueue[0], nil
+	}
+	return nil, fmt.Errorf("no tasks in waiting queue")
+}
+
+func (engine *DockerTaskEngine) enqueueTask(task *managedTask) {
+	engine.waitingTasksLock.Lock()
+	engine.waitingTaskQueue = append(engine.waitingTaskQueue, task)
+	engine.waitingTasksLock.Unlock()
+	logger.Debug("Enqueued task in Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
+	engine.wakeUpTaskQueueMonitor()
+}
+
+func (engine *DockerTaskEngine) dequeueTask() (*managedTask, error) {
+	engine.waitingTasksLock.Lock()
+	defer engine.waitingTasksLock.Unlock()
+	if len(engine.waitingTaskQueue) > 0 {
+		task := engine.waitingTaskQueue[0]
+		engine.waitingTaskQueue = engine.waitingTaskQueue[1:]
+		logger.Debug("Dequeued task from Waiting Task Queue", logger.Fields{field.TaskARN: task.Arn})
+		return task, nil
+	}
+
+	return nil, fmt.Errorf("no tasks in waiting queue")
+}
+
+// monitorQueuedTasks starts as many tasks as possible based on FIFO order of waitingTaskQueue
+// and availability of host resources. When no more tasks can be started, it will wait on
+// monitorQueuedTaskEvent channel. This channel receives (best effort) messages when
+// - a task stops
+// - a new task is queued up
+// It does not need to receive all messages, as if the routine is going through the queue, it
+// may schedule more than one task for a single 'event' received
+func (engine *DockerTaskEngine) monitorQueuedTasks(ctx context.Context) {
+	logger.Info("Monitoring Task Queue started")
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-engine.monitorQueuedTaskEvent:
+			// Dequeue as many tasks as possible and start wake up their goroutines
+			for {
+				task, err := engine.topTask()
+				if err != nil {
+					break
+				}
+				dequeuedTask := engine.tryDequeueWaitingTasks(task)
+				if !dequeuedTask {
+					break
+				}
+			}
+			logger.Debug("No more tasks could be started at this moment, waiting")
+		}
+	}
+}
+
+func (engine *DockerTaskEngine) tryDequeueWaitingTasks(task *managedTask) bool {
+	// Isolate monitorQueuedTasks processing from changes of desired status updates to prevent
+	// unexpected updates to host resource manager when tasks are being processed by monitorQueuedTasks
+	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks
+	// could be processing
+	engine.monitorQueuedTasksLock.Lock()
+	defer engine.monitorQueuedTasksLock.Unlock()
+	taskDesiredStatus := task.GetDesiredStatus()
+	if taskDesiredStatus.Terminal() {
+		logger.Info("Task desired status changed to STOPPED while waiting for host resources, progressing without consuming resources", logger.Fields{field.TaskARN: task.Arn})
+		engine.returnWaitingTask()
+		return true
+	}
+	taskHostResources := task.ToHostResources()
+	consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+	if err != nil {
+		engine.failWaitingTask(err)
+		return true
+	}
+	if consumed {
+		engine.startWaitingTask()
+		return true
+	}
+	return false
+	// not consumed, go to wait
+}
+
+// To be called when resources are not to be consumed by host resource manager, just dequeues and returns
+func (engine *DockerTaskEngine) returnWaitingTask() {
+	task, _ := engine.dequeueTask()
+	task.consumedHostResourceEvent <- struct{}{}
+}
+
+func (engine *DockerTaskEngine) failWaitingTask(err error) {
+	task, _ := engine.dequeueTask()
+	logger.Error(fmt.Sprintf("Error consuming resources due to invalid task config : %s", err.Error()), logger.Fields{field.TaskARN: task.Arn})
+	task.SetDesiredStatus(apitaskstatus.TaskStopped)
+	task.consumedHostResourceEvent <- struct{}{}
+}
+
+func (engine *DockerTaskEngine) startWaitingTask() {
+	task, _ := engine.dequeueTask()
+	logger.Info("Host resources consumed, progressing task", logger.Fields{field.TaskARN: task.Arn})
+	task.consumedHostResourceEvent <- struct{}{}
 }
 
 func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context) {
@@ -460,6 +628,14 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	}
 
 	tasks := engine.state.AllTasks()
+	// For normal task progress, overseeTask 'consume's resources through waitForHostResources in host_resource_manager before progressing
+	// For agent restarts (state restore), we pre-consume resources for tasks that had progressed beyond waitForHostResources stage -
+	// so these tasks do not wait during 'waitForHostResources' call again - do not go through queuing again
+	//
+	// Call reconcileHostResources before
+	// - filterTasksToStartUnsafe which will reconcile container statuses for the duration the agent was stopped
+	// - starting managedTask's overseeTask goroutines
+	engine.reconcileHostResources()
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
 		task.InitializeResources(engine.resourceFields)
@@ -490,11 +666,6 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 		}
 
 		tasksToStart = append(tasksToStart, task)
-
-		// Put tasks that are stopped by acs but hasn't been stopped in wait group
-		if task.GetDesiredStatus().Terminal() && task.GetStopSequenceNumber() != 0 {
-			engine.taskStopGroup.Add(task.GetStopSequenceNumber(), 1)
-		}
 	}
 
 	return tasksToStart
@@ -782,6 +953,15 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
+	if task.GetKnownStatus().Terminal() {
+		// Always do (idempotent) release host resources whenever state change with
+		// known status == STOPPED is done to ensure sync between tasks and host resource manager
+		resourcesToRelease := task.ToHostResources()
+		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease)
+		if err != nil {
+			logger.Critical("Failed to release resources after test stopped", logger.Fields{field.TaskARN: task.Arn})
+		}
+	}
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
@@ -2178,16 +2358,13 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *api
 	logger.Debug("Putting update on the acs channel", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.DesiredStatus: updateDesiredStatus.String(),
-		field.Sequence:      update.StopSequenceNumber,
 	})
 	managedTask.emitACSTransition(acsTransition{
 		desiredStatus: updateDesiredStatus,
-		seqnum:        update.StopSequenceNumber,
 	})
 	logger.Debug("Update taken off the acs channel", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.DesiredStatus: updateDesiredStatus.String(),
-		field.Sequence:      update.StopSequenceNumber,
 	})
 }
 

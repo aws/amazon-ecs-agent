@@ -36,7 +36,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
@@ -135,12 +134,12 @@ type managedTask struct {
 	credentialsManager credentials.Manager
 	cniClient          ecscni.CNIClient
 	dockerClient       dockerapi.DockerClient
-	taskStopWG         *utilsync.SequentialWaitGroup
 
 	acsMessages                chan acsTransition
 	dockerMessages             chan dockerContainerChange
 	resourceStateChangeEvent   chan resourceStateChange
 	stateChangeEvents          chan statechange.Event
+	consumedHostResourceEvent  chan struct{}
 	containerChangeEventStream *eventstream.EventStream
 
 	// unexpectedStart is a once that controls stopping a container that
@@ -177,6 +176,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		acsMessages:                   make(chan acsTransition),
 		dockerMessages:                make(chan dockerContainerChange),
 		resourceStateChangeEvent:      make(chan resourceStateChange),
+		consumedHostResourceEvent:     make(chan struct{}, 1),
 		engine:                        engine,
 		cfg:                           engine.cfg,
 		stateChangeEvents:             engine.stateChangeEvents,
@@ -184,7 +184,6 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		credentialsManager:            engine.credentialsManager,
 		cniClient:                     engine.cniClient,
 		dockerClient:                  engine.client,
-		taskStopWG:                    engine.taskStopGroup,
 		steadyStatePollInterval:       engine.taskSteadyStatePollInterval,
 		steadyStatePollIntervalJitter: engine.taskSteadyStatePollIntervalJitter,
 	}
@@ -200,11 +199,17 @@ func (mtask *managedTask) overseeTask() {
 	// `desiredstatus`es which are a construct of the engine used only here,
 	// not present on the backend
 	mtask.UpdateStatus()
+
+	// Wait here until enough resources are available on host for the task to progress
+	// - Waits until host resource manager succesfully 'consume's task resources and returns
+	// - For tasks which have crossed this stage before (on agent restarts), resources are pre-consumed - returns immediately
+	// - If the task is already stopped (knownStatus is STOPPED), does not attempt to consume resources - returns immediately
+	// - If an ACS StopTask arrives, host resources manager returns immediately. Host resource manager does not consume resources
+	// (resources are later 'release'd on Stopped task emitTaskEvent call)
+	mtask.waitForHostResources()
+
 	// If this was a 'state restore', send all unsent statuses
 	mtask.emitCurrentStatus()
-
-	// Wait for host resources required by this task to become available
-	mtask.waitForHostResources()
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
@@ -243,13 +248,8 @@ func (mtask *managedTask) overseeTask() {
 	mtask.engine.checkTearDownPauseContainer(mtask.Task)
 	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
 	mtask.cleanupCredentials()
-	if mtask.StopSequenceNumber != 0 {
-		logger.Debug("Marking done for this sequence", logger.Fields{
-			field.TaskID:   mtask.GetID(),
-			field.Sequence: mtask.StopSequenceNumber,
-		})
-		mtask.taskStopWG.Done(mtask.StopSequenceNumber)
-	}
+	// Send event to monitor queue task routine to check for any pending tasks to progress
+	mtask.engine.wakeUpTaskQueueMonitor()
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
 	mtask.cleanupTask(retry.AddJitter(mtask.cfg.TaskCleanupWaitDuration, mtask.cfg.TaskCleanupWaitDurationJitter))
@@ -275,43 +275,28 @@ func (mtask *managedTask) emitCurrentStatus() {
 }
 
 // waitForHostResources waits for host resources to become available to start
-// the task. This involves waiting for previous stops to complete so the
-// resources become free.
+// the task. It will wait for event on this task's consumedHostResourceEvent
+// channel from monitorQueuedTasks routine to wake up
 func (mtask *managedTask) waitForHostResources() {
-	if mtask.StartSequenceNumber == 0 {
-		// This is the first transition on this host. No need to wait
+	if mtask.GetKnownStatus().Terminal() {
+		// Task's known status is STOPPED. No need to wait in this case and proceed to cleanup
+		// This is relevant when agent restarts and a task has stopped - do not attempt
+		// to consume resources in host resource manager
 		return
 	}
-	if mtask.GetDesiredStatus().Terminal() {
-		// Task's desired status is STOPPED. No need to wait in this case either
-		return
-	}
 
-	logger.Info("Waiting for any previous stops to complete", logger.Fields{
-		field.TaskID:   mtask.GetID(),
-		field.Sequence: mtask.StartSequenceNumber,
-	})
-
-	othersStoppedCtx, cancel := context.WithCancel(mtask.ctx)
-	defer cancel()
-
-	go func() {
-		mtask.taskStopWG.Wait(mtask.StartSequenceNumber)
-		cancel()
-	}()
-
-	for !mtask.waitEvent(othersStoppedCtx.Done()) {
-		if mtask.GetDesiredStatus().Terminal() {
-			// If we end up here, that means we received a start then stop for this
-			// task before a task that was expected to stop before it could
-			// actually stop
-			break
+	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
+		// Internal tasks are started right away as their resources are not accounted for
+		mtask.engine.enqueueTask(mtask)
+		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
+			if mtask.GetDesiredStatus().Terminal() {
+				// If we end up here, that means we received a start then stop for this
+				// task before a task that was expected to stop before it could
+				// actually stop
+				break
+			}
 		}
 	}
-	logger.Info("Wait over; ready to move towards desired status", logger.Fields{
-		field.TaskID:        mtask.GetID(),
-		field.DesiredStatus: mtask.GetDesiredStatus().String(),
-	})
 }
 
 // waitSteady waits for a task to leave steady-state by waiting for a new
@@ -402,29 +387,26 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.TaskStatus, seqnum int64) {
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
+
+	// Isolate change of desired status updates from monitorQueuedTasks processing to prevent
+	// unexpected updates to host resource manager when tasks are being processed by monitorQueuedTasks
+	// For example when ACS StopTask event updates arrives and simultaneously monitorQueuedTasks
+	// could be processing
+	mtask.engine.monitorQueuedTasksLock.Lock()
+	defer mtask.engine.monitorQueuedTasksLock.Unlock()
+
 	logger.Info("New acs transition", logger.Fields{
 		field.TaskID:        mtask.GetID(),
 		field.DesiredStatus: desiredStatus.String(),
 		field.Sequence:      seqnum,
-		"StopNumber":        mtask.StopSequenceNumber,
 	})
 	if desiredStatus <= mtask.GetDesiredStatus() {
 		logger.Debug("Redundant task transition; ignoring", logger.Fields{
 			field.TaskID:        mtask.GetID(),
 			field.DesiredStatus: desiredStatus.String(),
 			field.Sequence:      seqnum,
-			"StopNumber":        mtask.StopSequenceNumber,
 		})
 		return
-	}
-	if desiredStatus == apitaskstatus.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
-		logger.Info("Managed task moving to stopped, adding to stopgroup with sequence number",
-			logger.Fields{
-				field.TaskID:   mtask.GetID(),
-				field.Sequence: seqnum,
-			})
-		mtask.SetStopSequenceNumber(seqnum)
-		mtask.taskStopWG.Add(seqnum, 1)
 	}
 	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
@@ -606,6 +588,15 @@ func getContainerEventLogFields(c api.ContainerStateChange) logger.Fields {
 
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	taskKnownStatus := task.GetKnownStatus()
+	// Always do (idempotent) release host resources whenever state change with
+	// known status == STOPPED is done to ensure sync between tasks and host resource manager
+	if taskKnownStatus.Terminal() {
+		resourcesToRelease := mtask.ToHostResources()
+		err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
+		if err != nil {
+			logger.Critical("Failed to release resources after tast stopped", logger.Fields{field.TaskARN: mtask.Arn})
+		}
+	}
 	if !taskKnownStatus.BackendRecognized() {
 		logger.Debug("Skipping event emission for task", logger.Fields{
 			field.TaskID: mtask.GetID(),
