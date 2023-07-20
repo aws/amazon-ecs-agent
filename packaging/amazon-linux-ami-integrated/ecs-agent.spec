@@ -39,7 +39,7 @@ Source3:        amazon-ecs-volume-plugin.service
 Source4:        amazon-ecs-volume-plugin.socket
 Source5:        amazon-ecs-volume-plugin.conf
 
-BuildRequires:  golang >= 1.18.0
+BuildRequires:  golang >= 1.19.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
