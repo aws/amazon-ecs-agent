@@ -40,7 +40,7 @@ type HostResourceManager struct {
 	consumedResource          map[string]*ecs.Resource
 	hostResourceManagerRWLock sync.Mutex
 
-	//task.arn to boolean whether host resources consumed or not
+	// task.arn to boolean whether host resources consumed or not
 	taskConsumed map[string]bool
 }
 
@@ -116,7 +116,7 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 
 	ok, err := h.consumable(resources)
 	if err != nil {
-		logger.Error("Resources failing to consume, error in task resources", logger.Fields{
+		logger.Error("Failed to consume resources, error in the task resource map", logger.Fields{
 			"taskArn":   taskArn,
 			field.Error: err,
 		})
@@ -152,7 +152,7 @@ func (h *HostResourceManager) checkConsumableIntType(resourceName string, resour
 func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, resources map[string]*ecs.Resource) bool {
 	resourceSlice := resources[resourceName].StringSetValue
 
-	// (optimizization) Get a resource specific map to ease look up
+	// (optimization) Get a resource specific map to ease look up
 	resourceMap := make(map[string]struct{}, len(resourceSlice))
 	for _, v := range resourceSlice {
 		resourceMap[*v] = struct{}{}
@@ -325,22 +325,22 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 	consumedResourceMap := make(map[string]*ecs.Resource)
 	taskConsumed := make(map[string]bool)
 	// assigns CPU, MEMORY, PORTS_TCP, PORTS_UDP from host
-	//CPU
+	// CPU
 	CPUs := int64(0)
 	consumedResourceMap[CPU] = &ecs.Resource{
 		Name:         utils.Strptr(CPU),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &CPUs,
 	}
-	//MEMORY
+	// MEMORY
 	memory := int64(0)
 	consumedResourceMap[MEMORY] = &ecs.Resource{
 		Name:         utils.Strptr(MEMORY),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &memory,
 	}
-	//PORTS_TCP
-	//Copying ports from host resources as consumed ports for initializing
+	// PORTS_TCP
+	// Copying ports from host resources as consumed ports for initializing
 	portsTcp := []*string{}
 	if resourceMap != nil && resourceMap[PORTSTCP] != nil {
 		portsTcp = resourceMap[PORTSTCP].StringSetValue
@@ -351,7 +351,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		StringSetValue: portsTcp,
 	}
 
-	//PORTS_UDP
+	// PORTS_UDP
 	portsUdp := []*string{}
 	if resourceMap != nil && resourceMap[PORTSUDP] != nil {
 		portsUdp = resourceMap[PORTSUDP].StringSetValue
@@ -362,7 +362,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		StringSetValue: portsUdp,
 	}
 
-	//GPUs
+	// GPUs
 	numGPUs := int64(0)
 	consumedResourceMap[GPU] = &ecs.Resource{
 		Name:         utils.Strptr(GPU),

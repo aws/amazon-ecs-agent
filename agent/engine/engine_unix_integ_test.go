@@ -1201,12 +1201,12 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	// After ~4s, 3rd task should be queued up and will not be dequeued until ~10s, i.e. until 1st task stops and gets dequeued
 	go func() {
 		time.Sleep(6 * time.Second)
-		task, err := taskEngine.(*DockerTaskEngine).topTask()
+		task, err := taskEngine.(*DockerTaskEngine).getTaskByIndex(0)
 		assert.NoError(t, err, "one task should be queued up after 6s")
 		assert.Equal(t, task.Arn, tasks[2].Arn, "wrong task at top of queue")
 
 		time.Sleep(6 * time.Second)
-		_, err = taskEngine.(*DockerTaskEngine).topTask()
+		_, err = taskEngine.(*DockerTaskEngine).getTaskByIndex(0)
 		assert.Error(t, err, "no task should be queued up after 12s")
 	}()
 	waitFinished(t, finished, testTimeout)

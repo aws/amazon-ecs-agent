@@ -594,7 +594,10 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 		resourcesToRelease := mtask.ToHostResources()
 		err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
 		if err != nil {
-			logger.Critical("Failed to release resources after tast stopped", logger.Fields{field.TaskARN: mtask.Arn})
+			logger.Critical("Failed to release resources after the task stopped", logger.Fields{
+				field.TaskARN: mtask.Arn,
+				field.Error:   err,
+			})
 		}
 	}
 	if !taskKnownStatus.BackendRecognized() {
