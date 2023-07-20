@@ -63,18 +63,20 @@ func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message
 		return errors.New("Invalid messageID received: " + ackMessageID + " Manifest Message ID: " + manifestMessageID)
 	}
 
+	// Reset the message id so that the message with same message id is not processed twice.
+	r.messageIDAccessor.SetMessageID("")
+
 	// Loop through all tasks in the verified stop list and set the desired status of each one to STOPPED.
 	tasksToStop := message.StopTasks
 	for _, task := range tasksToStop {
 		taskARN := aws.StringValue(task.TaskArn)
-		metricFields := map[string]interface{}{
-			"MessageID": aws.StringValue(message.MessageId),
-			"TaskARN":   taskARN,
+		metricFields := logger.Fields{
+			field.MessageID: aws.StringValue(message.MessageId),
+			field.TaskARN:   taskARN,
 		}
 		r.metricsFactory.New(metrics.TaskStoppedMetricName).WithFields(metricFields).Done(nil)
 
-		// Send request to the task stopper to stop the task this will be executed asynchronously
-		// in the context of the task stopper's message channel.
+		// Send request to the task stopper to stop the task.
 		logger.Info("Sending message to task stopper to stop task", logger.Fields{
 			field.TaskARN: taskARN,
 		})

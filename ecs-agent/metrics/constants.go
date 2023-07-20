@@ -26,4 +26,12 @@ const (
 	// AttachResourceResponder
 	attachResourceResponderNamespace = "ResourceAttachment"
 	ResourceValidationMetricName     = attachResourceResponderNamespace + ".Validation"
+
+	// TaskManifestResponder
+	taskManifestResponderNamespace = "TaskManifestResponder"
+	TaskManifestHandlingDuration   = taskManifestResponderNamespace + ".Duration"
+
+	// TaskStopVerificationACKResponder
+	taskStopVerificationACKResponderNamespace = "TaskStopVeificationACKResponder"
+	TaskStoppedMetricName                     = taskStopVerificationACKResponderNamespace + ".TaskStopped"
 )
