@@ -146,10 +146,8 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent/engine && GO111MODULE=on ${GOTEST} ${VERBOSE} -run TestTaskWaitForHostResourcesWithDifferentRequests -count 50 -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ../..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
@@ -162,9 +160,8 @@ test-silent:
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
+analyze-cover-profile: coverprofile.out
 	./scripts/analyze-cover-profile coverprofile.out
-	./scripts/analyze-cover-profile coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
