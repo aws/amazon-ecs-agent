@@ -42,8 +42,8 @@ type Entry interface {
 	// for reporting numerical values related to any operation, for instance the data transfer
 	// rate for an image pull operation.
 	WithGauge(value interface{}) Entry
-	// Done makes a metric operation as complete. It records the end time of the operation
-	// flushes the metrics to a persistent store.
+	// Done makes a metric operation as complete. It records the end time of the operation and
+	// flushes the metric to a persistent store.
 	Done(err error)
 }
 
