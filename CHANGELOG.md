@@ -1,4 +1,10 @@
 # Changelog
+## 1.74.1
+* Enhancement - Update amazon linux build spec to match current ecs agent golang version [#3817](https://github.com/aws/amazon-ecs-agent/pull/3817)
+* Bug - Merge Feature/task-resource-accounting to dev [#3819](https://github.com/aws/amazon-ecs-agent/pull/3819)
+* Code Quality Improvement - Add Snapshotter field to V4 Container Response [#3818](https://github.com/aws/amazon-ecs-agent/pull/3818)
+* Code Quality Improvement - Add some unit tests for config parsers where coverage was missing [#3809](https://github.com/aws/amazon-ecs-agent/pull/3809)
+
 ## 1.74.0
 * Enhancement - Update go version to 1.19.10 [#3799](https://github.com/aws/amazon-ecs-agent/pull/3799)
 * Enhancement - Add EBS volume stats implementation in the csi driver daemon and add one makefile rule to build the tar file [#3774](https://github.com/aws/amazon-ecs-agent/pull/3774)
