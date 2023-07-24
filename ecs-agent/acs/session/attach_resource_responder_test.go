@@ -17,8 +17,12 @@
 package session
 
 import (
+	"sync"
 	"testing"
 
+	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -109,6 +113,13 @@ func TestValidateAttachResourceMessage(t *testing.T) {
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
 
 	require.Error(t, err)
+
+	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
+	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String("incorrectArn")
+
+	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
+
+	require.Error(t, err)
 }
 
 func TestValidateAttachmentAndReturnProperties(t *testing.T) {
@@ -144,4 +155,50 @@ func TestValidateAttachmentAndReturnProperties(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestResourceAckHappyPath tests the happy path for a typical ConfirmAttachmentMessage and confirms expected
+// ACK request is made
+func TestResourceAckHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	confirmAttachmentMessageCopy := *testConfirmAttachmentMessage
+
+	ackSent := make(chan *ecsacs.AckRequest)
+
+	_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+	require.NoError(t, err)
+
+	// WaitGroup is necessary to wait for function to be called in separate goroutine before exiting the test.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	mockEntry.EXPECT().Done(err)
+	mockMetricsFactory.EXPECT().New(metrics.ResourceValidationMetricName).Return(mockEntry)
+	mockResourceHandler := mock_session.NewMockResourceHandler(ctrl)
+	mockResourceHandler.EXPECT().
+		HandleResourceAttachment(gomock.Any()).
+		Do(func(arg0 interface{}) {
+			defer wg.Done() // decrement WaitGroup counter now that HandleResourceAttachment function has been called
+		})
+
+	testResponseSender := func(response interface{}) error {
+		resp := response.(*ecsacs.AckRequest)
+		ackSent <- resp
+		return nil
+	}
+	testResourceResponder := NewAttachResourceResponder(
+		mockResourceHandler,
+		mockMetricsFactory,
+		testResponseSender)
+
+	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*ecsacs.ConfirmAttachmentMessage))
+	go handleAttachMessage(&confirmAttachmentMessageCopy)
+
+	attachResourceAckSent := <-ackSent
+	wg.Wait()
+	require.Equal(t, aws.StringValue(attachResourceAckSent.MessageId), testconst.MessageID)
 }

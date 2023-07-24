@@ -18,9 +18,12 @@ package session
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
+	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -202,4 +205,42 @@ func TestAttachTaskENIMessageWithMissingTimeout(t *testing.T) {
 		aws.StringValue(testAttachTaskENIMessage.MessageId)))
 
 	testAttachTaskENIMessage.WaitTimeoutMs = tempWaitTimeoutMs
+}
+
+// TestTaskENIAckHappyPath tests the happy path for a typical AttachTaskNetworkInterfacesMessage and confirms expected
+// ACK request is made
+func TestTaskENIAckHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ackSent := make(chan *ecsacs.AckRequest)
+
+	// WaitGroup is necessary to wait for function to be called in separate goroutine before exiting the test.
+	wg := sync.WaitGroup{}
+	wg.Add(len(testAttachTaskENIMessage.ElasticNetworkInterfaces))
+
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().
+		HandleENIAttachment(gomock.Any()).
+		Times(len(testAttachTaskENIMessage.ElasticNetworkInterfaces)).
+		Return(nil).
+		Do(func(arg0 interface{}) {
+			defer wg.Done() // decrement WaitGroup counter now that HandleENIAttachment function has been called
+		})
+
+	testResponseSender := func(response interface{}) error {
+		resp := response.(*ecsacs.AckRequest)
+		ackSent <- resp
+		return nil
+	}
+	testAttachTaskENIResponder := NewAttachTaskENIResponder(
+		mockENIHandler,
+		testResponseSender)
+
+	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	go handleAttachMessage(testAttachTaskENIMessage)
+
+	attachTaskEniAckSent := <-ackSent
+	wg.Wait()
+	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
 }
