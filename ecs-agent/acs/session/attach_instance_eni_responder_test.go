@@ -18,12 +18,15 @@ package session
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
@@ -192,4 +195,43 @@ func TestAttachInstanceENIMessageWithMissingTimeout(t *testing.T) {
 		aws.StringValue(testAttachInstanceENIMessage.MessageId)))
 
 	testAttachInstanceENIMessage.WaitTimeoutMs = tempWaitTimeoutMs
+}
+
+// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesMessage and confirms
+// expected ACK request is made
+func TestInstanceENIAckHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ackSent := make(chan *ecsacs.AckRequest)
+
+	// WaitGroup is necessary to wait for function to be called in separate goroutine before exiting the test.
+	wg := sync.WaitGroup{}
+	wg.Add(len(testAttachInstanceENIMessage.ElasticNetworkInterfaces))
+
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().
+		HandleENIAttachment(gomock.Any()).
+		Times(len(testAttachInstanceENIMessage.ElasticNetworkInterfaces)).
+		Return(nil).
+		Do(func(arg0 interface{}) {
+			defer wg.Done() // decrement WaitGroup counter now that HandleENIAttachment function has been called
+		})
+
+	testResponseSender := func(response interface{}) error {
+		resp := response.(*ecsacs.AckRequest)
+		ackSent <- resp
+		return nil
+	}
+	testAttachInstanceENIResponder := NewAttachInstanceENIResponder(
+		mockENIHandler,
+		testResponseSender)
+
+	handleAttachMessage :=
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
+	go handleAttachMessage(testAttachInstanceENIMessage)
+
+	attachInstanceEniAckSent := <-ackSent
+	wg.Wait()
+	assert.Equal(t, aws.StringValue(attachInstanceEniAckSent.MessageId), testconst.MessageID)
 }

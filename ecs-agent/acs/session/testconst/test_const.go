@@ -17,7 +17,7 @@ package testconst
 // should only be called in test files.
 const (
 	ClusterName          = "default"
-	ContainerInstanceARN = "instance"
+	ContainerInstanceARN = "arn:aws:ecs:us-west-2:123456789012:container-instance/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE"
 	TaskARN              = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 	MessageID            = "123"
 	RandomMAC            = "00:0a:95:9d:68:16"
