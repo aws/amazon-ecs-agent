@@ -30,11 +30,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/sys v0.6.0
 	golang.org/x/tools v0.6.0
-<<<<<<< HEAD
 	google.golang.org/grpc v1.53.0
-=======
-	google.golang.org/grpc v1.52.0
->>>>>>> 5894643dd (Removed updated version on dependencies in go.mod for agent and ecs-agent)
 	google.golang.org/protobuf v1.28.1
 )
 
