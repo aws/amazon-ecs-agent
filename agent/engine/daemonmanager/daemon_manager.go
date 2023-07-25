@@ -17,15 +17,14 @@ import (
 	"context"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/docker/docker/api/types"
 )
 
 type DaemonManager interface {
-	loader.Loader
+	GetManagedDaemon() *md.ManagedDaemon
 	CreateDaemonTask() (*apitask.Task, error)
-	LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
+	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
 	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
 }

@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -379,6 +380,20 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 	// container instance. Health metrics, which the publishHealthMetrics function
 	// handles, pertain to the health of the tasks that are running on this
 	// container instance.
+
+	// TODO remove test CSI call
+	csiCaller := csiclient.NewCSIClient("/var/run/ecs/ebs-csi-driver/csi-driver.sock")
+	logger.Info("CSI caller being Called")
+	nodeStatsResponse, csiErr := csiCaller.GetVolumeMetrics("vol03bde5a27631ad16b", "/testebs")
+	if csiErr != nil {
+		logger.Error("CSI get volume stats failed")
+	} else {
+		resultMetrics, _ := fmt.Printf("nodeStatsResponse %d", nodeStatsResponse)
+		logger.Info("Received stats response:", logger.Fields{
+			field.Status: resultMetrics,
+		})
+	}
+
 	if cs.pullInstanceStatusTicker == nil {
 		logger.Debug("Skipping publishing container instance statuses. Publish ticker is uninitialized")
 		return

@@ -73,6 +73,7 @@ func (container *StatsContainer) collect() {
 	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*10, 0.5, 2)
 	for {
 		err := container.processStatsStream()
+
 		select {
 		case <-container.ctx.Done():
 			logger.Info("Stopping container stats collection", logger.Fields{"runtimeID": dockerID})

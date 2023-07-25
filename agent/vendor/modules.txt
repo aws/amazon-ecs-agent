@@ -22,6 +22,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/resource
 github.com/aws/amazon-ecs-agent/ecs-agent/api/status
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/csiclient
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
 github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
@@ -142,6 +143,9 @@ github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/btf
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
+# github.com/container-storage-interface/spec v1.8.0
+## explicit; go 1.18
+github.com/container-storage-interface/spec/lib/go/csi
 # github.com/containerd/cgroups v1.0.4
 ## explicit; go 1.17
 github.com/containerd/cgroups
@@ -236,10 +240,12 @@ github.com/golang/mock/mockgen/model
 ## explicit; go 1.9
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
+github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
+github.com/golang/protobuf/ptypes/wrappers
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
@@ -468,6 +474,7 @@ google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
+google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
