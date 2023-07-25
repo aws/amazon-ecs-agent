@@ -3431,6 +3431,12 @@ func (task *Task) IsServiceConnectEnabled() bool {
 	return task.GetServiceConnectContainer() != nil
 }
 
+// Is EBS Task Attach enabled returns true if this task has EBS volume configuration in its ACS payload.
+// TODO as more daemons come online, we'll want a generic handler these bool checks and payload handling
+func (task *Task) IsEBSTaskAttachEnabled() bool {
+	return false
+}
+
 func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apicontainer.Container) bool {
 	return container.GetNetworkModeFromHostConfig() == "container" && task.IsServiceConnectEnabled()
 }

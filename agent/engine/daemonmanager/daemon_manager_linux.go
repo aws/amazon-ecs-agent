@@ -27,14 +27,12 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	utils "github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -52,15 +50,6 @@ const (
 )
 
 var mkdirAllAndChown = utils.MkdirAllAndChown
-
-// each daemon manager manages one single daemon container
-type daemonManager struct {
-	managedDaemon *md.ManagedDaemon
-}
-
-func NewDaemonManager(manageddaemon *md.ManagedDaemon) DaemonManager {
-	return &daemonManager{managedDaemon: manageddaemon}
-}
 
 func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	imageName := dm.managedDaemon.GetImageName()
@@ -90,6 +79,7 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 		return nil, err
 	}
 	healthConfig := dm.managedDaemon.GetDockerHealthConfig()
+	var rawConfig = ""
 	rawHealthConfig, err := json.Marshal(&healthConfig)
 	if err != nil {
 		return nil, err
@@ -98,16 +88,18 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	// directly, and the object only contains healthcheck, all other fields will be written as empty/nil
 	// in the result string. This will override the configurations that comes with the container image
 	// (CMD for example)
-	rawConfig := fmt.Sprintf("{\"Healthcheck\":%s}", string(rawHealthConfig))
-
+	rawConfig = fmt.Sprintf("{\"Healthcheck\":%s}", string(rawHealthConfig))
 	daemonTask := &apitask.Task{
 		Arn:                 fmt.Sprintf("arn:::::/%s-%s", dm.managedDaemon.GetImageName(), uuid.NewUUID()),
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{{
-			Name:                      dm.managedDaemon.GetImageName(),
+			// name must be unique among running containers
+			// We should only have a single managed daemon of each type per instance
+			Name:                      fmt.Sprintf("ecs-managed-%s", dm.managedDaemon.GetImageName()),
 			Image:                     loadedImageRef,
 			ContainerArn:              fmt.Sprintf("arn:::::/instance-%s", imageName),
 			Type:                      apicontainer.ContainerManagedDaemon,
+			Command:                   dm.managedDaemon.GetCommand(),
 			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			Essential:                 true,
 			SteadyStateStatusUnsafe:   &containerRunning,
@@ -128,7 +120,7 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 }
 
 // LoadImage loads the daemon's latest image
-func (dm *daemonManager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (dm *daemonManager) LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	var loadErr error
 	daemonImageToLoad := dm.managedDaemon.GetImageName()
 	daemonImageTarPath := dm.managedDaemon.GetImageTarPath()
@@ -143,7 +135,7 @@ func (dm *daemonManager) LoadImage(ctx context.Context, _ *config.Config, docker
 			field.Error: loadErr,
 		})
 	}
-	dm.managedDaemon.SetLoadedDaemonImageRef(dm.managedDaemon.GetImageCanonicalRef())
+	dm.managedDaemon.SetLoadedDaemonImageRef(dm.managedDaemon.GetImageRef())
 	loadedImageRef := dm.managedDaemon.GetLoadedDaemonImageRef()
 	logger.Info(fmt.Sprintf("Successfully loaded %s container image from tarball: %s", daemonImageToLoad, daemonImageTarPath),
 		logger.Fields{
@@ -154,5 +146,5 @@ func (dm *daemonManager) LoadImage(ctx context.Context, _ *config.Config, docker
 
 // isImageLoaded uses the image ref with its tag
 func (dm *daemonManager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return loader.IsImageLoaded(dm.managedDaemon.GetImageCanonicalRef(), dockerClient)
+	return loader.IsImageLoaded(dm.managedDaemon.GetImageRef(), dockerClient)
 }

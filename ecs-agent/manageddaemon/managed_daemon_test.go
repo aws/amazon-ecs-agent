@@ -27,7 +27,6 @@ import (
 
 const (
 	TestImageName        = "TestDaemon"
-	TestImageRef         = "TestImage"
 	TestImageTag         = "testTag"
 	TestImagePath        = "/test/image/path"
 	TestAgentPath        = "/test/agent/path"
@@ -39,36 +38,25 @@ func TestNewManagedDaemon(t *testing.T) {
 		testName       string
 		testImageName  string
 		testImageTag   string
-		testImageRef   string
 		expectedDaemon *ManagedDaemon
 	}{
 		{
 			testName:       "All Fields",
 			testImageName:  TestImageName,
 			testImageTag:   TestImageTag,
-			testImageRef:   TestImageRef,
-			expectedDaemon: &ManagedDaemon{imageName: TestImageName, imageTag: TestImageTag, imageRef: TestImageRef},
+			expectedDaemon: &ManagedDaemon{imageName: TestImageName, imageTag: TestImageTag},
 		},
 		{
 			testName:       "Missing Image Name",
 			testImageName:  "",
 			testImageTag:   TestImageTag,
-			testImageRef:   TestImageRef,
-			expectedDaemon: &ManagedDaemon{imageName: "", imageTag: TestImageTag, imageRef: TestImageRef},
+			expectedDaemon: &ManagedDaemon{imageName: "", imageTag: TestImageTag},
 		},
 		{
 			testName:       "Missing Image Tag",
 			testImageName:  TestImageName,
 			testImageTag:   "",
-			testImageRef:   TestImageRef,
-			expectedDaemon: &ManagedDaemon{imageName: TestImageName, imageTag: "", imageRef: TestImageRef},
-		},
-		{
-			testName:       "Missing Image Ref",
-			testImageName:  TestImageName,
-			testImageTag:   TestImageTag,
-			testImageRef:   "",
-			expectedDaemon: &ManagedDaemon{imageName: TestImageName, imageTag: TestImageTag, imageRef: ""},
+			expectedDaemon: &ManagedDaemon{imageName: TestImageName, imageTag: ""},
 		},
 	}
 
@@ -76,7 +64,6 @@ func TestNewManagedDaemon(t *testing.T) {
 		t.Run(c.testName, func(t *testing.T) {
 			assert.Equal(t, c.expectedDaemon.GetImageName(), c.testImageName, "Wrong value for Managed Daemon Image Name")
 			assert.Equal(t, c.expectedDaemon.GetImageTag(), c.testImageTag, "Wrong value for Managed Daemon Image Tag")
-			assert.Equal(t, c.expectedDaemon.GetImageRef(), c.testImageRef, "Wrong value for Managed Daemon Image Ref")
 		})
 	}
 }
@@ -116,7 +103,7 @@ func TestSetMountPoints(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.TestName, func(t *testing.T) {
-			tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+			tmd := NewManagedDaemon(TestImageName, TestImageTag)
 			mountPoints := []*MountPoint{}
 			mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "agentCommunicationMount"})
 			mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "applicationLogMount"})
@@ -141,7 +128,7 @@ func TestAddMountPoint(t *testing.T) {
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "agentCommunicationMount"})
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "applicationLogMount"})
 	mountPoints = append(mountPoints, testMountPoint1)
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetMountPoints(mountPoints)
 	// test add valid mount point
 	errResult := tmd.AddMountPoint(testMountPoint2)
@@ -162,7 +149,7 @@ func TestGetMountPointsFilteredUnfiltered(t *testing.T) {
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "agentCommunicationMount"})
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "applicationLogMount"})
 	mountPoints = append(mountPoints, testMountPoint1)
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetMountPoints(mountPoints)
 	// test add valid mount point
 	errResult := tmd.AddMountPoint(testMountPoint2)
@@ -182,7 +169,7 @@ func TestUpdateMountPoint(t *testing.T) {
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "agentCommunicationMount"})
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "applicationLogMount"})
 	mountPoints = append(mountPoints, testMountPoint1)
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetMountPoints(mountPoints)
 	assert.Equal(t, 1, len(tmd.GetFilteredMountPoints()))
 	assert.False(t, tmd.GetFilteredMountPoints()[0].ReadOnly)
@@ -206,7 +193,7 @@ func TestDeleteMountPoint(t *testing.T) {
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "agentCommunicationMount"})
 	mountPoints = append(mountPoints, &MountPoint{SourceVolumeID: "applicationLogMount"})
 	mountPoints = append(mountPoints, testMountPoint1)
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetMountPoints(mountPoints)
 	assert.Equal(t, 1, len(tmd.GetFilteredMountPoints()))
 	assert.False(t, tmd.GetMountPoints()[0].ReadOnly)
@@ -243,7 +230,7 @@ func TestSetEnvironment(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.TestName, func(t *testing.T) {
-			tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+			tmd := NewManagedDaemon(TestImageName, TestImageTag)
 			tmd.SetEnvironment(c.TestEnvironmentMap)
 			assert.Equal(t, len(c.TestEnvironmentMap), len(tmd.GetEnvironment()), "Wrong value for Set Environment")
 		})
@@ -251,7 +238,7 @@ func TestSetEnvironment(t *testing.T) {
 }
 
 func TestAddEnvVar(t *testing.T) {
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetEnvironment(map[string]string{"testKey1": "testVal1", "TestKey2": "TestVal2"})
 	// test add new EnvKey
 	errResult := tmd.AddEnvVar("testKey3", "testVal3")
@@ -268,7 +255,7 @@ func TestAddEnvVar(t *testing.T) {
 }
 
 func TestUpdateEnvVar(t *testing.T) {
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetEnvironment(map[string]string{"testKey1": "testVal1", "TestKey2": "TestVal2"})
 	// test update EnvKey
 	errResult := tmd.UpdateEnvVar("TestKey2", "TestValNew")
@@ -284,7 +271,7 @@ func TestUpdateEnvVar(t *testing.T) {
 }
 
 func TestDeleteEnvVar(t *testing.T) {
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetEnvironment(map[string]string{"testKey1": "testVal1", "TestKey2": "TestVal2"})
 	// test delete EnvKey
 	errResult := tmd.DeleteEnvVar("TestKey2")
@@ -309,7 +296,7 @@ func TestGetDockerHealthCheckConfig(t *testing.T) {
 		Timeout:  testHealthTimeout,
 		Retries:  testHealthRetries,
 	}
-	tmd := NewManagedDaemon(TestImageName, TestImageRef, TestImageTag)
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
 	tmd.SetHealthCheck(testHealthCheck, testHealthInterval, testHealthTimeout, testHealthRetries)
 	dockerCheck := tmd.GetDockerHealthConfig()
 	assert.Equal(t, expectedDockerCheck, dockerCheck)
@@ -318,7 +305,6 @@ func TestGetDockerHealthCheckConfig(t *testing.T) {
 func TestIsValidManagedDaemon(t *testing.T) {
 	testAgentCommunicationMount := &MountPoint{SourceVolumeID: "agentCommunicationMount"}
 	testApplicationLogMount := &MountPoint{SourceVolumeID: "applicationLogMount"}
-	testHealthCheck := []string{"test"}
 	cases := []struct {
 		TestName       string
 		TestDaemon     *ManagedDaemon
@@ -327,30 +313,17 @@ func TestIsValidManagedDaemon(t *testing.T) {
 		{
 			TestName: "All Valid",
 			TestDaemon: &ManagedDaemon{agentCommunicationMount: testAgentCommunicationMount,
-				applicationLogMount: testApplicationLogMount,
-				healthCheckTest:     testHealthCheck,
-				healthCheckRetries:  0},
+				applicationLogMount: testApplicationLogMount},
 			ExpectedResult: true,
 		},
 		{
-			TestName: "Missing Required Agent communication Mount",
-			TestDaemon: &ManagedDaemon{applicationLogMount: testApplicationLogMount,
-				healthCheckTest:    testHealthCheck,
-				healthCheckRetries: 0},
+			TestName:       "Missing Required Agent communication Mount",
+			TestDaemon:     &ManagedDaemon{applicationLogMount: testApplicationLogMount},
 			ExpectedResult: false,
 		},
 		{
-			TestName: "Missing Required Log Mount",
-			TestDaemon: &ManagedDaemon{agentCommunicationMount: testAgentCommunicationMount,
-				healthCheckTest:    testHealthCheck,
-				healthCheckRetries: 0},
-			ExpectedResult: false,
-		},
-		{
-			TestName: "Missing health check",
-			TestDaemon: &ManagedDaemon{agentCommunicationMount: testAgentCommunicationMount,
-				applicationLogMount: testApplicationLogMount,
-				healthCheckRetries:  0},
+			TestName:       "Missing Required Log Mount",
+			TestDaemon:     &ManagedDaemon{agentCommunicationMount: testAgentCommunicationMount},
 			ExpectedResult: false,
 		},
 	}

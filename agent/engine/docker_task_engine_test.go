@@ -180,9 +180,10 @@ func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Contr
 	metadataManager := mock_containermetadata.NewMockManager(ctrl)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	taskEngine := NewTaskEngine(cfg, client, credentialsManager, containerChangeEventStream,
-		imageManager, hostResources, dockerstate.NewTaskEngineState(), metadataManager, nil, execCmdMgr, nil)
+		imageManager, hostResources, dockerstate.NewTaskEngineState(), metadataManager, nil, execCmdMgr, nil, daemonManagers)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 	taskEngine.(*DockerTaskEngine).ctx = ctx
 	taskEngine.(*DockerTaskEngine).stopContainerBackoffMin = time.Millisecond

@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
@@ -62,6 +63,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
@@ -146,6 +148,7 @@ type ecsAgent struct {
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
 	serviceconnectManager       engineserviceconnect.Manager
+	daemonManagers              map[string]dm.DaemonManager
 	eniWatcher                  *watcher.ENIWatcher
 	cniClient                   ecscni.CNIClient
 	vpc                         string
@@ -242,6 +245,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
 		serviceconnectManager:       engineserviceconnect.NewManager(),
+		daemonManagers:              make(map[string]dm.DaemonManager),
 		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
 		metadataManager:             metadataManager,
 		terminationHandler:          sighandlers.StartDefaultTerminationHandler,
@@ -334,9 +338,33 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 
+	daemonDefinitions, err := md.ImportAll()
+	// we will not panic when daemons fail to import; agent should continue running
+	// container instance health will act as the mechanism to advertise daemon failures
+	if err != nil {
+		seelog.Errorf("Daemon import mountpoint failure: %s", err)
+	}
+	if len(daemonDefinitions) == 0 {
+		seelog.Infof("daemonDefinitions is empty/nil after import")
+	}
+	// load and add daemons to agent
+	for _, md := range daemonDefinitions {
+		thisDaemon := dm.NewDaemonManager(md)
+		if _, err := thisDaemon.LoadImage(agent.ctx, agent.dockerClient); err != nil {
+			seelog.Errorf("Managed Daemon Load failure %v", err)
+		}
+		if loaded, err := thisDaemon.IsLoaded(agent.dockerClient); loaded {
+			imageManager.AddImageToCleanUpExclusionList(md.GetLoadedDaemonImageRef())
+			agent.daemonManagers[md.GetImageName()] = thisDaemon
+		} else {
+			seelog.Errorf("Unable to load Managed Daemon: %s, err: %s", md.GetImageName(), err)
+		}
+	}
+
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
-		containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr, agent.serviceconnectManager)
+		containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr,
+		agent.serviceconnectManager, agent.daemonManagers)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -423,6 +451,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
+
 	scManager := agent.serviceconnectManager
 	scManager.SetECSClient(client, agent.containerInstanceARN)
 	if loaded, _ := scManager.IsLoaded(agent.dockerClient); loaded {
@@ -445,7 +474,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		agent.saveMetadata(data.EC2InstanceIDKey, currentEC2InstanceID)
 	}
 
-	// now that we know the container instance ARN, we can build out the doctor
+	// now that we know the container instance ARN, we can create the doctor
 	// and pass it on to ACS and TACS
 	doctor, doctorCreateErr := agent.newDoctorWithHealthchecks(agent.cfg.Cluster, agent.containerInstanceARN)
 	if doctorCreateErr != nil {
@@ -545,7 +574,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	imageManager engine.ImageManager,
 	hostResources map[string]*ecs.Resource,
 	execCmdMgr execcmd.Manager,
-	serviceConnectManager engineserviceconnect.Manager) (engine.TaskEngine, string, error) {
+	serviceConnectManager engineserviceconnect.Manager,
+	daemonManagers map[string]dm.DaemonManager) (engine.TaskEngine, string, error) {
 
 	containerChangeEventStream.StartListening()
 
@@ -553,10 +583,11 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, hostResources, state,
-			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectManager), "", nil
+			agent.metadataManager, agent.resourceFields, execCmdMgr,
+			serviceConnectManager, daemonManagers), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -582,7 +613,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, hostResources, state, agent.metadataManager,
-			agent.resourceFields, execCmdMgr, serviceConnectManager), currentEC2InstanceID, nil
+			agent.resourceFields, execCmdMgr, serviceConnectManager,
+			daemonManagers), currentEC2InstanceID, nil
 	}
 
 	if savedData.cluster != "" {

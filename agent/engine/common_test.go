@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -409,4 +410,9 @@ func getTestHostResources() map[string]*ecs.Resource {
 		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 	return hostResources
+}
+
+func getTestDaemonManagers() map[string]daemonmanager.DaemonManager {
+	daemonManagers := make(map[string]daemonmanager.DaemonManager)
+	return daemonManagers
 }
