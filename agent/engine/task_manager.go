@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -33,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -57,6 +56,7 @@ const (
 	stoppedSentWaitInterval                  = 30 * time.Second
 	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
+	taskTimedOutWaitingForResources          = "TaskResourceWaitTimeout: Agent timed out on allocating task resources"
 )
 
 var (
@@ -285,9 +285,24 @@ func (mtask *managedTask) waitForHostResources() {
 		return
 	}
 
+	// Internal tasks are started right away as their resources are not accounted for
 	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
-		// Internal tasks are started right away as their resources are not accounted for
 		mtask.engine.enqueueTask(mtask)
+
+		// start a timer to wait for resources until resourceWaitTimeout
+		resourceWaitTimeout := mtask.cfg.TaskResourceWaitTimeout
+		resourceWaitTimer := time.AfterFunc(resourceWaitTimeout, func() {
+			logger.Info("Timed out waiting for resources, setting task desired status to terminal",
+				logger.Fields{
+					field.TaskARN:         mtask.Arn,
+					"resourceWaitTimeout": mtask.cfg.TaskResourceWaitTimeout,
+				})
+			mtask.SetTerminalReason(taskTimedOutWaitingForResources)
+			mtask.SetDesiredStatus(apitaskstatus.TaskStopped)
+			mtask.consumedHostResourceEvent <- struct{}{}
+		})
+		defer resourceWaitTimer.Stop()
+
 		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
 			if mtask.GetDesiredStatus().Terminal() {
 				// If we end up here, that means we received a start then stop for this

@@ -24,13 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -38,6 +31,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -45,6 +39,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -52,9 +49,10 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
-	"github.com/stretchr/testify/assert"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleEventError(t *testing.T) {
@@ -2199,6 +2197,7 @@ func TestTaskWaitForHostResourcesWithIdenticalRequests(t *testing.T) {
 			Task:                      task,
 			engine:                    taskEngine,
 			consumedHostResourceEvent: make(chan struct{}, 1),
+			cfg:                       defaultTestConfig(),
 		}
 		taskEngine.managedTasks[task.Arn] = mtask
 	}
@@ -2258,6 +2257,7 @@ func TestTaskWaitForHostResourcesWithDifferentRequests(t *testing.T) {
 			Task:                      task,
 			engine:                    taskEngine,
 			consumedHostResourceEvent: make(chan struct{}, 1),
+			cfg:                       defaultTestConfig(),
 		}
 		taskEngine.managedTasks[task.Arn] = mtask
 	}
@@ -2309,4 +2309,86 @@ func TestTaskWaitForHostResourcesWithDifferentRequests(t *testing.T) {
 	_, err = taskEngine.getTaskByIndex(0)
 	assert.Error(t, err)
 	assert.Empty(t, taskEngine.waitingTaskQueue)
+}
+
+func TestTaskWaitForHostResourcesTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	taskEngine := &DockerTaskEngine{
+		managedTasks:           make(map[string]*managedTask),
+		monitorQueuedTaskEvent: make(chan struct{}, 1),
+		hostResourceManager:    &hostResourceManager,
+	}
+	go taskEngine.monitorQueuedTasks(ctx)
+
+	// 3 tasks requesting host ports; first two tasks requesting the same host port
+	ports := []uint16{80, 80, 100}
+	for i := 0; i < 3; i++ {
+		task := testdata.LoadTask("sleep5")
+		task.Arn = fmt.Sprintf("arn%d", i)
+		task.CPU = float64(0)
+		containers := []*apicontainer.Container{
+			{
+				Name: fmt.Sprintf("container%d", i),
+				Ports: []apicontainer.PortBinding{
+					{
+						HostPort:      ports[i],
+						ContainerPort: ports[i],
+					},
+				},
+			},
+		}
+		task.Containers = containers
+		mtask := &managedTask{
+			Task:                      task,
+			engine:                    taskEngine,
+			consumedHostResourceEvent: make(chan struct{}, 1),
+			cfg:                       defaultTestConfig(),
+		}
+		taskEngine.managedTasks[task.Arn] = mtask
+	}
+
+	// set resourceWaitTimeout for task arn1 to a small value for testing
+	testTimeout := 2 * time.Second
+	taskEngine.managedTasks["arn1"].cfg.TaskResourceWaitTimeout = testTimeout
+
+	// acquire host resources for task arn0
+	taskEngine.managedTasks["arn0"].waitForHostResources()
+
+	// acquire host resources for task arn1
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		taskEngine.managedTasks["arn1"].waitForHostResources()
+		wg.Done()
+	}()
+
+	// sleep here to let task arn1 go in the queue, before task arn2 is evaluated for resources
+	time.Sleep(500 * time.Millisecond)
+
+	// acquire host resources for task arn2
+	taskEngine.managedTasks["arn2"].waitForHostResources()
+
+	// Verify waiting queue has arn1 only
+	task, err := taskEngine.getTaskByIndex(0)
+	assert.NoError(t, err)
+	assert.Equal(t, "arn1", task.Arn)
+	assert.Equal(t, 1, len(taskEngine.waitingTaskQueue))
+
+	// wait for task arn1 to timeout waiting for resources
+	wg.Wait()
+	// wait for task arn1 to be evaluated and removed from the queue
+	taskEngine.wakeUpTaskQueueMonitor()
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify waiting queue is empty
+	_, err = taskEngine.getTaskByIndex(0)
+	assert.Error(t, err)
+	assert.Empty(t, taskEngine.waitingTaskQueue)
+
+	// Verify task arn1's desired status is set to terminal and the terminal reason is as expected
+	assert.True(t, taskEngine.managedTasks["arn1"].GetDesiredStatus().Terminal())
+	assert.Equal(t, taskTimedOutWaitingForResources, taskEngine.managedTasks["arn1"].GetTerminalReason())
 }
