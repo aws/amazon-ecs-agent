@@ -260,8 +260,7 @@ type Task struct {
 	PlatformFields PlatformFields `json:"PlatformFields,omitempty"`
 
 	// terminalReason should be used when we explicitly move a task to stopped.
-	// This ensures the task object carries some context for why it was explicitly
-	// stoppped.
+	// This ensures the task object carries some context for why it was explicitly stopped.
 	terminalReason     string
 	terminalReasonOnce sync.Once
 

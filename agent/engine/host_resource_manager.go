@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -370,8 +371,10 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		IntegerValue: &numGPUs,
 	}
 
-	logger.Info("Initializing host resource manager, initialHostResource", logger.Fields{"initialHostResource": resourceMap})
-	logger.Info("Initializing host resource manager, consumed resource", logger.Fields{"consumedResource": consumedResourceMap})
+	logger.Info("Initializing host resource manager, initialHostResource",
+		logger.Fields{"initialHostResource": resourceMap})
+	logger.Info("Initializing host resource manager, consumed resource",
+		logger.Fields{"consumedResource": consumedResourceMap})
 	return HostResourceManager{
 		initialHostResource: resourceMap,
 		consumedResource:    consumedResourceMap,
