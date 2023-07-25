@@ -16,9 +16,10 @@ package appnet
 import (
 	"context"
 	"fmt"
-	prometheus "github.com/prometheus/client_model/go"
 	"net"
 	"net/http"
+
+	prometheus "github.com/prometheus/client_model/go"
 )
 
 type appnetClientCtxKey int
