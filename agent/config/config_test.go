@@ -120,6 +120,7 @@ func TestEnvironmentConfig(t *testing.T) {
 		testTaskCleanupWaitDurationStr       = "90s"
 		testTaskCleanupWaitDurationJitterStr = "1m"
 		testTaskCleanupWaitDuration          = 90 * time.Second
+		testTaskResourceWaitTimeout          = 1 * time.Hour
 		testTaskCleanupWaitDurationJitter    = time.Minute
 	)
 
@@ -168,6 +169,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
 	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
 	setTestEnv("ECS_VOLUME_PLUGIN_CAPABILITIES", "[\"efsAuth\"]")
+	t.Setenv("ECS_ENGINE_TASK_RESOURCE_WAIT_TIMEOUT", "1h")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -203,6 +205,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, "testing", conf.ContainerInstanceTags["my_tag"])
 	assert.Equal(t, testTaskCleanupWaitDuration, conf.TaskCleanupWaitDuration)
 	assert.Equal(t, testTaskCleanupWaitDurationJitter, conf.TaskCleanupWaitDurationJitter)
+	assert.Equal(t, testTaskResourceWaitTimeout, conf.TaskResourceWaitTimeout)
 	serializedAdditionalLocalRoutesJSON, err := json.Marshal(conf.AWSVPCAdditionalLocalRoutes)
 	assert.NoError(t, err, "should marshal additional local routes")
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))
@@ -326,7 +329,7 @@ func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
 	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
+	assert.Equal(t, defaultDockerStopTimeout, conf.DockerStopTimeout)
 }
 
 func TestZeroValueDockerStopTimeout(t *testing.T) {
@@ -715,7 +718,7 @@ func TestParseImagePullBehavior(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer setTestRegion()()
 			defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", tc.envVarVal)()
-			assert.Equal(t, parseImagePullBehavior(), tc.expectedImagePullBehavior, "Wrong value for ImagePullBehavior")
+			assert.Equal(t, tc.expectedImagePullBehavior, parseImagePullBehavior())
 		})
 	}
 }
@@ -900,13 +903,11 @@ func TestContainerInstancePropagateTagsFrom(t *testing.T) {
 			defer setTestEnv("ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM", tc.envVarVal)()
 
 			// Test the parse function only.
-			assert.Equal(t, parseContainerInstancePropagateTagsFrom(), tc.expectedContainerInstancePropagateTagsFrom,
-				"Wrong value from parseContainerInstancePropagateTagsFrom")
+			assert.Equal(t, tc.expectedContainerInstancePropagateTagsFrom, parseContainerInstancePropagateTagsFrom())
 
 			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 			assert.NoError(t, err)
-			assert.Equal(t, cfg.ContainerInstancePropagateTagsFrom, tc.expectedContainerInstancePropagateTagsFrom,
-				"Wrong value for ContainerInstancePropagateTagsFrom")
+			assert.Equal(t, tc.expectedContainerInstancePropagateTagsFrom, cfg.ContainerInstancePropagateTagsFrom)
 		})
 	}
 }
@@ -947,6 +948,48 @@ func TestExternalConfigMissingRegion(t *testing.T) {
 	defer setTestEnv("ECS_EXTERNAL", "true")()
 	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Error(t, err)
+}
+
+func TestTaskResourceWaitTimeout(t *testing.T) {
+	testCases := []struct {
+		testName        string
+		envValue        string
+		setEnv          bool
+		expectedTimeout time.Duration
+	}{
+		{
+			testName:        "valid env, timeout set as requested",
+			envValue:        "30m",
+			setEnv:          true,
+			expectedTimeout: 30 * time.Minute,
+		},
+		{
+			testName:        "invalid env, timeout set to default",
+			envValue:        "1s",
+			setEnv:          true,
+			expectedTimeout: DefaultTaskResourceWaitTimeout,
+		},
+		{
+			testName:        "empty env value, timeout set to default",
+			envValue:        "",
+			setEnv:          true,
+			expectedTimeout: DefaultTaskResourceWaitTimeout,
+		},
+		{
+			testName:        "env not set, timeout set to default",
+			setEnv:          false,
+			expectedTimeout: DefaultTaskResourceWaitTimeout,
+		},
+	}
+	for _, tc := range testCases {
+		t.Setenv("AWS_DEFAULT_REGION", "us-west-2")
+		if tc.setEnv {
+			t.Setenv("ECS_ENGINE_TASK_RESOURCE_WAIT_TIMEOUT", tc.envValue)
+		}
+		conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedTimeout, conf.TaskResourceWaitTimeout)
+	}
 }
 
 func setTestRegion() func() {
