@@ -154,6 +154,11 @@ type Config struct {
 	// TaskCleanupWaitDurationJitter].
 	TaskCleanupWaitDurationJitter time.Duration
 
+	// TaskResourceWaitTimeout specifies the time to wait for resources in the waiting task queue.
+	// Tasks are removed from the queue and set to terminal status once this timeout is reached.
+	// Task resources accounted for are CPU, memory, static host ports, and GPU.
+	TaskResourceWaitTimeout time.Duration
+
 	// TaskIAMRoleEnabled specifies if the Agent is capable of launching
 	// tasks with IAM Roles.
 	TaskIAMRoleEnabled BooleanDefaultFalse

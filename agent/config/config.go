@@ -92,6 +92,13 @@ const (
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
 	minimumTaskCleanupWaitDuration = time.Second
 
+	// defaultResourceWaitTimeout specifies the default time to wait for resources in the waiting task queue
+	// TODO: confirm value with product
+	DefaultTaskResourceWaitTimeout = 5 * time.Minute
+	// minimumTaskResourceWaitTimeout specifies the minimum value for ECS_ENGINE_TASK_RESOURCE_WAIT_TIMEOUT config
+	// TODO: confirm value with product
+	minimumTaskResourceWaitTimeout = 1 * time.Minute
+
 	// minimumImagePullInactivityTimeout specifies the minimum amount of time for that an image can be
 	// 'stuck' in the pull / unpack step. Very small values are unsafe and lead to high failure rate.
 	minimumImagePullInactivityTimeout = 1 * time.Minute
@@ -336,27 +343,43 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
 	// print a warning and override it
 	if cfg.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
-		seelog.Warnf("Invalid value for ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
+		seelog.Warnf("Invalid value for ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION, "+
+			"will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.",
+			DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
 		cfg.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
+	if cfg.TaskResourceWaitTimeout < minimumTaskResourceWaitTimeout {
+		seelog.Warnf("Invalid value for ECS_ENGINE_TASK_RESOURCE_WAIT_TIMEOUT, "+
+			"will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.",
+			DefaultTaskResourceWaitTimeout.String(), cfg.TaskResourceWaitTimeout, minimumTaskResourceWaitTimeout)
+		cfg.TaskResourceWaitTimeout = DefaultTaskResourceWaitTimeout
+	}
+
 	if cfg.ImagePullInactivityTimeout < minimumImagePullInactivityTimeout {
-		seelog.Warnf("Invalid value for image pull inactivity timeout duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", defaultImagePullInactivityTimeout.String(), cfg.ImagePullInactivityTimeout, minimumImagePullInactivityTimeout)
+		seelog.Warnf("Invalid value for image pull inactivity timeout duration, "+
+			"will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.",
+			defaultImagePullInactivityTimeout.String(), cfg.ImagePullInactivityTimeout, minimumImagePullInactivityTimeout)
 		cfg.ImagePullInactivityTimeout = defaultImagePullInactivityTimeout
 	}
 
 	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
-		seelog.Warnf("Invalid value for ECS_IMAGE_CLEANUP_INTERVAL, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
+		seelog.Warnf("Invalid value for ECS_IMAGE_CLEANUP_INTERVAL, "+
+			"will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.",
+			DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
 		cfg.ImageCleanupInterval = DefaultImageCleanupTimeInterval
 	}
 
 	if cfg.NumImagesToDeletePerCycle < minimumNumImagesToDeletePerCycle {
-		seelog.Warnf("Invalid value for number of images to delete for image cleanup, will be overridden with the default value: %d. Parsed value: %d, minimum value: %d.", DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
+		seelog.Warnf("Invalid value for number of images to delete for image cleanup, "+
+			"will be overridden with the default value: %d. Parsed value: %d, minimum value: %d.",
+			DefaultImageDeletionAge, cfg.NumImagesToDeletePerCycle, minimumNumImagesToDeletePerCycle)
 		cfg.NumImagesToDeletePerCycle = DefaultNumImagesToDeletePerCycle
 	}
 
 	if cfg.TaskMetadataSteadyStateRate <= 0 || cfg.TaskMetadataBurstRate <= 0 {
-		seelog.Warnf("Invalid values for rate limits, will be overridden with default values: %d,%d.", DefaultTaskMetadataSteadyStateRate, DefaultTaskMetadataBurstRate)
+		seelog.Warnf("Invalid values for rate limits, will be overridden with default values: %d,%d.",
+			DefaultTaskMetadataSteadyStateRate, DefaultTaskMetadataBurstRate)
 		cfg.TaskMetadataSteadyStateRate = DefaultTaskMetadataSteadyStateRate
 		cfg.TaskMetadataBurstRate = DefaultTaskMetadataBurstRate
 	}
@@ -544,6 +567,7 @@ func environmentConfig() (Config, error) {
 		AppArmorCapable:                     parseBooleanDefaultFalseConfig("ECS_APPARMOR_CAPABLE"),
 		TaskCleanupWaitDuration:             parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
 		TaskCleanupWaitDurationJitter:       parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION_JITTER"),
+		TaskResourceWaitTimeout:             parseEnvVariableDuration("ECS_ENGINE_TASK_RESOURCE_WAIT_TIMEOUT"),
 		TaskENIEnabled:                      parseBooleanDefaultFalseConfig("ECS_ENABLE_TASK_ENI"),
 		TaskIAMRoleEnabled:                  parseBooleanDefaultFalseConfig("ECS_ENABLE_TASK_IAM_ROLE"),
 		DeleteNonECSImagesEnabled:           parseBooleanDefaultFalseConfig("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"),
@@ -623,6 +647,7 @@ func (cfg *Config) String() string {
 			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
+			"TaskResourceWaitTimeout: %v, "+
 			"DockerStopTimeout: %v, "+
 			"ContainerStartTimeout: %v, "+
 			"ContainerCreateTimeout: %v, "+
@@ -642,6 +667,7 @@ func (cfg *Config) String() string {
 		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
 		cfg.TaskCleanupWaitDuration,
+		cfg.TaskResourceWaitTimeout,
 		cfg.DockerStopTimeout,
 		cfg.ContainerStartTimeout,
 		cfg.ContainerCreateTimeout,

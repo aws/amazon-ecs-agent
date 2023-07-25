@@ -70,6 +70,7 @@ func DefaultConfig() Config {
 		ReservedMemory:                      0,
 		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
+		TaskResourceWaitTimeout:             DefaultTaskResourceWaitTimeout,
 		DockerStopTimeout:                   defaultDockerStopTimeout,
 		ContainerStartTimeout:               defaultContainerStartTimeout,
 		ContainerCreateTimeout:              defaultContainerCreateTimeout,
