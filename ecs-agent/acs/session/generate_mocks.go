@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//go:generate mockgen -destination=mocks/session_mock.go -copyright_file=../../../scripts/copyright_file . ENIHandler,ResourceHandler
+//go:generate mockgen -destination=mocks/session_mock.go -copyright_file=../../../scripts/copyright_file . ENIHandler,ResourceHandler,CredentialsMetadataSetter
 
 package session

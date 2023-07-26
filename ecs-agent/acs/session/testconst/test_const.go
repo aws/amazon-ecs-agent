@@ -25,4 +25,5 @@ const (
 	InterfaceProtocol    = "default"
 	GatewayIPv4          = "192.168.1.1/24"
 	IPv4Address          = "ipv4"
+	CredentialsID        = "credsid"
 )

@@ -51,7 +51,6 @@ type payloadRequestHandler struct {
 	cluster                     string
 	containerInstanceArn        string
 	acsClient                   wsclient.ClientServer
-	refreshHandler              refreshCredentialsHandler
 	credentialsManager          credentials.Manager
 	latestSeqNumberTaskManifest *int64
 }
@@ -65,7 +64,6 @@ func newPayloadRequestHandler(
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
 	dataClient data.Client,
-	refreshHandler refreshCredentialsHandler,
 	credentialsManager credentials.Manager,
 	taskHandler *eventhandler.TaskHandler, seqNumTaskManifest *int64) payloadRequestHandler {
 	// Create a cancelable context from the parent context
@@ -82,7 +80,6 @@ func newPayloadRequestHandler(
 		cluster:                     cluster,
 		containerInstanceArn:        containerInstanceArn,
 		acsClient:                   acsClient,
-		refreshHandler:              refreshHandler,
 		credentialsManager:          credentialsManager,
 		latestSeqNumberTaskManifest: seqNumTaskManifest,
 	}
@@ -187,12 +184,22 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	go func() {
 		// Throw the ack in async; it doesn't really matter all that much and this is blocking handling more tasks.
 		for _, credentialsAck := range credentialsAcks {
-			payloadHandler.refreshHandler.ackMessage(credentialsAck)
+			payloadHandler.makeCredentialsAckRequest(credentialsAck)
 		}
 		payloadHandler.ackRequest <- *payload.MessageId
 	}()
 
 	return nil
+}
+
+// makeCredentialsAckRequest sends an IAMRoleCredentialsAckRequest to the backend
+func (payloadHandler *payloadRequestHandler) makeCredentialsAckRequest(ack *ecsacs.IAMRoleCredentialsAckRequest) {
+	seelog.Debugf("ACKing credentials associated with ACS payload message: %s", ack.String())
+	err := payloadHandler.acsClient.MakeRequest(ack)
+	if err != nil {
+		seelog.Warnf("Error ACKing credentials with credentialsID '%s' associated with ACS payload message, error: %v",
+			aws.StringValue(ack.CredentialsId), err)
+	}
 }
 
 // addPayloadTasks does validation on each task and, for all valid ones, adds

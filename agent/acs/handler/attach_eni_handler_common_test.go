@@ -54,7 +54,7 @@ func testENIAckTimeout(t *testing.T, attachmentType string) {
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	eniAttachment := &apieni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
-			TaskARN:          taskArn,
+			TaskARN:          testconst.TaskARN,
 			AttachmentARN:    attachmentArn,
 			ExpiresAt:        expiresAt,
 			AttachStatusSent: false,
@@ -103,7 +103,7 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	eniAttachment := &apieni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
-			TaskARN:          taskArn,
+			TaskARN:          testconst.TaskARN,
 			AttachmentARN:    attachmentArn,
 			ExpiresAt:        expiresAt,
 			AttachStatusSent: false,
@@ -130,7 +130,7 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 
 // TestHandleENIAttachmentTaskENI tests handling a new task eni
 func TestHandleENIAttachmentTaskENI(t *testing.T) {
-	testHandleENIAttachment(t, apieni.ENIAttachmentTypeTaskENI, taskArn)
+	testHandleENIAttachment(t, apieni.ENIAttachmentTypeTaskENI, testconst.TaskARN)
 }
 
 // TestHandleENIAttachmentInstanceENI tests handling a new instance eni
@@ -178,7 +178,7 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 
 // TestHandleExpiredENIAttachmentTaskENI tests handling an expired task eni
 func TestHandleExpiredENIAttachmentTaskENI(t *testing.T) {
-	testHandleExpiredENIAttachment(t, apieni.ENIAttachmentTypeTaskENI, taskArn)
+	testHandleExpiredENIAttachment(t, apieni.ENIAttachmentTypeTaskENI, testconst.TaskARN)
 }
 
 // TestHandleExpiredENIAttachmentInstanceENI tests handling an expired instance eni

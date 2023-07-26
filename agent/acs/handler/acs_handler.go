@@ -37,6 +37,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -78,8 +79,8 @@ const (
 	acsProtocolVersion = 2
 	// numOfHandlersSendingAcks is the number of handlers that send acks back to ACS and that are not saved across
 	// sessions. We use this to send pending acks, before agent initiates a disconnect to ACS.
-	// they are: refreshCredentialsHandler, taskManifestHandler, and payloadHandler
-	numOfHandlersSendingAcks = 3
+	// they are: taskManifestHandler, and payloadHandler
+	numOfHandlersSendingAcks = 2
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.
@@ -250,13 +251,7 @@ func (acsSession *session) startSessionOnce() error {
 func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	cfg := acsSession.agentConfig
 
-	refreshCredsHandler := newRefreshCredentialsHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.credentialsManager, acsSession.taskEngine)
-	defer refreshCredsHandler.clearAcks()
-	refreshCredsHandler.start()
-	defer refreshCredsHandler.stop()
-
-	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
+	credsMetadataSetter := &credentialsMetadataSetter{taskEngine: acsSession.taskEngine}
 
 	eniHandler := &eniHandler{
 		state:      acsSession.state,
@@ -264,6 +259,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
+
+	metricsFactory := metrics.NewNopEntryFactory()
 
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
@@ -286,7 +283,6 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.dataClient,
-		refreshCredsHandler,
 		acsSession.credentialsManager,
 		acsSession.taskHandler, acsSession.latestSeqNumTaskManifest)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
@@ -300,6 +296,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		return client.MakeRequest(response)
 	}
 	responders := []wsclient.RequestResponder{
+		acssession.NewRefreshCredentialsResponder(acsSession.credentialsManager, credsMetadataSetter, metricsFactory,
+			responseSender),
 		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
 		acssession.NewAttachInstanceENIResponder(eniHandler, responseSender),
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
@@ -320,7 +318,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	// Start a connection timer; agent will send pending acks and close its ACS websocket connection
 	// after this timer expires
 	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter,
-		&refreshCredsHandler, &taskManifestHandler, &payloadHandler)
+		&taskManifestHandler, &payloadHandler)
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
@@ -416,7 +414,6 @@ func newConnectionTimer(
 	client wsclient.ClientServer,
 	connectionTime time.Duration,
 	connectionJitter time.Duration,
-	refreshCredsHandler *refreshCredentialsHandler,
 	taskManifestHandler *taskManifestHandler,
 	payloadHandler *payloadRequestHandler,
 ) ttime.Timer {
@@ -426,12 +423,6 @@ func newConnectionTimer(
 
 		wg := sync.WaitGroup{}
 		wg.Add(numOfHandlersSendingAcks)
-
-		// send pending creds refresh acks to ACS
-		go func() {
-			refreshCredsHandler.sendPendingAcks()
-			wg.Done()
-		}()
 
 		// send pending task manifest acks and task stop verification acks to ACS
 		go func() {
