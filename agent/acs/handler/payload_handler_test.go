@@ -80,7 +80,6 @@ func setup(t *testing.T) *testHelper {
 		testconst.ContainerInstanceARN,
 		mockWsClient,
 		data.NewNoopClient(),
-		refreshCredentialsHandler{},
 		credentialsManager,
 		taskHandler, &latestSeqNumberTaskManifest)
 
@@ -307,11 +306,6 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 		}),
 	)
 
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
-	defer refreshCredsHandler.clearAcks()
-	refreshCredsHandler.start()
-	tester.payloadHandler.refreshHandler = refreshCredsHandler
-
 	go tester.payloadHandler.start()
 
 	taskArn := "t1"
@@ -338,8 +332,8 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 			},
 		},
 		MessageId:            aws.String(payloadMessageId),
-		ClusterArn:           aws.String(cluster),
-		ContainerInstanceArn: aws.String(containerInstance),
+		ClusterArn:           aws.String(testconst.ClusterName),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	}
 	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
 	assert.NoError(t, err, "error handling payload message")
@@ -496,11 +490,6 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		}),
 	)
 
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
-	defer refreshCredsHandler.clearAcks()
-	refreshCredsHandler.start()
-	tester.payloadHandler.refreshHandler = refreshCredsHandler
-
 	go tester.payloadHandler.start()
 
 	firstTaskArn := "t1"
@@ -546,8 +535,8 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 			},
 		},
 		MessageId:            aws.String(payloadMessageId),
-		ClusterArn:           aws.String(cluster),
-		ContainerInstanceArn: aws.String(containerInstance),
+		ClusterArn:           aws.String(testconst.ClusterName),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	}
 
 	// Wait till we get an ack
@@ -618,11 +607,7 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 			tester.cancel()
 		}),
 	)
-	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, testconst.ClusterName, testconst.ContainerInstanceARN, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
-	defer refreshCredsHandler.clearAcks()
-	refreshCredsHandler.start()
 
-	tester.payloadHandler.refreshHandler = refreshCredsHandler
 	go tester.payloadHandler.start()
 	taskArn := "t1"
 	credentialsExpiration := "expiration"

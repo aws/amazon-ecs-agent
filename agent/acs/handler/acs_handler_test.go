@@ -1162,8 +1162,6 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	// Ensure that credentials manager interface methods are invoked in the
 	// correct order, with expected arguments
 	gomock.InOrder(
-		// Return a task from the engine for GetTaskByArn
-		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 		// The last invocation of SetCredentials is to update
 		// credentials when a refresh message is received by the handler
 		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds *rolecredentials.TaskIAMRoleCredentials) {
@@ -1185,6 +1183,8 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 				t.Errorf("Mismatch between expected and credentials expected: %v, added: %v", expectedCreds, updatedCredentials)
 			}
 		}).Return(nil),
+		// Return a task from the engine for GetTaskByArn
+		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 	)
 	serverIn <- sampleRefreshCredentialsMessage
 

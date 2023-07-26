@@ -467,7 +467,7 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 			manifestMessageIDAccessor := &manifestMessageIDAccessor{}
 
-			newTaskManifest := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
+			newTaskManifest := newTaskManifestHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 				data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber), manifestMessageIDAccessor)
 
 			taskList := []*task.Task{
@@ -562,7 +562,7 @@ func TestTaskManifestHandlerSendPendingTaskManifestMessageAck(t *testing.T) {
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWSClient.EXPECT().MakeRequest(gomock.Any()).Return(nil).Times(1)
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
-	handler := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
+	handler := newTaskManifestHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
@@ -599,7 +599,7 @@ func TestTaskManifestHandlerHandlePendingTaskStopVerificationAck(t *testing.T) {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
-	handler := newTaskManifestHandler(ctx, cluster, testconst.ContainerInstanceARN, mockWSClient,
+	handler := newTaskManifestHandler(ctx, testconst.ClusterName, testconst.ContainerInstanceARN, mockWSClient,
 		data.NewNoopClient(), taskEngine, aws.Int64(testSeqNum), manifestMessageIDAccessor)
 
 	wg := sync.WaitGroup{}
