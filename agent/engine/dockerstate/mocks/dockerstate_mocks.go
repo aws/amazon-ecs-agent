@@ -25,6 +25,7 @@ import (
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	eni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -61,6 +62,18 @@ func (m *MockTaskEngineState) AddContainer(arg0 *container.DockerContainer, arg1
 func (mr *MockTaskEngineStateMockRecorder) AddContainer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddContainer", reflect.TypeOf((*MockTaskEngineState)(nil).AddContainer), arg0, arg1)
+}
+
+// AddEBSAttachment mocks base method.
+func (m *MockTaskEngineState) AddEBSAttachment(arg0 *resource.ResourceAttachment) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddEBSAttachment", arg0)
+}
+
+// AddEBSAttachment indicates an expected call of AddEBSAttachment.
+func (mr *MockTaskEngineStateMockRecorder) AddEBSAttachment(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEBSAttachment", reflect.TypeOf((*MockTaskEngineState)(nil).AddEBSAttachment), arg0)
 }
 
 // AddENIAttachment mocks base method.
@@ -253,6 +266,49 @@ func (mr *MockTaskEngineStateMockRecorder) GetAllContainerIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllContainerIDs", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllContainerIDs))
 }
 
+// GetAllEBSAttachments mocks base method.
+func (m *MockTaskEngineState) GetAllEBSAttachments() []*resource.ResourceAttachment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllEBSAttachments")
+	ret0, _ := ret[0].([]*resource.ResourceAttachment)
+	return ret0
+}
+
+// GetAllEBSAttachments indicates an expected call of GetAllEBSAttachments.
+func (mr *MockTaskEngineStateMockRecorder) GetAllEBSAttachments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllEBSAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllEBSAttachments))
+}
+
+// GetAllPendingEBSAttachments mocks base method.
+func (m *MockTaskEngineState) GetAllPendingEBSAttachments() []*resource.ResourceAttachment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllPendingEBSAttachments")
+	ret0, _ := ret[0].([]*resource.ResourceAttachment)
+	return ret0
+}
+
+// GetAllPendingEBSAttachments indicates an expected call of GetAllPendingEBSAttachments.
+func (mr *MockTaskEngineStateMockRecorder) GetAllPendingEBSAttachments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPendingEBSAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllPendingEBSAttachments))
+}
+
+// GetEBSByVolumeId mocks base method.
+func (m *MockTaskEngineState) GetEBSByVolumeId(arg0 string) (*resource.ResourceAttachment, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEBSByVolumeId", arg0)
+	ret0, _ := ret[0].(*resource.ResourceAttachment)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// GetEBSByVolumeId indicates an expected call of GetEBSByVolumeId.
+func (mr *MockTaskEngineStateMockRecorder) GetEBSByVolumeId(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEBSByVolumeId", reflect.TypeOf((*MockTaskEngineState)(nil).GetEBSByVolumeId), arg0)
+}
+
 // GetIPAddressByTaskARN mocks base method.
 func (m *MockTaskEngineState) GetIPAddressByTaskARN(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
@@ -311,6 +367,18 @@ func (m *MockTaskEngineState) PulledContainerMapByArn(arg0 string) (map[string]*
 func (mr *MockTaskEngineStateMockRecorder) PulledContainerMapByArn(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PulledContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).PulledContainerMapByArn), arg0)
+}
+
+// RemoveEBSAttachment mocks base method.
+func (m *MockTaskEngineState) RemoveEBSAttachment(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveEBSAttachment", arg0)
+}
+
+// RemoveEBSAttachment indicates an expected call of RemoveEBSAttachment.
+func (mr *MockTaskEngineStateMockRecorder) RemoveEBSAttachment(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveEBSAttachment", reflect.TypeOf((*MockTaskEngineState)(nil).RemoveEBSAttachment), arg0)
 }
 
 // RemoveENIAttachment mocks base method.
