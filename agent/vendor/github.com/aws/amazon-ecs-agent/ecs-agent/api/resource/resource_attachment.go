@@ -14,11 +14,16 @@
 package resource
 
 import (
+	"sync"
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
+
+	"github.com/pkg/errors"
 )
 
-// The ResourceAttachment is a general attachment for resources created specifically for Fargate launch type
-// (e.g., EBS volume, V2N).
 type ResourceAttachment struct {
 	attachmentinfo.AttachmentInfo
 	// AttachmentProperties is a map storing (name, value) representation of attachment properties.
@@ -28,6 +33,11 @@ type ResourceAttachment struct {
 	// For example, if the attachment is used for an EBS volume resource, the additional properties will be
 	// the customer specified volume size, and the image cache size.
 	AttachmentProperties map[string]string `json:"AttachmentProperties,omitempty"`
+	// ackTimer is used to register the expiration timeout callback for unsuccessful
+	// Resource attachments
+	ackTimer ttime.Timer
+	// guard protects access to fields of this struct
+	guard sync.RWMutex
 }
 
 // Agent Communication Service (ACS) can send messages of type ConfirmAttachmentMessage. These messages include
@@ -47,6 +57,9 @@ const (
 	// Properties specific to Extensible Ephemeral Storage (EES).
 	VolumeSizeInGiBName = "volumeSizeInGiB"    // the total size of the EES (requested size + image cache size)
 	RequestedSizeName   = "requestedSizeInGiB" // the customer requested size of extensible ephemeral storage
+
+	// Properties specific to Elastic Block Service Volumes
+	FileSystemTypeName = "filesystemType"
 )
 
 // getCommonProperties returns the common properties as used for validating a resource.
@@ -82,4 +95,98 @@ func getExtensibleEphemeralStorageProperties() (ephemeralStorageProperties []str
 	}
 	ephemeralStorageProperties = append(ephemeralStorageProperties, getFargateControlPlaneProperties()...)
 	return ephemeralStorageProperties
+}
+
+func getResourceAttachmentLogFields(ra *ResourceAttachment, duration time.Duration) logger.Fields {
+	fields := logger.Fields{
+		"duration":          duration.String(),
+		"attachmentARN":     ra.AttachmentARN,
+		"attachmentType":    ra.AttachmentProperties[ResourceTypeName],
+		"attachmentSent":    ra.AttachStatusSent,
+		"volumeSizeInGiB":   ra.AttachmentProperties[VolumeSizeInGiBName],
+		"RequestedSizeName": ra.AttachmentProperties[RequestedSizeName],
+		"volumeId":          ra.AttachmentProperties[VolumeIdName],
+		"deviceName":        ra.AttachmentProperties[DeviceName],
+		"filesystemType":    ra.AttachmentProperties[FileSystemTypeName],
+		"status":            ra.Status.String(),
+		"expiresAt":         ra.ExpiresAt.Format(time.RFC3339),
+	}
+
+	return fields
+}
+
+// StartTimer starts the ack timer to record the expiration of resource attachment
+func (ra *ResourceAttachment) StartTimer(timeoutFunc func()) error {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	if ra.ackTimer != nil {
+		// The timer has already been initialized, do nothing
+		return nil
+	}
+	now := time.Now()
+	duration := ra.ExpiresAt.Sub(now)
+	if duration <= 0 {
+		return errors.Errorf("resource attachment: timer expiration is in the past; expiration [%s] < now [%s]",
+			ra.ExpiresAt.String(), now.String())
+	}
+	logger.Info("Starting resource attachment ack timer", getResourceAttachmentLogFields(ra, duration))
+	ra.ackTimer = time.AfterFunc(duration, timeoutFunc)
+	return nil
+}
+
+// Initialize initializes the fields that can't be populated from loading state file.
+// Notably, this initializes the ack timer so that if we time out waiting for the resource to be attached, the attachment
+// can be removed from state.
+func (ra *ResourceAttachment) Initialize(timeoutFunc func()) error {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	if ra.AttachStatusSent { // resource attachment status has been sent, no need to start ack timer.
+		return nil
+	}
+
+	now := time.Now()
+	duration := ra.ExpiresAt.Sub(now)
+	if duration <= 0 {
+		return errors.New("resource attachment has already expired")
+	}
+
+	logger.Info("Starting Resource attachment ack timer", getResourceAttachmentLogFields(ra, duration))
+	ra.ackTimer = time.AfterFunc(duration, timeoutFunc)
+
+	return nil
+}
+
+// IsSent checks if the resource attachment attached status has been sent
+func (ra *ResourceAttachment) IsSent() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.AttachStatusSent
+}
+
+// SetSentStatus marks the resource attachment attached status has been sent
+func (ra *ResourceAttachment) SetSentStatus() {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	ra.AttachStatusSent = true
+}
+
+// StopAckTimer stops the ack timer set on the resource attachment
+func (ra *ResourceAttachment) StopAckTimer() {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	ra.ackTimer.Stop()
+}
+
+// HasExpired returns true if the resource attachment object has exceeded the
+// threshold for notifying the backend of the attachment
+func (ra *ResourceAttachment) HasExpired() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return time.Now().After(ra.ExpiresAt)
 }
