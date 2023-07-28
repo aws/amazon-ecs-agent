@@ -328,6 +328,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 		if !ok {
 			badDrivers = append(badDrivers, string(driver))
 		}
+
 	}
 	if len(badDrivers) > 0 {
 		return errors.New("Invalid logging drivers: " + strings.Join(badDrivers, ", "))
