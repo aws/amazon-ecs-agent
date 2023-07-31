@@ -177,6 +177,8 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 
+	nvidiaDriverVersion := "396.44"
+
 	expectedCapabilityNames := []string{
 		capabilityPrefix + "docker-remote-api.1.17",
 		attributePrefix + "docker-plugin.local",
@@ -184,7 +186,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilitySecretEnvSSM,
 		attributePrefix + capabilitySecretLogDriverSSM,
 		// nvidia driver version capability
-		attributePrefix + "nvidia-driver-version.396.44",
+		attributePrefix + capabilityNvidiaDriverVersionInfix + nvidiaDriverVersion,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -192,6 +194,10 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		expectedCapabilities = append(expectedCapabilities,
 			&ecs.Attribute{Name: aws.String(name)})
 	}
+
+	expectedCapabilities = append(expectedCapabilities,
+		&ecs.Attribute{Name: aws.String(attributePrefix + capabilityGpuDriverVersion),
+			Value: aws.String(nvidiaDriverVersion)})
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -205,7 +211,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		mobyPlugins:        mockMobyPlugins,
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: &gpu.NvidiaGPUManager{
-				DriverVersion: "396.44",
+				DriverVersion: nvidiaDriverVersion,
 			},
 		},
 		serviceconnectManager: mockServiceConnectManager,
