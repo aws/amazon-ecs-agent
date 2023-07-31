@@ -35,7 +35,7 @@ var (
 
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
-func (cl *client) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
+func (cl *AppNetAgentClient) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
 	resp, err := cl.performAppnetRequest(http.MethodGet, adminSocketPath, statsRequest)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (cl *client) GetStats(adminSocketPath string, statsRequest string) (map[str
 
 // DrainInboundConnections invokes Appnet Agent's drain_listeners API which starts draining ServiceConnect inbound connections.
 // This function expects an Appnet-agent-hosted HTTP server listening on the UDS path passed in config.
-func (cl *client) DrainInboundConnections(adminSocketPath string, drainRequest string) error {
+func (cl *AppNetAgentClient) DrainInboundConnections(adminSocketPath string, drainRequest string) error {
 	return retry.RetryNWithBackoff(oneSecondBackoffNoJitter, 3, func() error {
 		resp, err := cl.performAppnetRequest(http.MethodGet, adminSocketPath, drainRequest)
 		if err != nil {
@@ -64,7 +64,7 @@ func (cl *client) DrainInboundConnections(adminSocketPath string, drainRequest s
 	})
 }
 
-func (cl *client) performAppnetRequest(method, udsPath, url string) (*http.Response, error) {
+func (cl *AppNetAgentClient) performAppnetRequest(method, udsPath, url string) (*http.Response, error) {
 	ctx := context.WithValue(context.Background(), udsAddressKey, udsPath)
 	req, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	httpClient := cl.udsHttpClient

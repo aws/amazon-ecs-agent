@@ -144,7 +144,7 @@ type DockerTaskEngine struct {
 	client       dockerapi.DockerClient
 	dataClient   data.Client
 	cniClient    ecscni.CNIClient
-	appnetClient api.AppnetClient
+	appnetClient appnet.AppNetClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -226,7 +226,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		hostResourceManager:        hostResourceManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
-		appnetClient:               appnet.Client(),
+		appnetClient:               appnet.CreateClient(),
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             serviceConnectManager,

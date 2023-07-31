@@ -177,7 +177,7 @@ func TestGetStats(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			stats, err := Client().GetStats(tc.udsPath, testStatsUrl)
+			stats, err := CreateClient().GetStats(tc.udsPath, testStatsUrl)
 			assert.Equal(t, tc.expectedResult, stats)
 			if tc.isErrorExpected {
 				assert.Error(t, err)
@@ -220,7 +220,7 @@ func TestDrainInboundConnections(t *testing.T) {
 			t.Cleanup(func() {
 				ts.Close()
 			})
-			err := Client().DrainInboundConnections(tc.udsPath, testDrainUrl)
+			err := CreateClient().DrainInboundConnections(tc.udsPath, testDrainUrl)
 			if tc.isErrorExpected {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorContains)

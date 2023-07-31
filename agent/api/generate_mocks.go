@@ -13,4 +13,4 @@
 
 package api
 
-//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSSubmitStateSDK,ECSClient,AppnetClient
+//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/api ECSSDK,ECSSubmitStateSDK,ECSClient

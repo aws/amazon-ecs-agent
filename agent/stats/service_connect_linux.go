@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -33,7 +32,7 @@ import (
 
 type ServiceConnectStats struct {
 	stats        []*ecstcs.GeneralMetricsWrapper
-	appnetClient api.AppnetClient
+	appnetClient appnet.AppNetClient
 	sent         bool
 	lock         sync.RWMutex
 }
@@ -50,7 +49,7 @@ var directionToMetricType = map[string]string{
 
 func newServiceConnectStats() (*ServiceConnectStats, error) {
 	return &ServiceConnectStats{
-		appnetClient: appnet.Client(),
+		appnetClient: appnet.CreateClient(),
 	}, nil
 }
 

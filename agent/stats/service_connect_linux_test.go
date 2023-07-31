@@ -148,7 +148,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 			ts.Start()
 
 			serviceConnectStats := &ServiceConnectStats{
-				appnetClient: appnet.Client(),
+				appnetClient: appnet.CreateClient(),
 			}
 			serviceConnectStats.retrieveServiceConnectStats(t1)
 
