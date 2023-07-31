@@ -104,6 +104,10 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.At
 		driverVersion := agent.resourceFields.NvidiaGPUManager.GetDriverVersion()
 		if driverVersion != "" {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityNvidiaDriverVersionInfix+driverVersion)
+			capabilities = append(capabilities, &ecs.Attribute{
+				Name:  aws.String(attributePrefix + capabilityGpuDriverVersion),
+				Value: aws.String(driverVersion),
+			})
 		}
 	}
 	return capabilities

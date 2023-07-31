@@ -77,6 +77,7 @@ const (
 	capabilityExecCertsRelativePath                        = "certs"
 	capabilityExternal                                     = "external"
 	capabilityServiceConnect                               = "service-connect-v1"
+	capabilityGpuDriverVersion                             = "gpu-driver-version"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
