@@ -357,7 +357,7 @@ install-golang:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
-	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.4.0
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
@@ -366,7 +366,7 @@ get-deps-init:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
-	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.2
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.4.0
 
 amazon-linux-sources.tgz:
 	./scripts/update-version.sh
