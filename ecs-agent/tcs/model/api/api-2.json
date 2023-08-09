@@ -28,23 +28,10 @@
       "input":{"shape":"PublishHealthRequest"},
       "output":{"shape":"AckPublishHealth"},
       "errors":[
-        {
-          "shape":"BadRequestException",
-          "exception":true
-        },
-        {
-          "shape":"ResourceValidationException",
-          "exception":true
-        },
-        {
-          "shape":"InvalidParameterException",
-          "exception":true
-        },
-        {
-          "shape":"ServerException",
-          "exception":true,
-          "fault":true
-        }
+        {"shape":"BadRequestException"},
+        {"shape":"ResourceValidationException"},
+        {"shape":"InvalidParameterException"},
+        {"shape":"ServerException"}
       ]
     },
     "PublishInstanceStatus":{
@@ -56,23 +43,10 @@
       "input":{"shape":"PublishInstanceStatusRequest"},
       "output":{"shape":"AckPublishInstanceStatus"},
       "errors":[
-        {
-          "shape":"BadRequestException",
-          "exception":true
-        },
-        {
-          "shape":"ResourceValidationException",
-          "exception":true
-        },
-        {
-          "shape":"InvalidParameterException",
-          "exception":true
-        },
-        {
-          "shape":"ServerException",
-          "exception":true,
-          "fault":true
-        }
+        {"shape":"BadRequestException"},
+        {"shape":"ResourceValidationException"},
+        {"shape":"InvalidParameterException"},
+        {"shape":"ServerException"}
       ]
     },
     "PublishMetrics":{
@@ -84,23 +58,10 @@
       "input":{"shape":"PublishMetricsRequest"},
       "output":{"shape":"AckPublishMetric"},
       "errors":[
-        {
-          "shape":"BadRequestException",
-          "exception":true
-        },
-        {
-          "shape":"ResourceValidationException",
-          "exception":true
-        },
-        {
-          "shape":"InvalidParameterException",
-          "exception":true
-        },
-        {
-          "shape":"ServerException",
-          "exception":true,
-          "fault":true
-        }
+        {"shape":"BadRequestException"},
+        {"shape":"ResourceValidationException"},
+        {"shape":"InvalidParameterException"},
+        {"shape":"ServerException"}
       ]
     },
     "StartTelemetrySession":{
@@ -112,19 +73,9 @@
       "input":{"shape":"StartTelemetrySessionRequest"},
       "output":{"shape":"StopTelemetrySessionMessage"},
       "errors":[
-        {
-          "shape":"BadRequestException",
-          "exception":true
-        },
-        {
-          "shape":"ResourceValidationException",
-          "exception":true
-        },
-        {
-          "shape":"ServerException",
-          "exception":true,
-          "fault":true
-        }
+        {"shape":"BadRequestException"},
+        {"shape":"ResourceValidationException"},
+        {"shape":"ServerException"}
       ]
     }
   },
@@ -203,6 +154,12 @@
       "member":{"shape":"Dimension"}
     },
     "Double":{"type":"double"},
+    "EphemeralStorageMetrics":{
+      "type":"structure",
+      "members":{
+        "BytesUtilized":{"shape":"ULongStatsSet"}
+      }
+    },
     "GeneralMetric":{
       "type":"structure",
       "members":{
@@ -410,6 +367,7 @@
         "taskDefinitionFamily":{"shape":"String"},
         "taskDefinitionVersion":{"shape":"String"},
         "containerMetrics":{"shape":"ContainerMetrics"},
+        "ephemeralStorageMetrics":{"shape":"EphemeralStorageMetrics"},
         "serviceConnectMetricsWrapper":{"shape":"ServiceConnectMetricsWrapper"}
       }
     },
