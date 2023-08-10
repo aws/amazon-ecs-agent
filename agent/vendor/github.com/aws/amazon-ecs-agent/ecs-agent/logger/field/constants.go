@@ -15,6 +15,7 @@ package field
 const (
 	TaskID                  = "task"
 	TaskARN                 = "taskARN"
+	TaskVersion             = "taskVersion"
 	Container               = "container"
 	DockerId                = "dockerId"
 	ManagedAgent            = "managedAgent"
@@ -50,4 +51,5 @@ const (
 	TMDSEndpointContainerID = "tmdsEndpointContainerID"
 	MessageID               = "messageID"
 	RequestType             = "requestType"
+	CredentialsID           = "credentialsID"
 )
