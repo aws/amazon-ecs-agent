@@ -29,3 +29,11 @@ type ECSTaskProtectionSDK interface {
 	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
 		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
 }
+
+// ECSDiscoverEndpointSDK is an interface with customized ecs client that
+// implements the DiscoverPollEndpoint, DiscoverTelemetryEndpoint, and DiscoverServiceConnectEndpoint
+type ECSDiscoverEndpointSDK interface {
+	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
+	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
+	DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error)
+}
