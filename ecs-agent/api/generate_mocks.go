@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/api ECSTaskProtectionSDK
+//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/api ECSTaskProtectionSDK,ECSDiscoverEndpointSDK
 
 package api
