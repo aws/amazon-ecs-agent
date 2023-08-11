@@ -86,7 +86,7 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{"fancyvolumedriver"}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return(
@@ -326,7 +326,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		cniClient.EXPECT().Version(ecscni.ECSBranchENIPluginName).Return("v2", nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
@@ -415,7 +415,7 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),

@@ -73,7 +73,7 @@ func TestSetupNS(t *testing.T) {
 		// ENI plugin was called first
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
+				assert.Equal(t, VPCENIPluginName, net.Network.Type, "first plugin should be eni")
 			}),
 		// Bridge plugin was called second
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
@@ -98,7 +98,7 @@ func TestSetupNS(t *testing.T) {
 }
 
 func eniNetworkConfig(config *Config) *NetworkConfig {
-	_, eniNetworkConfig, _ := NewENINetworkConfig(
+	_, eniNetworkConfig, _ := NewVPCENINetworkConfig(
 		&ni.NetworkInterface{
 			ID: eniID,
 			IPV4Addresses: []*ni.IPV4Address{
@@ -192,7 +192,7 @@ func TestSetupNSAppMeshEnabled(t *testing.T) {
 		// ENI plugin was called first
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
+				assert.Equal(t, VPCENIPluginName, net.Network.Type, "first plugin should be eni")
 			}),
 		// Bridge plugin was called second
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
@@ -256,7 +256,7 @@ func TestSetupNSServiceConnectEnabled(t *testing.T) {
 		// ENI plugin was called first
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
+				assert.Equal(t, VPCENIPluginName, net.Network.Type, "first plugin should be eni")
 			}),
 		// Bridge plugin was called second
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&cniTypesCurrent.Result{}, nil).Do(
@@ -489,16 +489,16 @@ func TestReleaseIPInIPAM(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestConstructENINetworkConfig tests createENINetworkConfig creates the correct
-// configuration for eni plugin
-func TestConstructENINetworkConfig(t *testing.T) {
+// TestConstructVPCENINetworkConfig tests that NewVPCENINetworkConfig creates the correct
+// configuration for vpc-eni plugin
+func TestConstructVPCENINetworkConfig(t *testing.T) {
 	config := &Config{
 		ContainerID:           "containerid12",
 		ContainerPID:          "pid",
 		BlockInstanceMetadata: true,
 	}
 
-	eniName, eniNetworkConfig, err := NewENINetworkConfig(
+	eniName, eniNetworkConfig, err := NewVPCENINetworkConfig(
 		&ni.NetworkInterface{
 			ID: eniID,
 			IPV4Addresses: []*ni.IPV4Address{
@@ -515,16 +515,15 @@ func TestConstructENINetworkConfig(t *testing.T) {
 		config)
 	require.NoError(t, err, "Failed to construct eni network config")
 	assert.Equal(t, "eth0", eniName)
-	eniConfig := &ENIConfig{}
+	eniConfig := &VPCENIPluginConfig{}
 	err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
 	require.NoError(t, err, "unmarshal config from bytes failed")
-	assert.Equal(t, &ENIConfig{
-		Type:                  "ecs-eni",
-		ENIID:                 eniID,
-		IPAddresses:           []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
-		MACAddress:            eniMACAddress,
-		BlockInstanceMetadata: true,
-		GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+	assert.Equal(t, &VPCENIPluginConfig{
+		Type:               "vpc-eni",
+		ENIIPAddresses:     []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
+		ENIMACAddress:      eniMACAddress,
+		BlockIMDS:          true,
+		GatewayIPAddresses: []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
 	}, eniConfig)
 }
 

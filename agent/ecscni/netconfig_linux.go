@@ -112,18 +112,17 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 	return ipamConfig, nil
 }
 
-// NewENINetworkConfig creates a new ENI CNI network configuration.
-func NewENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
-	eniConf := ENIConfig{
-		Type:                  ECSENIPluginName,
-		ENIID:                 eni.ID,
-		MACAddress:            eni.MacAddress,
-		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
-		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
+// NewVPCENINetworkConfig creates a new vpc-eni CNI plugin configuration.
+func NewVPCENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
+	eniConf := VPCENIPluginConfig{
+		Type:               VPCENIPluginName,
+		ENIMACAddress:      eni.MacAddress,
+		ENIIPAddresses:     eni.GetIPAddressesWithPrefixLength(),
+		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
+		BlockIMDS:          cfg.BlockInstanceMetadata,
 	}
 
-	networkConfig, err := newNetworkConfig(eniConf, ECSENIPluginName, cfg.MinSupportedCNIVersion)
+	networkConfig, err := newNetworkConfig(eniConf, VPCENIPluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
 		return "", nil, fmt.Errorf("cni config: failed to create configuration: %w", err)
 	}

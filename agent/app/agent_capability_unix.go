@@ -219,11 +219,11 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 // doesn't contribute to placement decisions and just serves as additional
 // debugging information
 func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
-	version, err := agent.cniClient.Version(ecscni.ECSENIPluginName)
+	version, err := agent.cniClient.Version(ecscni.VPCENIPluginName)
 	if err != nil {
 		seelog.Warnf(
 			"Unable to determine the version of the plugin '%s': %v",
-			ecscni.ECSENIPluginName, err)
+			ecscni.VPCENIPluginName, err)
 		return nil, err
 	}
 

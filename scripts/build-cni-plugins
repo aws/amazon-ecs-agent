@@ -61,9 +61,9 @@ make clean
 
 # buildvcs=false excludes version control information in golang >= 1.18. This is required for compiling agent with included repositories
 if [[ $goversion < "1.18" ]]; then
-	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor" make aws-appmesh vpc-branch-eni ecs-serviceconnect
+	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor" make aws-appmesh vpc-branch-eni ecs-serviceconnect vpc-eni
 else
-	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor -buildvcs=false" make aws-appmesh vpc-branch-eni ecs-serviceconnect
+	cd ${GITPATH}/amazon-vpc-cni-plugins && GO111MODULE=on GOFLAGS="-mod=vendor -buildvcs=false" make aws-appmesh vpc-branch-eni ecs-serviceconnect vpc-eni
 fi
 cp -a ./build/linux_${GOARCH}/. ${ROOT}/misc/plugins/
 make clean

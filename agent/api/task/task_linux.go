@@ -275,7 +275,7 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 		// compatibility), consider it a "standard" ENI attachment.
 		case "", ni.DefaultInterfaceAssociationProtocol:
 			cniConfig.ID = eni.MacAddress
-			ifName, netconf, err = ecscni.NewENINetworkConfig(eni, cniConfig)
+			ifName, netconf, err = ecscni.NewVPCENINetworkConfig(eni, cniConfig)
 		case ni.VLANInterfaceAssociationProtocol:
 			cniConfig.ID = eni.MacAddress
 			ifName, netconf, err = ecscni.NewBranchENINetworkConfig(eni, cniConfig)

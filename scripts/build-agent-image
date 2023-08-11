@@ -45,7 +45,7 @@ if [ "$architecture" == "arm64" ]; then export GOARCH=arm64; fi
 mkdir -p rootfs/amazon-ecs-cni-plugins/
 cp ./misc/plugins/aws-appmesh rootfs/amazon-ecs-cni-plugins/aws-appmesh
 cp ./misc/plugins/ecs-bridge rootfs/amazon-ecs-cni-plugins/ecs-bridge
-cp ./misc/plugins/ecs-eni rootfs/amazon-ecs-cni-plugins/ecs-eni
+cp ./misc/plugins/vpc-eni rootfs/amazon-ecs-cni-plugins/vpc-eni
 cp ./misc/plugins/ecs-ipam rootfs/amazon-ecs-cni-plugins/ecs-ipam
 cp ./misc/plugins/vpc-branch-eni rootfs/amazon-ecs-cni-plugins/vpc-branch-eni
 cp ./misc/plugins/ecs-serviceconnect rootfs/amazon-ecs-cni-plugins/ecs-serviceconnect

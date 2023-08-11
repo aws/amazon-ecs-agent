@@ -122,7 +122,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockMetadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
@@ -130,7 +130,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		cniClient.EXPECT().Version(ecscni.ECSBranchENIPluginName).Return("v2", nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
@@ -288,7 +288,7 @@ func TestQueryCNIPluginsCapabilitiesHappyPath(t *testing.T) {
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	gomock.InOrder(
-		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
@@ -308,7 +308,7 @@ func TestQueryCNIPluginsCapabilitiesEmptyCapabilityListFromPlugin(t *testing.T) 
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil)
+	cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return([]string{}, nil)
 
 	agent := &ecsAgent{
 		cniClient: cniClient,
@@ -324,7 +324,7 @@ func TestQueryCNIPluginsCapabilitiesMissAppMesh(t *testing.T) {
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	gomock.InOrder(
-		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(nil, errors.New("error")),
@@ -342,7 +342,7 @@ func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testin
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(nil, errors.New("error"))
+	cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return(nil, errors.New("error"))
 
 	agent := &ecsAgent{
 		cniClient: cniClient,
@@ -408,7 +408,7 @@ func TestInitializeTaskENIDependenciesQueryCNICapabilitiesError(t *testing.T) {
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockMetadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
-		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil),
+		cniClient.EXPECT().Capabilities(ecscni.VPCENIPluginName).Return([]string{}, nil),
 	)
 	agent := &ecsAgent{
 		ec2MetadataClient: mockMetadata,
