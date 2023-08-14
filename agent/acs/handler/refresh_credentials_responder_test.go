@@ -87,9 +87,7 @@ func TestInvalidCredentialsMessageNotAcked(t *testing.T) {
 		return nil
 	}
 	testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentials.NewManager(),
-		&credentialsMetadataSetter{
-			taskEngine: nil,
-		},
+		NewCredentialsMetadataSetter(nil),
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
@@ -116,9 +114,7 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 		return nil
 	}
 	testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentials.NewManager(),
-		&credentialsMetadataSetter{
-			taskEngine: mockTaskEngine,
-		},
+		NewCredentialsMetadataSetter(mockTaskEngine),
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
@@ -162,9 +158,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 				return nil
 			}
 			testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentialsManager,
-				&credentialsMetadataSetter{
-					taskEngine: mockTaskEngine,
-				},
+				NewCredentialsMetadataSetter(mockTaskEngine),
 				metrics.NewNopEntryFactory(),
 				testResponseSender)
 
@@ -238,9 +232,7 @@ func TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsError(t *testing
 				return nil
 			}
 			testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentialsManager,
-				&credentialsMetadataSetter{
-					taskEngine: mockTaskEngine,
-				},
+				NewCredentialsMetadataSetter(mockTaskEngine),
 				metrics.NewNopEntryFactory(),
 				testResponseSender)
 

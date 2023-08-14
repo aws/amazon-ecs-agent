@@ -36,7 +36,7 @@ import (
 // and returns the boolean comparison result.
 type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 
-// payloadMessageHandler implements PayloadMessageHandler.
+// payloadMessageHandler implements PayloadMessageHandler interface defined in ecs-agent module.
 type payloadMessageHandler struct {
 	taskEngine                  engine.TaskEngine
 	ecsClient                   api.ECSClient
@@ -44,6 +44,23 @@ type payloadMessageHandler struct {
 	taskHandler                 *eventhandler.TaskHandler
 	credentialsManager          credentials.Manager
 	latestSeqNumberTaskManifest *int64
+}
+
+// NewPayloadMessageHandler creates a new payloadMessageHandler.
+func NewPayloadMessageHandler(taskEngine engine.TaskEngine,
+	ecsClient api.ECSClient,
+	dataClient data.Client,
+	taskHandler *eventhandler.TaskHandler,
+	credentialsManager credentials.Manager,
+	latestSeqNumberTaskManifest *int64) *payloadMessageHandler {
+	return &payloadMessageHandler{
+		taskEngine:                  taskEngine,
+		ecsClient:                   ecsClient,
+		dataClient:                  dataClient,
+		taskHandler:                 taskHandler,
+		credentialsManager:          credentialsManager,
+		latestSeqNumberTaskManifest: latestSeqNumberTaskManifest,
+	}
 }
 
 func (pmHandler *payloadMessageHandler) ProcessMessage(message *ecsacs.PayloadMessage,

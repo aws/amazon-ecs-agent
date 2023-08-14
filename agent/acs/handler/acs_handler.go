@@ -248,23 +248,14 @@ func (acsSession *session) startSessionOnce() error {
 func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	cfg := acsSession.agentConfig
 
-	payloadMsgHandler := &payloadMessageHandler{
-		taskEngine:                  acsSession.taskEngine,
-		ecsClient:                   acsSession.ecsClient,
-		dataClient:                  acsSession.dataClient,
-		taskHandler:                 acsSession.taskHandler,
-		credentialsManager:          acsSession.credentialsManager,
-		latestSeqNumberTaskManifest: acsSession.latestSeqNumTaskManifest,
-	}
+	payloadMsgHandler := NewPayloadMessageHandler(acsSession.taskEngine, acsSession.ecsClient, acsSession.dataClient,
+		acsSession.taskHandler, acsSession.credentialsManager, acsSession.latestSeqNumTaskManifest)
 
-	credsMetadataSetter := &credentialsMetadataSetter{taskEngine: acsSession.taskEngine}
+	credsMetadataSetter := NewCredentialsMetadataSetter(acsSession.taskEngine)
 
-	eniHandler := &eniHandler{
-		state:      acsSession.state,
-		dataClient: acsSession.dataClient,
-	}
+	eniHandler := NewENIHandler(acsSession.state, acsSession.dataClient)
 
-	manifestMessageIDAccessor := &manifestMessageIDAccessor{}
+	manifestMessageIDAccessor := NewManifestMessageIDAccessor()
 
 	metricsFactory := metrics.NewNopEntryFactory()
 
