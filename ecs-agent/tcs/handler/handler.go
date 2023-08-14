@@ -46,7 +46,7 @@ type TcsEcsClient interface {
 
 // TelemetrySession defines an interface for handler's long-lived connection with TCS.
 type TelemetrySession interface {
-	StartTelemetrySession(context.Context, string) error
+	StartTelemetrySession(context.Context) error
 	Start(context.Context) error
 }
 
@@ -57,7 +57,6 @@ type telemetrySession struct {
 	agentVersion                  string
 	agentHash                     string
 	containerRuntimeVersion       string
-	endpoint                      string
 	disableMetrics                bool
 	credentialsProvider           *credentials.Credentials
 	cfg                           *wsclient.WSClientMinAgentConfig
@@ -79,7 +78,6 @@ func NewTelemetrySession(
 	agentVersion string,
 	agentHash string,
 	containerRuntimeVersion string,
-	endpoint string,
 	disableMetrics bool,
 	credentialsProvider *credentials.Credentials,
 	cfg *wsclient.WSClientMinAgentConfig,
@@ -100,7 +98,6 @@ func NewTelemetrySession(
 		agentVersion:                  agentVersion,
 		agentHash:                     agentHash,
 		containerRuntimeVersion:       containerRuntimeVersion,
-		endpoint:                      endpoint,
 		disableMetrics:                disableMetrics,
 		credentialsProvider:           credentialsProvider,
 		cfg:                           cfg,
@@ -121,7 +118,7 @@ func NewTelemetrySession(
 func (session *telemetrySession) Start(ctx context.Context) error {
 	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
-		tcsError := session.StartTelemetrySession(ctx, session.endpoint)
+		tcsError := session.StartTelemetrySession(ctx)
 		switch tcsError {
 		case context.Canceled, context.DeadlineExceeded:
 			return tcsError
@@ -136,7 +133,7 @@ func (session *telemetrySession) Start(ctx context.Context) error {
 }
 
 // StartTelemetrySession creates a session with the backend and handles requests.
-func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endpoint string) error {
+func (session *telemetrySession) StartTelemetrySession(ctx context.Context) error {
 	wsRWTimeout := 2*session.heartbeatTimeout + session.heartbeatJitterMax
 
 	var containerRuntime string
