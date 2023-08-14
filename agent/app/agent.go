@@ -500,6 +500,47 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		AttachmentProperties: tempAttachmentProperties,
 	})
 
+	tempAttachmentProperties2 := map[string]string{
+		apira.ResourceTypeName:    apira.ElasticBlockStorage,
+		apira.RequestedSizeName:   "5",
+		apira.VolumeSizeInGiBName: "7",
+		apira.DeviceName:          "/host/dev/nvme1n1",
+		apira.VolumeIdName:        "vol-09b1fc99d3b9654a1",
+		apira.FileSystemTypeName:  "testXFS",
+	}
+
+	go agent.ebsWatcher.HandleResourceAttachment(&apira.ResourceAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentARN:        "dummy-arn2",
+			Status:               status.AttachmentNone,
+			ExpiresAt:            time.Now().Add(30000 * time.Millisecond),
+			AttachStatusSent:     false,
+			ClusterARN:           "dummy-cluster-arn2",
+			ContainerInstanceARN: "dummy-container-instance-arn2",
+		},
+		AttachmentProperties: tempAttachmentProperties2,
+	})
+
+	tempAttachmentProperties3 := map[string]string{
+		apira.ResourceTypeName:    apira.ElasticBlockStorage,
+		apira.RequestedSizeName:   "10",
+		apira.VolumeSizeInGiBName: "7",
+		apira.DeviceName:          "/host/dev/nvme3n1",
+		apira.VolumeIdName:        "vol-0797268b9cfec8c66",
+		apira.FileSystemTypeName:  "testXFS",
+	}
+	go agent.ebsWatcher.HandleResourceAttachment(&apira.ResourceAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentARN:        "dummy-arn3",
+			Status:               status.AttachmentNone,
+			ExpiresAt:            time.Now().Add(360000 * time.Millisecond),
+			AttachStatusSent:     false,
+			ClusterARN:           "dummy-cluster-arn3",
+			ContainerInstanceARN: "dummy-container-instance-arn3",
+		},
+		AttachmentProperties: tempAttachmentProperties3,
+	})
+
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)

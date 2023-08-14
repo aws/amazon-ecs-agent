@@ -1,3 +1,16 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package resource
 
 import (
@@ -20,10 +33,11 @@ var (
 func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName, volumeID string) error {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, ebsnvmeIDTimeoutDuration)
 	defer cancel()
-	output, err := exec.CommandContext(ctxWithTimeout, "/foo/lsblk", "-o", "+SERIAL").CombinedOutput()
+	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "+SERIAL").CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "failed to run lsblk: %s", string(output))
 	}
+
 	// actualVolumeID, err := parseEBSNVMeIDOutput(output)
 	// if err != nil {
 	// 	return err

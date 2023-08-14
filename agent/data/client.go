@@ -22,6 +22,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
+	// apira "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -83,6 +85,10 @@ type Client interface {
 	DeleteENIAttachment(string) error
 	// GetENIAttachments gets the data of all the ENI attachment.
 	GetENIAttachments() ([]*eni.ENIAttachment, error)
+
+	// SaveEBSAttachment(*apira.ResourceAttachment) error
+	// DeleteEBSAttachment(string) error
+	// GetEBSAttachments() ([]*apira.ResourceAttachment, error)
 
 	// SaveMetadata saves a key value pair of metadata.
 	SaveMetadata(string, string) error

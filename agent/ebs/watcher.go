@@ -27,37 +27,6 @@ import (
 )
 
 const (
-	// // sendEBSStateChangeRetryTimeout specifies the timeout before giving up
-	// // when looking for EBS in agent's state. If for whatever reason, the message
-	// // from ACS is received after the EBS has been attached to the instance, this
-	// // timeout duration will be used to wait for EBS message to be sent from ACS
-	// sendEBSStateChangeRetryTimeout = 6 * time.Second
-
-	// // sendEBSStateChangeBackoffMin specifies minimum value for backoff when
-	// // waiting for attachment message from ACS
-	// sendEBSStateChangeBackoffMin = 100 * time.Millisecond
-
-	// // sendEBSStateChangeBackoffMax specifies maximum value for backoff when
-	// // waiting for attachment message from ACS
-	// sendEBSStateChangeBackoffMax = 250 * time.Millisecond
-
-	// // sendEBSStateChangeBackoffJitter specifies the jitter multiple percentage
-	// // when waiting for attachment message from ACS
-	// sendEBSStateChangeBackoffJitter = 0.2
-
-	// // sendEBSStateChangeBackoffMultiple specifies the backoff duration multipler
-	// // when waiting for the attachment message from ACS
-	// sendEBSStateChangeBackoffMultiple = 1.5
-
-	// // volumeIDRetryTimeout specifies the timeout before giving up when
-	// // looking for an EBS's volume ID on the host.
-	// // We are capping off this duration to 1s assuming worst-case behavior
-	// volumeIDRetryTimeout = 2 * time.Second
-
-	// // ebsStatusSentMsg is the error message to use when trying to send an ebs status that's
-	// // already been sent
-	// ebsStatusSentMsg = "ebs status already sent"
-
 	scanPeriod = 500 * time.Millisecond
 )
 
@@ -76,7 +45,7 @@ func NewWatcher(ctx context.Context,
 	state dockerstate.TaskEngineState,
 	stateChangeEvents chan<- statechange.Event) (*EBSWatcher, error) {
 	derivedContext, cancel := context.WithCancel(ctx)
-	log.Info("ebs watcher has been initialized")
+	log.Info("EBS watcher has been initialized")
 	return &EBSWatcher{
 		ctx:            derivedContext,
 		cancel:         cancel,
@@ -118,20 +87,21 @@ func (w *EBSWatcher) Stop() {
 }
 
 func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
-	var err error
 	log.Info("Running HandleResourceAttachment")
+	var err error
 	var wg sync.WaitGroup
 	wg.Add(1)
 	w.mailbox <- func() {
 		defer wg.Done()
 		empty := len(w.agentState.GetAllPendingEBSAttachments()) == 0
 
-		log.Info("Handling EBS attachment")
+		// log.Info("Handling EBS attachment")
 		err := w.handleEBSAttachment(ebs)
 		if err != nil {
 			log.Info("Failed to handle resource attachment")
 		}
 		if empty && len(w.agentState.GetAllPendingEBSAttachments()) == 1 {
+			log.Info("Restarting the scan ticker...")
 			w.scanTicker.Stop()
 			w.scanTicker = time.NewTicker(scanPeriod)
 			log.Info()
@@ -148,31 +118,23 @@ func (w *EBSWatcher) handleEBSAttachment(ebs *apiebs.ResourceAttachment) error {
 		return nil
 	}
 	volumeID := ebs.AttachmentProperties[apiebs.VolumeIdName]
-	_, ok := w.agentState.GetEBSByVolumeId(volumeID)
+	ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volumeID)
 	log.Infof("Handling EBS attachment with volume ID: %v", volumeID)
 
+	// If there is already an EBS attachment, start its ACK timer if it hasn't done so
 	if ok {
 		log.Info("EBS Volume attachment already exists. Skip handling EBS attachment.")
-		return nil
+
+		// In the current containerd agent process, the timer does not reset if we get another
+		return ebsAttachment.StartTimer(func() {
+			log.Infof("ACK timer expired for EBS volume: %v", volumeID)
+			w.handleEBSAckTimeout(volumeID)
+		})
 	}
 
-	if ebs.IsSent() {
-		log.Info("Resource already attached. Skip handling EBS attachment.")
-		return nil
+	if err := w.addEBSAttachmentToState(ebs); err != nil {
+		return err
 	}
-
-	duration := time.Until(ebs.ExpiresAt)
-	if duration <= 0 {
-		log.Info("Attachment expiration time has past. Skip handling EBS attachment")
-		return nil
-	}
-
-	ebs.Initialize(func() {
-		log.Info("EBS Volume timed out: %v", volumeID)
-		w.RemoveAttachment(volumeID)
-	})
-
-	w.agentState.AddEBSAttachment(ebs)
 	log.Info("EBS attachment added to state")
 	return nil
 }
@@ -185,7 +147,14 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 		}
 		log.Infof("Found EBS volume with volumd ID: %v and device name: %v", volumeId, ebs.AttachmentProperties[apiebs.DeviceName])
 		ebs.StopAckTimer()
-		w.removeEBSAttachment(volumeId)
+		// Would have sent a State change event
+		log.Info("Would have sent a state change event for EBS attachment, setting the sent status to true...")
+		ebs.SetSentStatus()
+		if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
+			log.Info("No more attachments to scan for. Stopping scan ticker...")
+			w.scanTicker.Stop()
+		}
+		// w.removeEBSAttachment(volumeId)
 	}
 }
 
@@ -197,10 +166,26 @@ func (w *EBSWatcher) RemoveAttachment(volumeID string) {
 
 func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 	log.Info("Removing EBS volume")
+
+	log.Infof("Would have removed EBS volume: %v, from data client", volumeID)
+	// attachmentToRemove, ok := w.agentState.GetEBSByVolumeId(volumeID)
+	// if !ok {
+	// 	log.Errorf("Unable to retrieve EBS attachment for volume ID: %s", volumeID)
+	// }
+	// attachmentId, err := utils.GetEBSAttachmentId(attachmentToRemove.AttachmentARN)
+	// if err != nil {
+	// 	log.Errorf("Failed to get attachment id for %s, Error: %v", attachmentToRemove.AttachmentARN, err)
+	// } else {
+	// 	err = w.dataClient.DeleteEBSAttachment(attachmentId)
+	// 	if err != nil {
+	// 		log.Errorf("Failed to remove data for ebs attachment %s, Error: %v", attachmentId, err)
+	// 	}
+	// }
+
 	w.agentState.RemoveEBSAttachment(volumeID)
-	log.Info("EBS attachment has been removed.")
+	log.Infof("EBS attachment with volume ID: %v has been removed from agent state.", volumeID)
 	if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
-		log.Info("No more attachments to scan for. Stopping scan timer...")
+		log.Info("No more attachments to scan for. Stopping scan ticker...")
 		w.scanTicker.Stop()
 	}
 }
@@ -215,10 +200,8 @@ func (w *EBSWatcher) scanEBSVolumes() {
 			log.Infof("Unable to find EBS volume with volume ID: %v and device name: %v", volumeId, deviceName)
 			if err == apiebs.ErrInvalidVolumeID || errors.Cause(err) == apiebs.ErrInvalidVolumeID {
 				log.Info("Found a different EBS volume attached to the host")
-				w.agentState.RemoveEBSAttachment(volumeId)
 			}
 			log.Infof("Error: %v", err)
-			w.agentState.RemoveEBSAttachment(volumeId)
 			continue
 		}
 		log.Info("EBS volume has been found")
@@ -228,17 +211,40 @@ func (w *EBSWatcher) scanEBSVolumes() {
 
 // // Perhaps we need another struct called EBSHandler (similar to the existing ENIHandler)
 
-// // This will be called during the HandleResourceAttachment and will essentially do what addENIAttachmentToState is doing but for resource attachments
-// func (w *EBSWatcher) addEBSAttachmentToState(ebs *apiebs.ResourceAttachment) error {
-// 	return nil
-// }
+// This will be called during the HandleResourceAttachment and will essentially do what addENIAttachmentToState is doing but for resource attachments
+func (w *EBSWatcher) addEBSAttachmentToState(ebs *apiebs.ResourceAttachment) error {
+	// attachmentARN := ebs.AttachmentARN
+	volumeId := string(ebs.AttachmentProperties[apiebs.VolumeIdName])
+	err := ebs.StartTimer(func() {
+		log.Infof("ACK timer expired for EBS volume: %v", volumeId)
+		w.handleEBSAckTimeout(volumeId)
+	})
+	if err != nil {
+		return err
+	}
+	log.Infof("Adding ebs attachment info to state, volume ID: %s", volumeId)
+
+	w.agentState.AddEBSAttachment(ebs)
+
+	log.Info("Would have added EBS to data client")
+	// if err := w.dataClient.SaveEBSAttachment(ebs); err != nil {
+	// 	log.Errorf("Failed to save data for ebs attachment with error: %v", err)
+	//  return err
+	// }
+
+	return nil
+}
 
 // // This will remove the EBS attachment after the timeout period, will called when the EBS attachment starts it ACK timer (which will be in addEBSAttachmentToState)
-// func (w *EBSWatcher) handleEBSAckTimeout(volumeId string) {
-
-// }
-
-// // Will be called by handleEBSAckTimeout
-// func (w *EBSWatcher) removeEBSAttachmentData(volumeId string) {
-
-// }
+func (w *EBSWatcher) handleEBSAckTimeout(volumeId string) {
+	log.Infof("Handling expired EBS attachment: %v", volumeId)
+	ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volumeId)
+	if !ok {
+		log.Warnf("Ignoring unmanaged EBS attachment volume ID=%s", volumeId)
+		return
+	}
+	if !ebsAttachment.IsSent() {
+		log.Warnf("Timed out waiting for EBS ack; removing EBS attachment record %v", ebsAttachment)
+		w.RemoveAttachment(volumeId)
+	}
+}

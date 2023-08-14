@@ -40,6 +40,7 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+readOnly,
 		iptablesAltDir+":"+iptablesAltDir+readOnly,
 		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
+		"/usr/bin/lsblk:/usr/bin/lsblk",
 	)
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
