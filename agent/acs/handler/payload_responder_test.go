@@ -80,14 +80,8 @@ func setup(t *testing.T, acsResponseSender wsclient.RespondFunc) *testHelper {
 	ctx := context.Background()
 	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
 	latestSeqNumberTaskManifest := int64(10)
-	payloadMsgHandler := &payloadMessageHandler{
-		taskEngine:                  taskEngine,
-		ecsClient:                   ecsClient,
-		dataClient:                  dataClient,
-		taskHandler:                 taskHandler,
-		credentialsManager:          credentialsManager,
-		latestSeqNumberTaskManifest: &latestSeqNumberTaskManifest,
-	}
+	payloadMsgHandler := NewPayloadMessageHandler(taskEngine, ecsClient, dataClient, taskHandler, credentialsManager,
+		&latestSeqNumberTaskManifest)
 	payloadResponder := acssession.NewPayloadResponder(payloadMsgHandler, acsResponseSender)
 
 	return &testHelper{

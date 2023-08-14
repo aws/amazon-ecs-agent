@@ -17,9 +17,15 @@ import (
 	"sync"
 )
 
+// manifestMessageIDAccessor struct implements ManifestMessageIDAccessor interface defined in ecs-agent module.
 type manifestMessageIDAccessor struct {
 	messageID string
 	lock      sync.RWMutex
+}
+
+// NewManifestMessageIDAccessor creates a new manifestMessageIDAccessor.
+func NewManifestMessageIDAccessor() *manifestMessageIDAccessor {
+	return &manifestMessageIDAccessor{}
 }
 
 func (mmiAccessor *manifestMessageIDAccessor) GetMessageID() string {

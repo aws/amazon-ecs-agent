@@ -27,11 +27,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-// eniHandler remove ENI attachment from agent state after the ENI ack timeout
+// eniHandler struct implements ENIHandler interface defined in ecs-agent module.
+// It removes ENI attachment from agent state after the ENI ack timeout.
 type eniHandler struct {
 	mac        string
 	state      dockerstate.TaskEngineState
 	dataClient data.Client
+}
+
+// NewENIHandler creates a new eniHandler.
+func NewENIHandler(state dockerstate.TaskEngineState, dataClient data.Client) *eniHandler {
+	return &eniHandler{
+		state:      state,
+		dataClient: dataClient,
+	}
 }
 
 // HandleENIAttachment handles an ENI attachment via the following:

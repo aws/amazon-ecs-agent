@@ -62,10 +62,7 @@ func testENIAckTimeout(t *testing.T, attachmentType string) {
 		AttachmentType: attachmentType,
 		MACAddress:     testconst.RandomMAC,
 	}
-	eniHandler := &eniHandler{
-		state:      taskEngineState,
-		dataClient: dataClient,
-	}
+	eniHandler := NewENIHandler(taskEngineState, dataClient)
 
 	err := eniHandler.addENIAttachmentToState(eniAttachment)
 	assert.NoError(t, err)
@@ -111,10 +108,7 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 		AttachmentType: attachmentType,
 		MACAddress:     testconst.RandomMAC,
 	}
-	eniHandler := &eniHandler{
-		state:      taskEngineState,
-		dataClient: dataClient,
-	}
+	eniHandler := NewENIHandler(taskEngineState, dataClient)
 
 	err := eniHandler.addENIAttachmentToState(eniAttachment)
 	assert.NoError(t, err)
@@ -156,10 +150,7 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 		AttachmentType: attachmentType,
 		MACAddress:     testconst.RandomMAC,
 	}
-	eniHandler := &eniHandler{
-		state:      taskEngineState,
-		dataClient: dataClient,
-	}
+	eniHandler := NewENIHandler(taskEngineState, dataClient)
 
 	err := eniHandler.HandleENIAttachment(eniAttachment)
 	assert.NoError(t, err)
@@ -205,10 +196,7 @@ func testHandleExpiredENIAttachment(t *testing.T, attachmentType, taskArn string
 		AttachmentType: attachmentType,
 		MACAddress:     testconst.RandomMAC,
 	}
-	eniHandler := &eniHandler{
-		state:      taskEngineState,
-		dataClient: dataClient,
-	}
+	eniHandler := NewENIHandler(taskEngineState, dataClient)
 
 	// Expect an error starting the timer because of <=0 duration.
 	err := eniHandler.HandleENIAttachment(eniAttachment)

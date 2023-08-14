@@ -74,10 +74,7 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 		return nil
 	}
 	testAttachTaskENIResponder := acssession.NewAttachTaskENIResponder(
-		&eniHandler{
-			state:      taskEngineState,
-			dataClient: dataClient,
-		},
+		NewENIHandler(taskEngineState, dataClient),
 		testResponseSender)
 
 	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
@@ -131,10 +128,7 @@ func TestTaskENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		return nil
 	}
 	testAttachTaskENIResponder := acssession.NewAttachTaskENIResponder(
-		&eniHandler{
-			state:      mockState,
-			dataClient: dataClient,
-		},
+		NewENIHandler(mockState, dataClient),
 		testResponseSender)
 
 	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))

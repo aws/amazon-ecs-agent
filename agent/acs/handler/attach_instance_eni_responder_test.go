@@ -73,10 +73,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 		return nil
 	}
 	testAttachInstanceENIResponder := acssession.NewAttachInstanceENIResponder(
-		&eniHandler{
-			state:      taskEngineState,
-			dataClient: dataClient,
-		},
+		NewENIHandler(taskEngineState, dataClient),
 		testResponseSender)
 
 	handleAttachMessage :=
@@ -131,10 +128,7 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		return nil
 	}
 	testAttachInstanceENIResponder := acssession.NewAttachInstanceENIResponder(
-		&eniHandler{
-			state:      mockState,
-			dataClient: dataClient,
-		},
+		NewENIHandler(mockState, dataClient),
 		testResponseSender)
 
 	handleAttachMessage :=
