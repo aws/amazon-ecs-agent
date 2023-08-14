@@ -40,6 +40,10 @@ const (
 	ContainerRuntimeDocker             = "Docker"
 )
 
+type TcsEcsClient interface {
+	DiscoverTelemetryEndpoint(string) (string, error)
+}
+
 // TelemetrySession defines an interface for handler's long-lived connection with TCS.
 type TelemetrySession interface {
 	StartTelemetrySession(context.Context, string) error
@@ -66,6 +70,7 @@ type telemetrySession struct {
 	metricsChannel                <-chan ecstcs.TelemetryMessage
 	healthChannel                 <-chan ecstcs.HealthMessage
 	doctor                        *doctor.Doctor
+	ecsClient                     TcsEcsClient
 }
 
 func NewTelemetrySession(
@@ -87,6 +92,7 @@ func NewTelemetrySession(
 	metricsChannel <-chan ecstcs.TelemetryMessage,
 	healthChannel <-chan ecstcs.HealthMessage,
 	doctor *doctor.Doctor,
+	ecsClient TcsEcsClient,
 ) TelemetrySession {
 	return &telemetrySession{
 		containerInstanceArn:          containerInstanceArn,
@@ -107,6 +113,7 @@ func NewTelemetrySession(
 		disconnectJitterMax:           disconnectJitterMax,
 		metricsFactory:                metricsFactory,
 		doctor:                        doctor,
+		ecsClient:                     ecsClient,
 	}
 }
 
@@ -137,6 +144,11 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endp
 		containerRuntime = ContainerRuntimeDocker
 	}
 
+	endpoint, err := session.getTelemetryEndpoint()
+	if err != nil {
+		return err
+	}
+
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
 	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
@@ -150,7 +162,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endp
 		}
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
-	err := client.Connect()
+	err = client.Connect()
 	if err != nil {
 		logger.Error("Error connecting to TCS", logger.Fields{
 			field.Error: err,
@@ -183,6 +195,18 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context, endp
 		return err
 	}
 	return nil
+}
+
+func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
+	containerInstanceARN := session.containerInstanceArn
+	tcsEndpoint, err := session.ecsClient.DiscoverTelemetryEndpoint(containerInstanceARN)
+	if err != nil {
+		logger.Error("tcs: unable to discover poll endpoint", logger.Fields{
+			field.Error: err,
+		})
+		return "", err
+	}
+	return tcsEndpoint, nil
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.
