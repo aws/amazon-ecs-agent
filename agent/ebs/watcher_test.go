@@ -33,3 +33,66 @@ func setupWatcher(ctx context.Context, cancel context.CancelFunc, agentState doc
 		mailbox:        make(chan func(), 1),
 	}
 }
+
+// func TestHandleEBSAttachment(t *testing.T) {
+// 	mockCtrl := gomock.NewController(t)
+// 	defer mockCtrl.Finish()
+
+// 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+// 	eventChannel := make(chan statechange.Event)
+// 	ctx := context.TODO()
+
+// 	gomock.InOrder(
+// 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+// 			AttachmentInfo: attachmentinfo.AttachmentInfo{
+// 				ExpiresAt: time.Now().Add(expirationTimeAddition),
+// 			},
+// 		}, true),
+// 	)
+
+// 	watcher := setupWatcher(ctx, nil, mockStateManager, eventChannel)
+// }
+
+// func TestEBSAckTimeout(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+
+// 	taskEngineState := dockerstate.NewTaskEngineState()
+// 	dataClient := newTestDataClient(t)
+
+// 	testAttachmentProperties := map[string]string{
+// 		apira.ResourceTypeName:    apira.ElasticBlockStorage,
+// 		apira.RequestedSizeName:   "5",
+// 		apira.VolumeSizeInGiBName: "7",
+// 		apira.DeviceName:          "/host/dev/nvme1n1",
+// 		apira.VolumeIdName:        "vol-123",
+// 		apira.FileSystemTypeName:  "testXFS",
+// 	}
+// 	expiresAt := time.Now().Add(time.Millisecond * 1000)
+// 	ebsAttachment := &apira.ResourceAttachment{
+// 		AttachmentInfo: attachmentinfo.AttachmentInfo{
+// 			AttachmentARN:        "dummy-arn",
+// 			Status:               status.AttachmentNone,
+// 			ExpiresAt:            expiresAt,
+// 			AttachStatusSent:     false,
+// 			ClusterARN:           "dummy-cluster-arn",
+// 			ContainerInstanceARN: "dummy-container-instance-arn",
+// 		},
+// 		AttachmentProperties: testAttachmentProperties,
+// 	}
+// 	watcher := setupWatcher(ctx, nil, mockStateManager, eventChannel)
+
+// 	err := watcher.addEBSAttachmentToState(ebsAttachment)
+// 	assert.NoError(t, err)
+// 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 1)
+
+// 	for {
+// 		time.Sleep(time.Millisecond * 1000)
+// 		assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 0)
+// 		break
+// 	}
+// }
+
+// func TestHandleResourceAttachment(t *testing.T) {
+
+// }

@@ -35,7 +35,7 @@ type EBSWatcher struct {
 	cancel     context.CancelFunc
 	scanTicker *time.Ticker
 	agentState dockerstate.TaskEngineState
-	// dataClient will be used to save to agent's data client as well as start the ACK timer, perhaps this will be apart of another stuct called EBSHandler
+	// TODO: The dataClient will be used to save to agent's data client as well as start the ACK timer. This will be added once the data client functionality have been added
 	// dataClient     data.Client
 	ebsChangeEvent chan<- statechange.Event
 	mailbox        chan func()
@@ -51,7 +51,7 @@ func NewWatcher(ctx context.Context,
 		cancel:         cancel,
 		agentState:     state,
 		ebsChangeEvent: stateChangeEvents,
-		mailbox:        make(chan func(), 1),
+		mailbox:        make(chan func(), 100),
 	}, nil
 }
 
@@ -106,6 +106,7 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 			w.scanTicker = time.NewTicker(scanPeriod)
 			log.Info()
 		}
+		time.Sleep(time.Millisecond)
 	}
 	log.Info("HandleResourceAttachment finished")
 	wg.Wait()
@@ -143,6 +144,7 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 	w.mailbox <- func() {
 		ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
 		if !ok {
+			log.Infof("No EBS volume with volume ID: %v", volumeId)
 			return
 		}
 		log.Infof("Found EBS volume with volumd ID: %v and device name: %v", volumeId, ebs.AttachmentProperties[apiebs.DeviceName])
@@ -155,12 +157,14 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 			w.scanTicker.Stop()
 		}
 		// w.removeEBSAttachment(volumeId)
+		time.Sleep(time.Millisecond)
 	}
 }
 
 func (w *EBSWatcher) RemoveAttachment(volumeID string) {
 	w.mailbox <- func() {
 		w.removeEBSAttachment(volumeID)
+		time.Sleep(time.Millisecond)
 	}
 }
 
@@ -191,20 +195,22 @@ func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 }
 
 func (w *EBSWatcher) scanEBSVolumes() {
+	log.Infof("Scanning for EBS volumes...")
 	for _, ebs := range w.agentState.GetAllPendingEBSAttachments() {
 		volumeId := ebs.AttachmentProperties[apiebs.VolumeIdName]
 		deviceName := ebs.AttachmentProperties[apiebs.DeviceName]
-		log.Infof("Scanning for EBS volume with volume ID: %v and device name: %v", volumeId, deviceName)
+		// log.Infof("Scanning for EBS volume with volume ID: %v and device name: %v", volumeId, deviceName)
 		err := apiebs.ConfirmEBSVolumeIsAttached(w.ctx, deviceName, volumeId)
 		if err != nil {
 			log.Infof("Unable to find EBS volume with volume ID: %v and device name: %v", volumeId, deviceName)
 			if err == apiebs.ErrInvalidVolumeID || errors.Cause(err) == apiebs.ErrInvalidVolumeID {
 				log.Info("Found a different EBS volume attached to the host")
+			} else {
+				log.Infof("Error: %v", err)
 			}
-			log.Infof("Error: %v", err)
 			continue
 		}
-		log.Info("EBS volume has been found")
+		log.Info("EBS volume with id: %v, has been found", volumeId)
 		w.notifyFoundEBS(volumeId)
 	}
 }
