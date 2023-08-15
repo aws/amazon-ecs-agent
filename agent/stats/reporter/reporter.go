@@ -80,7 +80,6 @@ func NewDockerTelemetrySession(
 		agentVersion,
 		agentHash,
 		containerRuntimeVersion,
-		"", // this will be overridden by DockerTelemetrySession.Start()
 		cfg.DisableMetrics.Enabled(),
 		credentialProvider,
 		&wsclient.WSClientMinAgentConfig{
