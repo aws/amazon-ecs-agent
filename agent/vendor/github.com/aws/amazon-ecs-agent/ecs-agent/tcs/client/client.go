@@ -94,7 +94,6 @@ func New(url string,
 			RequestHandlers:    make(map[string]wsclient.RequestHandler),
 		},
 	}
-	//TODO: ricgang: What is this??
 	cs.ServiceError = &tcsError{}
 	return cs
 }
@@ -138,7 +137,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			logger.Debug("received health message in healthChannel")
 			err := cs.publishHealthOnce(health)
 			if err != nil {
-				logger.Warn("Error publishing metrics", logger.Fields{
+				logger.Warn("Error publishing health", logger.Fields{
 					field.Error: err,
 				})
 			}

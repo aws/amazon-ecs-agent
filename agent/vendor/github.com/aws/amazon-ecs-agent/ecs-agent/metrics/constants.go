@@ -40,4 +40,8 @@ const (
 	credsRefreshNamespace     = "CredentialsRefresh"
 	CredentialsRefreshFailure = credsRefreshNamespace + ".Failure"
 	CredentialsRefreshSuccess = credsRefreshNamespace + ".Success"
+
+	// Agent Availability
+	agentAvailabilityNamespace     = "Availability"
+	TCSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".TCSDisconnectTimeout"
 )
