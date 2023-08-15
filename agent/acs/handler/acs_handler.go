@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -107,6 +106,7 @@ type session struct {
 	sendCredentials                 bool
 	latestSeqNumTaskManifest        *int64
 	doctor                          *doctor.Doctor
+	addUpdateRequestHandlers        func(wsclient.ClientServer)
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
 	connectionTime                  time.Duration
@@ -131,6 +131,7 @@ func NewSession(
 	latestSeqNumTaskManifest *int64,
 	doctor *doctor.Doctor,
 	clientFactory wsclient.ClientFactory,
+	addUpdateRequestHandlers func(wsclient.ClientServer),
 ) Session {
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -154,6 +155,7 @@ func NewSession(
 		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
 		doctor:                          doctor,
 		clientFactory:                   clientFactory,
+		addUpdateRequestHandlers:        addUpdateRequestHandlers,
 		sendCredentials:                 true,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
@@ -286,7 +288,9 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		client.AddRequestHandler(r.HandlerFunc())
 	}
 
-	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
+	if acsSession.addUpdateRequestHandlers != nil {
+		acsSession.addUpdateRequestHandlers(client)
+	}
 
 	err := client.Connect()
 	if err != nil {

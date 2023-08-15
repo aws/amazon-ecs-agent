@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -57,6 +56,9 @@ type updater struct {
 	acs        wsclient.ClientServer
 	config     *config.Config
 	httpclient *http.Client
+	state      dockerstate.TaskEngineState
+	dataClient data.Client
+	taskEngine engine.TaskEngine
 
 	sync.Mutex
 }
@@ -73,16 +75,23 @@ const (
 	updateDownloadTimeout = 15 * time.Minute
 )
 
-// AddAgentUpdateHandlers adds the needed update handlers to perform agent
-// updates
-func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine) {
-	singleUpdater := &updater{
-		acs:        cs,
+func NewUpdater(cfg *config.Config, state dockerstate.TaskEngineState, dataClient data.Client,
+	taskEngine engine.TaskEngine) *updater {
+	return &updater{
 		config:     cfg,
 		httpclient: httpclient.New(updateDownloadTimeout, false),
+		state:      state,
+		dataClient: dataClient,
+		taskEngine: taskEngine,
 	}
-	cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
-	cs.AddRequestHandler(singleUpdater.performUpdateHandler(state, dataClient, taskEngine))
+}
+
+// AddAgentUpdateHandlers adds the needed update handlers to perform agent
+// updates
+func (u *updater) AddAgentUpdateHandlers(cs wsclient.ClientServer) {
+	u.acs = cs
+	cs.AddRequestHandler(u.stageUpdateHandler())
+	cs.AddRequestHandler(u.performUpdateHandler())
 }
 
 func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
@@ -165,7 +174,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 
 var removeFile = os.Remove
 
-var writeFile = ioutil.WriteFile
+var writeFile = os.WriteFile
 
 var createFile = func(name string) (io.ReadWriteCloser, error) {
 	return os.Create(name)
@@ -218,7 +227,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 
 var exit = os.Exit
 
-func (u *updater) performUpdateHandler(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine) func(req *ecsacs.PerformUpdateMessage) {
+func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateMessage) {
 	return func(req *ecsacs.PerformUpdateMessage) {
 		u.Lock()
 		defer u.Unlock()
@@ -254,7 +263,7 @@ func (u *updater) performUpdateHandler(state dockerstate.TaskEngineState, dataCl
 			MessageId:         req.MessageId,
 		})
 
-		err := sighandlers.FinalSave(state, dataClient, taskEngine)
+		err := sighandlers.FinalSave(u.state, u.dataClient, u.taskEngine)
 		if err != nil {
 			seelog.Critical("Error saving before update exit", "err", err)
 		} else {

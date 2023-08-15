@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -48,7 +47,7 @@ func ptr(i interface{}) interface{} {
 	return n.Interface()
 }
 
-func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *config.Config, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
+func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
 	if cfg == nil {
 		cfg = &config.Config{
 			UpdatesEnabled:    config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
@@ -62,13 +61,13 @@ func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *con
 	httpClient := httpclient.New(updateDownloadTimeout, false)
 	httpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockhttp)
 
-	u := &updater{
-		acs:        mockacs,
-		config:     cfg,
-		httpclient: httpClient,
-	}
+	u := NewUpdater(cfg, dockerstate.NewTaskEngineState(), data.NewNoopClient(),
+		engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil))
+	// Override below attributes/fields for testing.
+	u.acs = mockacs
+	u.httpclient = httpClient
 
-	return u, ctrl, cfg, mockacs, mockhttp
+	return u, ctrl, mockacs, mockhttp
 }
 
 var writtenFile bytes.Buffer
@@ -86,12 +85,12 @@ func mockOS() func() {
 
 	return func() {
 		createFile = oCreateFile
-		writeFile = ioutil.WriteFile
+		writeFile = os.WriteFile
 		exit = os.Exit
 	}
 }
 func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
-	u, ctrl, _, mockacs, _ := mocks(t, &config.Config{
+	u, ctrl, mockacs, _ := mocks(t, &config.Config{
 		UpdatesEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 	})
 	defer ctrl.Finish()
@@ -116,7 +115,7 @@ func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 }
 
 func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
-	u, ctrl, cfg, mockacs, _ := mocks(t, &config.Config{
+	u, ctrl, mockacs, _ := mocks(t, &config.Config{
 		UpdatesEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 	})
 	defer ctrl.Finish()
@@ -128,7 +127,6 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 		Reason:            ptr("Updates are disabled").(*string),
 	}})
 
-	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -139,7 +137,7 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+	u.performUpdateHandler()(msg)
 }
 
 func TestFullUpdateFlow(t *testing.T) {
@@ -152,7 +150,7 @@ func TestFullUpdateFlow(t *testing.T) {
 
 	for region, host := range regions {
 		t.Run(region, func(t *testing.T) {
-			u, ctrl, cfg, mockacs, mockhttp := mocks(t, nil)
+			u, ctrl, mockacs, mockhttp := mocks(t, nil)
 			defer ctrl.Finish()
 
 			defer mockOS()()
@@ -182,7 +180,6 @@ func TestFullUpdateFlow(t *testing.T) {
 
 			require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-			taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 			msg := &ecsacs.PerformUpdateMessage{
 				ClusterArn:           ptr("cluster").(*string),
 				ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -193,7 +190,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				},
 			}
 
-			u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+			u.performUpdateHandler()(msg)
 		})
 	}
 }
@@ -220,7 +217,7 @@ func (m *nackRequestMatcher) Matches(nack interface{}) bool {
 }
 
 func TestMissingUpdateInfo(t *testing.T) {
-	u, ctrl, _, mockacs, _ := mocks(t, nil)
+	u, ctrl, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
@@ -241,7 +238,7 @@ func (m *nackRequestMatcher) String() string {
 }
 
 func TestUndownloadedUpdate(t *testing.T) {
-	u, ctrl, cfg, mockacs, _ := mocks(t, nil)
+	u, ctrl, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
 	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
@@ -250,18 +247,17 @@ func TestUndownloadedUpdate(t *testing.T) {
 		MessageId:         ptr("mid").(*string),
 	}})
 
-	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
 	}
 
-	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+	u.performUpdateHandler()(msg)
 }
 
 func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
-	u, ctrl, cfg, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	defer mockOS()()
@@ -308,7 +304,6 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 
 	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -319,11 +314,11 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+	u.performUpdateHandler()(msg)
 }
 
 func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
-	u, ctrl, cfg, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -377,7 +372,6 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 
 	require.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
 
-	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -388,11 +382,11 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+	u.performUpdateHandler()(msg)
 }
 
 func TestNewerUpdateMessages(t *testing.T) {
-	u, ctrl, cfg, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	defer mockOS()()
@@ -448,7 +442,6 @@ func TestNewerUpdateMessages(t *testing.T) {
 
 	require.Equal(t, "newer-update-tar-data", writtenFile.String(), "incorrect data written")
 
-	taskEngine := engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	msg := &ecsacs.PerformUpdateMessage{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
@@ -459,11 +452,11 @@ func TestNewerUpdateMessages(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
+	u.performUpdateHandler()(msg)
 }
 
 func TestValidationError(t *testing.T) {
-	u, ctrl, _, mockacs, mockhttp := mocks(t, nil)
+	u, ctrl, mockacs, mockhttp := mocks(t, nil)
 	defer ctrl.Finish()
 
 	defer mockOS()()
