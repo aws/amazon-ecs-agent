@@ -133,8 +133,8 @@ func NewDockerTelemetrySession(
 //	}
 //}
 
-func (session *DockerTelemetrySession) Start(ctx context.Context) {
-	session.s.Start(ctx)
+func (session *DockerTelemetrySession) Start(ctx context.Context) error {
+	return session.s.Start(ctx)
 }
 
 // generateVersionInfo generates the agentVersion, agentHash and containerRuntimeVersion from dockerTaskEngine state
