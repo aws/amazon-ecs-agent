@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	mock_retry "github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -1150,6 +1151,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			&latestSeqNumberTaskManifest,
 			emptyDoctor,
 			acsclient.NewACSClientFactory(),
+			nil,
 		)
 		acsSession.Start()
 		// StartSession should never return unless the context is canceled
@@ -1247,7 +1249,8 @@ func TestHandlerCorrectlySetsSendCredentials(t *testing.T) {
 		taskHandler,
 		aws.Int64(10),
 		emptyDoctor,
-		mockClientFactory)
+		mockClientFactory,
+		nil)
 	acsSession.(*session)._heartbeatTimeout = 20 * time.Millisecond
 	acsSession.(*session)._heartbeatJitter = 10 * time.Millisecond
 	acsSession.(*session).connectionTime = 30 * time.Millisecond
@@ -1345,7 +1348,8 @@ func TestHandlerReconnectCorrectlySetsAcsUrl(t *testing.T) {
 		taskHandler,
 		aws.Int64(10),
 		emptyDoctor,
-		mockClientFactory)
+		mockClientFactory,
+		nil)
 	acsSession.(*session).backoff = mockBackoff
 	acsSession.(*session)._heartbeatTimeout = 20 * time.Millisecond
 	acsSession.(*session)._heartbeatJitter = 10 * time.Millisecond
@@ -1360,6 +1364,76 @@ func TestHandlerReconnectCorrectlySetsAcsUrl(t *testing.T) {
 	select {
 	case <-ctx.Done():
 	}
+}
+
+// TestHandlerCallsAddUpdateRequestHandlers tests that the session handler calls the function
+// contained in session struct field addUpdateRequestHandlers is called if it is not nil
+func TestHandlerCallsAddUpdateRequestHandlers(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	addUpdateRequestHandlersCalled := false
+	addUpdateRequestHandlers := func(cs wsclient.ClientServer) {
+		addUpdateRequestHandlersCalled = true
+	}
+
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
+
+	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+	mockClientFactory := mock_wsclient.NewMockClientFactory(ctrl)
+	mockClientFactory.EXPECT().
+		New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(mockWsClient).AnyTimes()
+	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Connect().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Serve(gomock.Any()).Do(func(interface{}) {
+		if addUpdateRequestHandlersCalled {
+			cancel()
+		}
+	})
+	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
+
+	acsSession := NewSession(
+		ctx,
+		testConfig,
+		deregisterInstanceEventStream,
+		"myArn",
+		testCreds,
+		nil,
+		ecsClient,
+		nil,
+		data.NewNoopClient(),
+		taskEngine,
+		nil,
+		taskHandler,
+		nil,
+		nil,
+		mockClientFactory,
+		addUpdateRequestHandlers,
+	)
+
+	go func() {
+		acsSession.Start()
+	}()
+
+	// Wait for context to be cancelled
+	select {
+	case <-ctx.Done():
+	}
+
+	assert.True(t, addUpdateRequestHandlersCalled)
 }
 
 // TODO: replace with gomock

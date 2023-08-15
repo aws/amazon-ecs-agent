@@ -21,6 +21,7 @@ import (
 	"time"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
+	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
@@ -979,6 +980,7 @@ func (agent *ecsAgent) startACSSession(
 		agent.latestSeqNumberTaskManifest,
 		doctor,
 		acsclient.NewACSClientFactory(),
+		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()
