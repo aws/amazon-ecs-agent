@@ -75,7 +75,7 @@ func (h *HostResourceManager) logResources(msg string, taskArn string) {
 		"MEMORY":    *h.consumedResource[MEMORY].IntegerValue,
 		"PORTS_TCP": aws.StringValueSlice(h.consumedResource[PORTSTCP].StringSetValue),
 		"PORTS_UDP": aws.StringValueSlice(h.consumedResource[PORTSUDP].StringSetValue),
-		"GPU":       *h.consumedResource[GPU].IntegerValue,
+		"GPU":       aws.StringValueSlice(h.consumedResource[GPU].StringSetValue),
 	})
 }
 
@@ -125,10 +125,10 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 	if ok {
 		for resourceKey := range resources {
 			if *resources[resourceKey].Type == "INTEGER" {
-				// CPU, MEMORY, GPU
+				// CPU, MEMORY
 				h.consumeIntType(resourceKey, resources)
 			} else if *resources[resourceKey].Type == "STRINGSET" {
-				// PORTS_TCP, PORTS_UDP
+				// PORTS_TCP, PORTS_UDP, GPU
 				h.consumeStringSetType(resourceKey, resources)
 			}
 		}
@@ -152,7 +152,7 @@ func (h *HostResourceManager) checkConsumableIntType(resourceName string, resour
 func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, resources map[string]*ecs.Resource) bool {
 	resourceSlice := resources[resourceName].StringSetValue
 
-	// (optimizization) Get a resource specific map to ease look up
+	// (optimization) Get a resource specific map to ease look up
 	resourceMap := make(map[string]struct{}, len(resourceSlice))
 	for _, v := range resourceSlice {
 		resourceMap[*v] = struct{}{}
@@ -204,24 +204,46 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 			return &InvalidHostResource{resourceKey}
 		}
 
-		// CPU, MEMORY, GPU are INTEGER;
-		// PORTS_TCP, PORTS_UDP are STRINGSET
+		// CPU, MEMORY are INTEGER;
+		// PORTS_TCP, PORTS_UDP, GPU are STRINGSET
 		// Check if either of these data types exist
 		if resourceVal.Type == nil || !(*resourceVal.Type == "INTEGER" || *resourceVal.Type == "STRINGSET") {
 			logger.Error(fmt.Sprintf("type not assigned for resource %s", resourceKey))
 			return fmt.Errorf("invalid resource type for %s", resourceKey)
 		}
 
-		// CPU, MEMORY, GPU
+		// CPU, MEMORY
 		if *resourceVal.Type == "INTEGER" {
 			err := checkResourceExistsInt(resourceKey, resources)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
-		// PORTS_TCP, PORTS_UDP
+		// PORTS_TCP, PORTS_UDP, GPU
 		if *resourceVal.Type == "STRINGSET" {
 			err := checkResourceExistsStringSet(resourceKey, resources)
-			return err
+
+			// Verify resource comes from an existing pool of values - for valid gpu ids
+			if resourceKey == GPU && err == nil {
+				if *resourceVal.Type != "STRINGSET" {
+					return fmt.Errorf("resource gpu must be STRINGSET type")
+				}
+
+				hostGpuMap := make(map[string]struct{}, len(h.initialHostResource[GPU].StringSetValue))
+				for _, v := range h.initialHostResource[GPU].StringSetValue {
+					hostGpuMap[*v] = struct{}{}
+				}
+				for _, obj1 := range resourceVal.StringSetValue {
+					_, ok := hostGpuMap[*obj1]
+					if !ok {
+						return fmt.Errorf("task gpu %s not found in host gpus", *obj1)
+					}
+				}
+			}
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -346,7 +368,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		portsTcp = resourceMap[PORTSTCP].StringSetValue
 	}
 	consumedResourceMap[PORTSTCP] = &ecs.Resource{
-		Name:           utils.Strptr("PORTS_TCP"),
+		Name:           utils.Strptr(PORTSTCP),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsTcp,
 	}
@@ -363,11 +385,11 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 	}
 
 	//GPUs
-	numGPUs := int64(0)
+	gpuIDs := []*string{}
 	consumedResourceMap[GPU] = &ecs.Resource{
-		Name:         utils.Strptr(GPU),
-		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &numGPUs,
+		Name:           utils.Strptr(GPU),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: gpuIDs,
 	}
 
 	logger.Info("Initializing host resource manager, initialHostResource", logger.Fields{"initialHostResource": resourceMap})
