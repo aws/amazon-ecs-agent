@@ -39,6 +39,10 @@ import (
 const (
 	deregisterContainerInstanceHandler = "TCSDeregisterContainerInstanceHandler"
 	ContainerRuntimeDocker             = "Docker"
+	backoffMin                         = 1 * time.Second
+	backoffMax                         = 1 * time.Minute
+	jitterMultiple                     = 0.2
+	multiple                           = 2
 	// dateTimeFormat is a string format to format time for better readability: YYYY-MM-DD hh:mm:ss
 	dateTimeFormat = "2006-01-02 15:04:05"
 )
@@ -119,7 +123,7 @@ func NewTelemetrySession(
 
 // Start runs in for loop to start telemetry session with exponential backoff
 func (session *telemetrySession) Start(ctx context.Context) error {
-	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
+	backoff := retry.NewExponentialBackoff(backoffMin, backoffMax, jitterMultiple, multiple)
 	for {
 		select {
 		case <-ctx.Done():

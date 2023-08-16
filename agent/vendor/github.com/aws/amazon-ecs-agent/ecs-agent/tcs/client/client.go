@@ -31,7 +31,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 
-	//TODO: ricgang: removethis
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
