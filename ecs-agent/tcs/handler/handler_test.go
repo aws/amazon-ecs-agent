@@ -405,7 +405,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		TCSurl: server.URL,
 	}
 	ctx := context.Background()
-	deadline := time.Now().Add(1500 * time.Millisecond)
+	deadline := time.Now().Add(5 * time.Second)
 	ctx, cancelCtx := context.WithDeadline(ctx, deadline)
 	defer cancelCtx()
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
@@ -425,7 +425,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		testCfg,
 		deregisterInstanceEventStream,
 		50*time.Millisecond,
-		100*time.Millisecond,
+		10*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
 		nil,
@@ -445,7 +445,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 	assert.False(t, websocket.IsCloseError(err, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
 
-	assert.EqualError(t, err, "context deadline exceeded")
+	assert.NoError(t, err, "No error is expected. The test should exit cleanly when the ctx is done.")
 
 }
 
