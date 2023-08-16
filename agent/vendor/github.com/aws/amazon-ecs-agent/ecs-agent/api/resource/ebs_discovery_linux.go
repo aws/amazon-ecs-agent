@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -30,8 +33,18 @@ var (
 	ErrInvalidVolumeID = errors.New("EBS volume IDs do not match")
 )
 
-func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName, volumeID string) error {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, ebsnvmeIDTimeoutDuration)
+type EBSDiscoveryClient struct {
+	ctx context.Context
+}
+
+func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
+	return &EBSDiscoveryClient{
+		ctx: ctx,
+	}
+}
+
+func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error {
+	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsnvmeIDTimeoutDuration)
 	defer cancel()
 	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "+SERIAL").CombinedOutput()
 	if err != nil {
