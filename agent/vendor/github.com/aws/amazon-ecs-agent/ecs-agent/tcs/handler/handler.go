@@ -121,6 +121,12 @@ func NewTelemetrySession(
 func (session *telemetrySession) Start(ctx context.Context) error {
 	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("ECS Telemetry service (TCS) session exited cleanly.")
+			return nil
+		default:
+		}
 		tcsError := session.StartTelemetrySession(ctx)
 		switch tcsError {
 		case context.Canceled, context.DeadlineExceeded:
