@@ -46,11 +46,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 	"github.com/stretchr/testify/assert"
 
@@ -1342,16 +1342,16 @@ func TestCleanupTaskENIs(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 	}
-	mTask.AddTaskENI(&apieni.ENI{
+	mTask.AddTaskENI(&ni.NetworkInterface{
 		ID: "TestCleanupTaskENIs",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,
 			},
 		},
 		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
+		IPV6Addresses: []*ni.IPV6Address{
 			{
 				Address: ipv6,
 			},

@@ -20,8 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -78,11 +77,11 @@ type Client interface {
 	GetImageStates() ([]*image.ImageState, error)
 
 	// SaveENIAttachment saves the data of an ENI attachment.
-	SaveENIAttachment(*eni.ENIAttachment) error
+	SaveENIAttachment(*networkinterface.ENIAttachment) error
 	// DeleteENIAttachment deletes the data of an ENI atttachment.
 	DeleteENIAttachment(string) error
 	// GetENIAttachments gets the data of all the ENI attachment.
-	GetENIAttachments() ([]*eni.ENIAttachment, error)
+	GetENIAttachments() ([]*networkinterface.ENIAttachment, error)
 
 	// SaveMetadata saves a key value pair of metadata.
 	SaveMetadata(string, string) error

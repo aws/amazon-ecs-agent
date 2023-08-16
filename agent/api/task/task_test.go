@@ -50,10 +50,10 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -716,7 +716,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 
 func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask := &Task{
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
 				ID: "eniID",
 			},
@@ -776,11 +776,11 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	assert.Equal(t, []string{"us-west-2.compute.internal"}, cfg.DNSSearch)
 
 	// Verify eni ExtraHosts  added to HostConfig for pause container
-	ipaddr := &apieni.ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
-	testTask.ENIs[0].IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
+	ipaddr := &ni.IPV4Address{Primary: true, Address: "10.0.1.1"}
+	testTask.ENIs[0].IPV4Addresses = []*ni.IPV4Address{ipaddr}
 	testTask.ENIs[0].PrivateDNSName = "eni.ip.region.compute.internal"
 
-	testTask.ENIs[0].IPV6Addresses = []*apieni.ENIIPV6Address{{Address: ipv6}}
+	testTask.ENIs[0].IPV6Addresses = []*ni.IPV6Address{{Address: ipv6}}
 	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
@@ -2157,7 +2157,7 @@ func TestGetIDHappyPath(t *testing.T) {
 
 // TestTaskGetPrimaryENI tests the eni can be correctly acquired by calling GetTaskPrimaryENI
 func TestTaskGetPrimaryENI(t *testing.T) {
-	enisOfTask := []*apieni.ENI{
+	enisOfTask := []*ni.NetworkInterface{
 		{
 			ID: "id",
 		},
@@ -3969,24 +3969,24 @@ func TestPopulateTaskARN(t *testing.T) {
 
 func TestShouldEnableIPv6(t *testing.T) {
 	task := &Task{
-		ENIs: []*apieni.ENI{getTestENI()},
+		ENIs: []*ni.NetworkInterface{getTestENI()},
 	}
 	assert.True(t, task.shouldEnableIPv6())
 	task.ENIs[0].IPV6Addresses = nil
 	assert.False(t, task.shouldEnableIPv6())
 }
 
-func getTestENI() *apieni.ENI {
-	return &apieni.ENI{
+func getTestENI() *ni.NetworkInterface {
+	return &ni.NetworkInterface{
 		ID: "test",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Primary: true,
 				Address: ipv4,
 			},
 		},
 		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
+		IPV6Addresses: []*ni.IPV6Address{
 			{
 				Address: ipv6,
 			},

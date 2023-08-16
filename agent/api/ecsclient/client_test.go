@@ -41,8 +41,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -1085,7 +1085,7 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Attachment: &apieni.ENIAttachment{
+		Attachment: &ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachmentARN: "eni_arn",
 				Status:        status.AttachmentAttached,

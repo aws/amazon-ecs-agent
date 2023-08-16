@@ -32,7 +32,7 @@ import (
 	mock_utils "github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +41,7 @@ import (
 const (
 	testContainerInstanceArn = "test_container_instance_arn"
 	testClusterArn           = "test_cluster_arn"
-	eniIPV4Address           = "10.0.0.2"
+	ipv4Address              = "10.0.0.2"
 )
 
 var runtimeStatsConfigForTest = config.BooleanDefaultFalse{}
@@ -145,7 +145,7 @@ func TestGetAWSVPCTaskByTaskArn(t *testing.T) {
 
 	resp := v1.TasksResponse{Tasks: []*v1.TaskResponse{&taskResponse}}
 
-	assert.Equal(t, eniIPV4Address, resp.Tasks[0].Containers[0].Networks[0].IPv4Addresses[0])
+	assert.Equal(t, ipv4Address, resp.Tasks[0].Containers[0].Networks[0].IPv4Addresses[0])
 	taskDiffHelper(t, []*apitask.Task{testTasks[3]}, resp)
 }
 
@@ -405,11 +405,11 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 			},
 		},
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
-						Address: eniIPV4Address,
+						Address: ipv4Address,
 					},
 				},
 			},

@@ -28,7 +28,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 const (
@@ -58,7 +58,7 @@ const (
 // netsh interface ipv4 add route prefix=169.254.169.254/32 interface="vEthernet (task-br-<mac>-ep-<container_id>)
 // netsh interface ipv4 add route prefix=169.254.169.254/32 interface="Loopback"
 // netsh interface ipv4 add route prefix=<local-route> interface="vEthernet (nat-ep-<container_id>)
-func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *cniTypesCurrent.Result) error {
+func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *ni.NetworkInterface, config *Config, result *cniTypesCurrent.Result) error {
 	// Obtain the ecs-bridge endpoint's subnet IP address from the CNI plugin execution result.
 	ecsBridgeSubnetIPAddress := &net.IPNet{
 		IP:   result.IPs[0].Address.IP.Mask(result.IPs[0].Address.Mask),

@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
-	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -45,12 +43,13 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
@@ -251,7 +250,7 @@ type Task struct {
 	ENIs TaskENIs `json:"ENI"`
 
 	// AppMesh is the service mesh specified by the task
-	AppMesh *apiappmesh.AppMesh
+	AppMesh *nlappmesh.AppMesh
 
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
@@ -2770,18 +2769,18 @@ func (task *Task) SetSentStatus(status apitaskstatus.TaskStatus) {
 }
 
 // AddTaskENI adds ENI information to the task.
-func (task *Task) AddTaskENI(eni *apieni.ENI) {
+func (task *Task) AddTaskENI(eni *ni.NetworkInterface) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
 	if task.ENIs == nil {
-		task.ENIs = make([]*apieni.ENI, 0)
+		task.ENIs = make([]*ni.NetworkInterface, 0)
 	}
 	task.ENIs = append(task.ENIs, eni)
 }
 
 // GetTaskENIs returns the list of ENIs for the task.
-func (task *Task) GetTaskENIs() []*apieni.ENI {
+func (task *Task) GetTaskENIs() []*ni.NetworkInterface {
 	// TODO: what's the point of locking if we are returning a pointer?
 	task.lock.RLock()
 	defer task.lock.RUnlock()
@@ -2791,7 +2790,7 @@ func (task *Task) GetTaskENIs() []*apieni.ENI {
 
 // GetPrimaryENI returns the primary ENI of the task. Since ACS can potentially send
 // multiple ENIs to the agent, the first ENI in the list is considered as the primary ENI.
-func (task *Task) GetPrimaryENI() *apieni.ENI {
+func (task *Task) GetPrimaryENI() *ni.NetworkInterface {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -2803,7 +2802,7 @@ func (task *Task) GetPrimaryENI() *apieni.ENI {
 }
 
 // SetAppMesh sets the app mesh config of the task
-func (task *Task) SetAppMesh(appMesh *apiappmesh.AppMesh) {
+func (task *Task) SetAppMesh(appMesh *nlappmesh.AppMesh) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -2811,7 +2810,7 @@ func (task *Task) SetAppMesh(appMesh *apiappmesh.AppMesh) {
 }
 
 // GetAppMesh returns the app mesh config of the task
-func (task *Task) GetAppMesh() *apiappmesh.AppMesh {
+func (task *Task) GetAppMesh() *nlappmesh.AppMesh {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -3595,9 +3594,9 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 			for _, port := range c.Ports {
 				hostPort := port.HostPort
 				protocol := port.Protocol
-				if hostPort > 0 && protocol == container.TransportProtocolTCP {
+				if hostPort > 0 && protocol == apicontainer.TransportProtocolTCP {
 					tcpPortSet = append(tcpPortSet, hostPort)
-				} else if hostPort > 0 && protocol == container.TransportProtocolUDP {
+				} else if hostPort > 0 && protocol == apicontainer.TransportProtocolUDP {
 					udpPortSet = append(udpPortSet, hostPort)
 				}
 			}

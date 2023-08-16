@@ -17,7 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 type noopClient struct{}
@@ -68,7 +68,7 @@ func (c *noopClient) GetImageStates() ([]*image.ImageState, error) {
 	return nil, nil
 }
 
-func (c *noopClient) SaveENIAttachment(*eni.ENIAttachment) error {
+func (c *noopClient) SaveENIAttachment(*networkinterface.ENIAttachment) error {
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (c *noopClient) DeleteENIAttachment(string) error {
 	return nil
 }
 
-func (c *noopClient) GetENIAttachments() ([]*eni.ENIAttachment, error) {
+func (c *noopClient) GetENIAttachments() ([]*networkinterface.ENIAttachment, error) {
 	return nil, nil
 }
 

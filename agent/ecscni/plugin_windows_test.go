@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -33,12 +35,11 @@ import (
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 )
 
 const (
 	eniID                       = "eni-12345678"
-	eniIPV4Address              = "172.31.21.40"
+	ipv4Address                 = "172.31.21.40"
 	eniMACAddress               = "02:7b:64:49:b1:40"
 	eniSubnetGatewayIPV4Address = "172.31.1.1/20"
 )
@@ -66,12 +67,12 @@ func getNetworkConfig() *Config {
 }
 
 // getTestENI returns a sample ENI for the task.
-func getTestENI() *eni.ENI {
-	return &eni.ENI{
+func getTestENI() *ni.NetworkInterface {
+	return &ni.NetworkInterface{
 		ID:       eniID,
 		LinkName: eniID,
-		IPV4Addresses: []*eni.ENIIPV4Address{
-			{Address: eniIPV4Address, Primary: true},
+		IPV4Addresses: []*ni.IPV4Address{
+			{Address: ipv4Address, Primary: true},
 		},
 		MacAddress:               eniMACAddress,
 		SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,

@@ -17,13 +17,13 @@ import (
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
 
-func (c *client) SaveENIAttachment(eni *apieni.ENIAttachment) error {
+func (c *client) SaveENIAttachment(eni *ni.ENIAttachment) error {
 	id, err := utils.GetENIAttachmentId(eni.AttachmentARN)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
@@ -41,12 +41,12 @@ func (c *client) DeleteENIAttachment(id string) error {
 	})
 }
 
-func (c *client) GetENIAttachments() ([]*apieni.ENIAttachment, error) {
-	var eniAttachments []*apieni.ENIAttachment
+func (c *client) GetENIAttachments() ([]*ni.ENIAttachment, error) {
+	var eniAttachments []*ni.ENIAttachment
 	err := c.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(eniAttachmentsBucketName))
 		return walk(bucket, func(id string, data []byte) error {
-			eniAttachment := apieni.ENIAttachment{}
+			eniAttachment := ni.ENIAttachment{}
 			if err := json.Unmarshal(data, &eniAttachment); err != nil {
 				return err
 			}

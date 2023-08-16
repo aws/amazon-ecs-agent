@@ -16,7 +16,7 @@ package task
 import (
 	"encoding/json"
 
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 // TaskENIs type enumerates the list of ENI objects as a type. It is used for
@@ -29,10 +29,10 @@ import (
 // since this is only required for unmarshaling 'Task' object. None of the
 // functionality/types in the 'eni' package themselves have any dependencies on this
 // type.
-type TaskENIs []*apieni.ENI
+type TaskENIs []*ni.NetworkInterface
 
 func (taskENIs *TaskENIs) UnmarshalJSON(b []byte) error {
-	var enis []*apieni.ENI
+	var enis []*ni.NetworkInterface
 	// Try to unmarshal this as a list of ENI objects.
 	err := json.Unmarshal(b, &enis)
 	if err == nil {
@@ -43,12 +43,12 @@ func (taskENIs *TaskENIs) UnmarshalJSON(b []byte) error {
 	// There was an error unmarshaling the byte slice as a list of ENIs. This is the case
 	// where we're restoring from a previous version of the state file, where the ENI is
 	// being stored as a standalone object and not as a list.
-	var eni apieni.ENI
+	var eni ni.NetworkInterface
 	err = json.Unmarshal(b, &eni)
 	if err != nil {
 		return err
 	}
-	enis = []*apieni.ENI{&eni}
+	enis = []*ni.NetworkInterface{&eni}
 	*taskENIs = enis
 	return nil
 }

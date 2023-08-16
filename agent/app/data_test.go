@@ -30,9 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,7 +75,7 @@ var (
 		ImageID: testImageId,
 	}
 
-	testENIAttachment = &eni.ENIAttachment{
+	testENIAttachment = &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:    testAttachmentArn,
 			AttachStatusSent: false,

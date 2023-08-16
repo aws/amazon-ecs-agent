@@ -17,17 +17,17 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -140,7 +140,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
-			eni, err := apieni.ENIFromACS(acsENI)
+			eni, err := ni.ENIFromACS(acsENI)
 			if err != nil {
 				pmHandler.handleInvalidTask(task, err, payload)
 				allTasksOK = false
@@ -151,7 +151,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add the app mesh information to task struct.
 		if task.ProxyConfiguration != nil {
-			appmesh, err := apiappmesh.AppMeshFromACS(task.ProxyConfiguration)
+			appmesh, err := nlappmesh.AppMeshFromACS(task.ProxyConfiguration)
 			if err != nil {
 				pmHandler.handleInvalidTask(task, err, payload)
 				allTasksOK = false

@@ -20,7 +20,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 // These bits of information should be enough to reconstruct the entire
@@ -30,8 +30,8 @@ type savedState struct {
 	IdToContainer  map[string]*apicontainer.DockerContainer `json:"IdToContainer"` // DockerId -> apicontainer.DockerContainer
 	IdToTask       map[string]string                        `json:"IdToTask"`      // DockerId -> taskarn
 	ImageStates    []*image.ImageState
-	ENIAttachments []*apieni.ENIAttachment `json:"ENIAttachments"`
-	IPToTask       map[string]string       `json:"IPToTask"`
+	ENIAttachments []*ni.ENIAttachment `json:"ENIAttachments"`
+	IPToTask       map[string]string   `json:"IPToTask"`
 }
 
 func (state *DockerTaskEngineState) MarshalJSON() ([]byte, error) {

@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net"
 
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -113,7 +113,7 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 }
 
 // NewENINetworkConfig creates a new ENI CNI network configuration.
-func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConfig, error) {
+func NewENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
 	eniConf := ENIConfig{
 		Type:                  ECSENIPluginName,
 		ENIID:                 eni.ID,
@@ -132,7 +132,7 @@ func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConf
 }
 
 // NewBranchENINetworkConfig creates a new branch ENI CNI network configuration.
-func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConfig, error) {
+func NewBranchENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
 	eniConf := BranchENIConfig{
 		Type:                  ECSBranchENIPluginName,
 		TrunkMACAddress:       eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,

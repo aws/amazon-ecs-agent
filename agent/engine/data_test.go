@@ -19,6 +19,8 @@ package engine
 import (
 	"testing"
 
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -26,8 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +77,7 @@ var (
 		ImageID: testImageId,
 	}
 
-	testENIAttachment = &eni.ENIAttachment{
+	testENIAttachment = &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:    testAttachmentArn,
 			AttachStatusSent: false,

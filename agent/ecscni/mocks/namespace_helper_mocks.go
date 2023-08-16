@@ -23,7 +23,7 @@ import (
 	reflect "reflect"
 
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
-	eni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -52,7 +52,7 @@ func (m *MockNamespaceHelper) EXPECT() *MockNamespaceHelperMockRecorder {
 }
 
 // ConfigureTaskNamespaceRouting mocks base method.
-func (m *MockNamespaceHelper) ConfigureTaskNamespaceRouting(arg0 context.Context, arg1 *eni.ENI, arg2 *ecscni.Config, arg3 *types100.Result) error {
+func (m *MockNamespaceHelper) ConfigureTaskNamespaceRouting(arg0 context.Context, arg1 *networkinterface.NetworkInterface, arg2 *ecscni.Config, arg3 *types100.Result) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigureTaskNamespaceRouting", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

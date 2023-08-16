@@ -26,7 +26,6 @@ import (
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -40,6 +39,7 @@ import (
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"

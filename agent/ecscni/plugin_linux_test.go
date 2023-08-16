@@ -33,16 +33,16 @@ import (
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 const (
 	eniID                                       = "eni-12345678"
-	eniIPV4Address                              = "172.31.21.40"
-	eniIPV6Address                              = "abcd:dcba:1234:4321::"
+	ipv4Address                                 = "172.31.21.40"
+	ipv6Address                                 = "abcd:dcba:1234:4321::"
 	eniIPV4AddressWithBlockSize                 = "172.31.21.40/20"
 	eniIPV6AddressWithBlockSize                 = "abcd:dcba:1234:4321::/64"
 	eniMACAddress                               = "02:7b:64:49:b1:40"
@@ -99,10 +99,10 @@ func TestSetupNS(t *testing.T) {
 
 func eniNetworkConfig(config *Config) *NetworkConfig {
 	_, eniNetworkConfig, _ := NewENINetworkConfig(
-		&eni.ENI{
+		&ni.NetworkInterface{
 			ID: eniID,
-			IPV4Addresses: []*eni.ENIIPV4Address{
-				{Address: eniIPV4Address, Primary: true},
+			IPV4Addresses: []*ni.IPV4Address{
+				{Address: ipv4Address, Primary: true},
 			},
 			MacAddress:               eniMACAddress,
 			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
@@ -159,14 +159,14 @@ func TestSetupNSTrunk(t *testing.T) {
 
 func branchENINetworkConfig(config *Config) *NetworkConfig {
 	_, eniNetworkConfig, _ := NewBranchENINetworkConfig(
-		&eni.ENI{
+		&ni.NetworkInterface{
 			ID: eniID,
-			IPV4Addresses: []*eni.ENIIPV4Address{
-				{Address: eniIPV4Address, Primary: true},
+			IPV4Addresses: []*ni.IPV4Address{
+				{Address: ipv4Address, Primary: true},
 			},
 			MacAddress:               eniMACAddress,
 			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-			InterfaceVlanProperties: &eni.InterfaceVlanProperties{
+			InterfaceVlanProperties: &ni.InterfaceVlanProperties{
 				TrunkInterfaceMacAddress: trunkENIMACAddress,
 				VlanID:                   branchENIVLANID,
 			},
@@ -499,14 +499,14 @@ func TestConstructENINetworkConfig(t *testing.T) {
 	}
 
 	eniName, eniNetworkConfig, err := NewENINetworkConfig(
-		&eni.ENI{
+		&ni.NetworkInterface{
 			ID: eniID,
-			IPV4Addresses: []*eni.ENIIPV4Address{
-				{Address: eniIPV4Address, Primary: true},
+			IPV4Addresses: []*ni.IPV4Address{
+				{Address: ipv4Address, Primary: true},
 			},
-			IPV6Addresses: []*eni.ENIIPV6Address{
+			IPV6Addresses: []*ni.IPV6Address{
 				{
-					Address: eniIPV6Address,
+					Address: ipv6Address,
 				},
 			},
 			MacAddress:               eniMACAddress,
@@ -538,19 +538,19 @@ func TestConstructBranchENINetworkConfig(t *testing.T) {
 	}
 
 	eniName, eniNetworkConfig, err := NewBranchENINetworkConfig(
-		&eni.ENI{
+		&ni.NetworkInterface{
 			ID: eniID,
-			IPV4Addresses: []*eni.ENIIPV4Address{
-				{Address: eniIPV4Address, Primary: true},
+			IPV4Addresses: []*ni.IPV4Address{
+				{Address: ipv4Address, Primary: true},
 			},
-			IPV6Addresses: []*eni.ENIIPV6Address{
+			IPV6Addresses: []*ni.IPV6Address{
 				{
-					Address: eniIPV6Address,
+					Address: ipv6Address,
 				},
 			},
 			MacAddress:               eniMACAddress,
 			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-			InterfaceVlanProperties: &eni.InterfaceVlanProperties{
+			InterfaceVlanProperties: &ni.InterfaceVlanProperties{
 				TrunkInterfaceMacAddress: trunkENIMACAddress,
 				VlanID:                   branchENIVLANID,
 			},

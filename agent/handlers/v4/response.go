@@ -19,7 +19,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
@@ -151,7 +151,7 @@ func newNetworkInterfaceProperties(task *apitask.Task) (tmdsv4.NetworkInterfaceP
 // It augments v4 container response with an additional empty network interface field.
 func NewPulledContainerResponse(
 	dockerContainer *apicontainer.DockerContainer,
-	eni *apieni.ENI,
+	eni *ni.NetworkInterface,
 ) tmdsv4.ContainerResponse {
 	resp := v2.NewContainerResponse(dockerContainer, eni, true)
 	return tmdsv4.ContainerResponse{

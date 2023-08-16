@@ -22,10 +22,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 )
 
@@ -98,7 +98,7 @@ func (r *attachInstanceENIResponder) handleAttachMessage(message *ecsacs.AttachI
 func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *ecsacs.ElasticNetworkInterface,
 	messageID, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
-	err := r.eniHandler.HandleENIAttachment(&apieni.ENIAttachment{
+	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
 			Status:               status.AttachmentNone,
@@ -107,7 +107,7 @@ func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *ecsacs.El
 			ClusterARN:           clusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 		},
-		AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
+		AttachmentType: ni.ENIAttachmentTypeInstanceENI,
 		MACAddress:     aws.StringValue(eni.MacAddress),
 	})
 	if err != nil {
@@ -151,7 +151,7 @@ func validateAttachInstanceNetworkInterfacesMessage(message *ecsacs.AttachInstan
 	}
 
 	for _, eni := range enis {
-		err := apieni.ValidateENI(eni)
+		err := ni.ValidateENI(eni)
 		if err != nil {
 			return err
 		}

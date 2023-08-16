@@ -28,8 +28,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -73,9 +73,9 @@ func TestTaskResponse(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
@@ -169,9 +169,9 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
@@ -302,9 +302,9 @@ func TestContainerResponse(t *testing.T) {
 				Container:  container,
 			}
 			task := &apitask.Task{
-				ENIs: []*apieni.ENI{
+				ENIs: []*ni.NetworkInterface{
 					{
-						IPV4Addresses: []*apieni.ENIIPV4Address{
+						IPV4Addresses: []*ni.IPV4Address{
 							{
 								Address: eniIPv4Address,
 							},
@@ -403,9 +403,9 @@ func TestTaskResponseMarshal(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
@@ -577,9 +577,9 @@ func TestContainerResponseMarshal(t *testing.T) {
 		Container:  container,
 	}
 	task := &apitask.Task{
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
@@ -624,9 +624,9 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},

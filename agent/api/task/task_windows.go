@@ -31,8 +31,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
@@ -228,7 +228,7 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 		switch eni.InterfaceAssociationProtocol {
 		// If the association protocol is set to "default" or unset (to preserve backwards
 		// compatibility), consider it a "standard" ENI attachment.
-		case "", apieni.DefaultInterfaceAssociationProtocol:
+		case "", ni.DefaultInterfaceAssociationProtocol:
 			cniConfig.ID = eni.MacAddress
 			netconf, err = ecscni.NewVPCENIPluginConfigForTaskNSSetup(eni, cniConfig)
 		default:

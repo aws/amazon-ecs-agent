@@ -33,7 +33,7 @@ import (
 	mock_networkutils "github.com/aws/amazon-ecs-agent/agent/eni/networkutils/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -150,7 +150,7 @@ func TestReconcileOnce(t *testing.T) {
 
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	mockStateManager.EXPECT().ENIByMac(macAddress1).
-		Return(&apieni.ENIAttachment{
+		Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: false,
 				ExpiresAt:        time.Now().Add(expirationTimeAddition),
@@ -161,7 +161,7 @@ func TestReconcileOnce(t *testing.T) {
 		func(mac string) {
 			waitForEvents.Done()
 		}).
-		Return(&apieni.ENIAttachment{
+		Return(&ni.ENIAttachment{
 			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: true,
 			},
@@ -258,7 +258,7 @@ func TestEventHandlerSuccess(t *testing.T) {
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
 		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
-			Return(&apieni.ENIAttachment{
+			Return(&ni.ENIAttachment{
 				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					ExpiresAt: time.Now().Add(expirationTimeAddition),
 				},
@@ -348,7 +348,7 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
 		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
-			Return(&apieni.ENIAttachment{
+			Return(&ni.ENIAttachment{
 				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					AttachStatusSent: true,
 				},
@@ -431,7 +431,7 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
 		mockNetworkUtils.EXPECT().GetInterfaceMACByIndex(interfaceIndex1, gomock.Any(), sendENIStateChangeRetryTimeout).Return(macAddress1, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
-			Return(&apieni.ENIAttachment{
+			Return(&ni.ENIAttachment{
 				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					ExpiresAt: time.Now().Add(expirationTimeSubtraction),
 				},

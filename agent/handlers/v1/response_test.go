@@ -23,7 +23,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
@@ -86,9 +86,9 @@ func TestTaskResponse(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
+		ENIs: []*ni.NetworkInterface{
 			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
+				IPV4Addresses: []*ni.IPV4Address{
 					{
 						Address: eniIPv4Address,
 					},
@@ -184,8 +184,8 @@ func TestContainerResponse(t *testing.T) {
 		Container:  container,
 	}
 
-	eni := &apieni.ENI{
-		IPV4Addresses: []*apieni.ENIIPV4Address{
+	eni := &ni.NetworkInterface{
+		IPV4Addresses: []*ni.IPV4Address{
 			{
 				Address: eniIPv4Address,
 			},

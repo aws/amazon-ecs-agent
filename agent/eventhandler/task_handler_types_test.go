@@ -28,7 +28,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -306,7 +306,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ack timeout is set for future
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
-				Attachment: &apieni.ENIAttachment{
+				Attachment: &ni.ENIAttachment{
 					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
 						AttachStatusSent: false,
@@ -323,7 +323,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// already been sent
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
-				Attachment: &apieni.ENIAttachment{
+				Attachment: &ni.ENIAttachment{
 					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 						AttachStatusSent: true,
@@ -337,7 +337,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// Valid attachment event, ensure that its sent
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
-				Attachment: &apieni.ENIAttachment{
+				Attachment: &ni.ENIAttachment{
 					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 						AttachStatusSent: false,
@@ -469,7 +469,7 @@ func TestSetContainerSentStatus(t *testing.T) {
 func TestSetAttachmentSentStatus(t *testing.T) {
 	dataClient := newTestDataClient(t)
 
-	testAttachment := &apieni.ENIAttachment{
+	testAttachment := &ni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachStatusSent: true,
 			ExpiresAt:        time.Unix(time.Now().Unix()+100, 0),

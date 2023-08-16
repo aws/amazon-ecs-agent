@@ -30,7 +30,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
@@ -41,7 +41,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 	t1 := &apitask.Task{
 		Arn:               "t1",
 		Family:            "f1",
-		ENIs:              []*apieni.ENI{{ID: "ec2Id"}},
+		ENIs:              []*ni.NetworkInterface{{ID: "ec2Id"}},
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{
 			{Name: "test"},
