@@ -623,7 +623,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 		testHeartbeatJitter,
 		10*time.Second,
 		2*time.Second,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
