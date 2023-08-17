@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -73,10 +72,6 @@ const (
 	// 1: default protocol version
 	// 2: ACS will proactively close the connection when heartbeat acks are missing
 	acsProtocolVersion = 2
-	// numOfHandlersSendingAcks is the number of handlers that send acks back to ACS and that are not saved across
-	// sessions. We use this to send pending acks, before agent initiates a disconnect to ACS.
-	// they are: taskManifestHandler
-	numOfHandlersSendingAcks = 1
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.
@@ -248,8 +243,6 @@ func (acsSession *session) startSessionOnce() error {
 // kinds of messages expected from ACS. It returns on server disconnection or when
 // the context is cancelled
 func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
-	cfg := acsSession.agentConfig
-
 	payloadMsgHandler := NewPayloadMessageHandler(acsSession.taskEngine, acsSession.ecsClient, acsSession.dataClient,
 		acsSession.taskHandler, acsSession.credentialsManager, acsSession.latestSeqNumTaskManifest)
 
@@ -259,19 +252,12 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	manifestMessageIDAccessor := NewManifestMessageIDAccessor()
 
+	sequenceNumberAccessor := NewSequenceNumberAccessor(acsSession.latestSeqNumTaskManifest, acsSession.dataClient)
+	taskComparer := NewTaskComparer(acsSession.taskEngine)
+
+	taskStopper := NewTaskStopper(acsSession.taskEngine)
+
 	metricsFactory := metrics.NewNopEntryFactory()
-
-	// Add TaskManifestHandler
-	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest,
-		manifestMessageIDAccessor)
-
-	defer taskManifestHandler.clearAcks()
-	taskManifestHandler.start()
-	defer taskManifestHandler.stop()
-
-	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskManifestMessage())
-	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskStopVerificationMessage())
 
 	responseSender := func(response interface{}) error {
 		return client.MakeRequest(response)
@@ -283,6 +269,9 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
 		acssession.NewAttachInstanceENIResponder(eniHandler, responseSender),
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
+		acssession.NewTaskManifestResponder(taskComparer, sequenceNumberAccessor, manifestMessageIDAccessor,
+			metricsFactory, responseSender),
+		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metricsFactory, nil),
 	}
 	for _, r := range responders {
 		client.AddRequestHandler(r.HandlerFunc())
@@ -299,9 +288,9 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	}
 
 	seelog.Info("Connected to ACS endpoint")
-	// Start a connection timer; agent will send pending acks and close its ACS websocket connection
+	// Start a connection timer; agent close its ACS websocket connection
 	// after this timer expires
-	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter, &taskManifestHandler)
+	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter)
 	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
@@ -391,28 +380,12 @@ func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitt
 	return timer
 }
 
-// newConnectionTimer creates a new timer, after which agent sends any pending acks to ACS and closes
+// newConnectionTimer creates a new timer, after which agent closes
 // its websocket connection
-func newConnectionTimer(client wsclient.ClientServer, connectionTime time.Duration, connectionJitter time.Duration,
-	taskManifestHandler *taskManifestHandler) ttime.Timer {
+func newConnectionTimer(client wsclient.ClientServer, connectionTime time.Duration,
+	connectionJitter time.Duration) ttime.Timer {
 	expiresAt := retry.AddJitter(connectionTime, connectionJitter)
 	timer := time.AfterFunc(expiresAt, func() {
-		seelog.Debugf("Sending pending acks to ACS before closing the connection")
-
-		wg := sync.WaitGroup{}
-		wg.Add(numOfHandlersSendingAcks)
-
-		// send pending task manifest acks and task stop verification acks to ACS
-		go func() {
-			taskManifestHandler.sendPendingTaskManifestMessageAck()
-			taskManifestHandler.handlePendingTaskStopVerificationAck()
-			wg.Done()
-		}()
-
-		// wait for acks from all the handlers above to be sent to ACS before closing the websocket connection.
-		// the methods used to read pending acks are non-blocking, so it is safe to wait here.
-		wg.Wait()
-
 		seelog.Infof("Closing ACS websocket connection after %v minutes", expiresAt.Minutes())
 		// WriteCloseMessage() writes a close message using websocket control messages
 		// Ref: https://pkg.go.dev/github.com/gorilla/websocket#hdr-Control_Messages
