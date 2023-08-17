@@ -36,9 +36,9 @@ type ENI struct {
 	// MacAddress is the mac address of the eni
 	MacAddress string
 	// IPV4Addresses is the ipv4 address associated with the eni
-	IPV4Addresses []*IPV4Address
+	IPV4Addresses []*ENIIPV4Address
 	// IPV6Addresses is the ipv6 address associated with the eni
-	IPV6Addresses []*IPV6Address
+	IPV6Addresses []*ENIIPV6Address
 	// SubnetGatewayIPV4Address is the IPv4 address of the subnet gateway of the ENI
 	SubnetGatewayIPV4Address string `json:",omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the eni
@@ -272,16 +272,16 @@ func (eni *ENI) String() string {
 		strings.Join(eni.DomainNameSearchList, ","), eni.SubnetGatewayIPV4Address, eniString)
 }
 
-// IPV4Address is the ipv4 information of the eni
-type IPV4Address struct {
+// ENIIPV4Address is the ipv4 information of the eni
+type ENIIPV4Address struct {
 	// Primary indicates whether the ip address is primary
 	Primary bool
 	// Address is the ipv4 address associated with eni
 	Address string
 }
 
-// IPV6Address is the ipv6 information of the eni
-type IPV6Address struct {
+// ENIIPV6Address is the ipv6 information of the eni
+type ENIIPV6Address struct {
 	// Address is the ipv6 address associated with eni
 	Address string
 }
@@ -293,12 +293,12 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		return nil, err
 	}
 
-	var ipv4Addrs []*IPV4Address
-	var ipv6Addrs []*IPV6Address
+	var ipv4Addrs []*ENIIPV4Address
+	var ipv6Addrs []*ENIIPV6Address
 
 	// Read IPv4 address information of the ENI.
 	for _, ec2Ipv4 := range acsENI.Ipv4Addresses {
-		ipv4Addrs = append(ipv4Addrs, &IPV4Address{
+		ipv4Addrs = append(ipv4Addrs, &ENIIPV4Address{
 			Primary: aws.BoolValue(ec2Ipv4.Primary),
 			Address: aws.StringValue(ec2Ipv4.PrivateAddress),
 		})
@@ -306,7 +306,7 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 
 	// Read IPv6 address information of the ENI.
 	for _, ec2Ipv6 := range acsENI.Ipv6Addresses {
-		ipv6Addrs = append(ipv6Addrs, &IPV6Address{
+		ipv6Addrs = append(ipv6Addrs, &ENIIPV6Address{
 			Address: aws.StringValue(ec2Ipv6.Address),
 		})
 	}
