@@ -42,7 +42,7 @@ const (
 )
 
 type DockerTelemetrySession struct {
-	s tcshandler.TelemetrySession
+	tcshandler.TelemetrySession
 }
 
 // NewDockerTelemetrySession returns creates a DockerTelemetrySession, which has a tcshandler.TelemetrySession embedded.
@@ -99,7 +99,7 @@ func NewDockerTelemetrySession(
 }
 
 func (session *DockerTelemetrySession) Start(ctx context.Context) error {
-	return session.s.Start(ctx)
+	return session.Start(ctx)
 }
 
 // generateVersionInfo generates the agentVersion, agentHash and containerRuntimeVersion from dockerTaskEngine state

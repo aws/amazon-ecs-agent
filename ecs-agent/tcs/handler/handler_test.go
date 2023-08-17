@@ -154,11 +154,11 @@ func TestStartTelemetrySession(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, serverChan, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
 	testecsclient := &wsmock.TestECSClient{
 		TCSurl: server.URL,
@@ -252,11 +252,12 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, serverChan, _, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
+
 	go func() {
 		serr := <-serverErr
 		if !websocket.IsCloseError(serr, websocket.CloseNormalClosure) {
@@ -320,11 +321,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, _, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
 	go func() {
 		for {
@@ -369,12 +370,9 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
+	assert.Contains(t, err.Error(), "use of closed network connection")
 
-	// TODO: confirm once. The client would not attempt to reconnect since we are using StartTelemetrySession
-	// instead of Start. Modified the test to just test for connection closed on inactivity.
-	//assert.NoError(t, err, "Close the connection should cause the tcs client return error")
 	msg := <-serverErr
-
 	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
 
@@ -387,11 +385,11 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, _, requestChan, _, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
 	go func() {
 		for {
@@ -582,11 +580,11 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, _, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
 	go func() {
 		for {
@@ -608,8 +606,8 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
 
-	//Setting disconnect timer(10 secs) to be less than heartbeat timer( 1min)
-	//in order disconnect because of periodic timer instead of heartbeat timer due to inactivity.
+	// Setting disconnect timer(10 secs) to be less than heartbeat timer(1min)
+	// in order to disconnect because of periodic timer instead of heartbeat timer due to inactivity.
 	session := NewTelemetrySession(
 		testInstanceArn,
 		testClusterArn,
@@ -633,6 +631,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
+	assert.Contains(t, err.Error(), "use of closed network connection")
 
 	msg := <-serverErr
 	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
