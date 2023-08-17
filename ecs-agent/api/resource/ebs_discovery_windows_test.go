@@ -1,5 +1,5 @@
-//go:build !windows && unit
-// +build !windows,unit
+//go:build windows && unit
+// +build windows,unit
 
 package resource
 

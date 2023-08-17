@@ -21,7 +21,7 @@ const (
 func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName string, volumeID string) error {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, volumeDiscoveryTimeoutDuration)
 	defer cancel()
-	commandArguments := []string{"diskdrive", "where", fmt.Sprintf("SerialNumber like '%%%s%%'", volumeId), "get", "SerialNumber"}
+	commandArguments := []string{"diskdrive", "where", fmt.Sprintf("SerialNumber like '%%%s%%'", volumeID), "get", "SerialNumber"}
 	output, err := exec.CommandContext(ctxWithTimeout, "wmic", commandArguments...).CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "failed to run wmic: %s", string(output))
@@ -29,14 +29,17 @@ func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName string, volumeID
 
 	parsedOutput, err := parseExecutableOutput(output)
 	if err != nil {
-		log.Fatal(err)
-		return errors.Wrapf(err, "failed to parse wmic output for volumeID: %s", volumeID)
+		errorMessage := fmt.Sprintf("failed to parse wmic output for volumeID: %s", volumeID)
+		log.Error(err, errorMessage)
+		return errors.Wrap(err, errorMessage)
 	}
 
-	log.Info(fmt.Sprintf("cound volume with parsed information as:%s", parsedOutput))
+	log.Info(fmt.Sprintf("found volume with parsed information as:%s", parsedOutput))
 
-	if !strings.Contains(parsedOutput, volumeId) {
-		log.Fatal(fmt.Sprintf("could not find volume with ID:%s", volumeId))
+	if !strings.Contains(parsedOutput, volumeID) {
+		errorMessage := fmt.Sprintf("could not find volume with ID:%s", volumeID)
+		log.Error(errorMessage)
+		return errors.New(errorMessage)
 	}
 
 	return nil
@@ -50,7 +53,7 @@ func parseExecutableOutput(output []byte) (string, error) {
 	out := string(output)
 	volumeInfo := strings.Fields(out)
 	if len(volumeInfo) != 2 {
-		return "", errors.New(fmt.Sprint("cannot find the volume ID. Encountered error message: %s", out))
+		return "", errors.New(fmt.Sprintf("cannot find the volume ID. Encountered error message: %s", out))
 	}
 	return volumeInfo[1], nil
 }
