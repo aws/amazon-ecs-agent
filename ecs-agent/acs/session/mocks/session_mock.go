@@ -22,8 +22,8 @@ import (
 	reflect "reflect"
 
 	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -51,7 +51,7 @@ func (m *MockENIHandler) EXPECT() *MockENIHandlerMockRecorder {
 }
 
 // HandleENIAttachment mocks base method.
-func (m *MockENIHandler) HandleENIAttachment(arg0 *networkinterface.ENIAttachment) error {
+func (m *MockENIHandler) HandleENIAttachment(arg0 *apieni.ENIAttachment) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleENIAttachment", arg0)
 	ret0, _ := ret[0].(error)

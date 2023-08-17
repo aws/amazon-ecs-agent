@@ -13,8 +13,8 @@
 
 package session
 
-import ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+import apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 
 type ENIHandler interface {
-	HandleENIAttachment(eniAttachment *ni.ENIAttachment) error
+	HandleENIAttachment(eniAttachment *apieni.ENIAttachment) error
 }

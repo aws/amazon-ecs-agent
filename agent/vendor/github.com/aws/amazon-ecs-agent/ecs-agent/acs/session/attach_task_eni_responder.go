@@ -15,6 +15,7 @@ package session
 
 import (
 	"fmt"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -99,7 +100,7 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskN
 func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNetworkInterface,
 	messageID, taskARN, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
-	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
+	err := r.eniHandler.HandleENIAttachment(&apieni.ENIAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:              taskARN,
 			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
