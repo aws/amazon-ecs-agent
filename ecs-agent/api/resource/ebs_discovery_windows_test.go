@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,7 +17,8 @@ const (
 )
 
 func Test_parseExecutableOutput_HappyPath(t *testing.T) {
-	parsedOutput, err := parseExecutableOutput([]byte(testVolumeID + "_00000001"))
+	output := fmt.Sprintf("SerialNumber \n	%s_00000001.", testVolumeID)
+	parsedOutput, err := parseExecutableOutput([]byte(output))
 	require.NoError(t, err)
 	assert.True(t, strings.Contains(parsedOutput, testVolumeID))
 }
