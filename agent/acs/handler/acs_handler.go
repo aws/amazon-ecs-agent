@@ -288,16 +288,9 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-	if disconnectTimer != nil {
-		defer disconnectTimer.Stop()
-	}
+	defer disconnectTimer.Stop()
 
 	seelog.Info("Connected to ACS endpoint")
-	// Start a connection timer; agent close its ACS websocket connection
-	// after this timer expires
-	startTime := time.Now()
-	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter)
-	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
 	heartbeatTimer := newHeartbeatTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())

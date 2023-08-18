@@ -182,7 +182,6 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		})
 		return err
 	}
-
 	defer disconnectTimer.Stop()
 	logger.Info("Connected to TCS endpoint")
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
@@ -210,20 +209,6 @@ func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
 		return "", err
 	}
 	return tcsEndpoint, nil
-}
-
-func (session *telemetrySession) newDisconnectTimeoutHandler(client wsclient.ClientServer, startTime time.Time) *time.Timer {
-	maxConnectionDuration := retry.AddJitter(session.disconnectTimeout, session.disconnectJitterMax)
-	timer := time.AfterFunc(maxConnectionDuration, func() {
-		err := closeTCSClient(client, startTime, maxConnectionDuration)
-		session.metricsFactory.New(metrics.TCSDisconnectTimeoutMetricName).Done(err)
-		if err != nil {
-			logger.Warn("Attempted disconnecting; client already closed", logger.Fields{
-				field.Error: err,
-			})
-		}
-	})
-	return timer
 }
 
 func (session *telemetrySession) newHeartbeatTimeoutHandler(cs wsclient.ClientServer, startTime time.Time) *time.Timer {
