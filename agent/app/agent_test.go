@@ -1691,7 +1691,6 @@ func getTestHostResources() map[string]*ecs.Resource {
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: ports_tcp,
 	}
-
 	//PORTS_UDP
 	ports_udp := []*string{}
 	hostResources["PORTS_UDP"] = &ecs.Resource{
@@ -1700,11 +1699,11 @@ func getTestHostResources() map[string]*ecs.Resource {
 		StringSetValue: ports_udp,
 	}
 	//GPUs
-	numGPUs := int64(3)
+	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
 	hostResources["GPU"] = &ecs.Resource{
-		Name:         utils.Strptr("GPU"),
-		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &numGPUs,
+		Name:           utils.Strptr("GPU"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 	return hostResources
 }

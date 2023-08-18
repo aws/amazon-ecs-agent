@@ -3519,7 +3519,7 @@ func (task *Task) IsServiceConnectConnectionDraining() bool {
 //   - Don't need to account for awsvpc mode, each task gets its own namespace
 //
 // * GPU
-//   - Return num of gpus requested (len of GPUIDs field)
+//   - Concatenate each container's gpu ids
 func (task *Task) ToHostResources() map[string]*ecs.Resource {
 	resources := make(map[string]*ecs.Resource)
 	// CPU
@@ -3614,15 +3614,14 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 	}
 
 	// GPU
-	var num_gpus int64
-	num_gpus = 0
+	var gpus []*string
 	for _, c := range task.Containers {
-		num_gpus += int64(len(c.GPUIDs))
+		gpus = append(gpus, aws.StringSlice(c.GPUIDs)...)
 	}
 	resources["GPU"] = &ecs.Resource{
-		Name:         utils.Strptr("GPU"),
-		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &num_gpus,
+		Name:           utils.Strptr("GPU"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: gpus,
 	}
 	logger.Debug("Task host resources to account for", logger.Fields{
 		"taskArn":   task.Arn,
@@ -3630,7 +3629,7 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 		"MEMORY":    *resources["MEMORY"].IntegerValue,
 		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
 		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
-		"GPU":       *resources["GPU"].IntegerValue,
+		"GPU":       aws.StringValueSlice(resources["GPU"].StringSetValue),
 	})
 	return resources
 }

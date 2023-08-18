@@ -312,26 +312,26 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Critical("Unable to fetch host resources")
 		return exitcodes.ExitError
 	}
-	numGPUs := int64(0)
+	gpuIDs := []string{}
 	if agent.cfg.GPUSupportEnabled {
 		err := agent.initializeGPUManager()
 		if err != nil {
 			seelog.Criticalf("Could not initialize Nvidia GPU Manager: %v", err)
 			return exitcodes.ExitError
 		}
-		// Find number of GPUs instance has
+		// Find GPUs (if any) on the instance
 		platformDevices := agent.getPlatformDevices()
 		for _, device := range platformDevices {
 			if *device.Type == ecs.PlatformDeviceTypeGpu {
-				numGPUs++
+				gpuIDs = append(gpuIDs, *device.Id)
 			}
 		}
 	}
 
 	hostResources["GPU"] = &ecs.Resource{
-		Name:         utils.Strptr("GPU"),
-		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &numGPUs,
+		Name:           utils.Strptr("GPU"),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 
 	// Create the task engine
