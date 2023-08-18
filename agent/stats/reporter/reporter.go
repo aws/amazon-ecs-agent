@@ -16,7 +16,6 @@ package reporter
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -29,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
@@ -41,16 +39,10 @@ const (
 	// Default websocket client disconnection timeout initiated by agent
 	defaultDisconnectionTimeout = 15 * time.Minute
 	defaultDisconnectionJitter  = 30 * time.Minute
-	backoffMin                  = 1 * time.Second
-	backoffMax                  = 1 * time.Minute
-	jitterMultiple              = 0.2
-	multiple                    = 2
 )
 
 type DockerTelemetrySession struct {
-	s                    tcshandler.TelemetrySession
-	ecsClient            api.ECSClient
-	containerInstanceArn string
+	s tcshandler.TelemetrySession
 }
 
 // NewDockerTelemetrySession returns creates a DockerTelemetrySession, which has a tcshandler.TelemetrySession embedded.
@@ -84,7 +76,6 @@ func NewDockerTelemetrySession(
 		agentVersion,
 		agentHash,
 		containerRuntimeVersion,
-		"", // this will be overridden by DockerTelemetrySession.Start()
 		cfg.DisableMetrics.Enabled(),
 		credentialProvider,
 		&wsclient.WSClientMinAgentConfig{
@@ -102,39 +93,13 @@ func NewDockerTelemetrySession(
 		metricsChannel,
 		healthChannel,
 		doctor,
+		ecsClient,
 	)
-	return &DockerTelemetrySession{session, ecsClient, containerInstanceArn}, nil
+	return &DockerTelemetrySession{session}, nil
 }
 
-// Start "overloads" tcshandler.TelemetrySession's Start with extra handling of discoverTelemetryEndpoint result.
-// discoverTelemetryEndpoint and tcshandler.TelemetrySession's StartTelemetrySession errors are handled
-// (retryWithBackoff or return) in a combined manner
 func (session *DockerTelemetrySession) Start(ctx context.Context) error {
-	backoff := retry.NewExponentialBackoff(backoffMin, backoffMax, jitterMultiple, multiple)
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Info("ECS Telemetry service (TCS) session exited cleanly.")
-			return nil
-		default:
-		}
-		endpoint, tcsError := discoverPollEndpoint(session.containerInstanceArn, session.ecsClient)
-		if tcsError == nil {
-			// returning from StartTelemetrySession indicates a disconnection, need to reconnect.
-			tcsError = session.s.StartTelemetrySession(ctx, endpoint)
-		}
-		if tcsError == nil || tcsError == io.EOF {
-			// reset backoff when TCS closed for a valid reason, such as connection expiring due to inactivity
-			logger.Info("TCS Websocket connection closed for a valid reason")
-			backoff.Reset()
-		} else {
-			// backoff when there is unexpected error, such as invalid frame sent through connection.
-			logger.Error("Error: lost websocket connection with ECS Telemetry service (TCS)", logger.Fields{
-				field.Error: tcsError,
-			})
-			time.Sleep(backoff.Duration())
-		}
-	}
+	return session.s.Start(ctx)
 }
 
 // generateVersionInfo generates the agentVersion, agentHash and containerRuntimeVersion from dockerTaskEngine state
@@ -147,17 +112,6 @@ func generateVersionInfo(taskEngine engine.TaskEngine) (string, string, string) 
 	}
 
 	return agentVersion, agentHash, containerRuntimeVersion
-}
-
-// discoverPollEndpoint calls DiscoverTelemetryEndpoint to get the TCS endpoint url for TCS client to connect
-func discoverPollEndpoint(containerInstanceArn string, ecsClient api.ECSClient) (string, error) {
-	tcsEndpoint, err := ecsClient.DiscoverTelemetryEndpoint(containerInstanceArn)
-	if err != nil {
-		logger.Error("tcs: unable to discover poll endpoint", logger.Fields{
-			field.Error: err,
-		})
-	}
-	return tcsEndpoint, err
 }
 
 func isContainerHealthMetricsDisabled(cfg *config.Config) (bool, error) {

@@ -14,12 +14,26 @@
 package utils
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+type TestECSClient struct {
+	TCSurl string
+}
+
+func (client *TestECSClient) DiscoverTelemetryEndpoint(url string) (string, error) {
+	if client.TCSurl == "" {
+		return "", errors.New("No endpoint found.")
+	}
+
+	return client.TCSurl, nil
+
+}
 
 // GetMockServer returns a mock websocket server that can be started up as TLS or not.
 // TODO replace with gomock

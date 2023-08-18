@@ -30,6 +30,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -153,12 +154,15 @@ func TestStartTelemetrySession(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, serverChan, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
 
@@ -191,7 +195,6 @@ func TestStartTelemetrySession(t *testing.T) {
 		testAgentVersion,
 		testAgentHash,
 		testContainerRuntimeVersion,
-		server.URL,
 		false,
 		testCreds,
 		testCfg,
@@ -204,10 +207,11 @@ func TestStartTelemetrySession(t *testing.T) {
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
+		testecsclient,
 	)
 
 	// Start a session with the test server.
-	go session.StartTelemetrySession(ctx, server.URL)
+	go session.StartTelemetrySession(ctx)
 
 	// Wait for 100 ms to make sure the session is ready to receive message from channel
 	time.Sleep(testSendMetricsToChannelWaitTime)
@@ -248,11 +252,12 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, serverChan, _, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
+
 	go func() {
 		serr := <-serverErr
 		if !websocket.IsCloseError(serr, websocket.CloseNormalClosure) {
@@ -265,6 +270,10 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		closeSocket(closeWS)
 		close(serverChan)
 	}()
+
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
@@ -280,7 +289,6 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		testAgentVersion,
 		testAgentHash,
 		testContainerRuntimeVersion,
-		server.URL,
 		false,
 		testCreds,
 		testCfg,
@@ -293,10 +301,11 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
+		testecsclient,
 	)
 
 	// Start a session with the test server.
-	err = session.StartTelemetrySession(ctx, server.URL)
+	err = session.StartTelemetrySession(ctx)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -312,11 +321,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
 	server, _, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
-	server.StartTLS()
-	defer server.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	server.StartTLS()
+	defer server.Close()
 
 	go func() {
 		for {
@@ -325,6 +334,10 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 			}
 		}
 	}()
+
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
@@ -340,12 +353,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		testAgentVersion,
 		testAgentHash,
 		testContainerRuntimeVersion,
-		server.URL,
 		false,
 		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
-		50*time.Millisecond,
+		5*time.Second,
 		100*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
@@ -353,17 +365,86 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
+		testecsclient,
 	)
 
 	// Start a session with the test server.
-	err = session.StartTelemetrySession(ctx, server.URL)
+	err = session.StartTelemetrySession(ctx)
+	assert.Contains(t, err.Error(), "use of closed network connection")
 
-	assert.NoError(t, err, "Close the connection should cause the tcs client return error")
-
-	assert.True(t, websocket.IsCloseError(<-serverErr, websocket.CloseAbnormalClosure),
+	msg := <-serverErr
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
 
 	closeSocket(closeWS)
+}
+
+// TestClientReconnectsAfterInactiveTimeout tests the tcs client reconnects when it loses network
+// connection, or it's inactive for too long
+func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
+	// Start test server.
+	closeWS := make(chan []byte)
+	server, _, requestChan, _, err := wsmock.GetMockServer(closeWS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	go func() {
+		for {
+			select {
+			case <-requestChan:
+			}
+		}
+	}()
+
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
+	ctx := context.Background()
+	deadline := time.Now().Add(5 * time.Second)
+	ctx, cancelCtx := context.WithDeadline(ctx, deadline)
+	defer cancelCtx()
+	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
+	session := NewTelemetrySession(
+		testInstanceArn,
+		testClusterArn,
+		testAgentVersion,
+		testAgentHash,
+		testContainerRuntimeVersion,
+		false,
+		testCreds,
+		testCfg,
+		deregisterInstanceEventStream,
+		50*time.Millisecond,
+		10*time.Millisecond,
+		testDisconnectionTimeout,
+		testDisconnectionJitter,
+		nil,
+		telemetryMessages,
+		healthMessages,
+		emptyDoctor,
+		testecsclient,
+	)
+
+	// Start a session with the test server. Start() runs in for loop to attempt reconnection
+	// until ctx is cancelled or done.
+	err = session.Start(ctx)
+
+	// The session should reconnect and the closure of connection should not be because of io.EOF error,
+	// since the connection was closed as part of context cancelled. If we do not send context cancelled
+	// it would continue to reconnect and test will be in forever loop.
+	assert.False(t, websocket.IsCloseError(err, websocket.CloseAbnormalClosure),
+		"Read from closed connection should produce an io.EOF error")
+
+	assert.NoError(t, err, "No error is expected. The test should exit cleanly when the ctx is done.")
+
 }
 
 func getPayloadFromRequest(request string) (string, error) {
@@ -437,6 +518,10 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 	server.StartTLS()
 	defer server.Close()
 
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
@@ -448,7 +533,6 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		testAgentVersion,
 		testAgentHash,
 		testContainerRuntimeVersion,
-		server.URL,
 		false,
 		testCreds,
 		testCfg,
@@ -461,9 +545,10 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
+		testecsclient,
 	)
 
-	go session.StartTelemetrySession(ctx, server.URL)
+	go session.StartTelemetrySession(ctx)
 	telemetryMessages <- ecstcs.TelemetryMessage{}
 	for len(telemetryMessages) != 0 {
 		time.Sleep(1 * time.Second)
@@ -483,8 +568,74 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 
 	// simulating retry after backoff
 	newCtx, _ := context.WithCancel(context.Background())
-	go session.StartTelemetrySession(newCtx, server.URL)
+	go session.StartTelemetrySession(newCtx)
 	for len(telemetryMessages) != 0 {
 		time.Sleep(1 * time.Second)
 	} // test will time out if after tcs client startup, message does not resume flowing
+}
+
+// TestPeriodicDisconnectonTCSClient tests for tcs session disconnects at regular intervals.
+func TestPeriodicDisconnectonTCSClient(t *testing.T) {
+
+	// Start test server.
+	closeWS := make(chan []byte)
+	server, _, requestChan, serverErr, err := wsmock.GetMockServer(closeWS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	go func() {
+		for {
+			select {
+			case <-requestChan:
+			}
+		}
+	}()
+
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
+	deregisterInstanceEventStream.StartListening()
+	defer cancel()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
+	// Setting disconnect timer(10 secs) to be less than heartbeat timer(1min)
+	// in order to disconnect because of periodic timer instead of heartbeat timer due to inactivity.
+	session := NewTelemetrySession(
+		testInstanceArn,
+		testClusterArn,
+		testAgentVersion,
+		testAgentHash,
+		testContainerRuntimeVersion,
+		false,
+		testCreds,
+		testCfg,
+		deregisterInstanceEventStream,
+		testHeartbeatTimeout,
+		testHeartbeatJitter,
+		10*time.Second,
+		2*time.Second,
+		metrics.NewNopEntryFactory(),
+		telemetryMessages,
+		healthMessages,
+		emptyDoctor,
+		testecsclient,
+	)
+
+	// Start a session with the test server.
+	err = session.StartTelemetrySession(ctx)
+	assert.Contains(t, err.Error(), "use of closed network connection")
+
+	msg := <-serverErr
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
+		"Read from closed connection should produce an io.EOF error")
+
+	closeSocket(closeWS)
 }

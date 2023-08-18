@@ -233,6 +233,37 @@ func (s Dimension) GoString() string {
 	return s.String()
 }
 
+type EphemeralStorageMetrics struct {
+	_ struct{} `type:"structure"`
+
+	BytesUtilized *ULongStatsSet `type:"structure"`
+}
+
+// String returns the string representation
+func (s EphemeralStorageMetrics) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EphemeralStorageMetrics) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *EphemeralStorageMetrics) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "EphemeralStorageMetrics"}
+	if s.BytesUtilized != nil {
+		if err := s.BytesUtilized.Validate(); err != nil {
+			invalidParams.AddNested("BytesUtilized", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 type GeneralMetric struct {
 	_ struct{} `type:"structure"`
 
@@ -991,6 +1022,8 @@ type TaskMetric struct {
 
 	ContainerMetrics []*ContainerMetric `locationName:"containerMetrics" type:"list"`
 
+	EphemeralStorageMetrics *EphemeralStorageMetrics `locationName:"ephemeralStorageMetrics" type:"structure"`
+
 	ServiceConnectMetricsWrapper []*GeneralMetricsWrapper `locationName:"serviceConnectMetricsWrapper" type:"list"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -1021,6 +1054,11 @@ func (s *TaskMetric) Validate() error {
 			if err := v.Validate(); err != nil {
 				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ContainerMetrics", i), err.(request.ErrInvalidParams))
 			}
+		}
+	}
+	if s.EphemeralStorageMetrics != nil {
+		if err := s.EphemeralStorageMetrics.Validate(); err != nil {
+			invalidParams.AddNested("EphemeralStorageMetrics", err.(request.ErrInvalidParams))
 		}
 	}
 
