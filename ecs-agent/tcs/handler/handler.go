@@ -11,8 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//lint:file-ignore U1000 Ignore unused metricsFactory field as it is only used by Fargate
-
 package tcshandler
 
 import (

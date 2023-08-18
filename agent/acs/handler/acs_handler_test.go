@@ -1411,11 +1411,11 @@ func TestHandlerCallsAddUpdateRequestHandlers(t *testing.T) {
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockClientFactory := mock_wsclient.NewMockClientFactory(ctrl)
 	mockClientFactory.EXPECT().
-		New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockWsClient).AnyTimes()
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().Connect().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	mockWsClient.EXPECT().Serve(gomock.Any()).Do(func(interface{}) {
 		if addUpdateRequestHandlersCalled {
 			cancel()
@@ -1441,6 +1441,7 @@ func TestHandlerCallsAddUpdateRequestHandlers(t *testing.T) {
 		nil,
 		mockClientFactory,
 		addUpdateRequestHandlers,
+		metrics.NewNopEntryFactory(),
 	)
 
 	go func() {
