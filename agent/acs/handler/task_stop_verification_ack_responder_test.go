@@ -50,8 +50,7 @@ func setupTaskStopVerificationAckTest(t *testing.T) *taskStopVerificationAckTest
 	taskStopVerificationAckResponder := acssession.NewTaskStopVerificationACKResponder(
 		NewTaskStopper(taskEngine),
 		manifestMessageIDAccessor,
-		metrics.NewNopEntryFactory(),
-		nil)
+		metrics.NewNopEntryFactory())
 
 	return &taskStopVerificationAckTestHelper{
 		ctrl:                             ctrl,
@@ -112,7 +111,7 @@ func TestTaskStopVerificationAckResponderStopsMultipleTasks(t *testing.T) {
 	})
 
 	handleTaskStopVerificationAck :=
-		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck) error)
+		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
 	handleTaskStopVerificationAck(taskStopVerificationAck)
 
 	// Only task2 and task3 should be stopped.
@@ -165,7 +164,7 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 	})
 
 	handleTaskStopVerificationAck :=
-		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck) error)
+		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
 	handleTaskStopVerificationAck(taskStopVerificationAck)
 
 	// All tasks on instance should be stopped.
