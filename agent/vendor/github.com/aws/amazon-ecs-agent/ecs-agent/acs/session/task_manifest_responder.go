@@ -42,7 +42,7 @@ type TaskComparer interface {
 // latest message id
 type SequenceNumberAccessor interface {
 	GetLatestSequenceNumber() int64
-	SetLatestSequenceNumber(message *ecsacs.TaskManifestMessage) error
+	SetLatestSequenceNumber(seqNum int64) error
 }
 
 // taskManifestResponder responds to task manifest messages from ACS. It processes the
@@ -60,7 +60,7 @@ type taskManifestResponder struct {
 
 // NewTaskManifestResponder returns an instance of the taskManifestResponder struct.
 func NewTaskManifestResponder(taskComparer TaskComparer, snAccessor SequenceNumberAccessor, messageIDAccessor ManifestMessageIDAccessor,
-	metricsFactory metrics.EntryFactory, responseSender wsclient.RespondFunc) *taskManifestResponder {
+	metricsFactory metrics.EntryFactory, responseSender wsclient.RespondFunc) wsclient.RequestResponder {
 	r := &taskManifestResponder{
 		taskComparer:      taskComparer,
 		snAccessor:        snAccessor,
@@ -116,7 +116,7 @@ func (tmr *taskManifestResponder) processTaskManifestMessage(
 	if err != nil {
 		return errors.Wrap(err, "failed to update latest manifest messageID")
 	}
-	err = tmr.snAccessor.SetLatestSequenceNumber(message)
+	err = tmr.snAccessor.SetLatestSequenceNumber(*message.Timeline)
 	if err != nil {
 		return errors.Wrap(err, "failed to update latest manifest sequence number")
 	}

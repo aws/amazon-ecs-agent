@@ -79,7 +79,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 
 	// Expect to get the latest sequence number for stale check, then set it as we expect.
 	mockSNA.EXPECT().GetLatestSequenceNumber()
-	mockSNA.EXPECT().SetLatestSequenceNumber(testManifest).Return(nil)
+	mockSNA.EXPECT().SetLatestSequenceNumber(*testManifest.Timeline).Return(nil)
 
 	// After we get the latest sequence number, we will expect to set the latest message ID.
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID).Return(nil)
@@ -137,7 +137,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	mockSNA.EXPECT().GetLatestSequenceNumber().Return(int64(StartingTaskManifestSequenceNumber))
 
 	// The test manifest should be valid, updating sequence number and message ID only once.
-	mockSNA.EXPECT().SetLatestSequenceNumber(testManifest)
+	mockSNA.EXPECT().SetLatestSequenceNumber(*testManifest.Timeline)
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID)
 	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]*ecsacs.TaskIdentifier{}, nil)
 

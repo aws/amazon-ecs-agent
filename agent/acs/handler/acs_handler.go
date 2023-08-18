@@ -271,7 +271,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
 		acssession.NewTaskManifestResponder(taskComparer, sequenceNumberAccessor, manifestMessageIDAccessor,
 			metricsFactory, responseSender),
-		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metricsFactory, nil),
+		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metricsFactory),
 	}
 	for _, r := range responders {
 		client.AddRequestHandler(r.HandlerFunc())
