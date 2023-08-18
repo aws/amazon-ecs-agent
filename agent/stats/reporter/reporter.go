@@ -37,9 +37,6 @@ const (
 	// The maximum time to wait between heartbeats without disconnecting
 	defaultHeartbeatTimeout = 1 * time.Minute
 	defaultHeartbeatJitter  = 1 * time.Minute
-	// Default websocket client disconnection timeout initiated by agent
-	defaultDisconnectionTimeout = 15 * time.Minute
-	defaultDisconnectionJitter  = 30 * time.Minute
 )
 
 type DockerTelemetrySession struct {

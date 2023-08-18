@@ -41,8 +41,6 @@ const (
 	backoffMax                         = 1 * time.Minute
 	jitterMultiple                     = 0.2
 	multiple                           = 2
-	// dateTimeFormat is a string format to format time for better readability: YYYY-MM-DD hh:mm:ss
-	dateTimeFormat = "2006-01-02 15:04:05"
 )
 
 type TcsEcsClient interface {
@@ -207,35 +205,6 @@ func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
 		return "", err
 	}
 	return tcsEndpoint, nil
-}
-
-func (session *telemetrySession) newHeartbeatTimeoutHandler(cs wsclient.ClientServer, startTime time.Time) *time.Timer {
-	maxConnectionDuration := retry.AddJitter(session.heartbeatTimeout, session.heartbeatJitterMax)
-	timer := time.AfterFunc(maxConnectionDuration, func() {
-		err := closeTCSClient(cs, startTime, maxConnectionDuration)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("Attempted disconnecting; tcs client already closed. %s", err))
-		}
-	})
-	return timer
-}
-
-// closeTCSClient will attempt to close the provided client, retries are not recommended
-// as failure modes for this are when client is not found or already closed.
-func closeTCSClient(client wsclient.ClientServer, startTime time.Time, timeoutDuration time.Duration) error {
-	logger.Warn("Closing tcs connection", logger.Fields{
-		"ConnectionStartTime":  startTime.Format(dateTimeFormat),
-		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),
-	})
-
-	err := client.Disconnect()
-	if err != nil {
-		logger.Warn("Error disconnecting; client already closed", logger.Fields{
-			field.Error: err,
-		})
-	}
-	logger.Info("Disconnected from tcs")
-	return err
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.

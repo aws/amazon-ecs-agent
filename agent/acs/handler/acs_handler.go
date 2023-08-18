@@ -379,37 +379,6 @@ func (acsSession *session) acsURL(endpoint string) string {
 	return acsURL + "?" + query.Encode()
 }
 
-// newHeartbeatTimer creates a new time object, with a callback to
-// disconnect from ACS on inactivity
-//func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
-//	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
-//		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
-//		if err := client.Close(); err != nil {
-//			seelog.Warnf("Error disconnecting: %v", err)
-//		}
-//		seelog.Info("Disconnected from ACS")
-//	})
-//
-//	return timer
-//}
-
-// newConnectionTimer creates a new timer, after which agent closes
-// its websocket connection
-func newConnectionTimer(client wsclient.ClientServer, connectionTime time.Duration,
-	connectionJitter time.Duration) ttime.Timer {
-	expiresAt := retry.AddJitter(connectionTime, connectionJitter)
-	timer := time.AfterFunc(expiresAt, func() {
-		seelog.Infof("Closing ACS websocket connection after %v minutes", expiresAt.Minutes())
-		// WriteCloseMessage() writes a close message using websocket control messages
-		// Ref: https://pkg.go.dev/github.com/gorilla/websocket#hdr-Control_Messages
-		err := client.WriteCloseMessage()
-		if err != nil {
-			seelog.Warnf("Error writing close message: %v", err)
-		}
-	})
-	return timer
-}
-
 // anyMessageHandler handles any server message. Any server message means the
 // connection is active and thus the heartbeat disconnect should not occur
 func anyMessageHandler(timer ttime.Timer, client wsclient.ClientServer) func(interface{}) {
