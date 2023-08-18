@@ -288,7 +288,9 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
-	defer disconnectTimer.Stop()
+	if disconnectTimer != nil {
+		defer disconnectTimer.Stop()
+	}
 
 	seelog.Info("Connected to ACS endpoint")
 
