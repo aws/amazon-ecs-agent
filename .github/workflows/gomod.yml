@@ -43,3 +43,10 @@ jobs:
           git diff --exit-code go.mod go.sum
           go mod vendor
           git diff --exit-code vendor/
+      - name: Run go mod tidy and go mod vendor in ecs-init module
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/ecs-init
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          go mod vendor
+          git diff --exit-code vendor/
