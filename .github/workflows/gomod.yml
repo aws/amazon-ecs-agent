@@ -1,0 +1,52 @@
+name: Go Mod Check
+
+on: [push, pull_request]
+
+permissions: read-all
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: get GO_VERSION
+        id: get-go-version
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          set -eou pipefail
+          go_version=$(cat -e GO_VERSION)
+          go_version=${go_version%?}
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "invalid GO version"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
+      - name: Run go mod tidy and go mod vendor in ecs-agent module
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/ecs-agent
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          go mod vendor
+          git diff --exit-code vendor/
+      - name: Run go mod tidy and go mod vendor in agent module
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/agent
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          go mod vendor
+          git diff --exit-code vendor/
+      - name: Run go mod tidy and go mod vendor in ecs-init module
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/ecs-init
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          go mod vendor
+          git diff --exit-code vendor/
