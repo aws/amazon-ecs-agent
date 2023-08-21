@@ -80,9 +80,18 @@ func (tmr *taskManifestResponder) HandlerFunc() wsclient.RequestHandler {
 // handleTaskManifestMessage is the high level caller to handle a task manifest message from ACS.
 // It will kick off the call stack of processTaskManifestMessage calling ack and send TaskManifestMessage
 func (tmr *taskManifestResponder) handleTaskManifestMessage(message *ecsacs.TaskManifestMessage) {
-	logger.Debug(fmt.Sprintf("Processing %s", TaskManifestMessageName), logger.Fields{field.MessageID: message.MessageId})
+	messageID := aws.StringValue(message.MessageId)
+	logger.Debug(fmt.Sprintf("Processing %s", TaskManifestMessageName), logger.Fields{
+		field.MessageID: messageID,
+	})
 	m := tmr.metricsFactory.New(metrics.TaskManifestHandlingDuration)
 	err := tmr.processTaskManifestMessage(message)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Unable to handle %s", TaskManifestMessageName), logger.Fields{
+			field.MessageID: messageID,
+			field.Error:     err,
+		})
+	}
 	m.Done(err)
 }
 
