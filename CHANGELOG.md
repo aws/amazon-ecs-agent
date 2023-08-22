@@ -1,4 +1,14 @@
 # Changelog
+## 1.75.0
+* Enhancement - Add task stop verification ack to ecs-agent module [#3820](https://github.com/aws/amazon-ecs-agent/pull/3820)
+* Enhancement - Increase test coverage of some ACS responders [#3826](https://github.com/aws/amazon-ecs-agent/pull/3826)
+* Enhancement - Refactor ACS refresh credentials message handling [#3830](https://github.com/aws/amazon-ecs-agent/pull/3830)
+* Enhancement - Move appnet client interface to ecs-agent [#3827](https://github.com/aws/amazon-ecs-agent/pull/3827)
+* Enhancement - Add gpu-driver-version ECS attribute [#3836](https://github.com/aws/amazon-ecs-agent/pull/3826)
+* Enhancement - Modify ResourceAttachment and integrate into Docker task state engine [#3832](https://github.com/aws/amazon-ecs-agent/pull/3832)
+* Enhancement - Add negative integration tests for gmsa on Linux [#3752](https://github.com/aws/amazon-ecs-agent/pull/3752)
+* Enhancement - Upgrade Golang version to 1.20.6 [#3842](https://github.com/aws/amazon-ecs-agent/pull/3842)
+
 ## 1.74.1
 * Enhancement - Update amazon linux build spec to match current ecs agent golang version [#3817](https://github.com/aws/amazon-ecs-agent/pull/3817)
 * Bug - Merge Feature/task-resource-accounting to dev [#3819](https://github.com/aws/amazon-ecs-agent/pull/3819)
