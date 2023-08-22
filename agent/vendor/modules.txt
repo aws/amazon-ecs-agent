@@ -19,6 +19,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/eni
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
 github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/resource
+github.com/aws/amazon-ecs-agent/ecs-agent/api/resource/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/status
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
