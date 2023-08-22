@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/stretchr/testify/assert"
 )
@@ -164,6 +165,7 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 			TaskARN:          "taskarn1",
 			AttachmentARN:    "ebs1",
 			AttachStatusSent: false,
+			Status:           status.AttachmentNone,
 		},
 		AttachmentProperties: testAttachmentProperties,
 	}
@@ -177,19 +179,25 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 		apiresource.FileSystemTypeName:  "testXFS2",
 	}
 
-	sentAttachment := &apiresource.ResourceAttachment{
+	foundAttachment := &apiresource.ResourceAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          "taskarn2",
 			AttachmentARN:    "ebs2",
 			AttachStatusSent: true,
+			Status:           status.AttachmentAttached,
 		},
 		AttachmentProperties: testSentAttachmentProperties,
 	}
 
 	state.AddEBSAttachment(pendingAttachment)
-	state.AddEBSAttachment(sentAttachment)
+	state.AddEBSAttachment(foundAttachment)
 	assert.Len(t, state.(*DockerTaskEngineState).GetAllPendingEBSAttachments(), 1)
+	assert.Len(t, state.(*DockerTaskEngineState).GetAllPendingEBSAttachmentsWithKey(), 1)
 	assert.Len(t, state.(*DockerTaskEngineState).GetAllEBSAttachments(), 2)
+
+	_, ok := state.(*DockerTaskEngineState).GetAllPendingEBSAttachmentsWithKey()["vol-123"]
+	assert.True(t, ok)
+
 }
 
 func TestTwophaseAddContainer(t *testing.T) {
