@@ -14,10 +14,12 @@
 package resource
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
@@ -104,7 +106,7 @@ func getResourceAttachmentLogFields(ra *ResourceAttachment, duration time.Durati
 		"attachmentType":    ra.AttachmentProperties[ResourceTypeName],
 		"attachmentSent":    ra.AttachStatusSent,
 		"volumeSizeInGiB":   ra.AttachmentProperties[VolumeSizeInGiBName],
-		"RequestedSizeName": ra.AttachmentProperties[RequestedSizeName],
+		"requestedSizeName": ra.AttachmentProperties[RequestedSizeName],
 		"volumeId":          ra.AttachmentProperties[VolumeIdName],
 		"deviceName":        ra.AttachmentProperties[DeviceName],
 		"filesystemType":    ra.AttachmentProperties[FileSystemTypeName],
@@ -174,6 +176,22 @@ func (ra *ResourceAttachment) SetSentStatus() {
 	ra.AttachStatusSent = true
 }
 
+// IsAttached checks if the resource attachment has been found attached on the host
+func (ra *ResourceAttachment) IsAttached() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.Status == status.AttachmentAttached
+}
+
+// SetAttachedStatus marks the resouce attachment as attached once it's been found on the host
+func (ra *ResourceAttachment) SetAttachedStatus() {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	ra.Status = status.AttachmentAttached
+}
+
 // StopAckTimer stops the ack timer set on the resource attachment
 func (ra *ResourceAttachment) StopAckTimer() {
 	ra.guard.Lock()
@@ -189,4 +207,29 @@ func (ra *ResourceAttachment) HasExpired() bool {
 	defer ra.guard.RUnlock()
 
 	return time.Now().After(ra.ExpiresAt)
+}
+
+// GetAttachmentProperties returns the specific attachment property of the resource attachment object
+func (ra *ResourceAttachment) GetAttachmentProperties(key string) string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	val, ok := ra.AttachmentProperties[key]
+	if ok {
+		return val
+	}
+	return ""
+}
+
+func (ra *ResourceAttachment) String() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.stringUnsafe()
+}
+
+func (ra *ResourceAttachment) stringUnsafe() string {
+	return fmt.Sprintf(
+		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t volumeSizeInGiB=%s requestedSizeName=%s volumeId=%s deviceName=%s filesystemType=%s status=%s expiresAt=%s",
+		ra.AttachmentARN, ra.AttachmentProperties[ResourceTypeName], ra.AttachStatusSent, ra.AttachmentProperties[VolumeSizeInGiBName], ra.AttachmentProperties[RequestedSizeName], ra.AttachmentProperties[VolumeIdName],
+		ra.AttachmentProperties[DeviceName], ra.AttachmentProperties[FileSystemTypeName], ra.Status.String(), ra.ExpiresAt.Format(time.RFC3339))
 }
