@@ -131,8 +131,8 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 
 		if stat.NetworkStats != nil {
 			networkStatPerSec := &stats.NetworkStatsPerSec{
-				RxBytesPerSecond: stat.NetworkStats.RxBytesPerSecond,
-				TxBytesPerSecond: stat.NetworkStats.TxBytesPerSecond,
+				RxBytesPerSecond: float64(stat.NetworkStats.RxBytesPerSecond),
+				TxBytesPerSecond: float64(stat.NetworkStats.TxBytesPerSecond),
 			}
 			queue.lastNetworkStatPerSec = networkStatPerSec
 		}
