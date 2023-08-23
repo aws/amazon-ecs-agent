@@ -14,6 +14,7 @@
 package resource
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -104,7 +105,7 @@ func getResourceAttachmentLogFields(ra *ResourceAttachment, duration time.Durati
 		"attachmentType":    ra.AttachmentProperties[ResourceTypeName],
 		"attachmentSent":    ra.AttachStatusSent,
 		"volumeSizeInGiB":   ra.AttachmentProperties[VolumeSizeInGiBName],
-		"RequestedSizeName": ra.AttachmentProperties[RequestedSizeName],
+		"requestedSizeName": ra.AttachmentProperties[RequestedSizeName],
 		"volumeId":          ra.AttachmentProperties[VolumeIdName],
 		"deviceName":        ra.AttachmentProperties[DeviceName],
 		"filesystemType":    ra.AttachmentProperties[FileSystemTypeName],
@@ -189,4 +190,18 @@ func (ra *ResourceAttachment) HasExpired() bool {
 	defer ra.guard.RUnlock()
 
 	return time.Now().After(ra.ExpiresAt)
+}
+
+func (ra *ResourceAttachment) String() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.stringUnsafe()
+}
+
+func (ra *ResourceAttachment) stringUnsafe() string {
+	return fmt.Sprintf(
+		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t volumeSizeInGiB=%s requestedSizeName=%s volumeId=%s deviceName=%s filesystemType=%s status=%s expiresAt=%s",
+		ra.AttachmentARN, ra.AttachmentProperties[ResourceTypeName], ra.AttachStatusSent, ra.AttachmentProperties[VolumeSizeInGiBName], ra.AttachmentProperties[RequestedSizeName], ra.AttachmentProperties[VolumeIdName],
+		ra.AttachmentProperties[DeviceName], ra.AttachmentProperties[FileSystemTypeName], ra.Status.String(), ra.ExpiresAt.Format(time.RFC3339))
 }
