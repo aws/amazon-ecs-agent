@@ -122,32 +122,32 @@ func (m *MockCredentialsMetadataSetter) EXPECT() *MockCredentialsMetadataSetterM
 	return m.recorder
 }
 
-// SetExecRoleMetadata mocks base method.
-func (m *MockCredentialsMetadataSetter) SetExecRoleMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
+// SetExecRoleCredentialsMetadata mocks base method.
+func (m *MockCredentialsMetadataSetter) SetExecRoleCredentialsMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetExecRoleMetadata", arg0)
+	ret := m.ctrl.Call(m, "SetExecRoleCredentialsMetadata", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetExecRoleMetadata indicates an expected call of SetExecRoleMetadata.
-func (mr *MockCredentialsMetadataSetterMockRecorder) SetExecRoleMetadata(arg0 interface{}) *gomock.Call {
+// SetExecRoleCredentialsMetadata indicates an expected call of SetExecRoleCredentialsMetadata.
+func (mr *MockCredentialsMetadataSetterMockRecorder) SetExecRoleCredentialsMetadata(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecRoleMetadata", reflect.TypeOf((*MockCredentialsMetadataSetter)(nil).SetExecRoleMetadata), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecRoleCredentialsMetadata", reflect.TypeOf((*MockCredentialsMetadataSetter)(nil).SetExecRoleCredentialsMetadata), arg0)
 }
 
-// SetTaskRoleMetadata mocks base method.
-func (m *MockCredentialsMetadataSetter) SetTaskRoleMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
+// SetTaskRoleCredentialsMetadata mocks base method.
+func (m *MockCredentialsMetadataSetter) SetTaskRoleCredentialsMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetTaskRoleMetadata", arg0)
+	ret := m.ctrl.Call(m, "SetTaskRoleCredentialsMetadata", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetTaskRoleMetadata indicates an expected call of SetTaskRoleMetadata.
-func (mr *MockCredentialsMetadataSetterMockRecorder) SetTaskRoleMetadata(arg0 interface{}) *gomock.Call {
+// SetTaskRoleCredentialsMetadata indicates an expected call of SetTaskRoleCredentialsMetadata.
+func (mr *MockCredentialsMetadataSetterMockRecorder) SetTaskRoleCredentialsMetadata(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTaskRoleMetadata", reflect.TypeOf((*MockCredentialsMetadataSetter)(nil).SetTaskRoleMetadata), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTaskRoleCredentialsMetadata", reflect.TypeOf((*MockCredentialsMetadataSetter)(nil).SetTaskRoleCredentialsMetadata), arg0)
 }
 
 // MockPayloadMessageHandler is a mock of PayloadMessageHandler interface.

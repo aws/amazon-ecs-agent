@@ -164,12 +164,12 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 			case credentials.ApplicationRoleType:
 				testMessage.RoleType = aws.String(credentials.ApplicationRoleType)
 				mockCredsMetadataSetter.EXPECT().
-					SetTaskRoleMetadata(gomock.Any()).
+					SetTaskRoleCredentialsMetadata(gomock.Any()).
 					Return(nil)
 			case credentials.ExecutionRoleType:
 				testMessage.RoleType = aws.String(credentials.ExecutionRoleType)
 				mockCredsMetadataSetter.EXPECT().
-					SetExecRoleMetadata(gomock.Any()).
+					SetExecRoleCredentialsMetadata(gomock.Any()).
 					Return(nil)
 			default:
 				t.Fatal("invalid role type used in happy path test, role type should be valid for happy path")
@@ -217,7 +217,7 @@ func TestRefreshCredentialsWhenUnableToSetCredentialsMetadata(t *testing.T) {
 	credentialsManager := credentials.NewManager()
 	mockCredsMetadataSetter := mock_session.NewMockCredentialsMetadataSetter(ctrl)
 	mockCredsMetadataSetter.EXPECT().
-		SetTaskRoleMetadata(gomock.Any()).
+		SetTaskRoleCredentialsMetadata(gomock.Any()).
 		Return(errors.Errorf("unable to set credentials metadata"))
 	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 	mockEntry := mock_metrics.NewMockEntry(ctrl)
