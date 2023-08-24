@@ -113,10 +113,11 @@ func setupGMSALinux(cfg *config.Config, state dockerstate.TaskEngineState, t *te
 	}
 	hostResources := getTestHostResources()
 	hostResourceManager := NewHostResourceManager(hostResources)
+	daemonManagers := getTestDaemonManagers()
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
+		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -206,10 +207,11 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 	hostResources := getTestHostResources()
 	hostResourceManager := NewHostResourceManager(hostResources)
+	daemonManagers := getTestDaemonManagers()
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		nil, execcmd.NewManager(), engineserviceconnect.NewManager())
+		nil, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()

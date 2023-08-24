@@ -36,6 +36,7 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_execcmdagent "github.com/aws/amazon-ecs-agent/agent/engine/execcmd/mocks"
@@ -583,9 +584,10 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	}
 
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.Equal(t, "prev-container-inst", agent.containerInstanceARN)
@@ -647,9 +649,10 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 		saveableOptionFactory: saveableOptionFactory,
 	}
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.NotEqual(t, "prev-container-inst", agent.containerInstanceARN)
@@ -710,9 +713,10 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	}
 
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.Error(t, err)
 	assert.IsType(t, clusterMismatchError{}, err)
 }
@@ -757,9 +761,10 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	}
 
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
@@ -805,9 +810,10 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	}
 
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
@@ -846,9 +852,10 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
+		credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 	assert.Equal(t, testEC2InstanceID, instanceID)
 
@@ -1706,6 +1713,11 @@ func getTestHostResources() map[string]*ecs.Resource {
 		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 	return hostResources
+}
+
+func getTestDaemonManagers() map[string]daemonmanager.DaemonManager {
+	daemonManagers := make(map[string]daemonmanager.DaemonManager)
+	return daemonManagers
 }
 
 func newTestDataClient(t *testing.T) data.Client {

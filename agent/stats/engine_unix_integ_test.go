@@ -110,7 +110,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 
 			containerChangeEventStream := eventStream("TestStatsEngineWithServiceConnectMetrics")
 			taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
-				nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+				nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 			testTask := createRunningTask("bridge")
 			testTask.ServiceConnectConfig = &serviceconnect.Config{
 				ContainerName: serviceConnectContainerName,

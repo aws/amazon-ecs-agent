@@ -586,10 +586,11 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir)
 	hostResources := getTestHostResources()
 	hostResourceManager := NewHostResourceManager(hostResources)
+	daemonManagers := getTestDaemonManagers()
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		nil, execCmdMgr, engineserviceconnect.NewManager())
+		nil, execCmdMgr, engineserviceconnect.NewManager(), daemonManagers)
 	taskEngine.monitorExecAgentsInterval = time.Second
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {

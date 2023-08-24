@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
@@ -68,12 +69,14 @@ func (agent *ecsAgent) loadData(containerChangeEventStream *eventstream.EventStr
 	imageManager engine.ImageManager,
 	hostResources map[string]*ecs.Resource,
 	execCmdMgr execcmd.Manager,
-	serviceConnectManager serviceconnect.Manager) (*savedData, error) {
+	serviceConnectManager serviceconnect.Manager,
+	daemonManagers map[string]dm.DaemonManager) (*savedData, error) {
 
 	s := &savedData{
 		taskEngine: engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, hostResources, state,
-			agent.metadataManager, agent.resourceFields, execCmdMgr, serviceConnectManager),
+			agent.metadataManager, agent.resourceFields, execCmdMgr,
+			serviceConnectManager, daemonManagers),
 	}
 	s.taskEngine.SetDataClient(agent.dataClient)
 

@@ -31,7 +31,6 @@ const (
 
 type ManagedDaemon struct {
 	imageName string
-	imageRef  string
 	imageTag  string
 
 	healthCheckTest     []string
@@ -55,25 +54,23 @@ type ManagedDaemon struct {
 	environment map[string]string
 
 	loadedDaemonImageRef string
+	command              []string
 }
 
 // A valid managed daemon will require
 // healthcheck and mount points to be added
 func NewManagedDaemon(
 	imageName string,
-	imageRef string,
 	imageTag string,
 ) *ManagedDaemon {
 	if imageTag == "" {
 		imageTag = imageTagDefault
 	}
 	// health check retries 0 is valid
-	// we'll override this default to -1
 	newManagedDaemon := &ManagedDaemon{
 		imageName:          imageName,
-		imageRef:           imageRef,
 		imageTag:           imageTag,
-		healthCheckRetries: -1,
+		healthCheckRetries: 0,
 	}
 	return newManagedDaemon
 }
@@ -81,15 +78,8 @@ func NewManagedDaemon(
 // ImportAll function will parse/validate all managed daemon definitions
 // defined in /var/lib/ecs/deps/daemons and will return an array
 // of valid ManagedDeamon objects
-func ImportAll() []*ManagedDaemon {
-	// TODO parse taskdef json files in /deps/daemons
-	// TODO validate that each daemon has a corresponding image tar
-	ebsManagedDaemon := NewManagedDaemon("ebs-csi-driver",
-		"public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver",
-		"v1.20.0")
-	// TODO add healthcheck
-	// TODO add mount points
-	return []*ManagedDaemon{ebsManagedDaemon}
+func ImportAll() ([]*ManagedDaemon, error) {
+	return []*ManagedDaemon{}, nil
 }
 
 func (md *ManagedDaemon) SetHealthCheck(
@@ -108,20 +98,16 @@ func (md *ManagedDaemon) GetImageName() string {
 	return md.imageName
 }
 
-func (md *ManagedDaemon) GetImageRef() string {
-	return md.imageRef
-}
-
 func (md *ManagedDaemon) GetImageTag() string {
 	return md.imageTag
 }
 
-func (md *ManagedDaemon) GetImageCanonicalRef() string {
-	return (fmt.Sprintf("%s:%s", md.imageRef, md.imageTag))
+func (md *ManagedDaemon) GetImageRef() string {
+	return (fmt.Sprintf("%s:%s", md.imageName, md.imageTag))
 }
 
 func (md *ManagedDaemon) GetImageTarPath() string {
-	return (fmt.Sprintf("%s/%s", imageTarPath, md.imageName))
+	return (fmt.Sprintf("%s/%s/%s.tar", imageTarPath, md.imageName, md.imageName))
 }
 
 func (md *ManagedDaemon) GetAgentCommunicationMount() *MountPoint {
@@ -130,6 +116,10 @@ func (md *ManagedDaemon) GetAgentCommunicationMount() *MountPoint {
 
 func (md *ManagedDaemon) GetApplicationLogMount() *MountPoint {
 	return md.applicationLogMount
+}
+
+func (md *ManagedDaemon) GetCommand() []string {
+	return md.command
 }
 
 // returns list of mountpoints without the
@@ -320,7 +310,5 @@ func (md *ManagedDaemon) IsValidManagedDaemon() bool {
 	isValid := true
 	isValid = isValid && (md.agentCommunicationMount != nil)
 	isValid = isValid && (md.applicationLogMount != nil)
-	isValid = isValid && (len(md.healthCheckTest) != 0)
-	isValid = isValid && (md.healthCheckRetries != -1)
 	return isValid
 }

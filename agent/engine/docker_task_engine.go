@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
@@ -170,8 +171,10 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               serviceconnect.Manager
+	daemonManagers                      map[string]dm.DaemonManager
 	hostResourceManager                 *HostResourceManager
 	serviceconnectRelay                 *apitask.Task
+	loadedDaemonTasks                   map[string]*apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -209,7 +212,8 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,
-	serviceConnectManager serviceconnect.Manager) *DockerTaskEngine {
+	serviceConnectManager serviceconnect.Manager,
+	daemonManagers map[string]dm.DaemonManager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -230,6 +234,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 
 		metadataManager:                   metadataManager,
 		serviceconnectManager:             serviceConnectManager,
+		daemonManagers:                    daemonManagers,
 		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
@@ -1138,7 +1143,34 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		engine.emitTaskEvent(task, err.Error())
 		return
 	}
-
+	if task.IsEBSTaskAttachEnabled() {
+		if csiTask, ok := engine.loadedDaemonTasks["ebs-csi-driver"]; ok {
+			logger.Info("engine ebs CSI driver is running", logger.Fields{
+				field.TaskID: csiTask.GetID(),
+			})
+		} else {
+			// TODO update 'ebs-csi-driver' as config param or const
+			var csiStartErr error
+			if ebsCsiDaemonManager, ok := engine.daemonManagers["ebs-csi-driver"]; ok {
+				csiTask, csiStartErr = ebsCsiDaemonManager.CreateDaemonTask()
+				engine.loadedDaemonTasks["ebs-csi-driver"] = csiTask
+				engine.AddTask(csiTask)
+				logger.Info("docker_task_engine: Added EBS CSI task to engine")
+			} else {
+				csiStartErr = errors.New("Unable to find ebs-csi-driver in engine")
+			}
+			if csiStartErr != nil {
+				logger.Error("Unable to start ebsCsiDaemon for task in the engine", logger.Fields{
+					field.TaskID: task.GetID(),
+					field.Error:  err,
+				})
+				task.SetKnownStatus(apitaskstatus.TaskStopped)
+				task.SetDesiredStatus(apitaskstatus.TaskStopped)
+				engine.emitTaskEvent(task, err.Error())
+				return
+			}
+		}
+	}
 	// Check if ServiceConnect is Needed
 	if task.IsServiceConnectEnabled() {
 		if engine.serviceconnectRelay == nil {
@@ -1200,7 +1232,7 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
-	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause, apicontainer.ContainerServiceConnectRelay:
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause, apicontainer.ContainerServiceConnectRelay, apicontainer.ContainerManagedDaemon:
 		// pause images and AppNet relay image are managed at startup
 		return dockerapi.DockerContainerMetadata{}
 	}
