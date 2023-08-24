@@ -42,7 +42,7 @@ func NewCredentialsMetadataSetter(taskEngine engine.TaskEngine) *credentialsMeta
 	}
 }
 
-func (cmSetter *credentialsMetadataSetter) SetTaskRoleMetadata(
+func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
 	message *ecsacs.IAMRoleCredentialsMessage) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {
@@ -52,7 +52,7 @@ func (cmSetter *credentialsMetadataSetter) SetTaskRoleMetadata(
 	return nil
 }
 
-func (cmSetter *credentialsMetadataSetter) SetExecRoleMetadata(
+func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 	message *ecsacs.IAMRoleCredentialsMessage) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {

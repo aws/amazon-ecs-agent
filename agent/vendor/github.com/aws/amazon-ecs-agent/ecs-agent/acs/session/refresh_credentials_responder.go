@@ -32,8 +32,8 @@ const (
 )
 
 type CredentialsMetadataSetter interface {
-	SetTaskRoleMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
-	SetExecRoleMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
+	SetTaskRoleCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
+	SetExecRoleCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
 }
 
 // refreshCredentialsResponder implements the wsclient.RequestResponder interface for responding
@@ -136,12 +136,12 @@ func (r *refreshCredentialsResponder) setCredentialsMetadata(message *ecsacs.IAM
 	roleType := aws.StringValue(message.RoleType)
 	switch roleType {
 	case credentials.ApplicationRoleType:
-		err := r.credsMetadataSetter.SetTaskRoleMetadata(message)
+		err := r.credsMetadataSetter.SetTaskRoleCredentialsMetadata(message)
 		if err != nil {
 			return errors.Wrap(err, "failed to set task role metadata")
 		}
 	case credentials.ExecutionRoleType:
-		err := r.credsMetadataSetter.SetExecRoleMetadata(message)
+		err := r.credsMetadataSetter.SetExecRoleCredentialsMetadata(message)
 		if err != nil {
 			return errors.Wrap(err, "failed to set execution role metadata")
 		}
