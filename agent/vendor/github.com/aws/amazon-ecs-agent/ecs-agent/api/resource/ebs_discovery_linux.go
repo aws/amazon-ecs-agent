@@ -22,6 +22,8 @@ import (
 	"os/exec"
 	"strings"
 
+	log "github.com/cihub/seelog"
+
 	"github.com/pkg/errors"
 )
 
@@ -29,24 +31,25 @@ type LsblkOutput struct {
 	BlockDevies []BD `json:"blockdevices"`
 }
 type BD struct {
-	Name     string    `json:"name"`
-	Serial   string    `json:"serial"`
-	Children []BDChild `json:"children"`
-}
-type BDChild struct {
 	Name   string `json:"name"`
 	Serial string `json:"serial"`
+	// Children []BDChild `json:"children"`
 }
+
+// type BDChild struct {
+// 	Name   string `json:"name"`
+// 	Serial string `json:"serial"`
+// }
 
 func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error {
 	var lsblkOut LsblkOutput
 	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsnvmeIDTimeoutDuration)
 	defer cancel()
-	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "NAME,SERIAL", "-J").CombinedOutput()
+	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "NAME,SERIAL", deviceName, "-J").CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "failed to run lsblk: %s", string(output))
 	}
-	// log.Infof("lsblk output: %v", string(output))
+	log.Infof("lsblk output: %v", string(output))
 	err = json.Unmarshal(output, &lsblkOut)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to unmarshal string: %s", string(output))
@@ -72,7 +75,7 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 }
 
 func parseLsblkOutput(output *LsblkOutput, deviceName string) (string, error) {
-	// log.Infof("Output: %v", output)
+	log.Infof("Output: %v", output)
 	actualDeviceName := deviceName[strings.LastIndex(deviceName, "/")+1:]
 	for _, block := range output.BlockDevies {
 		if block.Name == actualDeviceName {
