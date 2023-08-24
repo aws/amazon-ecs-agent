@@ -43,7 +43,6 @@ func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName string, volumeID
 	parsedOutput, err := parseExecutableOutput(output)
 	if err != nil {
 		errorMessage := fmt.Sprintf("failed to parse wmic output for volumeID: %s", volumeID)
-		log.Error(err, errorMessage)
 		return errors.Wrap(err, errorMessage)
 	}
 
@@ -51,7 +50,6 @@ func ConfirmEBSVolumeIsAttached(ctx context.Context, deviceName string, volumeID
 
 	if !strings.Contains(parsedOutput, volumeID) {
 		errorMessage := fmt.Sprintf("could not find volume with ID:%s", volumeID)
-		log.Error(errorMessage)
 		return errors.New(errorMessage)
 	}
 
