@@ -364,7 +364,7 @@ ssm-agent-signature-verify() {
         return
     fi
 
-    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ssm-agent.gpg"
+    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-agent/master/scripts/amazon-ssm-agent.gpg"
     gpg --import "$dir/amazon-ssm-agent.gpg"
 
     if gpg --verify "$1" "$2"; then
@@ -548,7 +548,7 @@ ecs-init-signature-verify() {
         return
     fi
 
-    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ecs-agent.gpg"
+    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-agent/master/scripts/amazon-ecs-agent.gpg"
     gpg --import "$dir/amazon-ecs-agent.gpg"
     if gpg --verify "$1" "$2"; then
         echo "amazon-ecs-init GPG verification passed. Install amazon-ecs-init."
