@@ -48,7 +48,7 @@ func NewWatcher(ctx context.Context,
 		agentState:      state,
 		ebsChangeEvent:  stateChangeEvents,
 		discoveryClient: discoveryClient,
-		mailbox:         make(chan func(), 100),
+		mailbox:         make(chan func()),
 	}, nil
 }
 
