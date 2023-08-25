@@ -280,6 +280,20 @@ func (mr *MockTaskEngineStateMockRecorder) GetAllEBSAttachments() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllEBSAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllEBSAttachments))
 }
 
+// GetAllPendingEBSAttachmentWithKey mocks base method.
+func (m *MockTaskEngineState) GetAllPendingEBSAttachmentWithKey() map[string]*resource.ResourceAttachment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllPendingEBSAttachmentWithKey")
+	ret0, _ := ret[0].(map[string]*resource.ResourceAttachment)
+	return ret0
+}
+
+// GetAllPendingEBSAttachmentWithKey indicates an expected call of GetAllPendingEBSAttachmentWithKey.
+func (mr *MockTaskEngineStateMockRecorder) GetAllPendingEBSAttachmentWithKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPendingEBSAttachmentWithKey", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllPendingEBSAttachmentWithKey))
+}
+
 // GetAllPendingEBSAttachments mocks base method.
 func (m *MockTaskEngineState) GetAllPendingEBSAttachments() []*resource.ResourceAttachment {
 	m.ctrl.T.Helper()

@@ -476,7 +476,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		apira.ResourceTypeName:    apira.ElasticBlockStorage,
 		apira.RequestedSizeName:   "5",
 		apira.VolumeSizeInGiBName: "7",
-		apira.DeviceName:          "/host/dev/nvme1n1",
+		apira.DeviceName:          "/dev/nvme1n1",
 		apira.VolumeIdName:        "vol-09b1fc99d3b9654a5",
 		apira.FileSystemTypeName:  "testXFS",
 	}
@@ -504,7 +504,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		apira.ResourceTypeName:    apira.ElasticBlockStorage,
 		apira.RequestedSizeName:   "5",
 		apira.VolumeSizeInGiBName: "7",
-		apira.DeviceName:          "/host/dev/nvme1n1",
+		apira.DeviceName:          "/dev/nvme1n1",
 		apira.VolumeIdName:        "vol-09b1fc99d3b9654a1",
 		apira.FileSystemTypeName:  "testXFS",
 	}
@@ -525,7 +525,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		apira.ResourceTypeName:    apira.ElasticBlockStorage,
 		apira.RequestedSizeName:   "10",
 		apira.VolumeSizeInGiBName: "7",
-		apira.DeviceName:          "/host/dev/nvme3n1",
+		apira.DeviceName:          "/dev/nvme3n1",
 		apira.VolumeIdName:        "vol-0797268b9cfec8c66",
 		apira.FileSystemTypeName:  "testXFS",
 	}

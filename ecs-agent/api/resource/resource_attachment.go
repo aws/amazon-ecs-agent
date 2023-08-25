@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
@@ -175,6 +176,20 @@ func (ra *ResourceAttachment) SetSentStatus() {
 	ra.AttachStatusSent = true
 }
 
+func (ra *ResourceAttachment) IsAttached() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.Status == status.AttachmentAttached
+}
+
+func (ra *ResourceAttachment) SetAttachedStatus() {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	ra.Status = status.AttachmentAttached
+}
+
 // StopAckTimer stops the ack timer set on the resource attachment
 func (ra *ResourceAttachment) StopAckTimer() {
 	ra.guard.Lock()
@@ -204,4 +219,14 @@ func (ra *ResourceAttachment) stringUnsafe() string {
 		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t volumeSizeInGiB=%s requestedSizeName=%s volumeId=%s deviceName=%s filesystemType=%s status=%s expiresAt=%s",
 		ra.AttachmentARN, ra.AttachmentProperties[ResourceTypeName], ra.AttachStatusSent, ra.AttachmentProperties[VolumeSizeInGiBName], ra.AttachmentProperties[RequestedSizeName], ra.AttachmentProperties[VolumeIdName],
 		ra.AttachmentProperties[DeviceName], ra.AttachmentProperties[FileSystemTypeName], ra.Status.String(), ra.ExpiresAt.Format(time.RFC3339))
+}
+
+func (ra *ResourceAttachment) GetAttachmentProperties(key string) string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	val, ok := ra.AttachmentProperties[key]
+	if ok {
+		return val
+	}
+	return ""
 }

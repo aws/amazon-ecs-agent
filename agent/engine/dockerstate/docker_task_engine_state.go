@@ -87,6 +87,8 @@ type TaskEngineState interface {
 	GetAllEBSAttachments() []*apiresource.ResourceAttachment
 	// AllPendingEBSAttachments reutrns all of the ebs attachments that haven't sent a state change
 	GetAllPendingEBSAttachments() []*apiresource.ResourceAttachment
+	// GetAllPendingEBSAttachmentWithKey returns a map of all pending ebs attachments along with its volume ID as the key
+	GetAllPendingEBSAttachmentWithKey() map[string]*apiresource.ResourceAttachment
 	// AddEBSAttachment adds an ebs attachment from acs to be stored
 	AddEBSAttachment(ebs *apiresource.ResourceAttachment)
 	// RemoveEBSAttachment removes an ebs attachment to stop tracking
@@ -299,8 +301,25 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachments() []*apiresource
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsUnsafe() []*apiresource.ResourceAttachment {
 	var pendingEBSAttachments []*apiresource.ResourceAttachment
 	for _, v := range state.ebsAttachments {
-		if !v.IsSent() {
+		if !v.IsAttached() {
 			pendingEBSAttachments = append(pendingEBSAttachments, v)
+		}
+	}
+	return pendingEBSAttachments
+}
+
+func (state *DockerTaskEngineState) GetAllPendingEBSAttachmentWithKey() map[string]*apiresource.ResourceAttachment {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allPendingEBSAttachmentsWithKeyUnsafe()
+}
+
+func (state *DockerTaskEngineState) allPendingEBSAttachmentsWithKeyUnsafe() map[string]*apiresource.ResourceAttachment {
+	pendingEBSAttachments := make(map[string]*apiresource.ResourceAttachment)
+	for k, v := range state.ebsAttachments {
+		if !v.IsAttached() {
+			pendingEBSAttachments[k] = v
 		}
 	}
 	return pendingEBSAttachments

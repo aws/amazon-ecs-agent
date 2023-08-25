@@ -45,7 +45,7 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 	var lsblkOut LsblkOutput
 	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsnvmeIDTimeoutDuration)
 	defer cancel()
-	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "NAME,SERIAL", deviceName, "-J").CombinedOutput()
+	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "NAME,SERIAL", "-J").CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "failed to run lsblk: %s", string(output))
 	}
