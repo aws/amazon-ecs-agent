@@ -1,4 +1,9 @@
 # Changelog
+## 1.75.1
+* Enhancement - Upgrade Golang version to 1.20.7 [#3864](https://github.com/aws/amazon-ecs-agent/pull/3864)
+* Enhancement - Use float64 for network rate stats [#3865](https://github.com/aws/amazon-ecs-agent/pull/3865)
+* Bug - count gpu as list for task resource accounting [#3852](https://github.com/aws/amazon-ecs-agent/pull/3852)
+
 ## 1.75.0
 * Enhancement - Add task stop verification ack to ecs-agent module [#3820](https://github.com/aws/amazon-ecs-agent/pull/3820)
 * Enhancement - Increase test coverage of some ACS responders [#3826](https://github.com/aws/amazon-ecs-agent/pull/3826)
