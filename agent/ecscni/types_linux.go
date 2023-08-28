@@ -38,8 +38,6 @@ const (
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
 	ECSBridgePluginName = "ecs-bridge"
-	// VPCENIPluginName is the binary of the vpc-eni plugin
-	VPCENIPluginName = "vpc-eni"
 	// ECSAppMeshPluginName is the binary of aws-appmesh plugin
 	ECSAppMeshPluginName = "aws-appmesh"
 	// ECSBranchENIPluginName is the binary of the branch-eni plugin

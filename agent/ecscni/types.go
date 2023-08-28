@@ -34,6 +34,8 @@ const (
 	// present in the output of the '--capabilities' command of a CNI plugin
 	// indicates that the plugin can support the ECS "awsvpc" network mode
 	CapabilityAWSVPCNetworkingMode = "awsvpc-network-mode"
+	// VPCENIPluginName is the binary of the vpc-eni plugin
+	VPCENIPluginName = "vpc-eni"
 )
 
 // Config contains all the information to set up the container namespace using
