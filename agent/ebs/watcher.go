@@ -83,9 +83,6 @@ func NewWatcher(ctx context.Context,
 func (w *EBSWatcher) Start() {
 	log.Info("Starting EBS watcher.")
 	w.scanTicker = time.NewTicker(apiebs.ScanPeriod)
-	if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
-		w.scanTicker.Stop()
-	}
 	for {
 		select {
 		case <-w.scanTicker.C:
@@ -147,10 +144,6 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 	if err := w.addEBSAttachmentToState(ebs); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add ebs attachment to engine state: %s",
 			attachmentType, ebs.String()))
-	}
-	if empty && len(w.agentState.GetAllPendingEBSAttachments()) == 1 {
-		w.scanTicker.Stop()
-		w.scanTicker = time.NewTicker(apiebs.ScanPeriod)
 	}
 	return nil
 }
