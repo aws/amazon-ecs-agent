@@ -205,7 +205,7 @@ func TestConstructNetworkConfig(t *testing.T) {
 
 	subnet := strings.Split(eniSubnetGatewayIPV4Address, "/")
 	ipv4Addr := fmt.Sprintf("%s/%s", taskENI.GetPrimaryIPv4Address(), subnet[1])
-	assert.Equal(t, ECSVPCENIPluginName, taskENIConfig.Type)
+	assert.Equal(t, VPCENIPluginName, taskENIConfig.Type)
 	assert.Equal(t, TaskHNSNetworkNamePrefix, config.NetworkConfigs[0].CNINetworkConfig.Network.Name)
 	assert.Equal(t, eniID, taskENIConfig.ENIName)
 	assert.EqualValues(t, []string{ipv4Addr}, taskENIConfig.ENIIPAddresses)
@@ -217,7 +217,7 @@ func TestConstructNetworkConfig(t *testing.T) {
 	ecsBridgeConfig := &VPCENIPluginConfig{}
 	err = json.Unmarshal(config.NetworkConfigs[1].CNINetworkConfig.Bytes, ecsBridgeConfig)
 	require.NoError(t, err, "unmarshal ecs-bridge config from bytes failed")
-	assert.Equal(t, ECSVPCENIPluginName, ecsBridgeConfig.Type)
+	assert.Equal(t, VPCENIPluginName, ecsBridgeConfig.Type)
 	assert.Equal(t, ECSBridgeNetworkName, config.NetworkConfigs[1].CNINetworkConfig.Network.Name)
 	assert.True(t, ecsBridgeConfig.UseExistingNetwork)
 }

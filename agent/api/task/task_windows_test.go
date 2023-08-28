@@ -596,12 +596,12 @@ func TestBuildCNIConfig(t *testing.T) {
 	// For the task ns setup.
 	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 	require.NoError(t, err)
-	assert.EqualValues(t, ecscni.ECSVPCENIPluginName, eniConfig.Type)
+	assert.EqualValues(t, ecscni.VPCENIPluginName, eniConfig.Type)
 	assert.False(t, eniConfig.UseExistingNetwork)
 	// For the ecs-bridge setup.
 	err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &eniConfig)
 	require.NoError(t, err)
-	assert.EqualValues(t, ecscni.ECSVPCENIPluginName, eniConfig.Type)
+	assert.EqualValues(t, ecscni.VPCENIPluginName, eniConfig.Type)
 	assert.True(t, eniConfig.UseExistingNetwork)
 	assert.EqualValues(t, ecscni.ECSBridgeNetworkName, cniConfig.NetworkConfigs[1].CNINetworkConfig.Network.Name)
 }
