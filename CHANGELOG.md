@@ -1,4 +1,8 @@
 # Changelog
+## 1.75.2
+* Enhancement - Update SSM GPG key for ECS anywhere installation [#3875](https://github.com/aws/amazon-ecs-agent/pull/3875)
+* Enhancement - Update ECS anywhere installation script to use the SSM Agent GPG key and ECS Agent GPG key from amazon-ecs-agent repository [#3869](https://github.com/aws/amazon-ecs-agent/pull/3869)
+
 ## 1.75.1
 * Enhancement - Upgrade Golang version to 1.20.7 [#3864](https://github.com/aws/amazon-ecs-agent/pull/3864)
 * Enhancement - Use float64 for network rate stats [#3865](https://github.com/aws/amazon-ecs-agent/pull/3865)
