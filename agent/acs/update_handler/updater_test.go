@@ -62,7 +62,7 @@ func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *moc
 	httpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockhttp)
 
 	u := NewUpdater(cfg, dockerstate.NewTaskEngineState(), data.NewNoopClient(),
-		engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil))
+		engine.NewTaskEngine(cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil))
 	// Override below attributes/fields for testing.
 	u.acs = mockacs
 	u.httpclient = httpClient

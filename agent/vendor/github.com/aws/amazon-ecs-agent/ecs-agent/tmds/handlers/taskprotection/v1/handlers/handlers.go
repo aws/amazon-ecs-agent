@@ -166,7 +166,7 @@ func UpdateTaskProtectionHandler(
 			}
 			return
 		}
-		logger.Info("GetTaskProtection endpoint was called", logger.Fields{
+		logger.Info("UpdateTaskProtection endpoint was called", logger.Fields{
 			field.Cluster: cluster,
 			field.TaskARN: task.TaskARN,
 		})

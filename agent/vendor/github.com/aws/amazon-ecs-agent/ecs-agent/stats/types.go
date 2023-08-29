@@ -13,6 +13,6 @@
 package stats
 
 type NetworkStatsPerSec struct {
-	RxBytesPerSecond float32 `json:"rx_bytes_per_sec"`
-	TxBytesPerSecond float32 `json:"tx_bytes_per_sec"`
+	RxBytesPerSecond float64 `json:"rx_bytes_per_sec"`
+	TxBytesPerSecond float64 `json:"tx_bytes_per_sec"`
 }

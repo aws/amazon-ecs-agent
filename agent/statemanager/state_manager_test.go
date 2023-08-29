@@ -45,7 +45,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(),
-		nil, nil, nil, nil)
+		nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -90,7 +90,7 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v13", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -138,7 +138,7 @@ func TestLoadsDataForContainerHealthCheckTask(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v10", "container-health-check")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -180,7 +180,7 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v14", "private-registry")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -226,7 +226,7 @@ func TestLoadsDataForSecretsTask(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v17", "secrets")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -264,7 +264,7 @@ func TestLoadsDataForAddingAvailabilityZoneInTask(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "availabilityZone")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID, availabilityZone string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -295,7 +295,7 @@ func TestLoadsDataForASMSecretsTask(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "secrets")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -334,7 +334,7 @@ func TestLoadsDataForContainerOrdering(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v20", "containerOrdering")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -369,7 +369,7 @@ func TestLoadsDataForPerContainerTimeouts(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v20", "perContainerTimeouts")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -404,7 +404,7 @@ func TestLoadsDataForContainerRuntimeID(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "perContainerRuntimeID")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -435,7 +435,7 @@ func TestLoadsDataForContainerImageDigest(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v24", "perContainerImageDigest")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -466,7 +466,7 @@ func TestLoadsDataSeqTaskManifest(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v25", "seqNumTaskManifest")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber, seqNumTaskManifest int64
 	stateManager, err := statemanager.NewStateManager(cfg,
@@ -493,7 +493,7 @@ func TestLoadsDataForEnvFiles(t *testing.T) {
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v28", "environmentFiles")}
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil, nil, nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 	stateManager, err := statemanager.NewStateManager(cfg,

@@ -111,10 +111,12 @@ func TestLoadDataNoPreviousState(t *testing.T) {
 		stateManagerFactory:   stateManagerFactory,
 		saveableOptionFactory: factory.NewSaveableOption(),
 	}
+	state := dockerstate.NewTaskEngineState()
 	hostResources := getTestHostResources()
+	daemonManagers := getTestDaemonManagers()
 
-	_, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, hostResources, execCmdMgr, serviceConnectManager)
+	_, err := agent.loadData(eventstream.NewEventStream("events", ctx), credentialsManager,
+		state, imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 }
 
@@ -144,8 +146,9 @@ func TestLoadDataLoadFromBoltDB(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	hostResources := getTestHostResources()
-	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
+	daemonManagers := getTestDaemonManagers()
+	s, err := agent.loadData(eventstream.NewEventStream("events", ctx), credentialsManager,
+		state, imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 	checkLoadedData(state, s, t)
 }
@@ -183,8 +186,9 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	hostResources := getTestHostResources()
-	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, hostResources, execCmdMgr, serviceConnectManager)
+	daemonManagers := getTestDaemonManagers()
+	s, err := agent.loadData(eventstream.NewEventStream("events", ctx), credentialsManager,
+		state, imageManager, hostResources, execCmdMgr, serviceConnectManager, daemonManagers)
 	assert.NoError(t, err)
 	checkLoadedData(state, s, t)
 

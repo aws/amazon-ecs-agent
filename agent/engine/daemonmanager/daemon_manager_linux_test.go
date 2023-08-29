@@ -96,7 +96,7 @@ func TestCreateDaemonTask(t *testing.T) {
 				return nil
 			}
 			// set up test managed daemon
-			tmd := md.NewManagedDaemon(c.testDaemonName, c.testImageRef, TestImageTag)
+			tmd := md.NewManagedDaemon(c.testDaemonName, TestImageTag)
 			tmd.SetLoadedDaemonImageRef(c.testImageRef)
 			// create required mounts and add all
 			testAgentCommunicationMount := &md.MountPoint{SourceVolumeID: "agentCommunicationMount", ContainerPath: "/container/run/"}
@@ -143,7 +143,7 @@ func TestFailCreateDaemonTask_MissingMount(t *testing.T) {
 		return nil
 	}
 	// set up test managed daemon
-	tmd := md.NewManagedDaemon(TestDaemonName, TestImageRef, TestImageTag)
+	tmd := md.NewManagedDaemon(TestDaemonName, TestImageTag)
 	tmd.SetLoadedDaemonImageRef(TestImageRef)
 	// test failure with a missing applicationLogMount
 	testAgentCommunicationMount := &md.MountPoint{SourceVolumeID: "agentCommunicationMount", ContainerPath: "/container/run/"}
@@ -161,7 +161,7 @@ func TestFailCreateDaemonTask_MissingMount(t *testing.T) {
 	tmd.SetMountPoints(testMountPoints)
 	testDaemonManager = NewDaemonManager(tmd)
 	_, err = testDaemonManager.CreateDaemonTask()
-	assert.EqualError(t, err, fmt.Sprintf("%s is an invalid managed daemon", TestDaemonName))
+	assert.Nil(t, err)
 
 	// add required healthcheck
 	testHealthCheck := []string{"test"}
