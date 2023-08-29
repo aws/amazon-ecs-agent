@@ -32,6 +32,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon
 github.com/aws/amazon-ecs-agent/ecs-agent/metrics
+github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface
 github.com/aws/amazon-ecs-agent/ecs-agent/stats
