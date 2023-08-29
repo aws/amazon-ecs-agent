@@ -26,14 +26,14 @@ type EBSDiscoveryClient struct {
 
 func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
 	return &EBSDiscoveryClient{
-		ctx: ctx,
+		ctx:        ctx,
 	}
 }
 
-func ScanEBSVolumes[T GenericEBSAttachmentObject](t map[string]T, dc EBSDiscovery) []string {
+func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]T, dc EBSDiscovery) []string {
 	var err error
 	var foundVolumes []string
-	for key, ebs := range t {
+	for key, ebs := range pendingAttachments {
 		volumeId := strings.TrimPrefix(key, ebsResourceKeyPrefix)
 		deviceName := ebs.GetAttachmentProperties(DeviceName)
 		err = dc.ConfirmEBSVolumeIsAttached(deviceName, volumeId)
