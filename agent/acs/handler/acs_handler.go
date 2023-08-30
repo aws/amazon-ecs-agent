@@ -257,21 +257,19 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	taskStopper := NewTaskStopper(acsSession.taskEngine)
 
-	metricsFactory := metrics.NewNopEntryFactory()
-
 	responseSender := func(response interface{}) error {
 		return client.MakeRequest(response)
 	}
 	responders := []wsclient.RequestResponder{
 		acssession.NewPayloadResponder(payloadMsgHandler, responseSender),
-		acssession.NewRefreshCredentialsResponder(acsSession.credentialsManager, credsMetadataSetter, metricsFactory,
+		acssession.NewRefreshCredentialsResponder(acsSession.credentialsManager, credsMetadataSetter, acsSession.metricsFactory,
 			responseSender),
 		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
 		acssession.NewAttachInstanceENIResponder(eniHandler, responseSender),
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
 		acssession.NewTaskManifestResponder(taskComparer, sequenceNumberAccessor, manifestMessageIDAccessor,
-			metricsFactory, responseSender),
-		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metricsFactory),
+			acsSession.metricsFactory, responseSender),
+		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, acsSession.metricsFactory),
 	}
 	for _, r := range responders {
 		client.AddRequestHandler(r.HandlerFunc())

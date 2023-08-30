@@ -296,7 +296,6 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	defer cs.writeLock.Unlock()
 
 	cs.conn = websocketConn
-	logger.Debug(fmt.Sprintf("Established a Websocket connection to %s", cs.URL))
 
 	startTime := time.Now()
 	// newDisconnectTimeoutTimerHandler returns a timer.Afterfunc(timeout, f) which will
@@ -600,6 +599,7 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
 
 	maxConnectionDuration := retry.AddJitter(disconnectTimeout, disconnectJitterMax)
 	logger.Info(("Websocket connection established."), logger.Fields{
+		"URL":                    cs.URL,
 		"ConnectTime":            startTime.Format(dateTimeFormat),
 		"ExpectedDisconnectTime": startTime.Add(disconnectTimeout).Format(dateTimeFormat),
 	})
@@ -621,8 +621,7 @@ func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration tim
 		"ConnectionStartTime":  startTime.Format(dateTimeFormat),
 		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),
 	})
-	err := cs.Disconnect()
-	//err := cs.WriteCloseMessage()
+	err := cs.WriteCloseMessage()
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Error disconnecting; client already closed. %s", err))
 	}
