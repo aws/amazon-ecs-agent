@@ -45,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -59,6 +60,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -341,6 +343,11 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	// TODO implement initializeEBSVolumes
+	err = task.initializeEBSVolumes(cfg, dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -815,6 +822,34 @@ func (task *Task) addEFSVolumes(
 	vol.Volume = &volumeResource.VolumeConfig
 	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
 	task.updateContainerVolumeDependency(vol.Name)
+	return nil
+}
+
+// initializeEBSVolumes inspects the volume definitions in the task definition.
+func (task *Task) initializeEBSVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	client := csiclient.NewCSIClient("/var/run/ecs/ebs-csi-driver/csi-driver.sock")
+	publishContext := map[string]string{"devicePath": "/dev/nvme1n1"}
+	mockSecrets := make(map[string]string)
+	mockVolumeContext := make(map[string]string)
+	mockMountOptions := []string{}
+	mockFsGroup, _ := strconv.ParseInt("123456", 10, 8)
+
+	err := client.NodeStageVolume(ctx,
+		"vol-03bde5a27631ad16b",
+		publishContext,
+		"/testebs",
+		"xfs",
+		v1.ReadWriteMany,
+		mockSecrets,
+		mockVolumeContext,
+		mockMountOptions,
+		&mockFsGroup)
+
+	if err != nil {
+		logger.Error("Failed to initialize EBS volume", logger.Fields{
+			field.Error: err,
+		})
+	}
 	return nil
 }
 
@@ -3434,7 +3469,7 @@ func (task *Task) IsServiceConnectEnabled() bool {
 // Is EBS Task Attach enabled returns true if this task has EBS volume configuration in its ACS payload.
 // TODO as more daemons come online, we'll want a generic handler these bool checks and payload handling
 func (task *Task) IsEBSTaskAttachEnabled() bool {
-	return false
+	return true
 }
 
 func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apicontainer.Container) bool {

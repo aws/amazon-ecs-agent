@@ -174,7 +174,7 @@ type DockerTaskEngine struct {
 	daemonManagers                      map[string]dm.DaemonManager
 	hostResourceManager                 *HostResourceManager
 	serviceconnectRelay                 *apitask.Task
-	loadedDaemonTasks                   map[string]*apitask.Task
+	ebsDaemonTask                       *apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -1144,30 +1144,33 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		return
 	}
 	if task.IsEBSTaskAttachEnabled() {
-		if csiTask, ok := engine.loadedDaemonTasks["ebs-csi-driver"]; ok {
+		if engine.ebsDaemonTask != nil {
 			logger.Info("engine ebs CSI driver is running", logger.Fields{
-				field.TaskID: csiTask.GetID(),
+				field.TaskID: engine.ebsDaemonTask.GetID(),
 			})
 		} else {
 			// TODO update 'ebs-csi-driver' as config param or const
-			var csiStartErr error
 			if ebsCsiDaemonManager, ok := engine.daemonManagers["ebs-csi-driver"]; ok {
-				csiTask, csiStartErr = ebsCsiDaemonManager.CreateDaemonTask()
-				engine.loadedDaemonTasks["ebs-csi-driver"] = csiTask
-				engine.AddTask(csiTask)
-				logger.Info("docker_task_engine: Added EBS CSI task to engine")
+				if csiTask, err := ebsCsiDaemonManager.CreateDaemonTask(); err != nil {
+					// fail task and return
+					logger.Error("Unable to start ebsCsiDaemon for task in the engine", logger.Fields{
+						field.TaskID: task.GetID(),
+						field.Error:  err,
+					})
+					task.SetKnownStatus(apitaskstatus.TaskStopped)
+					task.SetDesiredStatus(apitaskstatus.TaskStopped)
+					engine.emitTaskEvent(task, err.Error())
+					return
+				} else {
+					engine.ebsDaemonTask = csiTask
+					engine.AddTask(csiTask)
+					logger.Info("docker_task_engine: Added EBS CSI task to engine")
+				}
 			} else {
-				csiStartErr = errors.New("Unable to find ebs-csi-driver in engine")
-			}
-			if csiStartErr != nil {
 				logger.Error("Unable to start ebsCsiDaemon for task in the engine", logger.Fields{
 					field.TaskID: task.GetID(),
 					field.Error:  err,
 				})
-				task.SetKnownStatus(apitaskstatus.TaskStopped)
-				task.SetDesiredStatus(apitaskstatus.TaskStopped)
-				engine.emitTaskEvent(task, err.Error())
-				return
 			}
 		}
 	}

@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	dockermount "github.com/docker/docker/api/types/mount"
 	"github.com/pborman/uuid"
 )
 
@@ -47,6 +48,7 @@ const (
 	daemonMountPermission           fs.FileMode = 0700
 	ecsAgentLogFileENV                          = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer             = "/log"
+	CapSysAdmin                                 = "SYS_ADMIN"
 )
 
 var mkdirAllAndChown = utils.MkdirAllAndChown
@@ -55,24 +57,38 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	imageName := dm.managedDaemon.GetImageName()
 	loadedImageRef := dm.managedDaemon.GetLoadedDaemonImageRef()
 	containerRunning := apicontainerstatus.ContainerRunning
+	caps := []string{CapSysAdmin}
 	dockerHostConfig := dockercontainer.HostConfig{
+		Mounts:      []dockermount.Mount{},
 		NetworkMode: apitask.HostNetworkMode,
 		// the default value of 0 for MaximumRetryCount means retry indefinitely
 		RestartPolicy: dockercontainer.RestartPolicy{
 			Name:              "on-failure",
 			MaximumRetryCount: 0,
 		},
+		Privileged: true,
+		CapAdd:     caps,
 	}
 	if !dm.managedDaemon.IsValidManagedDaemon() {
 		return nil, fmt.Errorf("%s is an invalid managed daemon", imageName)
 	}
-	for _, mount := range dm.managedDaemon.GetMountPoints() {
-		err := mkdirAllAndChown(mount.SourceVolumeHostPath, daemonMountPermission, daemonUID, os.Getegid())
+	for _, mp := range dm.managedDaemon.GetMountPoints() {
+		err := mkdirAllAndChown(mp.SourceVolumeHostPath, daemonMountPermission, daemonUID, os.Getegid())
 		if err != nil {
 			return nil, err
 		}
-		dockerHostConfig.Binds = append(dockerHostConfig.Binds,
-			fmt.Sprintf("%s:%s", mount.SourceVolumeHostPath, mount.ContainerPath))
+		//dockerHostConfig.Binds = append(dockerHostConfig.Binds,
+		//	fmt.Sprintf("%s:%s", mount.SourceVolumeHostPath, mount.ContainerPath))
+		bindOptions := dockermount.BindOptions{
+			Propagation: dockermount.PropagationShared,
+		}
+		mountPoint := dockermount.Mount{
+			Type:        dockermount.TypeBind,
+			Source:      mp.SourceVolumeHostPath,
+			Target:      mp.ContainerPath,
+			BindOptions: &bindOptions,
+		}
+		dockerHostConfig.Mounts = append(dockerHostConfig.Mounts, mountPoint)
 	}
 	rawHostConfig, err := json.Marshal(&dockerHostConfig)
 	if err != nil {

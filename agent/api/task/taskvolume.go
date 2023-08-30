@@ -30,6 +30,7 @@ const (
 	HostVolumeType                 = "host"
 	DockerVolumeType               = "docker"
 	EFSVolumeType                  = "efs"
+	EBSVolumeType                  = "ebs"
 	FSxWindowsFileServerVolumeType = "fsxWindowsFileServer"
 )
 
