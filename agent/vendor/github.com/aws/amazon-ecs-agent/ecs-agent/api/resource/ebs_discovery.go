@@ -26,7 +26,7 @@ type EBSDiscoveryClient struct {
 
 func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
 	return &EBSDiscoveryClient{
-		ctx:        ctx,
+		ctx: ctx,
 	}
 }
 

@@ -32,11 +32,16 @@ type EBSWatcher struct {
 	agentState dockerstate.TaskEngineState
 	// TODO: The dataClient will be used to save to agent's data client as well as start the ACK timer. This will be added once the data client functionality have been added
 	// dataClient     data.Client
-	ebsChangeEvent  chan<- statechange.Event
-	discoveryClient apiebs.EBSDiscovery
-	scanTicker      *time.Ticker
-	lock            sync.RWMutex
-	isScanning      bool
+	ebsChangeEvent       chan<- statechange.Event
+	discoveryClient      apiebs.EBSDiscovery
+	scanTickerController *ScanTickerController
+}
+
+type ScanTickerController struct {
+	scanTicker *time.Ticker
+	running    bool
+	tickerLock sync.Mutex
+	done       chan bool
 }
 
 // NewWatcher is used to return a new instance of the EBSWatcher struct
@@ -45,49 +50,70 @@ func NewWatcher(ctx context.Context,
 	stateChangeEvents chan<- statechange.Event) (*EBSWatcher, error) {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
+	scanTickerController := NewScanTickerController()
 	return &EBSWatcher{
-		ctx:             derivedContext,
-		cancel:          cancel,
-		agentState:      state,
-		ebsChangeEvent:  stateChangeEvents,
-		discoveryClient: discoveryClient,
-		isScanning:      false,
+		ctx:                  derivedContext,
+		cancel:               cancel,
+		agentState:           state,
+		ebsChangeEvent:       stateChangeEvents,
+		discoveryClient:      discoveryClient,
+		scanTickerController: scanTickerController,
 	}, nil
 }
 
+func NewScanTickerController() *ScanTickerController {
+	return &ScanTickerController{
+		scanTicker: nil,
+		running:    false,
+		tickerLock: sync.Mutex{},
+	}
+}
+
 func (w *EBSWatcher) Start() {
-	if w.IsScanning() {
-		log.Info("EBS watcher is already scanning.")
+	w.scanTickerController.tickerLock.Lock()
+	defer w.scanTickerController.tickerLock.Unlock()
+
+	if w.scanTickerController.running || len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
 		return
 	}
 
-	err := w.SetScanTicker()
-	if err != nil {
-		log.Warn("Unable to start scan ticker for EBS watcher")
-		return
-	}
+	w.scanTickerController.running = true
+	w.scanTickerController.scanTicker = time.NewTicker(apiebs.ScanPeriod)
 
 	log.Info("New resource attachment to handle. Starting EBS watcher.")
-	for {
-		select {
-		case <-w.scanTicker.C:
-			pendingEBS := w.agentState.GetAllPendingEBSAttachmentWithKey()
-			if len(pendingEBS) > 0 {
+	go func() {
+		for {
+			select {
+			case <-w.scanTickerController.scanTicker.C:
+				pendingEBS := w.agentState.GetAllPendingEBSAttachmentWithKey()
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
 				w.NotifyFound(foundVolumes)
+			case <-w.scanTickerController.done:
+				w.scanTickerController.running = false
+				w.scanTickerController.scanTicker.Stop()
+			case <-w.ctx.Done():
+				w.scanTickerController.StopScanTicker()
+				log.Info("EBS Watcher Stopped due to agent stop")
+				return
 			}
-		case <-w.ctx.Done():
-			w.StopScanner()
-			log.Info("EBS Watcher Stopped")
-			return
 		}
-	}
+	}()
+	log.Info("EBS watcher started.")
 }
 
 // Stop will stop the EBS watcher
 func (w *EBSWatcher) Stop() {
 	log.Info("Stopping EBS watcher.")
 	w.cancel()
+}
+
+func (c *ScanTickerController) StopScanTicker() {
+	c.tickerLock.Lock()
+	defer c.tickerLock.Unlock()
+	if !c.running {
+		return
+	}
+	c.done <- true
 }
 
 func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
@@ -109,26 +135,20 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 			attachmentType, ebs.String()))
 	}
 
-	if empty && len(w.agentState.GetAllPendingEBSAttachments()) == 1 && !w.IsScanning() {
+	if empty && len(w.agentState.GetAllPendingEBSAttachments()) == 1 {
 		go w.Start()
-		time.Sleep(5 * time.Millisecond)
+		// time.Sleep(5 * time.Millisecond)
 	}
 
 	return nil
 }
 
 func (w *EBSWatcher) NotifyFound(foundVolumes []string) {
-	var wg sync.WaitGroup
 	for _, volumeId := range foundVolumes {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			w.notifyFoundEBS(volumeId)
-		}()
+		w.notifyFoundEBS(volumeId)
 	}
-	wg.Wait()
 	if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
-		w.StopScanner()
+		w.scanTickerController.StopScanTicker()
 	}
 }
 
@@ -161,19 +181,12 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 	log.Infof("Successfully found attached EBS volume: %v", ebs.String())
 }
 
-// RemoveAttachment will stop tracking an EBS attachment
-// func (w *EBSWatcher) RemoveAttachment(volumeID string) {
-// 	w.mailbox <- func() {
-// 		w.removeEBSAttachment(volumeID)
-// 	}
-// }
-
 func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 	// TODO: Remove the EBS volume from the data client.
 	w.agentState.RemoveEBSAttachment(volumeID)
 	if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
 		log.Info("No more attachments to scan for. Stopping scan ticker.")
-		w.StopScanner()
+		w.scanTickerController.StopScanTicker()
 	}
 }
 
@@ -203,31 +216,4 @@ func (w *EBSWatcher) handleEBSAckTimeout(volumeId string) {
 		// w.RemoveAttachment(volumeId)
 		w.removeEBSAttachment(volumeId)
 	}
-}
-
-func (w *EBSWatcher) IsScanning() bool {
-	w.lock.RLock()
-	defer w.lock.RUnlock()
-	return w.isScanning
-}
-
-func (w *EBSWatcher) StopScanner() {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if w.scanTicker != nil {
-		w.scanTicker.Stop()
-		w.isScanning = false
-	}
-	return
-}
-
-func (w *EBSWatcher) SetScanTicker() error {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if w.scanTicker != nil {
-		return errors.New("unable to start scan ticker")
-	}
-	w.scanTicker = time.NewTicker(apiebs.ScanPeriod)
-	w.isScanning = true
-	return nil
 }
