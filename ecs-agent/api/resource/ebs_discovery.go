@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/cihub/seelog"
@@ -24,10 +25,35 @@ type EBSDiscoveryClient struct {
 	ctx context.Context
 }
 
+type ScanTickerController struct {
+	ScanTicker *time.Ticker
+	Running    bool
+	TickerLock sync.Mutex
+	Done       chan bool
+}
+
 func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
 	return &EBSDiscoveryClient{
 		ctx: ctx,
 	}
+}
+
+func NewScanTickerController() *ScanTickerController {
+	return &ScanTickerController{
+		ScanTicker: nil,
+		Running:    false,
+		TickerLock: sync.Mutex{},
+		Done:       make(chan bool),
+	}
+}
+
+func (c *ScanTickerController) StopScanTicker() {
+	c.TickerLock.Lock()
+	defer c.TickerLock.Unlock()
+	if !c.Running {
+		return
+	}
+	c.Done <- true
 }
 
 func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]T, dc EBSDiscovery) []string {

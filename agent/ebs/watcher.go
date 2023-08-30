@@ -16,7 +16,6 @@ package ebs
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -34,14 +33,7 @@ type EBSWatcher struct {
 	// dataClient     data.Client
 	ebsChangeEvent       chan<- statechange.Event
 	discoveryClient      apiebs.EBSDiscovery
-	scanTickerController *ScanTickerController
-}
-
-type ScanTickerController struct {
-	scanTicker *time.Ticker
-	running    bool
-	tickerLock sync.Mutex
-	done       chan bool
+	scanTickerController *apiebs.ScanTickerController
 }
 
 // NewWatcher is used to return a new instance of the EBSWatcher struct
@@ -50,7 +42,7 @@ func NewWatcher(ctx context.Context,
 	stateChangeEvents chan<- statechange.Event) (*EBSWatcher, error) {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
-	scanTickerController := NewScanTickerController()
+	scanTickerController := apiebs.NewScanTickerController()
 	return &EBSWatcher{
 		ctx:                  derivedContext,
 		cancel:               cancel,
@@ -61,36 +53,28 @@ func NewWatcher(ctx context.Context,
 	}, nil
 }
 
-func NewScanTickerController() *ScanTickerController {
-	return &ScanTickerController{
-		scanTicker: nil,
-		running:    false,
-		tickerLock: sync.Mutex{},
-	}
-}
-
 func (w *EBSWatcher) Start() {
-	w.scanTickerController.tickerLock.Lock()
-	defer w.scanTickerController.tickerLock.Unlock()
+	w.scanTickerController.TickerLock.Lock()
+	defer w.scanTickerController.TickerLock.Unlock()
 
-	if w.scanTickerController.running || len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
+	if w.scanTickerController.Running || len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
 		return
 	}
 
-	w.scanTickerController.running = true
-	w.scanTickerController.scanTicker = time.NewTicker(apiebs.ScanPeriod)
+	w.scanTickerController.Running = true
+	w.scanTickerController.ScanTicker = time.NewTicker(apiebs.ScanPeriod)
 
 	log.Info("New resource attachment to handle. Starting EBS watcher.")
 	go func() {
 		for {
 			select {
-			case <-w.scanTickerController.scanTicker.C:
+			case <-w.scanTickerController.ScanTicker.C:
 				pendingEBS := w.agentState.GetAllPendingEBSAttachmentWithKey()
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
 				w.NotifyFound(foundVolumes)
-			case <-w.scanTickerController.done:
-				w.scanTickerController.running = false
-				w.scanTickerController.scanTicker.Stop()
+			case <-w.scanTickerController.Done:
+				w.scanTickerController.Running = false
+				w.scanTickerController.ScanTicker.Stop()
 			case <-w.ctx.Done():
 				w.scanTickerController.StopScanTicker()
 				log.Info("EBS Watcher Stopped due to agent stop")
@@ -105,15 +89,6 @@ func (w *EBSWatcher) Start() {
 func (w *EBSWatcher) Stop() {
 	log.Info("Stopping EBS watcher.")
 	w.cancel()
-}
-
-func (c *ScanTickerController) StopScanTicker() {
-	c.tickerLock.Lock()
-	defer c.tickerLock.Unlock()
-	if !c.running {
-		return
-	}
-	c.done <- true
 }
 
 func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
