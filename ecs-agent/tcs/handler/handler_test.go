@@ -370,11 +370,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
-	assert.Contains(t, err.Error(), "use of closed network connection")
+	assert.Equal(t, err.Error(), io.EOF.Error(), "EOF error expected.")
 
 	msg := <-serverErr
-	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
-		"Read from closed connection should produce an io.EOF error")
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseNormalClosure),
+		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
 }
@@ -630,11 +630,11 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
-	assert.Contains(t, err.Error(), "use of closed network connection")
+	assert.Equal(t, err.Error(), io.EOF.Error(), "EOF error expected.")
 
 	msg := <-serverErr
-	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
-		"Read from closed connection should produce an io.EOF error")
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseNormalClosure),
+		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
 }
