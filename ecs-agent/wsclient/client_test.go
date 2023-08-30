@@ -478,5 +478,6 @@ func TestPeriodicDisconnect(t *testing.T) {
 		}
 
 	}()
-	assert.EqualError(t, <-errChan, "websocket: close 1006 (abnormal closure): unexpected EOF")
+
+	assert.EqualError(t, <-errChan, "websocket: close 1000 (normal): ConnectionExpired: Reconnect to continue")
 }
