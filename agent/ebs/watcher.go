@@ -160,7 +160,6 @@ func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 	// TODO: Remove the EBS volume from the data client.
 	w.agentState.RemoveEBSAttachment(volumeID)
 	if len(w.agentState.GetAllPendingEBSAttachments()) == 0 {
-		log.Info("No more attachments to scan for. Stopping scan ticker.")
 		w.scanTickerController.StopScanTicker()
 	}
 }

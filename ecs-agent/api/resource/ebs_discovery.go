@@ -32,7 +32,7 @@ type ScanTickerController struct {
 	Done       chan bool
 }
 
-func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
+func NewDiscoveryClient(ctx context.Context) *EBSDiscoveryClient {
 	return &EBSDiscoveryClient{
 		ctx: ctx,
 	}
@@ -53,6 +53,7 @@ func (c *ScanTickerController) StopScanTicker() {
 	if !c.Running {
 		return
 	}
+	log.Info("No more attachments to scan for. Stopping scan ticker.")
 	c.Done <- true
 }
 
