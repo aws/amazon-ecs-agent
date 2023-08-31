@@ -621,7 +621,7 @@ func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration tim
 	})
 	err := cs.WriteCloseMessage()
 	if err != nil {
-		logger.Warn(fmt.Sprintf("Error disconnecting client %s; client already closed. %s", cs.URL, err))
+		logger.Warn(fmt.Sprintf("Error disconnecting client with url: %s, err: %s", cs.URL, err))
 	}
 	logger.Info("Disconnected from server.")
 	return err

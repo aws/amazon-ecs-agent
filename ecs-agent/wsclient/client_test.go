@@ -469,12 +469,13 @@ func TestPeriodicDisconnect(t *testing.T) {
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	// Using time difference to ensure that the disconnect was
-	var timeDiff time.Duration
 	go func() {
 		startTime := time.Now()
 		messageError <- cs.ConsumeMessages(ctx)
 		endTime := time.Now()
-		timeDiff = endTime.Sub(startTime)
+		timeDiff := endTime.Sub(startTime)
+		assert.True(t, timeDiff > disconnectTimeout,
+			"ConsumeMessages should be alive for more than disconnectTimeout.")
 		cs.Close()
 	}()
 
@@ -482,5 +483,4 @@ func TestPeriodicDisconnect(t *testing.T) {
 	assert.EqualError(t, <-errChan, "websocket: close 1000 (normal): ConnectionExpired: Reconnect to continue")
 	// Assert that the connection is closed on the client side as expected
 	assert.EqualError(t, <-messageError, io.EOF.Error(), "expected EOF for normal close code")
-	assert.True(t, timeDiff > disconnectTimeout, "ConsumeMessages should be alive for more than disconectTimeout,i.e.,10 secs.")
 }
