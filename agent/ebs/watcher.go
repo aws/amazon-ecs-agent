@@ -109,13 +109,13 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 	volumeId := ebs.AttachmentProperties[apiebs.VolumeIdName]
 	_, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if ok {
-		log.Infof("EBS Volume attachment already exists. Skip handling EBS attachment %v.", ebs.String())
+		log.Infof("EBS Volume attachment already exists. Skip handling EBS attachment %v.", ebs.EBSToString())
 		return nil
 	}
 
 	if err := w.addEBSAttachmentToState(ebs); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add ebs attachment to engine state: %s",
-			attachmentType, ebs.String()))
+			attachmentType, ebs.EBSToString()))
 	}
 
 	// If it was originally empty and now there's a pending EBS volume to scan for.
@@ -147,24 +147,24 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 	}
 
 	if ebs.HasExpired() {
-		log.Warnf("EBS status expired, no longer tracking EBS volume: %v.", ebs.String())
+		log.Warnf("EBS status expired, no longer tracking EBS volume: %v.", ebs.EBSToString())
 		return
 	}
 
 	if ebs.IsSent() {
-		log.Warnf("State change event has already been emitted for EBS volume: %v.", ebs.String())
+		log.Warnf("State change event has already been emitted for EBS volume: %v.", ebs.EBSToString())
 		return
 	}
 
 	if ebs.IsAttached() {
-		log.Infof("EBS volume: %v, has been found already.", ebs.String())
+		log.Infof("EBS volume: %v, has been found already.", ebs.EBSToString())
 		return
 	}
 
 	ebs.StopAckTimer()
 	ebs.SetAttachedStatus()
 
-	log.Infof("Successfully found attached EBS volume: %v", ebs.String())
+	log.Infof("Successfully found attached EBS volume: %v", ebs.EBSToString())
 }
 
 func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
@@ -205,7 +205,7 @@ func (w *EBSWatcher) handleEBSAckTimeout(volumeId string) {
 		return
 	}
 	if !ebsAttachment.IsSent() {
-		log.Warnf("Timed out waiting for EBS ack; removing EBS attachment record %v", ebsAttachment.String())
+		log.Warnf("Timed out waiting for EBS ack; removing EBS attachment record %v", ebsAttachment.EBSToString())
 		w.removeEBSAttachment(volumeId)
 	}
 }

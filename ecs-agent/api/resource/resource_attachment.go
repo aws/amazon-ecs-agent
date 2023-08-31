@@ -207,14 +207,14 @@ func (ra *ResourceAttachment) HasExpired() bool {
 	return time.Now().After(ra.ExpiresAt)
 }
 
-func (ra *ResourceAttachment) String() string {
+func (ra *ResourceAttachment) EBSToString() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
 
-	return ra.stringUnsafe()
+	return ra.ebsToStringUnsafe()
 }
 
-func (ra *ResourceAttachment) stringUnsafe() string {
+func (ra *ResourceAttachment) ebsToStringUnsafe() string {
 	return fmt.Sprintf(
 		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t volumeSizeInGiB=%s requestedSizeName=%s volumeId=%s deviceName=%s filesystemType=%s status=%s expiresAt=%s",
 		ra.AttachmentARN, ra.AttachmentProperties[ResourceTypeName], ra.AttachStatusSent, ra.AttachmentProperties[VolumeSizeInGiBName], ra.AttachmentProperties[RequestedSizeName], ra.AttachmentProperties[VolumeIdName],

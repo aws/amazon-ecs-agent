@@ -6,5 +6,5 @@ type EBSDiscovery interface {
 
 type GenericEBSAttachmentObject interface {
 	GetAttachmentProperties(key string) string
-	String() string
+	EBSToString() string
 }
