@@ -30,7 +30,7 @@ func newTestClient(t *testing.T) Client {
 	testDir := t.TempDir()
 
 	testDB, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
-	transformer := modeltransformer.NewTransFormer()
+	transformer := modeltransformer.NewTransformer()
 	require.NoError(t, err)
 	require.NoError(t, testDB.Update(func(tx *bolt.Tx) error {
 		for _, b := range buckets {

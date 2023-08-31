@@ -29,7 +29,7 @@ const (
 )
 
 func TestRegisterTaskTransformationFunctions(t *testing.T) {
-	transformer := modeltransformer.NewTransFormer()
+	transformer := modeltransformer.NewTransformer()
 	RegisterTaskTransformationFunctions(transformer)
 	assert.Equal(t, expectedTaskTransformationChainLength, transformer.GetNumberOfTransformationFunctions("Task"))
 }

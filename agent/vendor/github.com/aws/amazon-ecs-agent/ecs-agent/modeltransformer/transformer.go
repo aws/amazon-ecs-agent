@@ -41,7 +41,7 @@ type TransformFunc struct {
 	function interface{}
 }
 
-func NewTransFormer() *Transformer {
+func NewTransformer() *Transformer {
 	t := &Transformer{}
 	return t
 }
@@ -56,7 +56,7 @@ func (t *Transformer) GetNumberOfTransformationFunctions(modelType string) int {
 	}
 }
 
-// TransformTask executes the transformation functions when version associated with model in boltdb is below the
+// TransformTask executes the transformation functions when version associated with model in boltdb is below the threshold
 func (t *Transformer) TransformTask(version string, data []byte) ([]byte, error) {
 	var err error
 	// execute transformation functions sequentially and skip those not applicable

@@ -131,7 +131,7 @@ func TestAddTaskTransformationFunctionsAndTransformTask(t *testing.T) {
 				TestFieldTaskVCpu:     1,
 			})
 			dataIn, _ := json.Marshal(&tc.dataIn)
-			transformer := NewTransFormer()
+			transformer := NewTransformer()
 			transformer.AddTaskTransformationFunctions(firstThresholdVersion, testTransformationFunction1100)
 			transformer.AddTaskTransformationFunctions(secondThresholdVersion, testTransformationFunction1200)
 			dataOut, err := transformer.TransformTask(tc.boltDbMetadataVersion, dataIn)
@@ -170,7 +170,7 @@ func TestCheckIsUpgrade(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			transformer := NewTransFormer()
+			transformer := NewTransformer()
 			assert.Equal(t, tc.expect, transformer.IsUpgrade(tc.runningAgentVersion, tc.persistedAgentVersion))
 		})
 	}

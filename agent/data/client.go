@@ -135,7 +135,7 @@ func setup(dataDir string) (*client, error) {
 	})
 
 	// create transformer
-	transformer := modeltransformer.NewTransFormer()
+	transformer := modeltransformer.NewTransformer()
 
 	// registering task transformation functions
 	transformationfunctions.RegisterTaskTransformationFunctions(transformer)
