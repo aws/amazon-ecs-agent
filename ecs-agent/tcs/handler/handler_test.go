@@ -58,8 +58,8 @@ const (
 	testContainerRuntimeVersion           = "testContainerRuntimeVersion"
 	testHeartbeatTimeout                  = 1 * time.Minute
 	testHeartbeatJitter                   = 1 * time.Minute
-	testDisconnectionTimeout              = 15 * time.Minute
-	testDisconnectionJitter               = 30 * time.Minute
+	testDisconnectionTimeout              = 30 * time.Minute
+	testDisconnectionJitter               = 5 * time.Minute
 )
 
 type mockStatsSource struct {
@@ -436,14 +436,13 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 	// Start a session with the test server. Start() runs in for loop to attempt reconnection
 	// until ctx is cancelled or done.
 	err = session.Start(ctx)
-
 	// The session should reconnect and the closure of connection should not be because of io.EOF error,
 	// since the connection was closed as part of context cancelled. If we do not send context cancelled
 	// it would continue to reconnect and test will be in forever loop.
 	assert.False(t, websocket.IsCloseError(err, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
 
-	assert.NoError(t, err, "No error is expected. The test should exit cleanly when the ctx is done.")
+	assert.Equal(t, err.Error(), context.DeadlineExceeded.Error(), "Context deadline exceeded error expected.")
 
 }
 

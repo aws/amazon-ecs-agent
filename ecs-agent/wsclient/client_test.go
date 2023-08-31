@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -451,11 +450,15 @@ func TestPeriodicDisconnect(t *testing.T) {
 	closeWS := make(chan []byte)
 	defer close(closeWS)
 
-	mockServer, _, requests, errChan, _ := utils.GetMockServer(closeWS)
+	mockServer, _, _, errChan, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
+	messageError := make(chan error)
+	ctx := context.Background()
 	types := []interface{}{ecsacs.AckRequest{}}
-	cs := getTestClientServer(mockServer.URL, types, 1)
+
+	// Setting a higher rwtimeout to allow disconnect due to periodic timeouts.
+	cs := getTestClientServer(mockServer.URL, types, 20)
 	// Setting up a lower disconnect timer value for testing.
 	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, 10*time.Second, 2*time.Second)
 	require.NoError(t, err)
@@ -463,21 +466,12 @@ func TestPeriodicDisconnect(t *testing.T) {
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	go func() {
-		for i := 0; i < 20; i++ {
-			req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
-			cs.MakeRequest(&req)
-			time.Sleep(1 * time.Second)
-		}
-		req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("Done")}
-		cs.MakeRequest(&req)
+		messageError <- cs.ConsumeMessages(ctx)
+		cs.Close()
 	}()
 
-	go func() {
-		for {
-			logger.Info(<-requests)
-		}
-
-	}()
-
+	// Assert that the connection is closed on the server side as expected
 	assert.EqualError(t, <-errChan, "websocket: close 1000 (normal): ConnectionExpired: Reconnect to continue")
+	// Assert that the connection is closed on the client side as expected
+	assert.EqualError(t, <-messageError, io.EOF.Error(), "expected EOF for normal close code")
 }
