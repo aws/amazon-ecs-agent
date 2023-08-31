@@ -75,11 +75,11 @@ const (
 
 	// disconnectTimeout is the maximum time taken by the server side (TACS/ACS) to send a
 	// disconnect payload for the Agent.
-	WSclientDisconnectTimeout = 30 * time.Minute
+	DisconnectTimeout = 30 * time.Minute
 
 	// disconnectJitterMax is the maximum jitter time chosen as reasonable initial value
 	// to prevent mass retries at the same time from multiple clients/tasks synchronizing.
-	WSclientDisconnectJitterMax = 5 * time.Minute
+	DisconnectJitterMax = 5 * time.Minute
 
 	// dateTimeFormat is a string format to format time for better readability: YYYY-MM-DD hh:mm:ss
 	dateTimeFormat = "2006-01-02 15:04:05"
@@ -607,9 +607,6 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
 	timer := time.AfterFunc(maxConnectionDuration, func() {
 		err := cs.CloseClient(startTime, maxConnectionDuration)
 		cs.MetricsFactory.New(metricName).Done(err)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("Attempted disconnecting; client already closed. %s", err))
-		}
 	})
 	return timer
 }
@@ -618,12 +615,13 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
 // as failure modes for this are when client is not found or already closed.
 func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration time.Duration) error {
 	logger.Warn(("Closing connection"), logger.Fields{
+		"URL":                  cs.URL,
 		"ConnectionStartTime":  startTime.Format(dateTimeFormat),
 		"MaxDisconnectionTime": startTime.Add(timeoutDuration).Format(dateTimeFormat),
 	})
 	err := cs.WriteCloseMessage()
 	if err != nil {
-		logger.Warn(fmt.Sprintf("Error disconnecting; client already closed. %s", err))
+		logger.Warn(fmt.Sprintf("Error disconnecting client %s; client already closed. %s", cs.URL, err))
 	}
 	logger.Info("Disconnected from server.")
 	return err

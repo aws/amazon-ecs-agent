@@ -63,7 +63,7 @@ func TestClientProxy(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer("http://www.amazon.com", types, 1)
-	_, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	_, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
 }
@@ -92,7 +92,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -143,7 +143,7 @@ func TestProxyVariableCustomValue(t *testing.T) {
 	testString := "Custom no proxy string"
 	os.Setenv("NO_PROXY", testString)
 	types := []interface{}{ecsacs.AckRequest{}}
-	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -162,7 +162,7 @@ func TestProxyVariableDefaultValue(t *testing.T) {
 
 	os.Unsetenv("NO_PROXY")
 	types := []interface{}{ecsacs.AckRequest{}}
-	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -184,7 +184,7 @@ func TestHandleMessagePermissibleCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -210,7 +210,7 @@ func TestHandleMessageUnexpectedCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -237,7 +237,7 @@ func TestHandleNonHTTPSEndpoint(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -265,7 +265,7 @@ func TestHandleIncorrectURLScheme(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServerURL.String(), types, 1)
-	_, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	_, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	assert.Error(t, err, "Expected error for incorrect URL scheme")
 }
 
@@ -409,7 +409,7 @@ func TestWriteCloseMessage(t *testing.T) {
 
 	types := []interface{}{ecsacs.PayloadMessage{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 
 	defer cs.Close()
 
@@ -432,7 +432,7 @@ func TestCtxCancel(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 2)
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, WSclientDisconnectTimeout, WSclientDisconnectJitterMax)
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	require.NoError(t, err)
 	defer timer.Stop()
 
@@ -443,7 +443,8 @@ func TestCtxCancel(t *testing.T) {
 	}()
 	// Cancel the context.
 	cancel()
-	assert.EqualError(t, <-messageError, "context canceled")
+	err = <-messageError
+	assert.Equal(t, err.Error(), context.Canceled.Error(), "Context canceled error expected.")
 }
 
 func TestPeriodicDisconnect(t *testing.T) {
@@ -460,13 +461,20 @@ func TestPeriodicDisconnect(t *testing.T) {
 	// Setting a higher rwtimeout to allow disconnect due to periodic timeouts.
 	cs := getTestClientServer(mockServer.URL, types, 20)
 	// Setting up a lower disconnect timer value for testing.
-	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, 10*time.Second, 2*time.Second)
+	disconnectTimeout := 10 * time.Second
+	disconnectTimeoutJitter := 2 * time.Second
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, disconnectTimeout, disconnectTimeoutJitter)
 	require.NoError(t, err)
 	defer timer.Stop()
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
+	// Using time difference to ensure that the disconnect was
+	var timeDiff time.Duration
 	go func() {
+		startTime := time.Now()
 		messageError <- cs.ConsumeMessages(ctx)
+		endTime := time.Now()
+		timeDiff = endTime.Sub(startTime)
 		cs.Close()
 	}()
 
@@ -474,4 +482,5 @@ func TestPeriodicDisconnect(t *testing.T) {
 	assert.EqualError(t, <-errChan, "websocket: close 1000 (normal): ConnectionExpired: Reconnect to continue")
 	// Assert that the connection is closed on the client side as expected
 	assert.EqualError(t, <-messageError, io.EOF.Error(), "expected EOF for normal close code")
+	assert.True(t, timeDiff > disconnectTimeout, "ConsumeMessages should be alive for more than disconectTimeout,i.e.,10 secs.")
 }

@@ -153,8 +153,8 @@ func NewSession(
 		sendCredentials:                 true,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
-		connectionTime:                  wsclient.WSclientDisconnectTimeout,
-		connectionJitter:                wsclient.WSclientDisconnectJitterMax,
+		connectionTime:                  wsclient.DisconnectTimeout,
+		connectionJitter:                wsclient.DisconnectJitterMax,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 }
