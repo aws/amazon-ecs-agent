@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"io"
 	"net"
 	"net/http"
@@ -287,7 +288,8 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 				return nil, cs.NewError(possibleError)
 			}
 		}
-		logger.Warn(fmt.Sprintf("Error creating a websocket client: %v", err))
+		logger.Warn(fmt.Sprintf(
+			"Error creating a websocket client: %v", err))
 		return nil, errors.Wrapf(err, "websocket client: unable to dial %s response: %s",
 			parsedURL.Host, string(resp))
 	}
@@ -621,8 +623,13 @@ func (cs *ClientServerImpl) CloseClient(startTime time.Time, timeoutDuration tim
 	})
 	err := cs.WriteCloseMessage()
 	if err != nil {
-		logger.Warn(fmt.Sprintf("Error disconnecting client with url: %s, err: %s", cs.URL, err))
+		logger.Warn(("Error disconnecting client."), logger.Fields{
+			"URL":       cs.URL,
+			field.Error: err,
+		})
 	}
-	logger.Info("Disconnected from server.")
+	logger.Info(("Disconnected from server."), logger.Fields{
+		"URL": cs.URL,
+	})
 	return err
 }
