@@ -414,11 +414,11 @@ func (err CannotInspectContainerExecError) ErrorName() string {
 // This is done because container runtime's request may sometimes contain security tokens when accessing ECR buckets for image layers.
 // When these requests error out, the URLs with secrets may get bubbled up to Agent logs.
 // So we redact the otherwise hidden URLs for security.
-func redactEcrUrls(str string, err error) error {
+func redactEcrUrls(overrideStr string, err error) error {
 	if err == nil {
 		return nil
 	}
 	urlRegex := regexp.MustCompile(`\"?https[^\s]+starport-layer-bucket[^\s]+`)
-	redactedStr := urlRegex.ReplaceAllString(err.Error(), fmt.Sprintf("REDACTED ECR URL related to %s", str))
+	redactedStr := urlRegex.ReplaceAllString(err.Error(), fmt.Sprintf("REDACTED ECR URL related to %s", overrideStr))
 	return fmt.Errorf(redactedStr)
 }
