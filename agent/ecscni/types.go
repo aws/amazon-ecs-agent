@@ -15,6 +15,7 @@ package ecscni
 
 import (
 	"github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/types"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 )
 
@@ -33,6 +34,8 @@ const (
 	// present in the output of the '--capabilities' command of a CNI plugin
 	// indicates that the plugin can support the ECS "awsvpc" network mode
 	CapabilityAWSVPCNetworkingMode = "awsvpc-network-mode"
+	// VPCENIPluginName is the binary of the vpc-eni plugin
+	VPCENIPluginName = "vpc-eni"
 )
 
 // Config contains all the information to set up the container namespace using
@@ -75,4 +78,26 @@ type NetworkConfig struct {
 	IfName string
 	// CNINetworkConfig is the network configuration required to invoke the CNI plugin
 	CNINetworkConfig *libcni.NetworkConfig
+}
+
+// VPCENIPluginConfig contains all the information required to invoke the vpc-eni plugin.
+type VPCENIPluginConfig struct {
+	// Type is the cni plugin name.
+	Type string `json:"type,omitempty"`
+	// CNIVersion is the cni spec version to use.
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// DNS is used to pass DNS information to the plugin.
+	DNS types.DNS `json:"dns"`
+	// ENIName is the name of the eni on the instance.
+	ENIName string `json:"eniName"`
+	// ENIMACAddress is the MAC address of the eni.
+	ENIMACAddress string `json:"eniMACAddress"`
+	// ENIIPAddresses is the is the ipv4 of eni.
+	ENIIPAddresses []string `json:"eniIPAddresses"`
+	// GatewayIPAddresses specifies the IPv4 address of the subnet gateway for the eni.
+	GatewayIPAddresses []string `json:"gatewayIPAddresses"`
+	// UseExistingNetwork specifies if existing network should be used instead of creating a new one.
+	UseExistingNetwork bool `json:"useExistingNetwork"`
+	// BlockIMDS specifies if the IMDS should be blocked for the created endpoint.
+	BlockIMDS bool `json:"blockInstanceMetadata"`
 }

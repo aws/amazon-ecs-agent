@@ -44,7 +44,8 @@ const initPID = 1
 
 // awsVPCCNIPlugins is a list of CNI plugins required by the ECS Agent
 // to configure the ENI for a task
-var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
+var awsVPCCNIPlugins = []string{
+	ecscni.VPCENIPluginName,
 	ecscni.ECSBridgePluginName,
 	ecscni.ECSIPAMPluginName,
 	ecscni.ECSAppMeshPluginName,
@@ -100,7 +101,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 // verifyCNIPluginsCapabilities returns an error if there's an error querying
 // capabilities or if the required capability is absent from the capabilities
 // of the following plugins:
-// a. ecs-eni
+// a. vpc-eni
 // b. ecs-bridge
 // c. ecs-ipam
 // d. aws-appmesh

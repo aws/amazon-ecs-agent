@@ -38,8 +38,6 @@ const (
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
 	ECSBridgePluginName = "ecs-bridge"
-	// ECSENIPluginName is the binary of the eni plugin
-	ECSENIPluginName = "ecs-eni"
 	// ECSAppMeshPluginName is the binary of aws-appmesh plugin
 	ECSAppMeshPluginName = "aws-appmesh"
 	// ECSBranchENIPluginName is the binary of the branch-eni plugin
@@ -105,24 +103,6 @@ type BridgeConfig struct {
 	HairpinMode bool `json:"hairpinMode"`
 	// IPAM is the configuration to acquire ip/route from ipam plugin
 	IPAM IPAMConfig `json:"ipam,omitempty"`
-}
-
-// ENIConfig contains all the information needed to invoke the eni plugin
-type ENIConfig struct {
-	// Type is the cni plugin name
-	Type string `json:"type,omitempty"`
-	// CNIVersion is the cni spec version to use
-	CNIVersion string `json:"cniVersion,omitempty"`
-	// ENIID is the id of ec2 eni
-	ENIID string `json:"eni"`
-	// MacAddress is the mac address of eni
-	MACAddress string `json:"mac"`
-	// IPAddresses contains the ip addresses of the ENI.
-	IPAddresses []string `json:"ip-addresses"`
-	// GatewayIPAddresses specifies the addresses of the subnet gateway for the ENI.
-	GatewayIPAddresses []string `json:"gateway-ip-addresses"`
-	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
-	BlockInstanceMetadata bool `json:"block-instance-metadata"`
 }
 
 // AppMeshConfig contains all the information needed to invoke the app mesh plugin

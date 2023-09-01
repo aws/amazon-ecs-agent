@@ -50,7 +50,7 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *ni.NetworkInterface, cfg *Config) 
 	}
 
 	eniConf := VPCENIPluginConfig{
-		Type:               ECSVPCENIPluginName,
+		Type:               VPCENIPluginName,
 		DNS:                dns,
 		ENIName:            eni.GetLinkName(),
 		ENIMACAddress:      eni.MacAddress,
@@ -72,7 +72,7 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *ni.NetworkInterface, cfg *Config) 
 // NewVPCENIPluginConfigForECSBridgeSetup creates the configuration required by vpc-eni plugin to setup ecs-bridge endpoint for the task.
 func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig, error) {
 	bridgeConf := VPCENIPluginConfig{
-		Type:               ECSVPCENIPluginName,
+		Type:               VPCENIPluginName,
 		UseExistingNetwork: true,
 		BlockIMDS:          cfg.BlockInstanceMetadata,
 	}

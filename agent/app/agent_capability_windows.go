@@ -117,14 +117,14 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 }
 
 // getTaskENIPluginVersionAttribute returns the version information of the ECS
-// CNI plugins. It just executes the ECSVPCENIPluginName plugin to get the Version information.
+// CNI plugins. It just executes the vpc-eni plugin to get the Version information.
 // Currently, only this plugin is used by ECS Windows for awsvpc mode.
 func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
 	version, err := agent.cniClient.Version(ecscni.ECSVPCENIPluginExecutable)
 	if err != nil {
 		seelog.Warnf(
 			"Unable to determine the version of the plugin '%s': %v",
-			ecscni.ECSVPCENIPluginName, err)
+			ecscni.VPCENIPluginName, err)
 		return nil, err
 	}
 

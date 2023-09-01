@@ -1319,13 +1319,13 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 			// ENI, Bridge and Appmesh
 			require.Len(t, cniConfig.NetworkConfigs, 3)
 			// The first one should be for the ENI.
-			var eniConfig ecscni.ENIConfig
+			var eniConfig ecscni.VPCENIPluginConfig
 			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 			require.NoError(t, err)
-			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
-			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.IPAddresses)
+			assert.Equal(t, mac, eniConfig.ENIMACAddress, eniConfig)
+			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.ENIIPAddresses)
 			assert.Equal(t, []string{ipv4Gateway}, eniConfig.GatewayIPAddresses)
-			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			assert.Equal(t, blockIMDS, eniConfig.BlockIMDS)
 			// The second one should be for the Bridge.
 			var bridgeConfig ecscni.BridgeConfig
 			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
@@ -1365,13 +1365,13 @@ func TestBuildCNIConfigRegularENIWithServiceConnect(t *testing.T) {
 			// ENI, Bridge and ServiceConnect
 			require.Len(t, cniConfig.NetworkConfigs, 3)
 			// The first one should be for the ENI.
-			var eniConfig ecscni.ENIConfig
+			var eniConfig ecscni.VPCENIPluginConfig
 			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 			require.NoError(t, err)
-			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
-			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.IPAddresses)
+			assert.Equal(t, mac, eniConfig.ENIMACAddress, eniConfig)
+			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.ENIIPAddresses)
 			assert.Equal(t, []string{ipv4Gateway}, eniConfig.GatewayIPAddresses)
-			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			assert.Equal(t, blockIMDS, eniConfig.BlockIMDS)
 			// The second one should be for the Bridge.
 			var bridgeConfig ecscni.BridgeConfig
 			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
