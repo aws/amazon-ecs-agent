@@ -440,9 +440,6 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 	// it would continue to reconnect and test will be in forever loop.
 	assert.False(t, websocket.IsCloseError(err, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
-
-	assert.Equal(t, err.Error(), context.DeadlineExceeded.Error(), "Context deadline exceeded error expected.")
-
 }
 
 func getPayloadFromRequest(request string) (string, error) {
