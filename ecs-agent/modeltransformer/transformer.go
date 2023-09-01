@@ -34,11 +34,13 @@ type Transformer struct {
 	taskTransformFunctions []*TransformFunc
 }
 
+type transformationFunctionClosure func([]byte) ([]byte, error)
+
 // TransformFunc contains the threshold version string for transformation function and the transformationFunction itself.
 // During upgrade, all models from versions below threshold version should execute the transformation function.
 type TransformFunc struct {
 	version  string
-	function interface{}
+	function transformationFunctionClosure
 }
 
 func NewTransformer() *Transformer {
@@ -61,26 +63,22 @@ func (t *Transformer) TransformTask(version string, data []byte) ([]byte, error)
 	var err error
 	// execute transformation functions sequentially and skip those not applicable
 	for _, transformFunc := range t.taskTransformFunctions {
-		if closure, ok := transformFunc.function.(func([]byte) ([]byte, error)); ok {
-			if checkVersionSmaller(version, transformFunc.version) {
-				logger.Info(fmt.Sprintf("Agent version associated with task model in boltdb %s is below threshold %s. Transformation needed.", version, transformFunc.version))
-				data, err = closure(data)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				logger.Info(fmt.Sprintf("Agent version associated with task model in boltdb %s is bigger or equal to threshold %s. Skipping transformation.", version, transformFunc.version))
-				continue
+		if checkVersionSmaller(version, transformFunc.version) {
+			logger.Info(fmt.Sprintf("Agent version associated with task model in boltdb %s is below threshold %s. Transformation needed.", version, transformFunc.version))
+			data, err = transformFunc.function(data)
+			if err != nil {
+				return nil, err
 			}
 		} else {
-			return nil, fmt.Errorf("transformation function for version %s is not valid", transformFunc.version)
+			logger.Info(fmt.Sprintf("Agent version associated with task model in boltdb %s is bigger or equal to threshold %s. Skipping transformation.", version, transformFunc.version))
+			continue
 		}
 	}
 	return data, err
 }
 
 // AddTaskTransformationFunctions adds the transformationFunction to the handling chain
-func (t *Transformer) AddTaskTransformationFunctions(version string, transformationFunc interface{}) {
+func (t *Transformer) AddTaskTransformationFunctions(version string, transformationFunc transformationFunctionClosure) {
 	t.taskTransformFunctions = append(t.taskTransformFunctions, &TransformFunc{
 		version:  version,
 		function: transformationFunc,
