@@ -26,12 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"

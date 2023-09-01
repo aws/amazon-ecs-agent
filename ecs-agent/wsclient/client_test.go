@@ -474,9 +474,8 @@ func TestPeriodicDisconnect(t *testing.T) {
 		messageError <- cs.ConsumeMessages(ctx)
 		endTime := time.Now()
 		timeDiff := endTime.Sub(startTime)
-		assert.True(t, timeDiff > disconnectTimeout,
-			"ConsumeMessages should be alive for more than disconnectTimeout.")
-		cs.Close()
+		assert.True(t, timeDiff >= disconnectTimeout,
+			"ConsumeMessages should be not be closed before disconnectTimeout has elapsed.")
 	}()
 
 	// Assert that the connection is closed on the server side as expected
