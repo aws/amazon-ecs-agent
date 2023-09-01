@@ -18,6 +18,7 @@ const (
 	PROTOCOL = "unix"
 )
 
+// csiClient encapsulates all CSI methods.
 type csiClient struct {
 	csiSocket string
 }
@@ -26,9 +27,8 @@ func NewCSIClient(socketIn string) csiClient {
 	return csiClient{csiSocket: socketIn}
 }
 
-// Used for testing and integration
-// TODO update with stats packing
-func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (int64, error) {
+// GetVolumeMetrics returns volume usage.
+func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
 	// Set up a connection to the server
 	dialer := func(addr string, t time.Duration) (net.Conn, error) {
 		return net.Dial(PROTOCOL, addr)
@@ -39,10 +39,11 @@ func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (in
 		grpc.WithDialer(dialer),
 	)
 	if err != nil {
-		logger.Info("Error publishing metrics", logger.Fields{
+		logger.Error("Error building a connection to CSI driver", logger.Fields{
 			field.Error: err,
+			"Socket":    cc.csiSocket,
 		})
-		return int64(0), err
+		return nil, err
 	}
 	defer conn.Close()
 
@@ -55,25 +56,38 @@ func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (in
 		VolumePath: hostMountPath,
 	})
 	if err != nil {
-		logger.Info("could not get stats", logger.Fields{
+		logger.Error("Could not get stats", logger.Fields{
 			field.Error: err,
 		})
-		return int64(0), err
+		return nil, err
 	}
+
 	usages := resp.GetUsage()
-	// TODO update return type and values to match TCS payload
 	if usages == nil {
-		return int64(0), fmt.Errorf("failed to get usage from response. usage is nil")
+		return nil, fmt.Errorf("failed to get usage from response because the usage is nil")
 	}
-	var result = int64(0)
+
+	var usedBytes, totalBytes int64
 	for _, usage := range usages {
 		unit := usage.GetUnit()
 		switch unit {
 		case csi.VolumeUsage_BYTES:
-			result = usage.GetUsed()
+			usedBytes = usage.GetUsed()
+			totalBytes = usage.GetTotal()
+			logger.Debug("Found volume usage", logger.Fields{
+				"UsedBytes":  usedBytes,
+				"TotalBytes": totalBytes,
+			})
+		case csi.VolumeUsage_INODES:
+			logger.Debug("Ignore inodes key")
 		default:
-			logger.Info("Found missing key in volume usage")
+			logger.Warn("Found unknown key in volume usage", logger.Fields{
+				"Unit": unit,
+			})
 		}
 	}
-	return result, nil
+	return &Metrics{
+		Used:     usedBytes,
+		Capacity: totalBytes,
+	}, nil
 }
