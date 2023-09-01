@@ -341,7 +341,7 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 				}
 				return err
 			})
-		response <- DockerContainerMetadata{Error: wrapPullErrorAsNamedError(err)}
+		response <- DockerContainerMetadata{Error: wrapPullErrorAsNamedError(image, err)}
 	}()
 
 	select {
@@ -356,15 +356,17 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		err = redactEcrUrls(image, err)
 		return DockerContainerMetadata{Error: &CannotPullContainerError{err}}
 	}
 }
 
-func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
+func wrapPullErrorAsNamedError(image string, err error) apierrors.NamedError {
 	var retErr apierrors.NamedError
 	if err != nil {
 		engErr, ok := err.(apierrors.NamedError)
 		if !ok {
+			err = redactEcrUrls(image, err)
 			engErr = CannotPullContainerError{err}
 		}
 		retErr = engErr
@@ -382,11 +384,12 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 
 	sdkAuthConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return wrapPullErrorAsNamedError(err)
+		return wrapPullErrorAsNamedError(image, err)
 	}
 	// encode auth data
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(sdkAuthConfig); err != nil {
+		err = redactEcrUrls(image, err)
 		return CannotPullECRContainerError{err}
 	}
 
@@ -457,6 +460,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 		break
 	case pullErr := <-pullFinished:
 		if pullErr != nil {
+			pullErr = redactEcrUrls(image, pullErr)
 			return CannotPullContainerError{pullErr}
 		}
 		seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
@@ -468,6 +472,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 
 	err = <-pullFinished
 	if err != nil {
+		err = redactEcrUrls(image, err)
 		return CannotPullContainerError{err}
 	}
 
@@ -522,6 +527,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
 		authConfig, err := provider.GetAuthconfig(image, authData)
 		if err != nil {
+			err = redactEcrUrls(image, err)
 			return authConfig, CannotPullECRContainerError{err}
 		}
 		return authConfig, nil
