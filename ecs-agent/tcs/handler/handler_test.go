@@ -57,8 +57,8 @@ const (
 	testContainerRuntimeVersion           = "testContainerRuntimeVersion"
 	testHeartbeatTimeout                  = 1 * time.Minute
 	testHeartbeatJitter                   = 1 * time.Minute
-	testDisconnectionTimeout              = 15 * time.Minute
-	testDisconnectionJitter               = 30 * time.Minute
+	testDisconnectionTimeout              = 30 * time.Minute
+	testDisconnectionJitter               = 5 * time.Minute
 )
 
 type mockStatsSource struct {
@@ -315,8 +315,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	}
 }
 
-// TestConnectionInactiveTimeout tests the tcs client reconnect when it loses network
-// connection, or it's inactive for too long
+// TestConnectionInactiveTimeout tests the tcs client should time out when it's inactive for too long
 func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start test server.
 	closeWS := make(chan []byte)
@@ -370,11 +369,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
-	assert.Contains(t, err.Error(), "use of closed network connection")
+	assert.Equal(t, err.Error(), io.EOF.Error(), "EOF error expected.")
 
 	msg := <-serverErr
-	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
-		"Read from closed connection should produce an io.EOF error")
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseNormalClosure),
+		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
 }
@@ -403,7 +402,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		TCSurl: server.URL,
 	}
 	ctx := context.Background()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(1500 * time.Millisecond)
 	ctx, cancelCtx := context.WithDeadline(ctx, deadline)
 	defer cancelCtx()
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
@@ -436,15 +435,11 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 	// Start a session with the test server. Start() runs in for loop to attempt reconnection
 	// until ctx is cancelled or done.
 	err = session.Start(ctx)
-
 	// The session should reconnect and the closure of connection should not be because of io.EOF error,
 	// since the connection was closed as part of context cancelled. If we do not send context cancelled
 	// it would continue to reconnect and test will be in forever loop.
 	assert.False(t, websocket.IsCloseError(err, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")
-
-	assert.NoError(t, err, "No error is expected. The test should exit cleanly when the ctx is done.")
-
 }
 
 func getPayloadFromRequest(request string) (string, error) {
@@ -585,7 +580,6 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 	}
 	server.StartTLS()
 	defer server.Close()
-
 	go func() {
 		for {
 			select {
@@ -631,11 +625,11 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 
 	// Start a session with the test server.
 	err = session.StartTelemetrySession(ctx)
-	assert.Contains(t, err.Error(), "use of closed network connection")
+	assert.Equal(t, err.Error(), io.EOF.Error(), "EOF error expected.")
 
 	msg := <-serverErr
-	assert.True(t, websocket.IsCloseError(msg, websocket.CloseAbnormalClosure),
-		"Read from closed connection should produce an io.EOF error")
+	assert.True(t, websocket.IsCloseError(msg, websocket.CloseNormalClosure),
+		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
 }

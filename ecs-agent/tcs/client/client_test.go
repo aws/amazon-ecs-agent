@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
@@ -544,7 +545,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		testCreds, rwTimeout, metricsMessages, healthMessages).(*tcsClientServer)
+		testCreds, rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -615,7 +616,7 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 		IsDocker:           true,
 	}
 
-	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, testCreds, rwTimeout, nil, nil)
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, testCreds, rwTimeout, nil, nil, metrics.NewNopEntryFactory())
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{

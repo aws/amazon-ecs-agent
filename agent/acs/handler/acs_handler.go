@@ -55,10 +55,6 @@ const (
 
 	inactiveInstanceReconnectDelay = 1 * time.Hour
 
-	// connectionTime is the maximum time after which agent closes its connection to ACS
-	connectionTime   = 15 * time.Minute
-	connectionJitter = 30 * time.Minute
-
 	connectionBackoffMin        = 250 * time.Millisecond
 	connectionBackoffMax        = 2 * time.Minute
 	connectionBackoffJitter     = 0.2
@@ -97,6 +93,7 @@ type session struct {
 	ctx                             context.Context
 	cancel                          context.CancelFunc
 	backoff                         retry.Backoff
+	metricsFactory                  metrics.EntryFactory
 	clientFactory                   wsclient.ClientFactory
 	sendCredentials                 bool
 	latestSeqNumTaskManifest        *int64
@@ -127,6 +124,7 @@ func NewSession(
 	doctor *doctor.Doctor,
 	clientFactory wsclient.ClientFactory,
 	addUpdateRequestHandlers func(wsclient.ClientServer),
+	metricsFactory metrics.EntryFactory,
 ) Session {
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -149,13 +147,14 @@ func NewSession(
 		backoff:                         backoff,
 		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
 		doctor:                          doctor,
+		metricsFactory:                  metricsFactory,
 		clientFactory:                   clientFactory,
 		addUpdateRequestHandlers:        addUpdateRequestHandlers,
 		sendCredentials:                 true,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
-		connectionTime:                  connectionTime,
-		connectionJitter:                connectionJitter,
+		connectionTime:                  wsclient.DisconnectTimeout,
+		connectionJitter:                wsclient.DisconnectJitterMax,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 	}
 }
@@ -233,7 +232,8 @@ func (acsSession *session) startSessionOnce() error {
 		url,
 		acsSession.credentialsProvider,
 		wsRWTimeout,
-		minAgentCfg)
+		minAgentCfg,
+		acsSession.metricsFactory)
 	defer client.Close()
 
 	return acsSession.startACSSession(client)
@@ -257,21 +257,19 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	taskStopper := NewTaskStopper(acsSession.taskEngine)
 
-	metricsFactory := metrics.NewNopEntryFactory()
-
 	responseSender := func(response interface{}) error {
 		return client.MakeRequest(response)
 	}
 	responders := []wsclient.RequestResponder{
 		acssession.NewPayloadResponder(payloadMsgHandler, responseSender),
-		acssession.NewRefreshCredentialsResponder(acsSession.credentialsManager, credsMetadataSetter, metricsFactory,
+		acssession.NewRefreshCredentialsResponder(acsSession.credentialsManager, credsMetadataSetter, acsSession.metricsFactory,
 			responseSender),
 		acssession.NewAttachTaskENIResponder(eniHandler, responseSender),
 		acssession.NewAttachInstanceENIResponder(eniHandler, responseSender),
 		acssession.NewHeartbeatResponder(acsSession.doctor, responseSender),
 		acssession.NewTaskManifestResponder(taskComparer, sequenceNumberAccessor, manifestMessageIDAccessor,
-			metricsFactory, responseSender),
-		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metricsFactory),
+			acsSession.metricsFactory, responseSender),
+		acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, acsSession.metricsFactory),
 	}
 	for _, r := range responders {
 		client.AddRequestHandler(r.HandlerFunc())
@@ -281,17 +279,17 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.addUpdateRequestHandlers(client)
 	}
 
-	err := client.Connect()
+	disconnectTimer, err := client.Connect(metrics.ACSDisconnectTimeoutMetricName,
+		acsSession.connectionTime,
+		acsSession.connectionJitter)
 	if err != nil {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
 
+	defer disconnectTimer.Stop()
+
 	seelog.Info("Connected to ACS endpoint")
-	// Start a connection timer; agent close its ACS websocket connection
-	// after this timer expires
-	connectionTimer := newConnectionTimer(client, acsSession.connectionTime, acsSession.connectionJitter)
-	defer connectionTimer.Stop()
 
 	// Start a heartbeat timer for closing the connection
 	heartbeatTimer := newHeartbeatTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
@@ -314,6 +312,20 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	defer backoffResetTimer.Stop()
 
 	return client.Serve(acsSession.ctx)
+}
+
+// newHeartbeatTimer creates a new time object, with a callback to
+// disconnect from ACS on inactivity
+func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
+	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
+		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
+		if err := client.Close(); err != nil {
+			seelog.Warnf("Error disconnecting: %v", err)
+		}
+		seelog.Info("Disconnected from ACS")
+	})
+
+	return timer
 }
 
 func (acsSession *session) computeReconnectDelay(isInactiveInstance bool) time.Duration {
@@ -364,37 +376,6 @@ func (acsSession *session) acsURL(endpoint string) string {
 	}
 	query.Set(sendCredentialsURLParameterName, strconv.FormatBool(acsSession.sendCredentials))
 	return acsURL + "?" + query.Encode()
-}
-
-// newHeartbeatTimer creates a new time object, with a callback to
-// disconnect from ACS on inactivity
-func newHeartbeatTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
-	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
-		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
-		if err := client.Close(); err != nil {
-			seelog.Warnf("Error disconnecting: %v", err)
-		}
-		seelog.Info("Disconnected from ACS")
-	})
-
-	return timer
-}
-
-// newConnectionTimer creates a new timer, after which agent closes
-// its websocket connection
-func newConnectionTimer(client wsclient.ClientServer, connectionTime time.Duration,
-	connectionJitter time.Duration) ttime.Timer {
-	expiresAt := retry.AddJitter(connectionTime, connectionJitter)
-	timer := time.AfterFunc(expiresAt, func() {
-		seelog.Infof("Closing ACS websocket connection after %v minutes", expiresAt.Minutes())
-		// WriteCloseMessage() writes a close message using websocket control messages
-		// Ref: https://pkg.go.dev/github.com/gorilla/websocket#hdr-Control_Messages
-		err := client.WriteCloseMessage()
-		if err != nil {
-			seelog.Warnf("Error writing close message: %v", err)
-		}
-	})
-	return timer
 }
 
 // anyMessageHandler handles any server message. Any server message means the

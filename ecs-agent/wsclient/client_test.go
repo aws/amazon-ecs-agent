@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
@@ -42,7 +44,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const dockerEndpoint = "/var/run/docker.sock"
+const (
+	dockerEndpoint                  = "/var/run/docker.sock"
+	mockDisconnectTimeoutMetricName = "DisconnectTimeout"
+)
 
 // Close closes the underlying connection. Implement Close() in this file
 // as ClientServerImpl doesn't implement it. This is needed by the
@@ -58,7 +63,7 @@ func TestClientProxy(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer("http://www.amazon.com", types, 1)
-	err := cs.Connect()
+	_, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
 }
@@ -87,7 +92,9 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
 
 	executeTenRequests := func() {
 		for i := 0; i < 10; i++ {
@@ -119,6 +126,7 @@ func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Durat
 		TypeDecoder:        BuildTypeDecoder(msgType),
 		RWTimeout:          rwTimeout * time.Second,
 		RequestHandlers:    make(map[string]RequestHandler),
+		MetricsFactory:     metrics.NewNopEntryFactory(),
 	}
 }
 
@@ -135,7 +143,9 @@ func TestProxyVariableCustomValue(t *testing.T) {
 	testString := "Custom no proxy string"
 	os.Setenv("NO_PROXY", testString)
 	types := []interface{}{ecsacs.AckRequest{}}
-	require.NoError(t, getTestClientServer(mockServer.URL, types, 1).Connect())
+	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
 
 	assert.Equal(t, os.Getenv("NO_PROXY"), testString, "NO_PROXY should match user-supplied variable")
 }
@@ -152,7 +162,9 @@ func TestProxyVariableDefaultValue(t *testing.T) {
 
 	os.Unsetenv("NO_PROXY")
 	types := []interface{}{ecsacs.AckRequest{}}
-	getTestClientServer(mockServer.URL, types, 1).Connect()
+	timer, err := getTestClientServer(mockServer.URL, types, 1).Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
 
 	expectedEnvVar := "169.254.169.254,169.254.170.2," + dockerEndpoint
 
@@ -172,7 +184,10 @@ func TestHandleMessagePermissibleCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
+
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	go func() {
@@ -195,7 +210,10 @@ func TestHandleMessageUnexpectedCloseCode(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
+
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	ctx := context.Background()
@@ -219,7 +237,10 @@ func TestHandleNonHTTPSEndpoint(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	require.NoError(t, cs.Connect())
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
+
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	req := ecsacs.AckRequest{Cluster: aws.String("test"), ContainerInstance: aws.String("test"), MessageId: aws.String("test")}
@@ -244,8 +265,7 @@ func TestHandleIncorrectURLScheme(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServerURL.String(), types, 1)
-	err := cs.Connect()
-
+	_, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	assert.Error(t, err, "Expected error for incorrect URL scheme")
 }
 
@@ -389,7 +409,7 @@ func TestWriteCloseMessage(t *testing.T) {
 
 	types := []interface{}{ecsacs.PayloadMessage{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
-	cs.Connect()
+	cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 
 	defer cs.Close()
 
@@ -412,7 +432,10 @@ func TestCtxCancel(t *testing.T) {
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer(mockServer.URL, types, 2)
-	require.NoError(t, cs.Connect())
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	require.NoError(t, err)
+	defer timer.Stop()
+
 	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
 
 	go func() {
@@ -420,5 +443,43 @@ func TestCtxCancel(t *testing.T) {
 	}()
 	// Cancel the context.
 	cancel()
-	assert.EqualError(t, <-messageError, "context canceled")
+	err = <-messageError
+	assert.Equal(t, err.Error(), context.Canceled.Error(), "Context canceled error expected.")
+}
+
+func TestPeriodicDisconnect(t *testing.T) {
+	closeWS := make(chan []byte)
+	defer close(closeWS)
+
+	mockServer, _, _, errChan, _ := utils.GetMockServer(closeWS)
+	mockServer.StartTLS()
+
+	messageError := make(chan error)
+	ctx := context.Background()
+	types := []interface{}{ecsacs.AckRequest{}}
+
+	// Setting a higher rwtimeout to allow disconnect due to periodic timeouts.
+	cs := getTestClientServer(mockServer.URL, types, 20)
+	// Setting up a lower disconnect timer value for testing.
+	disconnectTimeout := 10 * time.Second
+	disconnectTimeoutJitter := 2 * time.Second
+	timer, err := cs.Connect(mockDisconnectTimeoutMetricName, disconnectTimeout, disconnectTimeoutJitter)
+	require.NoError(t, err)
+	defer timer.Stop()
+	assert.True(t, cs.IsReady(), "expected websocket connection to be ready")
+
+	// Using time difference to ensure that the disconnect was
+	go func() {
+		startTime := time.Now()
+		messageError <- cs.ConsumeMessages(ctx)
+		endTime := time.Now()
+		timeDiff := endTime.Sub(startTime)
+		assert.True(t, timeDiff >= disconnectTimeout,
+			"ConsumeMessages should be not be closed before disconnectTimeout has elapsed.")
+	}()
+
+	// Assert that the connection is closed on the server side as expected
+	assert.EqualError(t, <-errChan, "websocket: close 1000 (normal): ConnectionExpired: Reconnect to continue")
+	// Assert that the connection is closed on the client side as expected
+	assert.EqualError(t, <-messageError, io.EOF.Error(), "expected EOF for normal close code")
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
@@ -44,7 +45,12 @@ func NewACSClientFactory() wsclient.ClientFactory {
 // New returns a client/server to bidirectionally communicate with ACS
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
-func (*acsClientFactory) New(url string, credentialProvider *credentials.Credentials, rwTimeout time.Duration, cfg *wsclient.WSClientMinAgentConfig) wsclient.ClientServer {
+func (*acsClientFactory) New(url string,
+	credentialProvider *credentials.Credentials,
+	rwTimeout time.Duration,
+	cfg *wsclient.WSClientMinAgentConfig,
+	metricsFactory metrics.EntryFactory) wsclient.ClientServer {
+
 	cs := &clientServer{}
 	cs.URL = url
 	cs.CredentialProvider = credentialProvider
@@ -53,6 +59,7 @@ func (*acsClientFactory) New(url string, credentialProvider *credentials.Credent
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
 	cs.TypeDecoder = NewACSDecoder()
 	cs.RWTimeout = rwTimeout
+	cs.MetricsFactory = metricsFactory
 	return cs
 }
 

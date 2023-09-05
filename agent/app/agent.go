@@ -64,6 +64,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+	ecs_agent_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
@@ -1013,6 +1014,7 @@ func (agent *ecsAgent) startACSSession(
 		doctor,
 		acsclient.NewACSClientFactory(),
 		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
+		ecs_agent_metrics.NewNopEntryFactory(),
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()

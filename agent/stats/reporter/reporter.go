@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -36,9 +37,6 @@ const (
 	// The maximum time to wait between heartbeats without disconnecting
 	defaultHeartbeatTimeout = 1 * time.Minute
 	defaultHeartbeatJitter  = 1 * time.Minute
-	// Default websocket client disconnection timeout initiated by agent
-	defaultDisconnectionTimeout = 15 * time.Minute
-	defaultDisconnectionJitter  = 30 * time.Minute
 )
 
 type DockerTelemetrySession struct {
@@ -87,9 +85,9 @@ func NewDockerTelemetrySession(
 		deregisterInstanceEventStream,
 		defaultHeartbeatTimeout,
 		defaultHeartbeatJitter,
-		defaultDisconnectionTimeout,
-		defaultDisconnectionJitter,
-		nil,
+		wsclient.DisconnectTimeout,
+		wsclient.DisconnectJitterMax,
+		metrics.NewNopEntryFactory(),
 		metricsChannel,
 		healthChannel,
 		doctor,

@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -75,6 +76,7 @@ func New(url string,
 	rwTimeout time.Duration,
 	metricsMessages <-chan ecstcs.TelemetryMessage,
 	healthMessages <-chan ecstcs.HealthMessage,
+	metricsFactory metrics.EntryFactory,
 ) wsclient.ClientServer {
 	cs := &tcsClientServer{
 		doctor:                   doctor,
@@ -91,6 +93,7 @@ func New(url string,
 			MakeRequestHook:    signRequestFunc(url, cfg.AWSRegion, credentialProvider),
 			TypeDecoder:        NewTCSDecoder(),
 			RequestHandlers:    make(map[string]wsclient.RequestHandler),
+			MetricsFactory:     metricsFactory,
 		},
 	}
 	cs.ServiceError = &tcsError{}

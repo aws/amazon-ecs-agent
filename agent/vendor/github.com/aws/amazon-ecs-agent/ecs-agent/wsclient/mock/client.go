@@ -23,6 +23,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 	credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -78,18 +79,33 @@ func (mr *MockClientServerMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockClientServer)(nil).Close))
 }
 
-// Connect mocks base method.
-func (m *MockClientServer) Connect() error {
+// CloseClient mocks base method.
+func (m *MockClientServer) CloseClient(arg0 time.Time, arg1 time.Duration) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect")
+	ret := m.ctrl.Call(m, "CloseClient", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Connect indicates an expected call of Connect.
-func (mr *MockClientServerMockRecorder) Connect() *gomock.Call {
+// CloseClient indicates an expected call of CloseClient.
+func (mr *MockClientServerMockRecorder) CloseClient(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClientServer)(nil).Connect))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseClient", reflect.TypeOf((*MockClientServer)(nil).CloseClient), arg0, arg1)
+}
+
+// Connect mocks base method.
+func (m *MockClientServer) Connect(arg0 string, arg1, arg2 time.Duration) (*time.Timer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Connect", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*time.Timer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Connect indicates an expected call of Connect.
+func (mr *MockClientServerMockRecorder) Connect(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClientServer)(nil).Connect), arg0, arg1, arg2)
 }
 
 // Disconnect mocks base method.
@@ -293,15 +309,15 @@ func (m *MockClientFactory) EXPECT() *MockClientFactoryMockRecorder {
 }
 
 // New mocks base method.
-func (m *MockClientFactory) New(arg0 string, arg1 *credentials.Credentials, arg2 time.Duration, arg3 *wsclient.WSClientMinAgentConfig) wsclient.ClientServer {
+func (m *MockClientFactory) New(arg0 string, arg1 *credentials.Credentials, arg2 time.Duration, arg3 *wsclient.WSClientMinAgentConfig, arg4 metrics.EntryFactory) wsclient.ClientServer {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "New", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "New", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(wsclient.ClientServer)
 	return ret0
 }
 
 // New indicates an expected call of New.
-func (mr *MockClientFactoryMockRecorder) New(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockClientFactoryMockRecorder) New(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockClientFactory)(nil).New), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockClientFactory)(nil).New), arg0, arg1, arg2, arg3, arg4)
 }

@@ -43,5 +43,6 @@ const (
 
 	// Agent Availability
 	agentAvailabilityNamespace     = "Availability"
+	ACSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".ACSDisconnectTimeout"
 	TCSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".TCSDisconnectTimeout"
 )
