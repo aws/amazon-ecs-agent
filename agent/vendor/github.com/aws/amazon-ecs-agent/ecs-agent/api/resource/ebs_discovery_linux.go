@@ -44,7 +44,7 @@ type BDChild struct {
 // 2. On xen-based instance we only check by the device name.
 func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error {
 	var lsblkOut LsblkOutput
-	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsnvmeIDTimeoutDuration)
+	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsVolumeDiscoveryTimeout)
 	defer cancel()
 
 	// The lsblk command will output the name and volume ID of all block devices on the host in JSON format

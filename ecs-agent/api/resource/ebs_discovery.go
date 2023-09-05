@@ -15,47 +15,55 @@ package resource
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
+	"github.com/pkg/errors"
 )
 
 const (
-	ebsnvmeIDTimeoutDuration = 5 * time.Second
-	ebsResourceKeyPrefix     = "ebs-volume:"
-	ScanPeriod               = 500 * time.Millisecond
+	ebsVolumeDiscoveryTimeout = 5 * time.Second
+	ebsResourceKeyPrefix      = "ebs-volume:"
+	ScanPeriod                = 500 * time.Millisecond
 )
 
 var (
 	ErrInvalidVolumeID = errors.New("EBS volume IDs do not match")
 )
 
-// EBSDiscoveryClient is used to scan and validate if an EBS volume is attached on the host instance.
 type EBSDiscoveryClient struct {
 	ctx context.Context
 }
 
-// NewDiscoveryClient creates a new EBSDiscoveryClient object
-func NewDiscoveryClient(ctx context.Context) EBSDiscovery {
+func NewDiscoveryClient(ctx context.Context) *EBSDiscoveryClient {
 	return &EBSDiscoveryClient{
 		ctx: ctx,
 	}
 }
 
 // ScanEBSVolumes will iterate through the entire list of pending EBS volume attachments within the agent state and checks if it's attached on the host.
-func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]T, dc EBSDiscovery) []string {
+func ScanEBSVolumes[T GenericEBSAttachmentObject](t map[string]T, dc EBSDiscovery) []string {
 	var err error
 	var foundVolumes []string
-	for key, ebs := range pendingAttachments {
+	for key, ebs := range t {
 		volumeId := strings.TrimPrefix(key, ebsResourceKeyPrefix)
 		deviceName := ebs.GetAttachmentProperties(DeviceName)
 		err = dc.ConfirmEBSVolumeIsAttached(deviceName, volumeId)
 		if err != nil {
-			if !errors.Is(err, ErrInvalidVolumeID) {
-				err = fmt.Errorf("%w; failed to confirm if EBS volume is attached to the host", err)
+			if err == ErrInvalidVolumeID || errors.Cause(err) == ErrInvalidVolumeID {
+				logger.Warn("Found a different EBS volume attached to the host. Expected EBS volume:", logger.Fields{
+					"volumeId":   volumeId,
+					"deviceName": deviceName,
+				})
+			} else {
+				logger.Warn("Failed to confirm if EBS volume is attached to the host. ", logger.Fields{
+					"volumeId":   volumeId,
+					"deviceName": deviceName,
+					"error":      err,
+				})
 			}
-			ebs.SetError(err)
 			continue
 		}
 		foundVolumes = append(foundVolumes, key)
