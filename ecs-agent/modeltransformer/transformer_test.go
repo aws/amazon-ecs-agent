@@ -18,6 +18,7 @@ package modeltransformer
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -77,6 +78,39 @@ func testTransformationFunction1200(dataIn []byte) ([]byte, error) {
 	newModel.TestFieldTaskVCpu, _ = strconv.Atoi(oldModel.TestFieldTaskVCpu)
 	dataOut, err := json.Marshal(&newModel)
 	return dataOut, err
+}
+
+func testTransformationFunctionBuggy(dataIn []byte) ([]byte, error) {
+	err := errors.New("error")
+	return []byte{}, err
+}
+
+func TestAddProblematicTransformationFunctionsAndTransformTaskFailed(t *testing.T) {
+	boltDbMetadataVersion := "1.9.0"
+	dataIn, _ := json.Marshal(Test_task_1_0_0{
+		TestFieldId:          "id",
+		TestFieldContainerId: "cid",
+		TestFieldTaskVCpu:    "1",
+	})
+	transformer := NewTransformer()
+	transformer.AddTaskTransformationFunctions(firstThresholdVersion, testTransformationFunctionBuggy)
+	_, err := transformer.TransformTask(boltDbMetadataVersion, dataIn)
+	assert.Error(t, err, "Expecting error when error returned from transformationFunction")
+}
+
+func TestAddTransformationFunctionsAndTransformTaskFailedCorruptedData(t *testing.T) {
+	boltDbMetadataVersion := "1.19.0"
+	dataIn, _ := json.Marshal(Test_task_1_10_0{
+		TestFieldId:           "id",
+		TestFieldContainerIds: []string{"cid"},
+		TestFieldTaskVCpu:     "1",
+	})
+	corruptedDataIn := dataIn[1 : len(dataIn)-1]
+	transformer := NewTransformer()
+	transformer.AddTaskTransformationFunctions(firstThresholdVersion, testTransformationFunction1100)
+	transformer.AddTaskTransformationFunctions(secondThresholdVersion, testTransformationFunction1200)
+	_, err := transformer.TransformTask(boltDbMetadataVersion, corruptedDataIn)
+	assert.Error(t, err, "Expecting error with corrupted json data persisted.")
 }
 
 func TestAddTaskTransformationFunctionsAndTransformTask(t *testing.T) {
@@ -164,6 +198,18 @@ func TestCheckIsUpgrade(t *testing.T) {
 			name:                  "runningAgentVersion smaller than persistedAgentVersion",
 			runningAgentVersion:   "1.0.0",
 			persistedAgentVersion: "1.1.0",
+			expect:                false,
+		},
+		{
+			name:                  "running agent version is corrupted",
+			runningAgentVersion:   "1.0",
+			persistedAgentVersion: "1.1.0",
+			expect:                false,
+		},
+		{
+			name:                  "persisted agent version is corrupted",
+			runningAgentVersion:   "1.0.0",
+			persistedAgentVersion: "1.1.x",
 			expect:                false,
 		},
 	}

@@ -30,6 +30,7 @@ const (
 // add<type>TransformationFunctions will add more <type> transformation functions to the transformation functions chain.
 // Add other transformation functions as needed. e.g. ContainerTransformationFunctions.
 // Add corresponding Transform<Type> and Add<Type>TransformationFunctions while adding other transformation functions.
+// Note that reverse transformation functions (downgrade) will not be applicable to transformer, as it is embedded with agent.
 type Transformer struct {
 	taskTransformFunctions []*TransformFunc
 }
@@ -79,10 +80,13 @@ func (t *Transformer) TransformTask(version string, data []byte) ([]byte, error)
 
 // AddTaskTransformationFunctions adds the transformationFunction to the handling chain
 func (t *Transformer) AddTaskTransformationFunctions(version string, transformationFunc transformationFunctionClosure) {
-	t.taskTransformFunctions = append(t.taskTransformFunctions, &TransformFunc{
-		version:  version,
-		function: transformationFunc,
-	})
+	_, isValid := verifyAndParseVersionString(version)
+	if isValid {
+		t.taskTransformFunctions = append(t.taskTransformFunctions, &TransformFunc{
+			version:  version,
+			function: transformationFunc,
+		})
+	}
 }
 
 // IsUpgrade checks whether the load of a persisted model to running agent is an upgrade
@@ -91,8 +95,14 @@ func (t *Transformer) IsUpgrade(runningAgentVersion, persistedAgentVersion strin
 }
 
 func checkVersionSmaller(version, threshold string) bool {
-	versionParams := strings.Split(version, ".")
-	thresholdParams := strings.Split(threshold, ".")
+	versionParams, isValid := verifyAndParseVersionString(version)
+	if !isValid {
+		return false
+	}
+	thresholdParams, isValid := verifyAndParseVersionString(threshold)
+	if !isValid {
+		return false
+	}
 
 	for i := 0; i < len(versionParams); i++ {
 		versionNumber, _ := strconv.Atoi(versionParams[i])
@@ -103,4 +113,24 @@ func checkVersionSmaller(version, threshold string) bool {
 		}
 	}
 	return false
+}
+
+func verifyAndParseVersionString(version string) ([]string, bool) {
+	parts := strings.Split(version, ".")
+
+	// We expect exactly 3 parts for the format "x.x.x"
+	if len(parts) != 3 {
+		return parts, false
+	}
+
+	// Each part should be a valid integer
+	for _, part := range parts {
+		if _, err := strconv.Atoi(part); err != nil {
+			logger.Warn("Invalid version string", logger.Fields{
+				"version": version,
+			})
+			return parts, false
+		}
+	}
+	return parts, true
 }
