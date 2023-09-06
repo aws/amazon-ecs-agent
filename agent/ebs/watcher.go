@@ -90,10 +90,12 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 	}
 
 	volumeId := ebs.GetAttachmentProperties(apiebs.VolumeIdName)
-	_, ok := w.agentState.GetEBSByVolumeId(volumeId)
+	ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if ok {
 		log.Infof("EBS Volume attachment already exists. Skip handling EBS attachment %v.", ebs.EBSToString())
-		return nil
+		return ebsAttachment.StartTimer(func() {
+			w.handleEBSAckTimeout(volumeId)
+		})
 	}
 
 	if err := w.addEBSAttachmentToState(ebs); err != nil {
@@ -116,7 +118,7 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 	// TODO: Add the EBS volume to data client
 	ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if !ok {
-		log.Warnf("Unable to find EBS volume with volume ID: %v.", volumeId)
+		log.Warnf("Unable to find EBS volume with volume ID: %v within agent state.", volumeId)
 		return
 	}
 

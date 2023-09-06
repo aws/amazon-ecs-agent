@@ -26,16 +26,12 @@ import (
 
 // LsblkOutput is used to manage and track the output of `lsblk`
 type LsblkOutput struct {
-	BlockDevies []BD `json:"blockdevices"`
+	BlockDevices []BlockDevice `json:"blockdevices"`
 }
-type BD struct {
-	Name     string    `json:"name"`
-	Serial   string    `json:"serial"`
-	Children []BDChild `json:"children"`
-}
-type BDChild struct {
-	Name   string `json:"name"`
-	Serial string `json:"serial"`
+type BlockDevice struct {
+	Name     string         `json:"name"`
+	Serial   string         `json:"serial"`
+	Children []*BlockDevice `json:"children,omitempty"`
 }
 
 // ConfirmEBSVolumeIsAttached is used to scan for an EBS volume that's on the host with a specific device name and/or volume ID.
@@ -76,14 +72,21 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 
 // parseLsblkOutput will parse the `lsblk` output and search for a EBS volume with a specific device name.
 // Once found we return the volume ID, otherwise we return an empty string along with an error
-// The output of the "lsblk -o +SERIAL" command looks like the following:
-// NAME          MAJ:MIN RM SIZE RO TYPE MOUNTPOINT SERIAL
-// nvme0n1       259:0    0  30G  0 disk            vol123
-// ├─nvme0n1p1   259:1    0  30G  0 part /
-// └─nvme0n1p128 259:2    0   1M  0 part
+// The output of the "lsblk -o NAME,SERIAL -J" command looks like the following:
+//
+//	{
+//		"blockdevices": [
+//		   {"name": "nvme0n1", "serial": "vol087768edff8511a23",
+//			  "children": [
+//				 {"name": "nvme0n1p1", "serial": null},
+//				 {"name": "nvme0n1p128", "serial": null}
+//			  ]
+//		   }
+//		]
+//	 }
 func parseLsblkOutput(output *LsblkOutput, deviceName string) (string, error) {
 	actualDeviceName := deviceName[strings.LastIndex(deviceName, "/")+1:]
-	for _, block := range output.BlockDevies {
+	for _, block := range output.BlockDevices {
 		if block.Name == actualDeviceName {
 			return block.Serial, nil
 		}

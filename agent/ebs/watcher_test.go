@@ -18,6 +18,7 @@ package ebs
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -312,4 +313,57 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 0)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(volumeID)
 	assert.False(t, ok)
+}
+
+// TestHandleMismatchEBSAttachment tests handling an EBS attachment but found a different volume attached
+// onto the host during the scanning process.
+func TestHandleMismatchEBSAttachment(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	ctx := context.Background()
+	taskEngineState := dockerstate.NewTaskEngineState()
+	eventChannel := make(chan statechange.Event)
+	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+
+	watcher := newTestEBSWatcher(ctx, taskEngineState, eventChannel, mockDiscoveryClient)
+
+	testAttachmentProperties := map[string]string{
+		apiebs.ResourceTypeName: apiebs.ElasticBlockStorage,
+		apiebs.DeviceName:       deviceName,
+		apiebs.VolumeIdName:     volumeID,
+	}
+
+	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
+	ebsAttachment := &apiebs.ResourceAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			TaskARN:              taskARN,
+			TaskClusterARN:       taskClusterARN,
+			ContainerInstanceARN: containerInstanceARN,
+			ExpiresAt:            expiresAt,
+			Status:               status.AttachmentNone,
+			AttachmentARN:        resourceAttachmentARN,
+		},
+		AttachmentProperties: testAttachmentProperties,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	mockDiscoveryClient.EXPECT().ConfirmEBSVolumeIsAttached(deviceName, volumeID).
+		Do(func(deviceName, volumeID string) {
+			wg.Done()
+		}).
+		Return(fmt.Errorf("%w; expected EBS volume %s but found %s", apiebs.ErrInvalidVolumeID, volumeID, "vol-321")).
+		MinTimes(1)
+
+	err := watcher.HandleResourceAttachment(ebsAttachment)
+	assert.NoError(t, err)
+
+	pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
+	foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
+
+	assert.Empty(t, foundVolumes)
+	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(volumeID)
+	assert.True(t, ok)
+	assert.ErrorIs(t, ebsAttachment.GetError(), apiebs.ErrInvalidVolumeID)
 }
