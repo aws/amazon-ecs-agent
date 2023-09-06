@@ -216,6 +216,14 @@ func (ra *ResourceAttachment) SetError(err error) {
 	ra.err = err
 }
 
+// GetError returns the error field for a resource attachment.
+func (ra *ResourceAttachment) GetError() error {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.err
+}
+
 // EBSToString returns a string representation of an EBS volume resource attachment.
 func (ra *ResourceAttachment) EBSToString() string {
 	ra.guard.RLock()

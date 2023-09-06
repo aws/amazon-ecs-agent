@@ -29,14 +29,14 @@ const (
 )
 
 func TestParseLsblkOutput(t *testing.T) {
-	blockDevice := BD{
+	blockDevice := BlockDevice{
 		Name:     testDeviceName,
 		Serial:   testVolumeID,
-		Children: make([]BDChild, 0),
+		Children: make([]*BlockDevice, 0),
 	}
 
 	lsblkOutput := &LsblkOutput{
-		BlockDevies: []BD{
+		BlockDevices: []BlockDevice{
 			blockDevice,
 		},
 	}
@@ -47,14 +47,14 @@ func TestParseLsblkOutput(t *testing.T) {
 }
 
 func TestParseLsblkOutputError(t *testing.T) {
-	blockDevice := BD{
+	blockDevice := BlockDevice{
 		Name:     "nvme1n1",
 		Serial:   testVolumeID,
-		Children: make([]BDChild, 0),
+		Children: make([]*BlockDevice, 0),
 	}
 
 	lsblkOutput := &LsblkOutput{
-		BlockDevies: []BD{
+		BlockDevices: []BlockDevice{
 			blockDevice,
 		},
 	}
