@@ -14,6 +14,8 @@
 package dockerapi
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -405,4 +407,18 @@ func (err CannotInspectContainerExecError) Error() string {
 // ErrorName returns name of the CannotCreateContainerExecError.
 func (err CannotInspectContainerExecError) ErrorName() string {
 	return "CannotInspectContainerExecError"
+}
+
+// Redact ECR bucket urls from error string
+// Return a new error with redacted string - replacing ECR bucket (*starport-layer-bucket*) urls with a string.
+// This is done because container runtime's request may sometimes contain security tokens when accessing ECR buckets for image layers.
+// When these requests error out, the URLs with secrets may get bubbled up to Agent logs.
+// So we redact the otherwise hidden URLs for security.
+func redactEcrUrls(overrideStr string, err error) error {
+	if err == nil {
+		return nil
+	}
+	urlRegex := regexp.MustCompile(`\"?https[^\s]+starport-layer-bucket[^\s]+`)
+	redactedStr := urlRegex.ReplaceAllString(err.Error(), fmt.Sprintf("REDACTED ECR URL related to %s", overrideStr))
+	return fmt.Errorf(redactedStr)
 }
