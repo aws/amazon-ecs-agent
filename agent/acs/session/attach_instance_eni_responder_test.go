@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handler
+package session
 
 import (
 	"sync"
@@ -37,7 +37,7 @@ import (
 
 var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessage{
 	MessageId:            aws.String(testconst.MessageID),
-	ClusterArn:           aws.String(testconst.ClusterName),
+	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 		{

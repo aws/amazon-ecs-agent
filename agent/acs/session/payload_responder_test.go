@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handler
+package session
 
 import (
 	"context"
@@ -52,13 +52,13 @@ const (
 var testPayloadMessage = &ecsacs.PayloadMessage{
 	Tasks:                []*ecsacs.Task{{}},
 	MessageId:            aws.String(testconst.MessageID),
-	ClusterArn:           aws.String(testconst.ClusterName),
+	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 }
 
 var expectedPayloadAck = &ecsacs.AckRequest{
 	MessageId:         aws.String(testconst.MessageID),
-	Cluster:           aws.String(testconst.ClusterName),
+	Cluster:           aws.String(testconst.ClusterARN),
 	ContainerInstance: aws.String(testconst.ContainerInstanceARN),
 }
 

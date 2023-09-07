@@ -13,7 +13,7 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-package handler
+package session
 
 import (
 	"testing"
@@ -29,10 +29,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-)
-
-const (
-	dummyInt = 123
 )
 
 // taskStopVerificationAckTestHelper wraps the common dependencies required for task stop verification ACK tests.
@@ -71,7 +67,7 @@ func defaultTasksOnInstance() map[string]*task.Task {
 // defaultTaskStopVerificationAck returns a baseline task stop verification ACK to be used in testing.
 func defaultTaskStopVerificationAck() *ecsacs.TaskStopVerificationAck {
 	return &ecsacs.TaskStopVerificationAck{
-		GeneratedAt: aws.Int64(dummyInt),
+		GeneratedAt: aws.Int64(testconst.DummyInt),
 		MessageId:   aws.String(testconst.MessageID),
 		StopTasks:   []*ecsacs.TaskIdentifier{},
 	}
@@ -92,12 +88,12 @@ func TestTaskStopVerificationAckResponderStopsMultipleTasks(t *testing.T) {
 		{
 			DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 			TaskArn:        aws.String(taskARN2),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 		},
 		{
 			DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 			TaskArn:        aws.String(taskARN3),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 		},
 	}
 
@@ -136,17 +132,17 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 		{
 			DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 			TaskArn:        aws.String(taskARN1),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 		},
 		{
 			DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 			TaskArn:        aws.String(taskARN2),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 		},
 		{
 			DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 			TaskArn:        aws.String(taskARN3),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 		},
 	}
 

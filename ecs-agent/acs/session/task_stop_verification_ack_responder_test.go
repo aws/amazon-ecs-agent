@@ -25,18 +25,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TO-DO: move below from agent and ecs-agent to testconst
-const (
-	dummyInt = 123
-)
-
 var testStopVerificationAck = &ecsacs.TaskStopVerificationAck{
-	GeneratedAt: aws.Int64(dummyInt),
+	GeneratedAt: aws.Int64(testconst.DummyInt),
 	MessageId:   aws.String(testconst.MessageID),
 	StopTasks: []*ecsacs.TaskIdentifier{
 		{
 			TaskArn:        aws.String(testconst.TaskARN),
-			TaskClusterArn: aws.String(testconst.ClusterName),
+			TaskClusterArn: aws.String(testconst.ClusterARN),
 			DesiredStatus:  aws.String("STOPPED"),
 		},
 	},

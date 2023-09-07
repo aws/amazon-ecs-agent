@@ -55,7 +55,7 @@ func NewRefreshCredentialsResponder(credentialsManager credentials.Manager,
 		credsMetadataSetter: credsMetadataSetter,
 		metricsFactory:      metricsFactory,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

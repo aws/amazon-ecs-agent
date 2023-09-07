@@ -35,7 +35,7 @@ func NewHeartbeatResponder(doctor *doctor.Doctor, responseSender wsclient.Respon
 	r := &heartbeatResponder{
 		doctor: doctor,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

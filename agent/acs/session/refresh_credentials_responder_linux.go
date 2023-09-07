@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build linux
+// +build linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,20 +14,32 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handler
+package session
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 )
 
-// setDomainlessGMSATaskExecutionRoleCredentials sets the taskExecutionRoleCredentials to a Windows Registry Key so that
-// the domainless gMSA plugin can use these credentials to retrieve the customer Active Directory credential
 func checkAndSetDomainlessGMSATaskExecutionRoleCredentials(iamRoleCredentials credentials.IAMRoleCredentials, task *task.Task) error {
 	// exit early if the task does not need domainless gMSA
 	if !task.RequiresDomainlessCredentialSpecResource() {
 		return nil
 	}
-	return credentialspec.SetTaskExecutionCredentialsRegKeys(iamRoleCredentials, task.Arn)
+	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
+	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, "", task.ExecutionCredentialsID,
+		nil, ssmfactory.NewSSMClientCreator(), s3factory.NewS3ClientCreator(), asmfactory.NewClientCreator(), credspecContainerMapping)
+	if err != nil {
+		return err
+	}
+
+	err = credentialspecResource.HandleDomainlessKerberosTicketRenewal(iamRoleCredentials)
+	if err != nil {
+		return err
+	}
+	return nil
 }

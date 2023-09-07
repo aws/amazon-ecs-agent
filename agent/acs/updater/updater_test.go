@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"testing"
 
-	mock_io "github.com/aws/amazon-ecs-agent/agent/acs/update_handler/mock"
+	mock_io "github.com/aws/amazon-ecs-agent/agent/acs/updater/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
