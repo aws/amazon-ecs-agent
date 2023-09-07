@@ -14,41 +14,22 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package data
+package transformationfunctions
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
 
-	"github.com/stretchr/testify/require"
-	bolt "go.etcd.io/bbolt"
+	"github.com/stretchr/testify/assert"
 )
 
-func newTestClient(t *testing.T) Client {
-	testDir := t.TempDir()
+const (
+	expectedTaskTransformationChainLength = 1
+)
 
-	testDB, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
+func TestRegisterTaskTransformationFunctions(t *testing.T) {
 	transformer := modeltransformer.NewTransformer()
-	require.NoError(t, err)
-	require.NoError(t, testDB.Update(func(tx *bolt.Tx) error {
-		for _, b := range buckets {
-			_, err = tx.CreateBucketIfNotExists([]byte(b))
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}))
-	testClient := &client{
-		db:          testDB,
-		transformer: transformer,
-	}
-
-	t.Cleanup(func() {
-		require.NoError(t, testClient.Close())
-	})
-	return testClient
+	RegisterTaskTransformationFunctions(transformer)
+	assert.Equal(t, expectedTaskTransformationChainLength, transformer.GetNumberOfTransformationFunctions("Task"))
 }

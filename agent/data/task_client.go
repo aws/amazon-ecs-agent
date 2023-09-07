@@ -18,6 +18,8 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
@@ -50,7 +52,19 @@ func (c *client) GetTasks() ([]*apitask.Task, error) {
 		bucket := tx.Bucket([]byte(tasksBucketName))
 		return walk(bucket, func(id string, data []byte) error {
 			task := apitask.Task{}
-			if err := json.Unmarshal(data, &task); err != nil {
+			// transform the model before loading it to agent state. this is a noop for now.
+			agentVersionInDB, err := c.GetMetadata(AgentVersionKey)
+			if err != nil {
+				logger.Info(emptyAgentVersionMsg)
+			} else {
+				if c.transformer.IsUpgrade(version.Version, agentVersionInDB) {
+					data, err = c.transformer.TransformTask(agentVersionInDB, data)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			if err = json.Unmarshal(data, &task); err != nil {
 				return err
 			}
 			tasks = append(tasks, &task)
