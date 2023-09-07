@@ -45,7 +45,7 @@ func NewAttachTaskENIResponder(eniHandler ENIHandler, responseSender wsclient.Re
 	r := &attachTaskENIResponder{
 		eniHandler: eniHandler,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

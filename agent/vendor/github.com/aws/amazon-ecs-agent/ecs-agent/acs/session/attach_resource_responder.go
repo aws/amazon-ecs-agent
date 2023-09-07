@@ -53,7 +53,7 @@ func NewAttachResourceResponder(resourceHandler ResourceHandler, metricsFactory 
 		resourceHandler: resourceHandler,
 		metricsFactory:  metricsFactory,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

@@ -46,7 +46,7 @@ func NewPayloadResponder(payloadMessageHandler PayloadMessageHandler,
 	r := &payloadResponder{
 		payloadMessageHandler: payloadMessageHandler,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

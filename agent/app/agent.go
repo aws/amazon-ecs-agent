@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
-	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
+	agentacs "github.com/aws/amazon-ecs-agent/agent/acs/session"
+	"github.com/aws/amazon-ecs-agent/agent/acs/updater"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
@@ -1026,14 +1026,14 @@ func (agent *ecsAgent) startACSSession(
 		IsDocker:           true,
 	}
 
-	payloadMessageHandler := acshandler.NewPayloadMessageHandler(taskEngine, client, agent.dataClient, taskHandler,
+	payloadMessageHandler := agentacs.NewPayloadMessageHandler(taskEngine, client, agent.dataClient, taskHandler,
 		credentialsManager, agent.latestSeqNumberTaskManifest)
-	credsMetadataSetter := acshandler.NewCredentialsMetadataSetter(taskEngine)
-	eniHandler := acshandler.NewENIHandler(state, agent.dataClient)
-	manifestMessageIDAccessor := acshandler.NewManifestMessageIDAccessor()
-	sequenceNumberAccessor := acshandler.NewSequenceNumberAccessor(agent.latestSeqNumberTaskManifest, agent.dataClient)
-	taskComparer := acshandler.NewTaskComparer(taskEngine)
-	taskStopper := acshandler.NewTaskStopper(taskEngine)
+	credsMetadataSetter := agentacs.NewCredentialsMetadataSetter(taskEngine)
+	eniHandler := agentacs.NewENIHandler(state, agent.dataClient)
+	manifestMessageIDAccessor := agentacs.NewManifestMessageIDAccessor()
+	sequenceNumberAccessor := agentacs.NewSequenceNumberAccessor(agent.latestSeqNumberTaskManifest, agent.dataClient)
+	taskComparer := agentacs.NewTaskComparer(taskEngine)
+	taskStopper := agentacs.NewTaskStopper(taskEngine)
 
 	acsSession := session.NewSession(agent.containerInstanceARN,
 		agent.cfg.Cluster,

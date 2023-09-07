@@ -50,6 +50,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// samplePayloadMessage, sampleRefreshCredentialsMessage, and sampleAttachResourceMessage are required to be type
+// string because the channel used by the test fake ACS server to read in messages in the tests where these consts
+// are used is a string channel (i.e., not a channel of any particular message type).
 const (
 	samplePayloadMessage = `
 {
@@ -192,7 +195,7 @@ func TestACSURL(t *testing.T) {
 	acsSession := session{
 		sendCredentials:      true,
 		containerInstanceARN: testconst.ContainerInstanceARN,
-		cluster:              testconst.ClusterName,
+		cluster:              testconst.ClusterARN,
 		agentVersion:         agentVersion,
 		agentHash:            agentGitShortHash,
 		dockerVersion:        dockerVersion,
@@ -202,14 +205,14 @@ func TestACSURL(t *testing.T) {
 	parsed, err := url.Parse(wsurl)
 	assert.NoError(t, err, "should be able to parse URL")
 	assert.Equal(t, "/ws", parsed.Path, "wrong path")
-	assert.Equal(t, testconst.ClusterName, parsed.Query().Get("clusterArn"), "wrong cluster")
+	assert.Equal(t, testconst.ClusterARN, parsed.Query().Get("clusterArn"), "wrong cluster")
 	assert.Equal(t, testconst.ContainerInstanceARN, parsed.Query().Get("containerInstanceArn"),
 		"wrong container instance")
 	assert.Equal(t, agentVersion, parsed.Query().Get("agentVersion"), "wrong agent version")
 	assert.Equal(t, agentGitShortHash, parsed.Query().Get("agentHash"), "wrong agent hash")
 	assert.Equal(t, "DockerVersion: "+dockerVersion, parsed.Query().Get("dockerVersion"), "wrong docker version")
-	assert.Equalf(t, "true", parsed.Query().Get("sendCredentials"),
-		"Wrong value set for: sendCredentials")
+	assert.Equal(t, "true", parsed.Query().Get("sendCredentials"),
+		"wrong sendCredentials value, it should be true on the first connection to ACS")
 	assert.Equal(t, "1", parsed.Query().Get("seqNum"), "wrong seqNum")
 	protocolVersion, _ := strconv.Atoi(parsed.Query().Get("protocolVersion"))
 	assert.True(t, protocolVersion > 1, "ACS protocol version should be greater than 1")
@@ -832,7 +835,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 			}()
 		})
 
-	emptyDoctor, _ := doctor.NewDoctor([]doctor.Healthcheck{}, testconst.ClusterName, testconst.ContainerInstanceARN)
+	emptyDoctor, _ := doctor.NewDoctor([]doctor.Healthcheck{}, testconst.ClusterARN, testconst.ContainerInstanceARN)
 
 	ended := make(chan bool, 1)
 	go func() {
@@ -915,7 +918,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
-			testconst.ClusterName,
+			testconst.ClusterARN,
 			discoverEndpointClient,
 			testCreds,
 			noopFunc,
@@ -1006,7 +1009,7 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 	mockWsClient.EXPECT().Serve(gomock.Any()).Return(io.EOF).AnyTimes()
 
 	acsSession := NewSession(testconst.ContainerInstanceARN,
-		testconst.ClusterName,
+		testconst.ClusterARN,
 		discoverEndpointClient,
 		nil,
 		noopFunc,
@@ -1081,14 +1084,14 @@ func TestSessionReconnectCorrectlySetsAcsUrl(t *testing.T) {
 	initialAcsURL := fmt.Sprintf(
 		"http://endpoint.tld/ws?agentHash=%s&agentVersion=%s&clusterArn=%s&containerInstanceArn=%s&"+
 			"dockerVersion=DockerVersion%%3A+%s&protocolVersion=%v&sendCredentials=true&seqNum=1",
-		agentGitShortHash, agentVersion, url.QueryEscape(testconst.ClusterName),
+		agentGitShortHash, agentVersion, url.QueryEscape(testconst.ClusterARN),
 		url.QueryEscape(testconst.ContainerInstanceARN), dockerVersion, acsProtocolVersion)
 
 	// But after that, ACS sends credentials at ACS's own cadence, so sendCredentials must be false.
 	subsequentAcsURL := fmt.Sprintf(
 		"http://endpoint.tld/ws?agentHash=%s&agentVersion=%s&clusterArn=%s&containerInstanceArn=%s&"+
 			"dockerVersion=DockerVersion%%3A+%s&protocolVersion=%v&sendCredentials=false&seqNum=1",
-		agentGitShortHash, agentVersion, url.QueryEscape(testconst.ClusterName),
+		agentGitShortHash, agentVersion, url.QueryEscape(testconst.ClusterARN),
 		url.QueryEscape(testconst.ContainerInstanceARN), dockerVersion, acsProtocolVersion)
 
 	gomock.InOrder(
@@ -1106,7 +1109,7 @@ func TestSessionReconnectCorrectlySetsAcsUrl(t *testing.T) {
 		}).Return(time.NewTimer(wsclient.DisconnectTimeout), nil),
 	)
 	acsSession := NewSession(testconst.ContainerInstanceARN,
-		testconst.ClusterName,
+		testconst.ClusterARN,
 		discoverEndpointClient,
 		nil,
 		noopFunc,
@@ -1170,7 +1173,7 @@ func TestStartSessionHandlesAttachResourceMessages(t *testing.T) {
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
-			testconst.ClusterName,
+			testconst.ClusterARN,
 			discoverEndpointClient,
 			testCreds,
 			noopFunc,
@@ -1255,7 +1258,7 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 
 	acsSession := NewSession(testconst.ContainerInstanceARN,
-		testconst.ClusterName,
+		testconst.ClusterARN,
 		discoverEndpointClient,
 		nil,
 		noopFunc,

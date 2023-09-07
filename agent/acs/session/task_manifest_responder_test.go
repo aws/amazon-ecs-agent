@@ -13,7 +13,7 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-package handler
+package session
 
 import (
 	"strconv"
@@ -42,7 +42,7 @@ const (
 )
 
 var expectedTaskManifestAck = &ecsacs.AckRequest{
-	Cluster:           aws.String(testconst.ClusterName),
+	Cluster:           aws.String(testconst.ClusterARN),
 	ContainerInstance: aws.String(testconst.ContainerInstanceARN),
 	MessageId:         aws.String(testconst.MessageID),
 }
@@ -78,7 +78,7 @@ func setupTaskManifestTest(t *testing.T, acsResponseSender wsclient.RespondFunc)
 func defaultTaskManifestMessage() *ecsacs.TaskManifestMessage {
 	return &ecsacs.TaskManifestMessage{
 		MessageId:            aws.String(testconst.MessageID),
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		Tasks:                []*ecsacs.TaskIdentifier{},
 		Timeline:             aws.Int64(nextSeqNum),
@@ -113,7 +113,7 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(testconst.TaskARN),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -122,12 +122,12 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN1),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN2),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -144,12 +144,12 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskRunningString),
 						TaskArn:        aws.String(taskARN1),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN2),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -158,12 +158,12 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN2),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN3),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -179,7 +179,7 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskRunningString),
 						TaskArn:        aws.String(taskARN1),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -188,7 +188,7 @@ func TestTaskManifestResponder(t *testing.T) {
 					{
 						DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 						TaskArn:        aws.String(taskARN2),
-						TaskClusterArn: aws.String(testconst.ClusterName),
+						TaskClusterArn: aws.String(testconst.ClusterARN),
 					},
 				}
 			},
@@ -362,7 +362,7 @@ func TestTaskManifestResponderStaleMessage(t *testing.T) {
 
 			message := &ecsacs.TaskManifestMessage{
 				MessageId:            aws.String(testconst.MessageID),
-				ClusterArn:           aws.String(testconst.ClusterName),
+				ClusterArn:           aws.String(testconst.ClusterARN),
 				ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 				Tasks: []*ecsacs.TaskIdentifier{
 					{
@@ -411,7 +411,7 @@ func TestCompareTasksAllDifferentTasks(t *testing.T) {
 
 	message := &ecsacs.TaskManifestMessage{
 		MessageId:            aws.String(testconst.MessageID),
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		Tasks: []*ecsacs.TaskIdentifier{
 			{
@@ -447,7 +447,7 @@ func TestCompareTasksAllSameTasks(t *testing.T) {
 
 	message := &ecsacs.TaskManifestMessage{
 		MessageId:            aws.String(testconst.MessageID),
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		Tasks: []*ecsacs.TaskIdentifier{
 			{

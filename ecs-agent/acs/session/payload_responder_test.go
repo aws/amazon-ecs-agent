@@ -32,7 +32,7 @@ func defaultPayloadMessage() *ecsacs.PayloadMessage {
 	return &ecsacs.PayloadMessage{
 		Tasks:                []*ecsacs.Task{{}},
 		MessageId:            aws.String(testconst.MessageID),
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	}
 }
@@ -191,7 +191,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	// Verify that payload message ACK is sent and is as expected.
 	expectedPayloadAck := &ecsacs.AckRequest{
 		MessageId:         aws.String(testconst.MessageID),
-		Cluster:           aws.String(testconst.ClusterName),
+		Cluster:           aws.String(testconst.ClusterARN),
 		ContainerInstance: aws.String(testconst.ContainerInstanceARN),
 	}
 	actualPayloadAck := <-payloadAckSent

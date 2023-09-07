@@ -38,7 +38,7 @@ const (
 // setupTestManifestMessage initializes a dummy TaskManifestMessage for testing
 func setupTestManifestMessage() *ecsacs.TaskManifestMessage {
 	return &ecsacs.TaskManifestMessage{
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String(testconst.MessageID),
 		Tasks:                []*ecsacs.TaskIdentifier{},
@@ -123,7 +123,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 
 	// Set up a new manifest with a stale number and distinct message ID.
 	newManifest := &ecsacs.TaskManifestMessage{
-		ClusterArn:           aws.String(testconst.ClusterName),
+		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String("456"),
 		Tasks:                []*ecsacs.TaskIdentifier{},
