@@ -156,8 +156,6 @@ type ContainerHealth struct {
 
 	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
 
-	StatusMessage *string `locationName:"statusMessage" type:"string"`
-
 	StatusSince *time.Time `locationName:"statusSince" type:"timestamp"`
 }
 

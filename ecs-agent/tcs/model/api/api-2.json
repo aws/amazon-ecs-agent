@@ -8,8 +8,7 @@
     "serviceAbbreviation":"Amazon ECS TCS",
     "serviceFullName":"Amazon EC2 Container Service Telemetry Communication Service",
     "signatureVersion":"v4",
-    "targetPrefix":"AmazonEC2ContainerServiceTelemetryV20150310",
-    "uid":"ecstcs-2015-03-10"
+    "targetPrefix":"AmazonEC2ContainerServiceTelemetryV20150310"
   },
   "operations":{
     "Heartbeat":{
@@ -121,8 +120,7 @@
       "members":{
         "containerName":{"shape":"String"},
         "healthStatus":{"shape":"HealthStatus"},
-        "statusSince":{"shape":"Timestamp"},
-        "statusMessage":{"shape":"String"}
+        "statusSince":{"shape":"Timestamp"}
       }
     },
     "ContainerHealths":{
