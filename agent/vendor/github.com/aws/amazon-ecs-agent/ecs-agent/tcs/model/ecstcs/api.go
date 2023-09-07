@@ -1031,6 +1031,8 @@ type TaskMetric struct {
 	TaskDefinitionFamily *string `locationName:"taskDefinitionFamily" type:"string"`
 
 	TaskDefinitionVersion *string `locationName:"taskDefinitionVersion" type:"string"`
+
+	VolumeMetrics []*VolumeMetric `locationName:"volumeMetrics" type:"list"`
 }
 
 // String returns the string representation
@@ -1059,6 +1061,16 @@ func (s *TaskMetric) Validate() error {
 	if s.EphemeralStorageMetrics != nil {
 		if err := s.EphemeralStorageMetrics.Validate(); err != nil {
 			invalidParams.AddNested("EphemeralStorageMetrics", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.VolumeMetrics != nil {
+		for i, v := range s.VolumeMetrics {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "VolumeMetrics", i), err.(request.ErrInvalidParams))
+			}
 		}
 	}
 
@@ -1162,6 +1174,48 @@ func (s *ULongStatsSet) Validate() error {
 	}
 	if s.Sum == nil {
 		invalidParams.Add(request.NewErrParamRequired("Sum"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+type VolumeMetric struct {
+	_ struct{} `type:"structure"`
+
+	Size *UDoubleCWStatsSet `locationName:"size" type:"structure"`
+
+	Utilized *UDoubleCWStatsSet `locationName:"utilized" type:"structure"`
+
+	VolumeId *string `locationName:"volumeId" type:"string"`
+
+	VolumeName *string `locationName:"volumeName" type:"string"`
+}
+
+// String returns the string representation
+func (s VolumeMetric) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s VolumeMetric) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *VolumeMetric) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "VolumeMetric"}
+	if s.Size != nil {
+		if err := s.Size.Validate(); err != nil {
+			invalidParams.AddNested("Size", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.Utilized != nil {
+		if err := s.Utilized.Validate(); err != nil {
+			invalidParams.AddNested("Utilized", err.(request.ErrInvalidParams))
+		}
 	}
 
 	if invalidParams.Len() > 0 {
