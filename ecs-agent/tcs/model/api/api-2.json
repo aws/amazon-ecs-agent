@@ -157,7 +157,7 @@
     "EphemeralStorageMetrics":{
       "type":"structure",
       "members":{
-        "BytesUtilized":{"shape":"ULongStatsSet"}
+        "bytesUtilized":{"shape":"ULongStatsSet"}
       }
     },
     "GeneralMetric":{
