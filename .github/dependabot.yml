@@ -12,3 +12,6 @@ updates:
     # the bot stuck at trying to upgrade it; (2) sdk change has higher risk of breaking the agent so probably safer to
     # upgrade manually.
     - dependency-name: "github.com/aws/aws-sdk-go"
+    # docker is explicitly excluded from bot auto upgrade because we need to do manual qualification and cooperate with
+    # amazon linux to release.
+    - dependency-name: "github.com/docker/docker"
