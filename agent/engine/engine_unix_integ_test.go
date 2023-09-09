@@ -1453,16 +1453,16 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 
 		// goroutine to verify task running order and verify assertions
 		go func() {
-			// 1st task goes to RUNNING
+			// Task goes to RUNNING
 			verifyContainerRunningStateChange(t, taskEngine)
 			verifyTaskIsRunning(stateChangeEvents, testTask)
 
 			time.Sleep(2500 * time.Millisecond)
 
-			// At this time, task stopTask is received, and SIGTERM sent to task
+			// At this time, stopTask is received, and SIGTERM sent to task
 			// but the task is still RUNNING due to trap handler
-			assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus(), "fargate task known status should be RUNNING")
-			assert.Equal(t, apitaskstatus.TaskStopped, testTask.GetDesiredStatus(), "fargate task desired status should be STOPPED")
+			assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus(), "task known status should be RUNNING")
+			assert.Equal(t, apitaskstatus.TaskStopped, testTask.GetDesiredStatus(), "task desired status should be STOPPED")
 			// Verify resources are properly consumed in host resource manager, and not consumed for Fargate
 			if tc.LaunchType == "FARGATE" {
 				assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "fargate task resources should not be consumed")
