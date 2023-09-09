@@ -1382,65 +1382,97 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 	waitFinished(t, finished, testTimeout)
 }
 
-// Test to make sure Host Resource Manager does not account when Fargate tests get started
-func TestHostResourceManagerNoAccountingFargateLaunchType(t *testing.T) {
-	testTimeout := 1 * time.Minute
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
-	taskArn := fmt.Sprintf("IntegTaskArn-%d", i)
-	testTask := createTestTask(taskArn)
-	testTask.Memory = int64(768)
-	testTask.LaunchType = "FARGATE"
-
-	// create container
-	A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A-%d", i))
-	A.EntryPoint = &entryPointForOS
-	A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
-	A.Essential = true
-	A.StopTimeout = uint(6)
-	testTask.Containers = []*apicontainer.Container{
-		A,
+// Test Host Resource Manager does not account Fargate tasks when started
+func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
+	testCases := []struct {
+		Name       string
+		LaunchType string
+	}{
+		{
+			Name:       "TestHostResourceManagerFargateLaunchTypeBehavior",
+			LaunchType: "FARGATE",
+		},
+		{
+			Name:       "TestHostResourceManagerEC2LaunchTypeBehavior",
+			LaunchType: "EC2",
+		},
+		{
+			Name:       "TestHostResourceManagerExternalLaunchTypeBehavior",
+			LaunchType: "EXTERNAL",
+		},
+		{
+			Name:       "TestHostResourceManagerRandomLaunchTypeBehavior",
+			LaunchType: "RaNdOmStrInG",
+		},
+		{
+			Name:       "TestHostResourceManagerEmptyLaunchTypeBehavior",
+			LaunchType: "",
+		},
 	}
 
-	// Stop task payloads from ACS for the tasks
-	stopTask := createTestTask(fmt.Sprintf("IntegTaskArn-%d", i))
-	stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
-	stopTask.Containers = []*apicontainer.Container{}
+	for _, tc := range testCases {
+		testTimeout := 1 * time.Minute
+		taskEngine, done, _ := setupWithDefaultConfig(t)
+		defer done()
 
-	// goroutine to schedule tasks
-	go func() {
-		taskEngine.AddTask(task)
-		time.Sleep(2 * time.Second)
+		stateChangeEvents := taskEngine.StateChangeEvents()
 
-		// single managedTask which should have started
-		assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
+		taskArn := fmt.Sprintf("IntegTaskArn")
+		testTask := createTestTask(taskArn)
+		testTask.Memory = int64(768)
+		testTask.LaunchType = tc.LaunchType
 
-		// stopTask - stop running task, this task will go to STOPPING due to trap handler defined and STOPPED after 6s
-		taskEngine.AddTask(stopTask)
-	}()
+		// create container
+		A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A"))
+		A.EntryPoint = &entryPointForOS
+		A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
+		A.Essential = true
+		A.StopTimeout = uint(6)
+		testTask.Containers = []*apicontainer.Container{
+			A,
+		}
 
-	finished := make(chan interface{})
+		// Stop task payloads from ACS for the tasks
+		stopTask := createTestTask(fmt.Sprintf("IntegTaskArn"))
+		stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
+		stopTask.Containers = []*apicontainer.Container{}
 
-	// goroutine to verify task running order and verify assertions
-	go func() {
-		// 1st task goes to RUNNING
-		verifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks)
+		// goroutine to schedule tasks
+		go func() {
+			taskEngine.AddTask(testTask)
+			time.Sleep(2 * time.Second)
 
-		time.Sleep(2500 * time.Millisecond)
+			// single managedTask which should have started
+			assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
 
-		// At this time, task stopTask is received, and SIGTERM sent to task
-		// but the task is still RUNNING due to trap handler
-		assert.Equal(t, apitaskstatus.TaskRunning, task.GetKnownStatus(), "fargate task known status should be RUNNING")
-		assert.Equal(t, apitaskstatus.TaskStopped, task.GetDesiredStatus(), "fargate task desired status should be STOPPED")
-		// Verify resources are properly released in host resource manager
-		assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(task.Arn), "fargate task resources should not be consumed")
-		time.Sleep(2 * time.Second)
-		close(finished)
-	}()
+			// stopTask - stop running task, this task will go to STOPPING due to trap handler defined and STOPPED after 6s
+			taskEngine.AddTask(stopTask)
+		}()
 
-	waitFinished(t, finished, testTimeout)
+		finished := make(chan interface{})
+
+		// goroutine to verify task running order and verify assertions
+		go func() {
+			// 1st task goes to RUNNING
+			verifyContainerRunningStateChange(t, taskEngine)
+			verifyTaskIsRunning(stateChangeEvents, testTask)
+
+			time.Sleep(2500 * time.Millisecond)
+
+			// At this time, task stopTask is received, and SIGTERM sent to task
+			// but the task is still RUNNING due to trap handler
+			assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus(), "fargate task known status should be RUNNING")
+			assert.Equal(t, apitaskstatus.TaskStopped, testTask.GetDesiredStatus(), "fargate task desired status should be STOPPED")
+			// Verify resources are properly consumed in host resource manager, and not consumed for Fargate
+			if tc.LaunchType == "FARGATE" {
+				assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "fargate task resources should not be consumed")
+			} else {
+				assert.True(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "non fargate task resources should not be consumed")
+			}
+			time.Sleep(2 * time.Second)
+			close(finished)
+		}()
+
+		waitFinished(t, finished, testTimeout)
+	}
 }
