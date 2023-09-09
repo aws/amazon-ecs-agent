@@ -285,7 +285,7 @@ func (mtask *managedTask) waitForHostResources() {
 		return
 	}
 
-	if !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
+	if !mtask.IsLaunchTypeFargate() && !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
 		// Internal tasks are started right away as their resources are not accounted for
 		mtask.engine.enqueueTask(mtask)
 		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {

@@ -1381,3 +1381,66 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 
 	waitFinished(t, finished, testTimeout)
 }
+
+// Test to make sure Host Resource Manager does not account when Fargate tests get started
+func TestHostResourceManagerNoAccountingFargateLaunchType(t *testing.T) {
+	testTimeout := 1 * time.Minute
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := fmt.Sprintf("IntegTaskArn-%d", i)
+	testTask := createTestTask(taskArn)
+	testTask.Memory = int64(768)
+	testTask.LaunchType = "FARGATE"
+
+	// create container
+	A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A-%d", i))
+	A.EntryPoint = &entryPointForOS
+	A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
+	A.Essential = true
+	A.StopTimeout = uint(6)
+	testTask.Containers = []*apicontainer.Container{
+		A,
+	}
+
+	// Stop task payloads from ACS for the tasks
+	stopTask := createTestTask(fmt.Sprintf("IntegTaskArn-%d", i))
+	stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
+	stopTask.Containers = []*apicontainer.Container{}
+
+	// goroutine to schedule tasks
+	go func() {
+		taskEngine.AddTask(task)
+		time.Sleep(2 * time.Second)
+
+		// single managedTask which should have started
+		assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
+
+		// stopTask - stop running task, this task will go to STOPPING due to trap handler defined and STOPPED after 6s
+		taskEngine.AddTask(stopTask)
+	}()
+
+	finished := make(chan interface{})
+
+	// goroutine to verify task running order and verify assertions
+	go func() {
+		// 1st task goes to RUNNING
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, tasks)
+
+		time.Sleep(2500 * time.Millisecond)
+
+		// At this time, task stopTask is received, and SIGTERM sent to task
+		// but the task is still RUNNING due to trap handler
+		assert.Equal(t, apitaskstatus.TaskRunning, task.GetKnownStatus(), "fargate task known status should be RUNNING")
+		assert.Equal(t, apitaskstatus.TaskStopped, task.GetDesiredStatus(), "fargate task desired status should be STOPPED")
+		// Verify resources are properly released in host resource manager
+		assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(task.Arn), "fargate task resources should not be consumed")
+		time.Sleep(2 * time.Second)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, testTimeout)
+}
