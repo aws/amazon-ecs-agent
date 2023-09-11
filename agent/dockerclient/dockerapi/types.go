@@ -22,6 +22,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/volume"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -105,13 +106,13 @@ type PingResponse struct {
 // VolumeResponse wrapper for CreateVolume and InspectVolume
 // TODO Remove type when migration is complete
 type VolumeResponse struct {
-	DockerVolume *types.Volume
+	DockerVolume *volume.Volume
 	Error        error
 }
 
 // VolumeResponse wrapper for CreateVolume for SDK Clients
 type SDKVolumeResponse struct {
-	DockerVolume *types.Volume
+	DockerVolume *volume.Volume
 	Error        error
 }
 

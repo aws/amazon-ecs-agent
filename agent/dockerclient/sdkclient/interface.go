@@ -18,7 +18,6 @@ package sdkclient
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -34,14 +33,14 @@ import (
 type Client interface {
 	ClientVersion() string
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig,
-		networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.ContainerCreateCreatedBody, error)
+		networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
 	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error)
 	ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error
 	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
 	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
-	ContainerStop(ctx context.Context, containerID string, timeout *time.Duration) error
+	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
 	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
 	ContainerExecStart(ctx context.Context, execID string, config types.ExecStartCheck) error
 	ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error)
@@ -56,8 +55,8 @@ type Client interface {
 		error)
 	Ping(ctx context.Context) (types.Ping, error)
 	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
-	VolumeCreate(ctx context.Context, options volume.VolumeCreateBody) (types.Volume, error)
-	VolumeInspect(ctx context.Context, volumeID string) (types.Volume, error)
+	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
+	VolumeInspect(ctx context.Context, volumeID string) (volume.Volume, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	ServerVersion(ctx context.Context) (types.Version, error)
 	Info(ctx context.Context) (types.Info, error)
