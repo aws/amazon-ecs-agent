@@ -1411,68 +1411,70 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		testTimeout := 1 * time.Minute
-		taskEngine, done, _ := setupWithDefaultConfig(t)
-		defer done()
+		t.Run(tc.Name, func(t *testing.T) {
+			testTimeout := 1 * time.Minute
+			taskEngine, done, _ := setupWithDefaultConfig(t)
+			defer done()
 
-		stateChangeEvents := taskEngine.StateChangeEvents()
+			stateChangeEvents := taskEngine.StateChangeEvents()
 
-		taskArn := fmt.Sprintf("IntegTaskArn")
-		testTask := createTestTask(taskArn)
-		testTask.Memory = int64(768)
-		testTask.LaunchType = tc.LaunchType
+			taskArn := "IntegTaskArn"
+			testTask := createTestTask(taskArn)
+			testTask.Memory = int64(768)
+			testTask.LaunchType = tc.LaunchType
 
-		// create container
-		A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A"))
-		A.EntryPoint = &entryPointForOS
-		A.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
-		A.Essential = true
-		A.StopTimeout = uint(6)
-		testTask.Containers = []*apicontainer.Container{
-			A,
-		}
-
-		// Stop task payloads from ACS for the tasks
-		stopTask := createTestTask(fmt.Sprintf("IntegTaskArn"))
-		stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
-		stopTask.Containers = []*apicontainer.Container{}
-
-		// goroutine to schedule tasks
-		go func() {
-			taskEngine.AddTask(testTask)
-			time.Sleep(2 * time.Second)
-
-			// single managedTask which should have started
-			assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
-
-			// stopTask - stop running task, this task will go to STOPPING due to trap handler defined and STOPPED after 6s
-			taskEngine.AddTask(stopTask)
-		}()
-
-		finished := make(chan interface{})
-
-		// goroutine to verify task running order and verify assertions
-		go func() {
-			// Task goes to RUNNING
-			verifyContainerRunningStateChange(t, taskEngine)
-			verifyTaskIsRunning(stateChangeEvents, testTask)
-
-			time.Sleep(2500 * time.Millisecond)
-
-			// At this time, stopTask is received, and SIGTERM sent to task
-			// but the task is still RUNNING due to trap handler
-			assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus(), "task known status should be RUNNING")
-			assert.Equal(t, apitaskstatus.TaskStopped, testTask.GetDesiredStatus(), "task desired status should be STOPPED")
-			// Verify resources are properly consumed in host resource manager, and not consumed for Fargate
-			if tc.LaunchType == "FARGATE" {
-				assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "fargate task resources should not be consumed")
-			} else {
-				assert.True(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "non fargate task resources should not be consumed")
+			// create container
+			taskContainer := createTestContainerWithImageAndName(baseImageForOS, "SleepWithTrap")
+			taskContainer.EntryPoint = &entryPointForOS
+			taskContainer.Command = []string{"trap shortsleep SIGTERM; shortsleep() { sleep 6; exit 1; }; sleep 10"}
+			taskContainer.Essential = true
+			taskContainer.StopTimeout = uint(6)
+			testTask.Containers = []*apicontainer.Container{
+				taskContainer,
 			}
-			time.Sleep(2 * time.Second)
-			close(finished)
-		}()
 
-		waitFinished(t, finished, testTimeout)
+			// Stop task payloads from ACS for the tasks
+			stopTask := createTestTask("IntegTaskArn")
+			stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
+			stopTask.Containers = []*apicontainer.Container{}
+
+			// goroutine to schedule tasks
+			go func() {
+				taskEngine.AddTask(testTask)
+				time.Sleep(2 * time.Second)
+
+				// single managedTask which should have started
+				assert.Equal(t, 1, len(taskEngine.(*DockerTaskEngine).managedTasks), "exactly one task should be running")
+
+				// stopTask - stop running task, this task will go to STOPPING due to trap handler defined and STOPPED after 6s
+				taskEngine.AddTask(stopTask)
+			}()
+
+			finished := make(chan interface{})
+
+			// goroutine to verify task running order and verify assertions
+			go func() {
+				// Task goes to RUNNING
+				verifyContainerRunningStateChange(t, taskEngine)
+				verifyTaskIsRunning(stateChangeEvents, testTask)
+
+				time.Sleep(2500 * time.Millisecond)
+
+				// At this time, stopTask is received, and SIGTERM sent to task
+				// but the task is still RUNNING due to trap handler
+				assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus(), "task known status should be RUNNING")
+				assert.Equal(t, apitaskstatus.TaskStopped, testTask.GetDesiredStatus(), "task desired status should be STOPPED")
+				// Verify resources are properly consumed in host resource manager, and not consumed for Fargate
+				if tc.LaunchType == "FARGATE" {
+					assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "fargate task resources should not be consumed")
+				} else {
+					assert.True(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(testTask.Arn), "non fargate task resources should be consumed")
+				}
+				time.Sleep(2 * time.Second)
+				close(finished)
+			}()
+
+			waitFinished(t, finished, testTimeout)
+		})
 	}
 }

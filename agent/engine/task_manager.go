@@ -287,7 +287,7 @@ func (mtask *managedTask) waitForHostResources() {
 
 	if !mtask.IsLaunchTypeFargate() && !mtask.IsInternal && !mtask.engine.hostResourceManager.checkTaskConsumed(mtask.Arn) {
 		// Internal tasks are started right away as their resources are not accounted for
-		// Fargate (1.3.0) only ever run a single task, rely on backend instance placement and skip resource accounting
+		// Fargate (1.3.0) - rely on backend instance placement and skip resource accounting
 		mtask.engine.enqueueTask(mtask)
 		for !mtask.waitEvent(mtask.consumedHostResourceEvent) {
 			if mtask.GetDesiredStatus().Terminal() {
