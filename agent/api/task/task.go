@@ -3509,6 +3509,10 @@ func (task *Task) IsServiceConnectConnectionDraining() bool {
 	return task.ServiceConnectConnectionDrainingUnsafe
 }
 
+func (task *Task) IsLaunchTypeFargate() bool {
+	return strings.ToUpper(task.LaunchType) == "FARGATE"
+}
+
 // ToHostResources will convert a task to a map of resources which ECS takes into account when scheduling tasks on instances
 // * CPU
 //   - If task level CPU is set, use that
