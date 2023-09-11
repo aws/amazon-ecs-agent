@@ -720,7 +720,12 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string, ti
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
-	err = client.ContainerStop(ctx, dockerID, &timeout)
+
+	timeoutSeconds := int(timeout.Seconds())
+	containerOptions := dockercontainer.StopOptions{
+		Timeout: &timeoutSeconds,
+	}
+	err = client.ContainerStop(ctx, dockerID, containerOptions)
 	metadata := dg.containerMetadata(ctx, dockerID)
 	if err != nil {
 		seelog.Errorf("DockerGoClient: error stopping container ID=%s: %v", dockerID, err)
@@ -1238,7 +1243,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	volumeOptions := volume.VolumeCreateBody{
+	volumeOptions := volume.CreateOptions{
 		Driver:     driver,
 		DriverOpts: driverOptions,
 		Labels:     labels,

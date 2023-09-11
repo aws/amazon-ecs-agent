@@ -24,6 +24,7 @@ package plugins // import "github.com/docker/docker/pkg/plugins"
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -150,7 +151,6 @@ func (p *Plugin) runHandlers() {
 		p.handlersRun = true
 	}
 	handlers.RUnlock()
-
 }
 
 // activated returns if the plugin has already been activated.
@@ -201,7 +201,7 @@ func load(name string) (*Plugin, error) {
 }
 
 func loadWithRetry(name string, retry bool) (*Plugin, error) {
-	registry := newLocalRegistry()
+	registry := NewLocalRegistry()
 	start := time.Now()
 
 	var retries int
@@ -265,7 +265,7 @@ func Get(name, imp string) (*Plugin, error) {
 		logrus.Debugf("%s implements: %s", name, imp)
 		return pl, nil
 	}
-	return nil, ErrNotImplements
+	return nil, fmt.Errorf("%w: plugin=%q, requested implementation=%q", ErrNotImplements, name, imp)
 }
 
 // Handle adds the specified function to the extpointHandlers.
@@ -293,8 +293,8 @@ func Handle(iface string, fn func(string, *Client)) {
 }
 
 // GetAll returns all the plugins for the specified implementation
-func GetAll(imp string) ([]*Plugin, error) {
-	pluginNames, err := Scan()
+func (l *LocalRegistry) GetAll(imp string) ([]*Plugin, error) {
+	pluginNames, err := l.Scan()
 	if err != nil {
 		return nil, err
 	}
