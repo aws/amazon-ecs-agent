@@ -397,7 +397,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &dockercontainer.Config{}, hostConfig,
 		&network.NetworkingConfig{}, gomock.Any(), "containerName").Do(func(u, v, w, x, y, z interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(dockercontainer.ContainerCreateCreatedBody{}, errors.New("test error"))
+	}).MaxTimes(1).Return(dockercontainer.CreateResponse{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.CreateContainer(ctx, &dockercontainer.Config{}, hostConfig, "containerName", xContainerShortTimeout)
@@ -419,7 +419,7 @@ func TestCreateContainer(t *testing.T) {
 					"Mismatch in create container HostConfig, %v != %v", actualHostConfig, hostConfig)
 				assert.Equal(t, actualName, name,
 					"Mismatch in create container options, %s != %s", actualName, name)
-			}).Return(dockercontainer.ContainerCreateCreatedBody{ID: "id"}, nil),
+			}).Return(dockercontainer.CreateResponse{ID: "id"}, nil),
 		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
 			Return(types.ContainerJSON{
 				ContainerJSONBase: &types.ContainerJSONBase{
@@ -637,7 +637,11 @@ func TestStopContainerTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", &client.config.DockerStopTimeout).Do(func(x, y, z interface{}) {
+	timeoutSeconds := int(client.config.DockerStopTimeout.Seconds())
+	containerOptions := dockercontainer.StopOptions{
+		Timeout: &timeoutSeconds,
+	}
+	mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", containerOptions).Do(func(x, y, z interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	}).MaxTimes(1).Return(errors.New("test error"))
@@ -654,8 +658,12 @@ func TestStopContainer(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
+	timeoutSeconds := int(client.config.DockerStopTimeout.Seconds())
+	containerOptions := dockercontainer.StopOptions{
+		Timeout: &timeoutSeconds,
+	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", &client.config.DockerStopTimeout).Return(nil),
+		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", containerOptions).Return(nil),
 		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
 			Return(
 				types.ContainerJSON{
@@ -1875,7 +1883,7 @@ func TestCreateVolumeTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(types.Volume{}, nil)
+	}).MaxTimes(1).Return(volume.Volume{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, xContainerShortTimeout)
@@ -1888,7 +1896,7 @@ func TestCreateVolumeError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(volume.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, dockerclient.CreateVolumeTimeout)
@@ -1907,11 +1915,11 @@ func TestCreateVolume(t *testing.T) {
 		"opt2": "val2",
 	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, opts volume.VolumeCreateBody) {
+		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, opts volume.CreateOptions) {
 			assert.Equal(t, opts.Name, volumeName)
 			assert.Equal(t, opts.Driver, driver)
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
-		}).Return(types.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
+		}).Return(volume.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1932,7 +1940,7 @@ func TestInspectVolumeTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(types.Volume{}, nil)
+	}).MaxTimes(1).Return(volume.Volume{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", xContainerShortTimeout)
@@ -1945,7 +1953,7 @@ func TestInspectVolumeError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Return(volume.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", dockerclient.InspectVolumeTimeout)
@@ -1958,7 +1966,7 @@ func TestInspectVolume(t *testing.T) {
 
 	volumeName := "volumeName"
 
-	volumeOutput := types.Volume{
+	volumeOutput := volume.Volume{
 		Name:       volumeName,
 		Driver:     "driver",
 		Mountpoint: "local/mount/point",

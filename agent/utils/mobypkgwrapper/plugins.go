@@ -31,5 +31,7 @@ func NewPlugins() Plugins {
 }
 
 func (*plugins) Scan() ([]string, error) {
-	return mobyplugins.Scan()
+	// Delegate the call to the mobyplugins package
+	localRegistry := mobyplugins.NewLocalRegistry()
+	return localRegistry.Scan()
 }

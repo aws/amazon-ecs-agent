@@ -29,7 +29,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,7 +51,7 @@ func TestCreateSuccess(t *testing.T) {
 
 	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, nil, dockerclient.CreateVolumeTimeout).Return(
 		dockerapi.SDKVolumeResponse{
-			DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+			DockerVolume: &volume.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 			Error:        nil,
 		})
 
@@ -147,7 +147,7 @@ func TestApplyTransitionForTaskScopeVolume(t *testing.T) {
 	gomock.InOrder(
 		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, labels, dockerclient.CreateVolumeTimeout).Times(1).Return(
 			dockerapi.SDKVolumeResponse{
-				DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+				DockerVolume: &volume.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
 	)
@@ -170,7 +170,7 @@ func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
 	gomock.InOrder(
 		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, nil, dockerclient.CreateVolumeTimeout).Times(1).Return(
 			dockerapi.SDKVolumeResponse{
-				DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+				DockerVolume: &volume.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
 		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerclient.RemoveVolumeTimeout).Times(0),

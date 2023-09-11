@@ -31,7 +31,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -585,7 +585,7 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 
 	// Expect the volume already exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
-		DockerVolume: &types.Volume{
+		DockerVolume: &volume.Volume{
 			Labels: map[string]string{"test": "test"},
 		},
 	})
@@ -632,7 +632,7 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 
 	// Expect the volume already exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
-		DockerVolume: &types.Volume{
+		DockerVolume: &volume.Volume{
 			Options: map[string]string{},
 			Labels:  nil,
 		},
@@ -714,7 +714,7 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 	}
 
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
-		DockerVolume: &types.Volume{
+		DockerVolume: &volume.Volume{
 			Labels: map[string]string{"test": "test"},
 		},
 	})
