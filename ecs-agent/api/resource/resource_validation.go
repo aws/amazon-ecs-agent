@@ -17,9 +17,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ValidateResource checks if the provided resource type is valid, as well as if the attachment
+// ValidateResourceByResourceType checks if the provided resource type is valid, as well as if the attachment
 // properties of the specified resource are valid.
-func ValidateResource(resourceAttachmentProperties map[string]string) error {
+func ValidateResourceByResourceType(resourceAttachmentProperties map[string]string) error {
 	resourceType, ok := resourceAttachmentProperties[ResourceTypeName]
 	if !ok {
 		return errors.New("resource attachment validation: no resourceType found")
@@ -49,28 +49,23 @@ func validateEphemeralStorageProperties(properties map[string]string) error {
 	if err != nil {
 		return err
 	}
-	for _, property := range getExtensibleEphemeralStorageProperties() {
-		if _, ok := properties[property]; !ok {
-			return errors.Errorf("property %s not found in attachment properties", property)
-		}
-	}
-	return nil
+
+	return ValidateRequiredProperties(properties, getExtensibleEphemeralStorageProperties())
 }
 
-// validateCommonAttachmentProperties checks if the required common properties exist for an attachment
+// validateCommonAttachmentProperties checks if all required common properties exist for an attachment
 func validateCommonAttachmentProperties(resourceAttachmentProperties map[string]string) error {
-	for _, property := range getCommonProperties() {
-		if _, ok := resourceAttachmentProperties[property]; !ok {
-			return errors.Errorf("property %s not found in attachment properties", property)
-		}
-	}
-	return nil
+	return ValidateRequiredProperties(resourceAttachmentProperties, getCommonProperties())
 }
 
-// validateVolumeAttachmentProperties checks if the required properties exist for a given volume attachment.
+// validateVolumeAttachmentProperties checks if all required properties exist for a given volume attachment.
 func validateVolumeAttachmentProperties(volumeAttachmentProperties map[string]string) error {
-	for _, property := range getVolumeSpecificProperties() {
-		if _, ok := volumeAttachmentProperties[property]; !ok {
+	return ValidateRequiredProperties(volumeAttachmentProperties, getVolumeSpecificProperties())
+}
+
+func ValidateRequiredProperties(actualProperties map[string]string, requiredProperties []string) error {
+	for _, property := range requiredProperties {
+		if _, ok := actualProperties[property]; !ok {
 			return errors.Errorf("property %s not found in attachment properties", property)
 		}
 	}
