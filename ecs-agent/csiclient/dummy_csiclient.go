@@ -15,6 +15,7 @@ package csiclient
 
 const volumeSizeGib = 1024 * 1024 * 1024
 
+// dummyCSIClient can be used to test the behaviour of csi client.
 type dummyCSIClient struct {
 }
 

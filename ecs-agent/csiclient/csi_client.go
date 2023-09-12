@@ -31,6 +31,7 @@ const (
 	PROTOCOL = "unix"
 )
 
+// CSIClient is an interface that specifies all supported operations for Agent uses.
 type CSIClient interface {
 	GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error)
 }
@@ -40,6 +41,7 @@ type csiClient struct {
 	csiSocket string
 }
 
+// NewCSIClient creates a CSI client for the communication with CSI driver daemon.
 func NewCSIClient(socketIn string) CSIClient {
 	return &csiClient{csiSocket: socketIn}
 }
