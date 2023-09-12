@@ -13,11 +13,18 @@
 
 package csiclient
 
-// Metrics represents the used and capacity bytes of the Volume.
-type Metrics struct {
-	// Used represents the total bytes used by the Volume.
-	Used int64 `json:"Used"`
+const volumeSizeGib = 1024 * 1024 * 1024
 
-	// Capacity represents the total capacity (bytes) of the volume's underlying storage.
-	Capacity int64 `json:"Capacity"`
+type dummyCSIClient struct {
+}
+
+func (c *dummyCSIClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
+	return &Metrics{
+		Used:     15 * volumeSizeGib,
+		Capacity: 20 * volumeSizeGib,
+	}, nil
+}
+
+func NewDummyCSIClient() CSIClient {
+	return &dummyCSIClient{}
 }
