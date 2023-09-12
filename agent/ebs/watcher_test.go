@@ -294,7 +294,7 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 		apiebs.VolumeIdName:     volumeID,
 	}
 
-	expiresAt := time.Now().Add(time.Millisecond * 5)
+	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:              taskARN,
@@ -309,7 +309,7 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 	watcher := newTestEBSWatcher(ctx, taskEngineState, eventChannel, mockDiscoveryClient)
 
 	watcher.HandleResourceAttachment(ebsAttachment)
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(time.Millisecond * testconst.WaitTimeoutMillis * 2)
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 0)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(volumeID)
 	assert.False(t, ok)
