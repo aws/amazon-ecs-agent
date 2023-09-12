@@ -13,7 +13,7 @@
 
 package csiclient
 
-const volumeSizeGib = 1024 * 1024 * 1024
+const gibToBytes = 1024 * 1024 * 1024
 
 // dummyCSIClient can be used to test the behaviour of csi client.
 type dummyCSIClient struct {
@@ -21,8 +21,8 @@ type dummyCSIClient struct {
 
 func (c *dummyCSIClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
 	return &Metrics{
-		Used:     15 * volumeSizeGib,
-		Capacity: 20 * volumeSizeGib,
+		Used:     15 * gibToBytes,
+		Capacity: 20 * gibToBytes,
 	}, nil
 }
 

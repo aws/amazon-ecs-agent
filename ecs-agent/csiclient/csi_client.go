@@ -31,7 +31,9 @@ const (
 	PROTOCOL = "unix"
 )
 
-// CSIClient is an interface that specifies all supported operations for Agent uses.
+// CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)
+// driver for Agent uses. The CSI driver provides many volume related operations to manage the lifecycle of
+// Amazon EBS volumes, including mounting, umounting, resizing and volume stats.
 type CSIClient interface {
 	GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error)
 }
