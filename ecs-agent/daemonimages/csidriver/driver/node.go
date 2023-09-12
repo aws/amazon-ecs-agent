@@ -53,7 +53,7 @@ type nodeService struct {
 	// we only need to override the necessary interfaces.
 	csi.UnimplementedNodeServer
 	inFlight         *internal.InFlight
-        deviceIdentifier DeviceIdentifier
+	deviceIdentifier DeviceIdentifier
 }
 
 func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
@@ -154,7 +154,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	exists, err := d.mounter.PathExists(target)
 	klog.InfoS("NodeStageVolume: path exists:", "exists", exists)
 	if err != nil {
-	        klog.InfoS("NodeStageVolume: path exists:", "err", err)
+		klog.InfoS("NodeStageVolume: path exists:", "err", err)
 		msg := fmt.Sprintf("failed to check if target %q exists: %v", target, err)
 		return nil, status.Error(codes.Internal, msg)
 	}
@@ -211,7 +211,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 	err = d.mounter.FormatAndMountSensitiveWithFormatOptions(source, target, fsType, mountOptions, nil, formatOptions)
 	if err != nil {
-	        klog.InfoS("NodeStageVolume: format mount fail", "error", err)
+		klog.InfoS("NodeStageVolume: format mount fail", "error", err)
 		msg := fmt.Sprintf("could not format %q and mount it at %q: %v", source, target, err)
 		return nil, status.Error(codes.Internal, msg)
 	}

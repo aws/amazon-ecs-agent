@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -55,6 +56,9 @@ type ManagedDaemon struct {
 
 	loadedDaemonImageRef string
 	command              []string
+
+	linuxParameters *ecsacs.LinuxParameters
+	privileged      bool
 }
 
 // A valid managed daemon will require
@@ -112,7 +116,14 @@ func ImportAll() ([]*ManagedDaemon, error) {
 	var thisCommand []string
 	thisCommand = append(thisCommand, "--endpoint=unix://csi-driver/csi-driver.sock")
 	thisCommand = append(thisCommand, "--log_dir=/var/log")
+	sysAdmin := "SYS_ADMIN"
+	addCapabilities := []*string{&sysAdmin}
+	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
+	ebsLinuxParams := ecsacs.LinuxParameters{Capabilities: &kernelCapabilities}
+	ebsManagedDaemon.linuxParameters = &ebsLinuxParams
+
 	ebsManagedDaemon.command = thisCommand
+	ebsManagedDaemon.privileged = true
 	return []*ManagedDaemon{ebsManagedDaemon}, nil
 }
 
@@ -154,6 +165,14 @@ func (md *ManagedDaemon) GetApplicationLogMount() *MountPoint {
 
 func (md *ManagedDaemon) GetCommand() []string {
 	return md.command
+}
+
+func (md *ManagedDaemon) GetLinuxParameters() *ecsacs.LinuxParameters {
+	return md.linuxParameters
+}
+
+func (md *ManagedDaemon) GetPrivileged() bool {
+	return md.privileged
 }
 
 // returns list of mountpoints without the

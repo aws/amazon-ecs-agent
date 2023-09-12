@@ -57,7 +57,14 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	imageName := dm.managedDaemon.GetImageName()
 	loadedImageRef := dm.managedDaemon.GetLoadedDaemonImageRef()
 	containerRunning := apicontainerstatus.ContainerRunning
-	caps := []string{CapSysAdmin}
+	caps := dm.managedDaemon.GetLinuxParameters().Capabilities.Add
+        stringCaps := []string{}
+        for _, cap := range caps {
+            stringCaps = append(stringCaps, *cap)
+        }
+	logger.Info(fmt.Sprintf("import found %s capabilities and stringified them: %s", caps[0], stringCaps[0]))
+        
+	//caps := []string{CapSysAdmin}
 	dockerHostConfig := dockercontainer.HostConfig{
 		Mounts:      []dockermount.Mount{},
 		NetworkMode: apitask.HostNetworkMode,
@@ -66,8 +73,8 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 			Name:              "on-failure",
 			MaximumRetryCount: 0,
 		},
-		Privileged: true,
-		CapAdd:     caps,
+		Privileged: dm.managedDaemon.GetPrivileged(),
+		CapAdd:     stringCaps,
 	}
 	if !dm.managedDaemon.IsValidManagedDaemon() {
 		return nil, fmt.Errorf("%s is an invalid managed daemon", imageName)

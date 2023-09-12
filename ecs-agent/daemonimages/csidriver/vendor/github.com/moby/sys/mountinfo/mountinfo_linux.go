@@ -158,10 +158,10 @@ func PidMountInfo(pid int) ([]*Info, error) {
 // A few specific characters in mountinfo path entries (root and mountpoint)
 // are escaped using a backslash followed by a character's ascii code in octal.
 //
-//   space              -- as \040
-//   tab (aka \t)       -- as \011
-//   newline (aka \n)   -- as \012
-//   backslash (aka \\) -- as \134
+//	space              -- as \040
+//	tab (aka \t)       -- as \011
+//	newline (aka \n)   -- as \012
+//	backslash (aka \\) -- as \134
 //
 // This function converts path from mountinfo back, i.e. it unescapes the above sequences.
 func unescape(path string) (string, error) {

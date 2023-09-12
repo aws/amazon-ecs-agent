@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol"
 )
 
@@ -509,6 +510,8 @@ type Container struct {
 
 	Links []*string `locationName:"links" type:"list"`
 
+	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
+
 	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
 
 	ManagedAgents []*ManagedAgent `locationName:"managedAgents" type:"list"`
@@ -524,6 +527,8 @@ type Container struct {
 	Overrides *string `locationName:"overrides" type:"string"`
 
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
+
+	Privileged *bool `locationName:"privileged" type:"boolean"`
 
 	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
 
@@ -550,6 +555,21 @@ func (s Container) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Container) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Container"}
+	if s.LinuxParameters != nil {
+		if err := s.LinuxParameters.Validate(); err != nil {
+			invalidParams.AddNested("LinuxParameters", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 type ContainerDependency struct {
 	_ struct{} `type:"structure"`
 
@@ -566,6 +586,40 @@ func (s ContainerDependency) String() string {
 // GoString returns the string representation
 func (s ContainerDependency) GoString() string {
 	return s.String()
+}
+
+type Device struct {
+	_ struct{} `type:"structure"`
+
+	ContainerPath *string `locationName:"containerPath" type:"string"`
+
+	// HostPath is a required field
+	HostPath *string `locationName:"hostPath" type:"string" required:"true"`
+
+	Permissions []*string `locationName:"permissions" type:"list"`
+}
+
+// String returns the string representation
+func (s Device) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Device) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Device) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Device"}
+	if s.HostPath == nil {
+		invalidParams.Add(request.NewErrParamRequired("HostPath"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
 }
 
 type DockerConfig struct {
@@ -1233,6 +1287,66 @@ func (s *InvalidInstanceException) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
+type KernelCapabilities struct {
+	_ struct{} `type:"structure"`
+
+	Add []*string `locationName:"add" type:"list"`
+
+	Drop []*string `locationName:"drop" type:"list"`
+}
+
+// String returns the string representation
+func (s KernelCapabilities) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s KernelCapabilities) GoString() string {
+	return s.String()
+}
+
+type LinuxParameters struct {
+	_ struct{} `type:"structure"`
+
+	Capabilities *KernelCapabilities `locationName:"capabilities" type:"structure"`
+
+	Devices []*Device `locationName:"devices" type:"list"`
+
+	InitProcessEnabled *bool `locationName:"initProcessEnabled" type:"boolean"`
+
+	SharedMemorySize *int64 `locationName:"sharedMemorySize" type:"integer"`
+}
+
+// String returns the string representation
+func (s LinuxParameters) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LinuxParameters) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *LinuxParameters) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "LinuxParameters"}
+	if s.Devices != nil {
+		for i, v := range s.Devices {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Devices", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
@@ -1371,6 +1485,26 @@ func (s PayloadInput) String() string {
 // GoString returns the string representation
 func (s PayloadInput) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *PayloadInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "PayloadInput"}
+	if s.Tasks != nil {
+		for i, v := range s.Tasks {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Tasks", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
 }
 
 type PayloadMessage struct {
@@ -1870,6 +2004,26 @@ func (s Task) String() string {
 // GoString returns the string representation
 func (s Task) GoString() string {
 	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Task) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Task"}
+	if s.Containers != nil {
+		for i, v := range s.Containers {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Containers", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
 }
 
 type TaskIdentifier struct {
