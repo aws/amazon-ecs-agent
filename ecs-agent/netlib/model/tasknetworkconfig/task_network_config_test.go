@@ -23,3 +23,4 @@ func TestTaskNetworkConfig_GetPrimaryNetNS(t *testing.T) {
 	testNetConfig = &TaskNetworkConfig{}
 	assert.Nil(t, testNetConfig.GetPrimaryNetNS())
 }
+

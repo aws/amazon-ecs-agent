@@ -36,3 +36,4 @@ func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
 		assert.Equal(t, tc.primaryNI, tc.netns.GetPrimaryInterface())
 	}
 }
+
