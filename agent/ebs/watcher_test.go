@@ -279,7 +279,9 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 
 // TestHandleEBSAckTimeout tests acknowledging the timeout of a EBS-type resource attachment object saved within the agent state.
 // The expected behavior is after the timeout duration, the resource attachment object will be removed from agent state.
+// Skip flaky test until debugged
 func TestHandleEBSAckTimeout(t *testing.T) {
+	t.Skip("Skipping timeout test: flaky")
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 

@@ -9,6 +9,7 @@ _bin/
 *.orig
 /agent/version/_version.go
 /ecs-init/version/version.go
+/ecs-agent/daemonimages/csidriver/tarfiles
 .agignore
 *.sublime-*
 .DS_Store

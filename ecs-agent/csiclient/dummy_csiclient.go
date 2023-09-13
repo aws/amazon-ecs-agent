@@ -13,6 +13,12 @@
 
 package csiclient
 
+import (
+	"context"
+
+	v1 "k8s.io/api/core/v1"
+)
+
 const gibToBytes = 1024 * 1024 * 1024
 
 // dummyCSIClient can be used to test the behaviour of csi client.
@@ -24,6 +30,20 @@ func (c *dummyCSIClient) GetVolumeMetrics(volumeId string, hostMountPath string)
 		Used:     15 * gibToBytes,
 		Capacity: 20 * gibToBytes,
 	}, nil
+}
+
+func (c *dummyCSIClient) NodeStageVolume(ctx context.Context,
+	volID string,
+	publishContext map[string]string,
+	stagingTargetPath string,
+	fsType string,
+	accessMode v1.PersistentVolumeAccessMode,
+	secrets map[string]string,
+	volumeContext map[string]string,
+	mountOptions []string,
+	fsGroup *int64,
+) error {
+	return nil
 }
 
 func NewDummyCSIClient() CSIClient {
