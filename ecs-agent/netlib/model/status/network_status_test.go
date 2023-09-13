@@ -1,8 +1,9 @@
 package status
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestNetworkStatus verifies the corresponding string values of each status

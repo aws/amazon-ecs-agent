@@ -2,8 +2,10 @@ package tasknetworkconfig
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/stretchr/testify/assert"
+
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
