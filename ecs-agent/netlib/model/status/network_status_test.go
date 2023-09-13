@@ -46,4 +46,3 @@ func TestNetworkStatusOrder(t *testing.T) {
 	assert.False(t, NetworkReady.ENIStatusBackwards(NetworkReadyPull))
 	assert.False(t, NetworkDeleted.ENIStatusBackwards(NetworkReady))
 }
-

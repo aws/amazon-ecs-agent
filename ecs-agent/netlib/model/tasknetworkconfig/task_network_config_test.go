@@ -2,7 +2,7 @@ package tasknetworkconfig
 
 import (
 	"github.com/stretchr/testify/assert"
-	
+
 	"testing"
 )
 
@@ -23,4 +23,3 @@ func TestTaskNetworkConfig_GetPrimaryNetNS(t *testing.T) {
 	testNetConfig = &TaskNetworkConfig{}
 	assert.Nil(t, testNetConfig.GetPrimaryNetNS())
 }
-
