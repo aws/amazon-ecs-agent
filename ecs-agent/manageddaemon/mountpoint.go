@@ -26,4 +26,7 @@ type MountPoint struct {
 	ContainerPath        string `json:"ContainerPath,omitempty"`
 	ReadOnly             bool   `json:"ReadOnly,omitempty"`
 	Internal             bool   `json:"Internal,omitempty"`
+	// BindOptions.Propagation comes from:
+	// https://github.com/moby/moby/blob/master/api/types/mount/mount.go#L46-L56
+	PropagationShared bool `json:"PropagationShared,omitempty"`
 }
