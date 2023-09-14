@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package status
 
 import (
@@ -19,15 +22,15 @@ func TestNetworkStatus(t *testing.T) {
 		},
 		{
 			status: NetworkReadyPull,
-			str:    "NONE",
+			str:    "READY_PULL",
 		},
 		{
 			status: NetworkReady,
-			str:    "NONE",
+			str:    "READY",
 		},
 		{
 			status: NetworkDeleted,
-			str:    "NONE",
+			str:    "DELETED",
 		},
 	}
 	for _, tc := range testCases {

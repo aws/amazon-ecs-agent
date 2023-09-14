@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 package tasknetworkconfig
 
 import (
@@ -35,6 +38,6 @@ func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		assert.Equal(t, tc.primaryNI, tc.netns.GetPrimaryInterface())
+		assert.Equal(t, tc.primaryNI, tc.netns.GetPrimaryInterface().Name)
 	}
 }
