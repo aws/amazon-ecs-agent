@@ -27,6 +27,8 @@ import (
 
 type ResourceAttachment struct {
 	attachmentinfo.AttachmentInfo
+	// AttachmentType is the type of the resource attachment which can be "amazonebs" for EBS attach tasks.
+	AttachmentType string
 	// AttachmentProperties is a map storing (name, value) representation of attachment properties.
 	// Each pair is a set of property of one resource attachment.
 	// The "FargateResourceId" is a property name that will be present for all resources.
@@ -62,6 +64,14 @@ const (
 
 	// Properties specific to Elastic Block Service Volumes
 	FileSystemTypeName = "filesystemType"
+
+	// Properties specific to volumes for EBS attach.
+	VolumeIdKey             = "volumeId"
+	VolumeSizeGibKey        = "volumeSizeGib"
+	DeviceNameKey           = "deviceName"
+	SourceVolumeHostPathKey = "sourceVolumeHostPath"
+	VolumeNameKey           = "volumeName"
+	FileSystemKey           = "fileSystem"
 )
 
 // getCommonProperties returns the common properties as used for validating a resource.
@@ -77,6 +87,19 @@ func getVolumeSpecificProperties() (volumeSpecificProperties []string) {
 	volumeSpecificProperties = []string{
 		VolumeIdName,
 		DeviceName,
+	}
+	return volumeSpecificProperties
+}
+
+// GetVolumeSpecificPropertiesForEBSAttach returns the properties specific to EBS volume resources which will be used
+// in EBS attach.
+func GetVolumeSpecificPropertiesForEBSAttach() (volumeSpecificProperties []string) {
+	volumeSpecificProperties = []string{
+		VolumeIdKey,
+		VolumeSizeGibKey,
+		DeviceNameKey,
+		SourceVolumeHostPathKey,
+		VolumeNameKey,
 	}
 	return volumeSpecificProperties
 }

@@ -14,6 +14,12 @@
 package resource
 
 const (
-	EphemeralStorage    = "EphemeralStorage"
+	// EphemeralStorage is one of the resource types in the properties list of the attachment payload message for the
+	// ephemeral storage.
+	EphemeralStorage = "EphemeralStorage"
+	// ElasticBlockStorage is one of the resource types in the properties list of the attachment payload message for the
+	// EBS volume on firecracker.
 	ElasticBlockStorage = "ElasticBlockStorage"
+	// AmazonEBS is one of the attachment types in the attachment payload message for EBS attach tasks on warmpool.
+	AmazonEBS = "amazonebs"
 )
