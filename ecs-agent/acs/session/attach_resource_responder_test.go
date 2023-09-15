@@ -132,7 +132,7 @@ func TestValidateAttachResourceMessage(t *testing.T) {
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
 	require.Error(t, err)
 
-	// Verify the AttachmentArn is required and is correct format.
+	// Verify the AttachmentArn is required and uses correct format.
 	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String("incorrectArn")
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
@@ -211,7 +211,12 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 		})
 	}
 
-	// Reset attachment to be a good one.
+	// Reset attachment to be a good one with invalid attachment type.
+	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("invalid-type")
+	_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+	require.NoError(t, err)
+
+	// Reset attachment to be a good one with valid attachment type.
 	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("amazonebs")
 	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
 

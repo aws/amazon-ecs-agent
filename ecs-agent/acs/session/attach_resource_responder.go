@@ -180,7 +180,7 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 		attachmentProperties[name] = value
 	}
 
-	// For "amazonebs" used by the EBS attach, ACS is using attachmentType to inform its attachment type.
+	// For "amazonebs" used by the EBS attach, ACS is using attachmentType to indicate its attachment type.
 	attachmentType := aws.StringValue(message.Attachment.AttachmentType)
 	if attachmentType == resource.AmazonEBS {
 		err = resource.ValidateRequiredProperties(
@@ -193,7 +193,7 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 		return attachmentProperties, nil
 	}
 
-	// For "EphemeralStorage" and "ElasticBlockStorage", ACS is using resourceType to inform its attachment type.
+	// For "EphemeralStorage" and "ElasticBlockStorage", ACS is using resourceType to indicate its attachment type.
 	err = resource.ValidateResourceByResourceType(attachmentProperties)
 	if err != nil {
 		return nil, errors.Wrap(err, "resource attachment validation by resource type failed ")
