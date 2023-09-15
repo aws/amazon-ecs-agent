@@ -28,7 +28,7 @@ import (
 type ResourceAttachment struct {
 	attachmentinfo.AttachmentInfo
 	// AttachmentType is the type of the resource attachment which can be "AmazonElasticBlockStorage" for EBS attach tasks.
-	AttachmentType string
+	AttachmentType string `json:"AttachmentType,omitempty"`
 	// AttachmentProperties is a map storing (name, value) representation of attachment properties.
 	// Each pair is a set of property of one resource attachment.
 	// The "FargateResourceId" is a property name that will be present for all resources.

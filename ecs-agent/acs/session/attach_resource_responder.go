@@ -91,6 +91,7 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 			Status:               status.AttachmentNone,
 		},
 		AttachmentProperties: attachmentProperties,
+		AttachmentType:       aws.StringValue(message.Attachment.AttachmentType),
 	})
 
 	// Send ACK.
