@@ -180,9 +180,9 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 		attachmentProperties[name] = value
 	}
 
-	// For "amazonebs" used by the EBS attach, ACS is using attachmentType to indicate its attachment type.
+	// For "AmazonElasticBlockStorage" used by the EBS attach, ACS is using attachmentType to indicate its attachment type.
 	attachmentType := aws.StringValue(message.Attachment.AttachmentType)
-	if attachmentType == resource.AmazonEBS {
+	if attachmentType == resource.AmazonElasticBlockStorage {
 		err = resource.ValidateRequiredProperties(
 			attachmentProperties,
 			resource.GetVolumeSpecificPropertiesForEBSAttach(),
