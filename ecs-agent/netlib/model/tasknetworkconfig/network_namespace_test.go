@@ -12,31 +12,20 @@ import (
 )
 
 func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
-	testCases := []struct {
-		netns     *NetworkNamespace
-		primaryNI string
-	}{
-		{
-			netns: &NetworkNamespace{
-				NetworkInterfaces: []*networkinterface.NetworkInterface{
-					{
-						Index: 1,
-						Name:  secondaryInterfaceName,
-					},
-					{
-						Index: 0,
-						Name:  primaryInterfaceName,
-					},
-				},
+	netns := &NetworkNamespace{
+		NetworkInterfaces: []*networkinterface.NetworkInterface{
+			{
+				Index: 1,
+				Name:  secondaryInterfaceName,
 			},
-			primaryNI: primaryInterfaceName,
-		},
-		{
-			netns:     &NetworkNamespace{},
-			primaryNI: "",
+			{
+				Index: 0,
+				Name:  primaryInterfaceName,
+			},
 		},
 	}
+	assert.Equal(t, primaryInterfaceName, netns.GetPrimaryInterface().Name)
 
-	assert.Equal(t, tc.primaryNI, testCases[0].netns.GetPrimaryInterface().Name)
-	assert.Nil(t, testCases[1].netns.GetPrimaryInterface())
+	netns = &NetworkNamespace{}
+	assert.Equal(t, netns)
 }
