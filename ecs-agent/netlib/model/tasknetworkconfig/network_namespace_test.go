@@ -27,5 +27,5 @@ func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
 	assert.Equal(t, primaryInterfaceName, netns.GetPrimaryInterface().Name)
 
 	netns = &NetworkNamespace{}
-	assert.Equal(t, netns)
+	assert.Empty(t, netns.GetPrimaryInterface())
 }
