@@ -20,6 +20,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
+	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 )
 
 const (
@@ -111,6 +113,11 @@ func (e *Engine) PreStart() error {
 	if err != nil {
 		return err
 	}
+	// setup AppArmor if necessary
+	err = e.PreStartAppArmor()
+	if err != nil {
+		return err
+	}
 	// Enable use of loopback addresses for local routing purposes
 	log.Info("pre-start: enabling loopback routing")
 	err = e.loopbackRouting.Enable()
@@ -184,6 +191,16 @@ func (e *Engine) PreStartGPU() error {
 				return engineError("Nvidia GPU Manager", err)
 			}
 		}
+	}
+	return nil
+}
+
+// PreStartAppArmor sets up the ecs-default AppArmor profile if we're running
+// on an AppArmor-enabled system.
+func (e *Engine) PreStartAppArmor() error {
+	if ctrdapparmor.HostSupports() {
+		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSDefaultProfileName)
+		return apparmor.LoadDefaultProfile(apparmor.ECSDefaultProfileName)
 	}
 	return nil
 }
