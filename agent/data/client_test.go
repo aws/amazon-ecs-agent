@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	generaldata "github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
 
 	"github.com/stretchr/testify/require"
@@ -43,8 +44,11 @@ func newTestClient(t *testing.T) Client {
 		return nil
 	}))
 	testClient := &client{
-		db:          testDB,
-		transformer: transformer,
+		generaldata.Client{
+			Accessor:    generaldata.DBAccessor{},
+			DB:          testDB,
+			Transformer: transformer,
+		},
 	}
 
 	t.Cleanup(func() {

@@ -27,14 +27,14 @@ func (c *client) SaveImageState(img *image.ImageState) error {
 	if id == "" {
 		return errors.New("failed to generate database image id")
 	}
-	return c.db.Batch(func(tx *bolt.Tx) error {
+	return c.DB.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(imagesBucketName))
-		return putObject(b, id, img)
+		return c.Accessor.PutObject(b, id, img)
 	})
 }
 
 func (c *client) DeleteImageState(id string) error {
-	return c.db.Batch(func(tx *bolt.Tx) error {
+	return c.DB.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(imagesBucketName))
 		return b.Delete([]byte(id))
 	})
@@ -42,9 +42,9 @@ func (c *client) DeleteImageState(id string) error {
 
 func (c *client) GetImageStates() ([]*image.ImageState, error) {
 	var imageStates []*image.ImageState
-	err := c.db.View(func(tx *bolt.Tx) error {
+	err := c.DB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(imagesBucketName))
-		return walk(bucket, func(id string, data []byte) error {
+		return c.Accessor.Walk(bucket, func(id string, data []byte) error {
 			imageState := image.ImageState{}
 			if err := json.Unmarshal(data, &imageState); err != nil {
 				return err

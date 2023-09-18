@@ -27,16 +27,16 @@ const (
 )
 
 func (c *client) SaveMetadata(key, val string) error {
-	return c.db.Batch(func(tx *bolt.Tx) error {
+	return c.DB.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(metadataBucketName))
-		return putObject(b, key, val)
+		return c.Accessor.PutObject(b, key, val)
 	})
 }
 
 func (c *client) GetMetadata(key string) (string, error) {
 	var val string
-	err := c.db.View(func(tx *bolt.Tx) error {
-		return getObject(tx, metadataBucketName, key, &val)
+	err := c.DB.View(func(tx *bolt.Tx) error {
+		return c.Accessor.GetObject(tx, metadataBucketName, key, &val)
 	})
 	return val, err
 }

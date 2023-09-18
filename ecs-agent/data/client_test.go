@@ -1,6 +1,3 @@
-//go:build unit
-// +build unit
-
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -28,6 +25,8 @@ import (
 
 const (
 	testBucketName = "test"
+	dbName         = "agent.db"
+	dbMode         = 0600
 )
 
 type testObjType struct {
@@ -35,7 +34,7 @@ type testObjType struct {
 	Val string
 }
 
-func setupHelpersTest(t *testing.T) *bolt.DB {
+func setupHelpersTest(t *testing.T) (*bolt.DB, DBAccessor) {
 	testDir := t.TempDir()
 	db, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
 	require.NoError(t, err)
@@ -48,11 +47,11 @@ func setupHelpersTest(t *testing.T) *bolt.DB {
 		require.NoError(t, db.Close())
 	})
 
-	return db
+	return db, DBAccessor{}
 }
 
 func TestHelpers(t *testing.T) {
-	db := setupHelpersTest(t)
+	db, accessor := setupHelpersTest(t)
 
 	testObj := &testObjType{
 		Key: "key",
@@ -61,23 +60,23 @@ func TestHelpers(t *testing.T) {
 
 	require.NoError(t, db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(testBucketName))
-		return putObject(b, testObj.Key, testObj)
+		return accessor.PutObject(b, testObj.Key, testObj)
 	}))
 
 	assert.Error(t, db.Update(func(tx *bolt.Tx) error {
-		return getObject(tx, testBucketName, "xx", &testObjType{})
+		return accessor.GetObject(tx, testBucketName, "xx", &testObjType{})
 	}))
 
 	res := &testObjType{}
 	assert.NoError(t, db.Update(func(tx *bolt.Tx) error {
-		return getObject(tx, testBucketName, testObj.Key, res)
+		return accessor.GetObject(tx, testBucketName, testObj.Key, res)
 	}))
 	assert.Equal(t, testObj.Val, res.Val)
 
 	var resArr []*testObjType
 	require.NoError(t, db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(testBucketName))
-		return walk(b, func(id string, data []byte) error {
+		return accessor.Walk(b, func(id string, data []byte) error {
 			obj := &testObjType{}
 			if err := json.Unmarshal(data, &obj); err != nil {
 				return err

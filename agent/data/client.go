@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data/transformationfunctions"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	generaldata "github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	bolt "go.etcd.io/bbolt"
@@ -97,8 +98,7 @@ type Client interface {
 
 // client implements the Client interface using boltdb as the backing data store.
 type client struct {
-	db          *bolt.DB
-	transformer *modeltransformer.Transformer
+	generaldata.Client
 }
 
 // New returns a data client that implements the Client interface with boltdb.
@@ -144,12 +144,15 @@ func setup(dataDir string) (*client, error) {
 		return nil, err
 	}
 	return &client{
-		db:          db,
-		transformer: transformer,
+		generaldata.Client{
+			Accessor:    generaldata.DBAccessor{},
+			DB:          db,
+			Transformer: transformer,
+		},
 	}, nil
 }
 
 // Close closes the boltdb connection.
 func (c *client) Close() error {
-	return c.db.Close()
+	return c.DB.Close()
 }
