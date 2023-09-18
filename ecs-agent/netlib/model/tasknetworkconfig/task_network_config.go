@@ -11,7 +11,10 @@ type TaskNetworkConfig struct {
 // GetPrimaryInterface returns the interface with index 0 inside the network namespace
 // with index 0 associated with the task's network config.
 func (tnc *TaskNetworkConfig) GetPrimaryInterface() *ni.NetworkInterface {
-	return tnc.GetPrimaryNetNS().GetPrimaryInterface()
+	if tnc != nil && tnc.GetPrimaryNetNS() != nil {
+		return tnc.GetPrimaryNetNS().GetPrimaryInterface()
+	}
+	return nil
 }
 
 // GetPrimaryNetNS returns the netns with index 0 associated with the task's network config.
