@@ -24,13 +24,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.2
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/sys v0.11.0
 	golang.org/x/tools v0.12.0
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
