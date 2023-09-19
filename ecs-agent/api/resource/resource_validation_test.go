@@ -60,7 +60,7 @@ func TestValidateVolumeResource(t *testing.T) {
 				resourceProperties[property] = testString
 			}
 
-			err := ValidateResource(resourceProperties)
+			err := ValidateResourceByResourceType(resourceProperties)
 			require.NoError(t, err)
 
 			// `requiredProperties` contains all properties required for a resource.
@@ -75,7 +75,7 @@ func TestValidateVolumeResource(t *testing.T) {
 				// Store the current value so that we can add it back when we reset after removing it.
 				val := resourceProperties[property]
 				delete(resourceProperties, property)
-				err := ValidateResource(resourceProperties)
+				err := ValidateResourceByResourceType(resourceProperties)
 				require.Error(t, err)
 				// Make resourceProperties whole again.
 				resourceProperties[property] = val

@@ -169,3 +169,17 @@ func TestInitializeExpiredButAlreadySent(t *testing.T) {
 	}
 	assert.NoError(t, attachment.Initialize(func() {}))
 }
+
+// TestGetVolumeSpecificPropertiesForEBSAttach ensures all required properties for EBS attach are correct.
+func TestGetVolumeSpecificPropertiesForEBSAttach(t *testing.T) {
+	expected := []string{
+		"volumeId",
+		"volumeSizeGib",
+		"deviceName",
+		"sourceVolumeHostPath",
+		"volumeName",
+	}
+	actual := GetVolumeSpecificPropertiesForEBSAttach()
+
+	assert.Equal(t, expected, actual)
+}

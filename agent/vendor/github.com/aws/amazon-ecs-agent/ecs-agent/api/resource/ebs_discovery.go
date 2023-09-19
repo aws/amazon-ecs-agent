@@ -28,6 +28,8 @@ const (
 )
 
 var (
+	// When confirming an EBS volume is attached to a host, if the expected volume ID does not
+	// match the volume ID found on the host, this error is returned.
 	ErrInvalidVolumeID = errors.New("EBS volume IDs do not match")
 )
 
