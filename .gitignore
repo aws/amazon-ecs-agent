@@ -8,6 +8,7 @@ _bin/
 *.swp
 *.orig
 /agent/version/_version.go
+/ecs-agent/daemonimages/csidriver/tarfiles
 /ecs-init/version/version.go
 .agignore
 *.sublime-*
