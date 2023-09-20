@@ -23,9 +23,12 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -186,6 +189,101 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 				assert.Nil(t, err, "Should not return error")
 				assert.NotNil(t, testTask.ServiceConnectConfig, "Should get valid service connect config from attachments")
 				assert.Equal(t, testExpectedSCConfig, testTask.ServiceConnectConfig)
+			}
+		})
+	}
+}
+
+func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
+	tt := []struct {
+		testName                 string
+		testVolumeId             string
+		testVolumeSizeGib        string
+		testSourceVolumeHostPath string
+		testVolumeName           string
+		testFileSystem           string
+		testDeviceName           string
+		shouldReturnError        bool
+	}{
+		{
+			testName:                 "EBS Attachment without error",
+			testVolumeId:             taskresourcevolume.TestVolumeId,
+			testVolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+			testSourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+			testVolumeName:           taskresourcevolume.TestVolumeName,
+			testFileSystem:           taskresourcevolume.TestFileSystem,
+			testDeviceName:           taskresourcevolume.TestDeviceName,
+			shouldReturnError:        false,
+		},
+		{
+			testName:                 "EBS Attachment with error",
+			testVolumeId:             taskresourcevolume.TestVolumeId,
+			testVolumeSizeGib:        "",
+			testSourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+			testVolumeName:           "",
+			testFileSystem:           taskresourcevolume.TestFileSystem,
+			testDeviceName:           "",
+			shouldReturnError:        true,
+		},
+	}
+	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
+		VolumeId:             "vol-12345",
+		VolumeName:           "test-volume",
+		VolumeSizeGib:        "10",
+		SourceVolumeHostPath: "taskarn_vol-12345",
+		DeviceName:           "/dev/nvme1n1",
+		FileSystem:           "ext4",
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.testName, func(t *testing.T) {
+			testAcsTask := &ecsacs.Task{
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
+					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
+				},
+				Attachments: []*ecsacs.Attachment{
+					{
+						AttachmentArn: stringToPointer("attachmentArn"),
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
+							{
+								Name:  stringToPointer(apiresource.VolumeIdKey),
+								Value: stringToPointer(tc.testVolumeId),
+							},
+							{
+								Name:  stringToPointer(apiresource.VolumeSizeGibKey),
+								Value: stringToPointer(tc.testVolumeSizeGib),
+							},
+							{
+								Name:  stringToPointer(apiresource.DeviceNameKey),
+								Value: stringToPointer(tc.testDeviceName),
+							},
+							{
+								Name:  stringToPointer(apiresource.SourceVolumeHostPathKey),
+								Value: stringToPointer(tc.testSourceVolumeHostPath),
+							},
+							{
+								Name:  stringToPointer(apiresource.VolumeNameKey),
+								Value: stringToPointer(tc.testVolumeName),
+							},
+							{
+								Name:  stringToPointer(apiresource.FileSystemKey),
+								Value: stringToPointer(tc.testFileSystem),
+							},
+						},
+						AttachmentType: stringToPointer(apiresource.AmazonElasticBlockStorage),
+					},
+				},
+			}
+			testTask := &Task{}
+			err := handleTaskAttachments(testAcsTask, testTask)
+			if tc.shouldReturnError {
+				assert.NotNil(t, err, "Should return error")
+			} else {
+				assert.Nil(t, err, "Should not return error")
+				ebsConfig, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+				require.True(t, ok)
+				assert.Equal(t, testExpectedEBSCfg, ebsConfig)
 			}
 		})
 	}

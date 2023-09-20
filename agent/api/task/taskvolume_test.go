@@ -29,6 +29,7 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -186,6 +187,130 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 	assert.Equal(t, "/tmp", efsConfig.RootDirectory)
 	assert.Equal(t, "ENABLED", efsConfig.TransitEncryption)
 	assert.Equal(t, int64(23456), efsConfig.TransitEncryptionPort)
+}
+
+func TestMarshalEBSVolumes(t *testing.T) {
+	task := &Task{
+		Arn: "test",
+		Volumes: []TaskVolume{
+			{
+				Name: "1",
+				Type: apiresource.AmazonElasticBlockStorage,
+				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+					VolumeId:             "vol-12345",
+					VolumeName:           "test-volume",
+					VolumeSizeGib:        "10",
+					SourceVolumeHostPath: "taskarn_vol-12345",
+					DeviceName:           "/dev/nvme1n1",
+					FileSystem:           "ext4",
+				},
+			},
+		},
+	}
+
+	marshal, err := json.Marshal(task)
+	require.NoError(t, err, "could not marshal task")
+	expectedTaskDef := `{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"ServiceName": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"ebsVolumeConfiguration": {
+				"volumeId": "vol-12345",
+				"volumeName": "test-volume",
+				"volumeSizeGib": "10",
+				"sourceVolumeHostPath": "taskarn_vol-12345",
+				"deviceName": "/dev/nvme1n1",
+			 	"fileSystem": "ext4",
+				"dockerVolumeName": ""
+			},
+			"name": "1",
+			"type": "AmazonElasticBlockStorage"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"executionCredentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": %s
+	  }`
+	if runtime.GOOS == "windows" {
+		// windows task defs have a special 'cpu/memory unbounded' field added.
+		// see https://github.com/aws/amazon-ecs-agent/pull/1227
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, `{"cpuUnbounded": null, "memoryUnbounded": null}`)
+	} else {
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, "{}")
+	}
+	require.JSONEq(t, expectedTaskDef, string(marshal))
+}
+
+func TestUnmarshalEBSVolumes(t *testing.T) {
+	taskDef := []byte(`{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"ebsVolumeConfiguration": {
+				"volumeId": "vol-12345",
+				"volumeName": "test-volume",
+				"volumeSizeGib": "10",
+				"sourceVolumeHostPath": "taskarn_vol-12345",
+				"deviceName": "/dev/nvme1n1",
+			 	"fileSystem": "ext4",
+				"dockerVolumeName": ""
+			},
+			"name": "1",
+			"type": "AmazonElasticBlockStorage"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"executionCredentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": {}
+	  }`)
+
+	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
+		VolumeId:             "vol-12345",
+		VolumeName:           "test-volume",
+		VolumeSizeGib:        "10",
+		SourceVolumeHostPath: "taskarn_vol-12345",
+		DeviceName:           "/dev/nvme1n1",
+		FileSystem:           "ext4",
+	}
+
+	var task Task
+
+	err := json.Unmarshal(taskDef, &task)
+	require.NoError(t, err, "Could not unmarshal task")
+
+	require.Len(t, task.Volumes, 1)
+	assert.Equal(t, apiresource.AmazonElasticBlockStorage, task.Volumes[0].Type)
+	assert.Equal(t, "1", task.Volumes[0].Name)
+	ebsConfig, ok := task.Volumes[0].Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, testExpectedEBSCfg, ebsConfig)
 }
 
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {

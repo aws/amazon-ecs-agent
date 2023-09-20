@@ -50,6 +50,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
@@ -81,6 +82,7 @@ const (
 var (
 	testListenerPort              = uint16(8080)
 	testBridgeDefaultListenerPort = uint16(15000)
+	testEBSReadOnly               = false
 )
 
 func TestDockerConfigPortBinding(t *testing.T) {
@@ -4636,6 +4638,77 @@ func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, BridgeNetworkMode, task.NetworkMode)
 	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
+}
+
+func TestTaskWithEBSVolumeAttachment(t *testing.T) {
+	seqNum := int64(42)
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: strptr("myName1"),
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr("/foo"),
+						SourceVolume:  strptr("test-volume"),
+						ReadOnly:      &testEBSReadOnly,
+					},
+				},
+			},
+		},
+		Attachments: []*ecsacs.Attachment{
+			{
+				AttachmentArn: strptr("attachmentArn"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{
+						Name:  strptr(apiresource.VolumeIdKey),
+						Value: strptr(taskresourcevolume.TestVolumeId),
+					},
+					{
+						Name:  strptr(apiresource.VolumeSizeGibKey),
+						Value: strptr(taskresourcevolume.TestVolumeSizeGib),
+					},
+					{
+						Name:  strptr(apiresource.DeviceNameKey),
+						Value: strptr(taskresourcevolume.TestDeviceName),
+					},
+					{
+						Name:  strptr(apiresource.SourceVolumeHostPathKey),
+						Value: strptr(taskresourcevolume.TestSourceVolumeHostPath),
+					},
+					{
+						Name:  strptr(apiresource.VolumeNameKey),
+						Value: strptr(taskresourcevolume.TestVolumeName),
+					},
+					{
+						Name:  strptr(apiresource.FileSystemKey),
+						Value: strptr(taskresourcevolume.TestFileSystem),
+					},
+				},
+				AttachmentType: strptr(apiresource.AmazonElasticBlockStorage),
+			},
+		},
+	}
+
+	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
+		VolumeId:             "vol-12345",
+		VolumeName:           "test-volume",
+		VolumeSizeGib:        "10",
+		SourceVolumeHostPath: "taskarn_vol-12345",
+		DeviceName:           "/dev/nvme1n1",
+		FileSystem:           "ext4",
+	}
+
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Len(t, task.Containers, 1)
+	assert.Len(t, task.Volumes, 1)
+	ebsConfig, ok := task.Volumes[0].Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, testExpectedEBSCfg, ebsConfig)
 }
 
 func TestRequiresAnyCredentialSpecResource(t *testing.T) {

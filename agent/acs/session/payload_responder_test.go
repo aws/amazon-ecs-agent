@@ -31,10 +31,12 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -652,6 +654,98 @@ func TestHandlePayloadMessageAddedENIToTask(t *testing.T) {
 	assert.Equal(t, 1, len(taskeni.IPV6Addresses))
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv4Addresses[0].PrivateAddress), taskeni.IPV4Addresses[0].Address)
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
+}
+
+func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
+	testEBSReadOnly := false
+	ackSent := make(chan *ecsacs.AckRequest)
+	testResponseSender := func(response interface{}) error {
+		resp := response.(*ecsacs.AckRequest)
+		ackSent <- resp
+		return nil
+	}
+
+	tester := setup(t, testResponseSender)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	handlePayloadMessage := tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
+	testPayloadMessage.Tasks = []*ecsacs.Task{
+		{
+			Arn:           aws.String(testconst.TaskARN),
+			DesiredStatus: aws.String("RUNNING"),
+			Family:        aws.String("myFamily"),
+			Version:       aws.String("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: aws.String("myName1"),
+					MountPoints: []*ecsacs.MountPoint{
+						{
+							ContainerPath: aws.String("/foo"),
+							SourceVolume:  aws.String("test-volume"),
+							ReadOnly:      &testEBSReadOnly,
+						},
+					},
+				},
+			},
+			Attachments: []*ecsacs.Attachment{
+				{
+					AttachmentArn: aws.String("attachmentArn"),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{
+							Name:  aws.String(apiresource.VolumeIdKey),
+							Value: aws.String(taskresourcevolume.TestVolumeId),
+						},
+						{
+							Name:  aws.String(apiresource.VolumeSizeGibKey),
+							Value: aws.String(taskresourcevolume.TestVolumeSizeGib),
+						},
+						{
+							Name:  aws.String(apiresource.DeviceNameKey),
+							Value: aws.String(taskresourcevolume.TestDeviceName),
+						},
+						{
+							Name:  aws.String(apiresource.SourceVolumeHostPathKey),
+							Value: aws.String(taskresourcevolume.TestSourceVolumeHostPath),
+						},
+						{
+							Name:  aws.String(apiresource.VolumeNameKey),
+							Value: aws.String(taskresourcevolume.TestVolumeName),
+						},
+						{
+							Name:  aws.String(apiresource.FileSystemKey),
+							Value: aws.String(taskresourcevolume.TestFileSystem),
+						},
+					},
+					AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+				},
+			},
+		},
+	}
+
+	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
+		VolumeId:             "vol-12345",
+		VolumeName:           "test-volume",
+		VolumeSizeGib:        "10",
+		SourceVolumeHostPath: "taskarn_vol-12345",
+		DeviceName:           "/dev/nvme1n1",
+		FileSystem:           "ext4",
+	}
+
+	handlePayloadMessage(testPayloadMessage)
+
+	payloadAckSent := <-ackSent
+	assert.Equal(t, expectedPayloadAck, payloadAckSent)
+
+	assert.Len(t, addedTask.Volumes, 1)
+	ebsConfig, ok := addedTask.Volumes[0].Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, testExpectedEBSCfg, ebsConfig)
 }
 
 func TestHandlePayloadMessageAddedAppMeshToTask(t *testing.T) {
