@@ -35,6 +35,9 @@ You can see our changelog entry style here:
 https://github.com/aws/amazon-ecs-agent/commit/c9aefebc2b3007f09468f651f6308136bd7b384f
 -->
 
+**Does this PR include breaking model changes? If so, Have you added transformation functions?**
+<!-- If yes, next release should have a upgraded minor version -->  
+
 ### Licensing
 
 By submitting this pull request, I confirm that my contribution is made under the terms of the Apache 2.0 license.
