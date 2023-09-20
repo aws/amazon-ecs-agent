@@ -57,8 +57,8 @@ type csiClient struct {
 }
 
 // NewCSIClient creates a CSI client for the communication with CSI driver daemon.
-func NewCSIClient(socketIn string) csiClient {
-	return csiClient{csiSocket: socketIn}
+func NewCSIClient(socketIn string) CSIClient {
+	return &csiClient{csiSocket: socketIn}
 }
 
 func (cc *csiClient) NodeStageVolume(ctx context.Context,
