@@ -33,6 +33,8 @@ import (
 
 const (
 	AttachResourceMessageName = "ConfirmAttachmentMessage"
+	// DefaultAttachmentWaitTimeoutInMs is the default timeout, 5 minutes, for handling the attachments from ACS.
+	DefaultAttachmentWaitTimeoutInMs = 300000
 )
 
 type ResourceHandler interface {
@@ -78,8 +80,17 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 	}
 
 	messageID := aws.StringValue(message.MessageId)
-	expiresAt := receivedAt.Add(
-		time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond)
+	// Set a default wait timeout (5m) for the attachment message from ACS if not provided.
+	// For example, the attachment payload for the EBS attach might not have the property.
+	waitTimeoutMs := aws.Int64Value(message.WaitTimeoutMs)
+	if waitTimeoutMs == 0 {
+		waitTimeoutMs = DefaultAttachmentWaitTimeoutInMs
+	}
+	logger.Debug("Waiting for the resource attachment to be ready",
+		logger.Fields{
+			"WaitTimeoutMs": waitTimeoutMs,
+		})
+	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	go r.resourceHandler.HandleResourceAttachment(&resource.ResourceAttachment{
 		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:              aws.StringValue(message.TaskArn),
@@ -194,7 +205,7 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 		return attachmentProperties, nil
 	}
 
-	// For "EphemeralStorage" and "ElasticBlockStorage", ACS is using resourceType to indicate its attachment type.
+	// For legacy EBS volumes("EphemeralStorage" and "ElasticBlockStorage"), ACS is using resourceType to indicate its attachment type.
 	err = resource.ValidateResourceByResourceType(attachmentProperties)
 	if err != nil {
 		return nil, errors.Wrap(err, "resource attachment validation by resource type failed ")
