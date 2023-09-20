@@ -17,7 +17,9 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 )
@@ -76,10 +78,13 @@ func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask 
 func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 	if acsTask.Attachments != nil {
 		var serviceConnectAttachment *ecsacs.Attachment
+		var ebsVolumeAttachments []*ecsacs.Attachment
 		for _, attachment := range acsTask.Attachments {
 			switch aws.StringValue(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
 				serviceConnectAttachment = attachment
+			case apiresource.AmazonElasticBlockStorage:
+				ebsVolumeAttachments = append(ebsVolumeAttachments, attachment)
 			default:
 				logger.Debug("Received an attachment type", logger.Fields{
 					"attachmentType": attachment.AttachmentType,
@@ -103,6 +108,20 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 				return fmt.Errorf("service connect config validation failed: %w", err)
 			}
 			task.ServiceConnectConfig = scHandler.(*ServiceConnectAttachmentHandler).scConfig
+		}
+		if len(ebsVolumeAttachments) > 0 {
+			for _, attachment := range ebsVolumeAttachments {
+				ebs, err := taskresourcevolume.ParseEBSTaskVolumeAttachment(attachment)
+				if err != nil {
+					return fmt.Errorf("unable to parse and validate EBS volume: %w", err)
+				}
+				taskVolume := TaskVolume{
+					Name:   ebs.VolumeName,
+					Type:   apiresource.AmazonElasticBlockStorage,
+					Volume: ebs,
+				}
+				task.Volumes = append(task.Volumes, taskVolume)
+			}
 		}
 	}
 	return nil
