@@ -21,10 +21,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/opencontainers/runtime-spec/specs-go"
 
 	"github.com/cihub/seelog"
-	"github.com/containerd/cgroups"
+	cgroups "github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/pkg/errors"
 )
 
@@ -57,7 +57,7 @@ func (c *control) Create(cgroupSpec *Spec) error {
 	}
 
 	seelog.Debugf("Creating cgroup cgroupPath=%s", cgroupSpec.Root)
-	_, err = c.New(cgroups.V1, cgroups.StaticPath(cgroupSpec.Root), cgroupSpec.Specs)
+	_, err = c.New(cgroups.Default, cgroups.StaticPath(cgroupSpec.Root), cgroupSpec.Specs)
 	if err != nil {
 		return fmt.Errorf("cgroup create: unable to create controller: v1: %s", err)
 	}
@@ -69,7 +69,7 @@ func (c *control) Create(cgroupSpec *Spec) error {
 func (c *control) Remove(cgroupPath string) error {
 	seelog.Debugf("Removing cgroup cgroupPath=%s", cgroupPath)
 
-	controller, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
+	controller, err := c.Load(cgroups.Default, cgroups.StaticPath(cgroupPath))
 	if err != nil {
 		// use the %w verb to wrap the error to be unwrapped by errors.Is()
 		return fmt.Errorf("cgroup remove: unable to obtain controller: %w", err)
@@ -87,7 +87,7 @@ func (c *control) Remove(cgroupPath string) error {
 func (c *control) Exists(cgroupPath string) bool {
 	seelog.Debugf("Checking existence of cgroup cgroupPath=%s", cgroupPath)
 
-	controller, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
+	controller, err := c.Load(cgroups.Default, cgroups.StaticPath(cgroupPath))
 	if err != nil || controller == nil {
 		return false
 	}
@@ -95,7 +95,7 @@ func (c *control) Exists(cgroupPath string) bool {
 	return true
 }
 
-// Init is used to setup the cgroup root for ecs
+// Init is used to set up the cgroup root for ecs
 func (c *control) Init() error {
 	seelog.Debugf("Creating root ecs cgroup cgroupPath=%s", config.DefaultTaskCgroupV1Prefix)
 

@@ -31,12 +31,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
-	"github.com/containerd/cgroups"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	cgroups "github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const (

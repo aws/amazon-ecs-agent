@@ -22,7 +22,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
-	cgroupsv2 "github.com/containerd/cgroups/v2"
+	cgroupsv2 "github.com/containerd/cgroups/v3/cgroup2"
 )
 
 const (

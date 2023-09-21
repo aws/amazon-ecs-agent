@@ -21,7 +21,7 @@ package mock_factory
 import (
 	reflect "reflect"
 
-	cgroups "github.com/containerd/cgroups"
+	cgroup1 "github.com/containerd/cgroups/v3/cgroup1"
 	gomock "github.com/golang/mock/gomock"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -50,10 +50,10 @@ func (m *MockCgroupFactory) EXPECT() *MockCgroupFactoryMockRecorder {
 }
 
 // Load mocks base method.
-func (m *MockCgroupFactory) Load(arg0 cgroups.Hierarchy, arg1 cgroups.Path) (cgroups.Cgroup, error) {
+func (m *MockCgroupFactory) Load(arg0 cgroup1.Hierarchy, arg1 cgroup1.Path) (cgroup1.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load", arg0, arg1)
-	ret0, _ := ret[0].(cgroups.Cgroup)
+	ret0, _ := ret[0].(cgroup1.Cgroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -65,10 +65,10 @@ func (mr *MockCgroupFactoryMockRecorder) Load(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // New mocks base method.
-func (m *MockCgroupFactory) New(arg0 cgroups.Hierarchy, arg1 cgroups.Path, arg2 *specs.LinuxResources) (cgroups.Cgroup, error) {
+func (m *MockCgroupFactory) New(arg0 cgroup1.Hierarchy, arg1 cgroup1.Path, arg2 *specs.LinuxResources) (cgroup1.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", arg0, arg1, arg2)
-	ret0, _ := ret[0].(cgroups.Cgroup)
+	ret0, _ := ret[0].(cgroup1.Cgroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

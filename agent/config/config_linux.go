@@ -17,7 +17,7 @@
 package config
 
 import (
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3"
 )
 
 func init() {
