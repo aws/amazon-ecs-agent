@@ -22,6 +22,7 @@ _bin/
 /bin
 *.iml
 cover.out
+cover.out.tmp
 coverprofile*.out
 /amazon-ecs-init*
 /BUILDROOT/
