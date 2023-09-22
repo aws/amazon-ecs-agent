@@ -16,11 +16,24 @@ package data
 import (
 	"encoding/json"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
+
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
 
-func putObject(bucket *bolt.Bucket, key string, obj interface{}) error {
+type NetworkDataClient interface {
+}
+
+type Client struct {
+	Accessor    DBAccessor
+	DB          *bolt.DB
+	Transformer *modeltransformer.Transformer
+}
+
+type DBAccessor struct{}
+
+func (DBAccessor) PutObject(bucket *bolt.Bucket, key string, obj interface{}) error {
 	keyBytes := []byte(key)
 	data, err := json.Marshal(obj)
 	if err != nil {
@@ -34,7 +47,7 @@ func putObject(bucket *bolt.Bucket, key string, obj interface{}) error {
 	return nil
 }
 
-func getObject(tx *bolt.Tx, bucketName, id string, out interface{}) error {
+func (DBAccessor) GetObject(tx *bolt.Tx, bucketName, id string, out interface{}) error {
 	bucket := tx.Bucket([]byte(bucketName))
 	data := bucket.Get([]byte(id))
 	if data == nil {
@@ -50,7 +63,7 @@ func getObject(tx *bolt.Tx, bucketName, id string, out interface{}) error {
 	return nil
 }
 
-func walk(bucket *bolt.Bucket, callback func(id string, data []byte) error) error {
+func (DBAccessor) Walk(bucket *bolt.Bucket, callback func(id string, data []byte) error) error {
 	cursor := bucket.Cursor()
 
 	for id, data := cursor.First(); id != nil; id, data = cursor.Next() {

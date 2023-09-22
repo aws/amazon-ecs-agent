@@ -28,14 +28,14 @@ func (c *client) SaveENIAttachment(eni *ni.ENIAttachment) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
-	return c.db.Batch(func(tx *bolt.Tx) error {
+	return c.DB.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(eniAttachmentsBucketName))
-		return putObject(b, id, eni)
+		return c.Accessor.PutObject(b, id, eni)
 	})
 }
 
 func (c *client) DeleteENIAttachment(id string) error {
-	return c.db.Batch(func(tx *bolt.Tx) error {
+	return c.DB.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(eniAttachmentsBucketName))
 		return b.Delete([]byte(id))
 	})
@@ -43,9 +43,9 @@ func (c *client) DeleteENIAttachment(id string) error {
 
 func (c *client) GetENIAttachments() ([]*ni.ENIAttachment, error) {
 	var eniAttachments []*ni.ENIAttachment
-	err := c.db.View(func(tx *bolt.Tx) error {
+	err := c.DB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(eniAttachmentsBucketName))
-		return walk(bucket, func(id string, data []byte) error {
+		return c.Accessor.Walk(bucket, func(id string, data []byte) error {
 			eniAttachment := ni.ENIAttachment{}
 			if err := json.Unmarshal(data, &eniAttachment); err != nil {
 				return err
