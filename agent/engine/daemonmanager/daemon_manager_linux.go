@@ -87,8 +87,16 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 
 		if mp.PropagationShared {
 			// https://github.com/moby/moby/blob/master/api/types/mount/mount.go#L52
-			bindOptions.Propagation = dockermount.PropagationShared
+			bindOptions = dockermount.BindOptions{Propagation: dockermount.PropagationShared}
+			logger.Info(fmt.Sprintf("inside Propagation: %s", bindOptions.Propagation),
+				logger.Fields{
+					field.Image: loadedImageRef,
+				})
 		}
+		logger.Info(fmt.Sprintf("bindMount Propagation: %s", bindOptions.Propagation),
+			logger.Fields{
+				field.Image: loadedImageRef,
+			})
 		mountPoint := dockermount.Mount{
 			Type:        dockermount.TypeBind,
 			Source:      mp.SourceVolumeHostPath,

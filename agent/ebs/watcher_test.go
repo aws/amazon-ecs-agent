@@ -107,7 +107,7 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
 		if len(pendingEBS) > 0 {
 			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.NotifyFound(foundVolumes)
+			watcher.NotifyAttached(foundVolumes)
 		}
 	}()
 
@@ -227,7 +227,7 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
 		if len(pendingEBS) > 0 {
 			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.NotifyFound(foundVolumes)
+			watcher.NotifyAttached(foundVolumes)
 		}
 	}()
 

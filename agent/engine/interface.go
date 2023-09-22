@@ -20,6 +20,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
@@ -55,6 +56,11 @@ type TaskEngine interface {
 	LoadState() error
 	// SaveState saves all the data in task engine state to db.
 	SaveState() error
+
+	GetDaemonManagers() map[string]dm.DaemonManager
+	GetEbsDaemonTask() *apitask.Task
+	SetEbsDaemonTask(*apitask.Task)
+	EmitTaskEvent(*apitask.Task, string)
 
 	json.Marshaler
 	json.Unmarshaler

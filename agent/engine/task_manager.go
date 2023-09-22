@@ -205,7 +205,7 @@ func (mtask *managedTask) overseeTask() {
 	// - For tasks which have crossed this stage before (on agent restarts), resources are pre-consumed - returns immediately
 	// - If the task is already stopped (knownStatus is STOPPED), does not attempt to consume resources - returns immediately
 	// - If an ACS StopTask arrives, host resources manager returns immediately. Host resource manager does not consume resources
-	// (resources are later 'release'd on Stopped task emitTaskEvent call)
+	// (resources are later 'release'd on Stopped task EmitTaskEvent call)
 	mtask.waitForHostResources()
 
 	// If this was a 'state restore', send all unsent statuses
@@ -271,7 +271,7 @@ func (mtask *managedTask) emitCurrentStatus() {
 	for _, container := range mtask.Containers {
 		mtask.emitContainerEvent(mtask.Task, container, "")
 	}
-	mtask.emitTaskEvent(mtask.Task, "")
+	mtask.EmitTaskEvent(mtask.Task, "")
 }
 
 // waitForHostResources waits for host resources to become available to start
@@ -496,7 +496,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		if mtask.GetKnownStatus().Terminal() {
 			taskStateChangeReason = mtask.Task.GetTerminalReason()
 		}
-		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
+		mtask.EmitTaskEvent(mtask.Task, taskStateChangeReason)
 		// Save the new task status to database.
 		mtask.engine.saveTaskData(mtask.Task)
 	}
@@ -587,7 +587,7 @@ func getContainerEventLogFields(c api.ContainerStateChange) logger.Fields {
 	return f
 }
 
-func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
+func (mtask *managedTask) EmitTaskEvent(task *apitask.Task, reason string) {
 	taskKnownStatus := task.GetKnownStatus()
 	// Always do (idempotent) release host resources whenever state change with
 	// known status == STOPPED is done to ensure sync between tasks and host resource manager
@@ -1052,7 +1052,7 @@ func (mtask *managedTask) progressTask() {
 		if mtask.GetKnownStatus().Terminal() {
 			taskStateChangeReason = mtask.Task.GetTerminalReason()
 		}
-		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
+		mtask.EmitTaskEvent(mtask.Task, taskStateChangeReason)
 	}
 }
 
@@ -1407,7 +1407,7 @@ func (mtask *managedTask) handleContainersUnableToTransitionState() {
 			field.TaskID: mtask.GetID(),
 		})
 		mtask.SetKnownStatus(apitaskstatus.TaskStopped)
-		mtask.emitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
+		mtask.EmitTaskEvent(mtask.Task, taskUnableToTransitionToStoppedReason)
 		// TODO we should probably panic here
 	} else {
 		// If we end up here, it means containers are not able to transition anymore; maybe because of dependencies that

@@ -84,7 +84,49 @@ func NewManagedDaemon(
 // defined in /var/lib/ecs/deps/daemons and will return an array
 // of valid ManagedDeamon objects
 func ImportAll() ([]*ManagedDaemon, error) {
-	return []*ManagedDaemon{}, nil
+	// TODO parse taskdef json files in parameterized dir ie /deps/daemons
+	// TODO validate that each daemon's layers are loaded or that daemon has a corresponding image tar
+	ebsManagedDaemon := NewManagedDaemon("ebs-csi-driver", "latest")
+	// add required mounts
+	ebsMounts := []*MountPoint{
+		&MountPoint{
+			SourceVolumeID:       "agentCommunicationMount",
+			SourceVolume:         "agentCommunicationMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/var/run/ecs/csi-driver/",
+			ContainerPath:        "/csi-driver/",
+		},
+		&MountPoint{
+			SourceVolumeID:       "applicationLogMount",
+			SourceVolume:         "applicationLogMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/var/log/ecs/daemons/ebs-csi-driver/log/",
+			ContainerPath:        "/var/log/",
+		},
+		&MountPoint{
+			SourceVolumeID:       "sharedMounts",
+			SourceVolume:         "sharedMounts",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/testebs",
+			ContainerPath:        "/testebs",
+			PropagationShared:    true,
+		},
+	}
+	if err := ebsManagedDaemon.SetMountPoints(ebsMounts); err != nil {
+		return nil, fmt.Errorf("Unable to import EBS ManagedDaemon: %s", err)
+	}
+	var thisCommand []string
+	thisCommand = append(thisCommand, "--endpoint=unix://csi-driver/csi-driver.sock")
+	thisCommand = append(thisCommand, "--log_dir=/var/log")
+	sysAdmin := "SYS_ADMIN"
+	addCapabilities := []*string{&sysAdmin}
+	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
+	ebsLinuxParams := ecsacs.LinuxParameters{Capabilities: &kernelCapabilities}
+	ebsManagedDaemon.linuxParameters = &ebsLinuxParams
+
+	ebsManagedDaemon.command = thisCommand
+	ebsManagedDaemon.privileged = true
+	return []*ManagedDaemon{ebsManagedDaemon}, nil
 }
 
 func (md *ManagedDaemon) GetLinuxParameters() *ecsacs.LinuxParameters {
