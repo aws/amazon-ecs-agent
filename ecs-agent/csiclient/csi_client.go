@@ -1,3 +1,16 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//      http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package csiclient
 
 import (
@@ -12,42 +25,117 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
-	PROTOCOL = "unix"
+	protocol        = "unix"
+	fsTypeBlockName = "block"
 )
+
+// CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)
+// driver for Agent uses. The CSI driver provides many volume related operations to manage the lifecycle of
+// Amazon EBS volumes, including mounting, umounting, resizing and volume stats.
+type CSIClient interface {
+	NodeStageVolume(ctx context.Context,
+		volID string,
+		publishContext map[string]string,
+		stagingTargetPath string,
+		fsType string,
+		accessMode v1.PersistentVolumeAccessMode,
+		secrets map[string]string,
+		volumeContext map[string]string,
+		mountOptions []string,
+		fsGroup *int64,
+	) error
+	GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error)
+}
 
 // csiClient encapsulates all CSI methods.
 type csiClient struct {
 	csiSocket string
 }
 
+// NewCSIClient creates a CSI client for the communication with CSI driver daemon.
 func NewCSIClient(socketIn string) csiClient {
 	return csiClient{csiSocket: socketIn}
 }
 
+func (cc *csiClient) NodeStageVolume(ctx context.Context,
+	volID string,
+	publishContext map[string]string,
+	stagingTargetPath string,
+	fsType string,
+	accessMode v1.PersistentVolumeAccessMode,
+	secrets map[string]string,
+	volumeContext map[string]string,
+	mountOptions []string,
+	fsGroup *int64,
+) error {
+	conn, err := cc.grpcDialConnect()
+	if err != nil {
+		logger.Error("NodeStage: CSI Connection Error", logger.Fields{
+			field.Error: err,
+		})
+		return err
+	}
+	defer conn.Close()
+
+	client := csi.NewNodeClient(conn)
+
+	defaultVolumeCapability := &csi.VolumeCapability{
+		AccessType: &csi.VolumeCapability_Mount{
+			Mount: &csi.VolumeCapability_MountVolume{},
+		},
+		AccessMode: &csi.VolumeCapability_AccessMode{
+			Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+		},
+	}
+	req := csi.NodeStageVolumeRequest{
+		VolumeId:          volID,
+		PublishContext:    publishContext,
+		StagingTargetPath: stagingTargetPath,
+		VolumeCapability:  defaultVolumeCapability,
+		Secrets:           secrets,
+		VolumeContext:     volumeContext,
+	}
+
+	if fsType == fsTypeBlockName {
+		req.VolumeCapability.AccessType = &csi.VolumeCapability_Block{
+			Block: &csi.VolumeCapability_BlockVolume{},
+		}
+	} else {
+		mountVolume := &csi.VolumeCapability_MountVolume{
+			FsType:     fsType,
+			MountFlags: mountOptions,
+		}
+		req.VolumeCapability.AccessType = &csi.VolumeCapability_Mount{
+			Mount: mountVolume,
+		}
+	}
+
+	_, err = client.NodeStageVolume(ctx, &req)
+
+	if err != nil {
+		logger.Error("Error staging volume via CSI driver", logger.Fields{
+			field.Error: err,
+		})
+		return err
+	}
+	return nil
+}
+
 // GetVolumeMetrics returns volume usage.
 func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
-	// Set up a connection to the server
-	dialer := func(addr string, t time.Duration) (net.Conn, error) {
-		return net.Dial(PROTOCOL, addr)
-	}
-	conn, err := grpc.Dial(
-		cc.csiSocket,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDialer(dialer),
-	)
+	conn, err := cc.grpcDialConnect()
 	if err != nil {
-		logger.Error("Error building a connection to CSI driver", logger.Fields{
-			field.Error: err,
-			"Socket":    cc.csiSocket,
-		})
+		logger.Error("GetVolumeMetrics: CSI Connection Error")
 		return nil, err
 	}
 	defer conn.Close()
 
 	client := csi.NewNodeClient(conn)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -90,4 +178,23 @@ func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*M
 		Used:     usedBytes,
 		Capacity: totalBytes,
 	}, nil
+}
+
+func (cc *csiClient) grpcDialConnect() (*grpc.ClientConn, error) {
+	dialer := func(addr string, t time.Duration) (net.Conn, error) {
+		return net.Dial(protocol, addr)
+	}
+	conn, err := grpc.Dial(
+		cc.csiSocket,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDialer(dialer),
+	)
+	if err != nil {
+		logger.Error("Error building a connection to CSI driver", logger.Fields{
+			field.Error: err,
+			"Socket":    cc.csiSocket,
+		})
+		return nil, err
+	}
+	return conn, nil
 }

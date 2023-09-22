@@ -1,4 +1,18 @@
 # Changelog
+## 1.76.0
+* Feature - Adding EBS watcher implementation [#3866](https://github.com/aws/amazon-ecs-agent/pull/3866)
+* Feature - Added the implementation for EBS volume discovery on Windows [#49](https://github.com/aws/amazon-ecs-agent/pull/49)
+* Enhancement - Update GetVolumeMetrics in the CSI client [#3884](https://github.com/aws/amazon-ecs-agent/pull/3884)
+* Enhancement - Migrate Agent to use vpc-eni plugin for awsvpc mode instead of ecs-eni plugin on Linux [#3873](https://github.com/aws/amazon-ecs-agent/pull/3873)
+* Enhancement - Move periodic timeout implementation to wsclient library [#3883](https://github.com/aws/amazon-ecs-agent/pull/3883)
+* Enhancement - Redact ECR layer URLs from container pull errors [#3885](https://github.com/aws/amazon-ecs-agent/pull/3885)
+* Enhancement - Update TACS model [#3889](https://github.com/aws/amazon-ecs-agent/pull/3889)
+* Enhancement - Move ACS session to ecs-agent module and refactor [#3887](https://github.com/aws/amazon-ecs-agent/pull/3887)
+* Enhancement - Model transformer: model reconciliation for agent upgrades [#3878](https://github.com/aws/amazon-ecs-agent/pull/3878)
+* Ehhancement - Cosmetic improvements to ACS code [#3890](https://github.com/aws/amazon-ecs-agent/pull/3890)
+* Enhancement - Tcs api modification [#3893](https://github.com/aws/amazon-ecs-agent/pull/3893)
+* Enhancement - Skip Task resource accounting for Fargate 1.3.0 launch type [#3896](https://github.com/aws/amazon-ecs-agent/pull/3896)
+
 ## 1.75.3
 * Enhancement - Update Read Me for the environment variable ECS_POLLING_METRICS_WAIT_DURATION [#3863](https://github.com/aws/amazon-ecs-agent/pull/3863)
 

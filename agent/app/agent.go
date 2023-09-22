@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
-	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
+	agentacs "github.com/aws/amazon-ecs-agent/agent/acs/session"
+	"github.com/aws/amazon-ecs-agent/agent/acs/updater"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
@@ -56,6 +56,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
@@ -64,9 +65,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	ecs_agent_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	metricsfactory "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -997,29 +999,71 @@ func (agent *ecsAgent) startACSSession(
 	taskHandler *eventhandler.TaskHandler,
 	doctor *doctor.Doctor) int {
 
-	acsSession := acshandler.NewSession(
-		agent.ctx,
-		agent.cfg,
-		deregisterInstanceEventStream,
-		agent.containerInstanceARN,
-		agent.credentialProvider,
-		agent.dockerClient,
-		client,
-		state,
-		agent.dataClient,
-		taskEngine,
-		credentialsManager,
-		taskHandler,
-		agent.latestSeqNumberTaskManifest,
-		doctor,
-		acsclient.NewACSClientFactory(),
-		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
-		ecs_agent_metrics.NewNopEntryFactory(),
-	)
-	seelog.Info("Beginning Polling for updates")
-	err := acsSession.Start()
+	inactiveInstanceCB := func() {
+		// If the instance is inactive (i.e., was deregistered), send an event to the event stream
+		// for the same.
+		err := deregisterInstanceEventStream.WriteToEventStream(struct{}{})
+		if err != nil {
+			logger.Debug("Failed to write to deregister container instance event stream", logger.Fields{
+				field.Error: err,
+			})
+		}
+	}
+
+	dockerVersion, err := taskEngine.Version()
 	if err != nil {
-		seelog.Criticalf("Unretriable error starting communicating with ACS: %v", err)
+		if err != nil {
+			logger.Warn("Failed to get docker version from task engine", logger.Fields{
+				field.Error: err,
+			})
+		}
+	}
+
+	minAgentCfg := &wsclient.WSClientMinAgentConfig{
+		AcceptInsecureCert: agent.cfg.AcceptInsecureCert,
+		AWSRegion:          agent.cfg.AWSRegion,
+		DockerEndpoint:     agent.cfg.DockerEndpoint,
+		IsDocker:           true,
+	}
+
+	payloadMessageHandler := agentacs.NewPayloadMessageHandler(taskEngine, client, agent.dataClient, taskHandler,
+		credentialsManager, agent.latestSeqNumberTaskManifest)
+	credsMetadataSetter := agentacs.NewCredentialsMetadataSetter(taskEngine)
+	eniHandler := agentacs.NewENIHandler(state, agent.dataClient)
+	manifestMessageIDAccessor := agentacs.NewManifestMessageIDAccessor()
+	sequenceNumberAccessor := agentacs.NewSequenceNumberAccessor(agent.latestSeqNumberTaskManifest, agent.dataClient)
+	taskComparer := agentacs.NewTaskComparer(taskEngine)
+	taskStopper := agentacs.NewTaskStopper(taskEngine)
+
+	acsSession := session.NewSession(agent.containerInstanceARN,
+		agent.cfg.Cluster,
+		client,
+		agent.credentialProvider,
+		inactiveInstanceCB,
+		acsclient.NewACSClientFactory(),
+		metricsfactory.NewNopEntryFactory(),
+		version.Version,
+		version.GitHashString(),
+		dockerVersion,
+		minAgentCfg,
+		payloadMessageHandler,
+		credentialsManager,
+		credsMetadataSetter,
+		doctor,
+		eniHandler,
+		manifestMessageIDAccessor,
+		taskComparer,
+		sequenceNumberAccessor,
+		taskStopper,
+		nil,
+		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
+	)
+	logger.Info("Beginning Polling for updates")
+	sessionEndReason := acsSession.Start(agent.ctx)
+	if sessionEndReason == nil {
+		// Agent somehow exited without a reason.
+		// We don't expect this condition to ever be reached, but log a critical error just in case it is.
+		logger.Critical("ACS session ended for unknown reason")
 		return exitcodes.ExitTerminal
 	}
 	return exitcodes.ExitSuccess

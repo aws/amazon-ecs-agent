@@ -86,6 +86,8 @@ type TaskEngineState interface {
 	GetAllEBSAttachments() []*apiresource.ResourceAttachment
 	// AllPendingEBSAttachments reutrns all of the ebs attachments that haven't sent a state change
 	GetAllPendingEBSAttachments() []*apiresource.ResourceAttachment
+	// GetAllPendingEBSAttachmentWithKey returns a map of all pending ebs attachments along with the corresponding volume ID as the key
+	GetAllPendingEBSAttachmentsWithKey() map[string]*apiresource.ResourceAttachment
 	// AddEBSAttachment adds an ebs attachment from acs to be stored
 	AddEBSAttachment(ebs *apiresource.ResourceAttachment)
 	// RemoveEBSAttachment removes an ebs attachment to stop tracking
@@ -287,7 +289,7 @@ func (state *DockerTaskEngineState) allEBSAttachmentsUnsafe() []*apiresource.Res
 	return allEBSAttachments
 }
 
-// GetAllPendingEBSAttachments returns all the ebs volumes managed by ecs on the instance that haven't sent a state change yet
+// GetAllPendingEBSAttachments returns all the ebs volumes managed by ecs on the instance that haven't been found attached on the host
 func (state *DockerTaskEngineState) GetAllPendingEBSAttachments() []*apiresource.ResourceAttachment {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -298,8 +300,27 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachments() []*apiresource
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsUnsafe() []*apiresource.ResourceAttachment {
 	var pendingEBSAttachments []*apiresource.ResourceAttachment
 	for _, v := range state.ebsAttachments {
-		if !v.IsSent() {
+		if !v.IsAttached() && !v.IsSent() {
 			pendingEBSAttachments = append(pendingEBSAttachments, v)
+		}
+	}
+	return pendingEBSAttachments
+}
+
+// GetAllPendingEBSAttachmentsWithKey returns all the ebs volumes managed by ecs on the instance that haven't been found attached on the host as a map
+// with the corresponding volume ID as the key
+func (state *DockerTaskEngineState) GetAllPendingEBSAttachmentsWithKey() map[string]*apiresource.ResourceAttachment {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.allPendingEBSAttachmentsWithKeyUnsafe()
+}
+
+func (state *DockerTaskEngineState) allPendingEBSAttachmentsWithKeyUnsafe() map[string]*apiresource.ResourceAttachment {
+	pendingEBSAttachments := make(map[string]*apiresource.ResourceAttachment)
+	for k, v := range state.ebsAttachments {
+		if !v.IsAttached() && !v.IsSent() {
+			pendingEBSAttachments[k] = v
 		}
 	}
 	return pendingEBSAttachments
@@ -316,9 +337,9 @@ func (state *DockerTaskEngineState) AddEBSAttachment(ebsAttachment *apiresource.
 	volumeId := ebsAttachment.AttachmentProperties[apiresource.VolumeIdName]
 	if _, ok := state.ebsAttachments[volumeId]; !ok {
 		state.ebsAttachments[volumeId] = ebsAttachment
-		seelog.Debugf("Successfully added EBS attachment: %v", ebsAttachment)
+		seelog.Debugf("Successfully added EBS attachment: %v", ebsAttachment.EBSToString())
 	} else {
-		seelog.Debugf("Duplicate ebs attachment information: %v", ebsAttachment)
+		seelog.Debugf("Duplicate ebs attachment information: %v", ebsAttachment.EBSToString())
 	}
 }
 
@@ -332,7 +353,7 @@ func (state *DockerTaskEngineState) RemoveEBSAttachment(volumeId string) {
 	defer state.lock.Unlock()
 	if ebs, ok := state.ebsAttachments[volumeId]; ok {
 		delete(state.ebsAttachments, volumeId)
-		seelog.Debugf("Successfully deleted EBS attachment: %v", ebs)
+		seelog.Debugf("Successfully deleted EBS attachment: %v", ebs.EBSToString())
 	} else {
 		seelog.Debugf("RemoveEBSAttachment: The requested EBS attachment with volume ID: %v does not exist", volumeId)
 	}

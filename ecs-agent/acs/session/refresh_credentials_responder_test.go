@@ -31,8 +31,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// defaulTestRefreshCredentialsMessage returns a baseline refresh credentials message to be used in testing.
-func defaulTestRefreshCredentialsMessage() *ecsacs.IAMRoleCredentialsMessage {
+// defaultTestRefreshCredentialsMessage returns a baseline refresh credentials message to be used in testing.
+func defaultTestRefreshCredentialsMessage() *ecsacs.IAMRoleCredentialsMessage {
 	return &ecsacs.IAMRoleCredentialsMessage{
 		MessageId: aws.String(testconst.MessageID),
 		TaskArn:   aws.String(testconst.TaskARN),
@@ -50,7 +50,7 @@ func TestValidateRefreshMessageWithNilMessage(t *testing.T) {
 	assert.Error(t, err, "Expected validation error validating an empty message")
 }
 
-// TestValidateInvalidRefreshCredentialsMessage performs validation on various invalid refresh credentials messages.
+// TestValidateInvalidRefreshMessages performs validation on various invalid refresh credentials messages.
 func TestValidateInvalidRefreshMessages(t *testing.T) {
 	testCases := []struct {
 		name            string
@@ -117,7 +117,7 @@ func TestValidateInvalidRefreshMessages(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testMessage := defaulTestRefreshCredentialsMessage()
+			testMessage := defaultTestRefreshCredentialsMessage()
 			tc.messageMutation(testMessage)
 			err := validateIAMRoleCredentialsMessage(testMessage)
 			assert.Error(t, err, tc.failureMsg)
@@ -128,7 +128,7 @@ func TestValidateInvalidRefreshMessages(t *testing.T) {
 // TestValidateRefreshMessageSuccess tests if a valid credentials message
 // is validated without any errors.
 func TestValidateRefreshMessageSuccess(t *testing.T) {
-	testMessage := defaulTestRefreshCredentialsMessage()
+	testMessage := defaultTestRefreshCredentialsMessage()
 
 	err := validateIAMRoleCredentialsMessage(testMessage)
 	assert.NoError(t, err, "Error validating credentials message: %w", err)
@@ -156,7 +156,7 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			testMessage := defaulTestRefreshCredentialsMessage()
+			testMessage := defaultTestRefreshCredentialsMessage()
 			var ackSent *ecsacs.IAMRoleCredentialsAckRequest
 			credentialsManager := credentials.NewManager()
 			mockCredsMetadataSetter := mock_session.NewMockCredentialsMetadataSetter(ctrl)
@@ -212,7 +212,7 @@ func TestRefreshCredentialsWhenUnableToSetCredentialsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	testMessage := defaulTestRefreshCredentialsMessage()
+	testMessage := defaultTestRefreshCredentialsMessage()
 	ackSent := false
 	credentialsManager := credentials.NewManager()
 	mockCredsMetadataSetter := mock_session.NewMockCredentialsMetadataSetter(ctrl)

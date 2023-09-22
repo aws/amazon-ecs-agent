@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,28 +55,28 @@ func TestCreateDaemonTask(t *testing.T) {
 			testName:        "Basic Daemon",
 			testDaemonName:  TestDaemonName,
 			testImageRef:    TestImageRef,
-			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/"},
+			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/", PropagationShared: false},
 			testHealthCheck: []string{TestHealthString},
 		},
 		{
 			testName:        "Daemon Updated Daemon Name",
 			testDaemonName:  "TestDeemen",
 			testImageRef:    TestImageRef,
-			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/"},
+			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/", PropagationShared: false},
 			testHealthCheck: []string{TestHealthString},
 		},
 		{
 			testName:        "Daemon Updated Image ref",
 			testDaemonName:  TestDaemonName,
 			testImageRef:    "TestOtherImage",
-			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/"},
+			testOtherMount:  &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/", PropagationShared: false},
 			testHealthCheck: []string{TestHealthString},
 		},
 		{
 			testName:        "Daemon With Updated Mounts",
 			testDaemonName:  TestDaemonName,
 			testImageRef:    TestImageRef,
-			testOtherMount:  &md.MountPoint{SourceVolumeID: "testUpdatedMountVolume", ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/"},
+			testOtherMount:  &md.MountPoint{SourceVolumeID: "testUpdatedMountVolume", ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/", PropagationShared: false},
 			testHealthCheck: []string{TestHealthString},
 		},
 		{
@@ -124,9 +125,12 @@ func TestCreateDaemonTask(t *testing.T) {
 			var hostConfigMap map[string]interface{}
 			json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
 			json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
-			// validate mount points
-			containerBinds := hostConfigMap["Binds"].([]interface{})
-			assert.Equal(t, true, containsString(containerBinds, "/var/ecs/other/:/container/other/"), "Container Missing Optional Container Bind")
+			// validate mount point count
+			if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
+				assert.Equal(t, len(containerMounts), 3, "Task should have Required container binds (2) + 1 other bind")
+			} else {
+				t.Errorf("Unable to find 'Mounts' in container definition map")
+			}
 			// validate healthcheck
 			containerHealthCheck := configMap["Healthcheck"].(map[string]interface{})
 			containerHealthCheckTest := containerHealthCheck["Test"].([]interface{})
@@ -186,10 +190,80 @@ func TestFailCreateDaemonTask_MissingMount(t *testing.T) {
 	var hostConfigMap map[string]interface{}
 	json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
 	json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
-
 	// validate mount point count
-	containerBinds := hostConfigMap["Binds"].([]interface{})
-	assert.Equal(t, len(containerBinds), 3, "Task should have Required container binds (2) + 1 other bind")
+	if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
+		assert.Equal(t, len(containerMounts), 3, "Task should have Required container binds (2) + 1 other bind")
+	} else {
+		t.Errorf("Unable to find 'Mounts' in container definition map")
+	}
+	// validate healthcheck
+	containerHealthCheck := configMap["Healthcheck"].(map[string]interface{})
+	containerHealthCheckTest := containerHealthCheck["Test"].([]interface{})
+	assert.Equal(t, testHealthCheck[0], containerHealthCheckTest[0].(string), "Container health check has changed")
+}
+
+func TestCreateDaemonTask_PrivilegeAndMountPropagation(t *testing.T) {
+	// mock mkdirAllAndChown
+	origMkdir := mkdirAllAndChown
+	defer func() { mkdirAllAndChown = origMkdir }()
+	mkdirAllAndChown = func(path string, perm fs.FileMode, uid, gid int) error {
+		return nil
+	}
+	// set up test managed daemon
+	tmd := md.NewManagedDaemon(TestDaemonName, TestImageTag)
+	tmd.SetLoadedDaemonImageRef(TestImageRef)
+	tmd.SetPrivileged(true)
+	// test failure with a missing applicationLogMount
+	testAgentCommunicationMount := &md.MountPoint{SourceVolumeID: "agentCommunicationMount", ContainerPath: "/container/run/"}
+	testOtherMount := &md.MountPoint{SourceVolumeID: TestOtherVolumeID, ContainerPath: "/container/other/", SourceVolumeHostPath: "/var/ecs/other/", PropagationShared: true}
+	testMountPoints := []*md.MountPoint{}
+	testMountPoints = append(testMountPoints, testAgentCommunicationMount, testOtherMount)
+	tmd.SetMountPoints(testMountPoints)
+	testDaemonManager := NewDaemonManager(tmd)
+	_, err := testDaemonManager.CreateDaemonTask()
+	assert.EqualError(t, err, fmt.Sprintf("%s is an invalid managed daemon", TestDaemonName))
+
+	// add required log mount but no healthcheck
+	testApplicationLogMount := &md.MountPoint{SourceVolumeID: "applicationLogMount", ContainerPath: "/container/log/"}
+	testMountPoints = append(testMountPoints, testApplicationLogMount)
+	tmd.SetMountPoints(testMountPoints)
+	testDaemonManager = NewDaemonManager(tmd)
+	_, err = testDaemonManager.CreateDaemonTask()
+	assert.Nil(t, err)
+
+	// add required healthcheck
+	testHealthCheck := []string{"test"}
+	tmd.SetHealthCheck(testHealthCheck, 2*time.Minute, 2*time.Minute, 1)
+	testDaemonManager = NewDaemonManager(tmd)
+	resultDaemonTask, err := testDaemonManager.CreateDaemonTask()
+
+	// validate daemon task configs
+	assert.Equal(t, fmt.Sprintf("arn:::::/%s-", TestDaemonName), resultDaemonTask.Arn[:20], "Task Arn prefix should match Image Name ")
+	assert.Equal(t, apitaskstatus.TaskRunning, resultDaemonTask.DesiredStatusUnsafe, "Task DesiredStatus should be running")
+	assert.Equal(t, apitask.HostNetworkMode, resultDaemonTask.NetworkMode, "Task NetworkMode should be Host")
+	assert.Equal(t, "EC2", resultDaemonTask.LaunchType, "Task LaunchType should be EC2")
+	assert.Equal(t, true, resultDaemonTask.IsInternal, "Task IsInteral should be true")
+
+	// validate task container
+	assert.Equal(t, TestImageRef, resultDaemonTask.Containers[0].Image, "Task Container Image Name should match image ref")
+
+	// validate daemon container configs
+	configRaw := resultDaemonTask.Containers[0].DockerConfig.Config
+	hostConfigRaw := resultDaemonTask.Containers[0].DockerConfig.HostConfig
+	var configMap map[string]interface{}
+	var hostConfigMap map[string]interface{}
+	json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
+	json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
+	// validate mount point has One mount with Shared Propagation
+	if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
+		res := strings.Count(fmt.Sprintf("%v", containerMounts), "Propagation:shared")
+		assert.Equal(t, res, 1, "Task should have only one mount with shared Propagation")
+	} else {
+		t.Errorf("missing 'Mounts' in hostConfigMap")
+	}
+	// validate privileged
+	containerPrivileged := hostConfigMap["Privileged"].(bool)
+	assert.True(t, containerPrivileged, "Daemon Container should be privileged")
 	// validate healthcheck
 	containerHealthCheck := configMap["Healthcheck"].(map[string]interface{})
 	containerHealthCheckTest := containerHealthCheck["Test"].([]interface{})

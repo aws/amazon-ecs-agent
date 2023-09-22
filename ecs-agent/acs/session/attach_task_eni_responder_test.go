@@ -33,7 +33,7 @@ import (
 
 var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
 	MessageId:            aws.String(testconst.MessageID),
-	ClusterArn:           aws.String(testconst.ClusterName),
+	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 		{

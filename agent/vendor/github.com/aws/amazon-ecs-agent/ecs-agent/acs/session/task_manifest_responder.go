@@ -67,7 +67,7 @@ func NewTaskManifestResponder(taskComparer TaskComparer, snAccessor SequenceNumb
 		messageIDAccessor: messageIDAccessor,
 		metricsFactory:    metricsFactory,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

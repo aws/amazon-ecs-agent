@@ -46,7 +46,7 @@ func NewAttachInstanceENIResponder(eniHandler ENIHandler,
 	r := &attachInstanceENIResponder{
 		eniHandler: eniHandler,
 	}
-	r.respond = ResponseToACSSender(r.Name(), responseSender)
+	r.respond = responseToACSSender(r.Name(), responseSender)
 	return r
 }
 

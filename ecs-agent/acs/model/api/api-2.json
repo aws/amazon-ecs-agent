@@ -251,6 +251,14 @@
       "exception":true
     },
     "Boolean":{"type":"boolean"},
+    "BoxedBoolean":{
+      "type":"boolean",
+      "box":true
+    },
+    "BoxedInteger":{
+      "type":"integer",
+      "box":true
+    },
     "CloseMessage":{
       "type":"structure",
       "members":{
@@ -290,6 +298,8 @@
         "portMappings":{"shape":"PortMappingList"},
         "managedAgents":{"shape":"ManagedAgentList"},
         "mountPoints":{"shape":"MountPointList"},
+        "linuxParameters":{"shape":"LinuxParameters"},
+        "privileged":{"shape":"BoxedBoolean"},
         "networkInterfaceNames":{"shape":"StringList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
@@ -618,6 +628,48 @@
       "type":"list",
       "member":{"shape":"MountPoint"}
     },
+    "KernelCapabilities":{
+      "type":"structure",
+      "members":{
+        "add":{"shape":"StringList"},
+        "drop":{"shape":"StringList"}
+      }
+    },
+    "Device":{
+      "type":"structure",
+      "required":["hostPath"],
+      "members":{
+        "hostPath":{"shape":"String"},
+        "containerPath":{"shape":"String"},
+        "permissions":{"shape":"DeviceCgroupPermissions"}
+      }
+    },
+    "DeviceCgroupPermission":{
+      "type":"string",
+      "enum":[
+        "read",
+        "write",
+        "mknod"
+      ]
+    },
+    "DeviceCgroupPermissions":{
+      "type":"list",
+      "member":{"shape":"DeviceCgroupPermission"}
+    },
+    "DevicesList":{
+      "type":"list",
+      "member":{"shape":"Device"}
+    },
+    "LinuxParameters":{
+      "type":"structure",
+      "members":{
+        "capabilities":{"shape":"KernelCapabilities"},
+        "devices":{"shape":"DevicesList"},
+        "initProcessEnabled":{"shape":"BoxedBoolean"},
+        "sharedMemorySize":{"shape":"BoxedInteger"}
+      }
+    },
+
     "NackRequest":{
       "type":"structure",
       "members":{

@@ -14,18 +14,21 @@
 package resource
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
-
-	"github.com/pkg/errors"
 )
 
 type ResourceAttachment struct {
 	attachmentinfo.AttachmentInfo
+	// AttachmentType is the type of the resource attachment which can be "AmazonElasticBlockStorage" for EBS attach tasks.
+	AttachmentType string `json:"AttachmentType,omitempty"`
 	// AttachmentProperties is a map storing (name, value) representation of attachment properties.
 	// Each pair is a set of property of one resource attachment.
 	// The "FargateResourceId" is a property name that will be present for all resources.
@@ -38,6 +41,7 @@ type ResourceAttachment struct {
 	ackTimer ttime.Timer
 	// guard protects access to fields of this struct
 	guard sync.RWMutex
+	err   error
 }
 
 // Agent Communication Service (ACS) can send messages of type ConfirmAttachmentMessage. These messages include
@@ -60,6 +64,14 @@ const (
 
 	// Properties specific to Elastic Block Service Volumes
 	FileSystemTypeName = "filesystemType"
+
+	// Properties specific to volumes for EBS attach.
+	VolumeIdKey             = "volumeId"
+	VolumeSizeGibKey        = "volumeSizeGib"
+	DeviceNameKey           = "deviceName"
+	SourceVolumeHostPathKey = "sourceVolumeHostPath"
+	VolumeNameKey           = "volumeName"
+	FileSystemKey           = "fileSystem"
 )
 
 // getCommonProperties returns the common properties as used for validating a resource.
@@ -75,6 +87,19 @@ func getVolumeSpecificProperties() (volumeSpecificProperties []string) {
 	volumeSpecificProperties = []string{
 		VolumeIdName,
 		DeviceName,
+	}
+	return volumeSpecificProperties
+}
+
+// GetVolumeSpecificPropertiesForEBSAttach returns the properties specific to EBS volume resources which will be used
+// in EBS attach.
+func GetVolumeSpecificPropertiesForEBSAttach() (volumeSpecificProperties []string) {
+	volumeSpecificProperties = []string{
+		VolumeIdKey,
+		VolumeSizeGibKey,
+		DeviceNameKey,
+		SourceVolumeHostPathKey,
+		VolumeNameKey,
 	}
 	return volumeSpecificProperties
 }
@@ -104,7 +129,7 @@ func getResourceAttachmentLogFields(ra *ResourceAttachment, duration time.Durati
 		"attachmentType":    ra.AttachmentProperties[ResourceTypeName],
 		"attachmentSent":    ra.AttachStatusSent,
 		"volumeSizeInGiB":   ra.AttachmentProperties[VolumeSizeInGiBName],
-		"RequestedSizeName": ra.AttachmentProperties[RequestedSizeName],
+		"requestedSizeName": ra.AttachmentProperties[RequestedSizeName],
 		"volumeId":          ra.AttachmentProperties[VolumeIdName],
 		"deviceName":        ra.AttachmentProperties[DeviceName],
 		"filesystemType":    ra.AttachmentProperties[FileSystemTypeName],
@@ -127,7 +152,7 @@ func (ra *ResourceAttachment) StartTimer(timeoutFunc func()) error {
 	now := time.Now()
 	duration := ra.ExpiresAt.Sub(now)
 	if duration <= 0 {
-		return errors.Errorf("resource attachment: timer expiration is in the past; expiration [%s] < now [%s]",
+		return fmt.Errorf("resource attachment: timer expiration is in the past; expiration [%s] < now [%s]",
 			ra.ExpiresAt.String(), now.String())
 	}
 	logger.Info("Starting resource attachment ack timer", getResourceAttachmentLogFields(ra, duration))
@@ -174,6 +199,22 @@ func (ra *ResourceAttachment) SetSentStatus() {
 	ra.AttachStatusSent = true
 }
 
+// IsAttached checks if the resource attachment has been found attached on the host
+func (ra *ResourceAttachment) IsAttached() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.Status == status.AttachmentAttached
+}
+
+// SetAttachedStatus marks the resouce attachment as attached once it's been found on the host
+func (ra *ResourceAttachment) SetAttachedStatus() {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+
+	ra.Status = status.AttachmentAttached
+}
+
 // StopAckTimer stops the ack timer set on the resource attachment
 func (ra *ResourceAttachment) StopAckTimer() {
 	ra.guard.Lock()
@@ -189,4 +230,45 @@ func (ra *ResourceAttachment) HasExpired() bool {
 	defer ra.guard.RUnlock()
 
 	return time.Now().After(ra.ExpiresAt)
+}
+
+// SetError sets the error for a resource attachment if it can't be found.
+func (ra *ResourceAttachment) SetError(err error) {
+	ra.guard.Lock()
+	defer ra.guard.Unlock()
+	ra.err = err
+}
+
+// GetError returns the error field for a resource attachment.
+func (ra *ResourceAttachment) GetError() error {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.err
+}
+
+// EBSToString returns a string representation of an EBS volume resource attachment.
+func (ra *ResourceAttachment) EBSToString() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.ebsToStringUnsafe()
+}
+
+func (ra *ResourceAttachment) ebsToStringUnsafe() string {
+	return fmt.Sprintf(
+		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t volumeSizeInGiB=%s requestedSizeName=%s volumeId=%s deviceName=%s filesystemType=%s status=%s expiresAt=%s error=%v",
+		ra.AttachmentARN, ra.AttachmentProperties[ResourceTypeName], ra.AttachStatusSent, ra.AttachmentProperties[VolumeSizeInGiBName], ra.AttachmentProperties[RequestedSizeName], ra.AttachmentProperties[VolumeIdName],
+		ra.AttachmentProperties[DeviceName], ra.AttachmentProperties[FileSystemTypeName], ra.Status.String(), ra.ExpiresAt.Format(time.RFC3339), ra.err)
+}
+
+// GetAttachmentProperties returns the specific attachment property of the resource attachment object
+func (ra *ResourceAttachment) GetAttachmentProperties(key string) string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	val, ok := ra.AttachmentProperties[key]
+	if ok {
+		return val
+	}
+	return ""
 }

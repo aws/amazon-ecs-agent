@@ -20,6 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	generaldata "github.com/aws/amazon-ecs-agent/ecs-agent/data"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
+
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
 )
@@ -28,6 +31,7 @@ func newTestClient(t *testing.T) Client {
 	testDir := t.TempDir()
 
 	testDB, err := bolt.Open(filepath.Join(testDir, dbName), dbMode, nil)
+	transformer := modeltransformer.NewTransformer()
 	require.NoError(t, err)
 	require.NoError(t, testDB.Update(func(tx *bolt.Tx) error {
 		for _, b := range buckets {
@@ -40,7 +44,11 @@ func newTestClient(t *testing.T) Client {
 		return nil
 	}))
 	testClient := &client{
-		db: testDB,
+		generaldata.Client{
+			Accessor:    generaldata.DBAccessor{},
+			DB:          testDB,
+			Transformer: transformer,
+		},
 	}
 
 	t.Cleanup(func() {

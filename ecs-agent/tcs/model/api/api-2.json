@@ -4,11 +4,11 @@
     "apiVersion":"2015-03-10",
     "endpointPrefix":"ecstcs",
     "jsonVersion":"1.1",
+    "protocol":"json",
     "serviceAbbreviation":"Amazon ECS TCS",
     "serviceFullName":"Amazon EC2 Container Service Telemetry Communication Service",
     "signatureVersion":"v4",
-    "targetPrefix":"AmazonEC2ContainerServiceTelemetryV20150310",
-    "protocol":"json"
+    "targetPrefix":"AmazonEC2ContainerServiceTelemetryV20150310"
   },
   "operations":{
     "Heartbeat":{
@@ -157,7 +157,7 @@
     "EphemeralStorageMetrics":{
       "type":"structure",
       "members":{
-        "BytesUtilized":{"shape":"ULongStatsSet"}
+        "bytesUtilized":{"shape":"ULongStatsSet"}
       }
     },
     "GeneralMetric":{
@@ -368,6 +368,7 @@
         "taskDefinitionVersion":{"shape":"String"},
         "containerMetrics":{"shape":"ContainerMetrics"},
         "ephemeralStorageMetrics":{"shape":"EphemeralStorageMetrics"},
+        "volumeMetrics":{"shape":"VolumeMetrics"},
         "serviceConnectMetricsWrapper":{"shape":"ServiceConnectMetricsWrapper"}
       }
     },
@@ -421,6 +422,19 @@
         "overflowMax":{"shape":"ULong"},
         "overflowSum":{"shape":"ULong"}
       }
+    },
+    "VolumeMetric":{
+      "type":"structure",
+      "members":{
+        "volumeId":{"shape":"String"},
+        "volumeName":{"shape":"String"},
+        "utilized":{"shape":"UDoubleCWStatsSet"},
+        "size":{"shape":"UDoubleCWStatsSet"}
+      }
+    },
+    "VolumeMetrics":{
+      "type":"list",
+      "member":{"shape":"VolumeMetric"}
     }
   }
 }

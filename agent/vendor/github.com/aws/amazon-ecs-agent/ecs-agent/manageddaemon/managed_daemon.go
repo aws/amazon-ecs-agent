@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -55,6 +57,9 @@ type ManagedDaemon struct {
 
 	loadedDaemonImageRef string
 	command              []string
+
+	linuxParameters *ecsacs.LinuxParameters
+	privileged      bool
 }
 
 // A valid managed daemon will require
@@ -82,16 +87,12 @@ func ImportAll() ([]*ManagedDaemon, error) {
 	return []*ManagedDaemon{}, nil
 }
 
-func (md *ManagedDaemon) SetHealthCheck(
-	healthCheckTest []string,
-	healthCheckInterval time.Duration,
-	healthCheckTimeout time.Duration,
-	healthCheckRetries int) {
-	md.healthCheckInterval = healthCheckInterval
-	md.healthCheckTimeout = healthCheckTimeout
-	md.healthCheckRetries = healthCheckRetries
-	md.healthCheckTest = make([]string, len(healthCheckTest))
-	copy(md.healthCheckTest, healthCheckTest)
+func (md *ManagedDaemon) GetLinuxParameters() *ecsacs.LinuxParameters {
+	return md.linuxParameters
+}
+
+func (md *ManagedDaemon) GetPrivileged() bool {
+	return md.privileged
 }
 
 func (md *ManagedDaemon) GetImageName() string {
@@ -147,6 +148,18 @@ func (md *ManagedDaemon) GetEnvironment() map[string]string {
 
 func (md *ManagedDaemon) GetLoadedDaemonImageRef() string {
 	return md.loadedDaemonImageRef
+}
+
+func (md *ManagedDaemon) SetHealthCheck(
+	healthCheckTest []string,
+	healthCheckInterval time.Duration,
+	healthCheckTimeout time.Duration,
+	healthCheckRetries int) {
+	md.healthCheckInterval = healthCheckInterval
+	md.healthCheckTimeout = healthCheckTimeout
+	md.healthCheckRetries = healthCheckRetries
+	md.healthCheckTest = make([]string, len(healthCheckTest))
+	copy(md.healthCheckTest, healthCheckTest)
 }
 
 // filter mount points for agentCommunicationMount
@@ -205,6 +218,10 @@ func (md *ManagedDaemon) SetEnvironment(environment map[string]string) {
 
 func (md *ManagedDaemon) SetLoadedDaemonImageRef(loadedImageRef string) {
 	md.loadedDaemonImageRef = loadedImageRef
+}
+
+func (md *ManagedDaemon) SetPrivileged(isPrivileged bool) {
+	md.privileged = isPrivileged
 }
 
 // AddMountPoint will add by MountPoint.SourceVolume

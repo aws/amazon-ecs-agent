@@ -38,6 +38,29 @@ const (
 )
 
 var (
+	testAttachmentPropertiesForEBSAttach = []*ecsacs.AttachmentProperty{
+		{
+			Name:  aws.String(resource.SourceVolumeHostPathKey),
+			Value: aws.String("taskarn-vol-id"),
+		},
+		{
+			Name:  aws.String(resource.VolumeIdKey),
+			Value: aws.String("id1"),
+		},
+		{
+			Name:  aws.String(resource.VolumeSizeGibKey),
+			Value: aws.String("size1"),
+		},
+		{
+			Name:  aws.String(resource.VolumeNameKey),
+			Value: aws.String("name"),
+		},
+		{
+			Name:  aws.String(resource.DeviceNameKey),
+			Value: aws.String("device1"),
+		},
+	}
+
 	testAttachmentProperties = []*ecsacs.AttachmentProperty{
 		{
 			Name:  aws.String(resource.FargateResourceIdName),
@@ -83,46 +106,47 @@ func TestValidateAttachResourceMessage(t *testing.T) {
 	defer ctrl.Finish()
 
 	_, err := validateAttachResourceMessage(nil)
-
 	require.Error(t, err)
 
+	// Verify the Attachment is required.
 	confirmAttachmentMessageCopy := *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.Attachment = nil
-
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
-
 	require.Error(t, err)
 
+	// Verify the MessageId is required.
 	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.MessageId = aws.String("")
-
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
-
 	require.Error(t, err)
 
+	// Verify the ClusterArn is required.
 	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.ClusterArn = aws.String("")
-
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
-
 	require.Error(t, err)
 
+	// Verify the ContainerInstanceArn is required.
 	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.ContainerInstanceArn = aws.String("")
-
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
-
 	require.Error(t, err)
 
+	// Verify the AttachmentArn is required and uses correct format.
 	confirmAttachmentMessageCopy = *testConfirmAttachmentMessage
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String("incorrectArn")
-
 	_, err = validateAttachResourceMessage(&confirmAttachmentMessageCopy)
-
 	require.Error(t, err)
 }
 
 func TestValidateAttachmentAndReturnProperties(t *testing.T) {
+	t.Run("with no attachment type", testValidateAttachmentAndReturnPropertiesWithoutAttachmentType)
+	t.Run("with attachment type", testValidateAttachmentAndReturnPropertiesWithAttachmentType)
+}
+
+// testValidateAttachmentAndReturnPropertiesWithoutAttachmentType verifies all required properties for either
+// resource type: "EphemeralStorage" or "ElasticBlockStorage".
+func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -154,6 +178,71 @@ func TestValidateAttachmentAndReturnProperties(t *testing.T) {
 				property.Name = originalPropertyName
 			}
 		})
+	}
+}
+
+// testValidateAttachmentAndReturnPropertiesWithAttachmentType verifies all required properties for attachment
+// type: "AmazonElasticBlockStorage".
+func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Verify the AttachmentArn is required and uses the correct format.
+	confirmAttachmentMessageCopy := *testConfirmAttachmentMessage
+	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String("incorrectArn")
+	_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+	require.Error(t, err)
+	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
+
+	// Verify the property name & property value must be non-empty.
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		t.Run(property.String(), func(t *testing.T) {
+			originalPropertyName := property.Name
+			property.Name = aws.String("")
+			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Name = originalPropertyName
+
+			originalPropertyValue := property.Value
+			property.Value = aws.String("")
+			_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Value = originalPropertyValue
+		})
+	}
+
+	// Reset attachment to be a good one with invalid attachment type.
+	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("invalid-type")
+	_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+	require.NoError(t, err)
+
+	// Reset attachment to be a good one with valid attachment type.
+	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("AmazonElasticBlockStorage")
+	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
+
+	// Verify all required properties for the attachment for EBS attach are present.
+	requiredProperties := []string{
+		"volumeId",
+		"volumeSizeGib",
+		"deviceName",
+		"sourceVolumeHostPath",
+		"volumeName",
+	}
+	for _, requiredProperty := range requiredProperties {
+		verified := false
+		for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+			if requiredProperty == aws.StringValue(property.Name) {
+				originalPropertyName := property.Name
+				property.Name = aws.String("")
+				_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+				require.Error(t, err)
+				property.Name = originalPropertyName
+
+				verified = true
+				break
+			}
+		}
+		require.True(t, verified, "Missing required property: %s", requiredProperty)
 	}
 }
 

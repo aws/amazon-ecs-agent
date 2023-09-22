@@ -294,6 +294,20 @@ func (mr *MockTaskEngineStateMockRecorder) GetAllPendingEBSAttachments() *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPendingEBSAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllPendingEBSAttachments))
 }
 
+// GetAllPendingEBSAttachmentsWithKey mocks base method.
+func (m *MockTaskEngineState) GetAllPendingEBSAttachmentsWithKey() map[string]*resource.ResourceAttachment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllPendingEBSAttachmentsWithKey")
+	ret0, _ := ret[0].(map[string]*resource.ResourceAttachment)
+	return ret0
+}
+
+// GetAllPendingEBSAttachmentsWithKey indicates an expected call of GetAllPendingEBSAttachmentsWithKey.
+func (mr *MockTaskEngineStateMockRecorder) GetAllPendingEBSAttachmentsWithKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPendingEBSAttachmentsWithKey", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllPendingEBSAttachmentsWithKey))
+}
+
 // GetEBSByVolumeId mocks base method.
 func (m *MockTaskEngineState) GetEBSByVolumeId(arg0 string) (*resource.ResourceAttachment, bool) {
 	m.ctrl.T.Helper()

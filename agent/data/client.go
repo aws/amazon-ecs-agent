@@ -19,7 +19,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/data/transformationfunctions"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	generaldata "github.com/aws/amazon-ecs-agent/ecs-agent/data"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	bolt "go.etcd.io/bbolt"
 )
@@ -33,6 +36,7 @@ const (
 	imagesBucketName         = "images"
 	eniAttachmentsBucketName = "eniattachments"
 	metadataBucketName       = "metadata"
+	emptyAgentVersionMsg     = "No version info available in boltDB. Either this is a fresh instance, or we were using state file to persist data. Transformer not applicable."
 )
 
 var (
@@ -94,7 +98,7 @@ type Client interface {
 
 // client implements the Client interface using boltdb as the backing data store.
 type client struct {
-	db *bolt.DB
+	generaldata.Client
 }
 
 // New returns a data client that implements the Client interface with boltdb.
@@ -115,7 +119,8 @@ func NewWithSetup(dataDir string) (Client, error) {
 	return setup(dataDir)
 }
 
-// setup initiates the boltdb client and makes sure the buckets we use are created.
+// setup initiates the boltdb client and makes sure the buckets we use and transformer are created, and
+// registers transformation functions to transformer.
 func setup(dataDir string) (*client, error) {
 	db, err := bolt.Open(filepath.Join(dataDir, dbName), dbMode, nil)
 	err = db.Update(func(tx *bolt.Tx) error {
@@ -128,15 +133,26 @@ func setup(dataDir string) (*client, error) {
 
 		return nil
 	})
+
+	// create transformer
+	transformer := modeltransformer.NewTransformer()
+
+	// registering task transformation functions
+	transformationfunctions.RegisterTaskTransformationFunctions(transformer)
+
 	if err != nil {
 		return nil, err
 	}
 	return &client{
-		db: db,
+		generaldata.Client{
+			Accessor:    generaldata.DBAccessor{},
+			DB:          db,
+			Transformer: transformer,
+		},
 	}, nil
 }
 
 // Close closes the boltdb connection.
 func (c *client) Close() error {
-	return c.db.Close()
+	return c.DB.Close()
 }
