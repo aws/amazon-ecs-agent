@@ -596,6 +596,8 @@ func environmentConfig() (Config, error) {
 		ShouldExcludeIPv6PortBinding:        parseBooleanDefaultTrueConfig("ECS_EXCLUDE_IPV6_PORTBINDING"),
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
+		OverrideBridgeNetworkName:           os.Getenv("ECS_OVERRIDE_BRIDGE_NETWORK_NAME"),
+		AddContainerNameAsNetworkAlias:      parseBooleanDefaultTrueConfig("ECS_ADD_CONTAINER_NAME_AS_NETWORK_ALIAS"),
 	}, err
 }
 
