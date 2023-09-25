@@ -435,7 +435,12 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialS
 		return
 	}
 
-	s3Client := cs.s3ClientCreator.NewS3Client(cs.region, iamCredentials)
+	s3Client, err := cs.s3ClientCreator.NewS3Client(bucket, cs.region, iamCredentials)
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		errorEvents <- err
+		return
+	}
 
 	credSpecJsonStringUnformatted, err := s3.GetObject(bucket, key, s3Client)
 

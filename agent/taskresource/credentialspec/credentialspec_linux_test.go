@@ -374,7 +374,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any()).Return(mockS3Client),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -439,7 +439,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any()).Return(mockS3Client),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -501,7 +501,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any()).Return(mockS3Client),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
