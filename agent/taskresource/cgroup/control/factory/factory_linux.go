@@ -17,8 +17,8 @@
 package factory
 
 import (
-	"github.com/containerd/cgroups"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	cgroups "github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // CgroupFactory wraps around the global functions exposed by the cgroups library
@@ -34,10 +34,10 @@ type GlobalCgroupFactory struct{}
 
 // Load is used to load the cgroup hierarchy based off the cgroup path
 func (c *GlobalCgroupFactory) Load(hierarchy cgroups.Hierarchy, path cgroups.Path) (cgroups.Cgroup, error) {
-	return cgroups.Load(hierarchy, path)
+	return cgroups.Load(path, cgroups.WithHiearchy(hierarchy))
 }
 
 // New is used to create a new cgroup hierarchy
 func (c *GlobalCgroupFactory) New(hierarchy cgroups.Hierarchy, path cgroups.Path, specs *specs.LinuxResources) (cgroups.Cgroup, error) {
-	return cgroups.New(hierarchy, path, specs)
+	return cgroups.New(path, specs, cgroups.WithHiearchy(hierarchy))
 }

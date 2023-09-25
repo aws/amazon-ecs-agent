@@ -49,7 +49,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
