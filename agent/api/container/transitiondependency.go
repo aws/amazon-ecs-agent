@@ -16,8 +16,8 @@ package container
 import (
 	"encoding/json"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

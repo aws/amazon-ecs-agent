@@ -25,7 +25,7 @@ import (
 	"time"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"

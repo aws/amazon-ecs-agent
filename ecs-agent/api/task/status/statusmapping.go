@@ -14,7 +14,7 @@
 package status
 
 import (
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 )
 
 // MapContainerToTaskStatus maps the container status to the corresponding task status. The

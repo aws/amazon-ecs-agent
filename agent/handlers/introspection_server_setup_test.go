@@ -26,12 +26,12 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_utils "github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

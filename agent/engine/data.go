@@ -15,12 +15,12 @@ package engine
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

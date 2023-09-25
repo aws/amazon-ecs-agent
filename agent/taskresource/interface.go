@@ -18,9 +18,9 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 )
 
 // TaskResource is a wrapper for task level resource methods we need

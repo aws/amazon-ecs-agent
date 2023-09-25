@@ -20,13 +20,13 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/pkg/errors"
 )

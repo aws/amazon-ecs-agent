@@ -26,7 +26,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
-	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"
@@ -35,6 +34,7 @@ import (
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"

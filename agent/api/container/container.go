@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"

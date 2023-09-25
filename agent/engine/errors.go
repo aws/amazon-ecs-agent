@@ -14,7 +14,7 @@
 package engine
 
 import (
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 )
 

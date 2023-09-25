@@ -24,7 +24,6 @@ import (
 	"sync"
 	"testing"
 
-	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
@@ -32,6 +31,7 @@ import (
 	mockssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mockcredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
