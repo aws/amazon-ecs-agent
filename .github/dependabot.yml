@@ -16,7 +16,7 @@ updates:
   directory: "/ecs-agent"
   schedule:
     interval: weekly
-    time: "0:00"
+    time: "00:00"
   open-pull-requests-limit: 1
   target-branch: "dev"
   ignore:
