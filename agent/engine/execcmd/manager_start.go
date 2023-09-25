@@ -29,10 +29,10 @@ import (
 	"github.com/docker/docker/api/types"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 

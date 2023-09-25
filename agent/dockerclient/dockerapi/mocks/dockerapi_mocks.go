@@ -25,9 +25,9 @@ import (
 	time "time"
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
-	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	status "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	types "github.com/docker/docker/api/types"
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
