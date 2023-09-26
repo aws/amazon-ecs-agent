@@ -17,6 +17,7 @@
 package resource
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,9 +42,9 @@ func TestParseLsblkOutput(t *testing.T) {
 		},
 	}
 
-	actualVolumeId, err := parseLsblkOutput(lsblkOutput, "/dev/"+testDeviceName)
+	actualDeviceName, err := parseLsblkOutput(lsblkOutput, "/dev/"+testDeviceName, testVolumeID)
 	require.NoError(t, err)
-	assert.Equal(t, testVolumeID, actualVolumeId)
+	assert.Equal(t, "/dev/"+testDeviceName, actualDeviceName)
 }
 
 func TestParseLsblkOutputError(t *testing.T) {
@@ -58,7 +59,7 @@ func TestParseLsblkOutputError(t *testing.T) {
 			blockDevice,
 		},
 	}
-	actualVolumeId, err := parseLsblkOutput(lsblkOutput, testDeviceName)
-	require.Error(t, err, "cannot find the device name: %v", "/dev/"+testDeviceName)
+	actualVolumeId, err := parseLsblkOutput(lsblkOutput, testDeviceName, testVolumeID)
+	require.Error(t, err, "cannot find the device name: %v and volume ID: %v", "/dev/"+testDeviceName, strings.ReplaceAll(testVolumeID, "-", ""))
 	assert.Equal(t, "", actualVolumeId)
 }

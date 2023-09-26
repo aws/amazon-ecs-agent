@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -36,9 +37,9 @@ type BlockDevice struct {
 
 // ConfirmEBSVolumeIsAttached is used to scan for an EBS volume that's on the host with a specific device name and/or volume ID.
 // There are two cases:
-// 1. On nitro-based instance we check both device name and volume ID.
-// 2. On xen-based instance we only check by the device name.
-func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error {
+// 1. On nitro-based instance we check by volume ID.
+// 2. On xen-based instance we check by the device name. (TODO)
+func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) (string, error) {
 	var lsblkOut LsblkOutput
 	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsVolumeDiscoveryTimeout)
 	defer cancel()
@@ -47,27 +48,21 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 	output, err := exec.CommandContext(ctxWithTimeout, "lsblk", "-o", "NAME,SERIAL", "-J").CombinedOutput()
 	if err != nil {
 		err = fmt.Errorf("%w; failed to run lsblk %v", err, string(output))
-		return err
+		return "", err
 	}
 	err = json.Unmarshal(output, &lsblkOut)
 	if err != nil {
 		err = fmt.Errorf("%w; failed to unmarshal string: %v", err, string(output))
-		return err
+		return "", err
 	}
 
-	actualVolumeId, err := parseLsblkOutput(&lsblkOut, deviceName)
-	if err != nil {
-		return err
-	}
 	expectedVolumeId := strings.ReplaceAll(volumeID, "-", "")
-
-	// On Xen-based instances, the volume ID can't be obtained and so we don't need to check by volume ID.
-	if actualVolumeId != "" && expectedVolumeId != actualVolumeId {
-		err = fmt.Errorf("%w; expected EBS volume %v but found %v", ErrInvalidVolumeID, volumeID, actualVolumeId)
-		return err
+	actualDeviceName, err := parseLsblkOutput(&lsblkOut, deviceName, expectedVolumeId)
+	if err != nil {
+		return "", err
 	}
 
-	return nil
+	return filepath.Join("/dev", actualDeviceName), nil
 }
 
 // parseLsblkOutput will parse the `lsblk` output and search for a EBS volume with a specific device name.
@@ -84,12 +79,13 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 //		   }
 //		]
 //	 }
-func parseLsblkOutput(output *LsblkOutput, deviceName string) (string, error) {
+func parseLsblkOutput(output *LsblkOutput, deviceName string, volumeId string) (string, error) {
 	actualDeviceName := deviceName[strings.LastIndex(deviceName, "/")+1:]
 	for _, block := range output.BlockDevices {
-		if block.Name == actualDeviceName {
-			return block.Serial, nil
+		//TODO: Add edge case for Xen-based instances
+		if block.Serial == volumeId {
+			return block.Name, nil
 		}
 	}
-	return "", fmt.Errorf("cannot find EBS volume with device name: %v", actualDeviceName)
+	return "", fmt.Errorf("cannot find EBS volume with device name: %v and volume ID: %v", actualDeviceName, volumeId)
 }
