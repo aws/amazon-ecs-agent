@@ -187,6 +187,16 @@ func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 		"Expected container runtimeID should not empty")
 }
 
+// verifySpecificContainerStateChange verifies that a specific container (identified by the containerName parameter),
+// has a specific status (identified by the containerStatus parameter)
+func verifySpecificContainerStateChange(t *testing.T, taskEngine TaskEngine, containerName string,
+	containerStatus apicontainerstatus.ContainerStatus) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).ContainerName, containerName)
+	assert.Equal(t, event.(api.ContainerStateChange).Status, containerStatus)
+}
+
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
