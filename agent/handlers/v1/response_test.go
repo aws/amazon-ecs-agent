@@ -19,6 +19,7 @@ package v1
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -33,53 +34,68 @@ const (
 	taskARN        = "t1"
 	family         = "sleep"
 	version        = "1"
+	status         = "RUNNING"
 	containerID    = "cid"
 	containerName  = "sleepy"
+	imageName      = "busybox"
+	imageID        = "busyboxID"
+	networkMode    = "awsvpc"
 	eniIPv4Address = "10.0.0.2"
+	port           = 80
+	protocol       = "tcp"
 	volName        = "volume1"
 	volSource      = "/var/lib/volume1"
 	volDestination = "/volume"
 )
 
-func TestTaskResponse(t *testing.T) {
-	expectedTaskResponseMap := map[string]interface{}{
-		"Arn":           "t1",
-		"DesiredStatus": "RUNNING",
-		"KnownStatus":   "RUNNING",
-		"Family":        "sleep",
-		"Version":       "1",
-		"Containers": []interface{}{
-			map[string]interface{}{
-				"DockerId":   "cid",
-				"DockerName": "sleepy",
-				"Name":       "sleepy",
-				"Ports": []interface{}{
-					map[string]interface{}{
-						// The number should be float here, because when we unmarshal
-						// something and we don't specify the number type, it will be
-						// set to float.
-						"ContainerPort": float64(80),
-						"Protocol":      "tcp",
-						"HostPort":      float64(80),
-					},
-				},
-				"Networks": []interface{}{
-					map[string]interface{}{
-						"NetworkMode":   "awsvpc",
-						"IPv4Addresses": []interface{}{"10.0.0.2"},
-					},
-				},
-				"Volumes": []interface{}{
-					map[string]interface{}{
-						"DockerName":  volName,
-						"Source":      volSource,
-						"Destination": volDestination,
-					},
-				},
-			},
+var (
+	containerTime        = time.Now()
+	containerTimeUTC     = containerTime.UTC()
+	expectedPortResponse = response.PortResponse{
+		ContainerPort: port,
+		Protocol:      protocol,
+		HostPort:      port,
+	}
+	expectedNetworkResponse = response.Network{
+		NetworkMode:   networkMode,
+		IPv4Addresses: []string{eniIPv4Address},
+	}
+	expectedVolumeResponse = response.VolumeResponse{
+		DockerName:  volName,
+		Source:      volSource,
+		Destination: volDestination,
+	}
+	expectedContainerResponse = ContainerResponse{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Name:       containerName,
+		Image:      imageName,
+		ImageID:    imageID,
+		CreatedAt:  &containerTimeUTC,
+		StartedAt:  &containerTimeUTC,
+		Ports: []response.PortResponse{
+			expectedPortResponse,
+		},
+		Networks: []response.Network{
+			expectedNetworkResponse,
+		},
+		Volumes: []response.VolumeResponse{
+			expectedVolumeResponse,
 		},
 	}
+	expectedTaskResponse = TaskResponse{
+		Arn:           taskARN,
+		DesiredStatus: status,
+		KnownStatus:   status,
+		Family:        family,
+		Version:       version,
+		Containers: []ContainerResponse{
+			expectedContainerResponse,
+		},
+	}
+)
 
+func TestTaskResponse(t *testing.T) {
 	task := &apitask.Task{
 		Arn:                 taskARN,
 		Family:              family,
@@ -98,7 +114,9 @@ func TestTaskResponse(t *testing.T) {
 	}
 
 	container := &apicontainer.Container{
-		Name: containerName,
+		Name:    containerName,
+		Image:   imageName,
+		ImageID: imageID,
 		Ports: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
@@ -113,6 +131,9 @@ func TestTaskResponse(t *testing.T) {
 			},
 		},
 	}
+
+	container.SetCreatedAt(containerTime)
+	container.SetStartedAt(containerTime)
 
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
 		taskARN: {
@@ -124,45 +145,17 @@ func TestTaskResponse(t *testing.T) {
 
 	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
 
-	taskResponseJSON, err := json.Marshal(taskResponse)
+	_, err := json.Marshal(taskResponse)
 	assert.NoError(t, err)
 
-	taskResponseMap := make(map[string]interface{})
-
-	json.Unmarshal(taskResponseJSON, &taskResponseMap)
-
-	assert.Equal(t, expectedTaskResponseMap, taskResponseMap)
+	assert.Equal(t, expectedTaskResponse, *taskResponse)
 }
 
 func TestContainerResponse(t *testing.T) {
-	expectedContainerResponseMap := map[string]interface{}{
-		"DockerId":   "cid",
-		"DockerName": "sleepy",
-		"Name":       "sleepy",
-		"Ports": []interface{}{
-			map[string]interface{}{
-				"ContainerPort": float64(80),
-				"Protocol":      "tcp",
-				"HostPort":      float64(80),
-			},
-		},
-		"Networks": []interface{}{
-			map[string]interface{}{
-				"NetworkMode":   "awsvpc",
-				"IPv4Addresses": []interface{}{"10.0.0.2"},
-			},
-		},
-		"Volumes": []interface{}{
-			map[string]interface{}{
-				"DockerName":  volName,
-				"Source":      volSource,
-				"Destination": volDestination,
-			},
-		},
-	}
-
 	container := &apicontainer.Container{
-		Name: containerName,
+		Name:    containerName,
+		Image:   imageName,
+		ImageID: imageID,
 		Ports: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
@@ -177,6 +170,9 @@ func TestContainerResponse(t *testing.T) {
 			},
 		},
 	}
+
+	container.SetCreatedAt(containerTime)
+	container.SetStartedAt(containerTime)
 
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerID:   containerID,
@@ -194,14 +190,10 @@ func TestContainerResponse(t *testing.T) {
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
 
-	containerResponseJSON, err := json.Marshal(containerResponse)
+	_, err := json.Marshal(containerResponse)
 	assert.NoError(t, err)
 
-	containerResponseMap := make(map[string]interface{})
-
-	json.Unmarshal(containerResponseJSON, &containerResponseMap)
-
-	assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
+	assert.Equal(t, expectedContainerResponse, containerResponse)
 }
 
 func TestPortBindingsResponse(t *testing.T) {
@@ -221,10 +213,7 @@ func TestPortBindingsResponse(t *testing.T) {
 	}
 
 	PortBindingsResponse := NewPortBindingsResponse(dockerContainer, nil)
-
-	assert.Equal(t, uint16(80), PortBindingsResponse[0].ContainerPort)
-	assert.Equal(t, uint16(80), PortBindingsResponse[0].HostPort)
-	assert.Equal(t, "tcp", PortBindingsResponse[0].Protocol)
+	assert.Equal(t, expectedPortResponse, PortBindingsResponse[0])
 }
 
 func TestVolumesResponse(t *testing.T) {
@@ -244,8 +233,5 @@ func TestVolumesResponse(t *testing.T) {
 	}
 
 	VolumesResponse := NewVolumesResponse(dockerContainer)
-
-	assert.Equal(t, volName, VolumesResponse[0].DockerName)
-	assert.Equal(t, volSource, VolumesResponse[0].Source)
-	assert.Equal(t, volDestination, VolumesResponse[0].Destination)
+	assert.Equal(t, expectedVolumeResponse, VolumesResponse[0])
 }
