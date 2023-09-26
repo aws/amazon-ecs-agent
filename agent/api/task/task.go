@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
@@ -331,7 +332,37 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
+// TODO: Add unit test
+func (task *Task) RemoveVolume(index int) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+	task.removeVolumeUnsafe(index)
+}
+
+func (task *Task) removeVolumeUnsafe(index int) {
+	if index < 0 || index >= len(task.Volumes) {
+		return
+	}
+	// temp := task.Volumes[:1]
+	out := make([]TaskVolume, 0)
+	out = append(out, task.Volumes[:index]...)
+	out = append(out, task.Volumes[index+1:]...)
+	task.Volumes = out
+}
+
 func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	// TODO: Have EBS volumes use the DockerVolumeConfig to create the mountpoint
+	if task.IsEBSTaskAttachEnabled() {
+		ebsVolumes := task.GetEBSVolumeNames()
+		for index, tv := range task.Volumes {
+			volumeName := tv.Name
+			volumeType := tv.Type
+			if ebsVolumes[volumeName] && volumeType != apiresource.EBSTaskAttach {
+				task.RemoveVolume(index)
+			}
+		}
+	}
+
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -3435,7 +3466,45 @@ func (task *Task) IsServiceConnectEnabled() bool {
 // Is EBS Task Attach enabled returns true if this task has EBS volume configuration in its ACS payload.
 // TODO as more daemons come online, we'll want a generic handler these bool checks and payload handling
 func (task *Task) IsEBSTaskAttachEnabled() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.isEBSTaskAttachEnabledUnsafe()
+}
+
+func (task *Task) isEBSTaskAttachEnabledUnsafe() bool {
+	logger.Debug("Checking if there are any ebs volume configs")
+	for _, tv := range task.Volumes {
+		switch tv.Volume.(type) {
+		case *taskresourcevolume.EBSTaskVolumeConfig:
+			logger.Debug("found ebs volume config")
+			return true
+		default:
+			continue
+		}
+	}
 	return false
+}
+
+// TODO: Add unit tests
+func (task *Task) GetEBSVolumeNames() map[string]bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.getEBSVolumeNamesUnsafe()
+}
+
+func (task *Task) getEBSVolumeNamesUnsafe() map[string]bool {
+	volNames := map[string]bool{}
+	for _, tv := range task.Volumes {
+		switch tv.Volume.(type) {
+		case *taskresourcevolume.EBSTaskVolumeConfig:
+			logger.Debug("found ebs volume config")
+			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+			volNames[ebsCfg.VolumeName] = true
+		default:
+			continue
+		}
+	}
+	return volNames
 }
 
 func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apicontainer.Container) bool {
