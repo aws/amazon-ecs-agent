@@ -17,7 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/api"
@@ -156,7 +158,7 @@ func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment)
 		return fmt.Errorf("%w; attach %v message handler: unable to add ebs attachment to engine state: %v",
 			err, attachmentType, ebs.EBSToString())
 	}
-
+	log.Debug("EBS Attachment has been added to state successfully")
 	return nil
 }
 
@@ -193,7 +195,11 @@ func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 			log.Debugf("EBS status is already attached, skipping: %v.", ebsAttachment.EBSToString())
 			continue
 		}
-		hostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
+
+		// hostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
+
+		preHostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
+		hostPath := filepath.Join("/mnt/ecs/ebs", preHostPath[strings.LastIndex(preHostPath, "/")+1:])
 		filesystemType := ebsAttachment.GetAttachmentProperties(apiebs.FileSystemTypeName)
 
 		// CSI NodeStage stub required fields
@@ -228,6 +234,26 @@ func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 	}
 	return nil
 }
+
+// func (w *EBSWatcher) stageAllHelper(ctx context.Context, volID, hostPath, deviceName, filesystemType string) error {
+// 	stubSecrets := make(map[string]string)
+// 	stubVolumeContext := make(map[string]string)
+// 	stubMountOptions := []string{}
+// 	stubFsGroup, _ := strconv.ParseInt("123456", 10, 8)
+// 	publishContext := map[string]string{"devicePath": deviceName}
+// 	err := w.csiClient.NodeStageVolume(ctx,
+// 		volID,
+// 		publishContext,
+// 		hostPath,
+// 		filesystemType,
+// 		v1.ReadWriteMany,
+// 		stubSecrets,
+// 		stubVolumeContext,
+// 		stubMountOptions,
+// 		&stubFsGroup)
+
+// 	return err
+// }
 
 // NotifyAttached will go through the list of found EBS volumes from the scanning process and mark them as found.
 func (w *EBSWatcher) NotifyAttached(foundVolumes map[string]string) {
@@ -278,6 +304,7 @@ func (w *EBSWatcher) addEBSAttachmentToState(ebs *apiebs.ResourceAttachment) err
 		w.handleEBSAckTimeout(volumeId)
 	})
 	if err != nil {
+		log.Warnf("Unable to handl ack timeout")
 		return err
 	}
 

@@ -58,6 +58,8 @@ func ParseEBSTaskVolumeAttachment(ebsAttachment *ecsacs.Attachment) (*EBSTaskVol
 			ebsTaskVolumeConfig.DeviceName = aws.StringValue(property.Value)
 		case apiresource.SourceVolumeHostPathKey:
 			ebsTaskVolumeConfig.SourceVolumeHostPath = aws.StringValue(property.Value)
+			// preHostPath := aws.StringValue(property.Value)
+			// ebsTaskVolumeConfig.SourceVolumeHostPath = preHostPath[strings.LastIndex(preHostPath, "/")+1:]
 		case apiresource.VolumeNameKey:
 			ebsTaskVolumeConfig.VolumeName = aws.StringValue(property.Value)
 		case apiresource.FileSystemKey:

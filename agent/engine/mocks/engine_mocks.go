@@ -229,6 +229,18 @@ func (mr *MockTaskEngineMockRecorder) SetDataClient(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockTaskEngine)(nil).SetDataClient), arg0)
 }
 
+// SetEbsDaemonTask mocks base method.
+func (m *MockTaskEngine) SetEbsDaemonTask(arg0 *task.Task) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEbsDaemonTask", arg0)
+}
+
+// SetEbsDaemonTask indicates an expected call of SetEbsDaemonTask.
+func (mr *MockTaskEngineMockRecorder) SetEbsDaemonTask(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEbsDaemonTask", reflect.TypeOf((*MockTaskEngine)(nil).SetEbsDaemonTask), arg0)
+}
+
 // StateChangeEvents mocks base method.
 func (m *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 	m.ctrl.T.Helper()

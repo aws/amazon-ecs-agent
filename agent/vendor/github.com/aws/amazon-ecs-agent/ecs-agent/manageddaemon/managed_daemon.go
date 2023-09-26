@@ -21,6 +21,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
+	// "github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -118,6 +120,14 @@ func defaultImportAll() ([]*ManagedDaemon, error) {
 			SourceVolumeType:     "host",
 			SourceVolumeHostPath: "/mnt/ecs/ebs",
 			ContainerPath:        "/mnt/ecs/ebs",
+			PropagationShared:    true,
+		},
+		&MountPoint{
+			SourceVolumeID:       "devMount",
+			SourceVolume:         "devMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/dev",
+			ContainerPath:        "/dev",
 			PropagationShared:    true,
 		},
 	}

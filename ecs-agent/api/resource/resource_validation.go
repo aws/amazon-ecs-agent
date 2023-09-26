@@ -71,3 +71,10 @@ func ValidateRequiredProperties(actualProperties map[string]string, requiredProp
 	}
 	return nil
 }
+
+func ValidateFileSystemType(filesystemType string) error {
+	if !AllowedFSTypes[filesystemType] {
+		return errors.Errorf("invalid file system type: %s", filesystemType)
+	}
+	return nil
+}

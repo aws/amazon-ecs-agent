@@ -444,6 +444,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		if loaded, _ := csiDM.IsLoaded(agent.dockerClient); loaded {
 			imageManager.AddImageToCleanUpExclusionList(csiDM.GetManagedDaemon().GetLoadedDaemonImageRef())
 		}
+	} else {
+		seelog.Debug("CSI daemon manager is empty...")
 	}
 
 	// Add container instance ARN to metadata manager
@@ -1041,7 +1043,7 @@ func (agent *ecsAgent) startACSSession(
 		taskComparer,
 		sequenceNumberAccessor,
 		taskStopper,
-		nil,
+		agent.ebsWatcher,
 		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
 	)
 	logger.Info("Beginning Polling for updates")
