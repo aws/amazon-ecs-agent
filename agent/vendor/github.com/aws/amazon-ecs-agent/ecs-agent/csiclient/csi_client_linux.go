@@ -22,11 +22,11 @@ import (
 )
 
 const (
-	defaultImageName      = md.EbsCsiDriver
-	defaultSocketName     = "csi-driver.sock"
-	defaultSocketHostPath = "/var/run/ecs/"
+	DefaultImageName      = md.EbsCsiDriver
+	DefaultSocketName     = "csi-driver.sock"
+	DefaultSocketHostPath = "/var/run/ecs/"
 )
 
 func DefaultSocketFilePath() string {
-	return filepath.Join(defaultSocketHostPath, defaultImageName, defaultSocketName)
+	return filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName)
 }

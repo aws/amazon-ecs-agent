@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,10 +35,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -57,6 +60,7 @@ const (
 	stoppedSentWaitInterval                  = 30 * time.Second
 	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
+	unstageVolumeTimeout                     = 3 * time.Second
 )
 
 var (
@@ -252,6 +256,15 @@ func (mtask *managedTask) overseeTask() {
 	mtask.engine.wakeUpTaskQueueMonitor()
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
+
+	if mtask.Task.IsEBSTaskAttachEnabled() {
+		csiClient := csiclient.NewCSIClient(filepath.Join(csiclient.DefaultSocketHostPath, csiclient.DefaultImageName, csiclient.DefaultSocketName))
+		err := mtask.UnstageVolumes(&csiClient)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Unable to unstage volumes: %v", err))
+		}
+	}
+
 	mtask.cleanupTask(retry.AddJitter(mtask.cfg.TaskCleanupWaitDuration, mtask.cfg.TaskCleanupWaitDurationJitter))
 }
 
@@ -1558,4 +1571,39 @@ func (mtask *managedTask) waitForStopReported() bool {
 	for !mtask.waitEvent(stoppedSentBool) {
 	}
 	return taskStopped
+}
+
+// TODO: Add unit test for UnstageVolumes in the near future
+func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) error {
+	task := mtask.Task
+	if task == nil {
+		return fmt.Errorf("managed task is nil")
+	}
+	if !task.IsEBSTaskAttachEnabled() {
+		logger.Debug("Task is not EBS-backed. Skip NodeUnstageVolume.")
+		return nil
+	}
+	for _, tv := range task.Volumes {
+		switch tv.Volume.(type) {
+		case *taskresourcevolume.EBSTaskVolumeConfig:
+			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+			volumeId := ebsCfg.VolumeId
+			hostPath := ebsCfg.Source()
+			err := mtask.unstageVolumeWithTimeout(csiClient, volumeId, hostPath)
+			if err != nil {
+				logger.Error("Unable to unstage volume", logger.Fields{
+					"Task":  task.String(),
+					"Error": err,
+				})
+				continue
+			}
+		}
+	}
+	return nil
+}
+
+func (mtask *managedTask) unstageVolumeWithTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {
+	derivedCtx, cancel := context.WithTimeout(mtask.ctx, unstageVolumeTimeout)
+	defer cancel()
+	return csiClient.NodeUnstageVolume(derivedCtx, volumeId, hostPath)
 }

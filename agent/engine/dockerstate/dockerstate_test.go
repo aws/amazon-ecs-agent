@@ -31,12 +31,12 @@ import (
 
 var (
 	testAttachmentProperties = map[string]string{
-		apiresource.ResourceTypeName:    apiresource.ElasticBlockStorage,
-		apiresource.RequestedSizeName:   "5",
-		apiresource.VolumeSizeInGiBName: "7",
-		apiresource.DeviceName:          "/dev/nvme0n0",
-		apiresource.VolumeIdName:        "vol-123",
-		apiresource.FileSystemTypeName:  "testXFS",
+		apiresource.VolumeNameKey:           "myCoolVolume",
+		apiresource.SourceVolumeHostPathKey: "/testpath",
+		apiresource.VolumeSizeGibKey:        "7",
+		apiresource.DeviceNameKey:           "/dev/nvme0n0",
+		apiresource.VolumeIdKey:             "vol-123",
+		apiresource.FileSystemKey:           "testXFS",
 	}
 )
 
@@ -138,6 +138,7 @@ func TestAddRemoveEBSAttachment(t *testing.T) {
 			AttachmentARN: "ebs1",
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       apiresource.EBSTaskAttach,
 	}
 
 	state.AddEBSAttachment(attachment)
@@ -150,7 +151,7 @@ func TestAddRemoveEBSAttachment(t *testing.T) {
 	assert.False(t, ok)
 	assert.Nil(t, ebs)
 
-	state.RemoveEBSAttachment(attachment.AttachmentProperties[apiresource.VolumeIdName])
+	state.RemoveEBSAttachment(attachment.AttachmentProperties[apiresource.VolumeIdKey])
 	assert.Len(t, state.(*DockerTaskEngineState).GetAllEBSAttachments(), 0)
 	ebs, ok = state.GetEBSByVolumeId("vol-123")
 	assert.False(t, ok)
@@ -168,15 +169,16 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 			Status:           status.AttachmentNone,
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       apiresource.EBSTaskAttach,
 	}
 
 	testSentAttachmentProperties := map[string]string{
-		apiresource.ResourceTypeName:    apiresource.ElasticBlockStorage,
-		apiresource.RequestedSizeName:   "3",
-		apiresource.VolumeSizeInGiBName: "9",
-		apiresource.DeviceName:          "/dev/nvme1n0",
-		apiresource.VolumeIdName:        "vol-456",
-		apiresource.FileSystemTypeName:  "testXFS2",
+		apiresource.VolumeNameKey:           "myCoolVolume",
+		apiresource.SourceVolumeHostPathKey: "/testpath2",
+		apiresource.VolumeSizeGibKey:        "7",
+		apiresource.DeviceNameKey:           "/dev/nvme1n0",
+		apiresource.VolumeIdKey:             "vol-456",
+		apiresource.FileSystemKey:           "testXFS",
 	}
 
 	foundAttachment := &apiresource.ResourceAttachment{
@@ -187,6 +189,7 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 			Status:           status.AttachmentAttached,
 		},
 		AttachmentProperties: testSentAttachmentProperties,
+		AttachmentType:       apiresource.EBSTaskAttach,
 	}
 
 	state.AddEBSAttachment(pendingAttachment)

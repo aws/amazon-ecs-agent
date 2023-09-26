@@ -160,6 +160,8 @@ func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment)
 	return nil
 }
 
+// overrideDeviceName() will replace the device name that we've received from ACS with the actual device name found on the host.
+// This is needed for NodeStageVolume and what we received from ACS won't be what we see on the host instance.
 func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
 	for volumeId, deviceName := range foundVolumes {
 		ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
@@ -175,7 +177,10 @@ func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
 func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 	for volID, deviceName := range foundVolumes {
 		// get volume details from attachment
-		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(volID)
+		ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volID)
+		if !ok {
+			continue
+		}
 		if ebsAttachment.IsSent() {
 			log.Debugf("State change event has already been emitted for EBS volume: %v.", ebsAttachment.EBSToString())
 			continue
