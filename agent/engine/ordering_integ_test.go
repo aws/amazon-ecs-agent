@@ -148,6 +148,61 @@ func TestDependencyComplete(t *testing.T) {
 	waitFinished(t, finished, orderingTimeout)
 }
 
+// TestDependencyStart tests a task workflow with a START container ordering dependency between 2 containers.
+// Container 'parent' depends on  container 'dependency' to START. We ensure that the 'parent' container starts only
+// after the 'dependency' container has started.
+func TestDependencyStart(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testDependencyStart"
+	testTask := createTestTask(taskArn)
+
+	parent := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	dependency := createTestContainerWithImageAndName(baseImageForOS, "dependency")
+
+	parent.EntryPoint = &entryPointForOS
+	parent.Command = []string{"sleep 5 && exit 0"}
+	parent.Essential = true
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
+		{
+			ContainerName: "dependency",
+			Condition:     "START",
+		},
+	}
+
+	dependency.EntryPoint = &entryPointForOS
+	dependency.Command = []string{"sleep 90"}
+	dependency.Essential = false
+
+	testTask.Containers = []*apicontainer.Container{
+		parent,
+		dependency,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// 'dependency' container should run first, followed by the 'parent' container
+		verifySpecificContainerStateChange(t, taskEngine, "dependency", status.ContainerRunning)
+		verifySpecificContainerStateChange(t, taskEngine, "parent", status.ContainerRunning)
+
+		// task becomes running after 'parent' is running
+		err := verifyTaskIsRunning(stateChangeEvents, testTask)
+		assert.NoError(t, err)
+
+		// 'parent' container stops and then the task stops
+		verifySpecificContainerStateChange(t, taskEngine, "parent", status.ContainerStopped)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
+}
+
 // TestDependencySuccess validates that the SUCCESS dependency condition will resolve when the child container exits
 // with exit code 0. It ensures that the child is started and stopped before the parent starts.
 func TestDependencySuccess(t *testing.T) {
