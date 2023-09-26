@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	dockerdoctor "github.com/aws/amazon-ecs-agent/agent/doctor" // for Docker specific container instance health checks
+	ebs "github.com/aws/amazon-ecs-agent/agent/ebs"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -64,7 +65,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	metricsfactory "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -72,6 +72,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apira "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
@@ -153,6 +157,7 @@ type ecsAgent struct {
 	serviceconnectManager       engineserviceconnect.Manager
 	daemonManagers              map[string]dm.DaemonManager
 	eniWatcher                  *watcher.ENIWatcher
+	ebsWatcher                  *ebs.EBSWatcher
 	cniClient                   ecscni.CNIClient
 	vpc                         string
 	subnet                      string
@@ -341,29 +346,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 
-	daemonDefinitions, err := md.ImportAll()
-	// we will not panic when daemons fail to import; agent should continue running
-	// container instance health will act as the mechanism to advertise daemon failures
-	if err != nil {
-		seelog.Errorf("Daemon import mountpoint failure: %s", err)
-	}
-	if len(daemonDefinitions) == 0 {
-		seelog.Infof("daemonDefinitions is empty/nil after import")
-	}
-	// load and add daemons to agent
-	for _, md := range daemonDefinitions {
-		thisDaemon := dm.NewDaemonManager(md)
-		if _, err := thisDaemon.LoadImage(agent.ctx, agent.dockerClient); err != nil {
-			seelog.Errorf("Managed Daemon Load failure %v", err)
-		}
-		if loaded, err := thisDaemon.IsLoaded(agent.dockerClient); loaded {
-			imageManager.AddImageToCleanUpExclusionList(md.GetLoadedDaemonImageRef())
-			agent.daemonManagers[md.GetImageName()] = thisDaemon
-		} else {
-			seelog.Errorf("Unable to load Managed Daemon: %s, err: %s", md.GetImageName(), err)
-		}
-	}
-
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(
 		containerChangeEventStream, credentialsManager, state, imageManager, hostResources, execCmdMgr,
@@ -461,6 +443,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		imageManager.AddImageToCleanUpExclusionList(agent.serviceconnectManager.GetLoadedImageName())
 	}
 
+	if csiDM, ok := agent.daemonManagers["ebs-csi-driver"]; ok {
+		if loaded, _ := csiDM.IsLoaded(agent.dockerClient); loaded {
+			imageManager.AddImageToCleanUpExclusionList(csiDM.GetManagedDaemon().GetLoadedDaemonImageRef())
+		}
+	}
+
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
@@ -499,6 +487,36 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
+
+	// TODO add mount path
+	tempAttachmentProperties := map[string]string{
+		apira.ResourceTypeName:        apira.ElasticBlockStorage,
+		apira.RequestedSizeName:       "5",
+		apira.VolumeSizeInGiBName:     "7",
+		apira.DeviceName:              "/dev/nvme1n1",
+		apira.VolumeIdName:            "vol-03bde5a27631ad16b",
+		apira.FileSystemTypeName:      "xfs",
+		apira.SourceVolumeHostPathKey: "/mnt/ecs/ebs/mocktaskID_vol-03bde5a27631ad16b",
+	}
+
+	duration := time.Now().Add(30000 * time.Millisecond)
+
+	if err := agent.startEBSWatcher(state, taskEngine); err != nil {
+		seelog.Criticalf("Unable to start EBS watcher")
+		return exitcodes.ExitTerminal
+	}
+
+	go agent.ebsWatcher.HandleResourceAttachment(&apira.ResourceAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentARN:        "dummy-arn",
+			Status:               status.AttachmentNone,
+			ExpiresAt:            duration,
+			AttachStatusSent:     false,
+			ClusterARN:           "dummy-cluster-arn",
+			ContainerInstanceARN: "dummy-container-instance-arn",
+		},
+		AttachmentProperties: tempAttachmentProperties,
+	})
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,

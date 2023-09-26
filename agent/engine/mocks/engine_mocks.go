@@ -25,6 +25,7 @@ import (
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	data "github.com/aws/amazon-ecs-agent/agent/data"
+	daemonmanager "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	gomock "github.com/golang/mock/gomock"
@@ -75,6 +76,46 @@ func (m *MockTaskEngine) Disable() {
 func (mr *MockTaskEngineMockRecorder) Disable() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disable", reflect.TypeOf((*MockTaskEngine)(nil).Disable))
+}
+
+// EmitTaskEvent mocks base method.
+func (m *MockTaskEngine) EmitTaskEvent(arg0 *task.Task, arg1 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "EmitTaskEvent", arg0, arg1)
+}
+
+// EmitTaskEvent indicates an expected call of EmitTaskEvent.
+func (mr *MockTaskEngineMockRecorder) EmitTaskEvent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EmitTaskEvent", reflect.TypeOf((*MockTaskEngine)(nil).EmitTaskEvent), arg0, arg1)
+}
+
+// GetDaemonManagers mocks base method.
+func (m *MockTaskEngine) GetDaemonManagers() map[string]daemonmanager.DaemonManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDaemonManagers")
+	ret0, _ := ret[0].(map[string]daemonmanager.DaemonManager)
+	return ret0
+}
+
+// GetDaemonManagers indicates an expected call of GetDaemonManagers.
+func (mr *MockTaskEngineMockRecorder) GetDaemonManagers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDaemonManagers", reflect.TypeOf((*MockTaskEngine)(nil).GetDaemonManagers))
+}
+
+// GetEbsDaemonTask mocks base method.
+func (m *MockTaskEngine) GetEbsDaemonTask() *task.Task {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEbsDaemonTask")
+	ret0, _ := ret[0].(*task.Task)
+	return ret0
+}
+
+// GetEbsDaemonTask indicates an expected call of GetEbsDaemonTask.
+func (mr *MockTaskEngineMockRecorder) GetEbsDaemonTask() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEbsDaemonTask", reflect.TypeOf((*MockTaskEngine)(nil).GetEbsDaemonTask))
 }
 
 // GetTaskByArn mocks base method.
@@ -186,6 +227,18 @@ func (m *MockTaskEngine) SetDataClient(arg0 data.Client) {
 func (mr *MockTaskEngineMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockTaskEngine)(nil).SetDataClient), arg0)
+}
+
+// SetEbsDaemonTask mocks base method.
+func (m *MockTaskEngine) SetEbsDaemonTask(arg0 *task.Task) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEbsDaemonTask", arg0)
+}
+
+// SetEbsDaemonTask indicates an expected call of SetEbsDaemonTask.
+func (mr *MockTaskEngineMockRecorder) SetEbsDaemonTask(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEbsDaemonTask", reflect.TypeOf((*MockTaskEngine)(nil).SetEbsDaemonTask), arg0)
 }
 
 // StateChangeEvents mocks base method.

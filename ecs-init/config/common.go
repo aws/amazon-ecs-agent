@@ -168,6 +168,14 @@ func LogDirectory() string {
 	return directoryPrefix + "/var/log/ecs"
 }
 
+func DaemonLogDirectory() string {
+	return LogDirectory() + "/daemons"
+}
+
+func EBSCSILogDirectory() string {
+	return DaemonLogDirectory() + "/ebs-csi-driver"
+}
+
 func initLogFile() string {
 	return LogDirectory() + "/ecs-init.log"
 }
@@ -185,6 +193,11 @@ func CacheDirectory() string {
 // CacheState returns the location on disk where cache state is stored
 func CacheState() string {
 	return CacheDirectory() + "/state"
+}
+
+// MountDirectoryEBS returns the location on disk where EBS volumes will be mounted
+func MountDirectoryEBS() string {
+	return directoryPrefix + "/mnt/ecs/ebs"
 }
 
 // AgentTarball returns the location on disk of the cached Agent image
