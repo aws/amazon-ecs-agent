@@ -1143,7 +1143,8 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		engine.emitTaskEvent(task, err.Error())
 		return
 	}
-	if task.IsEBSTaskAttachEnabled() {
+	// TODO: This will be fixed in a future PR. For now it will always be false.
+	if task.IsEBSTaskAttachEnabled() && false {
 		if csiTask, ok := engine.loadedDaemonTasks["ebs-csi-driver"]; ok {
 			logger.Info("engine ebs CSI driver is running", logger.Fields{
 				field.TaskID: csiTask.GetID(),

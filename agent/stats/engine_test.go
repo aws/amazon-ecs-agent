@@ -31,6 +31,7 @@ import (
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -62,6 +63,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
+	resolver.EXPECT().ResolveTaskByARN("t1").AnyTimes().Return(t1, nil)
+	resolver.EXPECT().ResolveTaskByARN("t2").AnyTimes().Return(t2, nil)
+	resolver.EXPECT().ResolveTaskByARN("t3").AnyTimes().Return(t3, nil)
 	resolver.EXPECT().ResolveTask("c4").AnyTimes().Return(nil, fmt.Errorf("unmapped container"))
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
@@ -82,6 +86,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	engine.client = mockDockerClient
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
+	engine.csiClient = csiclient.NewDummyCSIClient()
 	defer engine.removeAll()
 
 	engine.addAndStartStatsContainer("c1")

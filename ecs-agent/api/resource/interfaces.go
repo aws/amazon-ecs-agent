@@ -16,7 +16,7 @@ package resource
 // EBSDiscovery is an interface used to find EBS volumes that are attached onto the host instance. It is implemented by
 // EBSDiscoveryClient
 type EBSDiscovery interface {
-	ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error
+	ConfirmEBSVolumeIsAttached(deviceName, volumeID string) (string, error)
 }
 
 // GenericEBSAttachmentObject is an interface used to implement the Resource attachment objects that's saved within the agent state

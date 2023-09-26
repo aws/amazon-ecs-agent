@@ -271,7 +271,7 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 								Value: stringToPointer(tc.testFileSystem),
 							},
 						},
-						AttachmentType: stringToPointer(apiresource.AmazonElasticBlockStorage),
+						AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
 					},
 				},
 			}
