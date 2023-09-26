@@ -3435,6 +3435,22 @@ func (task *Task) IsServiceConnectEnabled() bool {
 // Is EBS Task Attach enabled returns true if this task has EBS volume configuration in its ACS payload.
 // TODO as more daemons come online, we'll want a generic handler these bool checks and payload handling
 func (task *Task) IsEBSTaskAttachEnabled() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	return task.isEBSTaskAttachEnabledUnsafe()
+}
+
+func (task *Task) isEBSTaskAttachEnabledUnsafe() bool {
+	logger.Debug("Checking if there are any ebs volume configs")
+	for _, tv := range task.Volumes {
+		switch tv.Volume.(type) {
+		case *taskresourcevolume.EBSTaskVolumeConfig:
+			logger.Debug("found ebs volume config")
+			return true
+		default:
+			continue
+		}
+	}
 	return false
 }
 

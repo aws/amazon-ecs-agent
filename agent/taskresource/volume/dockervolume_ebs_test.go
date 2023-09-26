@@ -31,7 +31,7 @@ const (
 func TestParseEBSTaskVolumeAttachmentHappyCase(t *testing.T) {
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String(apiresource.VolumeIdKey),
@@ -77,7 +77,7 @@ func TestParseEBSTaskVolumeAttachmentHappyCase(t *testing.T) {
 func TestParseEBSTaskVolumeAttachmentNilProperty(t *testing.T) {
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			nil,
 		},
@@ -90,7 +90,7 @@ func TestParseEBSTaskVolumeAttachmentNilProperty(t *testing.T) {
 func TestParseEBSTaskVolumeAttachmentNilPropertyValue(t *testing.T) {
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String(apiresource.VolumeIdKey),
@@ -126,7 +126,7 @@ func TestParseEBSTaskVolumeAttachmentNilPropertyValue(t *testing.T) {
 func TestParseEBSTaskVolumeAttachmentEmptyPropertyValue(t *testing.T) {
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String(apiresource.VolumeIdKey),
@@ -162,7 +162,7 @@ func TestParseEBSTaskVolumeAttachmentEmptyPropertyValue(t *testing.T) {
 func TestParseEBSTaskVolumeAttachmentUnknownProperty(t *testing.T) {
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String(apiresource.VolumeIdKey),
@@ -213,7 +213,7 @@ func TestParseEBSTaskVolumeAttachmentMissingProperty(t *testing.T) {
 	// The following attachment will be missing the SourceVolumeHostPath property
 	attachment := &ecsacs.Attachment{
 		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+		AttachmentType: aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String(apiresource.VolumeIdKey),

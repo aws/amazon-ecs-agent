@@ -4688,7 +4688,7 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 						Value: strptr(taskresourcevolume.TestFileSystem),
 					},
 				},
-				AttachmentType: strptr(apiresource.AmazonElasticBlockStorage),
+				AttachmentType: strptr(apiresource.EBSTaskAttach),
 			},
 		},
 	}

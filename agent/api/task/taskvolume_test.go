@@ -195,7 +195,7 @@ func TestMarshalEBSVolumes(t *testing.T) {
 		Volumes: []TaskVolume{
 			{
 				Name: "1",
-				Type: apiresource.AmazonElasticBlockStorage,
+				Type: apiresource.EBSTaskAttach,
 				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
 					VolumeId:             "vol-12345",
 					VolumeName:           "test-volume",
@@ -230,7 +230,7 @@ func TestMarshalEBSVolumes(t *testing.T) {
 				"dockerVolumeName": ""
 			},
 			"name": "1",
-			"type": "AmazonElasticBlockStorage"
+			"type": "amazonebs"
 		  }
 		],
 		"DesiredStatus": "NONE",
@@ -275,7 +275,7 @@ func TestUnmarshalEBSVolumes(t *testing.T) {
 				"dockerVolumeName": ""
 			},
 			"name": "1",
-			"type": "AmazonElasticBlockStorage"
+			"type": "amazonebs"
 		  }
 		],
 		"DesiredStatus": "NONE",
@@ -306,7 +306,7 @@ func TestUnmarshalEBSVolumes(t *testing.T) {
 	require.NoError(t, err, "Could not unmarshal task")
 
 	require.Len(t, task.Volumes, 1)
-	assert.Equal(t, apiresource.AmazonElasticBlockStorage, task.Volumes[0].Type)
+	assert.Equal(t, apiresource.EBSTaskAttach, task.Volumes[0].Type)
 	assert.Equal(t, "1", task.Volumes[0].Name)
 	ebsConfig, ok := task.Volumes[0].Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
 	require.True(t, ok)
