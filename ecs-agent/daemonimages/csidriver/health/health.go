@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultResponseTimeout = 2 * time.Second
+	defaultResponseTimeout = 5 * time.Second
 )
 
 // Checks the health of an already running CSI Driver Server by querying for
