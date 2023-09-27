@@ -6,13 +6,14 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests that NodeGetCapabilities returns the node's capabilities
 func TestNodeGetCapabilities(t *testing.T) {
 	node := &nodeService{}
 	res, err := node.NodeGetCapabilities(context.Background(), &csi.NodeGetCapabilitiesRequest{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	capTypes := []csi.NodeServiceCapability_RPC_Type{}
 	for _, cap := range res.Capabilities {
