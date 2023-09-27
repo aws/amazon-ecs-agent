@@ -1,4 +1,23 @@
 # Changelog
+## 1.77.0
+* Feature - ECS_TASK_PIDS_LIMIT for setting the task-level PIDs limit. [#3923](https://github.com/aws/amazon-ecs-agent/pull/3923)
+* Enhancement - Add interface for csi client [#3899](https://github.com/aws/amazon-ecs-agent/pull/3899)
+* Enhancement - Add new network data structures [#3909](https://github.com/aws/amazon-ecs-agent/pull/3909)
+* Enhancement - Update Managed Daemon to allow for privilege and mount propagation [#3910](https://github.com/aws/amazon-ecs-agent/pull/3910)
+* Enhancenent - Add NodeStageVolume to common CSI client library [3905](https://github.com/aws/amazon-ecs-agent/pull/3905)
+* Enhancement - Add a default wait timeout for attachment payload messages [3914](https://github.com/aws/amazon-ecs-agent/pull/3914)
+* Enhancement - Add CNI to ecs-agent/netlib/model and update dependencies [3897](https://github.com/aws/amazon-ecs-agent/pull/3897)
+* Enhancement - Update Minimal CSI Driver with NodeStage method [3918](https://github.com/aws/amazon-ecs-agent/pull/3918)
+* Enhancement - Add support to handle task payload with EBS volume attachments [3917](https://github.com/aws/amazon-ecs-agent/pull/3917)
+* Enhancement - Bump cgroups and containernetworking/plugins version [3903](https://github.com/aws/amazon-ecs-agent/pull/3903)
+* Enhancement - Add AgentConfigAccessor interface to ecs-agent/ [#3928](https://github.com/aws/amazon-ecs-agent/pull/3928)
+* Enhancement - Adding new container metadata to the introspection response [#3926](https://github.com/aws/amazon-ecs-agent/pull/3926)
+* Enhancement - Support AttachmentType for the attachment payload for EBS Attach [#3911](https://github.com/aws/amazon-ecs-agent/pull/3911)
+* Bug - Fix flaky EBS watcher test for windows [#3904](https://github.com/aws/amazon-ecs-agent/pull/3904)
+* Bug - Add fix for the failing functional gMSA S3 test [#3886](https://github.com/aws/amazon-ecs-agent/pull/3886)
+* Code Quality Improvement - Update PR template and enable dependabot for ecs-agent module [3908](https://github.com/aws/amazon-ecs-agent/pull/3908)
+* Code Quality Improvement - Move container/task statuses to ecs-agent module [3924](https://github.com/aws/amazon-ecs-agent/pull/3924)
+
 ## 1.76.0
 * Feature - Adding EBS watcher implementation [#3866](https://github.com/aws/amazon-ecs-agent/pull/3866)
 * Feature - Added the implementation for EBS volume discovery on Windows [#49](https://github.com/aws/amazon-ecs-agent/pull/49)
