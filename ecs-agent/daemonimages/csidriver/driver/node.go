@@ -44,6 +44,12 @@ var (
 		FSTypeXfs:  {},
 		FSTypeNtfs: {},
 	}
+
+	// nodeCaps represents the capabilities of node service.
+	nodeCaps = []csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+	}
 )
 
 // nodeService represents the node service of CSI driver.
@@ -362,4 +368,24 @@ func hasMountOption(options []string, opt string) bool {
 		}
 	}
 	return false
+}
+
+// Returns the capabilities of this node service.
+func (d *nodeService) NodeGetCapabilities(
+	ctx context.Context,
+	req *csi.NodeGetCapabilitiesRequest,
+) (*csi.NodeGetCapabilitiesResponse, error) {
+	klog.V(4).InfoS("NodeGetCapabilities: called", "args", *req)
+	var caps []*csi.NodeServiceCapability
+	for _, cap := range nodeCaps {
+		c := &csi.NodeServiceCapability{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: cap,
+				},
+			},
+		}
+		caps = append(caps, c)
+	}
+	return &csi.NodeGetCapabilitiesResponse{Capabilities: caps}, nil
 }
