@@ -17,8 +17,10 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -58,7 +60,8 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
 			volumeId := ebsCfg.VolumeId
 			hostPath := ebsCfg.Source()
-			metric, err := engine.csiClient.GetVolumeMetrics(volumeId, hostPath)
+			// metric, err := engine.csiClient.GetVolumeMetrics(ctx, volumeId, hostPath)
+			metric, err := engine.getVolumeMetricsWithTimeout(volumeId, hostPath)
 			if err != nil {
 				logger.Error("Failed to gather metrics for EBS volume", logger.Fields{
 					"VolumeId":             volumeId,
@@ -90,4 +93,11 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 		}
 	}
 	return metrics
+}
+
+func (engine *DockerStatsEngine) getVolumeMetricsWithTimeout(volumeId, hostPath string) (*csiclient.Metrics, error) {
+	derivedCtx, cancel := context.WithTimeout(engine.ctx, time.Second*1)
+	// releases resources if GetVolumeMetrics finishes before timeout
+	defer cancel()
+	return engine.csiClient.GetVolumeMetrics(derivedCtx, volumeId, hostPath)
 }

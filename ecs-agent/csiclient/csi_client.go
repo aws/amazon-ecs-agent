@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -52,7 +50,8 @@ type CSIClient interface {
 		mountOptions []string,
 		fsGroup *int64,
 	) error
-	GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error)
+	NodeUnstageVolume(ctx context.Context, volumeId, stagingTargetPath string) error
+	GetVolumeMetrics(ctx context.Context, volumeId string, hostMountPath string) (*Metrics, error)
 }
 
 // csiClient encapsulates all CSI methods.
@@ -65,6 +64,10 @@ func NewCSIClient(socketIn string) csiClient {
 	return csiClient{csiSocket: socketIn}
 }
 
+// NodeStageVolume will do following things for the given volume:
+// 1. format the device if it does not have any,
+// 2. mount the device to given stagingTargetPath,
+// 3. resize the fs if its size is smaller than the device size.
 func (cc *csiClient) NodeStageVolume(ctx context.Context,
 	volID string,
 	publishContext map[string]string,
@@ -76,17 +79,13 @@ func (cc *csiClient) NodeStageVolume(ctx context.Context,
 	mountOptions []string,
 	fsGroup *int64,
 ) error {
-	conn, err := cc.grpcDialConnect()
+	conn, err := cc.grpcDialConnect(ctx)
 	if err != nil {
-		logger.Error("NodeStage: CSI Connection Error", logger.Fields{
-			field.Error: err,
-		})
-		return err
+		return fmt.Errorf("NodeStageVolume: failed to establish CSI connection: %w", err)
 	}
 	defer conn.Close()
 
 	client := csi.NewNodeClient(conn)
-
 	defaultVolumeCapability := &csi.VolumeCapability{
 		AccessType: &csi.VolumeCapability_Mount{
 			Mount: &csi.VolumeCapability_MountVolume{},
@@ -119,39 +118,46 @@ func (cc *csiClient) NodeStageVolume(ctx context.Context,
 	}
 
 	_, err = client.NodeStageVolume(ctx, &req)
-
 	if err != nil {
-		logger.Error("Error staging volume via CSI driver", logger.Fields{
-			field.Error: err,
-		})
-		return err
+		return fmt.Errorf("failed to stage volume via CSI driver: %w", err)
+	}
+	return nil
+}
+
+// NodeUnstageVolume will unstage/umount the given volume from the stagingTargetPath.
+func (cc *csiClient) NodeUnstageVolume(ctx context.Context, volumeId, stagingTargetPath string) error {
+	conn, err := cc.grpcDialConnect(ctx)
+	if err != nil {
+		return fmt.Errorf("NodeUnstageVolume: failed to establish CSI connection: %w", err)
+	}
+	defer conn.Close()
+
+	client := csi.NewNodeClient(conn)
+	_, err = client.NodeUnstageVolume(ctx, &csi.NodeUnstageVolumeRequest{
+		VolumeId:          volumeId,
+		StagingTargetPath: stagingTargetPath,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to unstage volume via CSI driver: %w", err)
 	}
 	return nil
 }
 
 // GetVolumeMetrics returns volume usage.
-func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
-	conn, err := cc.grpcDialConnect()
+func (cc *csiClient) GetVolumeMetrics(ctx context.Context, volumeId string, hostMountPath string) (*Metrics, error) {
+	conn, err := cc.grpcDialConnect(ctx)
 	if err != nil {
-		logger.Error("GetVolumeMetrics: CSI Connection Error")
-		return nil, err
+		return nil, fmt.Errorf("GetVolumeMetrics: failed to establish CSI connection: %w", err)
 	}
 	defer conn.Close()
 
 	client := csi.NewNodeClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
 	resp, err := client.NodeGetVolumeStats(ctx, &csi.NodeGetVolumeStatsRequest{
 		VolumeId:   volumeId,
 		VolumePath: hostMountPath,
 	})
 	if err != nil {
-		logger.Error("Could not get stats", logger.Fields{
-			field.Error: err,
-		})
-		return nil, err
+		return nil, fmt.Errorf("failed to get stats via CSI driver: %w", err)
 	}
 
 	usages := resp.GetUsage()
@@ -184,21 +190,19 @@ func (cc *csiClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*M
 	}, nil
 }
 
-func (cc *csiClient) grpcDialConnect() (*grpc.ClientConn, error) {
+func (cc *csiClient) grpcDialConnect(ctx context.Context) (*grpc.ClientConn, error) {
 	dialer := func(addr string, t time.Duration) (net.Conn, error) {
 		return net.Dial(protocol, addr)
 	}
-	conn, err := grpc.Dial(
+	conn, err := grpc.DialContext(
+		ctx,
 		cc.csiSocket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDialer(dialer),
 	)
 	if err != nil {
-		logger.Error("Error building a connection to CSI driver", logger.Fields{
-			field.Error: err,
-			"Socket":    cc.csiSocket,
-		})
-		return nil, err
+		return nil, fmt.Errorf(
+			"error building a connection to CSI driver with socket %s: %w", cc.csiSocket, err)
 	}
 	return conn, nil
 }
