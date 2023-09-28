@@ -22,9 +22,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -78,6 +80,7 @@ const (
 	capabilityExternal                                     = "external"
 	capabilityServiceConnect                               = "service-connect-v1"
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
+	capabilityEBSTaskAttach                                = "storage.ebs-volume"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -291,6 +294,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// add service-connect capabilities if applicable
 	capabilities = agent.appendServiceConnectCapabilities(capabilities)
 
+	// add ebs-task-attach attribute if applicable
+	capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+
 	if agent.cfg.External.Enabled() {
 		// Add external specific capability; remove external unsupported capabilities.
 		for _, cap := range externalSpecificCapabilities {
@@ -496,6 +502,40 @@ func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attr
 	for _, serviceConnectCapability := range supportedAppnetInterfaceVerToCapabilities {
 		capabilities = appendNameOnlyAttribute(capabilities, serviceConnectCapability)
 	}
+	return capabilities
+}
+
+func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	// todo update to import multiple daemons and append capabilities
+	// for now load only EBS CSI Driver daemon
+	daemonDefinitions, err := md.ImportAll()
+	if err != nil {
+		logger.Error(fmt.Sprintf("Daemon import failure: %s", err))
+		return capabilities
+	}
+	if len(daemonDefinitions) == 0 {
+		logger.Error("daemonDefinitions is empty/nil after import")
+		return capabilities
+	}
+	for _, md := range daemonDefinitions {
+		if md.GetImageName() == "ebs-csi-driver" {
+			csiDaemonManager := dm.NewDaemonManager(md)
+			// check that the daemon isn't already set
+			if csiDM, ok := agent.daemonManagers["ebs-csi-driver"]; ok {
+				csiDaemonManager = csiDM
+			} else {
+				agent.daemonManagers["ebs-csi-driver"] = csiDaemonManager
+			}
+			if _, err := csiDaemonManager.LoadImage(agent.ctx, agent.dockerClient); err != nil {
+				logger.Error("Failed to load the EBS CSI Driver. This container instance will not be able to support EBS Task Attach",
+					logger.Fields{
+						field.Error: err,
+					},
+				)
+			}
+		}
+	}
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTaskAttach)
 	return capabilities
 }
 
