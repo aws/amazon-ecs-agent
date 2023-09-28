@@ -102,7 +102,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 	var tempAttachments []*ecsacs.Attachment
 	tempAttachments = append(tempAttachments, &ecsacs.Attachment{
 		AttachmentArn:  aws.String("att-arn-1"),
-		AttachmentType: aws.String("AmazonElasticBlockStorage"),
+		AttachmentType: aws.String("amazonebs"),
 		AttachmentProperties: []*ecsacs.AttachmentProperty{
 			{
 				Name:  aws.String("volumeId"),
