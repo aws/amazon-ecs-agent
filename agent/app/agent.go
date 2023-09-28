@@ -490,13 +490,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// TODO add mount path
 	tempAttachmentProperties := map[string]string{
-		apira.ResourceTypeName:        apira.ElasticBlockStorage,
-		apira.RequestedSizeName:       "5",
-		apira.VolumeSizeInGiBName:     "7",
-		apira.DeviceName:              "/dev/nvme1n1",
-		apira.VolumeIdName:            "vol-03bde5a27631ad16b",
-		apira.FileSystemTypeName:      "xfs",
+		apira.VolumeSizeGibKey:        "7",
+		apira.DeviceNameKey:           "/dev/nvme1n1",
+		apira.VolumeIdKey:             "vol-03bde5a27631ad16b",
+		apira.FileSystemKey:           "xfs",
 		apira.SourceVolumeHostPathKey: "/mnt/ecs/ebs/mocktaskID_vol-03bde5a27631ad16b",
+		apira.VolumeNameKey:           "test-volume",
 	}
 
 	duration := time.Now().Add(30000 * time.Millisecond)
@@ -516,6 +515,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			ContainerInstanceARN: "dummy-container-instance-arn",
 		},
 		AttachmentProperties: tempAttachmentProperties,
+		AttachmentType:       apira.EBSTaskAttach,
 	})
 
 	// Start the acs session, which should block doStart

@@ -73,7 +73,7 @@ func (w *EBSWatcher) Start() {
 			if len(pendingEBS) > 0 {
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
 				w.overrideDeviceName(foundVolumes)
-				w.NotifyFound(foundVolumes)
+				w.NotifyAttached(foundVolumes)
 				if err := w.StageAll(foundVolumes); err != nil {
 					w.NotifyAttached(foundVolumes)
 				}
@@ -153,14 +153,13 @@ func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
 	}
 }
 
-func (w *EBSWatcher) StageAll(foundVolumes []string) error {
-	for _, thisVol := range foundVolumes {
+func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
+	for volID, deviceName := range foundVolumes {
 		// assumes CSI Driver Managed Daemon is running else call will timeout
-		log.Infof("CSI Staging volume: %s", thisVol)
+		log.Infof("CSI Staging volume: %s", volID)
 
 		// get volume details from attachment
-		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(thisVol)
-		deviceName := ebsAttachment.GetAttachmentProperties(apiebs.DeviceNameKey)
+		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(volID)
 		hostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
 		filesystemType := ebsAttachment.GetAttachmentProperties(apiebs.FileSystemTypeName)
 
@@ -173,7 +172,7 @@ func (w *EBSWatcher) StageAll(foundVolumes []string) error {
 		publishContext := map[string]string{"devicePath": deviceName}
 		// call CSI NodeStage
 		err := w.csiClient.NodeStageVolume(w.ctx,
-			thisVol,
+			volID,
 			publishContext,
 			hostPath,
 			filesystemType,
@@ -191,9 +190,9 @@ func (w *EBSWatcher) StageAll(foundVolumes []string) error {
 }
 
 // NotifyAttached will go through the list of found EBS volumes from the scanning process and mark them as found.
-func (w *EBSWatcher) NotifyAttached(foundVolumes []string) {
-	for _, volumeId := range foundVolumes {
-		w.notifyAttachedEBS(volumeId)
+func (w *EBSWatcher) NotifyAttached(foundVolumes map[string]string) {
+	for volID := range foundVolumes {
+		w.notifyAttachedEBS(volID)
 	}
 }
 

@@ -340,11 +340,7 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 // TestHandleMismatchEBSAttachment tests handling an EBS attachment but found a different volume attached
 // onto the host during the scanning process.
 func TestHandleMismatchEBSAttachment(t *testing.T) {
-<<<<<<< HEAD
-	t.Skip("Skipping timeout test. Still needs to be fixed.")
-=======
 	t.Skip()
->>>>>>> fierlion/EBSAttachNodeStage
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
