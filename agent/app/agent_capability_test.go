@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	mock_daemonmanager "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager/mock"
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
@@ -91,6 +92,9 @@ func TestCapabilities(t *testing.T) {
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes().Return([]string{"ecs.capability.service-connect-v1"}, nil)
+
+	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 
 	// Scan() and ListPluginsWithFilters() are tested with
 	// AnyTimes() because they are not called in windows.
@@ -163,6 +167,7 @@ func TestCapabilities(t *testing.T) {
 		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
+		daemonManager:         mockDaemonManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
