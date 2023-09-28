@@ -524,6 +524,7 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 			if csiDM, ok := agent.daemonManagers["ebs-csi-driver"]; ok {
 				csiDaemonManager = csiDM
 			} else {
+				logger.Debug("Setting CSI daemon manager...")
 				agent.daemonManagers["ebs-csi-driver"] = csiDaemonManager
 			}
 			if _, err := csiDaemonManager.LoadImage(agent.ctx, agent.dockerClient); err != nil {

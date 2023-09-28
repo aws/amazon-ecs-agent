@@ -21,6 +21,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
+	// "github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 

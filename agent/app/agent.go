@@ -444,9 +444,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	if csiDM, ok := agent.daemonManagers["ebs-csi-driver"]; ok {
+		seelog.Debug("CSI daemon manager is not empty")
 		if loaded, _ := csiDM.IsLoaded(agent.dockerClient); loaded {
 			imageManager.AddImageToCleanUpExclusionList(csiDM.GetManagedDaemon().GetLoadedDaemonImageRef())
 		}
+	} else {
+		seelog.Debug("CSI daemon manager is empty...")
 	}
 
 	// Add container instance ARN to metadata manager
@@ -491,10 +494,10 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// TODO add mount path
 	tempAttachmentProperties := map[string]string{
 		apira.VolumeSizeGibKey:        "7",
-		apira.DeviceNameKey:           "/dev/nvme1n1",
-		apira.VolumeIdKey:             "vol-03bde5a27631ad16b",
+		apira.DeviceNameKey:           "/dev/blah",
+		apira.VolumeIdKey:             "vol-0947552fde5deb2ae",
 		apira.FileSystemKey:           "xfs",
-		apira.SourceVolumeHostPathKey: "/mnt/ecs/ebs/mocktaskID_vol-03bde5a27631ad16b",
+		apira.SourceVolumeHostPathKey: "/mnt/ecs/ebs/mocktaskID_vol-0947552fde5deb2ae",
 		apira.VolumeNameKey:           "test-volume",
 	}
 

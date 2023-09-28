@@ -73,8 +73,9 @@ func (w *EBSWatcher) Start() {
 			if len(pendingEBS) > 0 {
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
 				w.overrideDeviceName(foundVolumes)
-				w.NotifyAttached(foundVolumes)
-				if err := w.StageAll(foundVolumes); err != nil {
+				// w.NotifyAttached(foundVolumes)
+				if err := w.StageAll(foundVolumes); err == nil {
+					log.Debugf("CSI driver was able to stage volume")
 					w.NotifyAttached(foundVolumes)
 				}
 			}
