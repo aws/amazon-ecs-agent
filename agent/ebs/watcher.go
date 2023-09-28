@@ -63,6 +63,7 @@ func (w *EBSWatcher) Start() {
 			pendingEBS := w.agentState.GetAllPendingEBSAttachmentsWithKey()
 			if len(pendingEBS) > 0 {
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
+				w.overrideDeviceName(foundVolumes)
 				w.NotifyFound(foundVolumes)
 			}
 		case <-w.ctx.Done():
@@ -83,13 +84,13 @@ func (w *EBSWatcher) Stop() {
 // 1. Check whether we already have this attachment in state and if so it's a noop.
 // 2. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
 func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
-	attachmentType := ebs.GetAttachmentProperties(apiebs.ResourceTypeName)
-	if attachmentType != apiebs.ElasticBlockStorage {
+	attachmentType := ebs.GetAttachmentType()
+	if attachmentType != apiebs.EBSTaskAttach {
 		log.Warnf("Resource type not Elastic Block Storage. Skip handling resource attachment with type: %v.", attachmentType)
 		return nil
 	}
 
-	volumeId := ebs.GetAttachmentProperties(apiebs.VolumeIdName)
+	volumeId := ebs.GetAttachmentProperties(apiebs.VolumeIdKey)
 	ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if ok {
 		log.Infof("EBS Volume attachment already exists. Skip handling EBS attachment %v.", ebs.EBSToString())
@@ -106,9 +107,20 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 	return nil
 }
 
+func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
+	for volumeId, deviceName := range foundVolumes {
+		ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
+		if !ok {
+			log.Warnf("Unable to find EBS volume with volume ID: %s", volumeId)
+			continue
+		}
+		ebs.SetDeviceName(deviceName)
+	}
+}
+
 // NotifyFound will go through the list of found EBS volumes from the scanning process and mark them as found.
-func (w *EBSWatcher) NotifyFound(foundVolumes []string) {
-	for _, volumeId := range foundVolumes {
+func (w *EBSWatcher) NotifyFound(foundVolumes map[string]string) {
+	for volumeId := range foundVolumes {
 		w.notifyFoundEBS(volumeId)
 	}
 }
@@ -151,7 +163,7 @@ func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 
 // addEBSAttachmentToState adds an EBS attachment to state, and start its ack timer
 func (w *EBSWatcher) addEBSAttachmentToState(ebs *apiebs.ResourceAttachment) error {
-	volumeId := ebs.AttachmentProperties[apiebs.VolumeIdName]
+	volumeId := ebs.AttachmentProperties[apiebs.VolumeIdKey]
 	err := ebs.StartTimer(func() {
 		w.handleEBSAckTimeout(volumeId)
 	})

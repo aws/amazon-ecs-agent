@@ -37,6 +37,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
@@ -112,6 +113,8 @@ type DockerStatsEngine struct {
 	// channels to send metrics to TACS Client
 	metricsChannel chan<- ecstcs.TelemetryMessage
 	healthChannel  chan<- ecstcs.HealthMessage
+
+	csiClient csiclient.CSIClient
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -572,12 +575,15 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 			continue
 		}
 
+		volMetrics := engine.getEBSVolumeMetrics(taskArn)
+
 		metricTaskArn := taskArn
 		taskMetric := &ecstcs.TaskMetric{
 			TaskArn:               &metricTaskArn,
 			TaskDefinitionFamily:  &taskDef.family,
 			TaskDefinitionVersion: &taskDef.version,
 			ContainerMetrics:      containerMetrics,
+			VolumeMetrics:         volMetrics,
 		}
 
 		if includeServiceConnectStats {

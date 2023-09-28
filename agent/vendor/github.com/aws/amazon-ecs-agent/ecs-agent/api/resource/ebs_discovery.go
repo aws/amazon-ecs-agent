@@ -44,13 +44,12 @@ func NewDiscoveryClient(ctx context.Context) *EBSDiscoveryClient {
 }
 
 // ScanEBSVolumes will iterate through the entire list of provided EBS volume attachments within the agent state and checks if it's attached on the host.
-func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]T, dc EBSDiscovery) []string {
-	var err error
-	var foundVolumes []string
+func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]T, dc EBSDiscovery) map[string]string {
+	foundVolumes := make(map[string]string)
 	for key, ebs := range pendingAttachments {
 		volumeId := strings.TrimPrefix(key, ebsResourceKeyPrefix)
-		deviceName := ebs.GetAttachmentProperties(DeviceName)
-		err = dc.ConfirmEBSVolumeIsAttached(deviceName, volumeId)
+		deviceName := ebs.GetAttachmentProperties(DeviceNameKey)
+		actualDeviceName, err := dc.ConfirmEBSVolumeIsAttached(deviceName, volumeId)
 		if err != nil {
 			if !errors.Is(err, ErrInvalidVolumeID) {
 				err = fmt.Errorf("%w; failed to confirm if EBS volume is attached to the host", err)
@@ -58,7 +57,7 @@ func ScanEBSVolumes[T GenericEBSAttachmentObject](pendingAttachments map[string]
 			ebs.SetError(err)
 			continue
 		}
-		foundVolumes = append(foundVolumes, key)
+		foundVolumes[volumeId] = actualDeviceName
 	}
 	return foundVolumes
 }
