@@ -25,7 +25,7 @@ const gibToBytes = 1024 * 1024 * 1024
 type dummyCSIClient struct {
 }
 
-func (c *dummyCSIClient) GetVolumeMetrics(volumeId string, hostMountPath string) (*Metrics, error) {
+func (c *dummyCSIClient) GetVolumeMetrics(ctx context.Context, volumeId string, hostMountPath string) (*Metrics, error) {
 	return &Metrics{
 		Used:     15 * gibToBytes,
 		Capacity: 20 * gibToBytes,
@@ -43,6 +43,10 @@ func (c *dummyCSIClient) NodeStageVolume(ctx context.Context,
 	mountOptions []string,
 	fsGroup *int64,
 ) error {
+	return nil
+}
+
+func (c *dummyCSIClient) NodeUnstageVolume(ctx context.Context, volumeId, stagingTargetPath string) error {
 	return nil
 }
 
