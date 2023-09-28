@@ -167,7 +167,6 @@ func TestCapabilities(t *testing.T) {
 		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
-		daemonManager:         mockDaemonManager,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
