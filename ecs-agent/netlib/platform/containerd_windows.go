@@ -13,6 +13,12 @@ type containerd struct {
 	nsUtil ecscni.NetNSUtil
 }
 
+func NewPlatform(
+	platformString string,
+	nsUtil ecscni.NetNSUtil) (API, error) {
+	return nil, nil
+}
+
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
