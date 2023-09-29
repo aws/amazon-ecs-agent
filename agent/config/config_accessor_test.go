@@ -37,6 +37,7 @@ func TestAgentConfigAccessorImplements(t *testing.T) {
 
 func TestAgentConfigAccessorMethods(t *testing.T) {
 	cfg := &Config{
+		AcceptInsecureCert: true,
 		APIEndpoint:        "https://some-endpoint.com",
 		AWSRegion:          "us-east-1",
 		Cluster:            "myCluster",
@@ -50,6 +51,7 @@ func TestAgentConfigAccessorMethods(t *testing.T) {
 
 	configAccessor, err := NewAgentConfigAccessor(cfg)
 	assert.NoError(t, err)
+	assert.Equal(t, cfg.AcceptInsecureCert, configAccessor.AcceptInsecureCert())
 	assert.Equal(t, cfg.APIEndpoint, configAccessor.APIEndpoint())
 	assert.Equal(t, cfg.AWSRegion, configAccessor.AWSRegion())
 	assert.Equal(t, cfg.Cluster, configAccessor.Cluster())

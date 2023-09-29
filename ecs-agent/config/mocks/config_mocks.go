@@ -75,6 +75,20 @@ func (mr *MockAgentConfigAccessorMockRecorder) AWSRegion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AWSRegion", reflect.TypeOf((*MockAgentConfigAccessor)(nil).AWSRegion))
 }
 
+// AcceptInsecureCert mocks base method.
+func (m *MockAgentConfigAccessor) AcceptInsecureCert() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AcceptInsecureCert")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// AcceptInsecureCert indicates an expected call of AcceptInsecureCert.
+func (mr *MockAgentConfigAccessorMockRecorder) AcceptInsecureCert() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptInsecureCert", reflect.TypeOf((*MockAgentConfigAccessor)(nil).AcceptInsecureCert))
+}
+
 // Cluster mocks base method.
 func (m *MockAgentConfigAccessor) Cluster() string {
 	m.ctrl.T.Helper()

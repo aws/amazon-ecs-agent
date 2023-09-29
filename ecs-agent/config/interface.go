@@ -15,6 +15,8 @@ package config
 
 // AgentConfigAccessor provides access to an agent config via a set of designated methods (listed below).
 type AgentConfigAccessor interface {
+	// AcceptInsecureCert returns whether clients validate SSL certificates.
+	AcceptInsecureCert() bool
 	// APIEndpoint returns the endpoint to make calls against.
 	// (e.g., "ecs.us-east-1.amazonaws.com")
 	APIEndpoint() string

@@ -31,6 +31,10 @@ func NewAgentConfigAccessor(cfg *Config) (*agentConfigAccessor, error) {
 	return &agentConfigAccessor{cfg: cfg}, nil
 }
 
+func (aca *agentConfigAccessor) AcceptInsecureCert() bool {
+	return aca.cfg.AcceptInsecureCert
+}
+
 func (aca *agentConfigAccessor) APIEndpoint() string {
 	return aca.cfg.APIEndpoint
 }
