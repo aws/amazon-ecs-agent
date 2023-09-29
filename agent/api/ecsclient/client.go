@@ -658,6 +658,10 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentStateChange) error {
 	attachmentStatus := change.Attachment.Status.String()
 
+	seelog.Infof("attachment arn in ecs client %s", change.Attachment.AttachmentARN)
+	seelog.Infof("attachment in ecs client %v", change.Attachment)
+	seelog.Infof("stringified attachment in ecs client %v", aws.String(change.Attachment.AttachmentARN))
+
 	req := ecs.SubmitAttachmentStateChangesInput{
 		Cluster: &client.config.Cluster,
 		Attachments: []*ecs.AttachmentStateChange{
@@ -667,6 +671,8 @@ func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentSta
 			},
 		},
 	}
+
+	seelog.Infof("attachment req in ecs client %v", req)
 
 	_, err := client.submitStateChangeClient.SubmitAttachmentStateChanges(&req)
 	if err != nil {

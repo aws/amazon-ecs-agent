@@ -15,18 +15,33 @@ package ebs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	ecsapi "github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	attachmentinfo "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiattachmentstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
+	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	log "github.com/cihub/seelog"
 
 	v1 "k8s.io/api/core/v1"
+)
+
+const (
+	// We are capping off this duration to 30s assuming worst-case behavior
+	nodeStageTimeout = 2 * time.Second
+
+	// ebsStatusSentMsg is the error message to use when trying to send an ebs status that's
+	// already been sent
+	ebsStatusSentMsg = "ebs status already sent"
 )
 
 type EBSWatcher struct {
@@ -73,11 +88,10 @@ func (w *EBSWatcher) Start() {
 			if len(pendingEBS) > 0 {
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
 				w.overrideDeviceName(foundVolumes)
-				// w.NotifyAttached(foundVolumes)
-				if err := w.StageAll(foundVolumes); err == nil {
-					log.Debugf("CSI driver was able to stage volume")
-					w.NotifyAttached(foundVolumes)
+				if err := w.StageAll(foundVolumes); err != nil {
+					log.Errorf("stage error: %s", err)
 				}
+				w.NotifyAttached(foundVolumes)
 			}
 		case <-w.ctx.Done():
 			w.scanTicker.Stop()
@@ -93,11 +107,18 @@ func (w *EBSWatcher) Stop() {
 	w.cancel()
 }
 
+func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) {
+	err := w.HandleEBSResourceAttachment(ebs)
+	if err != nil {
+		log.Errorf("Unable to handle resource attachment payload %s", err)
+	}
+}
+
 // HandleResourceAttachment processes the resource attachment message. It will:
 // 1. Check whether we already have this attachment in state and if so it's a noop.
 // 2. Start the EBS CSI driver if it's not already running
 // 3. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
-func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
+func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment) error {
 	attachmentType := ebs.GetAttachmentType()
 	if attachmentType != apiebs.EBSTaskAttach {
 		log.Warnf("Resource type not Elastic Block Storage. Skip handling resource attachment with type: %v.", attachmentType)
@@ -154,13 +175,22 @@ func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
 	}
 }
 
+// assumes CSI Driver Managed Daemon is running else call will timeout
 func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 	for volID, deviceName := range foundVolumes {
-		// assumes CSI Driver Managed Daemon is running else call will timeout
-		log.Infof("CSI Staging volume: %s", volID)
-
 		// get volume details from attachment
 		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(volID)
+		if ebsAttachment.IsSent() {
+			log.Warnf("State change event has already been emitted for EBS volume: %v.", ebsAttachment.EBSToString())
+			return nil
+		}
+		if ebsAttachment.HasExpired() {
+			log.Warnf("EBS status expired, no longer tracking EBS volume: %v.", ebsAttachment.EBSToString())
+			return nil
+		}
+		if ebsAttachment.IsAttached() {
+			return nil
+		}
 		hostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
 		filesystemType := ebsAttachment.GetAttachmentProperties(apiebs.FileSystemTypeName)
 
@@ -169,10 +199,15 @@ func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 		stubVolumeContext := make(map[string]string)
 		stubMountOptions := []string{}
 		stubFsGroup, _ := strconv.ParseInt("123456", 10, 8)
-
 		publishContext := map[string]string{"devicePath": deviceName}
 		// call CSI NodeStage
-		err := w.csiClient.NodeStageVolume(w.ctx,
+		// todo handle async timout failure
+		timeoutCtx, cancelFunc := context.WithTimeout(w.ctx, nodeStageTimeout)
+		defer func() {
+			log.Infof("cancelFunc called in node stage timeout")
+			cancelFunc()
+		}()
+		err := w.csiClient.NodeStageVolume(timeoutCtx,
 			volID,
 			publishContext,
 			hostPath,
@@ -182,10 +217,19 @@ func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 			stubVolumeContext,
 			stubMountOptions,
 			&stubFsGroup)
+		select {
+		case <-timeoutCtx.Done():
+			if timeoutCtx.Err() != nil {
+				log.Warnf("Context canceled %vs", timeoutCtx.Err())
+			}
+		}
 		if err != nil {
 			log.Errorf("Failed to initialize EBS volume: error: %s", err)
 			return err
 		}
+		// set attached status
+		log.Infof("We've set attached status for %v", ebsAttachment.EBSToString())
+		ebsAttachment.SetAttachedStatus()
 	}
 	return nil
 }
@@ -215,15 +259,18 @@ func (w *EBSWatcher) notifyAttachedEBS(volumeId string) {
 		log.Warnf("State change event has already been emitted for EBS volume: %v.", ebs.EBSToString())
 		return
 	}
-
-	if ebs.IsAttached() {
-		log.Infof("EBS volume: %v, has been found already.", ebs.EBSToString())
-		return
+	// We found an EBS volume which has the expiration time set in future and
+	// needs to be acknowledged as having been 'attached' to the Instance
+	if err := w.sendEBSStateChange(ebs); err != nil {
+		// skip logging status sent error as it's redundant and doesn't really indicate a problem
+		if !strings.Contains(err.Error(), ebsStatusSentMsg) {
+			log.Warnf("Unable to send state EBS change, %s", err)
+			return
+		}
 	}
-
+	ebs.SetSentStatus()
+	log.Infof("We've set sent status for %v", ebs.EBSToString())
 	ebs.StopAckTimer()
-	ebs.SetAttachedStatus()
-
 	log.Infof("Successfully found attached EBS volume: %v", ebs.EBSToString())
 }
 
@@ -258,4 +305,28 @@ func (w *EBSWatcher) handleEBSAckTimeout(volumeId string) {
 		log.Warnf("Timed out waiting for EBS ack; removing EBS attachment record %v", ebsAttachment.EBSToString())
 		w.removeEBSAttachment(volumeId)
 	}
+}
+
+func (w *EBSWatcher) sendEBSStateChange(ebsvol *apiebs.ResourceAttachment) error {
+	if ebsvol == nil {
+		return errors.New("ebs watcher send EBS state change: nil volume")
+	}
+	go w.emitEBSAttachedEvent(ebsvol)
+	return nil
+}
+
+func (w *EBSWatcher) emitEBSAttachedEvent(ebsvol *apiebs.ResourceAttachment) {
+	attachmentInfo := attachmentinfo.AttachmentInfo{
+		AttachmentARN:        ebsvol.GetAttachmentARN(),
+		Status:               apiattachmentstatus.AttachmentAttached,
+		ExpiresAt:            ebsvol.GetExpiresAt(),
+		ClusterARN:           ebsvol.GetClusterARN(),
+		ContainerInstanceARN: ebsvol.GetContainerInstanceARN(),
+	}
+	attachmentChange := ecsapi.AttachmentStateChange{
+		Attachment: &apieni.ENIAttachment{AttachmentInfo: attachmentInfo},
+	}
+
+	log.Infof("Emitting EBS volume attached event for: %v", ebsvol)
+	w.taskEngine.StateChangeEvents() <- attachmentChange
 }

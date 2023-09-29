@@ -116,7 +116,7 @@ func (handler *attachmentHandler) submitAttachmentEvent(attachmentChange *api.At
 	// we need to lock the attachment handler to avoid sending an attachment state change for an attachment
 	// multiple times (this can happen when udev watcher sends multiple attached events for a certain attachment,
 	// for example one from udev event and one from reconciliation loop)
-	seelog.Debugf("AttachmentHandler: acquiring attachment lock before sending attachment state change for attachment %s", handler.attachmentARN)
+	seelog.Infof("AttachmentHandler: acquiring attachment lock before sending attachment state change for attachment %s", handler.attachmentARN)
 	handler.lock.Lock()
 	seelog.Debugf("AttachmentHandler: acquired attachment lock for attachment %s", handler.attachmentARN)
 	defer handler.lock.Unlock()

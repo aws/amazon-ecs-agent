@@ -73,10 +73,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apira "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
-
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -491,36 +487,10 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
 
-	// TODO add mount path
-	tempAttachmentProperties := map[string]string{
-		apira.VolumeSizeGibKey:        "7",
-		apira.DeviceNameKey:           "/dev/blah",
-		apira.VolumeIdKey:             "vol-0947552fde5deb2ae",
-		apira.FileSystemKey:           "xfs",
-		apira.SourceVolumeHostPathKey: "/mnt/ecs/ebs/mocktaskID_vol-0947552fde5deb2ae",
-		apira.VolumeNameKey:           "test-volume",
-	}
-
-	duration := time.Now().Add(30000 * time.Millisecond)
-
 	if err := agent.startEBSWatcher(state, taskEngine); err != nil {
 		seelog.Criticalf("Unable to start EBS watcher")
 		return exitcodes.ExitTerminal
 	}
-
-	go agent.ebsWatcher.HandleResourceAttachment(&apira.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
-			AttachmentARN:        "dummy-arn",
-			Status:               status.AttachmentNone,
-			ExpiresAt:            duration,
-			AttachStatusSent:     false,
-			ClusterARN:           "dummy-cluster-arn",
-			ContainerInstanceARN: "dummy-container-instance-arn",
-		},
-		AttachmentProperties: tempAttachmentProperties,
-		AttachmentType:       apira.EBSTaskAttach,
-	})
-
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
@@ -1076,7 +1046,7 @@ func (agent *ecsAgent) startACSSession(
 		taskComparer,
 		sequenceNumberAccessor,
 		taskStopper,
-		nil,
+		agent.ebsWatcher,
 		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
 	)
 	logger.Info("Beginning Polling for updates")

@@ -287,3 +287,31 @@ func (ra *ResourceAttachment) SetDeviceName(deviceName string) {
 
 	ra.AttachmentProperties[DeviceNameKey] = deviceName
 }
+
+func (ra *ResourceAttachment) GetAttachmentARN() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.AttachmentARN
+}
+
+func (ra *ResourceAttachment) GetExpiresAt() time.Time {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.ExpiresAt
+}
+
+func (ra *ResourceAttachment) GetClusterARN() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.ClusterARN
+}
+
+func (ra *ResourceAttachment) GetContainerInstanceARN() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return ra.ContainerInstanceARN
+}

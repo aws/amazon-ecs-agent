@@ -174,9 +174,9 @@ func (dm *daemonManager) initDaemonDirectoryMounts(imageName string) error {
 	// create socket path
 	socketPathHost := filepath.Join(socketPathHostRoot, imageName)
 	logger.Debug("Attempting to create socket file", logger.Fields{
-		"SocketPathHost": socketPathHost,
+		"SocketPathHost":     socketPathHost,
 		"SocketPathHostRoot": socketPathHostRoot,
-		"ImageName": imageName,
+		"ImageName":          imageName,
 	})
 	if err := mkdirAllAndChown(socketPathHost, daemonMountPermission, daemonUID, os.Getegid()); err != nil {
 		logger.Debug("Unable to create socket file", logger.Fields{
