@@ -1,27 +1,40 @@
-CSI_DRIVER_VERSION="v$(shell cat ./container/VERSION)"
-GO111MODULE=on
-GOPATH=$(shell go env GOPATH)
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+.PHONY: all image mockgen clean
+
+CSI_DRIVER_VERSION="v$(shell cat CSI_DRIVER_VERSION)"
 BUILD_DATE=$(shell date -u -Iseconds)
+GO_VERSION=$(shell cat ../../../GO_VERSION)
 
-OS?=linux
-ARCH?=amd64
+all: tarfiles/ebs-csi-driver.tar
 
-.PHONY: bin/csi-driver
-bin/csi-driver:
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags "\
+bin/ebs-csi-driver:
+	CGO_ENABLED=0 go build -ldflags "\
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.version=$(CSI_DRIVER_VERSION)\" \
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.buildDate=$(BUILD_DATE)\"" \
-		-o ./bin/csi-driver ./
+		-o bin/ebs-csi-driver .
 
-.PHONY: build-csi-driver
-build-csi-driver: bin/csi-driver
-	./build-csi-driver-image
-	$(MAKE) clean
+image:
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t ebs-csi-driver:latest .
 
-.PHONY: mockgen
+tarfiles/ebs-csi-driver.tar: image
+	mkdir -p tarfiles
+	docker save "ebs-csi-driver:latest" > tarfiles/ebs-csi-driver.tar
+
 mockgen:
 	./update-gomock
 
-.PHONY: clean
 clean:
-	rm -rf bin/
+	-docker rmi -f "ebs-csi-driver:latest"
+	-rm -rf tarfiles/
+	-rm -rf bin/
