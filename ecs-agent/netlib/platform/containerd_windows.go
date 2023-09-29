@@ -3,6 +3,12 @@
 
 package platform
 
+import (
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+)
+
 type containerd struct {
 	nsUtil ecscni.NetNSUtil
 }
