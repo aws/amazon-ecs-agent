@@ -4,6 +4,7 @@ import ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterfa
 
 const (
 	primaryNetNSName       = "primary-netns"
+	primaryNetNSPath       = "primary-path"
 	secondaryNetNSName     = "secondary-netns"
 	primaryInterfaceName   = "primary-interface"
 	secondaryInterfaceName = "secondary-interface"

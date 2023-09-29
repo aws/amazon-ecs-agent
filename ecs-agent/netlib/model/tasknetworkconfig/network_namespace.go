@@ -1,8 +1,10 @@
 package tasknetworkconfig
 
 import (
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 )
 
 // NetworkNamespace is model representing each network namespace.
@@ -19,8 +21,34 @@ type NetworkNamespace struct {
 
 	// TODO: Add Service Connect model here once it is moved under the netlib package.
 
-	KnownState   string
-	DesiredState string
+	KnownState   status.NetworkStatus
+	DesiredState status.NetworkStatus
+}
+
+func NewNetworkNamespace(
+	netNSName string,
+	netNSPath string,
+	index int,
+	proxyConfig *ecsacs.ProxyConfiguration,
+	networkInterfaces ...*networkinterface.NetworkInterface) (*NetworkNamespace, error) {
+	netNS := &NetworkNamespace{
+		Name:              netNSName,
+		Path:              netNSPath,
+		Index:             index,
+		NetworkInterfaces: networkInterfaces,
+		KnownState:        status.NetworkNone,
+		DesiredState:      status.NetworkReadyPull,
+	}
+
+	var err error
+	if proxyConfig != nil {
+		netNS.AppMeshConfig, err = appmesh.AppMeshFromACS(proxyConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return netNS, nil
 }
 
 // GetPrimaryInterface returns the network interface that has the index value of 0 within
