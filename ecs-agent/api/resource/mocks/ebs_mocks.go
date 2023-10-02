@@ -48,11 +48,12 @@ func (m *MockEBSDiscovery) EXPECT() *MockEBSDiscoveryMockRecorder {
 }
 
 // ConfirmEBSVolumeIsAttached mocks base method.
-func (m *MockEBSDiscovery) ConfirmEBSVolumeIsAttached(arg0, arg1 string) error {
+func (m *MockEBSDiscovery) ConfirmEBSVolumeIsAttached(arg0, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfirmEBSVolumeIsAttached", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ConfirmEBSVolumeIsAttached indicates an expected call of ConfirmEBSVolumeIsAttached.

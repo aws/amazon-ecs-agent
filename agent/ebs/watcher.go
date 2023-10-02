@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"time"
 
+	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	log "github.com/cihub/seelog"
 )
 
@@ -28,26 +29,30 @@ type EBSWatcher struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	agentState dockerstate.TaskEngineState
-	// TODO: The ebsChangeEvent will be used to send over the state change event for EBS attachments once it's been found and mounted/resize/format.
-	ebsChangeEvent chan<- statechange.Event
 	// TODO: The dataClient will be used to save to agent's data client as well as start the ACK timer. This will be added once the data client functionality have been added
 	// dataClient     data.Client
 	discoveryClient apiebs.EBSDiscovery
+	csiClient       csi.CSIClient
 	scanTicker      *time.Ticker
+	// TODO: The dockerTaskEngine.stateChangeEvent will be used to send over the state change event for EBS attachments once it's been found and mounted/resize/format.
+	taskEngine ecsengine.TaskEngine
 }
 
 // NewWatcher is used to return a new instance of the EBSWatcher struct
 func NewWatcher(ctx context.Context,
 	state dockerstate.TaskEngineState,
-	stateChangeEvents chan<- statechange.Event) *EBSWatcher {
+	taskEngine ecsengine.TaskEngine) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
+	// TODO pull this socket out into config
+	csiClient := csi.NewCSIClient("/var/run/ecs/ebs-csi-driver/csi-driver.sock")
 	return &EBSWatcher{
 		ctx:             derivedContext,
 		cancel:          cancel,
 		agentState:      state,
-		ebsChangeEvent:  stateChangeEvents,
 		discoveryClient: discoveryClient,
+		csiClient:       &csiClient,
+		taskEngine:      taskEngine,
 	}
 }
 
@@ -63,7 +68,8 @@ func (w *EBSWatcher) Start() {
 			pendingEBS := w.agentState.GetAllPendingEBSAttachmentsWithKey()
 			if len(pendingEBS) > 0 {
 				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
-				w.NotifyFound(foundVolumes)
+				w.overrideDeviceName(foundVolumes)
+				w.NotifyAttached(foundVolumes)
 			}
 		case <-w.ctx.Done():
 			w.scanTicker.Stop()
@@ -79,17 +85,25 @@ func (w *EBSWatcher) Stop() {
 	w.cancel()
 }
 
+func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) {
+	err := w.HandleEBSResourceAttachment(ebs)
+	if err != nil {
+		log.Errorf("Unable to handle resource attachment payload %s", err)
+	}
+}
+
 // HandleResourceAttachment processes the resource attachment message. It will:
 // 1. Check whether we already have this attachment in state and if so it's a noop.
-// 2. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
-func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) error {
-	attachmentType := ebs.GetAttachmentProperties(apiebs.ResourceTypeName)
-	if attachmentType != apiebs.ElasticBlockStorage {
+// 2. Start the EBS CSI driver if it's not already running
+// 3. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
+func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment) error {
+	attachmentType := ebs.GetAttachmentType()
+	if attachmentType != apiebs.EBSTaskAttach {
 		log.Warnf("Resource type not Elastic Block Storage. Skip handling resource attachment with type: %v.", attachmentType)
 		return nil
 	}
 
-	volumeId := ebs.GetAttachmentProperties(apiebs.VolumeIdName)
+	volumeId := ebs.GetAttachmentProperties(apiebs.VolumeIdKey)
 	ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if ok {
 		log.Infof("EBS Volume attachment already exists. Skip handling EBS attachment %v.", ebs.EBSToString())
@@ -106,15 +120,26 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) er
 	return nil
 }
 
-// NotifyFound will go through the list of found EBS volumes from the scanning process and mark them as found.
-func (w *EBSWatcher) NotifyFound(foundVolumes []string) {
-	for _, volumeId := range foundVolumes {
-		w.notifyFoundEBS(volumeId)
+func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
+	for volumeId, deviceName := range foundVolumes {
+		ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
+		if !ok {
+			log.Warnf("Unable to find EBS volume with volume ID: %s", volumeId)
+			continue
+		}
+		ebs.SetDeviceName(deviceName)
 	}
 }
 
-// notifyFoundEBS will mark it as found within the agent state
-func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
+// NotifyAttached will go through the list of found EBS volumes from the scanning process and mark them as found.
+func (w *EBSWatcher) NotifyAttached(foundVolumes map[string]string) {
+	for volID := range foundVolumes {
+		w.notifyAttachedEBS(volID)
+	}
+}
+
+// notifyAttachedEBS will mark it as found within the agent state
+func (w *EBSWatcher) notifyAttachedEBS(volumeId string) {
 	// TODO: Add the EBS volume to data client
 	ebs, ok := w.agentState.GetEBSByVolumeId(volumeId)
 	if !ok {
@@ -132,15 +157,13 @@ func (w *EBSWatcher) notifyFoundEBS(volumeId string) {
 		return
 	}
 
-	if ebs.IsAttached() {
-		log.Infof("EBS volume: %v, has been found already.", ebs.EBSToString())
-		return
-	}
-
+	ebs.SetSentStatus()
+	log.Infof("We've set sent status for %v", ebs.EBSToString())
 	ebs.StopAckTimer()
-	ebs.SetAttachedStatus()
-
 	log.Infof("Successfully found attached EBS volume: %v", ebs.EBSToString())
+
+	// TODO: Remove this in a future PR with the submit state change
+	ebs.SetAttachedStatus()
 }
 
 // removeEBSAttachment removes a EBS volume with a specific volume ID
@@ -151,7 +174,7 @@ func (w *EBSWatcher) removeEBSAttachment(volumeID string) {
 
 // addEBSAttachmentToState adds an EBS attachment to state, and start its ack timer
 func (w *EBSWatcher) addEBSAttachmentToState(ebs *apiebs.ResourceAttachment) error {
-	volumeId := ebs.AttachmentProperties[apiebs.VolumeIdName]
+	volumeId := ebs.AttachmentProperties[apiebs.VolumeIdKey]
 	err := ebs.StartTimer(func() {
 		w.handleEBSAckTimeout(volumeId)
 	})

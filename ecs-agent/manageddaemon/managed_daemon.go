@@ -26,7 +26,7 @@ const (
 	imageTarPath                          = "/var/lib/ecs/deps/daemons"
 	imageTagDefault                       = "latest"
 	defaultAgentCommunicationPathHostRoot = "/var/run/ecs"
-	defaultApplicationLogPathHostRoot     = "/var/log/ecs"
+	defaultApplicationLogPathHostRoot     = "/var/log/ecs/daemons"
 	defaultAgentCommunicationMount        = "agentCommunicationMount"
 	defaultApplicationLogMount            = "applicationLogMount"
 )

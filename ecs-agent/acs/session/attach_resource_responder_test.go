@@ -182,7 +182,7 @@ func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T
 }
 
 // testValidateAttachmentAndReturnPropertiesWithAttachmentType verifies all required properties for attachment
-// type: "AmazonElasticBlockStorage".
+// type: "amazonebs".
 func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -217,7 +217,7 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Reset attachment to be a good one with valid attachment type.
-	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("AmazonElasticBlockStorage")
+	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("amazonebs")
 	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
 
 	// Verify all required properties for the attachment for EBS attach are present.

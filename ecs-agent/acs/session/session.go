@@ -278,7 +278,7 @@ func (s *session) startACSSession(ctx context.Context, client wsclient.ClientSer
 		client.AddRequestHandler(r.HandlerFunc())
 	}
 
-	if s.dockerVersion == "containerd" && s.resourceHandler != nil {
+	if s.resourceHandler != nil {
 		client.AddRequestHandler(NewAttachResourceResponder(s.resourceHandler, s.metricsFactory,
 			responseSender).HandlerFunc())
 	}

@@ -20,6 +20,6 @@ const (
 	// ElasticBlockStorage is one of the resource types in the properties list of the attachment payload message for the
 	// EBS volume on firecracker.
 	ElasticBlockStorage = "ElasticBlockStorage"
-	// AmazonElasticBlockStorage is one of the attachment types in the attachment payload message for EBS attach tasks.
-	AmazonElasticBlockStorage = "AmazonElasticBlockStorage"
+	// EBSTaskAttach is one of the attachment types in the attachment payload message for EBS attach tasks.
+	EBSTaskAttach = "amazonebs"
 )
