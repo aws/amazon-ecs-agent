@@ -84,6 +84,10 @@ type NetworkInterface struct {
 	ipv4SubnetCIDRBlock    string
 	ipv6SubnetCIDRBlock    string
 
+	// Primary denotes whether the interface is responsible
+	// for handling default route within the netns it resides in.
+	Primary bool
+
 	// guard protects access to fields of this struct.
 	guard sync.RWMutex
 }

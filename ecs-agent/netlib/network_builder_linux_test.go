@@ -113,7 +113,7 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 
 	netIfs[0].Name = ifName1
 	netIfs[1].Name = ifName2
-	netIfs[1].Index = 0
+	netIfs[1].Primary = true
 
 	taskPayload := &ecsacs.Task{
 		NetworkMode:              aws.String(ecs.NetworkModeAwsvpc),
@@ -238,6 +238,7 @@ func getTestInterfacesData() ([]*ecsacs.ElasticNetworkInterface, []networkinterf
 			PrivateDNSName:               dnsName,
 			InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
 			Index:                        int64(0),
+			Primary:                      true,
 			KnownStatus:                  status.NetworkNone,
 			DesiredStatus:                status.NetworkReadyPull,
 		},

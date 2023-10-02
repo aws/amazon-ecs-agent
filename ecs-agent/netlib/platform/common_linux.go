@@ -137,15 +137,10 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	for _, container := range taskPayload.Containers {
 		// ifaces holds all interfaces associated with a particular container.
 		var ifaces []*ecsacs.ElasticNetworkInterface
-		// Network index requires to be zero-indexed within a network namespace.
-		index := int64(0)
 		for _, ifNameP := range container.NetworkInterfaceNames {
 			ifName := aws.StringValue(ifNameP)
 			if iface := ifNameMap[ifName]; iface != nil {
-				iface.Index = aws.Int64(index)
-				index += 1
 				ifaces = append(ifaces, iface)
-
 				// Remove ENI from map to indicate that the ENI is assigned to
 				// a namespace.
 				delete(ifNameMap, ifName)
@@ -179,17 +174,20 @@ func (c *common) buildSingleNSNetConfig(
 	proxyConfig *ecsacs.ProxyConfiguration) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
+	lowestIdx := int64(10)
 	for _, ni := range networkInterfaces {
 		iface, err := networkinterface.New(ni, "", nil)
 		if err != nil {
 			return nil, err
 		}
-		if aws.Int64Value(ni.Index) == 0 {
+		if aws.Int64Value(ni.Index) < lowestIdx {
 			primaryIF = iface
+			lowestIdx = aws.Int64Value(ni.Index)
 		}
 		ifaces = append(ifaces, iface)
 	}
 
+	primaryIF.Primary = true
 	netNSName := networkinterface.NetNSName(taskID, primaryIF.Name)
 	netNSPath := c.GetNetNSPath(netNSName)
 

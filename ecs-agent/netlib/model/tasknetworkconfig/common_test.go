@@ -34,12 +34,14 @@ func getTestNetworkNamespaces() []*NetworkNamespace {
 func getTestNetworkInterfaces() []*ni.NetworkInterface {
 	return []*ni.NetworkInterface{
 		{
-			Name:  secondaryInterfaceName,
-			Index: 1,
+			Name:    secondaryInterfaceName,
+			Primary: false,
+			Index:   1,
 		},
 		{
-			Name:  primaryInterfaceName,
-			Index: 0,
+			Name:    primaryInterfaceName,
+			Primary: true,
+			Index:   0,
 		},
 	}
 }
