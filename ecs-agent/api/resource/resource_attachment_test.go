@@ -36,12 +36,12 @@ const (
 
 var (
 	testAttachmentProperties = map[string]string{
-		ResourceTypeName:    ElasticBlockStorage,
-		RequestedSizeName:   "5",
-		VolumeSizeInGiBName: "7",
-		DeviceName:          "/dev/nvme0n0",
-		VolumeIdName:        "vol-123",
-		FileSystemTypeName:  "testXFS",
+		VolumeNameKey:           "myCoolVolume",
+		SourceVolumeHostPathKey: "/testPath",
+		VolumeSizeGibKey:        "7",
+		DeviceNameKey:           "/dev/nvme0n0",
+		VolumeIdKey:             "vol-123",
+		FileSystemKey:           "testXFS",
 	}
 )
 
@@ -56,6 +56,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 			ExpiresAt:        expiresAt,
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       EBSTaskAttach,
 	}
 	bytes, err := json.Marshal(attachment)
 	assert.NoError(t, err)
@@ -65,13 +66,15 @@ func TestMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, attachment.TaskARN, unmarshalledAttachment.TaskARN)
 	assert.Equal(t, attachment.AttachmentARN, unmarshalledAttachment.AttachmentARN)
 	assert.Equal(t, attachment.AttachStatusSent, unmarshalledAttachment.AttachStatusSent)
+	assert.Equal(t, attachment.AttachmentType, unmarshalledAttachment.AttachmentType)
 	assert.Equal(t, attachment.Status, unmarshalledAttachment.Status)
 
-	assert.Equal(t, attachment.AttachmentProperties[ResourceTypeName], unmarshalledAttachment.AttachmentProperties[ResourceTypeName])
-	assert.Equal(t, attachment.AttachmentProperties[RequestedSizeName], unmarshalledAttachment.AttachmentProperties[RequestedSizeName])
-	assert.Equal(t, attachment.AttachmentProperties[DeviceName], unmarshalledAttachment.AttachmentProperties[DeviceName])
-	assert.Equal(t, attachment.AttachmentProperties[VolumeIdName], unmarshalledAttachment.AttachmentProperties[VolumeIdName])
-	assert.Equal(t, attachment.AttachmentProperties[FileSystemTypeName], unmarshalledAttachment.AttachmentProperties[FileSystemTypeName])
+	assert.Equal(t, attachment.AttachmentProperties[VolumeNameKey], unmarshalledAttachment.AttachmentProperties[VolumeNameKey])
+	assert.Equal(t, attachment.AttachmentProperties[SourceVolumeHostPathKey], unmarshalledAttachment.AttachmentProperties[SourceVolumeHostPathKey])
+	assert.Equal(t, attachment.AttachmentProperties[VolumeSizeGibKey], unmarshalledAttachment.AttachmentProperties[VolumeSizeGibKey])
+	assert.Equal(t, attachment.AttachmentProperties[DeviceNameKey], unmarshalledAttachment.AttachmentProperties[DeviceNameKey])
+	assert.Equal(t, attachment.AttachmentProperties[VolumeIdKey], unmarshalledAttachment.AttachmentProperties[VolumeIdKey])
+	assert.Equal(t, attachment.AttachmentProperties[FileSystemKey], unmarshalledAttachment.AttachmentProperties[FileSystemKey])
 
 	expectedExpiresAtUTC, err := time.Parse(time.RFC3339, attachment.ExpiresAt.Format(time.RFC3339))
 	assert.NoError(t, err)
@@ -91,6 +94,7 @@ func TestStartTimerErrorWhenExpiresAtIsInThePast(t *testing.T) {
 			ExpiresAt:        time.Unix(expiresAt, 0),
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       EBSTaskAttach,
 	}
 	assert.Error(t, attachment.StartTimer(func() {}))
 }
@@ -114,6 +118,7 @@ func TestHasExpired(t *testing.T) {
 					ExpiresAt:        time.Unix(tc.expiresAt, 0),
 				},
 				AttachmentProperties: testAttachmentProperties,
+				AttachmentType:       EBSTaskAttach,
 			}
 			assert.Equal(t, tc.expected, attachment.HasExpired())
 		})
@@ -136,6 +141,7 @@ func TestInitialize(t *testing.T) {
 			ExpiresAt:     time.Unix(expiresAt, 0),
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       EBSTaskAttach,
 	}
 	assert.NoError(t, attachment.Initialize(timeoutFunc))
 	wg.Wait()
@@ -151,6 +157,7 @@ func TestInitializeExpired(t *testing.T) {
 			ExpiresAt:     time.Unix(expiresAt, 0),
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       EBSTaskAttach,
 	}
 	assert.Error(t, attachment.Initialize(func() {}))
 }
@@ -166,6 +173,7 @@ func TestInitializeExpiredButAlreadySent(t *testing.T) {
 			ExpiresAt:        time.Unix(expiresAt, 0),
 		},
 		AttachmentProperties: testAttachmentProperties,
+		AttachmentType:       EBSTaskAttach,
 	}
 	assert.NoError(t, attachment.Initialize(func() {}))
 }

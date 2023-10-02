@@ -76,7 +76,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return tv.unmarshalEFSVolume(intermediate["efsVolumeConfiguration"])
 	case FSxWindowsFileServerVolumeType:
 		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
-	case apiresource.AmazonElasticBlockStorage:
+	case apiresource.EBSTaskAttach:
 		return tv.unmarshalEBSVolume(intermediate["ebsVolumeConfiguration"])
 	default:
 		return errors.Errorf("unrecognized volume type: %q", tv.Type)
@@ -103,7 +103,7 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 		result["efsVolumeConfiguration"] = tv.Volume
 	case FSxWindowsFileServerVolumeType:
 		result["fsxWindowsFileServerVolumeConfiguration"] = tv.Volume
-	case apiresource.AmazonElasticBlockStorage:
+	case apiresource.EBSTaskAttach:
 		result["ebsVolumeConfiguration"] = tv.Volume
 	default:
 		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)

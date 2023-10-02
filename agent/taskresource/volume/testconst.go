@@ -16,7 +16,7 @@ package volume
 // This file contains constants that are commonly used when testing with EBS volumes for tasks. These constants
 // should only be called in test files.
 const (
-	TestAttachmentType       = "AmazonElasticBlockStorage"
+	TestAttachmentType       = "EBSTaskAttach"
 	TestVolumeId             = "vol-12345"
 	TestVolumeSizeGib        = "10"
 	TestSourceVolumeHostPath = "taskarn_vol-12345"
