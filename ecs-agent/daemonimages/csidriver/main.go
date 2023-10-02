@@ -15,10 +15,12 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"k8s.io/klog/v2"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/driver"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/health"
 )
 
 func main() {
@@ -31,6 +33,16 @@ func main() {
 	}
 
 	klog.V(4).InfoS("Server Options are provided", "ServerOptions", srvOptions)
+
+	if srvOptions.HealthCheck {
+		// Perform health check and exit
+		err := health.CheckHealth(srvOptions.Endpoint)
+		if err != nil {
+			klog.Errorf("Health check failed: %s", err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	drv, err := driver.NewDriver(
 		driver.WithEndpoint(srvOptions.Endpoint),
