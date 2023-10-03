@@ -17,9 +17,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -29,6 +31,10 @@ import (
 const (
 	protocol        = "unix"
 	fsTypeBlockName = "block"
+
+	ImageName      = "ebs-csi-driver"
+	SocketName     = "csi-driver.sock"
+	SocketHostPath = "/var/run/ecs/"
 )
 
 // CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)
@@ -48,6 +54,7 @@ type CSIClient interface {
 	) error
 	NodeUnstageVolume(ctx context.Context, volumeId, stagingTargetPath string) error
 	GetVolumeMetrics(ctx context.Context, volumeId string, hostMountPath string) (*Metrics, error)
+	NodeGetCapabilities(ctx context.Context) (*csi.NodeGetCapabilitiesResponse, error)
 }
 
 // csiClient encapsulates all CSI methods.
@@ -58,6 +65,13 @@ type csiClient struct {
 // NewCSIClient creates a CSI client for the communication with CSI driver daemon.
 func NewCSIClient(socketIn string) csiClient {
 	return csiClient{csiSocket: socketIn}
+}
+
+// Returns a CSI client configured with default settings.
+// The default socket filepath is "/var/run/ecs/ebs-csi-driver/csi-driver.sock".
+func NewDefaultCSIClient() CSIClient {
+	client := NewCSIClient(filepath.Join(SocketHostPath, ImageName, SocketName))
+	return &client
 }
 
 // NodeStageVolume will do following things for the given volume:
@@ -184,6 +198,25 @@ func (cc *csiClient) GetVolumeMetrics(ctx context.Context, volumeId string, host
 		Used:     usedBytes,
 		Capacity: totalBytes,
 	}, nil
+}
+
+// Gets node capabilities of the EBS CSI Driver
+func (cc *csiClient) NodeGetCapabilities(ctx context.Context) (*csi.NodeGetCapabilitiesResponse, error) {
+	conn, err := cc.grpcDialConnect(ctx)
+	if err != nil {
+		logger.Error("GetVolumeMetrics: CSI Connection Error")
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := csi.NewNodeClient(conn)
+	resp, err := client.NodeGetCapabilities(ctx, &csi.NodeGetCapabilitiesRequest{})
+	if err != nil {
+		logger.Error("Could not get EBS CSI node capabilities", logger.Fields{field.Error: err})
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (cc *csiClient) grpcDialConnect(ctx context.Context) (*grpc.ClientConn, error) {
