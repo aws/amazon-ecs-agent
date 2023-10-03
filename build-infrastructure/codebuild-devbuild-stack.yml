@@ -5,18 +5,23 @@ Parameters:
   GithubFullRepoName:
     Type: String
     Description: Full name of the agent repository to use (e.g. https://github.com/aws/amazon-ecs-agent.git)
+    Default: https://github.com/aws/amazon-ecs-agent.git
   GithubBranchName:
     Type: String
     Description: Name of the base branch to use to build, PRs to which will trigger builds (e.g. refs/heads/dev)
+    Default: refs/heads/dev
   BuildBucketName:
     Type: String
     Description: Name of the S3 bucket which will store artifacts
+    Default: all-dogs-dev-artifacts
   BuildBucketArn:
     Type: String
     Description: ARN of the S3 bucket which will store artifacts
+    Default: arn:aws:s3:::all-dogs-dev-artifacts
   BuildProjectName:
     Type: String
     Description: Base name of CodeBuild projects - will start different CodeBuild projects with different suffixes (-amd, -arm) for different artifacts
+    Default: agent-dev
 
 Resources:
   UbuntuAmdProject:
@@ -235,6 +240,44 @@ Resources:
               Pattern: '3102848' # YashdalfTheGray
         Webhook: true
       Visibility: PRIVATE
+  AmdProjectCssparr:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: Cssparr Test DELETE ME
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      Name: !Sub '${BuildProjectName}-amd-cssparr'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmd
+      Source:
+        BuildSpec: buildspecs/merge-build-cssparr.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        Webhook: true
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '7155926' # cssparr
+      Visibility: PRIVATE
   ServiceRoleAmd:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -253,7 +296,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd*"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd:*"
                 Action:
                   - 'logs:CreateLogGroup'
