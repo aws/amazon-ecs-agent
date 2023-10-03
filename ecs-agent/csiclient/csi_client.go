@@ -32,9 +32,9 @@ const (
 	protocol        = "unix"
 	fsTypeBlockName = "block"
 
-	ImageName      = "ebs-csi-driver"
-	SocketName     = "csi-driver.sock"
-	SocketHostPath = "/var/run/ecs/"
+	DefaultImageName      = "ebs-csi-driver"
+	DefaultSocketName     = "csi-driver.sock"
+	DefaultSocketHostPath = "/var/run/ecs/"
 )
 
 // CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)
@@ -70,7 +70,7 @@ func NewCSIClient(socketIn string) csiClient {
 // Returns a CSI client configured with default settings.
 // The default socket filepath is "/var/run/ecs/ebs-csi-driver/csi-driver.sock".
 func NewDefaultCSIClient() CSIClient {
-	client := NewCSIClient(filepath.Join(SocketHostPath, ImageName, SocketName))
+	client := NewCSIClient(filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName))
 	return &client
 }
 
