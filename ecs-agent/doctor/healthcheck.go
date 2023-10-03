@@ -20,7 +20,6 @@ import (
 const (
 	HealthcheckTypeContainerRuntime = "ContainerRuntime"
 	HealthcheckTypeAgent            = "Agent"
-	HealthcheckTypeEBSDaemon        = "EBSDaemon"
 )
 
 type Healthcheck interface {
