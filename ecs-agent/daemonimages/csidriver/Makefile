@@ -15,6 +15,7 @@
 CSI_DRIVER_VERSION="v$(shell cat CSI_DRIVER_VERSION)"
 BUILD_DATE=$(shell date -u -Iseconds)
 GO_VERSION=$(shell cat ../../../GO_VERSION)
+IMAGE_REF?="ebs-csi-driver:latest"
 
 all: tarfiles/ebs-csi-driver.tar
 
@@ -25,16 +26,16 @@ bin/ebs-csi-driver:
 		-o bin/ebs-csi-driver .
 
 image:
-	docker build --build-arg GO_VERSION=$(GO_VERSION) -t ebs-csi-driver:latest .
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_REF) .
 
 tarfiles/ebs-csi-driver.tar: image
 	mkdir -p tarfiles
-	docker save "ebs-csi-driver:latest" > tarfiles/ebs-csi-driver.tar
+	docker save $(IMAGE_REF) > tarfiles/ebs-csi-driver.tar
 
 mockgen:
 	./update-gomock
 
 clean:
-	-docker rmi -f "ebs-csi-driver:latest"
+	-docker rmi -f $(IMAGE_REF)
 	-rm -rf tarfiles/
 	-rm -rf bin/
