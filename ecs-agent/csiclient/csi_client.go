@@ -204,7 +204,7 @@ func (cc *csiClient) GetVolumeMetrics(ctx context.Context, volumeId string, host
 func (cc *csiClient) NodeGetCapabilities(ctx context.Context) (*csi.NodeGetCapabilitiesResponse, error) {
 	conn, err := cc.grpcDialConnect(ctx)
 	if err != nil {
-		logger.Error("GetVolumeMetrics: CSI Connection Error")
+		logger.Error("NodeGetCapabilities: CSI Connection Error", logger.Fields{field.Error: err})
 		return nil, err
 	}
 	defer conn.Close()
