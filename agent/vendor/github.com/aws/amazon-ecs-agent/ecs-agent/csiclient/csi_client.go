@@ -30,10 +30,6 @@ import (
 const (
 	protocol        = "unix"
 	fsTypeBlockName = "block"
-
-	ImageName      = "ebs-csi-driver"
-	SocketName     = "csi-driver.sock"
-	SocketHostPath = "/var/run/ecs/"
 )
 
 // CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)

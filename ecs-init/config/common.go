@@ -247,6 +247,11 @@ func CgroupMountpoint() string {
 	return cgroupMountpoint
 }
 
+// MountDirectoryEBS returns the location on disk where EBS volumes will be mounted
+func MountDirectoryEBS() string {
+       return directoryPrefix + "/mnt/ecs/ebs"
+}
+
 // HostCertsDirPath() returns the CA store path on the host
 func HostCertsDirPath() string {
 	if _, err := os.Stat(hostCertsDirPath); err != nil {

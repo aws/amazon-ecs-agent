@@ -21,6 +21,7 @@ import (
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	ebs "github.com/aws/amazon-ecs-agent/agent/ebs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -148,6 +149,14 @@ func (agent *ecsAgent) startENIWatcher(state dockerstate.TaskEngineState, stateC
 		go agent.eniWatcher.Start()
 	}
 	return nil
+}
+
+func (agent *ecsAgent) startEBSWatcher(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) {
+	if agent.ebsWatcher == nil {
+		seelog.Debug("Creating new EBS watcher...")
+		agent.ebsWatcher = ebs.NewWatcher(agent.ctx, state, taskEngine)
+		go agent.ebsWatcher.Start()
+	}
 }
 
 // initializeResourceFields exists mainly for testing doStart() to use mock Control

@@ -26,6 +26,7 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
@@ -115,6 +116,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: serviceconnect.NewManager(),
+		daemonManagers:        make(map[string]dm.DaemonManager),
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
@@ -214,6 +216,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: serviceconnect.NewManager(),
+		daemonManagers:        make(map[string]dm.DaemonManager),
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
