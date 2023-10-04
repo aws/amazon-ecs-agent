@@ -38,25 +38,25 @@ func (e *HealthCheckStatusTracker) GetHealthcheckStatus() doctor.HealthcheckStat
 
 func (e *HealthCheckStatusTracker) GetHealthcheckTime() time.Time {
 	e.lock.RLock()
-	e.lock.RUnlock()
+	defer e.lock.RUnlock()
 	return e.timeStamp
 }
 
 func (e *HealthCheckStatusTracker) GetStatusChangeTime() time.Time {
 	e.lock.RLock()
-	e.lock.RUnlock()
+	defer e.lock.RUnlock()
 	return e.statusChangeTime
 }
 
 func (e *HealthCheckStatusTracker) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
 	e.lock.RLock()
-	e.lock.RUnlock()
+	defer e.lock.RUnlock()
 	return e.lastStatus
 }
 
 func (e *HealthCheckStatusTracker) GetLastHealthcheckTime() time.Time {
 	e.lock.RLock()
-	e.lock.RUnlock()
+	defer e.lock.RUnlock()
 	return e.lastTimeStamp
 }
 

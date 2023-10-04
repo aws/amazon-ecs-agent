@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
+	github.com/container-storage-interface/spec v1.8.0
 	github.com/containerd/cgroups/v3 v3.0.2
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
@@ -39,7 +40,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cilium/ebpf v0.9.1 // indirect
-	github.com/container-storage-interface/spec v1.8.0 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
