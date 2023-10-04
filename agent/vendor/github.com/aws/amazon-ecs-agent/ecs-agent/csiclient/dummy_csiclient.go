@@ -16,6 +16,7 @@ package csiclient
 import (
 	"context"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -48,6 +49,10 @@ func (c *dummyCSIClient) NodeStageVolume(ctx context.Context,
 
 func (c *dummyCSIClient) NodeUnstageVolume(ctx context.Context, volumeId, stagingTargetPath string) error {
 	return nil
+}
+
+func (c *dummyCSIClient) NodeGetCapabilities(ctx context.Context) (*csi.NodeGetCapabilitiesResponse, error) {
+	return &csi.NodeGetCapabilitiesResponse{}, nil
 }
 
 func NewDummyCSIClient() CSIClient {

@@ -10,7 +10,6 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
+package csiclient
 
-package engine
-
-//go:generate mockgen -destination=mocks/engine_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine TaskEngine,ImageManager,EBSDaemonTaskAccessor,EBSDaemonTaskGetter,EBSDaemonTaskSetter
+//go:generate mockgen -destination=mocks/mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/csiclient CSIClient

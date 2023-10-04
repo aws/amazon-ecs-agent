@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -10,7 +13,16 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
+package csiclient
 
-package engine
+import "path/filepath"
 
-//go:generate mockgen -destination=mocks/engine_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine TaskEngine,ImageManager,EBSDaemonTaskAccessor,EBSDaemonTaskGetter,EBSDaemonTaskSetter
+const (
+	defaultImageName      = "ebs-csi-driver"
+	defaultSocketName     = "csi-driver.sock"
+	defaultSocketHostPath = "/var/run/ecs/"
+)
+
+func DefaultSocketFilePath() string {
+	return filepath.Join(defaultSocketHostPath, defaultImageName, defaultSocketName)
+}
