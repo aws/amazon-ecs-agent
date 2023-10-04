@@ -19,9 +19,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/task"
-	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	taskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -34,9 +31,8 @@ func TestEBSGetHealthcheckType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	getter := mock_engine.NewMockEBSDaemonTaskGetter(ctrl)
 	csiClient := mock_csiclient.NewMockCSIClient(ctrl)
-	hc := NewEBSCSIDaemonHealthCheck(getter, csiClient, 0)
+	hc := NewEBSCSIDaemonHealthCheck(csiClient, 0)
 
 	assert.Equal(t, doctor.HealthcheckTypeEBSDaemon, hc.GetHealthcheckType())
 }
@@ -46,9 +42,8 @@ func TestEBSInitialHealth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	getter := mock_engine.NewMockEBSDaemonTaskGetter(ctrl)
 	csiClient := mock_csiclient.NewMockCSIClient(ctrl)
-	hc := NewEBSCSIDaemonHealthCheck(getter, csiClient, 0)
+	hc := NewEBSCSIDaemonHealthCheck(csiClient, 0)
 
 	assert.Equal(t, doctor.HealthcheckStatusInitializing, hc.GetHealthcheckStatus())
 }
@@ -57,39 +52,11 @@ func TestEBSInitialHealth(t *testing.T) {
 func TestEBSRunHealthCheck(t *testing.T) {
 	tcs := []struct {
 		name                     string
-		setGetterExpectations    func(getter *mock_engine.MockEBSDaemonTaskGetter)
 		setCSIClientExpectations func(csiClient *mock_csiclient.MockCSIClient)
 		expectedStatus           doctor.HealthcheckStatus
 	}{
 		{
-			name: "Initializing when daemon task is not initialized",
-			setGetterExpectations: func(getter *mock_engine.MockEBSDaemonTaskGetter) {
-				getter.EXPECT().GetEbsDaemonTask().Return(nil)
-			},
-			expectedStatus: doctor.HealthcheckStatusInitializing,
-		},
-		{
-			name: "Initializing when daemon task is CREATED",
-			setGetterExpectations: func(getter *mock_engine.MockEBSDaemonTaskGetter) {
-				task := &task.Task{KnownStatusUnsafe: taskstatus.TaskCreated}
-				getter.EXPECT().GetEbsDaemonTask().Return(task)
-			},
-			expectedStatus: doctor.HealthcheckStatusInitializing,
-		},
-		{
-			name: "IMPAIRED when daemon task is STOPPED",
-			setGetterExpectations: func(getter *mock_engine.MockEBSDaemonTaskGetter) {
-				task := &task.Task{KnownStatusUnsafe: taskstatus.TaskStopped}
-				getter.EXPECT().GetEbsDaemonTask().Return(task)
-			},
-			expectedStatus: doctor.HealthcheckStatusImpaired,
-		},
-		{
-			name: "OK when daemon task is RUNNING and healthcheck succeeds",
-			setGetterExpectations: func(getter *mock_engine.MockEBSDaemonTaskGetter) {
-				task := &task.Task{KnownStatusUnsafe: taskstatus.TaskRunning}
-				getter.EXPECT().GetEbsDaemonTask().Return(task)
-			},
+			name: "OK when healthcheck succeeds",
 			setCSIClientExpectations: func(csiClient *mock_csiclient.MockCSIClient) {
 				csiClient.EXPECT().NodeGetCapabilities(gomock.Any()).
 					Return(&csi.NodeGetCapabilitiesResponse{}, nil)
@@ -97,11 +64,7 @@ func TestEBSRunHealthCheck(t *testing.T) {
 			expectedStatus: doctor.HealthcheckStatusOk,
 		},
 		{
-			name: "IMPAIRED when daemon task is RUNNING and healthcheck fails",
-			setGetterExpectations: func(getter *mock_engine.MockEBSDaemonTaskGetter) {
-				task := &task.Task{KnownStatusUnsafe: taskstatus.TaskRunning}
-				getter.EXPECT().GetEbsDaemonTask().Return(task)
-			},
+			name: "IMPAIRED when healthcheck fails",
 			setCSIClientExpectations: func(csiClient *mock_csiclient.MockCSIClient) {
 				csiClient.EXPECT().NodeGetCapabilities(gomock.Any()).Return(nil, errors.New("err"))
 			},
@@ -114,15 +77,11 @@ func TestEBSRunHealthCheck(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			getter := mock_engine.NewMockEBSDaemonTaskGetter(ctrl)
 			csiClient := mock_csiclient.NewMockCSIClient(ctrl)
-			if tc.setGetterExpectations != nil {
-				tc.setGetterExpectations(getter)
-			}
 			if tc.setCSIClientExpectations != nil {
 				tc.setCSIClientExpectations(csiClient)
 			}
-			hc := NewEBSCSIDaemonHealthCheck(getter, csiClient, 0)
+			hc := NewEBSCSIDaemonHealthCheck(csiClient, 0)
 
 			assert.Equal(t, tc.expectedStatus, hc.RunCheck())
 		})

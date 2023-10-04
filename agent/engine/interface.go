@@ -59,19 +59,3 @@ type TaskEngine interface {
 	json.Marshaler
 	json.Unmarshaler
 }
-
-// Interface for getting and setting EBS Daemon Task.
-type EBSDaemonTaskAccessor interface {
-	EBSDaemonTaskGetter
-	EBSDaemonTaskSetter
-}
-
-// Interface for getting EBS Daemon Task.
-type EBSDaemonTaskGetter interface {
-	GetEbsDaemonTask() *apitask.Task
-}
-
-// Interface for setting EBS Daemon Task.
-type EBSDaemonTaskSetter interface {
-	SetEbsDaemonTask(*apitask.Task)
-}

@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/doctor/statustracker"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
-	taskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -32,7 +30,6 @@ const (
 
 // Health check for EBS CSI Daemon.
 type ebsCSIDaemonHealthcheck struct {
-	daemonGetter   engine.EBSDaemonTaskGetter
 	csiClient      csiclient.CSIClient
 	requestTimeout time.Duration
 	*statustracker.HealthCheckStatusTracker
@@ -40,12 +37,10 @@ type ebsCSIDaemonHealthcheck struct {
 
 // Constructor for EBS CSI Daemon Health Check
 func NewEBSCSIDaemonHealthCheck(
-	daemonGetter engine.EBSDaemonTaskGetter,
 	csiClient csiclient.CSIClient,
 	requestTimeout time.Duration, // timeout for health check requests
 ) doctor.Healthcheck {
 	return &ebsCSIDaemonHealthcheck{
-		daemonGetter:             daemonGetter,
 		csiClient:                csiClient,
 		requestTimeout:           requestTimeout,
 		HealthCheckStatusTracker: statustracker.NewHealthCheckStatusTracker(),
@@ -55,20 +50,6 @@ func NewEBSCSIDaemonHealthCheck(
 // Performs a health check for EBS CSI Daemon by sending a request to it to get
 // node capabilities. If EBS CSI Daemon is not started yet then returns OK trivially.
 func (e *ebsCSIDaemonHealthcheck) RunCheck() doctor.HealthcheckStatus {
-	task := e.daemonGetter.GetEbsDaemonTask()
-	if task == nil || task.GetKnownStatus() < taskstatus.TaskRunning {
-		logger.Info("EBS CSI Daemon task is not yet started, returning 'Initializing' as health status")
-		e.SetHealthcheckStatus(doctor.HealthcheckStatusInitializing)
-		return e.GetHealthcheckStatus()
-	}
-
-	taskStatus := task.GetKnownStatus()
-	if taskStatus != taskstatus.TaskRunning {
-		logger.Error("EBS CSI Daemon task is not running", logger.Fields{field.KnownStatus: taskStatus})
-		e.SetHealthcheckStatus(doctor.HealthcheckStatusImpaired)
-		return e.GetHealthcheckStatus()
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), e.requestTimeout)
 	defer cancel()
 
@@ -79,10 +60,7 @@ func (e *ebsCSIDaemonHealthcheck) RunCheck() doctor.HealthcheckStatus {
 		return e.GetHealthcheckStatus()
 	}
 
-	logger.Info("EBS CSI Driver is healthy", logger.Fields{
-		"nodeCapabilities": resp,
-		field.KnownStatus:  taskStatus,
-	})
+	logger.Info("EBS CSI Driver is healthy", logger.Fields{"nodeCapabilities": resp})
 	e.SetHealthcheckStatus(doctor.HealthcheckStatusOk)
 	return e.GetHealthcheckStatus()
 }
