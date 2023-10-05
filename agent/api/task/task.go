@@ -2571,7 +2571,10 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 			return []string{}, errors.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s",
 				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 		}
-
+		logger.Debug("Volume Binds are the following", logger.Fields{
+			"hostPath": hv.Source(),
+			"containerPath": mountPoint.ContainerPath,
+		})
 		bind := hv.Source() + ":" + mountPoint.ContainerPath
 		if mountPoint.ReadOnly {
 			bind += ":ro"

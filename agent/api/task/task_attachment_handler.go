@@ -14,6 +14,7 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -115,6 +116,16 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 				if err != nil {
 					return fmt.Errorf("unable to parse and validate EBS volume: %w", err)
 				}
+
+				data, err := json.Marshal(ebs)
+				if err != nil {
+					logger.Debug("Unable to marshal")
+				} else {
+					logger.Debug("Here's the ebs volume config", logger.Fields{
+						"ebs volume config": string(data),
+					})
+				}
+
 				taskVolume := TaskVolume{
 					Name:   ebs.VolumeName,
 					Type:   apiresource.EBSTaskAttach,

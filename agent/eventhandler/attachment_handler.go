@@ -140,13 +140,13 @@ func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *ap
 	}
 	seelog.Debugf("AttachmentHandler: submitted attachment state change: %s", attachmentChange.String())
 
-	attachmentChange.Attachment.SetSentStatus()
-	attachmentChange.Attachment.StopAckTimer()
+	// attachmentChange.Attachment.SetSentStatus()
+	// attachmentChange.Attachment.StopAckTimer()
 
-	err := handler.dataClient.SaveENIAttachment(attachmentChange.Attachment)
-	if err != nil {
-		seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-	}
+	// err := handler.dataClient.SaveENIAttachment(attachmentChange.Attachment)
+	// if err != nil {
+	//	seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+	// }
 	return nil
 }
 

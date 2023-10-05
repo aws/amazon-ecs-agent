@@ -14,6 +14,7 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -98,6 +99,15 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 	allTasksOK := true
 
 	validTasks := make([]*apitask.Task, 0, len(payload.Tasks))
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		logger.Debug("Unable to marshal")
+	} else {
+		logger.Debug("Here's the task payload", logger.Fields{
+			"taskPayload": string(data),
+		})
+	}
 
 	for _, task := range payload.Tasks {
 		if task == nil {

@@ -23,6 +23,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 // LsblkOutput is used to manage and track the output of `lsblk`
@@ -50,6 +52,7 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 		err = fmt.Errorf("%w; failed to run lsblk %v", err, string(output))
 		return "", err
 	}
+	logger.Debug(fmt.Sprintf("lsblk output: %s", string(output)))
 	err = json.Unmarshal(output, &lsblkOut)
 	if err != nil {
 		err = fmt.Errorf("%w; failed to unmarshal string: %v", err, string(output))
