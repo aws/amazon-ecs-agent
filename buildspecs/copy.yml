@@ -11,7 +11,7 @@ phases:
       - aws s3 cp $CODEBUILD_SRC_DIR_JSONArtifact/agent.json "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/agent.json"
       # Copy the updated agentVersionV2-<branch>.json file
       - aws s3 cp $CODEBUILD_SRC_DIR_JSONArtifact/agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json "$RESULTS_BUCKET_URI/agentVersionV2/agentVersionV2-${GITHUB_SOURCE_BRANCH_NAME}.json"
-      
+
       # since the buildspecs are the primary artifacts, we need to change directory
       - cd $CODEBUILD_SRC_DIR_SignedArtifact
       # list the artifacts that are ready to upload
@@ -26,15 +26,15 @@ phases:
       # copy amd md5 and json files
       - cd $CODEBUILD_SRC_DIR_AmdBuildArtifact
       - |
-        for filename in  *.md5 *.json; do
+        for filename in  *.md5 *.json *.sha256; do
           echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
           aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
         done
- 
+
       # copy amd md5 and json files
       - cd $CODEBUILD_SRC_DIR_ArmBuildArtifact
       - |
-        for filename in  *.md5 *.json; do
+        for filename in  *.md5 *.json *.sha256; do
           echo "copying $filename to destination $RESULTS_BUCKET_URI/$GIT_COMMIT_SHA"
           aws s3 cp $filename "$RESULTS_BUCKET_URI/$GIT_COMMIT_SHA/$filename"
         done
