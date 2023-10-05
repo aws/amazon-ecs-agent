@@ -99,7 +99,7 @@ phases:
       - md5sum $ECS_AGENT_LATEST_TAR | awk '{print $1}' > $ECS_AGENT_LATEST_TAR_MD5
       - md5sum $ECS_AGENT_GITSHORTSHA_TAR | awk '{print $1}' > $ECS_AGENT_GITSHORTSHA_TAR_MD5
 
-      # json file names 
+      # json file names
       - ECS_AGENT_TAR_JSON="${ECS_AGENT_TAR}.json"
       - ECS_AGENT_LATEST_TAR_JSON="${ECS_AGENT_LATEST_TAR}.json"
       - ECS_AGENT_GITSHORTSHA_TAR_JSON="${ECS_AGENT_GITSHORTSHA_TAR}.json"
@@ -107,6 +107,25 @@ phases:
       # Create jsons
       - echo "{\"agentVersion\":\"v${AGENT_VERSION}\"}" | tee $ECS_AGENT_TAR_JSON $ECS_AGENT_LATEST_TAR_JSON $ECS_AGENT_GITSHORTSHA_TAR_JSON
 
+      # Build CSI driver image
+      - echo "Build CSI driver image"
+      - ARCH_TAG=""
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          ARCH_TAG="-arm64"
+        fi
+      - CSI_DRIVER_TAR_SOURCE="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver.tar"
+      - CSI_DRIVER_TAR="ebs-csi-driver${ARCH_TAG}-v${AGENT_VERSION}.tar"
+      - CSI_DRIVER_LATEST_TAR="ebs-csi-driver${ARCH_TAG}-latest.tar"
+      - CSI_DRIVER_GITSHORTSHA_TAR="ebs-csi-driver${ARCH_TAG}-${GIT_COMMIT_SHORT_SHA}.tar"
+      - make -C ./ecs-agent/daemonimages/csidriver
+      - cp "$CSI_DRIVER_TAR_SOURCE" "$CSI_DRIVER_TAR"
+      - cp "$CSI_DRIVER_TAR_SOURCE" "$CSI_DRIVER_LATEST_TAR"
+      - cp "$CSI_DRIVER_TAR_SOURCE" "$CSI_DRIVER_GITSHORTSHA_TAR"
+      # csi driver sha256 file checksums
+      - sha256sum $CSI_DRIVER_TAR | awk '{print $1}' > "${CSI_DRIVER_TAR}.sha256"
+      - sha256sum $CSI_DRIVER_LATEST_TAR | awk '{print $1}' > "${CSI_DRIVER_LATEST_TAR}.sha256"
+      - sha256sum $CSI_DRIVER_GITSHORTSHA_TAR | awk '{print $1}' > "${CSI_DRIVER_GITSHORTSHA_TAR}.sha256"
 
 artifacts:
   files:
@@ -127,6 +146,14 @@ artifacts:
 
     # rpm
     - $ECS_AGENT_RPM
+
+    # csi driver
+    - "$CSI_DRIVER_TAR"
+    - "$CSI_DRIVER_LATEST_TAR"
+    - "$CSI_DRIVER_GITSHORTSHA_TAR"
+    - "${CSI_DRIVER_TAR}.sha256"
+    - "${CSI_DRIVER_LATEST_TAR}.sha256"
+    - "${CSI_DRIVER_GITSHORTSHA_TAR}.sha256"
 
     # ECS Anywhere install script
     - 'scripts/ecs-anywhere-install.sh'
