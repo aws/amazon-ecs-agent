@@ -73,6 +73,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apira "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -491,6 +495,31 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Criticalf("Unable to start EBS watcher")
 		return exitcodes.ExitTerminal
 	}
+
+	tempAttachmentProperties := map[string]string{
+		apira.VolumeSizeGibKey:        "10",
+		apira.DeviceNameKey:           "/dev/blah",
+		apira.VolumeIdKey:             "vol-0f00d7ebcc1c0993f",
+		apira.FileSystemKey:           "xfs",
+		apira.SourceVolumeHostPathKey: "mocktaskID_vol-0f00d7ebcc1c0993f",
+		apira.VolumeNameKey:           "testvolume",
+	}
+
+	duration := time.Now().Add(30000 * time.Millisecond)
+
+	go agent.ebsWatcher.HandleResourceAttachment(&apira.ResourceAttachment{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentARN:        "dummy-arn",
+			Status:               status.AttachmentNone,
+			ExpiresAt:            duration,
+			AttachStatusSent:     false,
+			ClusterARN:           "dummy-cluster-arn",
+			ContainerInstanceARN: "dummy-container-instance-arn",
+		},
+		AttachmentProperties: tempAttachmentProperties,
+		AttachmentType:       apira.EBSTaskAttach,
+	})
+
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
