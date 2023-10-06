@@ -1591,7 +1591,8 @@ func (mtask *managedTask) UnstageVolumes() error {
 					"Task":  task.String(),
 					"Error": err,
 				})
-				return err
+				continue
+				// return err
 			}
 		}
 	}

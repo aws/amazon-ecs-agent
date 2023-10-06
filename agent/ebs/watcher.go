@@ -184,14 +184,17 @@ func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(volID)
 		if ebsAttachment.IsSent() {
 			log.Warnf("State change event has already been emitted for EBS volume: %v.", ebsAttachment.EBSToString())
-			return nil
+			continue
+			// return nil
 		}
 		if ebsAttachment.HasExpired() {
 			log.Warnf("From stage all, EBS status expired, no longer tracking EBS volume: %v.", ebsAttachment.EBSToString())
-			return nil
+			continue
+			//return nil
 		}
 		if ebsAttachment.IsAttached() {
-			return nil
+			continue
+			//return nil
 		}
 
 		// hostPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
