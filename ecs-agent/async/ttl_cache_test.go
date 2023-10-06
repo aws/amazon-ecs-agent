@@ -1,4 +1,5 @@
 //go:build unit
+// +build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -80,4 +81,30 @@ func TestTTLCache(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, expired)
 	require.Equal(t, bar, "bar")
+}
+
+func TestTTLCacheSetTTL(t *testing.T) {
+	entryKey := "foo"
+	entryVal := "bar"
+
+	// Initialize cache with a TTL that is a high amount of time.
+	cache := NewTTLCache(time.Hour)
+	cache.Set(entryKey, entryVal)
+	time.Sleep(100 * time.Millisecond)
+
+	// We should be able to retrieve the entry - it should not be expired since the cache's current TTL has not elapsed.
+	actualVal, expired, ok := cache.Get(entryKey)
+	require.False(t, expired)
+	require.True(t, ok)
+	require.Equal(t, entryVal, actualVal)
+
+	// Set TTL of cache to now be a low amount of time.
+	cache.SetTTL(1 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+
+	// We should be able to retrieve the entry - it should be expired since the cache's current TTL has elapsed.
+	actualVal, expired, ok = cache.Get(entryKey)
+	require.True(t, ok)
+	require.True(t, expired)
+	require.Equal(t, entryVal, actualVal)
 }

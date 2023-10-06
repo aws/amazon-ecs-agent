@@ -13,4 +13,4 @@
 
 package async
 
-//go:generate mockgen -destination=mocks/async_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/async Cache,TTLCache
+//go:generate mockgen -destination=mocks/async_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/async Cache,TTLCache
