@@ -25,6 +25,8 @@ type TTLCache interface {
 	Set(key string, value interface{})
 	// Delete deletes the value from the cache
 	Delete(key string)
+	// SetTTL sets the time-to-live of the cache
+	SetTTL(ttl time.Duration)
 }
 
 // Creates a TTL cache with ttl for items.
@@ -77,4 +79,15 @@ func (t *ttlCache) Delete(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	delete(t.cache, key)
+}
+
+// SetTTL sets the time-to-live of the cache
+func (t *ttlCache) SetTTL(ttl time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	oldTTL := t.ttl
+	t.ttl = ttl
+	for _, val := range t.cache {
+		val.expiry = val.expiry.Add(ttl - oldTTL)
+	}
 }
