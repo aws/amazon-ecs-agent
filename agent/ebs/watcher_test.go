@@ -23,13 +23,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	mock_ebs_discovery "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -45,13 +48,14 @@ const (
 
 // newTestEBSWatcher creates a new EBSWatcher object for testing
 func newTestEBSWatcher(ctx context.Context, agentState dockerstate.TaskEngineState,
-	discoveryClient apiebs.EBSDiscovery) *EBSWatcher {
+	discoveryClient apiebs.EBSDiscovery, taskEngine engine.TaskEngine) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	return &EBSWatcher{
 		ctx:             derivedContext,
 		cancel:          cancel,
 		agentState:      agentState,
 		discoveryClient: discoveryClient,
+		taskEngine:      taskEngine,
 	}
 }
 
@@ -65,6 +69,9 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -88,7 +95,7 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       apiebs.EBSTaskAttach,
 	}
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	mockDiscoveryClient.EXPECT().ConfirmEBSVolumeIsAttached(taskresourcevolume.TestDeviceName, taskresourcevolume.TestVolumeId).
@@ -131,6 +138,9 @@ func TestHandleExpiredEBSAttachment(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -154,7 +164,7 @@ func TestHandleExpiredEBSAttachment(t *testing.T) {
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       apiebs.EBSTaskAttach,
 	}
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 
 	err := watcher.HandleEBSResourceAttachment(ebsAttachment)
 	assert.Error(t, err)
@@ -173,6 +183,9 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 
@@ -220,7 +233,7 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 		AttachmentType:       apiebs.EBSTaskAttach,
 	}
 
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	mockDiscoveryClient.EXPECT().ConfirmEBSVolumeIsAttached(taskresourcevolume.TestDeviceName, taskresourcevolume.TestVolumeId).
@@ -262,6 +275,9 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -285,7 +301,7 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       "InvalidResourceType",
 	}
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 
 	watcher.HandleResourceAttachment(ebsAttachment)
 
@@ -305,6 +321,9 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -327,7 +346,7 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 		},
 		AttachmentProperties: testAttachmentProperties,
 	}
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 
 	watcher.HandleResourceAttachment(ebsAttachment)
 	time.Sleep(time.Millisecond * testconst.WaitTimeoutMillis * 2)
@@ -346,8 +365,11 @@ func TestHandleMismatchEBSAttachment(t *testing.T) {
 	ctx := context.Background()
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 
-	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient)
+	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine)
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -392,3 +414,5 @@ func TestHandleMismatchEBSAttachment(t *testing.T) {
 	require.True(t, ok)
 	assert.ErrorIs(t, ebsAttachment.GetError(), apiebs.ErrInvalidVolumeID)
 }
+
+// TODO add StageAll test

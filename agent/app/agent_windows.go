@@ -99,6 +99,11 @@ func (agent *ecsAgent) startWindowsService() int {
 	return 0
 }
 
+func (agent *ecsAgent) startEBSWatcher(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) error {
+	seelog.Debug("Windows EBS Watcher not implemented: No Op")
+	return nil
+}
+
 // handler implements https://godoc.org/golang.org/x/sys/windows/svc#Handler
 type handler struct {
 	ecsAgent agent

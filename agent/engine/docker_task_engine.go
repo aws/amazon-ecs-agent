@@ -171,10 +171,14 @@ type DockerTaskEngine struct {
 	containerStatusToTransitionFunction map[apicontainerstatus.ContainerStatus]transitionApplyFunc
 	metadataManager                     containermetadata.Manager
 	serviceconnectManager               serviceconnect.Manager
-	daemonManagers                      map[string]dm.DaemonManager
-	hostResourceManager                 *HostResourceManager
-	serviceconnectRelay                 *apitask.Task
-	loadedDaemonTasks                   map[string]*apitask.Task
+
+	// daemonManagers map is threadsafe for reads as it's written only once at startup
+	daemonManagers      map[string]dm.DaemonManager
+	hostResourceManager *HostResourceManager
+	serviceconnectRelay *apitask.Task
+
+	daemonTasksLock sync.RWMutex
+	daemonTasks     map[string]*apitask.Task
 
 	// taskSteadyStatePollInterval is the duration that a managed task waits
 	// once the task gets into steady state before polling the state of all of
@@ -244,6 +248,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		stopContainerBackoffMin:           defaultStopContainerBackoffMin,
 		stopContainerBackoffMax:           defaultStopContainerBackoffMax,
 		namespaceHelper:                   ecscni.NewNamespaceHelper(client),
+		daemonTasks:                       make(map[string]*apitask.Task),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -957,7 +962,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	engine.tasksLock.Unlock()
 }
 
-func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
+func (engine *DockerTaskEngine) EmitTaskEvent(task *apitask.Task, reason string) {
 	if task.GetKnownStatus().Terminal() {
 		// Always do (idempotent) release host resources whenever state change with
 		// known status == STOPPED is done to ensure sync between tasks and host resource manager
@@ -1140,36 +1145,13 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		})
 		task.SetKnownStatus(apitaskstatus.TaskStopped)
 		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-		engine.emitTaskEvent(task, err.Error())
+		engine.EmitTaskEvent(task, err.Error())
 		return
 	}
 	if task.IsEBSTaskAttachEnabled() {
-		if csiTask, ok := engine.loadedDaemonTasks["ebs-csi-driver"]; ok {
-			logger.Info("engine ebs CSI driver is running", logger.Fields{
-				field.TaskID: csiTask.GetID(),
-			})
-		} else {
-			// TODO update 'ebs-csi-driver' as config param or const
-			var csiStartErr error
-			if ebsCsiDaemonManager, ok := engine.daemonManagers["ebs-csi-driver"]; ok {
-				csiTask, csiStartErr = ebsCsiDaemonManager.CreateDaemonTask()
-				engine.loadedDaemonTasks["ebs-csi-driver"] = csiTask
-				engine.AddTask(csiTask)
-				logger.Info("docker_task_engine: Added EBS CSI task to engine")
-			} else {
-				csiStartErr = errors.New("Unable to find ebs-csi-driver in engine")
-			}
-			if csiStartErr != nil {
-				logger.Error("Unable to start ebsCsiDaemon for task in the engine", logger.Fields{
-					field.TaskID: task.GetID(),
-					field.Error:  err,
-				})
-				task.SetKnownStatus(apitaskstatus.TaskStopped)
-				task.SetDesiredStatus(apitaskstatus.TaskStopped)
-				engine.emitTaskEvent(task, err.Error())
-				return
-			}
-		}
+		logger.Info("Task is EBS TaskAttachEnabled", logger.Fields{
+			field.TaskID: task.GetID(),
+		})
 	}
 	// Check if ServiceConnect is Needed
 	if task.IsServiceConnectEnabled() {
@@ -1183,7 +1165,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 				})
 				task.SetKnownStatus(apitaskstatus.TaskStopped)
 				task.SetDesiredStatus(apitaskstatus.TaskStopped)
-				engine.emitTaskEvent(task, err.Error())
+				engine.EmitTaskEvent(task, err.Error())
 				return
 			}
 			engine.AddTask(engine.serviceconnectRelay)
@@ -1212,7 +1194,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 			task.SetKnownStatus(apitaskstatus.TaskStopped)
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			err := TaskDependencyError{task.Arn}
-			engine.emitTaskEvent(task, err.Error())
+			engine.EmitTaskEvent(task, err.Error())
 		}
 		return
 	}
@@ -1228,6 +1210,25 @@ func (engine *DockerTaskEngine) ListTasks() ([]*apitask.Task, error) {
 // GetTaskByArn returns the task identified by that ARN
 func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 	return engine.state.TaskByArn(arn)
+}
+
+func (engine *DockerTaskEngine) GetDaemonTask(daemonName string) *apitask.Task {
+	engine.daemonTasksLock.RLock()
+	defer engine.daemonTasksLock.RUnlock()
+	if daemon, ok := engine.daemonTasks[daemonName]; ok {
+		return daemon
+	}
+	return nil
+}
+
+func (engine *DockerTaskEngine) SetDaemonTask(daemonName string, task *apitask.Task) {
+	engine.daemonTasksLock.Lock()
+	defer engine.daemonTasksLock.Unlock()
+	engine.daemonTasks[daemonName] = task
+}
+
+func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager {
+	return engine.daemonManagers
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
@@ -1445,7 +1446,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 				// and the image is not available in both remote and local caches
 				if container.IsEssential() {
 					task.SetDesiredStatus(apitaskstatus.TaskStopped)
-					engine.emitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), metadata.Error.Error()))
+					engine.EmitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), metadata.Error.Error()))
 				}
 				return dockerapi.DockerContainerMetadata{Error: metadata.Error}
 			}

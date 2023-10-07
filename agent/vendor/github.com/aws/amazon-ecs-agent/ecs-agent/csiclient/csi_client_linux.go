@@ -15,10 +15,14 @@
 // permissions and limitations under the License.
 package csiclient
 
-import "path/filepath"
+import (
+	"path/filepath"
+
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+)
 
 const (
-	defaultImageName      = "ebs-csi-driver"
+	defaultImageName      = md.EbsCsiDriver
 	defaultSocketName     = "csi-driver.sock"
 	defaultSocketHostPath = "/var/run/ecs/"
 )
