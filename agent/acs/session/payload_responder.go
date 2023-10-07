@@ -108,33 +108,6 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			"taskPayload": string(data),
 		})
 	}
-	var tempAttachments []*ecsacs.Attachment
-	tempAttachments = append(tempAttachments, &ecsacs.Attachment{
-		AttachmentArn:  aws.String("att-arn-1"),
-		AttachmentType: aws.String("amazonebs"),
-		AttachmentProperties: []*ecsacs.AttachmentProperty{
-			{
-				Name:  aws.String("volumeId"),
-				Value: aws.String("vol-0f00d7ebcc1c0993f"),
-			},
-			{
-				Name:  aws.String("volumeSizeGib"),
-				Value: aws.String("10"),
-			},
-			{
-				Name:  aws.String("sourceVolumeHostPath"),
-				Value: aws.String("mocktaskID_vol-0f00d7ebcc1c0993f"),
-			},
-			{
-				Name:  aws.String("volumeName"),
-				Value: aws.String("testvolume"),
-			},
-			{
-				Name:  aws.String("fileSystem"),
-				Value: aws.String("ext4"),
-			},
-		},
-	})
 
 	for _, task := range payload.Tasks {
 		if task == nil {
@@ -143,29 +116,6 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			})
 			allTasksOK = false
 			continue
-		}
-
-		task.Attachments = tempAttachments
-		for _, container := range task.Containers {
-			if *container.Name == "webapp" {
-				container.MountPoints = []*ecsacs.MountPoint{
-					{
-						SourceVolume:  aws.String("testvolume"),
-						ContainerPath: aws.String("/path/to/mount_volume/webapp"),
-					},
-				}
-			}
-		}
-		volName := "testvolume"
-		volType := "host"
-		task.Volumes = []*ecsacs.Volume{
-			{
-				Host: &ecsacs.HostVolumeProperties{
-					SourcePath: nil,
-				},
-				Name: &volName,
-				Type: &volType,
-			},
 		}
 
 		apiTask, err := apitask.TaskFromACS(task, payload)

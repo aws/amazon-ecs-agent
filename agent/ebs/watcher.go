@@ -181,7 +181,10 @@ func (w *EBSWatcher) overrideDeviceName(foundVolumes map[string]string) {
 func (w *EBSWatcher) StageAll(foundVolumes map[string]string) error {
 	for volID, deviceName := range foundVolumes {
 		// get volume details from attachment
-		ebsAttachment, _ := w.agentState.GetEBSByVolumeId(volID)
+		ebsAttachment, ok := w.agentState.GetEBSByVolumeId(volID)
+		if !ok {
+			continue
+		}
 		if ebsAttachment.IsSent() {
 			log.Warnf("State change event has already been emitted for EBS volume: %v.", ebsAttachment.EBSToString())
 			continue
