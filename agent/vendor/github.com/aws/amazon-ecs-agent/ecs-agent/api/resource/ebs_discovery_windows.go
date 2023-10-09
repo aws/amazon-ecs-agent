@@ -33,24 +33,24 @@ const (
 	volumeInfoLength = 3
 )
 
-func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) error {
+func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID string) (string, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(api.ctx, ebsVolumeDiscoveryTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctxWithTimeout,
 		"C:\\PROGRAMDATA\\Amazon\\Tools\\ebsnvme-id.exe").CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "failed to run ebsnvme-id.exe: %s", string(output))
+		return "", errors.Wrapf(err, "failed to run ebsnvme-id.exe: %s", string(output))
 	}
 
 	_, err = parseExecutableOutput(output, volumeID, deviceName)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse ebsnvme-id.exe output for volumeID: %s and deviceName: %s",
+		return "", errors.Wrapf(err, "failed to parse ebsnvme-id.exe output for volumeID: %s and deviceName: %s",
 			volumeID, deviceName)
 	}
 
 	log.Info(fmt.Sprintf("found volume with volumeID: %s and deviceName: %s", volumeID, deviceName))
 
-	return nil
+	return "", nil
 }
 
 // parseExecutableOutput parses the output of `ebsnvme-id.exe` and returns the volumeId.

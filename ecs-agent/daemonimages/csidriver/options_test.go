@@ -58,6 +58,14 @@ func TestGetServerOptions(t *testing.T) {
 				assert.EqualError(t, err, "no argument is provided")
 			},
 		},
+		{
+			name: "healthcheck argument is given",
+			testFunc: func(t *testing.T) {
+				opts, err := testFunc(t, []string{"--endpoint=foo", "--healthcheck"})
+				assert.NoError(t, err)
+				assert.True(t, opts.HealthCheck)
+			},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -24,11 +24,15 @@ const emptyCSIEndpoint = ""
 type ServerOptions struct {
 	// Endpoint is the endpoint that the driver server should listen on.
 	Endpoint string
+	// If enabled, the program performs a health check on an existing server
+	// instead of starting a new server.
+	HealthCheck bool
 }
 
 func GetServerOptions(fs *flag.FlagSet) (*ServerOptions, error) {
 	serverOptions := &ServerOptions{}
 	fs.StringVar(&serverOptions.Endpoint, "endpoint", emptyCSIEndpoint, "Endpoint for the CSI driver server")
+	fs.BoolVar(&serverOptions.HealthCheck, "healthcheck", false, "Check health of an existing server")
 
 	args := os.Args[1:]
 	if err := fs.Parse(args); err != nil {

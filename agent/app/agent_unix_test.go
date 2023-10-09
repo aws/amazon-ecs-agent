@@ -45,6 +45,7 @@ import (
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -114,6 +115,13 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+
+	originalImportAll := md.ImportAll
+	defer func() { md.ImportAll = originalImportAll }()
+	md.ImportAll = func() ([]*md.ManagedDaemon, error) {
+		return []*md.ManagedDaemon{}, nil
+	}
+
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
@@ -187,6 +195,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	var agentW sync.WaitGroup
 	agentW.Add(1)
 	go func() {
+
 		agent.doStart(eventstream.NewEventStream("events", ctx),
 			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client, execCmdMgr)
 		agentW.Done()
@@ -460,6 +469,13 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+
+	originalImportAll := md.ImportAll
+	defer func() { md.ImportAll = originalImportAll }()
+	md.ImportAll = func() ([]*md.ManagedDaemon, error) {
+		return []*md.ManagedDaemon{}, nil
+	}
+
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 
@@ -553,6 +569,12 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 
+	originalImportAll := md.ImportAll
+	defer func() { md.ImportAll = originalImportAll }()
+	md.ImportAll = func() ([]*md.ManagedDaemon, error) {
+		return []*md.ManagedDaemon{}, nil
+	}
+
 	mockControl.EXPECT().Init().Return(errors.New("test error"))
 
 	cfg := getTestConfig()
@@ -626,6 +648,13 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockServiceConnectManager.EXPECT().SetECSClient(gomock.Any(), gomock.Any()).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedImageName().Return("service_connect_agent:v1").AnyTimes()
+
+	originalImportAll := md.ImportAll
+	defer func() { md.ImportAll = originalImportAll }()
+	md.ImportAll = func() ([]*md.ManagedDaemon, error) {
+		return []*md.ManagedDaemon{}, nil
+	}
+
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 	mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes()

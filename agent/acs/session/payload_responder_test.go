@@ -722,7 +722,7 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 							Value: aws.String(taskresourcevolume.TestFileSystem),
 						},
 					},
-					AttachmentType: aws.String(apiresource.AmazonElasticBlockStorage),
+					AttachmentType: aws.String(apiresource.EBSTaskAttach),
 				},
 			},
 		},

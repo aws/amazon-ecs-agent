@@ -932,6 +932,30 @@ func TestContainerOrderingIsResolved(t *testing.T) {
 			Resolved:            false,
 		},
 		{
+			TargetDesired:       apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerPulled,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerStopped,
 			DependencyCondition: successCondition,

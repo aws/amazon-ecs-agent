@@ -54,6 +54,14 @@ phases:
       - ECS_AGENT_ARM_RPM="amazon-ecs-init-${INIT_VERSION}.aarch64.rpm"
       - ECS_AGENT_UBUNTU_ARM_DEB="amazon-ecs-init-${INIT_VERSION}.arm64.deb"
 
+      # EBS csi driver image tar files
+      - CSI_DRIVER_AMD_TAR="ebs-csi-driver-v${AGENT_VERSION}.tar"
+      - CSI_DRIVER_AMD_LATEST_TAR="ebs-csi-driver-latest.tar"
+      - CSI_DRIVER_AMD_GITSHORTSHA_TAR="ebs-csi-driver-${GIT_COMMIT_SHORT_SHA}.tar"
+      - CSI_DRIVER_ARM_TAR="ebs-csi-driver-arm64-v${AGENT_VERSION}.tar"
+      - CSI_DRIVER_ARM_LATEST_TAR="ebs-csi-driver-arm64-latest.tar"
+      - CSI_DRIVER_ARM_GITSHORTSHA_TAR="ebs-csi-driver-arm64-${GIT_COMMIT_SHORT_SHA}.tar"
+
       - ECS_ANYWHERE_SCRIPT="ecs-anywhere-install-${INIT_VERSION}.sh"
       - ECS_ANYWHERE_LATEST_SCRIPT="ecs-anywhere-install-latest.sh"
       # Get the private key from secrets manager, jq parse it, turn it into raw output, pipe to file
@@ -71,6 +79,13 @@ phases:
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_GITSHORTSHA_TAR
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$ECS_AGENT_AMD_RPM" $ECS_AGENT_AMD_RPM
       - source /tmp/functions.sh && sign_file $ECS_AGENT_AMD_RPM
+      # Sign the amd csi driver tar (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$CSI_DRIVER_AMD_TAR" $CSI_DRIVER_AMD_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_AMD_TAR
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$CSI_DRIVER_AMD_LATEST_TAR" $CSI_DRIVER_AMD_LATEST_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_AMD_LATEST_TAR
+      - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/$CSI_DRIVER_AMD_GITSHORTSHA_TAR" $CSI_DRIVER_AMD_GITSHORTSHA_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_AMD_GITSHORTSHA_TAR
       # Sign ECS Anywhere Script
       - cp "$CODEBUILD_SRC_DIR_AmdBuildArtifact/scripts/ecs-anywhere-install.sh" $ECS_ANYWHERE_SCRIPT
       - source /tmp/functions.sh && sign_file $ECS_ANYWHERE_SCRIPT
@@ -85,6 +100,13 @@ phases:
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_GITSHORTSHA_TAR
       - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$ECS_AGENT_ARM_RPM" $ECS_AGENT_ARM_RPM
       - source /tmp/functions.sh && sign_file $ECS_AGENT_ARM_RPM
+      # Sign the arm csi driver tar (this is a secondary source so we have to do some copying)
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$CSI_DRIVER_ARM_TAR" $CSI_DRIVER_ARM_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_ARM_TAR
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$CSI_DRIVER_ARM_LATEST_TAR" $CSI_DRIVER_ARM_LATEST_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_ARM_LATEST_TAR
+      - cp "$CODEBUILD_SRC_DIR_ArmBuildArtifact/$CSI_DRIVER_ARM_GITSHORTSHA_TAR" $CSI_DRIVER_ARM_GITSHORTSHA_TAR
+      - source /tmp/functions.sh && sign_file $CSI_DRIVER_ARM_GITSHORTSHA_TAR
       # Sign the amd deb (this is a secondary source so we have to do some copying)
       - cp "$CODEBUILD_SRC_DIR_UbuntuAmdBuildArtifact/$ECS_AGENT_UBUNTU_AMD_DEB" $ECS_AGENT_UBUNTU_AMD_DEB
       - source /tmp/functions.sh && sign_file $ECS_AGENT_UBUNTU_AMD_DEB
@@ -122,3 +144,15 @@ artifacts:
     - '$ECS_ANYWHERE_SCRIPT.asc'
     - $ECS_ANYWHERE_LATEST_SCRIPT
     - '$ECS_ANYWHERE_LATEST_SCRIPT.asc'
+    - $CSI_DRIVER_AMD_TAR
+    - '$CSI_DRIVER_AMD_TAR.asc'
+    - $CSI_DRIVER_AMD_LATEST_TAR
+    - '$CSI_DRIVER_AMD_LATEST_TAR.asc'
+    - $CSI_DRIVER_AMD_GITSHORTSHA_TAR
+    - '$CSI_DRIVER_AMD_GITSHORTSHA_TAR.asc'
+    - $CSI_DRIVER_ARM_TAR
+    - '$CSI_DRIVER_ARM_TAR.asc'
+    - $CSI_DRIVER_ARM_LATEST_TAR
+    - '$CSI_DRIVER_ARM_LATEST_TAR.asc'
+    - $CSI_DRIVER_ARM_GITSHORTSHA_TAR
+    - '$CSI_DRIVER_ARM_GITSHORTSHA_TAR.asc'

@@ -26,6 +26,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
@@ -381,4 +382,15 @@ func (engine *MockTaskEngine) Disable() {
 
 func (engine *MockTaskEngine) Info() (types.Info, error) {
 	return types.Info{}, nil
+}
+
+func (engine *MockTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager {
+	return make(map[string]dm.DaemonManager)
+}
+
+func (engine *MockTaskEngine) GetDaemonTask(string) *apitask.Task {
+	return nil
+}
+
+func (engine *MockTaskEngine) SetDaemonTask(string, *apitask.Task) {
 }

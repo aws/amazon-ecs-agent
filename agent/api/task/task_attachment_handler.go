@@ -83,7 +83,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 			switch aws.StringValue(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
 				serviceConnectAttachment = attachment
-			case apiresource.AmazonElasticBlockStorage:
+			case apiresource.EBSTaskAttach:
 				ebsVolumeAttachments = append(ebsVolumeAttachments, attachment)
 			default:
 				logger.Debug("Received an attachment type", logger.Fields{
@@ -117,7 +117,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 				}
 				taskVolume := TaskVolume{
 					Name:   ebs.VolumeName,
-					Type:   apiresource.AmazonElasticBlockStorage,
+					Type:   apiresource.EBSTaskAttach,
 					Volume: ebs,
 				}
 				task.Volumes = append(task.Volumes, taskVolume)

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -42,18 +43,28 @@ import (
 )
 
 const (
-	// all daemons will share the same user id
-	// note: AppNetUID is 20000
-	daemonUID                                   = 20001
-	daemonMountPermission           fs.FileMode = 0700
+	daemonUID                                   = 0
+	daemonMountPermission           fs.FileMode = 0755
+	daemonLogPermission             fs.FileMode = 0777
 	ecsAgentLogFileENV                          = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer             = "/log"
+	socketPathHostRoot                          = "/var/run/ecs"
+	logPathHostRoot                             = "/log/ecs/daemons"
 )
 
 var mkdirAllAndChown = utils.MkdirAllAndChown
 
 func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	imageName := dm.managedDaemon.GetImageName()
+	// create daemon-specific host mounts
+	if err := dm.initDaemonDirectoryMounts(imageName); err != nil {
+		logger.Error("initDaemonDirectory failure",
+			logger.Fields{
+				field.Error: err,
+			})
+		return nil, err
+	}
+
 	loadedImageRef := dm.managedDaemon.GetLoadedDaemonImageRef()
 	containerRunning := apicontainerstatus.ContainerRunning
 	stringCaps := []string{}
@@ -79,16 +90,19 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	}
 
 	for _, mp := range dm.managedDaemon.GetMountPoints() {
-		err := mkdirAllAndChown(mp.SourceVolumeHostPath, daemonMountPermission, daemonUID, os.Getegid())
-		if err != nil {
+		if err := mkdirAllAndChown(mp.SourceVolumeHostPath, daemonMountPermission, daemonUID, os.Getegid()); err != nil {
 			return nil, err
 		}
 		var bindOptions = dockermount.BindOptions{}
 
 		if mp.PropagationShared {
 			// https://github.com/moby/moby/blob/master/api/types/mount/mount.go#L52
-			bindOptions.Propagation = dockermount.PropagationShared
+			bindOptions = dockermount.BindOptions{Propagation: dockermount.PropagationShared}
 		}
+		logger.Info(fmt.Sprintf("bindMount Propagation: %s", bindOptions.Propagation),
+			logger.Fields{
+				field.Image: loadedImageRef,
+			})
 		mountPoint := dockermount.Mount{
 			Type:        dockermount.TypeBind,
 			Source:      mp.SourceVolumeHostPath,
@@ -111,7 +125,8 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	// directly, and the object only contains healthcheck, all other fields will be written as empty/nil
 	// in the result string. This will override the configurations that comes with the container image
 	// (CMD for example)
-	rawConfig = fmt.Sprintf("{\"Healthcheck\":%s}", string(rawHealthConfig))
+	// TODO update User in raw config to use either runAs user or runAsRoot from managed daemon config
+	rawConfig = fmt.Sprintf("{\"Healthcheck\":%s, \"User\":\"0\"}", string(rawHealthConfig))
 	daemonTask := &apitask.Task{
 		Arn:                 fmt.Sprintf("arn:::::/%s-%s", dm.managedDaemon.GetImageName(), uuid.NewUUID()),
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
@@ -140,6 +155,20 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	// add managed daemon environment to daemon task container
 	daemonTask.Containers[0].MergeEnvironmentVariables(dm.managedDaemon.GetEnvironment())
 	return daemonTask, nil
+}
+
+func (dm *daemonManager) initDaemonDirectoryMounts(imageName string) error {
+	// create logging directory
+	logPathHost := filepath.Join(logPathHostRoot, imageName)
+	if err := mkdirAllAndChown(logPathHost, daemonLogPermission, daemonUID, os.Getegid()); err != nil {
+		return err
+	}
+	// create socket path
+	socketPathHost := filepath.Join(socketPathHostRoot, imageName)
+	if err := mkdirAllAndChown(socketPathHost, daemonMountPermission, daemonUID, os.Getegid()); err != nil {
+		return err
+	}
+	return nil
 }
 
 // LoadImage loads the daemon's latest image

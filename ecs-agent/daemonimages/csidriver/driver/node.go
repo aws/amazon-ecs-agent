@@ -44,6 +44,12 @@ var (
 		FSTypeXfs:  {},
 		FSTypeNtfs: {},
 	}
+
+	// nodeCaps represents the capabilities of node service.
+	nodeCaps = []csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+	}
 )
 
 // nodeService represents the node service of CSI driver.
@@ -249,9 +255,58 @@ func newNodeService() nodeService {
 	}
 }
 
+func (d *nodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	klog.V(4).InfoS("NodeUnstageVolume: called", "args", *req)
+	volumeID := req.GetVolumeId()
+	if len(volumeID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
+	}
+
+	target := req.GetStagingTargetPath()
+	if len(target) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
+	}
+
+	if ok := d.inFlight.Insert(volumeID); !ok {
+		return nil, status.Errorf(codes.Aborted, VolumeOperationAlreadyExists, volumeID)
+	}
+	defer func() {
+		klog.V(4).InfoS("NodeUnStageVolume: volume operation finished", "volumeID", volumeID)
+		d.inFlight.Delete(volumeID)
+	}()
+
+	// Check if target directory is a mount point. GetDeviceNameFromMount
+	// given a mnt point, finds the device from /proc/mounts
+	// returns the device name, reference count, and error code
+	dev, refCount, err := d.mounter.GetDeviceNameFromMount(target)
+	if err != nil {
+		msg := fmt.Sprintf("failed to check if target %q is a mount point: %v", target, err)
+		return nil, status.Error(codes.Internal, msg)
+	}
+
+	// From the spec: If the volume corresponding to the volume_id
+	// is not staged to the staging_target_path, the Plugin MUST
+	// reply 0 OK.
+	if refCount == 0 {
+		klog.V(5).InfoS("[Debug] NodeUnstageVolume: target not mounted", "target", target)
+		return &csi.NodeUnstageVolumeResponse{}, nil
+	}
+
+	if refCount > 1 {
+		klog.InfoS("NodeUnstageVolume: found references to device mounted at target path", "refCount", refCount, "device", dev, "target", target)
+	}
+
+	klog.V(4).InfoS("NodeUnstageVolume: unmounting", "target", target)
+	err = d.mounter.Unstage(target)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Could not unmount target %q: %v", target, err)
+	}
+	klog.V(4).InfoS("NodeUnStageVolume: successfully unstaged volume", "volumeID", volumeID, "target", target)
+	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
 func (d *nodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	klog.InfoS("NodeGetVolumeStats: called")
-	//klog.V(4).InfoS("NodeGetVolumeStats: called", "args", *req)
+	klog.V(4).InfoS("NodeGetVolumeStats: called", "args", *req)
 	if len(req.VolumeId) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats volume ID was empty")
 	}
@@ -362,4 +417,24 @@ func hasMountOption(options []string, opt string) bool {
 		}
 	}
 	return false
+}
+
+// Returns the capabilities of this node service.
+func (d *nodeService) NodeGetCapabilities(
+	ctx context.Context,
+	req *csi.NodeGetCapabilitiesRequest,
+) (*csi.NodeGetCapabilitiesResponse, error) {
+	klog.V(4).InfoS("NodeGetCapabilities: called", "args", *req)
+	var caps []*csi.NodeServiceCapability
+	for _, cap := range nodeCaps {
+		c := &csi.NodeServiceCapability{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: cap,
+				},
+			},
+		}
+		caps = append(caps, c)
+	}
+	return &csi.NodeGetCapabilitiesResponse{Capabilities: caps}, nil
 }

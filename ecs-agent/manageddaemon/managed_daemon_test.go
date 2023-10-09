@@ -114,7 +114,7 @@ func TestSetMountPoints(t *testing.T) {
 			assert.Equal(t, c.ExpectedMountCount, len(tmd.GetFilteredMountPoints()), "Wrong value for Set Managed Daemon Mounts")
 			// validate required mount points
 			expectedAgentCommunicationMount := fmt.Sprintf("/var/run/ecs/%s/", TestImageName)
-			expectedApplicationLogMount := fmt.Sprintf("/var/log/ecs/%s/", TestImageName)
+			expectedApplicationLogMount := fmt.Sprintf("/var/log/ecs/daemons/%s/", TestImageName)
 			assert.Equal(t, expectedAgentCommunicationMount, tmd.GetAgentCommunicationMount().SourceVolumeHostPath)
 			assert.Equal(t, expectedApplicationLogMount, tmd.GetApplicationLogMount().SourceVolumeHostPath)
 		})
