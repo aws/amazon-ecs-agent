@@ -90,6 +90,7 @@ github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
 github.com/docker/docker/libnetwork/ipamutils
 github.com/docker/docker/opts
+github.com/docker/docker/pkg/aaparser
 github.com/docker/docker/pkg/archive
 github.com/docker/docker/pkg/fileutils
 github.com/docker/docker/pkg/homedir
@@ -100,6 +101,7 @@ github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/stdcopy
 github.com/docker/docker/pkg/system
+github.com/docker/docker/profiles/apparmor
 # github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
