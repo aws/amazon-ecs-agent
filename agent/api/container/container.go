@@ -840,7 +840,7 @@ func (c *Container) GetHealthStatus() HealthStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	// Copy the pointer to avoid race condition
+	// CopyToVolume the pointer to avoid race condition
 	copyHealth := c.Health
 
 	if c.Health.Since != nil {

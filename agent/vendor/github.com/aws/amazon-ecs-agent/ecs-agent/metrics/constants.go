@@ -45,4 +45,9 @@ const (
 	agentAvailabilityNamespace     = "Availability"
 	ACSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".ACSDisconnectTimeout"
 	TCSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".TCSDisconnectTimeout"
+
+	dbClientMetricNamespace                 = "Data"
+	GetNetworkConfigurationByTaskMetricName = dbClientMetricNamespace + ".GetNetworkConfigurationByTask"
+	SaveNetworkNamespaceMetricName          = dbClientMetricNamespace + ".SaveNetworkNamespace"
+	GetNetworkNamespaceMetricName           = dbClientMetricNamespace + ".GetNetworkNamespace"
 )

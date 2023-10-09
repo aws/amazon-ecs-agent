@@ -559,7 +559,7 @@ func (ni *NetworkInterface) setDeviceName(macToName map[string]string) error {
 
 // IsPrimary returns whether the NetworkInterface is the primary NetworkInterface of the task.
 func (ni *NetworkInterface) IsPrimary() bool {
-	return ni.Index == 0
+	return ni.Primary
 }
 
 // ShouldGenerateNetworkConfigFiles can be used to check if network configuration files (hosts,

@@ -160,7 +160,7 @@ func (mr *MockfileSystemMockRecorder) Base(path interface{}) *gomock.Call {
 // Copy mocks base method.
 func (m *MockfileSystem) Copy(dst io.Writer, src io.Reader) (int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Copy", dst, src)
+	ret := m.ctrl.Call(m, "CopyToVolume", dst, src)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -169,7 +169,7 @@ func (m *MockfileSystem) Copy(dst io.Writer, src io.Reader) (int64, error) {
 // Copy indicates an expected call of Copy.
 func (mr *MockfileSystemMockRecorder) Copy(dst, src interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockfileSystem)(nil).Copy), dst, src)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyToVolume", reflect.TypeOf((*MockfileSystem)(nil).Copy), dst, src)
 }
 
 // MkdirAll mocks base method.
