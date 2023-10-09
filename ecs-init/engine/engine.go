@@ -51,9 +51,13 @@ const (
 )
 
 // Injection point for testing purposes
-var getDockerClient = func() (dockerClient, error) {
-	return docker.Client()
-}
+var (
+	getDockerClient = func() (dockerClient, error) {
+		return docker.Client()
+	}
+	hostSupports       = ctrdapparmor.HostSupports
+	loadDefaultProfile = apparmor.LoadDefaultProfile
+)
 
 func dockerError(err error) error {
 	return engineError("could not create docker client", err)
@@ -205,9 +209,9 @@ func (e *Engine) PreStartGPU() error {
 // PreStartAppArmor sets up the ecs-default AppArmor profile if we're running
 // on an AppArmor-enabled system.
 func (e *Engine) PreStartAppArmor() error {
-	if ctrdapparmor.HostSupports() {
+	if hostSupports() {
 		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSDefaultProfileName)
-		return apparmor.LoadDefaultProfile(apparmor.ECSDefaultProfileName)
+		return loadDefaultProfile(apparmor.ECSDefaultProfileName)
 	}
 	return nil
 }
