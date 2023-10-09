@@ -7,12 +7,12 @@ require (
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/containerd v1.6.18
+	github.com/docker/docker v23.0.3+incompatible
 	github.com/docker/go-plugins-helpers v0.0.0-20181025120712-1e6269c305b8
 	github.com/fsouza/go-dockerclient v0.0.0-20170830181106-98edf3edfae6
 	github.com/golang/mock v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/sys v0.6.0
 )
 
 require (
@@ -20,7 +20,6 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/docker v23.0.3+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
