@@ -52,7 +52,7 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 		err = fmt.Errorf("%w; failed to run lsblk %v", err, string(output))
 		return "", err
 	}
-	logger.Debug(fmt.Sprintf("lsblk output: %s", string(output)))
+	// logger.Debug(fmt.Sprintf("lsblk output: %s", string(output)))
 	err = json.Unmarshal(output, &lsblkOut)
 	if err != nil {
 		err = fmt.Errorf("%w; failed to unmarshal string: %v", err, string(output))

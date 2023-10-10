@@ -74,6 +74,16 @@ const (
 	FileSystemKey           = "fileSystem"
 )
 
+var (
+	AllowedFSTypes = map[string]bool{
+		"xfs":  true,
+		"ext2": true,
+		"ext3": true,
+		"ext4": true,
+		"ntfs": true,
+	}
+)
+
 // getCommonProperties returns the common properties as used for validating a resource.
 func getCommonProperties() (commonProperties []string) {
 	commonProperties = []string{

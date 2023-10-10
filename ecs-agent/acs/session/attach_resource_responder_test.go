@@ -59,6 +59,10 @@ var (
 			Name:  aws.String(resource.DeviceNameKey),
 			Value: aws.String("device1"),
 		},
+		{
+			Name:  aws.String(resource.FileSystemKey),
+			Value: aws.String(""),
+		},
 	}
 
 	testAttachmentProperties = []*ecsacs.AttachmentProperty{
@@ -202,12 +206,6 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
 			require.Error(t, err)
 			property.Name = originalPropertyName
-
-			originalPropertyValue := property.Value
-			property.Value = aws.String("")
-			_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
-			require.Error(t, err)
-			property.Value = originalPropertyValue
 		})
 	}
 
@@ -244,6 +242,23 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 		}
 		require.True(t, verified, "Missing required property: %s", requiredProperty)
 	}
+
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		if aws.StringValue(property.Name) == resource.FileSystemKey {
+			originalPropertyValue := property.Value
+			property.Value = aws.String("SomeFilesystemType")
+			_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Value = originalPropertyValue
+
+			originalPropertyValue = property.Value
+			property.Value = aws.String("")
+			_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Value = originalPropertyValue
+		}
+	}
+
 }
 
 // TestResourceAckHappyPath tests the happy path for a typical ConfirmAttachmentMessage and confirms expected
