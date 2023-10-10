@@ -59,6 +59,10 @@ var (
 			Name:  aws.String(resource.DeviceNameKey),
 			Value: aws.String("device1"),
 		},
+		{
+			Name:  aws.String(resource.FileSystemKey),
+			Value: aws.String("ext4"),
+		},
 	}
 
 	testAttachmentProperties = []*ecsacs.AttachmentProperty{
@@ -290,4 +294,36 @@ func TestResourceAckHappyPath(t *testing.T) {
 	attachResourceAckSent := <-ackSent
 	wg.Wait()
 	require.Equal(t, aws.StringValue(attachResourceAckSent.MessageId), testconst.MessageID)
+}
+
+func TestValidateAttachmentFilesystemProperty(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	confirmAttachmentMessageCopy := *testConfirmAttachmentMessage
+	confirmAttachmentMessageCopy.Attachment.AttachmentType = aws.String("amazonebs")
+	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
+
+	validFileSystems := []string{"xfs", "ext2", "ext3", "ext4", "ntfs"}
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		if aws.StringValue(property.Name) == resource.FileSystemKey {
+			for _, fs := range validFileSystems {
+				originalPropertyValue := property.Value
+				property.Value = aws.String(fs)
+				_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+				require.NoError(t, err)
+				property.Value = originalPropertyValue
+			}
+			originalPropertyValue := property.Value
+			property.Value = aws.String("SomeFilesystemType")
+			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Value = originalPropertyValue
+
+			originalPropertyValue = property.Value
+			property.Value = aws.String("")
+			_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
+			require.Error(t, err)
+			property.Value = originalPropertyValue
+		}
+	}
 }

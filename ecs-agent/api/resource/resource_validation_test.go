@@ -83,3 +83,15 @@ func TestValidateVolumeResource(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateVolumeFileSystem(t *testing.T) {
+	validFileSystems := []string{"xfs", "ext2", "ext3", "ext4", "ntfs"}
+
+	for _, fs := range validFileSystems {
+		err := ValidateFileSystemType(fs)
+		require.NoError(t, err)
+	}
+
+	err := ValidateFileSystemType("someFilesystem")
+	require.Error(t, err)
+}

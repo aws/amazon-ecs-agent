@@ -202,6 +202,10 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 		if err != nil {
 			return nil, errors.Wrap(err, "resource attachment validation by attachment type failed")
 		}
+		err = resource.ValidateFileSystemType(attachmentProperties[resource.FileSystemKey])
+		if err != nil {
+			return nil, errors.Wrap(err, "resource attachment validation by file system property failed")
+		}
 		return attachmentProperties, nil
 	}
 
