@@ -120,6 +120,14 @@ func ImportAll() ([]*ManagedDaemon, error) {
 			ContainerPath:        "/mnt/ecs/ebs",
 			PropagationShared:    true,
 		},
+		&MountPoint{
+			SourceVolumeID:       "devMount",
+			SourceVolume:         "devMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/dev",
+			ContainerPath:        "/dev",
+			PropagationShared:    true,
+		},
 	}
 	if err := ebsManagedDaemon.SetMountPoints(ebsMounts); err != nil {
 		return nil, fmt.Errorf("Unable to import EBS ManagedDaemon: %s", err)
