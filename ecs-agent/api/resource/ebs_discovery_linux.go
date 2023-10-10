@@ -23,8 +23,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 // LsblkOutput is used to manage and track the output of `lsblk`
