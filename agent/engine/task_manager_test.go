@@ -44,15 +44,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/golang/mock/gomock"
 )
@@ -2226,4 +2230,158 @@ func TestTaskWaitForHostResources(t *testing.T) {
 	// Verify arn2 got dequeued
 	topTask, err = taskEngine.topTask()
 	assert.Error(t, err)
+}
+
+func TestUnstageVolumesHappy(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	mtask := &managedTask{
+		Task: &apitask.Task{
+			ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Volumes: []apitask.TaskVolume{
+				{
+					Name: taskresourcevolume.TestVolumeName,
+					Type: apiresource.EBSTaskAttach,
+					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+						VolumeId:             taskresourcevolume.TestVolumeId,
+						VolumeName:           taskresourcevolume.TestVolumeId,
+						VolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+						SourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+						DeviceName:           taskresourcevolume.TestDeviceName,
+						FileSystem:           taskresourcevolume.TestFileSystem,
+					},
+				},
+			},
+		},
+		ctx:                      ctx,
+		resourceStateChangeEvent: make(chan resourceStateChange),
+	}
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil).MinTimes(1)
+
+	errors := mtask.UnstageVolumes(mockCsiClient)
+
+	assert.Len(t, errors, 0)
+}
+
+func TestUnstageVolumesUnhappy(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	mtask := &managedTask{
+		Task: &apitask.Task{
+			ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Volumes: []apitask.TaskVolume{
+				{
+					Name: taskresourcevolume.TestVolumeName,
+					Type: apiresource.EBSTaskAttach,
+					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+						VolumeId:             taskresourcevolume.TestVolumeId,
+						VolumeName:           taskresourcevolume.TestVolumeId,
+						VolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+						SourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+						DeviceName:           taskresourcevolume.TestDeviceName,
+						FileSystem:           taskresourcevolume.TestFileSystem,
+					},
+				},
+			},
+		},
+		ctx:                      ctx,
+		resourceStateChangeEvent: make(chan resourceStateChange),
+	}
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(errors.New("err")).MinTimes(1)
+
+	errors := mtask.UnstageVolumes(mockCsiClient)
+
+	assert.Len(t, errors, 1)
+}
+
+func TestUnstageVolumesNoTimeoutError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	mtask := &managedTask{
+		Task: &apitask.Task{
+			ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Volumes: []apitask.TaskVolume{
+				{
+					Name: taskresourcevolume.TestVolumeName,
+					Type: apiresource.EBSTaskAttach,
+					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+						VolumeId:             taskresourcevolume.TestVolumeId,
+						VolumeName:           taskresourcevolume.TestVolumeId,
+						VolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+						SourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+						DeviceName:           taskresourcevolume.TestDeviceName,
+						FileSystem:           taskresourcevolume.TestFileSystem,
+					},
+				},
+			},
+		},
+		ctx:                      ctx,
+		resourceStateChangeEvent: make(chan resourceStateChange),
+	}
+
+	timeoutctx, timeoutcancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer timeoutcancel()
+
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Do(func(ctx context.Context, volID, hostPath string) {
+		time.Sleep(5 * time.Millisecond)
+	}).Return(nil).MinTimes(1)
+
+	errors := mtask.UnstageVolumes(mockCsiClient)
+
+	require.NoError(t, timeoutctx.Err())
+	assert.Len(t, errors, 0)
+}
+
+func TestUnstageVolumesTimeoutError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	mtask := &managedTask{
+		Task: &apitask.Task{
+			ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Volumes: []apitask.TaskVolume{
+				{
+					Name: taskresourcevolume.TestVolumeName,
+					Type: apiresource.EBSTaskAttach,
+					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+						VolumeId:             taskresourcevolume.TestVolumeId,
+						VolumeName:           taskresourcevolume.TestVolumeId,
+						VolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+						SourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+						DeviceName:           taskresourcevolume.TestDeviceName,
+						FileSystem:           taskresourcevolume.TestFileSystem,
+					},
+				},
+			},
+		},
+		ctx:                      ctx,
+		resourceStateChangeEvent: make(chan resourceStateChange),
+	}
+
+	timeoutctx, timeoutcancel := context.WithTimeout(ctx, 5*time.Millisecond)
+	defer timeoutcancel()
+
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Do(func(ctx context.Context, volID, hostPath string) {
+		time.Sleep(50 * time.Millisecond)
+	}).Return(fmt.Errorf("rpc error: code = DeadlineExceeded desc = context deadline exceeded")).MinTimes(1)
+
+	errors := mtask.UnstageVolumes(mockCsiClient)
+
+	require.Error(t, timeoutctx.Err())
+	assert.Len(t, errors, 1)
 }

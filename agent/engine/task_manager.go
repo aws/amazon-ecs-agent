@@ -259,10 +259,8 @@ func (mtask *managedTask) overseeTask() {
 
 	if mtask.Task.IsEBSTaskAttachEnabled() {
 		csiClient := csiclient.NewCSIClient(filepath.Join(csiclient.DefaultSocketHostPath, csiclient.DefaultImageName, csiclient.DefaultSocketName))
-		err := mtask.UnstageVolumes(&csiClient)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Unable to unstage volumes: %v", err))
-		}
+		// Note: We only care about the return value for UnstageVolumes in our unit tests.
+		mtask.UnstageVolumes(&csiClient)
 	}
 
 	mtask.cleanupTask(retry.AddJitter(mtask.cfg.TaskCleanupWaitDuration, mtask.cfg.TaskCleanupWaitDurationJitter))
@@ -1574,10 +1572,12 @@ func (mtask *managedTask) waitForStopReported() bool {
 }
 
 // TODO: Add unit test for UnstageVolumes in the near future
-func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) error {
+func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) []error {
+	errors := make([]error, 0)
 	task := mtask.Task
 	if task == nil {
-		return fmt.Errorf("managed task is nil")
+		errors = append(errors, fmt.Errorf("managed task is nil"))
+		return errors
 	}
 	if !task.IsEBSTaskAttachEnabled() {
 		logger.Debug("Task is not EBS-backed. Skip NodeUnstageVolume.")
@@ -1595,11 +1595,12 @@ func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) error {
 					"Task":  task.String(),
 					"Error": err,
 				})
+				errors = append(errors, fmt.Errorf("unable to unstage volume for task %s; error: %v", task.String(), err))
 				continue
 			}
 		}
 	}
-	return nil
+	return errors
 }
 
 func (mtask *managedTask) unstageVolumeWithTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {

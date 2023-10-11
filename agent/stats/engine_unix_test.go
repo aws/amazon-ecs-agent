@@ -18,7 +18,10 @@ package stats
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -30,12 +33,14 @@ import (
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
+	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
@@ -172,8 +177,7 @@ func TestServiceConnectWithDisabledMetrics(t *testing.T) {
 	assert.Len(t, engine.taskToServiceConnectStats, 1)
 }
 
-// TODO: Add a unhappy case in the near future
-func TestFetchEBSVolumeMetrics(t *testing.T) {
+func TestFetchEBSVolumeMetricsHappy(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
@@ -207,7 +211,13 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.client = mockDockerClient
-	engine.csiClient = csiclient.NewDummyCSIClient()
+
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(&csiclient.Metrics{
+		Used:     15 * 1024 * 1024 * 1024,
+		Capacity: 20 * 1024 * 1024 * 1024,
+	}, nil).MinTimes(1)
+	engine.csiClient = mockCsiClient
 
 	expectedUsedBytes := aws.Float64(15 * 1024 * 1024 * 1024)
 	expectedTotalBytes := aws.Float64(20 * 1024 * 1024 * 1024)
@@ -234,4 +244,171 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 
 	assert.Len(t, actualMetrics, 1)
 	assert.Equal(t, actualMetrics, expectedMetrics)
+}
+
+func TestFetchEBSVolumeMetricsUnhappy(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+	t1 := &apitask.Task{
+		Arn: "t1",
+		Volumes: []apitask.TaskVolume{
+			{
+				Name: "1",
+				Type: apiresource.EBSTaskAttach,
+				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+					VolumeId:             "vol-12345",
+					VolumeName:           "test-volume",
+					VolumeSizeGib:        "10",
+					SourceVolumeHostPath: "taskarn_vol-12345",
+					DeviceName:           "/dev/nvme1n1",
+					FileSystem:           "ext4",
+				},
+			},
+		},
+	}
+
+	resolver.EXPECT().ResolveTaskByARN("t1").AnyTimes().Return(t1, nil)
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.resolver = resolver
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+	engine.client = mockDockerClient
+
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil, errors.New("err")).MinTimes(1)
+	engine.csiClient = mockCsiClient
+
+	actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+
+	assert.Len(t, actualMetrics, 0)
+}
+
+func TestFetchEBSVolumeMetricsNoTimeoutError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+	t1 := &apitask.Task{
+		Arn: "t1",
+		Volumes: []apitask.TaskVolume{
+			{
+				Name: "1",
+				Type: apiresource.EBSTaskAttach,
+				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+					VolumeId:             "vol-12345",
+					VolumeName:           "test-volume",
+					VolumeSizeGib:        "10",
+					SourceVolumeHostPath: "taskarn_vol-12345",
+					DeviceName:           "/dev/nvme1n1",
+					FileSystem:           "ext4",
+				},
+			},
+		},
+	}
+
+	resolver.EXPECT().ResolveTaskByARN("t1").AnyTimes().Return(t1, nil)
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.resolver = resolver
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+	engine.client = mockDockerClient
+
+	timeoutctx, timeoutcancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer timeoutcancel()
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	mockCsiClient.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Do(func(ctx context.Context, volID, hostPath string) {
+		time.Sleep(5 * time.Millisecond)
+	}).Return(&csiclient.Metrics{
+		Used:     15 * 1024 * 1024 * 1024,
+		Capacity: 20 * 1024 * 1024 * 1024,
+	}, nil).MinTimes(1)
+	engine.csiClient = mockCsiClient
+
+	expectedUsedBytes := aws.Float64(15 * 1024 * 1024 * 1024)
+	expectedTotalBytes := aws.Float64(20 * 1024 * 1024 * 1024)
+	expectedMetrics := []*ecstcs.VolumeMetric{
+		{
+			VolumeId:   aws.String("vol-12345"),
+			VolumeName: aws.String("test-volume"),
+			Utilized: &ecstcs.UDoubleCWStatsSet{
+				Max:         expectedUsedBytes,
+				Min:         expectedUsedBytes,
+				SampleCount: aws.Int64(1),
+				Sum:         expectedUsedBytes,
+			},
+			Size: &ecstcs.UDoubleCWStatsSet{
+				Max:         expectedTotalBytes,
+				Min:         expectedTotalBytes,
+				SampleCount: aws.Int64(1),
+				Sum:         expectedTotalBytes,
+			},
+		},
+	}
+
+	actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+
+	require.NoError(t, timeoutctx.Err())
+	assert.Len(t, actualMetrics, 1)
+	assert.Equal(t, actualMetrics, expectedMetrics)
+}
+
+func TestFetchEBSVolumeMetricsTimeoutError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+	t1 := &apitask.Task{
+		Arn: "t1",
+		Volumes: []apitask.TaskVolume{
+			{
+				Name: "1",
+				Type: apiresource.EBSTaskAttach,
+				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+					VolumeId:             "vol-12345",
+					VolumeName:           "test-volume",
+					VolumeSizeGib:        "10",
+					SourceVolumeHostPath: "taskarn_vol-12345",
+					DeviceName:           "/dev/nvme1n1",
+					FileSystem:           "ext4",
+				},
+			},
+		},
+	}
+
+	resolver.EXPECT().ResolveTaskByARN("t1").AnyTimes().Return(t1, nil)
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.resolver = resolver
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+	engine.client = mockDockerClient
+
+	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+	engine.csiClient = mockCsiClient
+	timeoutctx, timeoutcancel := context.WithTimeout(ctx, 5*time.Millisecond)
+	defer timeoutcancel()
+	mockCsiClient.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Do(func(ctx context.Context, volID, hostPath string) {
+		time.Sleep(50 * time.Millisecond)
+	}).Return(nil, fmt.Errorf("rpc error: code = DeadlineExceeded desc = context deadline exceeded")).MinTimes(1)
+
+	actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+
+	require.Error(t, timeoutctx.Err())
+	assert.Len(t, actualMetrics, 0)
 }

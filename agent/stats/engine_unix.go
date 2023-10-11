@@ -57,10 +57,7 @@ func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.V
 func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskArn string) []*ecstcs.VolumeMetric {
 	var metrics []*ecstcs.VolumeMetric
 	for _, tv := range task.Volumes {
-		// TODO: Include Getters within the TaskVolume interface so that we don't need to have these type casts.
-		// (i.e. getVolumeId())
-		switch tv.Volume.(type) {
-		case *taskresourcevolume.EBSTaskVolumeConfig:
+		if tv.Volume.GetType() == taskresourcevolume.EBSVolumeType {
 			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
 			volumeId := ebsCfg.VolumeId
 			hostPath := ebsCfg.Source()
@@ -91,8 +88,6 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 					Sum:         totalBytes,
 				},
 			})
-		default:
-			continue
 		}
 	}
 	return metrics

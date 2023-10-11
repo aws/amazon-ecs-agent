@@ -17,6 +17,7 @@ package volume
 // docker volume mount
 type Volume interface {
 	Source() string
+	GetType() string
 }
 
 // FSHostVolume is a simple type of HostVolume which references an arbitrary
@@ -30,6 +31,10 @@ func (fs *FSHostVolume) Source() string {
 	return fs.FSSourcePath
 }
 
+func (fs *FSHostVolume) GetType() string {
+	return FSHostVolumeType
+}
+
 // LocalDockerVolume represents a volume without a specified host path
 // This is essentially DockerVolume with only the name specified; however,
 // for backward compatibility we can't directly map to DockerVolume.
@@ -40,4 +45,8 @@ type LocalDockerVolume struct {
 // SourcePath returns the generated host path for the volume
 func (e *LocalDockerVolume) Source() string {
 	return e.HostPath
+}
+
+func (e *LocalDockerVolume) GetType() string {
+	return DockerLocalVolumeDriver
 }

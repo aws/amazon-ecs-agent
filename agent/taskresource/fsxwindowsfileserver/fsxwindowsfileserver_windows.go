@@ -293,6 +293,10 @@ func (cfg *FSxWindowsFileServerVolumeConfig) Source() string {
 	return utils.GetCanonicalPath(cfg.HostPath)
 }
 
+func (cfg *FSxWindowsFileServerVolumeConfig) GetType() string {
+	return "fsx"
+}
+
 // GetName safely returns the name of the fsxwindowsfileserver resource
 func (fv *FSxWindowsFileServerResource) GetName() string {
 	fv.lock.RLock()
