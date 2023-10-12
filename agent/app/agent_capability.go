@@ -80,7 +80,7 @@ const (
 	capabilityExternal                                     = "external"
 	capabilityServiceConnect                               = "service-connect-v1"
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
-	capabilityEBSTaskAttach                                = "storage.ebs-volume"
+	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
