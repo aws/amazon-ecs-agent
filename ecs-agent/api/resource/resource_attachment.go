@@ -325,3 +325,19 @@ func (ra *ResourceAttachment) GetContainerInstanceARN() string {
 
 	return ra.ContainerInstanceARN
 }
+
+// should attach when not attached, and not sent/not expired
+func (ra *ResourceAttachment) ShouldAttach() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return !(ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+}
+
+// should notify when attached, and not sent/not expired
+func (ra *ResourceAttachment) ShouldNotify() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return (ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+}
