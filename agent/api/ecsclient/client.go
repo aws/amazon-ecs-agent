@@ -25,12 +25,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
@@ -77,21 +78,21 @@ type APIECSClient struct {
 // NewECSClient creates a new ECSClient interface object
 func NewECSClient(
 	credentialProvider *credentials.Credentials,
-	config *config.Config,
+	cfg *config.Config,
 	ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
 
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
-	ecsConfig.Region = &config.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, config.AcceptInsecureCert)
-	if config.APIEndpoint != "" {
-		ecsConfig.Endpoint = &config.APIEndpoint
+	ecsConfig.Region = &cfg.AWSRegion
+	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, cfg.AcceptInsecureCert, agentversion.String(), config.OSType)
+	if cfg.APIEndpoint != "" {
+		ecsConfig.Endpoint = &cfg.APIEndpoint
 	}
 	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
 	return &APIECSClient{
 		credentialProvider:      credentialProvider,
-		config:                  config,
+		config:                  cfg,
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,

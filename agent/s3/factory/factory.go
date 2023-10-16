@@ -16,9 +16,11 @@ package factory
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	s3client "github.com/aws/amazon-ecs-agent/agent/s3"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
@@ -50,7 +52,7 @@ type s3ClientCreator struct{}
 func (*s3ClientCreator) NewS3ManagerClient(bucket, region string,
 	creds credentials.IAMRoleCredentials) (s3client.S3ManagerClient, error) {
 	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
 		WithCredentials(
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
 				creds.SessionToken)).WithRegion(region)
@@ -68,7 +70,7 @@ func (*s3ClientCreator) NewS3ManagerClient(bucket, region string,
 func (*s3ClientCreator) NewS3Client(bucket, region string,
 	creds credentials.IAMRoleCredentials) (s3client.S3Client, error) {
 	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
 		WithCredentials(
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
 				creds.SessionToken)).WithRegion(region)

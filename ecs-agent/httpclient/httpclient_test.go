@@ -27,8 +27,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	agentVersionStr = "Amazon ECS Agent - v0.0.0 (fffffff)"
+	osType          = "linux"
+)
+
 func TestNewHttpClient(t *testing.T) {
-	expectedResult := New(time.Duration(10), true)
+	expectedResult := New(time.Duration(10), true, agentVersionStr, osType)
 	transport := expectedResult.Transport.(*ecsRoundTripper)
 	assert.Equal(t, cipher.SupportedCipherSuites, transport.transport.(*http.Transport).TLSClientConfig.CipherSuites)
 	assert.Equal(t, true, transport.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify)
@@ -40,7 +45,7 @@ func TestNewHttpClientProxy(t *testing.T) {
 	os.Setenv("HTTP_PROXY", proxy_url)
 	defer os.Unsetenv("HTTP_PROXY")
 
-	client := New(time.Duration(10*time.Second), true)
+	client := New(time.Duration(10*time.Second), true, agentVersionStr, osType)
 	_, err := client.Get("http://www.amazon.com")
 	// Client won't be able to connect because we have given a arbitrary proxy
 	assert.Error(t, err)
