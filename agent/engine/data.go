@@ -40,6 +40,10 @@ func (engine *DockerTaskEngine) LoadState() error {
 		return err
 	}
 
+	if err := engine.loadResourceAttachments(); err != nil {
+		return err
+	}
+
 	return engine.loadENIAttachments()
 }
 
@@ -115,6 +119,17 @@ func (engine *DockerTaskEngine) loadImageStates() error {
 
 	for _, image := range images {
 		engine.state.AddImageState(image)
+	}
+	return nil
+}
+
+func (engine *DockerTaskEngine) loadResourceAttachments() error {
+	resAttachments, err := engine.dataClient.GetResourceAttachments()
+	if err != nil {
+		return err
+	}
+	for _, resAttachment := range resAttachments {
+		engine.state.AddEBSAttachment(resAttachment)
 	}
 	return nil
 }
@@ -236,7 +251,7 @@ func (engine *DockerTaskEngine) removeENIAttachmentData(mac string) {
 		seelog.Warnf("Unable to retrieve ENI Attachment for mac address %s: ", mac)
 		return
 	}
-	attachmentId, err := utils.GetENIAttachmentId(attachmentToRemove.AttachmentARN)
+	attachmentId, err := utils.GetAttachmentId(attachmentToRemove.AttachmentARN)
 	if err != nil {
 		seelog.Errorf("Failed to get attachment id for %s: %v", attachmentToRemove.AttachmentARN, err)
 	} else {

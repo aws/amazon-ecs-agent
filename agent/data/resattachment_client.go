@@ -17,42 +17,42 @@ import (
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
 
-func (c *client) SaveENIAttachment(eni *ni.ENIAttachment) error {
-	id, err := utils.GetAttachmentId(eni.AttachmentARN)
+func (c *client) SaveResourceAttachment(res *resource.ResourceAttachment) error {
+	id, err := utils.GetAttachmentId(res.AttachmentARN)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
 	return c.DB.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(eniAttachmentsBucketName))
-		return c.Accessor.PutObject(b, id, eni)
+		b := tx.Bucket([]byte(resAttachmentsBucketName))
+		return c.Accessor.PutObject(b, id, res)
 	})
 }
 
-func (c *client) DeleteENIAttachment(id string) error {
+func (c *client) DeleteResourceAttachment(id string) error {
 	return c.DB.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(eniAttachmentsBucketName))
+		b := tx.Bucket([]byte(resAttachmentsBucketName))
 		return b.Delete([]byte(id))
 	})
 }
 
-func (c *client) GetENIAttachments() ([]*ni.ENIAttachment, error) {
-	var eniAttachments []*ni.ENIAttachment
+func (c *client) GetResourceAttachments() ([]*resource.ResourceAttachment, error) {
+	var resAttachments []*resource.ResourceAttachment
 	err := c.DB.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(eniAttachmentsBucketName))
+		bucket := tx.Bucket([]byte(resAttachmentsBucketName))
 		return c.Accessor.Walk(bucket, func(id string, data []byte) error {
-			eniAttachment := ni.ENIAttachment{}
-			if err := json.Unmarshal(data, &eniAttachment); err != nil {
+			resAttachment := resource.ResourceAttachment{}
+			if err := json.Unmarshal(data, &resAttachment); err != nil {
 				return err
 			}
-			eniAttachments = append(eniAttachments, &eniAttachment)
+			resAttachments = append(resAttachments, &resAttachment)
 			return nil
 		})
 	})
-	return eniAttachments, err
+	return resAttachments, err
 }

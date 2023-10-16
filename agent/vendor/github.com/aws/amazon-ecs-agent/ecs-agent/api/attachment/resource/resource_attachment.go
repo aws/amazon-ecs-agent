@@ -19,14 +19,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 )
 
 type ResourceAttachment struct {
-	attachmentinfo.AttachmentInfo
+	attachment.AttachmentInfo
 	// AttachmentType is the type of the resource attachment which can be "amazonebs" for EBS attach tasks.
 	AttachmentType string `json:"AttachmentType,omitempty"`
 	// AttachmentProperties is a map storing (name, value) representation of attachment properties.
@@ -215,7 +214,7 @@ func (ra *ResourceAttachment) IsAttached() bool {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
 
-	return ra.Status == status.AttachmentAttached
+	return ra.Status == attachment.AttachmentAttached
 }
 
 // SetAttachedStatus marks the resouce attachment as attached once it's been found on the host
@@ -223,7 +222,7 @@ func (ra *ResourceAttachment) SetAttachedStatus() {
 	ra.guard.Lock()
 	defer ra.guard.Unlock()
 
-	ra.Status = status.AttachmentAttached
+	ra.Status = attachment.AttachmentAttached
 }
 
 // StopAckTimer stops the ack timer set on the resource attachment
@@ -254,7 +253,6 @@ func (ra *ResourceAttachment) SetError(err error) {
 func (ra *ResourceAttachment) GetError() error {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.err
 }
 
@@ -262,7 +260,6 @@ func (ra *ResourceAttachment) GetError() error {
 func (ra *ResourceAttachment) EBSToString() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.ebsToStringUnsafe()
 }
 
@@ -287,42 +284,42 @@ func (ra *ResourceAttachment) GetAttachmentProperties(key string) string {
 func (ra *ResourceAttachment) GetAttachmentType() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.AttachmentType
 }
 
 func (ra *ResourceAttachment) SetDeviceName(deviceName string) {
 	ra.guard.Lock()
 	defer ra.guard.Unlock()
-
 	ra.AttachmentProperties[DeviceNameKey] = deviceName
 }
 
 func (ra *ResourceAttachment) GetAttachmentARN() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.AttachmentARN
+}
+
+func (ra *ResourceAttachment) GetStatus() attachment.AttachmentStatus {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	return ra.Status
 }
 
 func (ra *ResourceAttachment) GetExpiresAt() time.Time {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.ExpiresAt
 }
 
 func (ra *ResourceAttachment) GetClusterARN() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.ClusterARN
 }
 
 func (ra *ResourceAttachment) GetContainerInstanceARN() string {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
 	return ra.ContainerInstanceARN
 }
 
@@ -330,14 +327,31 @@ func (ra *ResourceAttachment) GetContainerInstanceARN() string {
 func (ra *ResourceAttachment) ShouldAttach() bool {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
-
-	return !(ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+	return !(ra.Status == attachment.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
 }
 
 // should notify when attached, and not sent/not expired
 func (ra *ResourceAttachment) ShouldNotify() bool {
 	ra.guard.RLock()
 	defer ra.guard.RUnlock()
+	return (ra.Status == attachment.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+}
 
-	return (ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+func (ra *ResourceAttachment) String() string {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	return ra.stringUnsafe()
+}
+
+func (ra *ResourceAttachment) GetAttachmentStatus() attachment.AttachmentStatus {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+	return ra.Status
+}
+
+// stringUnsafe returns a string representation of the ENI Attachment
+func (ra *ResourceAttachment) stringUnsafe() string {
+	return fmt.Sprintf(
+		"Resource Attachment: attachment=%s attachmentType=%s attachmentSent=%t status=%s expiresAt=%s",
+		ra.AttachmentARN, ra.AttachmentType, ra.AttachStatusSent, ra.Status.String(), ra.ExpiresAt.Format(time.RFC3339))
 }

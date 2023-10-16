@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	taskresourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

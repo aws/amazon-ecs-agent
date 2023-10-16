@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +62,7 @@ func TestFinalSave(t *testing.T) {
 	}
 
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachmentARN:    eniAttachmentArn,
 			AttachStatusSent: false,

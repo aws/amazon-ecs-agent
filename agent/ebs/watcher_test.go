@@ -28,10 +28,9 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-	mock_ebs_discovery "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	mock_ebs_discovery "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/golang/mock/gomock"
@@ -84,12 +83,12 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties,
@@ -153,12 +152,12 @@ func TestHandleExpiredEBSAttachment(t *testing.T) {
 
 	expiresAt := time.Now().Add(-1 * time.Millisecond)
 	ebsAttachment := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties,
@@ -199,12 +198,12 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 	}
 
 	ebsAttachment1 := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties1,
@@ -221,12 +220,12 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 	}
 
 	ebsAttachment2 := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties2,
@@ -290,12 +289,12 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties,
@@ -336,12 +335,12 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties,
@@ -382,12 +381,12 @@ func TestHandleMismatchEBSAttachment(t *testing.T) {
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			TaskClusterARN:       taskClusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 			ExpiresAt:            expiresAt,
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			AttachmentARN:        resourceAttachmentARN,
 		},
 		AttachmentProperties: testAttachmentProperties,

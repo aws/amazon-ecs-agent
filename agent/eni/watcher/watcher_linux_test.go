@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
-
 	"github.com/deniswernert/udev"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -87,7 +85,7 @@ func TestWatcherInit(t *testing.T) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 	taskEngineState.AddENIAttachment(&ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			AttachStatusSent: false,
 			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 		},
@@ -201,7 +199,6 @@ func TestReconcileENIs(t *testing.T) {
 	require.NoError(t, watcher.reconcileOnce(false))
 
 	<-done
-	assert.NotNil(t, event.(api.TaskStateChange).Attachment)
 	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
 
 	select {
@@ -238,7 +235,6 @@ func TestReconcileENIsWithRetry(t *testing.T) {
 	require.NoError(t, watcher.reconcileOnce(true))
 
 	<-done
-	require.NotNil(t, event.(api.TaskStateChange).Attachment)
 	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
 
 	select {
@@ -250,7 +246,7 @@ func TestReconcileENIsWithRetry(t *testing.T) {
 
 func getMockAttachment() *ni.ENIAttachment {
 	return &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			AttachStatusSent: false,
 			ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 		},
@@ -371,7 +367,7 @@ func TestUdevAddEvent(t *testing.T) {
 				},
 			}, nil),
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentInfo: attachment.AttachmentInfo{
 				ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
 			},
 		}, true),
@@ -386,7 +382,7 @@ func TestUdevAddEvent(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, status.AttachmentAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, attachment.AttachmentAttached, taskStateChange.Attachment.Status)
 
 	var waitForClose sync.WaitGroup
 	waitForClose.Add(2)

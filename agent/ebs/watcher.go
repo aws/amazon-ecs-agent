@@ -24,12 +24,9 @@ import (
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/api"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	attachmentinfo "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-	apiattachmentstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	apieni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	log "github.com/cihub/seelog"
 
 	v1 "k8s.io/api/core/v1"
@@ -249,7 +246,6 @@ func (w *EBSWatcher) notifyAttachedEBS(volumeId string) error {
 	if err := w.sendEBSStateChange(ebs); err != nil {
 		return fmt.Errorf("Unable to send state EBS change, %s", err)
 	}
-	ebs.SetSentStatus()
 	ebs.StopAckTimer()
 	log.Infof("We've set sent status for %v", ebs.EBSToString())
 	return nil
@@ -297,21 +293,8 @@ func (w *EBSWatcher) sendEBSStateChange(ebsvol *apiebs.ResourceAttachment) error
 }
 
 func (w *EBSWatcher) emitEBSAttachedEvent(ebsvol *apiebs.ResourceAttachment) {
-	attachmentInfo := attachmentinfo.AttachmentInfo{
-		AttachmentARN:        ebsvol.GetAttachmentARN(),
-		Status:               apiattachmentstatus.AttachmentAttached,
-		ExpiresAt:            ebsvol.GetExpiresAt(),
-		ClusterARN:           ebsvol.GetClusterARN(),
-		ContainerInstanceARN: ebsvol.GetContainerInstanceARN(),
-	}
-	eniWrapper := apieni.ENIAttachment{AttachmentInfo: attachmentInfo}
-	// TODO update separate out ENI and EBS attachment types in attachment
-	// handler.  For now we use fake task ENI with dummy fields
-	eniWrapper.AttachmentType = apieni.ENIAttachmentTypeTaskENI
-	eniWrapper.MACAddress = "ebs1"
-	eniWrapper.StartTimer(func() {})
 	attachmentChange := ecsapi.AttachmentStateChange{
-		Attachment: &eniWrapper,
+		Attachment: ebsvol,
 	}
 	log.Debugf("Emitting EBS volume attached event for: %v", ebsvol)
 	w.taskEngine.StateChangeEvents() <- attachmentChange

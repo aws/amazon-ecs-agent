@@ -186,12 +186,12 @@ func TestGetTaskID(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetENIAttachmentId(t *testing.T) {
+func TestGetAttachmentId(t *testing.T) {
 	attachmentArn := "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
-	id, err := GetENIAttachmentId(attachmentArn)
+	id, err := GetAttachmentId(attachmentArn)
 	require.NoError(t, err)
 	assert.Equal(t, "abc", id)
 
-	_, err = GetENIAttachmentId("invalid")
+	_, err = GetAttachmentId("invalid")
 	assert.Error(t, err)
 }
