@@ -32,6 +32,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/data
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
 github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
+github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
+github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
