@@ -126,7 +126,8 @@ func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment)
 	}
 
 	// start EBS CSI Driver Managed Daemon
-	if runningCsiTask := w.taskEngine.GetDaemonTask(md.EbsCsiDriver); runningCsiTask != nil {
+	// We want to avoid creating a new CSI driver task if there's already one that's not been stopped.
+	if runningCsiTask := w.taskEngine.GetDaemonTask(md.EbsCsiDriver); runningCsiTask != nil && !runningCsiTask.GetKnownStatus().Terminal() {
 		log.Debugf("engine ebs CSI driver is running with taskID: %v", runningCsiTask.GetID())
 	} else {
 		if ebsCsiDaemonManager, ok := w.taskEngine.GetDaemonManagers()[md.EbsCsiDriver]; ok {
@@ -191,7 +192,7 @@ func (w *EBSWatcher) stageVolumeEBS(volID, deviceName string) error {
 	}
 	attachmentMountPath := ebsAttachment.GetAttachmentProperties(apiebs.SourceVolumeHostPathKey)
 	hostPath := filepath.Join(hostMountDir, attachmentMountPath)
-	filesystemType := ebsAttachment.GetAttachmentProperties(apiebs.FileSystemTypeName)
+	filesystemType := ebsAttachment.GetAttachmentProperties(apiebs.FileSystemKey)
 	// CSI NodeStage stub required fields
 	stubSecrets := make(map[string]string)
 	stubVolumeContext := make(map[string]string)

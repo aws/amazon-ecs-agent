@@ -1508,3 +1508,16 @@ func (c *Container) GetContainerPortRangeMap() map[string]string {
 	defer c.lock.RUnlock()
 	return c.ContainerPortRangeMap
 }
+
+func (c *Container) IsManagedDaemonContainer() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.Type == ContainerManagedDaemon
+}
+
+func (c *Container) GetImageName() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	containerImage := strings.Split(c.Image, ":")[0]
+	return containerImage
+}

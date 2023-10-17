@@ -5278,3 +5278,105 @@ func TestRemoveVolumeIndexOutOfBounds(t *testing.T) {
 	task.RemoveVolume(-1)
 	assert.Equal(t, len(task.Volumes), 1)
 }
+
+func TestIsManagedDaemonTask(t *testing.T) {
+
+	testTask1 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+	}
+
+	testTask2 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage",
+			},
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        false,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+	}
+
+	testTask3 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskStopped,
+	}
+
+	testTask4 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskCreated,
+	}
+
+	testTask5 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskStopped,
+	}
+
+	testCases := []struct {
+		task            *Task
+		internal        bool
+		isManagedDaemon bool
+	}{
+		{
+			task:            testTask1,
+			internal:        true,
+			isManagedDaemon: true,
+		},
+		{
+			task:            testTask2,
+			internal:        false,
+			isManagedDaemon: false,
+		},
+		{
+			task:            testTask3,
+			internal:        true,
+			isManagedDaemon: false,
+		},
+		{
+			task:            testTask4,
+			internal:        true,
+			isManagedDaemon: true,
+		},
+		{
+			task:            testTask5,
+			internal:        true,
+			isManagedDaemon: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("IsManagedDaemonTask should return %t for %s", tc.isManagedDaemon, tc.task.String()),
+			func(t *testing.T) {
+				_, ok := tc.task.IsManagedDaemonTask()
+				assert.Equal(t, tc.isManagedDaemon, ok)
+			})
+	}
+}

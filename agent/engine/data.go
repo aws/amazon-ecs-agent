@@ -56,6 +56,12 @@ func (engine *DockerTaskEngine) loadTasks() error {
 	for _, task := range tasks {
 		engine.state.AddTask(task)
 
+		// TODO: Will need to clean up all of the STOPPED managed daemon tasks
+		md, ok := task.IsManagedDaemonTask()
+		if ok {
+			engine.SetDaemonTask(md, task)
+		}
+
 		// Populate ip <-> task mapping if task has a local ip. This mapping is needed for serving v2 task metadata.
 		if ip := task.GetLocalIPAddress(); ip != "" {
 			engine.state.AddTaskIPAddress(ip, task.Arn)

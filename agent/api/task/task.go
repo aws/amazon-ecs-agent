@@ -3687,3 +3687,32 @@ func (task *Task) HasActiveContainers() bool {
 	}
 	return false
 }
+
+// IsManagedDaemonTask will check if a task is a non-stopped managed daemon task
+// TODO: Somehow track this on a task level (i.e. obtain the managed daemon image name from task arn and then find the corresponding container with the image name)
+func (task *Task) IsManagedDaemonTask() (string, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	// We'll want to obtain the last known non-stopped managed daemon task to be saved into our task engine.
+	// There can be an edge case where the task hasn't been progressed to RUNNING yet.
+	if !task.IsInternal || task.KnownStatusUnsafe.Terminal() {
+		return "", false
+	}
+
+	for _, c := range task.Containers {
+		if c.IsManagedDaemonContainer() {
+			imageName := c.GetImageName()
+			return imageName, true
+		}
+	}
+	return "", false
+}
+
+func (task *Task) IsRunning() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+	taskStatus := task.KnownStatusUnsafe
+
+	return taskStatus == apitaskstatus.TaskRunning
+}
