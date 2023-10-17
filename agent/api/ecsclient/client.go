@@ -96,7 +96,7 @@ func NewECSClient(
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,
-		pollEndpointCache:       async.NewTTLCache(pollEndpointCacheTTL),
+		pollEndpointCache:       async.NewTTLCache(&async.TTL{Duration: pollEndpointCacheTTL}),
 	}
 }
 
