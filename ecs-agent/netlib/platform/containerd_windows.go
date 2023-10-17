@@ -59,7 +59,7 @@ func (c *containerd) GetNetNSPath(netNSName string) string {
 	return ""
 }
 
-func (c *containerd) ConfigureInterface(ctx context.Context, netNSName string, iface *networkinterface.NetworkInterface) error {
+func (c *containerd) ConfigureInterface(ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error {
 	return nil
 }
 

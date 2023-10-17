@@ -159,6 +159,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
+
 	// If task payload has only one interface, the network configuration is
 	// straight forward. It will have only one network namespace containing
 	// the corresponding network interface.
@@ -167,7 +168,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	// utilized by certain internal teams like EKS on Fargate.
 	if len(taskPayload.ElasticNetworkInterfaces) == 1 ||
 		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" {
-		primaryNetNS, err := c.buildSingleNSNetConfig(taskID,
+		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
 			taskPayload.ElasticNetworkInterfaces,
 			taskPayload.ProxyConfiguration)
@@ -221,7 +222,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 			continue
 		}
 
-		netNS, err := c.buildSingleNSNetConfig(taskID, nsIndex, ifaces, nil)
+		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +233,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	return netNSs, nil
 }
 
-func (c *common) buildSingleNSNetConfig(
+func (c *common) buildNetNS(
 	taskID string,
 	index int,
 	networkInterfaces []*ecsacs.ElasticNetworkInterface,
@@ -388,7 +389,7 @@ func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkin
 func (c *common) copyNetworkConfigFilesToTask(netNSName string, configFiles []string) error {
 	for _, file := range configFiles {
 		source := filepath.Join(networkConfigFileDirectory, netNSName, file)
-		err := c.taskVolumeAccessor.CopyToVolume(source, file)
+		err := c.taskVolumeAccessor.CopyToVolume(source, file, networkConfigFileMode)
 		if err != nil {
 			return errors.Wrapf(err, "unable to populate %s for task", file)
 		}

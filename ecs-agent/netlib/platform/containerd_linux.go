@@ -44,8 +44,8 @@ func (c *containerd) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.Net
 }
 
 func (c *containerd) ConfigureInterface(
-	ctx context.Context, netNSName string, iface *networkinterface.NetworkInterface) error {
-	return c.common.configureInterface(ctx, netNSName, iface)
+	ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error {
+	return c.common.configureInterface(ctx, netNSPath, iface)
 }
 
 func (c *containerd) ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error {

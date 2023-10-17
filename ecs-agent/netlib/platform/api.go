@@ -49,7 +49,7 @@ type API interface {
 	// GetNetNSPath returns the path of a network namespace.
 	GetNetNSPath(netNSName string) string
 
-	ConfigureInterface(ctx context.Context, netNSName string, iface *networkinterface.NetworkInterface) error
+	ConfigureInterface(ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error
 
 	ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error
 

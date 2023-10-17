@@ -146,7 +146,7 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 			"NetNSName": netNS.Name,
 		}).Debug("Configuring interface")
 
-		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Name, iface)
+		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
 		if err != nil {
 			return err
 		}
