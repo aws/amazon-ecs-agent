@@ -1029,7 +1029,7 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
-	pollEndpointCache := async.NewTTLCache(10 * time.Minute)
+	pollEndpointCache := async.NewTTLCache(&async.TTL{Duration: 10 * time.Minute})
 	client := &APIECSClient{
 		credentialProvider: credentials.AnonymousCredentials,
 		config: &config.Config{
