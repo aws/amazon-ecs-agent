@@ -1,4 +1,10 @@
 # Changelog
+
+## 1.78.0
+* Feature - Add AppArmor support. [#3941](https://github.com/aws/amazon-ecs-agent/pull/3941)
+* Enhancement - Update SSM Agent version to 3.2.1630.0 for ECS exec. [#3952](https://github.com/aws/amazon-ecs-agent/pull/3952)
+* Bugfix - fixing an edge case for 'START' container dependency. [#3927](https://github.com/aws/amazon-ecs-agent/pull/3927)
+
 ## 1.77.0
 * Feature - ECS_TASK_PIDS_LIMIT for setting the task-level PIDs limit. [#3923](https://github.com/aws/amazon-ecs-agent/pull/3923)
 * Enhancement - Add interface for csi client [#3899](https://github.com/aws/amazon-ecs-agent/pull/3899)

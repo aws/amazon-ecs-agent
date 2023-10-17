@@ -74,6 +74,16 @@ const (
 	FileSystemKey           = "fileSystem"
 )
 
+var (
+	allowedFSTypes = map[string]bool{
+		"xfs":  true,
+		"ext2": true,
+		"ext3": true,
+		"ext4": true,
+		"ntfs": true,
+	}
+)
+
 // getCommonProperties returns the common properties as used for validating a resource.
 func getCommonProperties() (commonProperties []string) {
 	commonProperties = []string{
@@ -314,4 +324,20 @@ func (ra *ResourceAttachment) GetContainerInstanceARN() string {
 	defer ra.guard.RUnlock()
 
 	return ra.ContainerInstanceARN
+}
+
+// should attach when not attached, and not sent/not expired
+func (ra *ResourceAttachment) ShouldAttach() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return !(ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
+}
+
+// should notify when attached, and not sent/not expired
+func (ra *ResourceAttachment) ShouldNotify() bool {
+	ra.guard.RLock()
+	defer ra.guard.RUnlock()
+
+	return (ra.Status == status.AttachmentAttached) && !ra.AttachStatusSent && !(time.Now().After(ra.ExpiresAt))
 }

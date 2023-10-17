@@ -23,37 +23,37 @@ import (
 // can be stubbed out for unit testing your code with the SDK without needing
 // to inject custom request handlers into the SDK's request pipeline.
 //
-//    // myFunc uses an SDK service client to make a request to
-//    // AWS Secrets Manager.
-//    func myFunc(svc secretsmanageriface.SecretsManagerAPI) bool {
-//        // Make svc.CancelRotateSecret request
-//    }
+//	// myFunc uses an SDK service client to make a request to
+//	// AWS Secrets Manager.
+//	func myFunc(svc secretsmanageriface.SecretsManagerAPI) bool {
+//	    // Make svc.CancelRotateSecret request
+//	}
 //
-//    func main() {
-//        sess := session.New()
-//        svc := secretsmanager.New(sess)
+//	func main() {
+//	    sess := session.New()
+//	    svc := secretsmanager.New(sess)
 //
-//        myFunc(svc)
-//    }
+//	    myFunc(svc)
+//	}
 //
 // In your _test.go file:
 //
-//    // Define a mock struct to be used in your unit tests of myFunc.
-//    type mockSecretsManagerClient struct {
-//        secretsmanageriface.SecretsManagerAPI
-//    }
-//    func (m *mockSecretsManagerClient) CancelRotateSecret(input *secretsmanager.CancelRotateSecretInput) (*secretsmanager.CancelRotateSecretOutput, error) {
-//        // mock response/functionality
-//    }
+//	// Define a mock struct to be used in your unit tests of myFunc.
+//	type mockSecretsManagerClient struct {
+//	    secretsmanageriface.SecretsManagerAPI
+//	}
+//	func (m *mockSecretsManagerClient) CancelRotateSecret(input *secretsmanager.CancelRotateSecretInput) (*secretsmanager.CancelRotateSecretOutput, error) {
+//	    // mock response/functionality
+//	}
 //
-//    func TestMyFunc(t *testing.T) {
-//        // Setup Test
-//        mockSvc := &mockSecretsManagerClient{}
+//	func TestMyFunc(t *testing.T) {
+//	    // Setup Test
+//	    mockSvc := &mockSecretsManagerClient{}
 //
-//        myfunc(mockSvc)
+//	    myfunc(mockSvc)
 //
-//        // Verify myFunc's functionality
-//    }
+//	    // Verify myFunc's functionality
+//	}
 //
 // It is important to note that this interface will have breaking changes
 // when the service model is updated and adds new API operations, paginators,
@@ -114,6 +114,14 @@ type SecretsManagerAPI interface {
 	PutSecretValueWithContext(aws.Context, *secretsmanager.PutSecretValueInput, ...request.Option) (*secretsmanager.PutSecretValueOutput, error)
 	PutSecretValueRequest(*secretsmanager.PutSecretValueInput) (*request.Request, *secretsmanager.PutSecretValueOutput)
 
+	RemoveRegionsFromReplication(*secretsmanager.RemoveRegionsFromReplicationInput) (*secretsmanager.RemoveRegionsFromReplicationOutput, error)
+	RemoveRegionsFromReplicationWithContext(aws.Context, *secretsmanager.RemoveRegionsFromReplicationInput, ...request.Option) (*secretsmanager.RemoveRegionsFromReplicationOutput, error)
+	RemoveRegionsFromReplicationRequest(*secretsmanager.RemoveRegionsFromReplicationInput) (*request.Request, *secretsmanager.RemoveRegionsFromReplicationOutput)
+
+	ReplicateSecretToRegions(*secretsmanager.ReplicateSecretToRegionsInput) (*secretsmanager.ReplicateSecretToRegionsOutput, error)
+	ReplicateSecretToRegionsWithContext(aws.Context, *secretsmanager.ReplicateSecretToRegionsInput, ...request.Option) (*secretsmanager.ReplicateSecretToRegionsOutput, error)
+	ReplicateSecretToRegionsRequest(*secretsmanager.ReplicateSecretToRegionsInput) (*request.Request, *secretsmanager.ReplicateSecretToRegionsOutput)
+
 	RestoreSecret(*secretsmanager.RestoreSecretInput) (*secretsmanager.RestoreSecretOutput, error)
 	RestoreSecretWithContext(aws.Context, *secretsmanager.RestoreSecretInput, ...request.Option) (*secretsmanager.RestoreSecretOutput, error)
 	RestoreSecretRequest(*secretsmanager.RestoreSecretInput) (*request.Request, *secretsmanager.RestoreSecretOutput)
@@ -121,6 +129,10 @@ type SecretsManagerAPI interface {
 	RotateSecret(*secretsmanager.RotateSecretInput) (*secretsmanager.RotateSecretOutput, error)
 	RotateSecretWithContext(aws.Context, *secretsmanager.RotateSecretInput, ...request.Option) (*secretsmanager.RotateSecretOutput, error)
 	RotateSecretRequest(*secretsmanager.RotateSecretInput) (*request.Request, *secretsmanager.RotateSecretOutput)
+
+	StopReplicationToReplica(*secretsmanager.StopReplicationToReplicaInput) (*secretsmanager.StopReplicationToReplicaOutput, error)
+	StopReplicationToReplicaWithContext(aws.Context, *secretsmanager.StopReplicationToReplicaInput, ...request.Option) (*secretsmanager.StopReplicationToReplicaOutput, error)
+	StopReplicationToReplicaRequest(*secretsmanager.StopReplicationToReplicaInput) (*request.Request, *secretsmanager.StopReplicationToReplicaOutput)
 
 	TagResource(*secretsmanager.TagResourceInput) (*secretsmanager.TagResourceOutput, error)
 	TagResourceWithContext(aws.Context, *secretsmanager.TagResourceInput, ...request.Option) (*secretsmanager.TagResourceOutput, error)

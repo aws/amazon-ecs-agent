@@ -300,7 +300,7 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachments() []*apiresource
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsUnsafe() []*apiresource.ResourceAttachment {
 	var pendingEBSAttachments []*apiresource.ResourceAttachment
 	for _, v := range state.ebsAttachments {
-		if !v.IsAttached() && !v.IsSent() {
+		if !v.IsAttached() || !v.IsSent() {
 			pendingEBSAttachments = append(pendingEBSAttachments, v)
 		}
 	}
@@ -319,7 +319,7 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachmentsWithKey() map[str
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsWithKeyUnsafe() map[string]*apiresource.ResourceAttachment {
 	pendingEBSAttachments := make(map[string]*apiresource.ResourceAttachment)
 	for k, v := range state.ebsAttachments {
-		if !v.IsAttached() && !v.IsSent() {
+		if !v.IsAttached() || !v.IsSent() {
 			pendingEBSAttachments[k] = v
 		}
 	}
@@ -334,7 +334,7 @@ func (state *DockerTaskEngineState) AddEBSAttachment(ebsAttachment *apiresource.
 	}
 	state.lock.Lock()
 	defer state.lock.Unlock()
-	volumeId := ebsAttachment.AttachmentProperties[apiresource.VolumeIdName]
+	volumeId := ebsAttachment.AttachmentProperties[apiresource.VolumeIdKey]
 	if _, ok := state.ebsAttachments[volumeId]; !ok {
 		state.ebsAttachments[volumeId] = ebsAttachment
 		seelog.Debugf("Successfully added EBS attachment: %v", ebsAttachment.EBSToString())

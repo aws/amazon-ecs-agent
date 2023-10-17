@@ -24,10 +24,10 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/async"
-	mock_async "github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
+	mock_async "github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"

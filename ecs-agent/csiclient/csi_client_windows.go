@@ -15,6 +15,12 @@
 // permissions and limitations under the License.
 package csiclient
 
+const (
+	DefaultImageName      = ""
+	DefaultSocketName     = ""
+	DefaultSocketHostPath = ""
+)
+
 func DefaultSocketFilePath() string {
 	return "unimplemented" // TODO: Windows implementation
 }

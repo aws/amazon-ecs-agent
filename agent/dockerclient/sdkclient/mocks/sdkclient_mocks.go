@@ -22,7 +22,6 @@ import (
 	context "context"
 	io "io"
 	reflect "reflect"
-	time "time"
 
 	types "github.com/docker/docker/api/types"
 	container "github.com/docker/docker/api/types/container"
@@ -72,10 +71,10 @@ func (mr *MockClientMockRecorder) ClientVersion() *gomock.Call {
 }
 
 // ContainerCreate mocks base method.
-func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.ContainerCreateCreatedBody, error) {
+func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.CreateResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerCreate", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(container.ContainerCreateCreatedBody)
+	ret0, _ := ret[0].(container.CreateResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -204,7 +203,7 @@ func (mr *MockClientMockRecorder) ContainerStats(arg0, arg1, arg2 interface{}) *
 }
 
 // ContainerStop mocks base method.
-func (m *MockClient) ContainerStop(arg0 context.Context, arg1 string, arg2 *time.Duration) error {
+func (m *MockClient) ContainerStop(arg0 context.Context, arg1 string, arg2 container.StopOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerStop", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -399,10 +398,10 @@ func (mr *MockClientMockRecorder) ServerVersion(arg0 interface{}) *gomock.Call {
 }
 
 // VolumeCreate mocks base method.
-func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 volume.VolumeCreateBody) (types.Volume, error) {
+func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 volume.CreateOptions) (volume.Volume, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VolumeCreate", arg0, arg1)
-	ret0, _ := ret[0].(types.Volume)
+	ret0, _ := ret[0].(volume.Volume)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -414,10 +413,10 @@ func (mr *MockClientMockRecorder) VolumeCreate(arg0, arg1 interface{}) *gomock.C
 }
 
 // VolumeInspect mocks base method.
-func (m *MockClient) VolumeInspect(arg0 context.Context, arg1 string) (types.Volume, error) {
+func (m *MockClient) VolumeInspect(arg0 context.Context, arg1 string) (volume.Volume, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VolumeInspect", arg0, arg1)
-	ret0, _ := ret[0].(types.Volume)
+	ret0, _ := ret[0].(volume.Volume)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

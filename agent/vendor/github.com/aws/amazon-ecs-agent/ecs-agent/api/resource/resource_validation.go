@@ -71,3 +71,12 @@ func ValidateRequiredProperties(actualProperties map[string]string, requiredProp
 	}
 	return nil
 }
+
+// For EBS-backed task attachment payload, the file system type is optional. If we do receive a file system type value,
+// we want to validate what we receive is one of the following types [xfs, ext2, ext3, ext4, ntfs].
+func ValidateFileSystemType(filesystemType string) error {
+	if filesystemType != "" && !allowedFSTypes[filesystemType] {
+		return errors.Errorf("invalid file system type: %s", filesystemType)
+	}
+	return nil
+}

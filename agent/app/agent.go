@@ -1041,7 +1041,7 @@ func (agent *ecsAgent) startACSSession(
 		taskComparer,
 		sequenceNumberAccessor,
 		taskStopper,
-		nil,
+		agent.ebsWatcher,
 		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
 	)
 	logger.Info("Beginning Polling for updates")

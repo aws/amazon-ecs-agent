@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -94,7 +95,10 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			defer cancel()
 
 			// Assign ContainerStop timeout to addressable variable
-			timeout := defaultDockerTimeoutSeconds
+			timeout := int(defaultDockerTimeoutSeconds)
+			containerOptions := dockercontainer.StopOptions{
+				Timeout: &timeout,
+			}
 
 			// Create a container to get the container id.
 			container, err := createGremlin(client, "default")
@@ -106,7 +110,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 
 			err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
 			require.NoError(t, err, "starting container failed")
-			defer client.ContainerStop(ctx, container.ID, &timeout)
+			defer client.ContainerStop(ctx, container.ID, containerOptions)
 
 			containerChangeEventStream := eventStream("TestStatsEngineWithServiceConnectMetrics")
 			taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
@@ -166,7 +170,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			require.True(t, scStats.sent, "expected service connect metrics sent flag to be set")
 			validateEmptyTaskHealthMetrics(t, engine)
 
-			err = client.ContainerStop(ctx, container.ID, &timeout)
+			err = client.ContainerStop(ctx, container.ID, containerOptions)
 			require.NoError(t, err, "stopping container failed")
 
 			err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
