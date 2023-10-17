@@ -19,6 +19,12 @@ const (
 	FirecrackerDebugPlatform = "ec2-debug-firecracker"
 	WarmpoolPlatform         = "warmpool"
 	FirecrackerPlatform      = "firecracker"
+
+	// indexHighValue is a placeholder value used while finding
+	// interface with lowest index in from the ACS payload.
+	// It is assigned 100 because it is an unrealistically high
+	// value for interface index.
+	indexHighValue = 100
 )
 
 // common will be embedded within every implementation of the platform API.
@@ -37,6 +43,7 @@ func NewPlatform(
 		nsUtil: nsUtil,
 	}
 
+	// TODO: implement remaining platforms - FoF, ECS on EC2.
 	switch platformString {
 	case WarmpoolPlatform:
 		return &containerd{
@@ -174,7 +181,7 @@ func (c *common) buildSingleNSNetConfig(
 	proxyConfig *ecsacs.ProxyConfiguration) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
-	lowestIdx := int64(10)
+	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
 		iface, err := networkinterface.New(ni, "", nil)
 		if err != nil {
@@ -187,7 +194,7 @@ func (c *common) buildSingleNSNetConfig(
 		ifaces = append(ifaces, iface)
 	}
 
-	primaryIF.Primary = true
+	primaryIF.Default = true
 	netNSName := networkinterface.NetNSName(taskID, primaryIF.Name)
 	netNSPath := c.GetNetNSPath(netNSName)
 

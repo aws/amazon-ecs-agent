@@ -55,7 +55,7 @@ func NewNetworkNamespace(
 // the network namespace.
 func (ns NetworkNamespace) GetPrimaryInterface() *networkinterface.NetworkInterface {
 	for _, ni := range ns.NetworkInterfaces {
-		if ni.Primary {
+		if ni.Default {
 			return ni
 		}
 	}

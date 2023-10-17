@@ -84,9 +84,9 @@ type NetworkInterface struct {
 	ipv4SubnetCIDRBlock    string
 	ipv6SubnetCIDRBlock    string
 
-	// Primary denotes whether the interface is responsible
+	// Default denotes whether the interface is responsible
 	// for handling default route within the netns it resides in.
-	Primary bool
+	Default bool
 
 	// guard protects access to fields of this struct.
 	guard sync.RWMutex
@@ -212,7 +212,7 @@ func (ni *NetworkInterface) GetPrimaryIPv4Address() string {
 	return primaryAddr
 }
 
-// GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the NetworkInsterface with
+// GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the NetworkInterface with
 // its subnet prefix length.
 func (ni *NetworkInterface) GetPrimaryIPv4AddressWithPrefixLength() string {
 	return ni.GetPrimaryIPv4Address() + "/" + ni.GetIPv4SubnetPrefixLength()
@@ -645,7 +645,7 @@ func vethPairFromACS(
 		nil
 }
 
-// NetNSName returns the netns name that the specified ENI will be attached to in a desired task.
+// NetNSName returns the netns name that the specified network interface will be attached to in a desired task.
 func NetNSName(taskID, eniName string) string {
 	return fmt.Sprintf("%s-%s", taskID, eniName)
 }

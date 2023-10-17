@@ -20,7 +20,14 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
+	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform)
+	nb := nbi.(*networkBuilder)
+	require.NoError(t, err)
+	require.NotNil(t, nb.platformAPI)
 
+	nbi, err = NewNetworkBuilder("invalid-platform")
+	require.Error(t, err)
+	require.Nil(t, nbi)
 }
 
 // TestNetworkBuilder_BuildTaskNetworkConfiguration verifies for all known use cases,
@@ -113,7 +120,7 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 
 	netIfs[0].Name = ifName1
 	netIfs[1].Name = ifName2
-	netIfs[1].Primary = true
+	netIfs[1].Default = true
 
 	taskPayload := &ecsacs.Task{
 		NetworkMode:              aws.String(ecs.NetworkModeAwsvpc),
@@ -238,7 +245,7 @@ func getTestInterfacesData() ([]*ecsacs.ElasticNetworkInterface, []networkinterf
 			PrivateDNSName:               dnsName,
 			InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
 			Index:                        int64(0),
-			Primary:                      true,
+			Default:                      true,
 			KnownStatus:                  status.NetworkNone,
 			DesiredStatus:                status.NetworkReadyPull,
 		},

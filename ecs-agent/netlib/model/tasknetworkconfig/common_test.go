@@ -35,12 +35,12 @@ func getTestNetworkInterfaces() []*ni.NetworkInterface {
 	return []*ni.NetworkInterface{
 		{
 			Name:    secondaryInterfaceName,
-			Primary: false,
+			Default: false,
 			Index:   1,
 		},
 		{
 			Name:    primaryInterfaceName,
-			Primary: true,
+			Default: true,
 			Index:   0,
 		},
 	}
