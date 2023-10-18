@@ -236,7 +236,8 @@ func setInstanceLevelDefault() string {
 
 func init() {
 	Config = &logConfig{
-		logfile:       os.Getenv(LOGFILE_ENV_VAR),
+		// logfile:       os.Getenv(LOGFILE_ENV_VAR),
+		logfile: "/var/log/ecs/ecs-agente.log"
 		driverLevel:   DEFAULT_LOGLEVEL,
 		instanceLevel: setInstanceLevelDefault(),
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
@@ -256,6 +257,10 @@ func InitSeelog() {
 	if err := seelog.RegisterCustomFormatter("EcsMsg", ecsMsgFormatter); err != nil {
 		seelog.Error(err)
 	}
+
+	seelog.Info(Config)
+	seelog.Info(Config.logfile)
+	seelog.Info("PRINTING SEELOG NOW")
 
 	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR), os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR))
 

@@ -138,6 +138,8 @@ func reloadConfig() {
 		seelog.Error(err)
 		return
 	}
+	seelog.Info("SEE LOG HERE")
+	seelog.Info(seelogConfig())
 	setGlobalLogger(logger, Config.outputFormat)
 }
 
