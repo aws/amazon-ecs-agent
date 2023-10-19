@@ -85,7 +85,8 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 //	 }
 //
 // If hasXenSupport is true then, in addition to matching a device by its serial, this function
-// matches a device by its name disregarding "sd" or "xvd" prefix (whichever is present).
+// matches devices by their names disregarding "sd" or "xvd" prefix if it exists in
+// device name in parseLsblkOutput and deviceName both.
 // This is because on Xen instances the device name received from upstream with "sd" or "xvd"
 // prefix might appear on the instance with the prefix interchanged, that is "xvd" instead of "sd"
 // and vice-versa.
@@ -109,7 +110,8 @@ func parseLsblkOutput(
 }
 
 // Matches a block device against a device name by matching the block device's name and
-// the device name after stripping "sd" or "xvd" prefixes (whichever is present) from both names.
+// the device name after stripping "sd" or "xvd" prefixes (whichever is present) from both names
+// if it is present in both names.
 func matchXenBlockDevice(block BlockDevice, deviceName string) (string, bool) {
 	if hasXenPrefix(block.Name) && hasXenPrefix(deviceName) {
 		if trimXenPrefix(block.Name) == trimXenPrefix(deviceName) {
