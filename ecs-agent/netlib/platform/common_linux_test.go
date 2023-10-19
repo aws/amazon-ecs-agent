@@ -117,7 +117,7 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 	iface := &networkinterface.NetworkInterface{
 		PrivateDNSName:    dnsName,
 		DomainNameServers: []string{nameServer, nameServer2},
-		Primary:           true,
+		Default:           true,
 		IPV4Addresses: []*networkinterface.IPV4Address{
 			{
 				Address: ipv4Addr,
@@ -234,7 +234,7 @@ func testRegularENIConfiguration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Non-primary ENI case.
-	eni.Primary = false
+	eni.Default = false
 	eniConfig = createENIPluginConfigs(netNSPath, eni)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),

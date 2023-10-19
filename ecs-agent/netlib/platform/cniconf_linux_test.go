@@ -103,7 +103,7 @@ func TestCreateENIConfig(t *testing.T) {
 	require.Equal(t, expected, actual)
 
 	// Non-primary interface case.
-	eni.Primary = false
+	eni.Default = false
 	eniConfig.StayDown = true
 
 	expected, err = json.Marshal(eniConfig)
@@ -165,7 +165,7 @@ func getTestRegularENI() *networkinterface.NetworkInterface {
 		MacAddress:               eniMAC,
 		SubnetGatewayIPV4Address: subnetGatewayCIDR,
 		DeviceName:               deviceName,
-		Primary:                  true,
+		Default:                  true,
 		DesiredStatus:            status.NetworkReadyPull,
 	}
 }
@@ -183,7 +183,7 @@ func getTestBranchENI() *networkinterface.NetworkInterface {
 		SubnetGatewayIPV4Address: subnetGatewayCIDR,
 		DeviceName:               "eth1.13",
 		DesiredStatus:            status.NetworkReadyPull,
-		Primary:                  true,
+		Default:                  true,
 		InterfaceVlanProperties: &networkinterface.InterfaceVlanProperties{
 			VlanID:                   "13",
 			TrunkInterfaceMacAddress: trunkENIMac,
