@@ -44,7 +44,7 @@ type NetworkBuilder interface {
 type networkBuilder struct {
 	platformAPI    platform.API
 	metricsFactory metrics.EntryFactory
-	networkDAO     data.NetworkDataClient
+	networkDAO     netlibdata.NetworkDataClient
 }
 
 func NewNetworkBuilder(
