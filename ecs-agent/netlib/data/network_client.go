@@ -15,6 +15,9 @@ const (
 )
 
 type NetworkDataClient interface {
+	GetNetworkNamespacesByTaskID(taskID string) ([]*tasknetworkconfig.NetworkNamespace, error)
+	SaveNetworkNamespace(netNS *tasknetworkconfig.NetworkNamespace) error
+	GetNetworkNamespace(netNSName string) (*tasknetworkconfig.NetworkNamespace, error)
 }
 
 type networkDataClient struct {
@@ -23,7 +26,7 @@ type networkDataClient struct {
 }
 
 func NewNetworkDataClient(db data.Client, metricsFactory metrics.EntryFactory) NetworkDataClient {
-	return networkDataClient{
+	return &networkDataClient{
 		Client:         db,
 		metricsFactory: metricsFactory,
 	}

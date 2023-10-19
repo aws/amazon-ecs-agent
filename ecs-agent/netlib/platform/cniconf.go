@@ -13,6 +13,8 @@
 
 package platform
 
+import "time"
+
 const (
 	cniSpecVersion               = "0.3.0"
 	blockInstanceMetadataDefault = true
@@ -24,4 +26,8 @@ const (
 	CNIPluginLogFileEnv    = "ECS_CNI_LOG_FILE"
 	VPCCNIPluginLogFileEnv = "VPC_CNI_LOG_FILE"
 	IPAMDataPathEnv        = "IPAM_DB_PATH"
+
+	// Timeout duration for each network setup and cleanup operation before it is cancelled.
+	nsSetupTimeoutDuration   = 1 * time.Minute
+	nsCleanupTimeoutDuration = 30 * time.Second
 )

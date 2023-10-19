@@ -15,10 +15,11 @@ package netlib
 
 import (
 	"context"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
@@ -43,12 +44,14 @@ type NetworkBuilder interface {
 type networkBuilder struct {
 	platformAPI    platform.API
 	metricsFactory metrics.EntryFactory
+	networkDAO     data.NetworkDataClient
 }
 
 func NewNetworkBuilder(
 	platformString string,
 	metricsFactory metrics.EntryFactory,
 	volumeAccessor volume.VolumeAccessor,
+	db data.Client,
 	stateDBDir string) (NetworkBuilder, error) {
 	pAPI, err := platform.NewPlatform(
 		platformString,
@@ -63,9 +66,11 @@ func NewNetworkBuilder(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to instantiate network builder")
 	}
+
 	return &networkBuilder{
 		platformAPI:    pAPI,
 		metricsFactory: metricsFactory,
+		networkDAO:     netlibdata.NewNetworkDataClient(db, metricsFactory),
 	}, nil
 }
 
@@ -140,15 +145,23 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	// Depending on the type of interfaces in the netns, there maybe operations
 	// to execute when the netns desired status is READY_PULL and READY.
 	for _, iface := range netNS.NetworkInterfaces {
-		logrus.WithFields(logrus.Fields{
+		logger := logrus.WithFields(logrus.Fields{
 			"Interface": iface,
 			"NetNSName": netNS.Name,
-		}).Debug("Configuring interface")
+		})
+		if iface.KnownStatus == netNS.DesiredState {
+			logger.Debug("Interface already in desired state")
+			continue
+		}
+
+		logger.Debug("Configuring interface")
+		iface.DesiredStatus = netNS.DesiredState
 
 		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
 		if err != nil {
 			return err
 		}
+		iface.KnownStatus = netNS.DesiredState
 	}
 
 	// Configure AppMesh and service connect rules in the netns.

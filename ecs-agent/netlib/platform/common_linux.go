@@ -66,19 +66,6 @@ const (
 	indexHighValue = 100
 )
 
-// common will be embedded within every implementation of the platform API.
-// It contains all fields and methods that can be commonly used by all
-// platforms.
-type common struct {
-	nsUtil             ecscni.NetNSUtil
-	taskVolumeAccessor volume.VolumeAccessor
-	os                 oswrapper.OS
-	ioutil             ioutilwrapper.IOUtil
-	netlink            netlinkwrapper.NetLink
-	stateDBDir         string
-	cniClient          ecscni.CNI
-}
-
 // NewPlatform creates an implementation of the platform API depending on the
 // platform type where the agent is executing.
 func NewPlatform(

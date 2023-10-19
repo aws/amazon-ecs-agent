@@ -33,9 +33,6 @@ const (
 
 	// ENISetupTimeout is the maximum duration that ENI manager waits before aborting ENI setup.
 	ENISetupTimeout = 1 * time.Minute
-	// Timeout duration for each network setup and cleanup operation before it is cancelled.
-	nsSetupTimeoutDuration   = 1 * time.Minute
-	nsCleanupTimeoutDuration = 30 * time.Second
 
 	BridgePluginName         = "ecs-bridge"
 	ENIPluginName            = "ecs-eni"
