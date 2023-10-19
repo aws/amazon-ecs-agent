@@ -43,7 +43,6 @@ type NetworkBuilder interface {
 type networkBuilder struct {
 	platformAPI    platform.API
 	metricsFactory metrics.EntryFactory
-	volumeAccessor volume.VolumeAccessor
 }
 
 func NewNetworkBuilder(
