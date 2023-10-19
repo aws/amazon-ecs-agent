@@ -19,22 +19,32 @@ import (
 )
 
 type TTLCache interface {
-	// Get fetches a value from cache, returns nil, false on miss
+	// Get fetches a value from cache, returns nil, false on miss.
 	Get(key string) (value interface{}, expired bool, ok bool)
-	// Set sets a value in cache. overrites any existing value
+	// Set sets a value in cache. This overwrites any existing value.
 	Set(key string, value interface{})
-	// Delete deletes the value from the cache
+	// Delete deletes the value from the cache.
 	Delete(key string)
-	// SetTTL sets the time-to-live of the cache
-	SetTTL(ttl time.Duration)
+	// GetTTL gets the time-to-live of the cache.
+	GetTTL() *TTL
+	// SetTTL sets the time-to-live of the cache.
+	SetTTL(ttl *TTL)
 }
 
-// Creates a TTL cache with ttl for items.
-func NewTTLCache(ttl time.Duration) TTLCache {
-	return &ttlCache{
-		ttl:   ttl,
+// NewTTLCache creates a TTL cache with optional TTL for items.
+func NewTTLCache(ttl *TTL) TTLCache {
+	ttlCache := &ttlCache{
 		cache: make(map[string]*ttlCacheEntry),
 	}
+	// Only set TTL if it is not nil.
+	if ttl != nil {
+		ttlCache.ttl = ttl
+	}
+	return ttlCache
+}
+
+type TTL struct {
+	Duration time.Duration
 }
 
 type ttlCacheEntry struct {
@@ -45,7 +55,7 @@ type ttlCacheEntry struct {
 type ttlCache struct {
 	mu    sync.RWMutex
 	cache map[string]*ttlCacheEntry
-	ttl   time.Duration
+	ttl   *TTL
 }
 
 // Get returns the value associated with the key.
@@ -60,34 +70,60 @@ func (t *ttlCache) Get(key string) (value interface{}, expired bool, ok bool) {
 		return nil, false, false
 	}
 	entry := t.cache[key]
-	expired = time.Now().After(entry.expiry)
+	// Entries can only be expired if the cache has a TTL set.
+	if t.ttl != nil {
+		expired = time.Now().After(entry.expiry)
+	}
 	return entry.value, expired, true
 }
 
-// Set sets the key-value pair in the cache
+// Set sets the key-value pair in the cache.
 func (t *ttlCache) Set(key string, value interface{}) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.cache[key] = &ttlCacheEntry{
-		value:  value,
-		expiry: time.Now().Add(t.ttl),
+		value: value,
+	}
+	// Entries can only have expiry set if the cache has a TTL set.
+	if t.ttl != nil {
+		t.cache[key].expiry = time.Now().Add(t.ttl.Duration)
 	}
 }
 
-// Delete removes the entry associated with the key from cache
+// Delete removes the entry associated with the key from cache.
 func (t *ttlCache) Delete(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	delete(t.cache, key)
 }
 
-// SetTTL sets the time-to-live of the cache
-func (t *ttlCache) SetTTL(ttl time.Duration) {
+// GetTTL gets the time-to-live of the cache.
+func (t *ttlCache) GetTTL() *TTL {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	oldTTL := t.ttl
-	t.ttl = ttl
-	for _, val := range t.cache {
-		val.expiry = val.expiry.Add(ttl - oldTTL)
+	if t.ttl == nil {
+		return nil
 	}
+	return &TTL{Duration: t.ttl.Duration}
+}
+
+// SetTTL sets the time-to-live of the cache.
+func (t *ttlCache) SetTTL(newTTL *TTL) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Update expiry of all entries in the cache.
+	if t.ttl != nil {
+		oldTTLDuration := t.ttl.Duration
+		for _, val := range t.cache {
+			val.expiry = val.expiry.Add(newTTL.Duration - oldTTLDuration)
+		}
+	} else {
+		now := time.Now()
+		for _, val := range t.cache {
+			val.expiry = now.Add(newTTL.Duration)
+		}
+	}
+
+	t.ttl = &TTL{Duration: newTTL.Duration}
 }
