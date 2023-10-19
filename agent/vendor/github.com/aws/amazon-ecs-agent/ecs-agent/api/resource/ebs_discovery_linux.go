@@ -25,6 +25,11 @@ import (
 	"strings"
 )
 
+const (
+	sdPrefix  = "sd"
+	xvdPrefix = "xvd"
+)
+
 // LsblkOutput is used to manage and track the output of `lsblk`
 type LsblkOutput struct {
 	BlockDevices []BlockDevice `json:"blockdevices"`
@@ -106,24 +111,28 @@ func parseLsblkOutput(
 // Matches a block device against a device name by matching the block device's name and
 // the device name after stripping "sd" or "xvd" prefixes (whichever is present) from both names.
 func matchXenBlockDevice(block BlockDevice, deviceName string) (string, bool) {
-	if trimXenPrefix(block.Name) == trimXenPrefix(deviceName) {
+	if hasXenPrefix(block.Name) && hasXenPrefix(deviceName) {
+		if trimXenPrefix(block.Name) == trimXenPrefix(deviceName) {
+			return block.Name, true
+		}
+	}
+	if block.Name == deviceName {
 		return block.Name, true
 	}
 	return "", false
 }
 
+// Checks if the device name has sd or xvd prefix.
+func hasXenPrefix(name string) bool {
+	return strings.HasPrefix(name, sdPrefix) || strings.HasPrefix(name, xvdPrefix)
+}
+
 // Trims "sd" or "xvd" prefix (whichever is present) from the given name.
 func trimXenPrefix(name string) string {
-	const (
-		sdPrefix  = "sd"
-		xvdPrefix = "xvd"
-	)
-
 	if strings.HasPrefix(name, sdPrefix) {
 		return strings.TrimPrefix(name, sdPrefix)
 	} else if strings.HasPrefix(name, xvdPrefix) {
 		return strings.TrimPrefix(name, xvdPrefix)
 	}
-
 	return name
 }

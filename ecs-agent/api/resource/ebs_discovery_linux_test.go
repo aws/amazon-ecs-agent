@@ -58,6 +58,16 @@ func TestParseLsblkOutput(t *testing.T) {
 			expectedActualDeviceName: "mydevice",
 		},
 		{
+			name: "nitro device found with another name multiple devices",
+			lsblkOutput: LsblkOutput{[]BlockDevice{
+				{Name: "mydevice2", Serial: "myvolumeid2"},
+				{Name: "mydevice", Serial: "myvolumeid"},
+			}},
+			deviceName:               "/dev/otherdevice",
+			volumeId:                 "myvolumeid",
+			expectedActualDeviceName: "mydevice",
+		},
+		{
 			name: "nitro device not found",
 			lsblkOutput: LsblkOutput{[]BlockDevice{
 				{Name: "mydevice", Serial: "myvolumeid"},
@@ -105,6 +115,65 @@ func TestParseLsblkOutput(t *testing.T) {
 			volumeId:      "volumeid",
 			hasXenSupport: true,
 			expectedError: mkError("xvdb", "volumeid"),
+		},
+		{
+			name:          "xen received sda shouldn't match with found a",
+			lsblkOutput:   LsblkOutput{[]BlockDevice{{Name: "a"}}},
+			deviceName:    "/dev/sda",
+			volumeId:      "volumeid",
+			hasXenSupport: true,
+			expectedError: mkError("sda", "volumeid"),
+		},
+		{
+			name:          "xen received xvda shouldn't match with found a",
+			lsblkOutput:   LsblkOutput{[]BlockDevice{{Name: "a"}}},
+			deviceName:    "/dev/xvda",
+			volumeId:      "volumeid",
+			hasXenSupport: true,
+			expectedError: mkError("xvda", "volumeid"),
+		},
+		{
+			name:          "xen received a shouldn't match with found sda",
+			lsblkOutput:   LsblkOutput{[]BlockDevice{{Name: "sda"}}},
+			deviceName:    "/dev/a",
+			volumeId:      "volumeid",
+			hasXenSupport: true,
+			expectedError: mkError("a", "volumeid"),
+		},
+		{
+			name:          "xen received a shouldn't match with found xvda",
+			lsblkOutput:   LsblkOutput{[]BlockDevice{{Name: "xvda"}}},
+			deviceName:    "/dev/a",
+			volumeId:      "volumeid",
+			hasXenSupport: true,
+			expectedError: mkError("a", "volumeid"),
+		},
+		{
+			name:                     "xen received abc should match with found abc",
+			lsblkOutput:              LsblkOutput{[]BlockDevice{{Name: "abc"}}},
+			deviceName:               "/dev/abc",
+			volumeId:                 "volumeid",
+			hasXenSupport:            true,
+			expectedActualDeviceName: "abc",
+		},
+		{
+			name:          "xen received abc shouldn't match with found xyz",
+			lsblkOutput:   LsblkOutput{[]BlockDevice{{Name: "xyz"}}},
+			deviceName:    "/dev/abc",
+			volumeId:      "volumeid",
+			hasXenSupport: true,
+			expectedError: mkError("abc", "volumeid"),
+		},
+		{
+			name: "xen received xvd found sd multiple devices",
+			lsblkOutput: LsblkOutput{[]BlockDevice{
+				{Name: "some_other_device"},
+				{Name: "sddevice"},
+			}},
+			deviceName:               "/dev/xvddevice",
+			volumeId:                 "volumeid",
+			hasXenSupport:            true,
+			expectedActualDeviceName: "sddevice",
 		},
 	}
 
