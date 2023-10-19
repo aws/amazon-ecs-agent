@@ -192,9 +192,9 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 		ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
 
 		// CopyToVolume created files into task volume.
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hosts", "hosts").Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/resolv.conf", "resolv.conf").Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hostname", "hostname").Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
 	)
 	err := commonPlatform.createDNSConfig("taskID", false, netns)
 	require.NoError(t, err)

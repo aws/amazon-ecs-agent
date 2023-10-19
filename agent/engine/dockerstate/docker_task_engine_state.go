@@ -400,7 +400,7 @@ func (state *DockerTaskEngineState) ContainerMapByArn(arn string) (map[string]*a
 	if !ok {
 		return ret, ok
 	}
-	// CopyToVolume the map to avoid data race
+	// Copy the map to avoid data race
 	mc := make(map[string]*apicontainer.DockerContainer)
 	for k, v := range ret {
 		mc[k] = v
@@ -417,7 +417,7 @@ func (state *DockerTaskEngineState) PulledContainerMapByArn(arn string) (map[str
 	if !ok {
 		return ret, ok
 	}
-	// CopyToVolume the map to avoid data race
+	// Copy the map to avoid data race
 	mc := make(map[string]*apicontainer.DockerContainer)
 	for k, v := range ret {
 		mc[k] = v
