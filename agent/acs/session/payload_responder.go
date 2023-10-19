@@ -140,7 +140,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
-			eni, err := ni.ENIFromACS(acsENI)
+			eni, err := ni.InterfaceFromACS(acsENI)
 			if err != nil {
 				pmHandler.handleInvalidTask(task, err, payload)
 				allTasksOK = false
