@@ -115,8 +115,7 @@ func matchXenBlockDevice(block BlockDevice, deviceName string) (string, bool) {
 		if trimXenPrefix(block.Name) == trimXenPrefix(deviceName) {
 			return block.Name, true
 		}
-	}
-	if block.Name == deviceName {
+	} else if block.Name == deviceName {
 		return block.Name, true
 	}
 	return "", false
