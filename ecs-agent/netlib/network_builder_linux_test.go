@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
@@ -35,12 +36,12 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
-	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
+	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
 	nb := nbi.(*networkBuilder)
 	require.NoError(t, err)
 	require.NotNil(t, nb.platformAPI)
 
-	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, nil, "")
+	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, data.Client{}, "")
 	require.Error(t, err)
 	require.Nil(t, nbi)
 }
@@ -64,7 +65,7 @@ func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetwork
 
 	return func(t *testing.T) {
 		// Create a networkBuilder for the warmpool platform.
-		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
+		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
 		require.NoError(t, err)
 
 		// Generate input task payload and a reference to verify the output with.
