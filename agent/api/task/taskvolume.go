@@ -32,6 +32,7 @@ const (
 	DockerVolumeType               = "docker"
 	EFSVolumeType                  = "efs"
 	FSxWindowsFileServerVolumeType = "fsxWindowsFileServer"
+	AttachmentType                 = "attachment"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -78,6 +79,9 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
 	case apiresource.EBSTaskAttach:
 		return tv.unmarshalEBSVolume(intermediate["ebsVolumeConfiguration"])
+	case AttachmentType:
+		seelog.Warn("Obtaining the volume configuration from task attachments.")
+		return nil
 	default:
 		return errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}

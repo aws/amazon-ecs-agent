@@ -725,6 +725,12 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					AttachmentType: aws.String(apiresource.EBSTaskAttach),
 				},
 			},
+			Volumes: []*ecsacs.Volume{
+				{
+					Name: aws.String(taskresourcevolume.TestVolumeName),
+					Type: aws.String(apitask.AttachmentType),
+				},
+			},
 		},
 	}
 
