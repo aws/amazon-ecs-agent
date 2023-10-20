@@ -332,7 +332,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
-// TODO: Add unit test
 func (task *Task) RemoveVolume(index int) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
@@ -343,7 +342,6 @@ func (task *Task) removeVolumeUnsafe(index int) {
 	if index < 0 || index >= len(task.Volumes) {
 		return
 	}
-	// temp := task.Volumes[:1]
 	out := make([]TaskVolume, 0)
 	out = append(out, task.Volumes[:index]...)
 	out = append(out, task.Volumes[index+1:]...)
@@ -352,17 +350,6 @@ func (task *Task) removeVolumeUnsafe(index int) {
 
 func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
 	// TODO: Have EBS volumes use the DockerVolumeConfig to create the mountpoint
-	if task.IsEBSTaskAttachEnabled() {
-		ebsVolumes := task.GetEBSVolumeNames()
-		for index, tv := range task.Volumes {
-			volumeName := tv.Name
-			volumeType := tv.Type
-			if ebsVolumes[volumeName] && volumeType != apiresource.EBSTaskAttach {
-				task.RemoveVolume(index)
-			}
-		}
-	}
-
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -3483,28 +3470,6 @@ func (task *Task) isEBSTaskAttachEnabledUnsafe() bool {
 		}
 	}
 	return false
-}
-
-// TODO: Add unit tests
-func (task *Task) GetEBSVolumeNames() map[string]bool {
-	task.lock.RLock()
-	defer task.lock.RUnlock()
-	return task.getEBSVolumeNamesUnsafe()
-}
-
-func (task *Task) getEBSVolumeNamesUnsafe() map[string]bool {
-	volNames := map[string]bool{}
-	for _, tv := range task.Volumes {
-		switch tv.Volume.(type) {
-		case *taskresourcevolume.EBSTaskVolumeConfig:
-			logger.Debug("found ebs volume config")
-			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
-			volNames[ebsCfg.VolumeName] = true
-		default:
-			continue
-		}
-	}
-	return volNames
 }
 
 func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apicontainer.Container) bool {
