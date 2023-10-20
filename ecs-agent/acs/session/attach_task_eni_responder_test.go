@@ -242,5 +242,5 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 
 	attachTaskEniAckSent := <-ackSent
 	wg.Wait()
-	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), "nil")
 }

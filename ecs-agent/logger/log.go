@@ -237,7 +237,7 @@ func setInstanceLevelDefault() string {
 func init() {
 	Config = &logConfig{
 		// logfile:       os.Getenv(LOGFILE_ENV_VAR),
-		logfile: "/var/log/ecs/ecs-agente.log"
+		logfile:       "/var/log/ecs/ecs-agent.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
 		instanceLevel: setInstanceLevelDefault(),
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
