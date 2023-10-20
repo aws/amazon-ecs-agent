@@ -15,18 +15,15 @@ package netlib
 
 import (
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ioutilwrapper"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/pkg/errors"
@@ -55,13 +52,8 @@ func NewNetworkBuilder(
 	stateDBDir string) (NetworkBuilder, error) {
 	pAPI, err := platform.NewPlatform(
 		platformString,
-		ecscni.NewNetNSUtil(),
 		volumeAccessor,
-		oswrapper.NewOS(),
-		ioutilwrapper.NewIOUtil(),
-		netlinkwrapper.New(),
 		stateDBDir,
-		ecscni.NewCNIClient([]string{platform.CNIPluginPathDefault}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to instantiate network builder")

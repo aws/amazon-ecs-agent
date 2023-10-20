@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,4 +16,25 @@
 
 package netlinkwrapper
 
-//go:generate mockgen -destination=mocks/netlinkwrapper_mocks_linux.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper NetLink
+import (
+	"github.com/vishvananda/netlink"
+)
+
+type NetLink interface {
+	LinkByName(name string) (netlink.Link, error)
+	LinkSetUp(link netlink.Link) error
+}
+
+type netLink struct{}
+
+func New() NetLink {
+	return &netLink{}
+}
+
+func (nl *netLink) LinkByName(name string) (netlink.Link, error) {
+	return netlink.LinkByName(name)
+}
+
+func (nl *netLink) LinkSetUp(link netlink.Link) error {
+	return netlink.LinkSetUp(link)
+}

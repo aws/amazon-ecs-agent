@@ -58,10 +58,10 @@ const (
 )
 
 func TestNewPlatform(t *testing.T) {
-	_, err := NewPlatform(WarmpoolPlatform, nil, nil, nil, nil, nil, "", nil)
+	_, err := NewPlatform(WarmpoolPlatform, nil, "")
 	assert.NoError(t, err)
 
-	_, err = NewPlatform("invalid-platform", nil, nil, nil, nil, nil, "", nil)
+	_, err = NewPlatform("invalid-platform", nil, "")
 	assert.Error(t, err)
 }
 

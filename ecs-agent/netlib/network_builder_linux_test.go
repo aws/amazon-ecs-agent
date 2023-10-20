@@ -35,12 +35,12 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
-	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, "")
+	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
 	nb := nbi.(*networkBuilder)
 	require.NoError(t, err)
 	require.NotNil(t, nb.platformAPI)
 
-	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, "")
+	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, nil, "")
 	require.Error(t, err)
 	require.Nil(t, nbi)
 }
@@ -64,7 +64,7 @@ func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetwork
 
 	return func(t *testing.T) {
 		// Create a networkBuilder for the warmpool platform.
-		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, "")
+		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
 		require.NoError(t, err)
 
 		// Generate input task payload and a reference to verify the output with.
