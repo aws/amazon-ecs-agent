@@ -25,6 +25,11 @@ import (
 	"strings"
 )
 
+const (
+	sdPrefix  = "sd"
+	xvdPrefix = "xvd"
+)
+
 // LsblkOutput is used to manage and track the output of `lsblk`
 type LsblkOutput struct {
 	BlockDevices []BlockDevice `json:"blockdevices"`
@@ -56,7 +61,7 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 	}
 
 	expectedVolumeId := strings.ReplaceAll(volumeID, "-", "")
-	actualDeviceName, err := parseLsblkOutput(&lsblkOut, deviceName, expectedVolumeId)
+	actualDeviceName, err := parseLsblkOutput(&lsblkOut, deviceName, expectedVolumeId, api.HasXenSupport())
 	if err != nil {
 		return "", err
 	}
@@ -78,13 +83,57 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 //		   }
 //		]
 //	 }
-func parseLsblkOutput(output *LsblkOutput, deviceName string, volumeId string) (string, error) {
+//
+// If hasXenSupport is true then, in addition to matching a device by its serial, this function
+// matches devices by their names disregarding "sd" or "xvd" prefix if it exists in
+// device name in parseLsblkOutput and deviceName both.
+// This is because on Xen instances the device name received from upstream with "sd" or "xvd"
+// prefix might appear on the instance with the prefix interchanged, that is "xvd" instead of "sd"
+// and vice-versa.
+func parseLsblkOutput(
+	output *LsblkOutput,
+	deviceName, volumeId string,
+	hasXenSupport bool,
+) (string, error) {
 	actualDeviceName := deviceName[strings.LastIndex(deviceName, "/")+1:]
 	for _, block := range output.BlockDevices {
-		//TODO: Add edge case for Xen-based instances
 		if block.Serial == volumeId {
 			return block.Name, nil
 		}
+		if hasXenSupport {
+			if foundDeviceName, found := matchXenBlockDevice(block, actualDeviceName); found {
+				return foundDeviceName, nil
+			}
+		}
 	}
 	return "", fmt.Errorf("cannot find EBS volume with device name: %v and volume ID: %v", actualDeviceName, volumeId)
+}
+
+// Matches a block device against a device name by matching the block device's name and
+// the device name after stripping "sd" or "xvd" prefixes (whichever is present) from both names
+// if it is present in both names.
+func matchXenBlockDevice(block BlockDevice, deviceName string) (string, bool) {
+	if hasXenPrefix(block.Name) && hasXenPrefix(deviceName) {
+		if trimXenPrefix(block.Name) == trimXenPrefix(deviceName) {
+			return block.Name, true
+		}
+	} else if block.Name == deviceName {
+		return block.Name, true
+	}
+	return "", false
+}
+
+// Checks if the device name has sd or xvd prefix.
+func hasXenPrefix(name string) bool {
+	return strings.HasPrefix(name, sdPrefix) || strings.HasPrefix(name, xvdPrefix)
+}
+
+// Trims "sd" or "xvd" prefix (whichever is present) from the given name.
+func trimXenPrefix(name string) string {
+	if strings.HasPrefix(name, sdPrefix) {
+		return strings.TrimPrefix(name, sdPrefix)
+	} else if strings.HasPrefix(name, xvdPrefix) {
+		return strings.TrimPrefix(name, xvdPrefix)
+	}
+	return name
 }

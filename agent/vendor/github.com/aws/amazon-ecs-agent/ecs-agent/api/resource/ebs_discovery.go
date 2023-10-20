@@ -35,13 +35,31 @@ var (
 )
 
 type EBSDiscoveryClient struct {
-	ctx context.Context
+	ctx           context.Context
+	hasXenSupport bool
 }
 
-func NewDiscoveryClient(ctx context.Context) *EBSDiscoveryClient {
-	return &EBSDiscoveryClient{
+type EBSDiscoveryClientOption func(*EBSDiscoveryClient)
+
+// Enable Xen instances support for EBS Discovery Client
+func WithXenSupport() EBSDiscoveryClientOption {
+	return func(ec *EBSDiscoveryClient) {
+		ec.hasXenSupport = true
+	}
+}
+
+func NewDiscoveryClient(ctx context.Context, opts ...EBSDiscoveryClientOption) *EBSDiscoveryClient {
+	client := &EBSDiscoveryClient{
 		ctx: ctx,
 	}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
+}
+
+func (client *EBSDiscoveryClient) HasXenSupport() bool {
+	return client.hasXenSupport
 }
 
 // ScanEBSVolumes will iterate through the entire list of provided EBS volume attachments within the agent state and checks if it's attached on the host.
