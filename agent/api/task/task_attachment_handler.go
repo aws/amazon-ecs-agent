@@ -110,6 +110,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 			task.ServiceConnectConfig = scHandler.(*ServiceConnectAttachmentHandler).scConfig
 		}
 		if len(ebsVolumeAttachments) > 0 {
+			ebsVolumes := make(map[string]bool)
 			for _, attachment := range ebsVolumeAttachments {
 				ebs, err := taskresourcevolume.ParseEBSTaskVolumeAttachment(attachment)
 				if err != nil {
@@ -120,7 +121,16 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 					Type:   apiresource.EBSTaskAttach,
 					Volume: ebs,
 				}
+				ebsVolumes[ebs.VolumeName] = true
 				task.Volumes = append(task.Volumes, taskVolume)
+			}
+			// We're removing all incorrect volume configuration that were intially passed over from ACS
+			for index, tv := range task.Volumes {
+				volumeName := tv.Name
+				volumeType := tv.Type
+				if ebsVolumes[volumeName] && volumeType != apiresource.EBSTaskAttach {
+					task.RemoveVolume(index)
+				}
 			}
 		}
 	}

@@ -274,6 +274,12 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 						AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
 					},
 				},
+				Volumes: []*ecsacs.Volume{
+					{
+						Name: strptr("test-volume"),
+						Type: strptr(AttachmentType),
+					},
+				},
 			}
 			testTask := &Task{}
 			err := handleTaskAttachments(testAcsTask, testTask)

@@ -4691,6 +4691,15 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				AttachmentType: strptr(apiresource.EBSTaskAttach),
 			},
 		},
+		Volumes: []*ecsacs.Volume{
+			{
+				Name: strptr("test-volume"),
+				Type: strptr(AttachmentType),
+				Host: &ecsacs.HostVolumeProperties{
+					SourcePath: strptr("/host/path"),
+				},
+			},
+		},
 	}
 
 	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
@@ -5233,4 +5242,39 @@ func TestToHostResources(t *testing.T) {
 		}
 		assert.Equal(t, len(tc.expectedResources["PORTS_UDP"].StringSetValue), len(calcResources["PORTS_UDP"].StringSetValue), "Error converting task UDP port resources")
 	}
+}
+
+func TestRemoveVolumes(t *testing.T) {
+	task := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name: "volName",
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
+					FSSourcePath: "/host/path",
+				},
+			},
+		},
+	}
+	task.RemoveVolume(0)
+	assert.Equal(t, len(task.Volumes), 0)
+}
+
+func TestRemoveVolumeIndexOutOfBounds(t *testing.T) {
+	task := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name: "volName",
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
+					FSSourcePath: "/host/path",
+				},
+			},
+		},
+	}
+	task.RemoveVolume(1)
+	assert.Equal(t, len(task.Volumes), 1)
+
+	task.RemoveVolume(-1)
+	assert.Equal(t, len(task.Volumes), 1)
 }
