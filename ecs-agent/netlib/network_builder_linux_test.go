@@ -210,6 +210,9 @@ func getExpectedCalls_StartAWSVPC(
 	// For each interface inside the netns, the network builder needs to invoke the
 	// `ConfigureInterface` platformAPI.
 	for _, iface := range netNS.NetworkInterfaces {
+		if iface.KnownStatus == netNS.DesiredState {
+			continue
+		}
 		calls = append(calls,
 			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface).Return(nil).Times(1))
 	}
