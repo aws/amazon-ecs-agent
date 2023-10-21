@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
