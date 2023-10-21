@@ -21,6 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -98,8 +99,7 @@ type TaskStateChange struct {
 // AttachmentStateChange represents a state change that needs to be sent to the
 // SubmitAttachmentStateChanges API
 type AttachmentStateChange struct {
-	// Attachment is the eni attachment object to send
-	Attachment *ni.ENIAttachment
+	Attachment attachment.Attachment
 }
 
 type ErrShouldNotSendEvent struct {
@@ -352,7 +352,7 @@ func (change *TaskStateChange) String() string {
 // String returns a human readable string representation of this object
 func (change *AttachmentStateChange) String() string {
 	if change.Attachment != nil {
-		return fmt.Sprintf("%s -> %s, %s", change.Attachment.AttachmentARN, change.Attachment.Status.String(),
+		return fmt.Sprintf("%s -> %v, %s", change.Attachment.GetAttachmentARN(), change.Attachment.GetAttachmentStatus(),
 			change.Attachment.String())
 	}
 

@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
-
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 
@@ -27,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -153,7 +152,7 @@ func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 // emitTaskENIChangeEvent sends a state change event for a task ENI attachment to the event channel with eni status as
 // attached
 func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
-	eni.Status = status.AttachmentAttached
+	eni.Status = attachment.AttachmentAttached
 	log.Infof("Emitting task ENI attached event for: %s", eni.String())
 	eniWatcher.eniChangeEvent <- api.TaskStateChange{
 		TaskARN:    eni.TaskARN,
@@ -164,7 +163,7 @@ func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 // emitInstanceENIChangeEvent sends a state change event for an instance ENI attachment to the event channel with eni
 // status as attached
 func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *ni.ENIAttachment) {
-	eni.Status = status.AttachmentAttached
+	eni.Status = attachment.AttachmentAttached
 	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
 	eniWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }

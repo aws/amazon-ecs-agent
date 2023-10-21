@@ -657,14 +657,14 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 }
 
 func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentStateChange) error {
-	attachmentStatus := change.Attachment.Status.String()
+	attachmentStatus := change.Attachment.GetAttachmentStatus()
 
 	req := ecs.SubmitAttachmentStateChangesInput{
 		Cluster: &client.config.Cluster,
 		Attachments: []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
-				Status:        aws.String(attachmentStatus),
+				AttachmentArn: aws.String(change.Attachment.GetAttachmentARN()),
+				Status:        aws.String(attachmentStatus.String()),
 			},
 		},
 	}

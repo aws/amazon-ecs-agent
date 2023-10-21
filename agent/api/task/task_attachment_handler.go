@@ -19,12 +19,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-// AttachmentHandler defines an interface to handel attachment received from ACS.
+// AttachmentHandler defines an interface to handle attachment received from ACS.
 type AttachmentHandler interface {
 	parseAttachment(acsAttachment *ecsacs.Attachment) error
 	validateAttachment(acsTask *ecsacs.Task, task *Task) error
