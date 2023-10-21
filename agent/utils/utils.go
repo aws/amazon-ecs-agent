@@ -228,15 +228,16 @@ func GetTaskID(taskARN string) (string, error) {
 	return fields[len(fields)-1], nil
 }
 
-// GetENIAttachmentId retrieves the attachment ID from eni attachment ARN.
-func GetENIAttachmentId(eniAttachmentArn string) (string, error) {
-	_, err := arn.Parse(eniAttachmentArn)
+// GetAttachmentId retrieves the ID from an attachment's ARN.
+// asssumes arn structure: arn:[partition]:ec2:[region]:[account-id]:[attachment-type]/[resource-id]
+func GetAttachmentId(attachmentArn string) (string, error) {
+	_, err := arn.Parse(attachmentArn)
 	if err != nil {
-		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn format invalid: %s", eniAttachmentArn)
+		return "", errors.Errorf("failed to get resource attachment id: resource attachment arn format invalid: %s", attachmentArn)
 	}
-	fields := strings.Split(eniAttachmentArn, "/")
+	fields := strings.Split(attachmentArn, "/")
 	if len(fields) < 2 {
-		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn invalid: %s", eniAttachmentArn)
+		return "", errors.Errorf("failed to get resource attachment id: resource attachment arn invalid: %s", attachmentArn)
 	}
 	return fields[len(fields)-1], nil
 }

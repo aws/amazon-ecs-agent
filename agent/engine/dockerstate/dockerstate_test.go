@@ -22,9 +22,8 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/stretchr/testify/assert"
 )
@@ -104,7 +103,7 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:       "taskarn",
 			AttachmentARN: "eni1",
 		},
@@ -133,7 +132,7 @@ func TestAddRemoveEBSAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:       "taskarn",
 			AttachmentARN: "ebs1",
 		},
@@ -162,11 +161,11 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	pendingAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          "taskarn1",
 			AttachmentARN:    "ebs1",
 			AttachStatusSent: false,
-			Status:           status.AttachmentNone,
+			Status:           attachment.AttachmentNone,
 		},
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
@@ -182,11 +181,11 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 	}
 
 	foundAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          "taskarn2",
 			AttachmentARN:    "ebs2",
 			AttachStatusSent: true,
-			Status:           status.AttachmentAttached,
+			Status:           attachment.AttachmentAttached,
 		},
 		AttachmentProperties: testSentAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
@@ -217,11 +216,11 @@ func TestAddPendingEBSAttachmentExclusion(t *testing.T) {
 
 	// not attached but sent should be included (||)
 	sentAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          "taskarn1",
 			AttachmentARN:    "ebs1",
 			AttachStatusSent: true,
-			Status:           status.AttachmentNone,
+			Status:           attachment.AttachmentNone,
 		},
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
@@ -229,11 +228,11 @@ func TestAddPendingEBSAttachmentExclusion(t *testing.T) {
 
 	// attached and sent attachment should be excluded (&&)
 	foundAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          "taskarn2",
 			AttachmentARN:    "ebs2",
 			AttachStatusSent: true,
-			Status:           status.AttachmentAttached,
+			Status:           attachment.AttachmentAttached,
 		},
 		AttachmentProperties: testSentAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
