@@ -2391,12 +2391,6 @@ func (c *ECS) ListAccountSettingsRequest(input *ListAccountSettingsInput) (req *
 		Name:       opListAccountSettings,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -2457,57 +2451,6 @@ func (c *ECS) ListAccountSettingsWithContext(ctx aws.Context, input *ListAccount
 	return out, req.Send()
 }
 
-// ListAccountSettingsPages iterates over the pages of a ListAccountSettings operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListAccountSettings method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListAccountSettings operation.
-//	pageNum := 0
-//	err := client.ListAccountSettingsPages(params,
-//	    func(page *ecs.ListAccountSettingsOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListAccountSettingsPages(input *ListAccountSettingsInput, fn func(*ListAccountSettingsOutput, bool) bool) error {
-	return c.ListAccountSettingsPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListAccountSettingsPagesWithContext same as ListAccountSettingsPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListAccountSettingsPagesWithContext(ctx aws.Context, input *ListAccountSettingsInput, fn func(*ListAccountSettingsOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListAccountSettingsInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListAccountSettingsRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListAccountSettingsOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
-}
-
 const opListAttributes = "ListAttributes"
 
 // ListAttributesRequest generates a "aws/request.Request" representing the
@@ -2536,12 +2479,6 @@ func (c *ECS) ListAttributesRequest(input *ListAttributesInput) (req *request.Re
 		Name:       opListAttributes,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -2612,57 +2549,6 @@ func (c *ECS) ListAttributesWithContext(ctx aws.Context, input *ListAttributesIn
 	return out, req.Send()
 }
 
-// ListAttributesPages iterates over the pages of a ListAttributes operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListAttributes method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListAttributes operation.
-//	pageNum := 0
-//	err := client.ListAttributesPages(params,
-//	    func(page *ecs.ListAttributesOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListAttributesPages(input *ListAttributesInput, fn func(*ListAttributesOutput, bool) bool) error {
-	return c.ListAttributesPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListAttributesPagesWithContext same as ListAttributesPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListAttributesPagesWithContext(ctx aws.Context, input *ListAttributesInput, fn func(*ListAttributesOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListAttributesInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListAttributesRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListAttributesOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
-}
-
 const opListClusters = "ListClusters"
 
 // ListClustersRequest generates a "aws/request.Request" representing the
@@ -2691,12 +2577,6 @@ func (c *ECS) ListClustersRequest(input *ListClustersInput) (req *request.Reques
 		Name:       opListClusters,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -2757,57 +2637,6 @@ func (c *ECS) ListClustersWithContext(ctx aws.Context, input *ListClustersInput,
 	return out, req.Send()
 }
 
-// ListClustersPages iterates over the pages of a ListClusters operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListClusters method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListClusters operation.
-//	pageNum := 0
-//	err := client.ListClustersPages(params,
-//	    func(page *ecs.ListClustersOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListClustersPages(input *ListClustersInput, fn func(*ListClustersOutput, bool) bool) error {
-	return c.ListClustersPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListClustersPagesWithContext same as ListClustersPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListClustersPagesWithContext(ctx aws.Context, input *ListClustersInput, fn func(*ListClustersOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListClustersInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListClustersRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListClustersOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
-}
-
 const opListContainerInstances = "ListContainerInstances"
 
 // ListContainerInstancesRequest generates a "aws/request.Request" representing the
@@ -2836,12 +2665,6 @@ func (c *ECS) ListContainerInstancesRequest(input *ListContainerInstancesInput) 
 		Name:       opListContainerInstances,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -2910,57 +2733,6 @@ func (c *ECS) ListContainerInstancesWithContext(ctx aws.Context, input *ListCont
 	return out, req.Send()
 }
 
-// ListContainerInstancesPages iterates over the pages of a ListContainerInstances operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListContainerInstances method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListContainerInstances operation.
-//	pageNum := 0
-//	err := client.ListContainerInstancesPages(params,
-//	    func(page *ecs.ListContainerInstancesOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListContainerInstancesPages(input *ListContainerInstancesInput, fn func(*ListContainerInstancesOutput, bool) bool) error {
-	return c.ListContainerInstancesPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListContainerInstancesPagesWithContext same as ListContainerInstancesPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListContainerInstancesPagesWithContext(ctx aws.Context, input *ListContainerInstancesInput, fn func(*ListContainerInstancesOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListContainerInstancesInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListContainerInstancesRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListContainerInstancesOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
-}
-
 const opListServices = "ListServices"
 
 // ListServicesRequest generates a "aws/request.Request" representing the
@@ -2989,12 +2761,6 @@ func (c *ECS) ListServicesRequest(input *ListServicesInput) (req *request.Reques
 		Name:       opListServices,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -3058,57 +2824,6 @@ func (c *ECS) ListServicesWithContext(ctx aws.Context, input *ListServicesInput,
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
-}
-
-// ListServicesPages iterates over the pages of a ListServices operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListServices method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListServices operation.
-//	pageNum := 0
-//	err := client.ListServicesPages(params,
-//	    func(page *ecs.ListServicesOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListServicesPages(input *ListServicesInput, fn func(*ListServicesOutput, bool) bool) error {
-	return c.ListServicesPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListServicesPagesWithContext same as ListServicesPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListServicesPagesWithContext(ctx aws.Context, input *ListServicesInput, fn func(*ListServicesOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListServicesInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListServicesRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListServicesOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
 }
 
 const opListTagsForResource = "ListTagsForResource"
@@ -3231,12 +2946,6 @@ func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamilie
 		Name:       opListTaskDefinitionFamilies,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -3301,57 +3010,6 @@ func (c *ECS) ListTaskDefinitionFamiliesWithContext(ctx aws.Context, input *List
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
-}
-
-// ListTaskDefinitionFamiliesPages iterates over the pages of a ListTaskDefinitionFamilies operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListTaskDefinitionFamilies method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListTaskDefinitionFamilies operation.
-//	pageNum := 0
-//	err := client.ListTaskDefinitionFamiliesPages(params,
-//	    func(page *ecs.ListTaskDefinitionFamiliesOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListTaskDefinitionFamiliesPages(input *ListTaskDefinitionFamiliesInput, fn func(*ListTaskDefinitionFamiliesOutput, bool) bool) error {
-	return c.ListTaskDefinitionFamiliesPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListTaskDefinitionFamiliesPagesWithContext same as ListTaskDefinitionFamiliesPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListTaskDefinitionFamiliesPagesWithContext(ctx aws.Context, input *ListTaskDefinitionFamiliesInput, fn func(*ListTaskDefinitionFamiliesOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListTaskDefinitionFamiliesInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListTaskDefinitionFamiliesRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListTaskDefinitionFamiliesOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
 }
 
 const opListTaskDefinitions = "ListTaskDefinitions"
@@ -3472,12 +3130,6 @@ func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *request.Request, out
 		Name:       opListTasks,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
-		Paginator: &request.Paginator{
-			InputTokens:     []string{"nextToken"},
-			OutputTokens:    []string{"nextToken"},
-			LimitToken:      "maxResults",
-			TruncationToken: "",
-		},
 	}
 
 	if input == nil {
@@ -3548,57 +3200,6 @@ func (c *ECS) ListTasksWithContext(ctx aws.Context, input *ListTasksInput, opts 
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
-}
-
-// ListTasksPages iterates over the pages of a ListTasks operation,
-// calling the "fn" function with the response data for each page. To stop
-// iterating, return false from the fn function.
-//
-// See ListTasks method for more information on how to use this operation.
-//
-// Note: This operation can generate multiple requests to a service.
-//
-//	// Example iterating over at most 3 pages of a ListTasks operation.
-//	pageNum := 0
-//	err := client.ListTasksPages(params,
-//	    func(page *ecs.ListTasksOutput, lastPage bool) bool {
-//	        pageNum++
-//	        fmt.Println(page)
-//	        return pageNum <= 3
-//	    })
-func (c *ECS) ListTasksPages(input *ListTasksInput, fn func(*ListTasksOutput, bool) bool) error {
-	return c.ListTasksPagesWithContext(aws.BackgroundContext(), input, fn)
-}
-
-// ListTasksPagesWithContext same as ListTasksPages except
-// it takes a Context and allows setting request options on the pages.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *ECS) ListTasksPagesWithContext(ctx aws.Context, input *ListTasksInput, fn func(*ListTasksOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination{
-		NewRequest: func() (*request.Request, error) {
-			var inCpy *ListTasksInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := c.ListTasksRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-
-	for p.Next() {
-		if !fn(p.Page().(*ListTasksOutput), !p.HasNextPage()) {
-			break
-		}
-	}
-
-	return p.Err()
 }
 
 const opPutAccountSetting = "PutAccountSetting"
