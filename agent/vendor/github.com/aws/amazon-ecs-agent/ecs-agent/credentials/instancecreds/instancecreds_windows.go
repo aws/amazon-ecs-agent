@@ -16,10 +16,13 @@
 package instancecreds
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/credentials/providers"
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
-	"github.com/cihub/seelog"
 )
 
 // GetCredentials returns the instance credentials chain. This is the default chain
@@ -61,9 +64,9 @@ func GetCredentials(isExternal bool) *credentials.Credentials {
 	// credentials.Credentials is concurrency-safe, so lock not needed here
 	v, err := credentialChain.Get()
 	if err != nil {
-		seelog.Errorf("Error getting ECS instance credentials from default chain: %s", err)
+		logger.Error(fmt.Sprintf("Error getting ECS instance credentials from default chain: %s", err))
 	} else {
-		seelog.Infof("Successfully got ECS instance credentials from provider: %s", v.ProviderName)
+		logger.Info(fmt.Sprintf("Successfully got ECS instance credentials from provider: %s", v.ProviderName))
 	}
 	return credentialChain
 }
