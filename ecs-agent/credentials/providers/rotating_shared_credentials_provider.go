@@ -18,8 +18,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -46,7 +47,7 @@ type RotatingSharedCredentialsProvider struct {
 func NewRotatingSharedCredentialsProvider() *RotatingSharedCredentialsProvider {
 	var credentialProfile = DEFAULT_CREDENTIAL_PROFILE
 	if alternateCredentialProfile := os.Getenv(ALTERNATE_CREDENTIAL_PROFILE_ENV_VAR); alternateCredentialProfile != "" {
-		seelog.Infof("Overriding %s credential profile; using: %s.", DEFAULT_CREDENTIAL_PROFILE, alternateCredentialProfile)
+		logger.Info(fmt.Sprintf("Overriding %s credential profile; using: %s.", DEFAULT_CREDENTIAL_PROFILE, alternateCredentialProfile))
 		credentialProfile = alternateCredentialProfile
 	}
 
@@ -67,8 +68,8 @@ func (p *RotatingSharedCredentialsProvider) Retrieve() (credentials.Value, error
 		return v, err
 	}
 	p.SetExpiration(time.Now().Add(p.RotationInterval), 0)
-	seelog.Infof("Successfully got instance credentials from file %s. %s",
-		p.sharedCredentialsProvider.Filename, credValueToString(v))
+	logger.Info(fmt.Sprintf("Successfully got instance credentials from file %s. %s",
+		p.sharedCredentialsProvider.Filename, credValueToString(v)))
 	return v, err
 }
 
