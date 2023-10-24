@@ -23,7 +23,9 @@ github.com/aws/amazon-ecs-agent/ecs-agent/async
 github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/config
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers
 github.com/aws/amazon-ecs-agent/ecs-agent/csiclient
 github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/data

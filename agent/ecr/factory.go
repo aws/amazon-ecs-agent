@@ -21,10 +21,10 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
