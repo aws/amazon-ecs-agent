@@ -228,16 +228,6 @@ func (engine *DockerTaskEngine) saveDockerContainerData(container *apicontainer.
 }
 
 func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
-	id, err := utils.GetTaskID(task.Arn)
-	if err != nil {
-		seelog.Errorf("Failed to get task id from task ARN %s: %v", task.Arn, err)
-		return
-	}
-	err = engine.dataClient.DeleteTask(id)
-	if err != nil {
-		seelog.Errorf("Failed to remove data for task %s: %v", task.Arn, err)
-	}
-
 	for _, c := range task.Containers {
 		id, err := data.GetContainerID(c)
 		if err != nil {
@@ -248,6 +238,16 @@ func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
 		if err != nil {
 			seelog.Errorf("Failed to remove data for container %s: %v", c.Name, err)
 		}
+	}
+
+	id, err := utils.GetTaskID(task.Arn)
+	if err != nil {
+		seelog.Errorf("Failed to get task id from task ARN %s: %v", task.Arn, err)
+		return
+	}
+	err = engine.dataClient.DeleteTask(id)
+	if err != nil {
+		seelog.Errorf("Failed to remove data for task %s: %v", task.Arn, err)
 	}
 }
 
