@@ -47,6 +47,7 @@ import (
 const (
 	psCredentialCommandFormat = "$(New-Object System.Management.Automation.PSCredential('%s', $(ConvertTo-SecureString '%s' -AsPlainText -Force)))"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
+	fsxVolumeType             = "fsx"
 )
 
 // FSxWindowsFileServerResource represents a fsxwindowsfileserver resource
@@ -291,6 +292,20 @@ func (fv *FSxWindowsFileServerResource) SetCreatedAt(createdAt time.Time) {
 // Source returns the host path of the fsxwindowsfileserver resource which is used as the source of the volume mount
 func (cfg *FSxWindowsFileServerVolumeConfig) Source() string {
 	return utils.GetCanonicalPath(cfg.HostPath)
+}
+
+func (cfg *FSxWindowsFileServerVolumeConfig) GetType() string {
+	return fsxVolumeType
+}
+
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeId() string {
+	return cfg.FileSystemID
+}
+
+// Note: The name is within the FSxWindowsFileServerResource struct. In order to use this in the future, this needs to be modified.
+// Currently not meant for use
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeName() string {
+	return ""
 }
 
 // GetName safely returns the name of the fsxwindowsfileserver resource
