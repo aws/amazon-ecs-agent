@@ -96,7 +96,7 @@ func NewPlatform(
 		cniClient:          ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
 	}
 
-	// TODO: implement remaining platforms - FoF, ECS on EC2.
+	// TODO: implement remaining platforms - FoF, windows.
 	switch platformString {
 	case WarmpoolPlatform:
 		return &containerd{

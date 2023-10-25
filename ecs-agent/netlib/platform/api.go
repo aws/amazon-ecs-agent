@@ -31,7 +31,7 @@ type API interface {
 		taskID string,
 		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
-	// CreateNetNS creates a network namespace with the specified name.
+	// CreateNetNS creates a network namespace with the specified path.
 	CreateNetNS(netNSPath string) error
 
 	// DeleteNetNS deletes the specified network namespace.
