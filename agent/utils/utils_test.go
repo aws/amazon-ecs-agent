@@ -18,8 +18,11 @@ package utils
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -194,4 +197,18 @@ func TestGetAttachmentId(t *testing.T) {
 
 	_, err = GetAttachmentId("invalid")
 	assert.Error(t, err)
+}
+
+func TestFileExists(t *testing.T) {
+	t.Run("file is found", func(t *testing.T) {
+		file, err := os.CreateTemp("", "file_exists_test")
+		res, err := FileExists(file.Name())
+		assert.NoError(t, err)
+		assert.True(t, res)
+	})
+	t.Run("file is not found", func(t *testing.T) {
+		res, err := FileExists(fmt.Sprintf("test_file_exists_%d", time.Now().Unix()))
+		assert.NoError(t, err)
+		assert.False(t, res)
+	})
 }
