@@ -81,6 +81,21 @@ func (mr *MockDaemonManagerMockRecorder) GetManagedDaemon() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetManagedDaemon", reflect.TypeOf((*MockDaemonManager)(nil).GetManagedDaemon))
 }
 
+// ImageExists mocks base method.
+func (m *MockDaemonManager) ImageExists() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImageExists")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ImageExists indicates an expected call of ImageExists.
+func (mr *MockDaemonManagerMockRecorder) ImageExists() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageExists", reflect.TypeOf((*MockDaemonManager)(nil).ImageExists))
+}
+
 // IsLoaded mocks base method.
 func (m *MockDaemonManager) IsLoaded(arg0 dockerapi.DockerClient) (bool, error) {
 	m.ctrl.T.Helper()

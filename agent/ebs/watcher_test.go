@@ -18,17 +18,20 @@ package ebs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
-	mock_dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager/mock"
+	"github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
+	mock_daemonmanager "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager/mock"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -36,7 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	mock_ebs_discovery "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
@@ -151,7 +154,6 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 // TestHandleExpiredEBSAttachment tests acknowledging an expired resource attachment of type Elastic Block Stores
 // The resource attachment object should not be saved to the agent state since the expiration date is in the past.
 func TestHandleExpiredEBSAttachment(t *testing.T) {
-	t.Skip()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -159,9 +161,6 @@ func TestHandleExpiredEBSAttachment(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
-
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 
 	testAttachmentProperties := map[string]string{
@@ -310,8 +309,6 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 
 	testAttachmentProperties := map[string]string{
@@ -357,8 +354,6 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 
 	testAttachmentProperties := map[string]string{
@@ -394,7 +389,6 @@ func TestHandleEBSAckTimeout(t *testing.T) {
 // TestHandleMismatchEBSAttachment tests handling an EBS attachment but found a different volume attached
 // onto the host during the scanning process.
 func TestHandleMismatchEBSAttachment(t *testing.T) {
-	t.Skip()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -402,8 +396,6 @@ func TestHandleMismatchEBSAttachment(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 
 	watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine, mockCsiClient)
@@ -462,9 +454,9 @@ func TestHandleEBSAttachmentWithExistingCSIDriverTask(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&apitask.Task{
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
 		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
-		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe: status.TaskRunning,
 	}).AnyTimes()
 	mockTaskEngine.EXPECT().StateChangeEvents().Return(make(chan statechange.Event)).AnyTimes()
 
@@ -547,17 +539,17 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&apitask.Task{
+	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
 		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
-		KnownStatusUnsafe: apitaskstatus.TaskStopped,
+		KnownStatusUnsafe: status.TaskStopped,
 	}).AnyTimes()
-	mockDaemonManager := mock_dm.NewMockDaemonManager(mockCtrl)
-	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&apitask.Task{
+	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(mockCtrl)
+	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&task.Task{
 		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
-		KnownStatusUnsafe: apitaskstatus.TaskCreated,
+		KnownStatusUnsafe: status.TaskCreated,
 	}, nil).AnyTimes()
 
-	daemonManagers := map[string]dm.DaemonManager{
+	daemonManagers := map[string]daemonmanager.DaemonManager{
 		md.EbsCsiDriver: mockDaemonManager,
 	}
 
@@ -635,3 +627,193 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 }
 
 // TODO add StageAll test
+
+func TestDaemonRunning(t *testing.T) {
+	tcs := []struct {
+		name               string
+		setTaskEngineMocks func(*gomock.Controller, *mock_engine.MockTaskEngine)
+		expected           bool
+	}{
+		{
+			name: "task is running",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				task := &task.Task{
+					KnownStatusUnsafe: status.TaskRunning,
+					Arn:               "arn:aws:ecs:us-west-2:1234:task/test/sometaskid",
+				}
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(task)
+			},
+			expected: true,
+		},
+		{
+			name: "task is created",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				task := &task.Task{
+					KnownStatusUnsafe: status.TaskCreated,
+					Arn:               "arn:aws:ecs:us-west-2:1234:task/test/sometaskid",
+				}
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(task)
+			},
+			expected: false,
+		},
+		{
+			name: "task is not created, daemon manager not found",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil)
+				mte.EXPECT().GetDaemonManagers().Return(map[string]daemonmanager.DaemonManager{})
+			},
+			expected: false,
+		},
+		{
+			name: "image not loaded yet",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil)
+				daemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+				daemonManager.EXPECT().IsLoaded(gomock.Any()).Return(false, nil)
+				daemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag"))
+				dms := map[string]daemonmanager.DaemonManager{md.EbsCsiDriver: daemonManager}
+				mte.EXPECT().GetDaemonManagers().Return(dms)
+			},
+			expected: false,
+		},
+		{
+			name: "daemon task create failed",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil)
+				daemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+				daemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+				daemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag"))
+				dms := map[string]daemonmanager.DaemonManager{md.EbsCsiDriver: daemonManager}
+				mte.EXPECT().GetDaemonManagers().Return(dms)
+				daemonManager.EXPECT().CreateDaemonTask().Return(nil, errors.New("error"))
+			},
+			expected: false,
+		},
+		{
+			name: "new daemon task created successfully",
+			setTaskEngineMocks: func(ctrl *gomock.Controller, mte *mock_engine.MockTaskEngine) {
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil)
+				daemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+				daemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
+				daemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag"))
+				dms := map[string]daemonmanager.DaemonManager{md.EbsCsiDriver: daemonManager}
+				mte.EXPECT().GetDaemonManagers().Return(dms)
+				csiTask := &task.Task{Arn: "arn:aws:ecs:us-west-2:1234:task/test/sometaskid"}
+				daemonManager.EXPECT().CreateDaemonTask().Return(csiTask, nil)
+				mte.EXPECT().SetDaemonTask(md.EbsCsiDriver, csiTask).Return()
+				mte.EXPECT().AddTask(csiTask).Return()
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+			tc.setTaskEngineMocks(ctrl, taskEngine)
+
+			watcher := &EBSWatcher{taskEngine: taskEngine}
+			assert.Equal(t, tc.expected, watcher.daemonRunning())
+		})
+	}
+}
+
+func TestTick(t *testing.T) {
+	type testCase struct {
+		name                           string
+		pendingAttachments             map[string]*apiebs.ResourceAttachment
+		setTaskEngineStateExpectations func(*mock_dockerstate.MockTaskEngineState)
+		setTaskEngineExpectations      func(*mock_engine.MockTaskEngine)
+		setDiscoveryClientExpectations func(*mock_ebs_discovery.MockEBSDiscovery)
+		assertEBSAttachmentsState      func(t *testing.T, atts map[string]*apiebs.ResourceAttachment)
+	}
+
+	attachmentAlreadySentCase := func() testCase {
+		attachment := &apiebs.ResourceAttachment{
+			AttachmentInfo: attachment.AttachmentInfo{
+				Status:           attachment.AttachmentAttached,
+				AttachStatusSent: true,
+			},
+			AttachmentProperties: map[string]string{apiebs.DeviceNameKey: "device-name"},
+		}
+		return testCase{
+			name:               "daemon running and volume already attached and sent",
+			pendingAttachments: map[string]*apiebs.ResourceAttachment{"ebs-volume:id": attachment},
+			setTaskEngineStateExpectations: func(mtes *mock_dockerstate.MockTaskEngineState) {
+				mtes.EXPECT().GetEBSByVolumeId("id").Return(attachment, true).Times(3)
+			},
+			setTaskEngineExpectations: func(mte *mock_engine.MockTaskEngine) {
+				task := &task.Task{KnownStatusUnsafe: status.TaskRunning}
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(task)
+			},
+			setDiscoveryClientExpectations: func(me *mock_ebs_discovery.MockEBSDiscovery) {
+				me.EXPECT().ConfirmEBSVolumeIsAttached("device-name", "id").Return("actual-name", nil)
+			},
+			assertEBSAttachmentsState: func(t *testing.T, atts map[string]*apiebs.ResourceAttachment) {
+				attachment, ok := atts["ebs-volume:id"]
+				require.True(t, ok, "attachment not found")
+				assert.NoError(t, attachment.GetError())
+				assert.True(t, attachment.IsAttached())
+				assert.True(t, attachment.IsSent())
+			},
+		}
+	}
+
+	tcs := []testCase{
+		{
+			name:               "no-op when there are no pending attachments",
+			pendingAttachments: map[string]*apiebs.ResourceAttachment{},
+		},
+		{
+			name:               "no-op when daemon has been initialized but pending to run",
+			pendingAttachments: map[string]*apiebs.ResourceAttachment{"id": &apiebs.ResourceAttachment{}},
+			setTaskEngineExpectations: func(mte *mock_engine.MockTaskEngine) {
+				task := &task.Task{KnownStatusUnsafe: status.TaskCreated}
+				mte.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(task)
+			},
+			assertEBSAttachmentsState: func(t *testing.T, atts map[string]*apiebs.ResourceAttachment) {
+				attachment, ok := atts["id"]
+				require.True(t, ok, "attachment not found")
+				assert.NoError(t, attachment.GetError())
+				assert.False(t, attachment.IsAttached())
+				assert.False(t, attachment.IsSent())
+			},
+		},
+		attachmentAlreadySentCase(),
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			taskEngineState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+			dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+			discoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(ctrl)
+
+			attachments := tc.pendingAttachments
+			taskEngineState.EXPECT().GetAllPendingEBSAttachmentsWithKey().Return(attachments)
+			if tc.setTaskEngineStateExpectations != nil {
+				tc.setTaskEngineStateExpectations(taskEngineState)
+			}
+			if tc.setTaskEngineExpectations != nil {
+				tc.setTaskEngineExpectations(taskEngine)
+			}
+			if tc.setDiscoveryClientExpectations != nil {
+				tc.setDiscoveryClientExpectations(discoveryClient)
+			}
+
+			watcher := NewWatcher(context.Background(), taskEngineState, taskEngine, dockerClient)
+			watcher.discoveryClient = discoveryClient
+			watcher.tick()
+
+			if tc.assertEBSAttachmentsState != nil {
+				tc.assertEBSAttachmentsState(t, attachments)
+			}
+		})
+	}
+}

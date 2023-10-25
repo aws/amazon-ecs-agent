@@ -18,9 +18,11 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"math/big"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -229,4 +231,16 @@ func GetAttachmentId(attachmentArn string) (string, error) {
 		return "", errors.Errorf("failed to get resource attachment id: resource attachment arn invalid: %s", attachmentArn)
 	}
 	return fields[len(fields)-1], nil
+}
+
+// Checks if a file exists on the provided file path.
+func FileExists(filePath string) (bool, error) {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
