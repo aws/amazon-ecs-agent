@@ -760,22 +760,23 @@ func (agent *ecsAgent) loadManagedDaemonImagesAsync(imageManager engine.ImageMan
 
 // Loads Managed Daemon image and adds it to image cleanup exclusion list upon success.
 func (agent *ecsAgent) loadManagedDaemonImage(dm dm.DaemonManager, imageManager engine.ImageManager) {
+	imageRef := dm.GetManagedDaemon().GetImageRef()
 	logger.Info("Starting to load Managed Daemon image", logger.Fields{
-		field.ImageRef: dm.GetManagedDaemon().GetImageRef(),
+		field.ImageRef: imageRef,
 	})
 	image, err := dm.LoadImage(agent.ctx, agent.dockerClient)
 	if err != nil {
 		logger.Error("Failed to load Managed Daemon image", logger.Fields{
-			field.ImageRef: dm.GetManagedDaemon().GetImageRef(),
+			field.ImageRef: imageRef,
 			field.Error:    err,
 		})
 		return
 	}
 	logger.Info("Successfully loaded Managed Daemon image", logger.Fields{
-		field.ImageRef: dm.GetManagedDaemon().GetImageRef(),
+		field.ImageRef: imageRef,
 		field.ImageID:  image.ID,
 	})
-	imageManager.AddImageToCleanUpExclusionList(dm.GetManagedDaemon().GetImageRef())
+	imageManager.AddImageToCleanUpExclusionList(imageRef)
 }
 
 // registerContainerInstance registers the container instance ID for the ECS Agent

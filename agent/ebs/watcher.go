@@ -130,9 +130,8 @@ func (w *EBSWatcher) daemonRunning() bool {
 		return false
 	}
 
-	// Task is not running or about to run, we need to start a new one.
+	// Task is neither running nor about to run. We need to start a new one.
 
-	// Log some information.
 	if csiTask == nil {
 		logger.Info("EBS Managed Daemon task has not been initialized. Will start a new one.")
 	} else {
@@ -196,7 +195,6 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) {
 
 // HandleResourceAttachment processes the resource attachment message. It will:
 // 1. Check whether we already have this attachment in state and if so it's a noop.
-// 2. Start the EBS CSI driver if it's not already running
 // 3. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
 func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment) error {
 	attachmentType := ebs.GetAttachmentType()
