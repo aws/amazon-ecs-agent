@@ -528,9 +528,9 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 					"Either EBS Daemon image does not exist or failed to check its existence."+
 						" This container instance will not advertise EBS Task Attach capability.",
 					logger.Fields{
-						"DaemonImageName":    csiDaemonManager.GetManagedDaemon().GetImageName(),
-						"DaemonImageTarPath": csiDaemonManager.GetManagedDaemon().GetImageTarPath(),
-						field.Error:          err,
+						field.ImageName:    csiDaemonManager.GetManagedDaemon().GetImageName(),
+						field.ImageTARPath: csiDaemonManager.GetManagedDaemon().GetImageTarPath(),
+						field.Error:        err,
 					})
 				return capabilities
 			}
