@@ -49,7 +49,7 @@ const (
 	ecsAgentLogFileENV                          = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer             = "/log"
 	socketPathHostRoot                          = "/var/run/ecs"
-	logPathHostRoot                             = "/log/ecs/daemons"
+	logPathHostRoot                             = "/log/daemons"
 )
 
 var mkdirAllAndChown = utils.MkdirAllAndChown
