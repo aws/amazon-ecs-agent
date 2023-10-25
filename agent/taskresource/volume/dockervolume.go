@@ -40,6 +40,9 @@ const (
 	DockerLocalVolumeDriver   = "local"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 	EFSVolumeType             = "efs"
+	EBSVolumeType             = "ebs"
+	DockerVolumeType          = "docker"
+	FSHostVolumeType          = "fshost"
 	netNSFormat               = "/proc/%s/ns/net"
 	EBSSourcePrefix           = "/mnt/ecs/ebs/"
 )
@@ -152,14 +155,50 @@ func (cfg *EFSVolumeConfig) Source() string {
 	return cfg.DockerVolumeName
 }
 
+func (cfg *EFSVolumeConfig) GetType() string {
+	return EFSVolumeType
+}
+
+func (cfg *EFSVolumeConfig) GetVolumeId() string {
+	return cfg.FileSystemID
+}
+
+func (cfg *EFSVolumeConfig) GetVolumeName() string {
+	return cfg.DockerVolumeName
+}
+
 // Source returns the name of the volume resource which is used as the source of the volume mount
 func (cfg *DockerVolumeConfig) Source() string {
+	return cfg.DockerVolumeName
+}
+
+func (cfg *DockerVolumeConfig) GetType() string {
+	return DockerVolumeType
+}
+
+func (cfg *DockerVolumeConfig) GetVolumeId() string {
+	return cfg.DockerVolumeName
+}
+
+func (cfg *DockerVolumeConfig) GetVolumeName() string {
 	return cfg.DockerVolumeName
 }
 
 // Source returns the source volume host mount point for an EBS volume
 func (cfg *EBSTaskVolumeConfig) Source() string {
 	return EBSSourcePrefix + cfg.SourceVolumeHostPath
+}
+
+func (cfg *EBSTaskVolumeConfig) GetType() string {
+	return EBSVolumeType
+}
+
+func (cfg *EBSTaskVolumeConfig) GetVolumeId() string {
+	return cfg.VolumeId
+}
+
+func (cfg *EBSTaskVolumeConfig) GetVolumeName() string {
+	return cfg.VolumeName
 }
 
 // GetName returns the name of the volume resource

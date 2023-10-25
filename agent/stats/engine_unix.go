@@ -57,13 +57,10 @@ func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.V
 func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskArn string) []*ecstcs.VolumeMetric {
 	var metrics []*ecstcs.VolumeMetric
 	for _, tv := range task.Volumes {
-		// TODO: Include Getters within the TaskVolume interface so that we don't need to have these type casts.
-		// (i.e. getVolumeId())
-		switch tv.Volume.(type) {
-		case *taskresourcevolume.EBSTaskVolumeConfig:
-			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
-			volumeId := ebsCfg.VolumeId
-			hostPath := ebsCfg.Source()
+		if tv.Volume.GetType() == taskresourcevolume.EBSVolumeType {
+			volumeId := tv.Volume.GetVolumeId()
+			hostPath := tv.Volume.Source()
+			volumeName := tv.Volume.GetVolumeName()
 			metric, err := engine.getVolumeMetricsWithTimeout(volumeId, hostPath)
 			if err != nil {
 				logger.Error("Failed to gather metrics for EBS volume", logger.Fields{
@@ -77,7 +74,7 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 			totalBytes := aws.Float64((float64)(metric.Capacity))
 			metrics = append(metrics, &ecstcs.VolumeMetric{
 				VolumeId:   aws.String(volumeId),
-				VolumeName: aws.String(ebsCfg.VolumeName),
+				VolumeName: aws.String(volumeName),
 				Utilized: &ecstcs.UDoubleCWStatsSet{
 					Max:         usedBytes,
 					Min:         usedBytes,
@@ -91,8 +88,6 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 					Sum:         totalBytes,
 				},
 			})
-		default:
-			continue
 		}
 	}
 	return metrics
