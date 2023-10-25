@@ -55,6 +55,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -5178,7 +5179,7 @@ func TestToHostResources(t *testing.T) {
 		},
 		{
 			task:              testTask4,
-			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), utils.Uint16SliceToStringSlice(portsTCP), utils.Uint16SliceToStringSlice(portsUDP), []*string{}),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), commonutils.Uint16SliceToStringSlice(portsTCP), commonutils.Uint16SliceToStringSlice(portsUDP), []*string{}),
 		},
 		{
 			task:              testTask5,
