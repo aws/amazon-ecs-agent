@@ -11,7 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package model
+package ecs
 
-// codegen tag required by AWS SDK generators
-//go:generate go run -tags codegen ../../../ecs-agent/gogenerate/awssdk.go -typesOnly=false -copyright_file ../../../scripts/copyright_file
+//go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs ECSStandardSDK,ECSSubmitStateSDK,ECSClient,ECSTaskProtectionSDK
