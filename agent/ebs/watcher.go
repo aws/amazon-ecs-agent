@@ -195,7 +195,7 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) {
 
 // HandleResourceAttachment processes the resource attachment message. It will:
 // 1. Check whether we already have this attachment in state and if so it's a noop.
-// 3. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
+// 2. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
 func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment) error {
 	attachmentType := ebs.GetAttachmentType()
 	if attachmentType != apiebs.EBSTaskAttach {
