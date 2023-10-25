@@ -7,7 +7,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/sys v0.12.0
-	google.golang.org/grpc v1.58.1
+	google.golang.org/grpc v1.58.3
 	k8s.io/apimachinery v0.28.2
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/mount-utils v0.28.2
