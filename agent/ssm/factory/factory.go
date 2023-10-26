@@ -16,9 +16,11 @@ package factory
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	ssmclient "github.com/aws/amazon-ecs-agent/agent/ssm"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -43,7 +45,7 @@ type ssmClientCreator struct{}
 func (*ssmClientCreator) NewSSMClient(region string,
 	creds credentials.IAMRoleCredentials) ssmclient.SSMClient {
 	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
 		WithRegion(region).
 		WithCredentials(
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,

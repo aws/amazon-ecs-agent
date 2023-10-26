@@ -24,7 +24,7 @@ import (
 )
 
 func TestTTLSimple(t *testing.T) {
-	ttl := NewTTLCache(time.Minute)
+	ttl := NewTTLCache(&TTL{Duration: time.Minute})
 	ttl.Set("foo", "bar")
 
 	bar, expired, ok := ttl.Get("foo")
@@ -45,7 +45,7 @@ func TestTTLSimple(t *testing.T) {
 }
 
 func TestTTLSetDelete(t *testing.T) {
-	ttl := NewTTLCache(time.Minute)
+	ttl := NewTTLCache(&TTL{Duration: time.Minute})
 
 	ttl.Set("foo", "bar")
 	bar, expired, ok := ttl.Get("foo")
@@ -67,7 +67,7 @@ func TestTTLSetDelete(t *testing.T) {
 }
 
 func TestTTLCache(t *testing.T) {
-	ttl := NewTTLCache(50 * time.Millisecond)
+	ttl := NewTTLCache(&TTL{Duration: 50 * time.Millisecond})
 	ttl.Set("foo", "bar")
 
 	bar, expired, ok := ttl.Get("foo")
@@ -83,12 +83,15 @@ func TestTTLCache(t *testing.T) {
 	require.Equal(t, bar, "bar")
 }
 
-func TestTTLCacheSetTTL(t *testing.T) {
+func TestTTLCacheGetTTLAndSetTTL(t *testing.T) {
 	entryKey := "foo"
 	entryVal := "bar"
 
-	// Initialize cache with a TTL that is a high amount of time.
-	cache := NewTTLCache(time.Hour)
+	// Initialize cache with a nil TTL (i.e., infinite amount of time).
+	cache := NewTTLCache(nil)
+	require.Nil(t, cache.GetTTL())
+
+	// Add entry to the cache.
 	cache.Set(entryKey, entryVal)
 	time.Sleep(100 * time.Millisecond)
 
@@ -99,7 +102,10 @@ func TestTTLCacheSetTTL(t *testing.T) {
 	require.Equal(t, entryVal, actualVal)
 
 	// Set TTL of cache to now be a low amount of time.
-	cache.SetTTL(1 * time.Millisecond)
+	newTTLDuration := 1 * time.Millisecond
+	cache.SetTTL(&TTL{Duration: newTTLDuration})
+	require.NotNil(t, cache.GetTTL())
+	require.Equal(t, newTTLDuration, cache.GetTTL().Duration)
 	time.Sleep(100 * time.Millisecond)
 
 	// We should be able to retrieve the entry - it should be expired since the cache's current TTL has elapsed.

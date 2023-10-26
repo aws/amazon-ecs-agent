@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -60,6 +59,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
@@ -433,17 +433,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	// Load Managed Daemon images asynchronously
+	agent.loadManagedDaemonImagesAsync(imageManager)
+
 	scManager := agent.serviceconnectManager
 	scManager.SetECSClient(client, agent.containerInstanceARN)
 	if loaded, _ := scManager.IsLoaded(agent.dockerClient); loaded {
 		imageManager.AddImageToCleanUpExclusionList(agent.serviceconnectManager.GetLoadedImageName())
-	}
-
-	// exclude all daemon images from cleanup
-	for _, csiDM := range agent.daemonManagers {
-		if loaded, _ := csiDM.IsLoaded(agent.dockerClient); loaded {
-			imageManager.AddImageToCleanUpExclusionList(csiDM.GetManagedDaemon().GetLoadedDaemonImageRef())
-		}
 	}
 
 	// Add container instance ARN to metadata manager
@@ -485,7 +481,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
 	// TODO add EBS watcher to async routines
-	agent.startEBSWatcher(state, taskEngine)
+	agent.startEBSWatcher(state, taskEngine, agent.dockerClient)
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
@@ -749,6 +745,38 @@ func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecs.Attribute {
 			Value: aws.String(agent.subnet),
 		},
 	}
+}
+
+// Loads Managed Daemon images for all Managed Daemons registered on the Agent.
+// The images are loaded in the background. Successfully loaded images are added to
+// imageManager's cleanup exclusion list.
+func (agent *ecsAgent) loadManagedDaemonImagesAsync(imageManager engine.ImageManager) {
+	daemonManagers := agent.getDaemonManagers()
+	logger.Debug(fmt.Sprintf("Will load images for %d Managed Daemons", len(daemonManagers)))
+	for _, daemonManager := range daemonManagers {
+		go agent.loadManagedDaemonImage(daemonManager, imageManager)
+	}
+}
+
+// Loads Managed Daemon image and adds it to image cleanup exclusion list upon success.
+func (agent *ecsAgent) loadManagedDaemonImage(dm dm.DaemonManager, imageManager engine.ImageManager) {
+	imageRef := dm.GetManagedDaemon().GetImageRef()
+	logger.Info("Starting to load Managed Daemon image", logger.Fields{
+		field.ImageRef: imageRef,
+	})
+	image, err := dm.LoadImage(agent.ctx, agent.dockerClient)
+	if err != nil {
+		logger.Error("Failed to load Managed Daemon image", logger.Fields{
+			field.ImageRef: imageRef,
+			field.Error:    err,
+		})
+		return
+	}
+	logger.Info("Successfully loaded Managed Daemon image", logger.Fields{
+		field.ImageRef: imageRef,
+		field.ImageID:  image.ID,
+	})
+	imageManager.AddImageToCleanUpExclusionList(imageRef)
 }
 
 // registerContainerInstance registers the container instance ID for the ECS Agent
@@ -1041,7 +1069,7 @@ func (agent *ecsAgent) startACSSession(
 		taskComparer,
 		sequenceNumberAccessor,
 		taskStopper,
-		nil,
+		agent.ebsWatcher,
 		updater.NewUpdater(agent.cfg, state, agent.dataClient, taskEngine).AddAgentUpdateHandlers,
 	)
 	logger.Info("Beginning Polling for updates")
@@ -1138,6 +1166,11 @@ func (agent *ecsAgent) saveMetadata(key, val string) {
 
 func (agent *ecsAgent) setDaemonManager(key string, val dm.DaemonManager) {
 	agent.daemonManagers[key] = val
+}
+
+// Returns daemon managers map. Not designed to be thread-safe.
+func (agent *ecsAgent) getDaemonManagers() map[string]dm.DaemonManager {
+	return agent.daemonManagers
 }
 
 // setVPCSubnet sets the vpc and subnet ids for the agent by querying the

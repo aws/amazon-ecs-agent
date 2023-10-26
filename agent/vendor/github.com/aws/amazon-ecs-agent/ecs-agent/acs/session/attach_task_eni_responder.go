@@ -21,8 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -100,10 +99,10 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNet
 	messageID, taskARN, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
 			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
-			Status:               status.AttachmentNone,
+			Status:               attachment.AttachmentNone,
 			ExpiresAt:            expiresAt,
 			AttachStatusSent:     false,
 			ClusterARN:           clusterARN,

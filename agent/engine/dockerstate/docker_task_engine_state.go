@@ -21,7 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/cihub/seelog"
 )
@@ -300,7 +300,7 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachments() []*apiresource
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsUnsafe() []*apiresource.ResourceAttachment {
 	var pendingEBSAttachments []*apiresource.ResourceAttachment
 	for _, v := range state.ebsAttachments {
-		if !v.IsAttached() && !v.IsSent() {
+		if !v.IsAttached() || !v.IsSent() {
 			pendingEBSAttachments = append(pendingEBSAttachments, v)
 		}
 	}
@@ -319,7 +319,7 @@ func (state *DockerTaskEngineState) GetAllPendingEBSAttachmentsWithKey() map[str
 func (state *DockerTaskEngineState) allPendingEBSAttachmentsWithKeyUnsafe() map[string]*apiresource.ResourceAttachment {
 	pendingEBSAttachments := make(map[string]*apiresource.ResourceAttachment)
 	for k, v := range state.ebsAttachments {
-		if !v.IsAttached() && !v.IsSent() {
+		if !v.IsAttached() || !v.IsSent() {
 			pendingEBSAttachments[k] = v
 		}
 	}

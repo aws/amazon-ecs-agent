@@ -20,7 +20,6 @@ package mock_async
 
 import (
 	reflect "reflect"
-	time "time"
 
 	async "github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	gomock "github.com/golang/mock/gomock"
@@ -139,6 +138,20 @@ func (mr *MockTTLCacheMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTTLCache)(nil).Get), arg0)
 }
 
+// GetTTL mocks base method.
+func (m *MockTTLCache) GetTTL() *async.TTL {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTTL")
+	ret0, _ := ret[0].(*async.TTL)
+	return ret0
+}
+
+// GetTTL indicates an expected call of GetTTL.
+func (mr *MockTTLCacheMockRecorder) GetTTL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTTL", reflect.TypeOf((*MockTTLCache)(nil).GetTTL))
+}
+
 // Set mocks base method.
 func (m *MockTTLCache) Set(arg0 string, arg1 interface{}) {
 	m.ctrl.T.Helper()
@@ -152,7 +165,7 @@ func (mr *MockTTLCacheMockRecorder) Set(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // SetTTL mocks base method.
-func (m *MockTTLCache) SetTTL(arg0 time.Duration) {
+func (m *MockTTLCache) SetTTL(arg0 *async.TTL) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetTTL", arg0)
 }

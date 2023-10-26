@@ -37,3 +37,7 @@ func (dm *daemonManager) LoadImage(ctx context.Context, dockerClient dockerapi.D
 func (dm *daemonManager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 	return false, errors.New("daemonmanager.IsLoaded not implemented for Windows")
 }
+
+func (dm *daemonManager) ImageExists() (bool, error) {
+	return false, errors.New("daemonmanager.ImageExists not implemented for Windows")
+}
