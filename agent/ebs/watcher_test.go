@@ -299,6 +299,125 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 	assert.True(t, ebsAttachment.IsAttached())
 }
 
+func TestStageAll(t *testing.T) {
+	tcs := []struct {
+		name                     string
+		setTaskStateExpectations func(*mock_dockerstate.MockTaskEngineState)
+		setCSIClientExpectations func(*mock_csiclient.MockCSIClient)
+		foundVolumes             map[string]string
+		expectedErrorStubs       []string
+		expectedAttachmentStatus attachment.AttachmentStatus
+	}{
+		{
+			name: "StageAll succeeds with expected EBS CSI Driver fields",
+			setTaskStateExpectations: func(ts *mock_dockerstate.MockTaskEngineState) {
+				ebsResourceAttachment := getEBSResourceAttachment()
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(ebsResourceAttachment, true).Times(2)
+			},
+			setCSIClientExpectations: func(mcc *mock_csiclient.MockCSIClient) {
+				mcc.EXPECT().NodeStageVolume(gomock.Any(),
+					taskresourcevolume.TestVolumeId, gomock.Any(),
+					filepath.Join(hostMountDir, taskresourcevolume.TestSourceVolumeHostPath),
+					taskresourcevolume.TestFileSystem, gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			},
+			foundVolumes:             map[string]string{taskresourcevolume.TestVolumeId: taskresourcevolume.TestDeviceName},
+			expectedErrorStubs:       nil,
+			expectedAttachmentStatus: attachment.AttachmentAttached,
+		},
+		{
+			name: "StageAll returns expected error when CSI NodeStage call fails",
+			setTaskStateExpectations: func(ts *mock_dockerstate.MockTaskEngineState) {
+				ebsResourceAttachment := getEBSResourceAttachment()
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(ebsResourceAttachment, true).Times(2)
+			},
+			setCSIClientExpectations: func(mcc *mock_csiclient.MockCSIClient) {
+				mcc.EXPECT().NodeStageVolume(gomock.Any(),
+					taskresourcevolume.TestVolumeId, gomock.Any(),
+					filepath.Join(hostMountDir, taskresourcevolume.TestSourceVolumeHostPath),
+					taskresourcevolume.TestFileSystem, gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test")).Times(1)
+			},
+			foundVolumes:             map[string]string{taskresourcevolume.TestVolumeId: taskresourcevolume.TestDeviceName},
+			expectedErrorStubs:       []string{"Failed to initialize EBS volume ID"},
+			expectedAttachmentStatus: attachment.AttachmentNone,
+		},
+		{
+			name: "StageAll returns nil when already attached",
+			setTaskStateExpectations: func(ts *mock_dockerstate.MockTaskEngineState) {
+				ebsResourceAttachment := getEBSResourceAttachment()
+				ebsResourceAttachment.SetAttachedStatus()
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(ebsResourceAttachment, true).Times(2)
+			},
+			foundVolumes: map[string]string{taskresourcevolume.TestVolumeId: taskresourcevolume.TestDeviceName},
+			// we won't call NodeStage here
+			setCSIClientExpectations: func(mcc *mock_csiclient.MockCSIClient) {},
+			expectedErrorStubs:       nil,
+			expectedAttachmentStatus: attachment.AttachmentAttached,
+		},
+		{
+			name: "StageAll fails with missing volume ID",
+			setTaskStateExpectations: func(ts *mock_dockerstate.MockTaskEngineState) {
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(nil, false).Times(1)
+				ebsResourceAttachment := getEBSResourceAttachment()
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(ebsResourceAttachment, true).Times(1)
+			},
+			foundVolumes:             map[string]string{taskresourcevolume.TestVolumeId: taskresourcevolume.TestDeviceName},
+			setCSIClientExpectations: func(mcc *mock_csiclient.MockCSIClient) {},
+			expectedErrorStubs:       []string{"Unable to find EBS volume with volume ID"},
+			expectedAttachmentStatus: attachment.AttachmentNone,
+		},
+		{
+			name: "StageAll multiple volumes returns a single error and continues if first volume stage fails",
+			setTaskStateExpectations: func(ts *mock_dockerstate.MockTaskEngineState) {
+				ts.EXPECT().GetEBSByVolumeId("testVolId").Return(nil, false).Times(1)
+				ebsResourceAttachment := getEBSResourceAttachment()
+				ts.EXPECT().GetEBSByVolumeId(taskresourcevolume.TestVolumeId).Return(ebsResourceAttachment, true).Times(2)
+			},
+			foundVolumes: map[string]string{"testVolId": "testDeviceName", taskresourcevolume.TestVolumeId: taskresourcevolume.TestDeviceName},
+			setCSIClientExpectations: func(mcc *mock_csiclient.MockCSIClient) {
+				mcc.EXPECT().NodeStageVolume(gomock.Any(),
+					taskresourcevolume.TestVolumeId, gomock.Any(),
+					filepath.Join(hostMountDir, taskresourcevolume.TestSourceVolumeHostPath),
+					taskresourcevolume.TestFileSystem, gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			},
+			expectedErrorStubs: []string{"Unable to find EBS volume with volume ID"},
+			// note that this only checks the taskresourcevolume.TestVolumeId attachment status
+			expectedAttachmentStatus: attachment.AttachmentAttached,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			ctx := context.Background()
+
+			taskEngineState := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+			tc.setTaskStateExpectations(taskEngineState)
+			mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
+			mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
+
+			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+			tc.setCSIClientExpectations(mockCsiClient)
+
+			watcher := newTestEBSWatcher(ctx, taskEngineState, mockDiscoveryClient, mockTaskEngine, mockCsiClient)
+			errors := watcher.StageAll(tc.foundVolumes)
+			assert.Equal(t, len(tc.expectedErrorStubs), len(errors))
+			if len(tc.expectedErrorStubs) != len(errors) {
+				t.Errorf("mismatched error count")
+			} else {
+				for i, err := range tc.expectedErrorStubs {
+					assert.ErrorContains(t, errors[i], err)
+				}
+			}
+			ebsAttachment, _ := taskEngineState.GetEBSByVolumeId(taskresourcevolume.TestVolumeId)
+			assert.Equal(t, tc.expectedAttachmentStatus, ebsAttachment.GetAttachmentStatus())
+		})
+	}
+}
+
 // TestHandleInvalidTypeEBSAttachment tests handling a resource attachment that is not of type Elastic Block Stores
 // The expected behavior for the EBS watcher is to not add the resource attachment object to the agent state.
 func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
@@ -626,8 +745,6 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 	assert.True(t, ebsAttachment.IsAttached())
 }
 
-// TODO add StageAll test
-
 func TestDaemonRunning(t *testing.T) {
 	tcs := []struct {
 		name               string
@@ -815,5 +932,30 @@ func TestTick(t *testing.T) {
 				tc.assertEBSAttachmentsState(t, attachments)
 			}
 		})
+	}
+}
+
+func getEBSResourceAttachment() *apiebs.ResourceAttachment {
+	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
+	testAttachmentProperties1 := map[string]string{
+		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
+		apiebs.VolumeIdKey:             taskresourcevolume.TestVolumeId,
+		apiebs.VolumeNameKey:           taskresourcevolume.TestVolumeName,
+		apiebs.SourceVolumeHostPathKey: taskresourcevolume.TestSourceVolumeHostPath,
+		apiebs.FileSystemKey:           taskresourcevolume.TestFileSystem,
+		apiebs.VolumeSizeGibKey:        taskresourcevolume.TestVolumeSizeGib,
+	}
+
+	return &apiebs.ResourceAttachment{
+		AttachmentInfo: attachment.AttachmentInfo{
+			TaskARN:              taskARN,
+			TaskClusterARN:       taskClusterARN,
+			ContainerInstanceARN: containerInstanceARN,
+			ExpiresAt:            expiresAt,
+			Status:               attachment.AttachmentNone,
+			AttachmentARN:        resourceAttachmentARN,
+		},
+		AttachmentProperties: testAttachmentProperties1,
+		AttachmentType:       apiebs.EBSTaskAttach,
 	}
 }
