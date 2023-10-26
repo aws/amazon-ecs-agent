@@ -49,7 +49,7 @@ const (
 	ecsAgentLogFileENV                          = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer             = "/log"
 	socketPathHostRoot                          = "/var/run/ecs"
-	logPathHostRoot                             = "/log/daemons"
+	logPathHostRoot                             = "/log/ecs/daemons"
 )
 
 var mkdirAllAndChown = utils.MkdirAllAndChown
@@ -169,11 +169,6 @@ func (dm *daemonManager) initDaemonDirectoryMounts(imageName string) error {
 		return err
 	}
 	return nil
-}
-
-// Returns true if the Daemon image is found on this host, false otherwise.
-func (dm *daemonManager) ImageExists() (bool, error) {
-	return utils.FileExists(dm.managedDaemon.GetImageTarPath())
 }
 
 // LoadImage loads the daemon's latest image

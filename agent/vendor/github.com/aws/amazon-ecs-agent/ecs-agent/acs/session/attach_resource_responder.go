@@ -18,8 +18,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -91,14 +92,14 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 		})
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	go r.resourceHandler.HandleResourceAttachment(&resource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:              aws.StringValue(message.TaskArn),
 			TaskClusterARN:       aws.StringValue(message.TaskClusterArn),
 			ClusterARN:           aws.StringValue(message.ClusterArn),
 			ContainerInstanceARN: aws.StringValue(message.ContainerInstanceArn),
 			ExpiresAt:            expiresAt,
 			AttachmentARN:        aws.StringValue(message.Attachment.AttachmentArn),
-			Status:               attachment.AttachmentNone,
+			Status:               status.AttachmentNone,
 		},
 		AttachmentProperties: attachmentProperties,
 		AttachmentType:       aws.StringValue(message.Attachment.AttachmentType),

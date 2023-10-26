@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
@@ -36,7 +36,7 @@ const (
 
 // ENIAttachment contains the information of the eni attachment
 type ENIAttachment struct {
-	attachment.AttachmentInfo
+	attachmentinfo.AttachmentInfo
 	// AttachmentType is the type of the eni attachment, can either be "task-eni" or "instance-eni"
 	AttachmentType string `json:"attachmentType"`
 	// MACAddress is the mac address of eni
@@ -117,13 +117,6 @@ func (eni *ENIAttachment) IsSent() bool {
 	return eni.AttachStatusSent
 }
 
-// SetAttachedStatus marks the eni status as attached
-func (eni *ENIAttachment) SetAttachedStatus() {
-	eni.guard.Lock()
-	defer eni.guard.Unlock()
-	eni.Status = attachment.AttachmentAttached
-}
-
 // SetSentStatus marks the eni attached status has been sent
 func (eni *ENIAttachment) SetSentStatus() {
 	eni.guard.Lock()
@@ -157,18 +150,6 @@ func (eni *ENIAttachment) String() string {
 	return eni.stringUnsafe()
 }
 
-func (eni *ENIAttachment) GetAttachmentARN() string {
-	eni.guard.RLock()
-	defer eni.guard.RUnlock()
-	return eni.AttachmentARN
-}
-
-func (eni *ENIAttachment) GetAttachmentStatus() attachment.AttachmentStatus {
-	eni.guard.RLock()
-	defer eni.guard.RUnlock()
-	return eni.Status
-}
-
 // stringUnsafe returns a string representation of the ENI Attachment
 func (eni *ENIAttachment) stringUnsafe() string {
 	// skip TaskArn field for instance level eni attachment since it won't have a task arn
@@ -181,24 +162,4 @@ func (eni *ENIAttachment) stringUnsafe() string {
 	return fmt.Sprintf(
 		"ENI Attachment: task=%s attachment=%s attachmentType=%s attachmentSent=%t mac=%s status=%s expiresAt=%s",
 		eni.TaskARN, eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.Format(time.RFC3339))
-}
-
-func (eni *ENIAttachment) GetAttachmentType() string {
-	eni.guard.RLock()
-	defer eni.guard.RUnlock()
-
-	return eni.AttachmentType
-}
-
-func (eni *ENIAttachment) ShouldAttach() bool {
-	eni.guard.RLock()
-	defer eni.guard.RUnlock()
-	return !(eni.Status == attachment.AttachmentAttached) && !eni.AttachStatusSent && !(time.Now().After(eni.ExpiresAt))
-}
-
-// should notify when attached, and not sent/not expired
-func (eni *ENIAttachment) ShouldNotify() bool {
-	eni.guard.RLock()
-	defer eni.guard.RUnlock()
-	return !eni.AttachStatusSent && !(time.Now().After(eni.ExpiresAt))
 }

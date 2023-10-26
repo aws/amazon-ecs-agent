@@ -31,7 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
@@ -113,7 +113,7 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		mockState.EXPECT().
 			ENIByMac(testconst.RandomMAC).
 			Return(&ni.ENIAttachment{
-				AttachmentInfo: attachment.AttachmentInfo{
+				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					ExpiresAt: expiresAt,
 				},
 			}, true).

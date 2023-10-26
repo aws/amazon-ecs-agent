@@ -25,7 +25,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -307,7 +307,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &ni.ENIAttachment{
-					AttachmentInfo: attachment.AttachmentInfo{
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
 						AttachStatusSent: false,
 					},
@@ -324,7 +324,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &ni.ENIAttachment{
-					AttachmentInfo: attachment.AttachmentInfo{
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 						AttachStatusSent: true,
 					},
@@ -338,7 +338,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskStatusNone,
 				Attachment: &ni.ENIAttachment{
-					AttachmentInfo: attachment.AttachmentInfo{
+					AttachmentInfo: attachmentinfo.AttachmentInfo{
 						ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 						AttachStatusSent: false,
 					},
@@ -470,7 +470,7 @@ func TestSetAttachmentSentStatus(t *testing.T) {
 	dataClient := newTestDataClient(t)
 
 	testAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachStatusSent: true,
 			ExpiresAt:        time.Unix(time.Now().Unix()+100, 0),
 			AttachmentARN:    testAttachmentARN,

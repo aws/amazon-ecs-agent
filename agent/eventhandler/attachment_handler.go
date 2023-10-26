@@ -22,8 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
-	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
 )
@@ -94,7 +92,7 @@ func (eventHandler *AttachmentEventHandler) AddStateChangeEvent(change statechan
 		return fmt.Errorf("eventhandler: received malformed attachment state change event: %v", event)
 	}
 
-	attachmentARN := event.Attachment.GetAttachmentARN()
+	attachmentARN := event.Attachment.AttachmentARN
 	eventHandler.lock.Lock()
 	if _, ok := eventHandler.attachmentARNToHandler[attachmentARN]; !ok {
 		eventHandler.attachmentARNToHandler[attachmentARN] = &attachmentHandler{
@@ -129,7 +127,7 @@ func (handler *attachmentHandler) submitAttachmentEvent(attachmentChange *api.At
 }
 
 func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *api.AttachmentStateChange) error {
-	if !attachmentChange.Attachment.ShouldNotify() {
+	if !attachmentChangeShouldBeSent(attachmentChange) {
 		seelog.Debugf("AttachmentHandler: not sending attachment state change [%s] as it should not be sent", attachmentChange.String())
 		// if the attachment state change should not be sent, we don't need to retry anymore so return nil here
 		return nil
@@ -145,19 +143,14 @@ func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *ap
 	attachmentChange.Attachment.SetSentStatus()
 	attachmentChange.Attachment.StopAckTimer()
 
-	switch typedAttachment := attachmentChange.Attachment.(type) {
-	case *ni.ENIAttachment:
-		err := handler.dataClient.SaveENIAttachment(typedAttachment)
-		if err != nil {
-			seelog.Errorf("AttachmentHandler: error saving ENI state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-		}
-	case *resource.ResourceAttachment:
-		err := handler.dataClient.SaveResourceAttachment(typedAttachment)
-		if err != nil {
-			seelog.Errorf("AttachmentHandler: error saving Resource state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-		}
-	default:
-		seelog.Errorf("Unable to save attachment state after submitted attachment state change [%s]: unknown attachment type", attachmentChange.String())
+	err := handler.dataClient.SaveENIAttachment(attachmentChange.Attachment)
+	if err != nil {
+		seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
 	}
 	return nil
+}
+
+// attachmentChangeShouldBeSent checks whether an attachment state change should be sent to backend
+func attachmentChangeShouldBeSent(attachmentChange *api.AttachmentStateChange) bool {
+	return !attachmentChange.Attachment.HasExpired() && !attachmentChange.Attachment.IsSent()
 }

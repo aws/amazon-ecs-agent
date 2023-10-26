@@ -18,11 +18,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"math"
 	"math/big"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -98,6 +96,17 @@ func Int64Ptr(i int64) *int64 {
 
 func BoolPtr(b bool) *bool {
 	return &b
+}
+
+// Uint16SliceToStringSlice converts a slice of type uint16 to a slice of type
+// *string. It uses strconv.Itoa on each element
+func Uint16SliceToStringSlice(slice []uint16) []*string {
+	stringSlice := make([]*string, len(slice))
+	for i, el := range slice {
+		str := strconv.Itoa(int(el))
+		stringSlice[i] = &str
+	}
+	return stringSlice
 }
 
 func StrSliceEqual(s1, s2 []string) bool {
@@ -219,28 +228,15 @@ func GetTaskID(taskARN string) (string, error) {
 	return fields[len(fields)-1], nil
 }
 
-// GetAttachmentId retrieves the ID from an attachment's ARN.
-// asssumes arn structure: arn:[partition]:ec2:[region]:[account-id]:[attachment-type]/[resource-id]
-func GetAttachmentId(attachmentArn string) (string, error) {
-	_, err := arn.Parse(attachmentArn)
+// GetENIAttachmentId retrieves the attachment ID from eni attachment ARN.
+func GetENIAttachmentId(eniAttachmentArn string) (string, error) {
+	_, err := arn.Parse(eniAttachmentArn)
 	if err != nil {
-		return "", errors.Errorf("failed to get resource attachment id: resource attachment arn format invalid: %s", attachmentArn)
+		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn format invalid: %s", eniAttachmentArn)
 	}
-	fields := strings.Split(attachmentArn, "/")
+	fields := strings.Split(eniAttachmentArn, "/")
 	if len(fields) < 2 {
-		return "", errors.Errorf("failed to get resource attachment id: resource attachment arn invalid: %s", attachmentArn)
+		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn invalid: %s", eniAttachmentArn)
 	}
 	return fields[len(fields)-1], nil
-}
-
-// Checks if a file exists on the provided file path.
-func FileExists(filePath string) (bool, error) {
-	_, err := os.Stat(filePath)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data/transformationfunctions"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	generaldata "github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -36,7 +35,6 @@ const (
 	tasksBucketName          = "tasks"
 	imagesBucketName         = "images"
 	eniAttachmentsBucketName = "eniattachments"
-	resAttachmentsBucketName = "resattachments"
 	metadataBucketName       = "metadata"
 	emptyAgentVersionMsg     = "No version info available in boltDB. Either this is a fresh instance, or we were using state file to persist data. Transformer not applicable."
 )
@@ -50,7 +48,6 @@ var (
 		containersBucketName,
 		tasksBucketName,
 		eniAttachmentsBucketName,
-		resAttachmentsBucketName,
 		metadataBucketName,
 	}
 )
@@ -87,16 +84,8 @@ type Client interface {
 	SaveENIAttachment(*networkinterface.ENIAttachment) error
 	// DeleteENIAttachment deletes the data of an ENI atttachment.
 	DeleteENIAttachment(string) error
-	// GetENIAttachments gets the data of all the ENI attachments.
+	// GetENIAttachments gets the data of all the ENI attachment.
 	GetENIAttachments() ([]*networkinterface.ENIAttachment, error)
-
-	// SaveResourceAttachment saves the data of a resource attachment.
-	// This includes the EBS Attachment type
-	SaveResourceAttachment(*resource.ResourceAttachment) error
-	// DeleteResourceAttachment deletes the data of a resource atttachment.
-	DeleteResourceAttachment(string) error
-	// GetResourceAttachments gets the data of all the resouce attachments.
-	GetResourceAttachments() ([]*resource.ResourceAttachment, error)
 
 	// SaveMetadata saves a key value pair of metadata.
 	SaveMetadata(string, string) error

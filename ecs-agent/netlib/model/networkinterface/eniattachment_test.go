@@ -22,7 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -38,11 +39,11 @@ const (
 func TestMarshalUnmarshal(t *testing.T) {
 	expiresAt := time.Now()
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachmentARN:    attachmentARN,
 			AttachStatusSent: attachSent,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 			ExpiresAt:        expiresAt,
 		},
 		MACAddress: mac,
@@ -68,11 +69,11 @@ func TestMarshalUnmarshal(t *testing.T) {
 func TestMarshalUnmarshalWithAttachmentType(t *testing.T) {
 	expiresAt := time.Now()
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachmentARN:    attachmentARN,
 			AttachStatusSent: attachSent,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 			ExpiresAt:        expiresAt,
 		},
 		AttachmentType: attachmentType,
@@ -100,11 +101,11 @@ func TestMarshalUnmarshalWithAttachmentType(t *testing.T) {
 func TestStartTimerErrorWhenExpiresAtIsInThePast(t *testing.T) {
 	expiresAt := time.Now().Unix() - 1
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachmentARN:    attachmentARN,
 			AttachStatusSent: attachSent,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 			ExpiresAt:        time.Unix(expiresAt, 0),
 		},
 		MACAddress: mac,
@@ -123,11 +124,11 @@ func TestHasExpired(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			attachment := &ENIAttachment{
-				AttachmentInfo: attachment.AttachmentInfo{
+				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					TaskARN:          taskARN,
 					AttachmentARN:    attachmentARN,
 					AttachStatusSent: attachSent,
-					Status:           attachment.AttachmentNone,
+					Status:           status.AttachmentNone,
 					ExpiresAt:        time.Unix(tc.expiresAt, 0),
 				},
 				MACAddress: mac,
@@ -146,10 +147,10 @@ func TestInitialize(t *testing.T) {
 
 	expiresAt := time.Now().Unix() + 1
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       taskARN,
 			AttachmentARN: attachmentARN,
-			Status:        attachment.AttachmentNone,
+			Status:        status.AttachmentNone,
 			ExpiresAt:     time.Unix(expiresAt, 0),
 		},
 		MACAddress: mac,
@@ -161,10 +162,10 @@ func TestInitialize(t *testing.T) {
 func TestInitializeExpired(t *testing.T) {
 	expiresAt := time.Now().Unix() - 1
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       taskARN,
 			AttachmentARN: attachmentARN,
-			Status:        attachment.AttachmentNone,
+			Status:        status.AttachmentNone,
 			ExpiresAt:     time.Unix(expiresAt, 0),
 		},
 		MACAddress: mac,
@@ -175,11 +176,11 @@ func TestInitializeExpired(t *testing.T) {
 func TestInitializeExpiredButAlreadySent(t *testing.T) {
 	expiresAt := time.Now().Unix() - 1
 	attachment := &ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachmentARN:    attachmentARN,
 			AttachStatusSent: attachSent,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 			ExpiresAt:        time.Unix(expiresAt, 0),
 		},
 		MACAddress: mac,

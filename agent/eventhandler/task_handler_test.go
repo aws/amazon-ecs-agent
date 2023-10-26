@@ -33,7 +33,7 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -377,7 +377,7 @@ func TestENISentStatusChange(t *testing.T) {
 	}
 
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          taskARN,
 			AttachStatusSent: false,
 			ExpiresAt:        time.Now().Add(time.Second),

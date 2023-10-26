@@ -23,17 +23,15 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -79,25 +77,25 @@ type APIECSClient struct {
 // NewECSClient creates a new ECSClient interface object
 func NewECSClient(
 	credentialProvider *credentials.Credentials,
-	cfg *config.Config,
+	config *config.Config,
 	ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
 
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
-	ecsConfig.Region = &cfg.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, cfg.AcceptInsecureCert, agentversion.String(), config.OSType)
-	if cfg.APIEndpoint != "" {
-		ecsConfig.Endpoint = &cfg.APIEndpoint
+	ecsConfig.Region = &config.AWSRegion
+	ecsConfig.HTTPClient = httpclient.New(RoundtripTimeout, config.AcceptInsecureCert)
+	if config.APIEndpoint != "" {
+		ecsConfig.Endpoint = &config.APIEndpoint
 	}
 	standardClient := ecs.New(session.New(&ecsConfig))
 	submitStateChangeClient := newSubmitStateChangeClient(&ecsConfig)
 	return &APIECSClient{
 		credentialProvider:      credentialProvider,
-		config:                  cfg,
+		config:                  config,
 		standardClient:          standardClient,
 		submitStateChangeClient: submitStateChangeClient,
 		ec2metadata:             ec2MetadataClient,
-		pollEndpointCache:       async.NewTTLCache(&async.TTL{Duration: pollEndpointCacheTTL}),
+		pollEndpointCache:       async.NewTTLCache(pollEndpointCacheTTL),
 	}
 }
 
@@ -323,12 +321,12 @@ func (client *APIECSClient) getResources() ([]*ecs.Resource, error) {
 	portResource := ecs.Resource{
 		Name:           utils.Strptr("PORTS"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: commonutils.Uint16SliceToStringSlice(client.config.ReservedPorts),
+		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPorts),
 	}
 	udpPortResource := ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: commonutils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
+		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
 	}
 
 	return []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}, nil
@@ -658,14 +656,14 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 }
 
 func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentStateChange) error {
-	attachmentStatus := change.Attachment.GetAttachmentStatus()
+	attachmentStatus := change.Attachment.Status.String()
 
 	req := ecs.SubmitAttachmentStateChangesInput{
 		Cluster: &client.config.Cluster,
 		Attachments: []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: aws.String(change.Attachment.GetAttachmentARN()),
-				Status:        aws.String(attachmentStatus.String()),
+				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
+				Status:        aws.String(attachmentStatus),
 			},
 		},
 	}

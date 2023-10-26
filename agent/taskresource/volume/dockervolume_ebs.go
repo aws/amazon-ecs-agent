@@ -17,7 +17,7 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 )
