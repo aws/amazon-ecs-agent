@@ -16,6 +16,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
 github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status
@@ -30,7 +31,6 @@ github.com/aws/amazon-ecs-agent/ecs-agent/csiclient
 github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/data
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
-github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
