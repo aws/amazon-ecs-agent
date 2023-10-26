@@ -2602,6 +2602,9 @@
         "attachments": {
           "shape": "Attachments"
         },
+        "clientToken": {
+          "shape": "String"
+        },
         "tags": {
           "shape": "Tags"
         }
@@ -2685,6 +2688,9 @@
         },
         "networkBindings": {
           "shape": "NetworkBindings"
+        },
+        "managedAgents": {
+          "shape": "ManagedAgentStateChanges"
         },
         "reason": {
           "shape": "String"
@@ -4559,8 +4565,14 @@
         "containerPort": {
           "shape": "BoxedInteger"
         },
+        "containerPortRange": {
+          "shape": "String"
+        },
         "hostPort": {
           "shape": "BoxedInteger"
+        },
+        "hostPortRange": {
+          "shape": "String"
         },
         "protocol": {
           "shape": "TransportProtocol"
@@ -4716,6 +4728,9 @@
         },
         "containerPort": {
           "shape": "BoxedInteger"
+        },
+        "containerPortRange": {
+          "shape": "String"
         },
         "hostPort": {
           "shape": "BoxedInteger"
@@ -4918,6 +4933,9 @@
         },
         "attributes": {
           "shape": "Attributes"
+        },
+        "clientToken": {
+          "shape": "String"
         },
         "tags": {
           "shape": "Tags"
@@ -6852,6 +6870,9 @@
         },
         "networkBindings": {
           "shape": "NetworkBindings"
+        },
+        "managedAgents": {
+          "shape": "ManagedAgentStateChanges"
         }
       }
     },
