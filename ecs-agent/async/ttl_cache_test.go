@@ -114,3 +114,61 @@ func TestTTLCacheGetTTLAndSetTTL(t *testing.T) {
 	require.True(t, expired)
 	require.Equal(t, entryVal, actualVal)
 }
+
+func TestTTLSetNilTTLWhenCacheTTLNotNil(t *testing.T) {
+	entryKey := "foo"
+	entryVal := "bar"
+
+	// Initialize cache with a 1 second TTL (i.e., not nil TTL).
+	initialTTLDuration := 1 * time.Nanosecond
+	cache := NewTTLCache(&TTL{Duration: initialTTLDuration})
+	require.Equal(t, initialTTLDuration, cache.GetTTL().Duration)
+
+	// Add entry to the cache.
+	cache.Set(entryKey, entryVal)
+	time.Sleep(2 * initialTTLDuration)
+
+	// We should be able to retrieve the entry - it should be expired.
+	actualVal, expired, ok := cache.Get(entryKey)
+	require.True(t, ok)
+	require.True(t, expired)
+	require.Equal(t, entryVal, actualVal)
+
+	// Set TTL of cache to now be nil.
+	cache.SetTTL(nil)
+	require.Nil(t, cache.GetTTL())
+
+	// We should be able to retrieve the entry - it should not be expired.
+	actualVal, expired, ok = cache.Get(entryKey)
+	require.True(t, ok)
+	require.False(t, expired)
+	require.Equal(t, entryVal, actualVal)
+}
+
+func TestTTLSetNilTTLWhenCacheTTLNil(t *testing.T) {
+	entryKey := "foo"
+	entryVal := "bar"
+
+	// Initialize cache with a nil TTL.
+	cache := NewTTLCache(nil)
+	require.Nil(t, cache.GetTTL())
+
+	// Add entry to the cache.
+	cache.Set(entryKey, entryVal)
+
+	// We should be able to retrieve the entry - it should not be expired.
+	actualVal, expired, ok := cache.Get(entryKey)
+	require.True(t, ok)
+	require.False(t, expired)
+	require.Equal(t, entryVal, actualVal)
+
+	// Set TTL of cache to now be nil.
+	cache.SetTTL(nil)
+	require.Nil(t, cache.GetTTL())
+
+	// We should be able to retrieve the entry - it should still not be expired.
+	actualVal, expired, ok = cache.Get(entryKey)
+	require.True(t, ok)
+	require.False(t, expired)
+	require.Equal(t, entryVal, actualVal)
+}
