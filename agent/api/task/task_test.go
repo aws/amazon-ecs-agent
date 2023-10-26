@@ -48,13 +48,14 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -4691,6 +4692,15 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				AttachmentType: strptr(apiresource.EBSTaskAttach),
 			},
 		},
+		Volumes: []*ecsacs.Volume{
+			{
+				Name: strptr("test-volume"),
+				Type: strptr(AttachmentType),
+				Host: &ecsacs.HostVolumeProperties{
+					SourcePath: strptr("/host/path"),
+				},
+			},
+		},
 	}
 
 	testExpectedEBSCfg := &taskresourcevolume.EBSTaskVolumeConfig{
@@ -5169,7 +5179,7 @@ func TestToHostResources(t *testing.T) {
 		},
 		{
 			task:              testTask4,
-			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), utils.Uint16SliceToStringSlice(portsTCP), utils.Uint16SliceToStringSlice(portsUDP), []*string{}),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), commonutils.Uint16SliceToStringSlice(portsTCP), commonutils.Uint16SliceToStringSlice(portsUDP), []*string{}),
 		},
 		{
 			task:              testTask5,
@@ -5232,5 +5242,142 @@ func TestToHostResources(t *testing.T) {
 			assert.True(t, found, "Could not convert UDP port resources")
 		}
 		assert.Equal(t, len(tc.expectedResources["PORTS_UDP"].StringSetValue), len(calcResources["PORTS_UDP"].StringSetValue), "Error converting task UDP port resources")
+	}
+}
+
+func TestRemoveVolumes(t *testing.T) {
+	task := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name: "volName",
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
+					FSSourcePath: "/host/path",
+				},
+			},
+		},
+	}
+	task.RemoveVolume(0)
+	assert.Equal(t, len(task.Volumes), 0)
+}
+
+func TestRemoveVolumeIndexOutOfBounds(t *testing.T) {
+	task := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name: "volName",
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
+					FSSourcePath: "/host/path",
+				},
+			},
+		},
+	}
+	task.RemoveVolume(1)
+	assert.Equal(t, len(task.Volumes), 1)
+
+	task.RemoveVolume(-1)
+	assert.Equal(t, len(task.Volumes), 1)
+}
+
+func TestIsManagedDaemonTask(t *testing.T) {
+
+	testTask1 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+	}
+
+	testTask2 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage",
+			},
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        false,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+	}
+
+	testTask3 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskStopped,
+	}
+
+	testTask4 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerManagedDaemon,
+				Image: "someImage:latest",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskCreated,
+	}
+
+	testTask5 := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Type:  apicontainer.ContainerNormal,
+				Image: "someImage",
+			},
+		},
+		IsInternal:        true,
+		KnownStatusUnsafe: apitaskstatus.TaskStopped,
+	}
+
+	testCases := []struct {
+		task            *Task
+		internal        bool
+		isManagedDaemon bool
+	}{
+		{
+			task:            testTask1,
+			internal:        true,
+			isManagedDaemon: true,
+		},
+		{
+			task:            testTask2,
+			internal:        false,
+			isManagedDaemon: false,
+		},
+		{
+			task:            testTask3,
+			internal:        true,
+			isManagedDaemon: false,
+		},
+		{
+			task:            testTask4,
+			internal:        true,
+			isManagedDaemon: true,
+		},
+		{
+			task:            testTask5,
+			internal:        true,
+			isManagedDaemon: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("IsManagedDaemonTask should return %t for %s", tc.isManagedDaemon, tc.task.String()),
+			func(t *testing.T) {
+				_, ok := tc.task.IsManagedDaemonTask()
+				assert.Equal(t, tc.isManagedDaemon, ok)
+			})
 	}
 }

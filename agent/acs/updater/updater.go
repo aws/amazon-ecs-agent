@@ -29,11 +29,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
@@ -79,7 +80,7 @@ func NewUpdater(cfg *config.Config, state dockerstate.TaskEngineState, dataClien
 	taskEngine engine.TaskEngine) *updater {
 	return &updater{
 		config:     cfg,
-		httpclient: httpclient.New(updateDownloadTimeout, false),
+		httpclient: httpclient.New(updateDownloadTimeout, false, agentversion.String(), config.OSType),
 		state:      state,
 		dataClient: dataClient,
 		taskEngine: taskEngine,

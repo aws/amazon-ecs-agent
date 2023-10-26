@@ -24,7 +24,7 @@ import (
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
-	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	gomock "github.com/golang/mock/gomock"
 )

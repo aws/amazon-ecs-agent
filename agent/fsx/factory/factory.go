@@ -16,9 +16,11 @@ package factory
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	fsxclient "github.com/aws/amazon-ecs-agent/agent/fsx"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -42,7 +44,7 @@ type fsxClientCreator struct{}
 func (*fsxClientCreator) NewFSxClient(region string,
 	creds credentials.IAMRoleCredentials) fsxclient.FSxClient {
 	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
 		WithRegion(region).
 		WithCredentials(
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,

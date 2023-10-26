@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
@@ -53,7 +53,7 @@ func testENIAckTimeout(t *testing.T, attachmentType string) {
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          testconst.TaskARN,
 			AttachmentARN:    attachmentArn,
 			ExpiresAt:        expiresAt,
@@ -99,7 +99,7 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 	dataClient := data.NewNoopClient()
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          testconst.TaskARN,
 			AttachmentARN:    attachmentArn,
 			ExpiresAt:        expiresAt,
@@ -141,7 +141,7 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          taskArn,
 			AttachmentARN:    attachmentArn,
 			ExpiresAt:        expiresAt,
@@ -188,7 +188,7 @@ func testHandleExpiredENIAttachment(t *testing.T, attachmentType, taskArn string
 	dataClient := data.NewNoopClient()
 
 	eniAttachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:       taskArn,
 			AttachmentARN: attachmentArn,
 			ExpiresAt:     expiresAt,

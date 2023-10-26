@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -106,6 +107,16 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			allTasksOK = false
 			continue
 		}
+
+		// Note: If we receive an EBS-backed task, we'll also received an incomplete volume configuration in the list of Volumes
+		// To accomodate this, we'll first check if the task IS EBS-backed then we'll mark the corresponding Volume object to be
+		// of type "attachment". This volume object will be replaced by the newly created EBS volume configuration when we parse
+		// through the task attachments.
+		volName, ok := hasEBSAttachment(task)
+		if ok {
+			initializeAttachmentTypeVolume(task, volName)
+		}
+
 		apiTask, err := apitask.TaskFromACS(task, payload)
 		if err != nil {
 			pmHandler.handleInvalidTask(task, err, payload)
@@ -140,7 +151,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
-			eni, err := ni.ENIFromACS(acsENI)
+			eni, err := ni.InterfaceFromACS(acsENI)
 			if err != nil {
 				pmHandler.handleInvalidTask(task, err, payload)
 				allTasksOK = false
@@ -305,4 +316,27 @@ func isTaskStatusStopped(status apitaskstatus.TaskStatus) bool {
 // isTaskStatusNotStopped returns true if the task status != STOPPED.
 func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
 	return status != apitaskstatus.TaskStopped
+}
+
+func hasEBSAttachment(acsTask *ecsacs.Task) (string, bool) {
+	// TODO: This will only work if there's one EBS volume per task. If we there is a case where we have multi-attach for a task, this needs to be modified
+	for _, attachment := range acsTask.Attachments {
+		if *attachment.AttachmentType == apiresource.EBSTaskAttach {
+			for _, property := range attachment.AttachmentProperties {
+				if *property.Name == apiresource.VolumeNameKey {
+					return *property.Value, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+func initializeAttachmentTypeVolume(acsTask *ecsacs.Task, volName string) {
+	for _, volume := range acsTask.Volumes {
+		if *volume.Name == volName && volume.Type == nil {
+			newType := "attachment"
+			volume.Type = &newType
+		}
+	}
 }

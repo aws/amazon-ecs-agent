@@ -17,6 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
@@ -77,6 +78,18 @@ func (c *noopClient) DeleteENIAttachment(string) error {
 }
 
 func (c *noopClient) GetENIAttachments() ([]*networkinterface.ENIAttachment, error) {
+	return nil, nil
+}
+
+func (c *noopClient) SaveResourceAttachment(*resource.ResourceAttachment) error {
+	return nil
+}
+
+func (c *noopClient) DeleteResourceAttachment(string) error {
+	return nil
+}
+
+func (c *noopClient) GetResourceAttachments() ([]*resource.ResourceAttachment, error) {
 	return nil, nil
 }
 

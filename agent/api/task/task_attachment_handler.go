@@ -19,12 +19,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-// AttachmentHandler defines an interface to handel attachment received from ACS.
+// AttachmentHandler defines an interface to handle attachment received from ACS.
 type AttachmentHandler interface {
 	parseAttachment(acsAttachment *ecsacs.Attachment) error
 	validateAttachment(acsTask *ecsacs.Task, task *Task) error
@@ -110,6 +110,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 			task.ServiceConnectConfig = scHandler.(*ServiceConnectAttachmentHandler).scConfig
 		}
 		if len(ebsVolumeAttachments) > 0 {
+			ebsVolumes := make(map[string]bool)
 			for _, attachment := range ebsVolumeAttachments {
 				ebs, err := taskresourcevolume.ParseEBSTaskVolumeAttachment(attachment)
 				if err != nil {
@@ -120,7 +121,16 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 					Type:   apiresource.EBSTaskAttach,
 					Volume: ebs,
 				}
+				ebsVolumes[ebs.VolumeName] = true
 				task.Volumes = append(task.Volumes, taskVolume)
+			}
+			// We're removing all incorrect volume configuration that were intially passed over from ACS
+			for index, tv := range task.Volumes {
+				volumeName := tv.Name
+				volumeType := tv.Type
+				if ebsVolumes[volumeName] && volumeType != apiresource.EBSTaskAttach {
+					task.RemoveVolume(index)
+				}
 			}
 		}
 	}
