@@ -14,9 +14,7 @@ package taskprotection
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -44,8 +42,7 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 			taskCredential.SecretAccessKey,
 			taskCredential.SessionToken)).
 		WithRegion(factory.Region).
-		WithHTTPClient(httpclient.New(ecsclient.RoundtripTimeout, factory.AcceptInsecureCert, version.String(),
-			config.OSType)).
+		WithHTTPClient(httpclient.New(ecsclient.RoundtripTimeout, factory.AcceptInsecureCert)).
 		WithEndpoint(factory.Endpoint)
 
 	ecsClient := ecs.New(session.Must(session.NewSession()), cfg)

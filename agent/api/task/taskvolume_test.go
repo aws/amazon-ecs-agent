@@ -28,8 +28,8 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/golang/mock/gomock"

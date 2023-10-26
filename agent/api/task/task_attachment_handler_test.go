@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -272,12 +272,6 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 							},
 						},
 						AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
-					},
-				},
-				Volumes: []*ecsacs.Volume{
-					{
-						Name: strptr("test-volume"),
-						Type: strptr(AttachmentType),
 					},
 				},
 			}

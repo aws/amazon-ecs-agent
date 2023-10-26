@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -65,7 +66,7 @@ func TestSendENIStateChange(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
 		}, true),
@@ -78,7 +79,7 @@ func TestSendENIStateChange(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, attachment.AttachmentAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, status.AttachmentAttached, taskStateChange.Attachment.Status)
 }
 
 // Test for SendENIStateChange. We call the method for an Unmanaged ENI. Therefore we get an error.
@@ -111,7 +112,7 @@ func TestSendENIStateChangeAlreadySent(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: true,
 				ExpiresAt:        time.Now().Add(expirationTimeAddition),
 			},
@@ -136,7 +137,7 @@ func TestSendENIStateChangeExpired(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachStatusSent: false,
 				ExpiresAt:        time.Now().Add(expirationTimeSubtraction),
 			},
@@ -162,7 +163,7 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false),
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
 			MACAddress: randomMAC,
@@ -176,7 +177,7 @@ func TestSendENIStateChangeWithRetries(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, attachment.AttachmentAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, status.AttachmentAttached, taskStateChange.Attachment.Status)
 }
 
 // Test for SendENIStateChangeWithRetries. We call this method for an expired ENI.
@@ -193,7 +194,7 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 		// mean that it doesn't get retried.
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
 			&ni.ENIAttachment{
-				AttachmentInfo: attachment.AttachmentInfo{
+				AttachmentInfo: attachmentinfo.AttachmentInfo{
 					AttachStatusSent: false,
 					ExpiresAt:        time.Now().Add(expirationTimeSubtraction),
 				},
@@ -220,7 +221,7 @@ func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
 			AttachmentType: ni.ENIAttachmentTypeInstanceENI,
@@ -234,7 +235,7 @@ func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	attachmentStateChange, ok := eniChangeEvent.(api.AttachmentStateChange)
 	require.True(t, ok)
-	assert.Equal(t, attachment.AttachmentAttached, attachmentStateChange.Attachment.GetAttachmentStatus())
+	assert.Equal(t, status.AttachmentAttached, attachmentStateChange.Attachment.Status)
 }
 
 // TestSendENIStateChangeWithAttachmentTypeTaskENI tests that we send the attachment state change
@@ -249,7 +250,7 @@ func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
 
 	gomock.InOrder(
 		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				ExpiresAt: time.Now().Add(expirationTimeAddition),
 			},
 			AttachmentType: ni.ENIAttachmentTypeTaskENI,
@@ -263,5 +264,5 @@ func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
 	eniChangeEvent := <-eventChannel
 	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
 	require.True(t, ok)
-	assert.Equal(t, attachment.AttachmentAttached, taskStateChange.Attachment.Status)
+	assert.Equal(t, status.AttachmentAttached, taskStateChange.Attachment.Status)
 }

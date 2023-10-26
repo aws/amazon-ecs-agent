@@ -4,7 +4,6 @@ import ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterfa
 
 const (
 	primaryNetNSName       = "primary-netns"
-	primaryNetNSPath       = "primary-path"
 	secondaryNetNSName     = "secondary-netns"
 	primaryInterfaceName   = "primary-interface"
 	secondaryInterfaceName = "secondary-interface"
@@ -34,14 +33,12 @@ func getTestNetworkNamespaces() []*NetworkNamespace {
 func getTestNetworkInterfaces() []*ni.NetworkInterface {
 	return []*ni.NetworkInterface{
 		{
-			Name:    secondaryInterfaceName,
-			Default: false,
-			Index:   1,
+			Name:  secondaryInterfaceName,
+			Index: 1,
 		},
 		{
-			Name:    primaryInterfaceName,
-			Default: true,
-			Index:   0,
+			Name:  primaryInterfaceName,
+			Index: 0,
 		},
 	}
 }

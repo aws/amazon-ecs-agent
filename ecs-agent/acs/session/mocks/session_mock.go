@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 
 	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	gomock "github.com/golang/mock/gomock"
 )

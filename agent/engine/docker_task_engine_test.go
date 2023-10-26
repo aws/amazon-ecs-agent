@@ -57,9 +57,10 @@ import (
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
@@ -2424,10 +2425,10 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 	testTask := testdata.LoadTask("sleep5")
 	expiresAt := time.Now().Unix() + 1
 	attachment := &ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       "TaskARN",
 			AttachmentARN: "AttachmentARN",
-			Status:        attachment.AttachmentNone,
+			Status:        status.AttachmentNone,
 			ExpiresAt:     time.Unix(expiresAt, 0),
 		},
 		MACAddress: "MACAddress",
@@ -2460,10 +2461,10 @@ func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
 	attachment := &ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          "TaskARN",
 			AttachmentARN:    testAttachmentArn,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 			AttachStatusSent: false,
 		},
 		MACAddress: "MACAddress",

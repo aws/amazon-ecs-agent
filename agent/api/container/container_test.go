@@ -130,49 +130,9 @@ func TestIsInternal(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("IsInternal should return %t for %s", tc.internal, tc.container.String()),
+		t.Run(fmt.Sprintf("IsInternal shoukd return %t for %s", tc.internal, tc.container.String()),
 			func(t *testing.T) {
 				assert.Equal(t, tc.internal, tc.container.IsInternal())
-			})
-	}
-}
-
-func TestIsManagedDaemonContainer(t *testing.T) {
-	testCases := []struct {
-		container       *Container
-		internal        bool
-		isManagedDaemon bool
-	}{
-		{&Container{}, false, false},
-		{&Container{Type: ContainerNormal, Image: "someImage:latest"}, false, false},
-		{&Container{Type: ContainerManagedDaemon, Image: "someImage:latest"}, true, true},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("IsManagedDaemonContainer should return %t for %s", tc.isManagedDaemon, tc.container.String()),
-			func(t *testing.T) {
-				assert.Equal(t, tc.internal, tc.container.IsInternal())
-				ok := tc.container.IsManagedDaemonContainer()
-				assert.Equal(t, tc.isManagedDaemon, ok)
-			})
-	}
-}
-
-func TestGetImageName(t *testing.T) {
-	testCases := []struct {
-		container *Container
-		imageName string
-	}{
-		{&Container{}, ""},
-		{&Container{Image: "someImage:latest"}, "someImage"},
-		{&Container{Image: "someImage"}, "someImage"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("GetImageName should return %s for %s", tc.imageName, tc.container.String()),
-			func(t *testing.T) {
-				imageName := tc.container.GetImageName()
-				assert.Equal(t, tc.imageName, imageName)
 			})
 	}
 }

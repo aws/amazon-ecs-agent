@@ -34,10 +34,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -725,12 +725,6 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					AttachmentType: aws.String(apiresource.EBSTaskAttach),
 				},
 			},
-			Volumes: []*ecsacs.Volume{
-				{
-					Name: aws.String(taskresourcevolume.TestVolumeName),
-					Type: aws.String(apitask.AttachmentType),
-				},
-			},
 		},
 	}
 
@@ -864,7 +858,7 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 			Arn: aws.String(testconst.TaskARN),
 			ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 				{
-					InterfaceAssociationProtocol: aws.String(ni.VLANInterfaceAssociationProtocol),
+					InterfaceAssociationProtocol: aws.String(eni.VLANInterfaceAssociationProtocol),
 					AttachmentArn:                aws.String(attachmentARN),
 					Ec2Id:                        aws.String(ec2ID),
 					Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -896,7 +890,7 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 
 	// Validate the added task has the ENI trunk information as expected.
 	taskeni := addedTask.GetPrimaryENI()
-	assert.Equal(t, ni.VLANInterfaceAssociationProtocol, taskeni.InterfaceAssociationProtocol)
+	assert.Equal(t, eni.VLANInterfaceAssociationProtocol, taskeni.InterfaceAssociationProtocol)
 	assert.Equal(t, testconst.RandomMAC, taskeni.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 	assert.Equal(t, vlanID, taskeni.InterfaceVlanProperties.VlanID)
 }

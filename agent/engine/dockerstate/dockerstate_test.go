@@ -22,8 +22,9 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/stretchr/testify/assert"
 )
@@ -103,7 +104,7 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       "taskarn",
 			AttachmentARN: "eni1",
 		},
@@ -132,7 +133,7 @@ func TestAddRemoveEBSAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	attachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:       "taskarn",
 			AttachmentARN: "ebs1",
 		},
@@ -161,11 +162,11 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
 	pendingAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          "taskarn1",
 			AttachmentARN:    "ebs1",
 			AttachStatusSent: false,
-			Status:           attachment.AttachmentNone,
+			Status:           status.AttachmentNone,
 		},
 		AttachmentProperties: testAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
@@ -181,11 +182,11 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 	}
 
 	foundAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			TaskARN:          "taskarn2",
 			AttachmentARN:    "ebs2",
 			AttachStatusSent: true,
-			Status:           attachment.AttachmentAttached,
+			Status:           status.AttachmentAttached,
 		},
 		AttachmentProperties: testSentAttachmentProperties,
 		AttachmentType:       apiresource.EBSTaskAttach,
@@ -200,52 +201,6 @@ func TestAddPendingEBSAttachment(t *testing.T) {
 	_, ok := state.(*DockerTaskEngineState).GetAllPendingEBSAttachmentsWithKey()["vol-123"]
 	assert.True(t, ok)
 
-}
-
-func TestAddPendingEBSAttachmentExclusion(t *testing.T) {
-	state := NewTaskEngineState()
-
-	testSentAttachmentProperties := map[string]string{
-		apiresource.VolumeNameKey:           "myCoolVolume",
-		apiresource.SourceVolumeHostPathKey: "/testpath2",
-		apiresource.VolumeSizeGibKey:        "7",
-		apiresource.DeviceNameKey:           "/dev/nvme1n0",
-		apiresource.VolumeIdKey:             "vol-456",
-		apiresource.FileSystemKey:           "testXFS",
-	}
-
-	// not attached but sent should be included (||)
-	sentAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
-			TaskARN:          "taskarn1",
-			AttachmentARN:    "ebs1",
-			AttachStatusSent: true,
-			Status:           attachment.AttachmentNone,
-		},
-		AttachmentProperties: testAttachmentProperties,
-		AttachmentType:       apiresource.EBSTaskAttach,
-	}
-
-	// attached and sent attachment should be excluded (&&)
-	foundAttachment := &apiresource.ResourceAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
-			TaskARN:          "taskarn2",
-			AttachmentARN:    "ebs2",
-			AttachStatusSent: true,
-			Status:           attachment.AttachmentAttached,
-		},
-		AttachmentProperties: testSentAttachmentProperties,
-		AttachmentType:       apiresource.EBSTaskAttach,
-	}
-
-	state.AddEBSAttachment(foundAttachment)
-	state.AddEBSAttachment(sentAttachment)
-	assert.Len(t, state.(*DockerTaskEngineState).GetAllPendingEBSAttachments(), 1)
-	assert.Len(t, state.(*DockerTaskEngineState).GetAllPendingEBSAttachmentsWithKey(), 1)
-	assert.Len(t, state.(*DockerTaskEngineState).GetAllEBSAttachments(), 2)
-
-	_, ok := state.(*DockerTaskEngineState).GetAllPendingEBSAttachmentsWithKey()["vol-123"]
-	assert.True(t, ok)
 }
 
 func TestTwophaseAddContainer(t *testing.T) {

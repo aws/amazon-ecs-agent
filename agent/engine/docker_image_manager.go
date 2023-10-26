@@ -113,8 +113,6 @@ func buildImageCleanupExclusionList(cfg *config.Config) []string {
 }
 
 func (imageManager *dockerImageManager) AddImageToCleanUpExclusionList(image string) {
-	imageManager.updateLock.Lock()
-	defer imageManager.updateLock.Unlock()
 	imageManager.imageCleanupExclusionList = append(imageManager.imageCleanupExclusionList, image)
 	logger.Info("Image excluded from cleanup", logger.Fields{
 		field.Image: image,

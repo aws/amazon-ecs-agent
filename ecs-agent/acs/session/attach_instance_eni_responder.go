@@ -21,7 +21,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -98,9 +99,9 @@ func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *ecsacs.El
 	messageID, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
-		AttachmentInfo: attachment.AttachmentInfo{
+		AttachmentInfo: attachmentinfo.AttachmentInfo{
 			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
-			Status:               attachment.AttachmentNone,
+			Status:               status.AttachmentNone,
 			ExpiresAt:            expiresAt,
 			AttachStatusSent:     false,
 			ClusterARN:           clusterARN,

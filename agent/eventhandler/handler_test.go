@@ -46,7 +46,7 @@ func TestHandleEngineEvent(t *testing.T) {
 	contEvent1 := containerEvent(taskARN)
 	contEvent2 := containerEvent(taskARN)
 	taskEvent := taskEvent(taskARN)
-	attachmentEvent := eniAttachmentEvent("attachmentARN")
+	attachmentEvent := attachmentEvent("attachmentARN")
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
@@ -62,7 +62,7 @@ func TestHandleEngineEvent(t *testing.T) {
 
 	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Do(func(change api.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
-		assert.Equal(t, "attachmentARN", change.Attachment.GetAttachmentARN())
+		assert.Equal(t, "attachmentARN", change.Attachment.AttachmentARN)
 		wg.Done()
 	})
 

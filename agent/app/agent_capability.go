@@ -522,16 +522,12 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		if daemonDef.GetImageName() == md.EbsCsiDriver {
 			csiDaemonManager := dm.NewDaemonManager(daemonDef)
 			agent.setDaemonManager(md.EbsCsiDriver, csiDaemonManager)
-			imageExists, err := csiDaemonManager.ImageExists()
-			if !imageExists {
-				logger.Error(
-					"Either EBS Daemon image does not exist or failed to check its existence."+
-						" This container instance will not advertise EBS Task Attach capability.",
+			if _, err := csiDaemonManager.LoadImage(agent.ctx, agent.dockerClient); err != nil {
+				logger.Error("Failed to load the EBS CSI Driver. This container instance will not be able to support EBS Task Attach",
 					logger.Fields{
-						field.ImageName:    csiDaemonManager.GetManagedDaemon().GetImageName(),
-						field.ImageTARPath: csiDaemonManager.GetManagedDaemon().GetImageTarPath(),
-						field.Error:        err,
-					})
+						field.Error: err,
+					},
+				)
 				return capabilities
 			}
 		}

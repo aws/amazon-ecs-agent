@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +37,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
@@ -1027,7 +1029,7 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
-	pollEndpointCache := async.NewTTLCache(&async.TTL{Duration: 10 * time.Minute})
+	pollEndpointCache := async.NewTTLCache(10 * time.Minute)
 	client := &APIECSClient{
 		credentialProvider: credentials.AnonymousCredentials,
 		config: &config.Config{
@@ -1061,9 +1063,9 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	}
 }
 
-// TestSubmitTaskStateChangeWithENIAttachments tests the SubmitTaskStateChange API
+// TestSubmitTaskStateChangeWithAttachments tests the SubmitTaskStateChange API
 // also send the Attachment Status
-func TestSubmitTaskStateChangeWithENIAttachments(t *testing.T) {
+func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -1084,9 +1086,9 @@ func TestSubmitTaskStateChangeWithENIAttachments(t *testing.T) {
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
 		Attachment: &ni.ENIAttachment{
-			AttachmentInfo: attachment.AttachmentInfo{
+			AttachmentInfo: attachmentinfo.AttachmentInfo{
 				AttachmentARN: "eni_arn",
-				Status:        attachment.AttachmentAttached,
+				Status:        status.AttachmentAttached,
 			},
 		},
 	})
