@@ -14,14 +14,15 @@
 package ec2
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -85,7 +86,7 @@ func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, 
 	res, err := c.client.DescribeTags(&describeTagsInput)
 
 	if err != nil {
-		seelog.Criticalf("Error calling DescribeTags API: %v", err)
+		logger.Critical(fmt.Sprintf("Error calling DescribeTags API: %v", err))
 		return nil, err
 	}
 

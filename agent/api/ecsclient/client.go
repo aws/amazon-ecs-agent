@@ -23,7 +23,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -31,6 +30,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"

@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package ec2
+package http
 
-//go:generate mockgen -destination=mocks/ec2_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/ec2 EC2MetadataClient,HttpClient,Client,ClientSDK
+//go:generate mockgen -destination=mocks/http_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/ec2/http Client
