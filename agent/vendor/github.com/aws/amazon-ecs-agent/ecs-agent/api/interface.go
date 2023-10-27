@@ -12,24 +12,6 @@
 // permissions and limitations under the License.
 package api
 
-import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-)
-
-// ECSTaskProtectionSDK is an interface with customized ecs client that
-// implements the UpdateTaskProtection and GetTaskProtection
-type ECSTaskProtectionSDK interface {
-	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
-	UpdateTaskProtectionWithContext(ctx aws.Context, input *ecs.UpdateTaskProtectionInput,
-		opts ...request.Option) (*ecs.UpdateTaskProtectionOutput, error)
-	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
-	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
-		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
-}
-
 // ECSDiscoverEndpointSDK is an interface with customized ecs client that
 // implements the DiscoverPollEndpoint, DiscoverTelemetryEndpoint, and DiscoverServiceConnectEndpoint
 type ECSDiscoverEndpointSDK interface {
