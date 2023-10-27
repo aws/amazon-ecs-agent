@@ -115,15 +115,15 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if err != nil {
 		return nil, err
 	}
-	inodeSize, err := recheckParameter(context, INodeSizeKey, FileSystemConfigs, fsType)
+	inodeSize, err := recheckParameter(context, InodeSizeKey, FileSystemConfigs, fsType)
 	if err != nil {
 		return nil, err
 	}
-	bytesPerINode, err := recheckParameter(context, BytesPerINodeKey, FileSystemConfigs, fsType)
+	bytesPerInode, err := recheckParameter(context, BytesPerInodeKey, FileSystemConfigs, fsType)
 	if err != nil {
 		return nil, err
 	}
-	numINodes, err := recheckParameter(context, NumberOfINodesKey, FileSystemConfigs, fsType)
+	numInodes, err := recheckParameter(context, NumberOfInodesKey, FileSystemConfigs, fsType)
 	if err != nil {
 		return nil, err
 	}
@@ -209,11 +209,11 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		}
 		formatOptions = append(formatOptions, option, inodeSize)
 	}
-	if len(bytesPerINode) > 0 {
-		formatOptions = append(formatOptions, "-i", bytesPerINode)
+	if len(bytesPerInode) > 0 {
+		formatOptions = append(formatOptions, "-i", bytesPerInode)
 	}
-	if len(numINodes) > 0 {
-		formatOptions = append(formatOptions, "-N", numINodes)
+	if len(numInodes) > 0 {
+		formatOptions = append(formatOptions, "-N", numInodes)
 	}
 	err = d.mounter.FormatAndMountSensitiveWithFormatOptions(source, target, fsType, mountOptions, nil, formatOptions)
 	if err != nil {

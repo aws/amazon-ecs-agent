@@ -145,7 +145,10 @@ ifneq (${BUILD_PLATFORM},aarch64)
 	GOTEST += -race
 endif
 
-test:
+test-ebs-csi:
+	make -C ./ecs-agent/daemonimages/csidriver test
+
+test: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
 	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
@@ -155,7 +158,7 @@ test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
 
-test-silent:
+test-silent: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
 	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
