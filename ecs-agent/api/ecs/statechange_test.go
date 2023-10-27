@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package statechange
+package ecs
 
 import (
 	"fmt"
@@ -24,8 +24,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	mock_statechange "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	mock_statechange "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/statechange/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go/aws"

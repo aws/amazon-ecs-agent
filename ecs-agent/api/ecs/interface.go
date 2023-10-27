@@ -15,7 +15,6 @@ package ecs
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/statechange"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 )
@@ -36,13 +35,13 @@ type ECSClient interface {
 		outpostARN string) (string, string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
-	SubmitTaskStateChange(change statechange.TaskStateChange) error
+	SubmitTaskStateChange(change TaskStateChange) error
 	// SubmitContainerStateChange sends a state change and returns an error
 	// indicating if it was submitted
-	SubmitContainerStateChange(change statechange.ContainerStateChange) error
+	SubmitContainerStateChange(change ContainerStateChange) error
 	// SubmitAttachmentStateChange sends an attachment state change and returns an error
 	// indicating if it was submitted
-	SubmitAttachmentStateChange(change statechange.AttachmentStateChange) error
+	SubmitAttachmentStateChange(change AttachmentStateChange) error
 	// DiscoverPollEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact ACS
 	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
