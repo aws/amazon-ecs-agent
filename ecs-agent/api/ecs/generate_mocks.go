@@ -14,3 +14,4 @@
 package ecs
 
 //go:generate mockgen -destination=mocks/api_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs ECSStandardSDK,ECSSubmitStateSDK,ECSClient,ECSTaskProtectionSDK
+//go:generate mockgen -destination=mocks/statechange/statechange_mocks.go -package=mock_statechange -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs ContainerMetadataGetter,TaskMetadataGetter

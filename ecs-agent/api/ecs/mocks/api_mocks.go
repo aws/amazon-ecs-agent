@@ -22,8 +22,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	statechange "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/statechange"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ecs0 "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	request "github.com/aws/aws-sdk-go/aws/request"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -52,10 +52,10 @@ func (m *MockECSStandardSDK) EXPECT() *MockECSStandardSDKMockRecorder {
 }
 
 // CreateCluster mocks base method.
-func (m *MockECSStandardSDK) CreateCluster(arg0 *ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error) {
+func (m *MockECSStandardSDK) CreateCluster(arg0 *ecs0.CreateClusterInput) (*ecs0.CreateClusterOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCluster", arg0)
-	ret0, _ := ret[0].(*ecs.CreateClusterOutput)
+	ret0, _ := ret[0].(*ecs0.CreateClusterOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -67,10 +67,10 @@ func (mr *MockECSStandardSDKMockRecorder) CreateCluster(arg0 interface{}) *gomoc
 }
 
 // DiscoverPollEndpoint mocks base method.
-func (m *MockECSStandardSDK) DiscoverPollEndpoint(arg0 *ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error) {
+func (m *MockECSStandardSDK) DiscoverPollEndpoint(arg0 *ecs0.DiscoverPollEndpointInput) (*ecs0.DiscoverPollEndpointOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DiscoverPollEndpoint", arg0)
-	ret0, _ := ret[0].(*ecs.DiscoverPollEndpointOutput)
+	ret0, _ := ret[0].(*ecs0.DiscoverPollEndpointOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,10 +82,10 @@ func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpoint(arg0 interface{})
 }
 
 // ListTagsForResource mocks base method.
-func (m *MockECSStandardSDK) ListTagsForResource(arg0 *ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error) {
+func (m *MockECSStandardSDK) ListTagsForResource(arg0 *ecs0.ListTagsForResourceInput) (*ecs0.ListTagsForResourceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTagsForResource", arg0)
-	ret0, _ := ret[0].(*ecs.ListTagsForResourceOutput)
+	ret0, _ := ret[0].(*ecs0.ListTagsForResourceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -97,10 +97,10 @@ func (mr *MockECSStandardSDKMockRecorder) ListTagsForResource(arg0 interface{}) 
 }
 
 // RegisterContainerInstance mocks base method.
-func (m *MockECSStandardSDK) RegisterContainerInstance(arg0 *ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error) {
+func (m *MockECSStandardSDK) RegisterContainerInstance(arg0 *ecs0.RegisterContainerInstanceInput) (*ecs0.RegisterContainerInstanceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0)
-	ret0, _ := ret[0].(*ecs.RegisterContainerInstanceOutput)
+	ret0, _ := ret[0].(*ecs0.RegisterContainerInstanceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -112,10 +112,10 @@ func (mr *MockECSStandardSDKMockRecorder) RegisterContainerInstance(arg0 interfa
 }
 
 // UpdateContainerInstancesState mocks base method.
-func (m *MockECSStandardSDK) UpdateContainerInstancesState(arg0 *ecs.UpdateContainerInstancesStateInput) (*ecs.UpdateContainerInstancesStateOutput, error) {
+func (m *MockECSStandardSDK) UpdateContainerInstancesState(arg0 *ecs0.UpdateContainerInstancesStateInput) (*ecs0.UpdateContainerInstancesStateOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", arg0)
-	ret0, _ := ret[0].(*ecs.UpdateContainerInstancesStateOutput)
+	ret0, _ := ret[0].(*ecs0.UpdateContainerInstancesStateOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -150,10 +150,10 @@ func (m *MockECSSubmitStateSDK) EXPECT() *MockECSSubmitStateSDKMockRecorder {
 }
 
 // SubmitAttachmentStateChanges mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitAttachmentStateChanges(arg0 *ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitAttachmentStateChanges(arg0 *ecs0.SubmitAttachmentStateChangesInput) (*ecs0.SubmitAttachmentStateChangesOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitAttachmentStateChanges", arg0)
-	ret0, _ := ret[0].(*ecs.SubmitAttachmentStateChangesOutput)
+	ret0, _ := ret[0].(*ecs0.SubmitAttachmentStateChangesOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -165,10 +165,10 @@ func (mr *MockECSSubmitStateSDKMockRecorder) SubmitAttachmentStateChanges(arg0 i
 }
 
 // SubmitContainerStateChange mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitContainerStateChange(arg0 *ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitContainerStateChange(arg0 *ecs0.SubmitContainerStateChangeInput) (*ecs0.SubmitContainerStateChangeOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitContainerStateChange", arg0)
-	ret0, _ := ret[0].(*ecs.SubmitContainerStateChangeOutput)
+	ret0, _ := ret[0].(*ecs0.SubmitContainerStateChangeOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -180,10 +180,10 @@ func (mr *MockECSSubmitStateSDKMockRecorder) SubmitContainerStateChange(arg0 int
 }
 
 // SubmitTaskStateChange mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitTaskStateChange(arg0 *ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitTaskStateChange(arg0 *ecs0.SubmitTaskStateChangeInput) (*ecs0.SubmitTaskStateChangeOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitTaskStateChange", arg0)
-	ret0, _ := ret[0].(*ecs.SubmitTaskStateChangeOutput)
+	ret0, _ := ret[0].(*ecs0.SubmitTaskStateChangeOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -263,10 +263,10 @@ func (mr *MockECSClientMockRecorder) DiscoverTelemetryEndpoint(arg0 interface{})
 }
 
 // GetHostResources mocks base method.
-func (m *MockECSClient) GetHostResources() (map[string]*ecs.Resource, error) {
+func (m *MockECSClient) GetHostResources() (map[string]*ecs0.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHostResources")
-	ret0, _ := ret[0].(map[string]*ecs.Resource)
+	ret0, _ := ret[0].(map[string]*ecs0.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -278,10 +278,10 @@ func (mr *MockECSClientMockRecorder) GetHostResources() *gomock.Call {
 }
 
 // GetResourceTags mocks base method.
-func (m *MockECSClient) GetResourceTags(arg0 string) ([]*ecs.Tag, error) {
+func (m *MockECSClient) GetResourceTags(arg0 string) ([]*ecs0.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceTags", arg0)
-	ret0, _ := ret[0].([]*ecs.Tag)
+	ret0, _ := ret[0].([]*ecs0.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -293,7 +293,7 @@ func (mr *MockECSClientMockRecorder) GetResourceTags(arg0 interface{}) *gomock.C
 }
 
 // RegisterContainerInstance mocks base method.
-func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute, arg2 []*ecs.Tag, arg3 string, arg4 []*ecs.PlatformDevice, arg5 string) (string, string, error) {
+func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs0.Attribute, arg2 []*ecs0.Tag, arg3 string, arg4 []*ecs0.PlatformDevice, arg5 string) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(string)
@@ -309,7 +309,7 @@ func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1, arg2,
 }
 
 // SubmitAttachmentStateChange mocks base method.
-func (m *MockECSClient) SubmitAttachmentStateChange(arg0 statechange.AttachmentStateChange) error {
+func (m *MockECSClient) SubmitAttachmentStateChange(arg0 ecs.AttachmentStateChange) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitAttachmentStateChange", arg0)
 	ret0, _ := ret[0].(error)
@@ -323,7 +323,7 @@ func (mr *MockECSClientMockRecorder) SubmitAttachmentStateChange(arg0 interface{
 }
 
 // SubmitContainerStateChange mocks base method.
-func (m *MockECSClient) SubmitContainerStateChange(arg0 statechange.ContainerStateChange) error {
+func (m *MockECSClient) SubmitContainerStateChange(arg0 ecs.ContainerStateChange) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitContainerStateChange", arg0)
 	ret0, _ := ret[0].(error)
@@ -337,7 +337,7 @@ func (mr *MockECSClientMockRecorder) SubmitContainerStateChange(arg0 interface{}
 }
 
 // SubmitTaskStateChange mocks base method.
-func (m *MockECSClient) SubmitTaskStateChange(arg0 statechange.TaskStateChange) error {
+func (m *MockECSClient) SubmitTaskStateChange(arg0 ecs.TaskStateChange) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitTaskStateChange", arg0)
 	ret0, _ := ret[0].(error)
@@ -388,10 +388,10 @@ func (m *MockECSTaskProtectionSDK) EXPECT() *MockECSTaskProtectionSDKMockRecorde
 }
 
 // GetTaskProtection mocks base method.
-func (m *MockECSTaskProtectionSDK) GetTaskProtection(arg0 *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error) {
+func (m *MockECSTaskProtectionSDK) GetTaskProtection(arg0 *ecs0.GetTaskProtectionInput) (*ecs0.GetTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTaskProtection", arg0)
-	ret0, _ := ret[0].(*ecs.GetTaskProtectionOutput)
+	ret0, _ := ret[0].(*ecs0.GetTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -403,14 +403,14 @@ func (mr *MockECSTaskProtectionSDKMockRecorder) GetTaskProtection(arg0 interface
 }
 
 // GetTaskProtectionWithContext mocks base method.
-func (m *MockECSTaskProtectionSDK) GetTaskProtectionWithContext(arg0 context.Context, arg1 *ecs.GetTaskProtectionInput, arg2 ...request.Option) (*ecs.GetTaskProtectionOutput, error) {
+func (m *MockECSTaskProtectionSDK) GetTaskProtectionWithContext(arg0 context.Context, arg1 *ecs0.GetTaskProtectionInput, arg2 ...request.Option) (*ecs0.GetTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetTaskProtectionWithContext", varargs...)
-	ret0, _ := ret[0].(*ecs.GetTaskProtectionOutput)
+	ret0, _ := ret[0].(*ecs0.GetTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -423,10 +423,10 @@ func (mr *MockECSTaskProtectionSDKMockRecorder) GetTaskProtectionWithContext(arg
 }
 
 // UpdateTaskProtection mocks base method.
-func (m *MockECSTaskProtectionSDK) UpdateTaskProtection(arg0 *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error) {
+func (m *MockECSTaskProtectionSDK) UpdateTaskProtection(arg0 *ecs0.UpdateTaskProtectionInput) (*ecs0.UpdateTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateTaskProtection", arg0)
-	ret0, _ := ret[0].(*ecs.UpdateTaskProtectionOutput)
+	ret0, _ := ret[0].(*ecs0.UpdateTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -438,14 +438,14 @@ func (mr *MockECSTaskProtectionSDKMockRecorder) UpdateTaskProtection(arg0 interf
 }
 
 // UpdateTaskProtectionWithContext mocks base method.
-func (m *MockECSTaskProtectionSDK) UpdateTaskProtectionWithContext(arg0 context.Context, arg1 *ecs.UpdateTaskProtectionInput, arg2 ...request.Option) (*ecs.UpdateTaskProtectionOutput, error) {
+func (m *MockECSTaskProtectionSDK) UpdateTaskProtectionWithContext(arg0 context.Context, arg1 *ecs0.UpdateTaskProtectionInput, arg2 ...request.Option) (*ecs0.UpdateTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateTaskProtectionWithContext", varargs...)
-	ret0, _ := ret[0].(*ecs.UpdateTaskProtectionOutput)
+	ret0, _ := ret[0].(*ecs0.UpdateTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
