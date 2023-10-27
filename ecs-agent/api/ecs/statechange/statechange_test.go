@@ -24,9 +24,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	mock_statechange "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/statechange/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"

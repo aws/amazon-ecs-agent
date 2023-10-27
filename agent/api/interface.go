@@ -14,7 +14,7 @@
 package api
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 )
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some

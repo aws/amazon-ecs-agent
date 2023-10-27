@@ -30,8 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
