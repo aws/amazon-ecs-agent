@@ -38,6 +38,12 @@ import (
 func TestNodeVolumeStats(t *testing.T) {
 	const timeoutDuration = 5 * time.Second
 
+	// Skip if lsblk command does not exist on the host
+	_, err := exec.LookPath("lsblk")
+	if err != nil {
+		t.Skip("lsblk command not found", err)
+	}
+
 	// Find the root volume using lsblk
 	lsblkCtx, lsblkCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer lsblkCtxCancel()
