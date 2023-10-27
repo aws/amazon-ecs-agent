@@ -21,7 +21,7 @@ package handlers
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	api "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )

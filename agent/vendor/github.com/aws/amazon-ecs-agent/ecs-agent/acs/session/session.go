@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -71,7 +71,7 @@ type session struct {
 	containerInstanceARN           string
 	cluster                        string
 	credentialsProvider            *credentials.Credentials
-	discoverEndpointClient         api.ECSDiscoverEndpointSDK
+	discoverEndpointClient         ecs.ECSClient
 	inactiveInstanceCB             func()
 	agentVersion                   string
 	agentHash                      string
@@ -102,7 +102,7 @@ type session struct {
 // NewSession creates a new Session.
 func NewSession(containerInstanceARN string,
 	cluster string,
-	discoverEndpointClient api.ECSDiscoverEndpointSDK,
+	discoverEndpointClient ecs.ECSClient,
 	credentialsProvider *credentials.Credentials,
 	inactiveInstanceCB func(),
 	clientFactory wsclient.ClientFactory,
