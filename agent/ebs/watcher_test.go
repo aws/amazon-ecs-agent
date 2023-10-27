@@ -73,7 +73,6 @@ func newTestEBSWatcher(ctx context.Context, agentState dockerstate.TaskEngineSta
 // TestHandleEBSAttachmentHappyCase tests handling a new resource attachment of type Elastic Block Stores
 // The expected behavior is for the resource attachment to be added to the agent state and be able to be marked as attached.
 func TestHandleEBSAttachmentHappyCase(t *testing.T) {
-	t.Skip()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -81,8 +80,29 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
+
+	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(mockCtrl)
+	daemonManagers := map[string]daemonmanager.DaemonManager{
+		md.EbsCsiDriver: mockDaemonManager,
+	}
+
+	// Mocking the workflow of daemonRunning() in the scenario where there isn't an existing CSI task
+	gomock.InOrder(
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).Times(1),
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
+			Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+			KnownStatusUnsafe: status.TaskRunning,
+		}).Times(1),
+	)
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(daemonManagers).Times(1)
+	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).Times(1)
+	mockDaemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(1)
+	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&task.Task{
+		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+		KnownStatusUnsafe: status.TaskRunning,
+	}, nil).Times(1)
+	mockTaskEngine.EXPECT().SetDaemonTask(md.EbsCsiDriver, gomock.Any()).Return().Times(1)
+	mockTaskEngine.EXPECT().AddTask(gomock.Any()).Return().Times(1)
 
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 	mockCsiClient.EXPECT().NodeStageVolume(gomock.Any(),
@@ -94,7 +114,12 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 		gomock.Any(),
 		gomock.Any(),
 		gomock.Any(),
-		gomock.Any()).Return(nil).AnyTimes()
+		gomock.Any()).Return(nil).Times(1)
+
+	stateChangeChan := make(chan statechange.Event)
+	mockTaskEngine.EXPECT().StateChangeEvents().Return(stateChangeChan).Times(1)
+
+	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -105,7 +130,6 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 		apiebs.VolumeSizeGibKey:        taskresourcevolume.TestVolumeSizeGib,
 	}
 
-	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
@@ -126,29 +150,22 @@ func TestHandleEBSAttachmentHappyCase(t *testing.T) {
 			wg.Done()
 		}).
 		Return(taskresourcevolume.TestDeviceName, nil).
-		MinTimes(1)
+		Times(1)
 
 	err := watcher.HandleEBSResourceAttachment(ebsAttachment)
 	assert.NoError(t, err)
 
-	// Instead of starting the EBS watcher, we'll be mocking a tick of the EBS watcher's scan ticker.
-	// Otherwise, the watcher will continue to run forever and the test will panic.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
-		if len(pendingEBS) > 0 {
-			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.NotifyAttached(foundVolumes)
-		}
-	}()
-
-	wg.Wait()
+	// First tick will be creating the CSI task and the second tick will actually perform the volume discovery + validation + staging.
+	watcher.tick()
+	watcher.tick()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 1)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(taskresourcevolume.TestVolumeId)
 	assert.True(t, ok)
 	assert.True(t, ebsAttachment.IsAttached())
+	attachEvent := <-stateChangeChan
+	assert.NotNil(t, attachEvent)
+	assert.Equal(t, attachEvent.GetEventType(), statechange.AttachmentEvent)
 }
 
 // TestHandleExpiredEBSAttachment tests acknowledging an expired resource attachment of type Elastic Block Stores
@@ -197,7 +214,6 @@ func TestHandleExpiredEBSAttachment(t *testing.T) {
 // TestHandleDuplicateEBSAttachment tests handling duplicate resource attachment of type Elastic Block Store
 // The expected behavior is for only of the resource attachment object to be added to the agent state.
 func TestHandleDuplicateEBSAttachment(t *testing.T) {
-	t.Skip()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -205,8 +221,29 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).AnyTimes()
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(nil).AnyTimes()
+
+	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(mockCtrl)
+	daemonManagers := map[string]daemonmanager.DaemonManager{
+		md.EbsCsiDriver: mockDaemonManager,
+	}
+
+	// Mocking the workflow of daemonRunning() in the scenario where there isn't an existing CSI task
+	gomock.InOrder(
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(nil).Times(1),
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
+			Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+			KnownStatusUnsafe: status.TaskRunning,
+		}).Times(1),
+	)
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(daemonManagers).Times(1)
+	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).Times(1)
+	mockDaemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(1)
+	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&task.Task{
+		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+		KnownStatusUnsafe: status.TaskRunning,
+	}, nil).Times(1)
+	mockTaskEngine.EXPECT().SetDaemonTask(md.EbsCsiDriver, gomock.Any()).Return().Times(1)
+	mockTaskEngine.EXPECT().AddTask(gomock.Any()).Return().Times(1)
 
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 	mockCsiClient.EXPECT().NodeStageVolume(gomock.Any(),
@@ -218,7 +255,10 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 		gomock.Any(),
 		gomock.Any(),
 		gomock.Any(),
-		gomock.Any()).Return(nil).AnyTimes()
+		gomock.Any()).Return(nil).Times(1)
+
+	stateChangeChan := make(chan statechange.Event)
+	mockTaskEngine.EXPECT().StateChangeEvents().Return(stateChangeChan).Times(1)
 
 	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 
@@ -274,29 +314,22 @@ func TestHandleDuplicateEBSAttachment(t *testing.T) {
 			wg.Done()
 		}).
 		Return(taskresourcevolume.TestDeviceName, nil).
-		MinTimes(1)
+		Times(1)
 
 	watcher.HandleResourceAttachment(ebsAttachment1)
 	watcher.HandleResourceAttachment(ebsAttachment2)
 
-	// Instead of starting the EBS watcher, we'll be mocking a tick of the EBS watcher's scan ticker.
-	// Otherwise, the watcher will continue to run forever and the test will panic.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
-		if len(pendingEBS) > 0 {
-			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.NotifyAttached(foundVolumes)
-		}
-	}()
-
-	wg.Wait()
+	// First tick will be creating the CSI task and the second tick will actually perform the volume discovery + validation + staging.
+	watcher.tick()
+	watcher.tick()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 1)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(taskresourcevolume.TestVolumeId)
 	assert.True(t, ok)
 	assert.True(t, ebsAttachment.IsAttached())
+	attachEvent := <-stateChangeChan
+	assert.NotNil(t, attachEvent)
+	assert.Equal(t, attachEvent.GetEventType(), statechange.AttachmentEvent)
 }
 
 func TestStageAll(t *testing.T) {
@@ -465,7 +498,6 @@ func TestHandleInvalidTypeEBSAttachment(t *testing.T) {
 // The expected behavior is after the timeout duration, the resource attachment object will be removed from agent state.
 // Skip flaky test until debugged
 func TestHandleEBSAckTimeout(t *testing.T) {
-	t.Skip("Skipping timeout test: flaky")
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -576,8 +608,7 @@ func TestHandleEBSAttachmentWithExistingCSIDriverTask(t *testing.T) {
 	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
 		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
 		KnownStatusUnsafe: status.TaskRunning,
-	}).AnyTimes()
-	mockTaskEngine.EXPECT().StateChangeEvents().Return(make(chan statechange.Event)).AnyTimes()
+	}).Times(1)
 
 	mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
 	mockCsiClient.EXPECT().NodeStageVolume(gomock.Any(),
@@ -589,7 +620,12 @@ func TestHandleEBSAttachmentWithExistingCSIDriverTask(t *testing.T) {
 		gomock.Any(),
 		gomock.Any(),
 		gomock.Any(),
-		gomock.Any()).Return(nil).AnyTimes()
+		gomock.Any()).Return(nil).Times(1)
+
+	stateChangeChan := make(chan statechange.Event)
+	mockTaskEngine.EXPECT().StateChangeEvents().Return(stateChangeChan).Times(1)
+
+	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
@@ -600,7 +636,6 @@ func TestHandleEBSAttachmentWithExistingCSIDriverTask(t *testing.T) {
 		apiebs.VolumeSizeGibKey:        taskresourcevolume.TestVolumeSizeGib,
 	}
 
-	expiresAt := time.Now().Add(time.Millisecond * testconst.WaitTimeoutMillis)
 	ebsAttachment := &apiebs.ResourceAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
@@ -626,25 +661,15 @@ func TestHandleEBSAttachmentWithExistingCSIDriverTask(t *testing.T) {
 	err := watcher.HandleEBSResourceAttachment(ebsAttachment)
 	assert.NoError(t, err)
 
-	// Instead of starting the EBS watcher, we'll be mocking a tick of the EBS watcher's scan ticker.
-	// Otherwise, the watcher will continue to run forever and the test will panic.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
-		if len(pendingEBS) > 0 {
-			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.StageAll(foundVolumes)
-			watcher.NotifyAttached(foundVolumes)
-		}
-	}()
-
-	wg.Wait()
+	watcher.tick()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 1)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(taskresourcevolume.TestVolumeId)
 	require.True(t, ok)
 	assert.True(t, ebsAttachment.IsAttached())
+	attachEvent := <-stateChangeChan
+	assert.NotNil(t, attachEvent)
+	assert.Equal(t, attachEvent.GetEventType(), statechange.AttachmentEvent)
 }
 
 // TestHandleEBSAttachmentWithStoppedCSIDriverTask tests handling an EBS attachment when there's an existing CSI driver daemon task
@@ -658,22 +683,29 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 	taskEngineState := dockerstate.NewTaskEngineState()
 	mockDiscoveryClient := mock_ebs_discovery.NewMockEBSDiscovery(mockCtrl)
 	mockTaskEngine := mock_engine.NewMockTaskEngine(mockCtrl)
-	mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
-		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
-		KnownStatusUnsafe: status.TaskStopped,
-	}).AnyTimes()
 	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(mockCtrl)
-	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&task.Task{
-		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
-		KnownStatusUnsafe: status.TaskCreated,
-	}, nil).AnyTimes()
-
 	daemonManagers := map[string]daemonmanager.DaemonManager{
 		md.EbsCsiDriver: mockDaemonManager,
 	}
 
-	mockTaskEngine.EXPECT().GetDaemonManagers().Return(daemonManagers).AnyTimes()
-	mockTaskEngine.EXPECT().StateChangeEvents().Return(make(chan statechange.Event)).AnyTimes()
+	gomock.InOrder(
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
+			Arn:               "arn:aws:ecs:us-east-1:012345678910:task/stopped-task-id",
+			KnownStatusUnsafe: status.TaskStopped,
+		}).Times(1),
+		mockTaskEngine.EXPECT().GetDaemonTask(md.EbsCsiDriver).Return(&task.Task{
+			Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+			KnownStatusUnsafe: status.TaskRunning,
+		}).Times(1),
+	)
+
+	mockTaskEngine.EXPECT().GetDaemonManagers().Return(daemonManagers).Times(1)
+	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).Times(1)
+	mockDaemonManager.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(1)
+	mockDaemonManager.EXPECT().CreateDaemonTask().Return(&task.Task{
+		Arn:               "arn:aws:ecs:us-east-1:012345678910:task/some-task-id",
+		KnownStatusUnsafe: status.TaskCreated,
+	}, nil).Times(1)
 	mockTaskEngine.EXPECT().SetDaemonTask(md.EbsCsiDriver, gomock.Any()).Return().AnyTimes()
 	mockTaskEngine.EXPECT().AddTask(gomock.Any()).Return().AnyTimes()
 
@@ -689,6 +721,9 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 		gomock.Any(),
 		gomock.Any()).Return(nil).AnyTimes()
 
+	stateChangeChan := make(chan statechange.Event)
+	mockTaskEngine.EXPECT().StateChangeEvents().Return(stateChangeChan).Times(1)
+
 	testAttachmentProperties := map[string]string{
 		apiebs.DeviceNameKey:           taskresourcevolume.TestDeviceName,
 		apiebs.VolumeIdKey:             taskresourcevolume.TestVolumeId,
@@ -724,25 +759,16 @@ func TestHandleEBSAttachmentWithStoppedCSIDriverTask(t *testing.T) {
 	err := watcher.HandleEBSResourceAttachment(ebsAttachment)
 	assert.NoError(t, err)
 
-	// Instead of starting the EBS watcher, we'll be mocking a tick of the EBS watcher's scan ticker.
-	// Otherwise, the watcher will continue to run forever and the test will panic.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pendingEBS := watcher.agentState.GetAllPendingEBSAttachmentsWithKey()
-		if len(pendingEBS) > 0 {
-			foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, watcher.discoveryClient)
-			watcher.StageAll(foundVolumes)
-			watcher.NotifyAttached(foundVolumes)
-		}
-	}()
-
-	wg.Wait()
+	watcher.tick()
+	watcher.tick()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).GetAllEBSAttachments(), 1)
 	ebsAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).GetEBSByVolumeId(taskresourcevolume.TestVolumeId)
 	require.True(t, ok)
 	assert.True(t, ebsAttachment.IsAttached())
+	attachEvent := <-stateChangeChan
+	assert.NotNil(t, attachEvent)
+	assert.Equal(t, attachEvent.GetEventType(), statechange.AttachmentEvent)
 }
 
 func TestDaemonRunning(t *testing.T) {
