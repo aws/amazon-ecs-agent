@@ -48,8 +48,14 @@ func TestNodeVolumeStats(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(lsblkOut.BlockDevices) > 0)
 
-	// Get metrics for the root volume from EBS CSI Driver.
+	// There is no serial reported for EBS volumes on Xen devices.
+	// Skip the test for such instances.
 	volumeID := lsblkOut.BlockDevices[0].Serial
+	if volumeID == "" {
+		t.Skip("Test not supported on xen instances")
+	}
+
+	// Get metrics for the root volume from EBS CSI Driver.
 	csiClient := NewCSIClient("/tmp/ebs-csi-driver.sock")
 	getVolumeCtx, getVolumeCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer getVolumeCtxCancel()
