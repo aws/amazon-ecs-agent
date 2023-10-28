@@ -23,16 +23,17 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -322,12 +323,12 @@ func (client *APIECSClient) getResources() ([]*ecs.Resource, error) {
 	portResource := ecs.Resource{
 		Name:           utils.Strptr("PORTS"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPorts),
+		StringSetValue: commonutils.Uint16SliceToStringSlice(client.config.ReservedPorts),
 	}
 	udpPortResource := ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: utils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
+		StringSetValue: commonutils.Uint16SliceToStringSlice(client.config.ReservedPortsUDP),
 	}
 
 	return []*ecs.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}, nil
@@ -657,14 +658,14 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 }
 
 func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentStateChange) error {
-	attachmentStatus := change.Attachment.Status.String()
+	attachmentStatus := change.Attachment.GetAttachmentStatus()
 
 	req := ecs.SubmitAttachmentStateChangesInput{
 		Cluster: &client.config.Cluster,
 		Attachments: []*ecs.AttachmentStateChange{
 			{
-				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
-				Status:        aws.String(attachmentStatus),
+				AttachmentArn: aws.String(change.Attachment.GetAttachmentARN()),
+				Status:        aws.String(attachmentStatus.String()),
 			},
 		},
 	}

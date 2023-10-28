@@ -140,6 +140,20 @@ func (cfg *FSxWindowsFileServerVolumeConfig) Source() string {
 	return "undefined"
 }
 
+func (cfg *FSxWindowsFileServerVolumeConfig) GetType() string {
+	return "undefined"
+}
+
+// Currently not meant for use
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeId() string {
+	return ""
+}
+
+// Currently not meant for use
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeName() string {
+	return ""
+}
+
 // GetName safely returns the name of the resource
 func (fv *FSxWindowsFileServerResource) GetName() string {
 	return "undefined"

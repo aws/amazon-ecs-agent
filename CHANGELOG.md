@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.78.1
+* Bugfix - revert "add apparmor support". [3993](https://github.com/aws/amazon-ecs-agent/pull/3993)
+
 ## 1.78.0
 * Feature - Add AppArmor support. [#3941](https://github.com/aws/amazon-ecs-agent/pull/3941)
 * Enhancement - Update SSM Agent version to 3.2.1630.0 for ECS exec. [#3952](https://github.com/aws/amazon-ecs-agent/pull/3952)

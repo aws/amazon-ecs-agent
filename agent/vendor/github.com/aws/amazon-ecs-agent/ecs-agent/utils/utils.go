@@ -12,7 +12,10 @@
 // permissions and limitations under the License.
 package utils
 
-import "reflect"
+import (
+	"reflect"
+	"strconv"
+)
 
 func ZeroOrNil(obj interface{}) bool {
 	value := reflect.ValueOf(obj)
@@ -34,4 +37,15 @@ func ZeroOrNil(obj interface{}) bool {
 		return true
 	}
 	return false
+}
+
+// Uint16SliceToStringSlice converts a slice of type uint16 to a slice of type
+// *string. It uses strconv.Itoa on each element
+func Uint16SliceToStringSlice(slice []uint16) []*string {
+	stringSlice := make([]*string, len(slice))
+	for i, el := range slice {
+		str := strconv.Itoa(int(el))
+		stringSlice[i] = &str
+	}
+	return stringSlice
 }

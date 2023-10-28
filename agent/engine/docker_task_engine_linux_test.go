@@ -51,9 +51,8 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	mock_appnet "github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -225,10 +224,10 @@ func TestDeleteTask(t *testing.T) {
 	}
 
 	attachment := &ni.ENIAttachment{
-		AttachmentInfo: attachmentinfo.AttachmentInfo{
+		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:          "TaskARN",
 			AttachmentARN:    testAttachmentArn,
-			Status:           status.AttachmentNone,
+			Status:           attachment.AttachmentNone,
 			AttachStatusSent: true,
 		},
 		MACAddress: "MACAddress",

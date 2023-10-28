@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
@@ -522,12 +522,16 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		if daemonDef.GetImageName() == md.EbsCsiDriver {
 			csiDaemonManager := dm.NewDaemonManager(daemonDef)
 			agent.setDaemonManager(md.EbsCsiDriver, csiDaemonManager)
-			if _, err := csiDaemonManager.LoadImage(agent.ctx, agent.dockerClient); err != nil {
-				logger.Error("Failed to load the EBS CSI Driver. This container instance will not be able to support EBS Task Attach",
+			imageExists, err := csiDaemonManager.ImageExists()
+			if !imageExists {
+				logger.Error(
+					"Either EBS Daemon image does not exist or failed to check its existence."+
+						" This container instance will not advertise EBS Task Attach capability.",
 					logger.Fields{
-						field.Error: err,
-					},
-				)
+						field.ImageName:    csiDaemonManager.GetManagedDaemon().GetImageName(),
+						field.ImageTARPath: csiDaemonManager.GetManagedDaemon().GetImageTarPath(),
+						field.Error:        err,
+					})
 				return capabilities
 			}
 		}

@@ -51,14 +51,15 @@ import (
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1856,6 +1857,52 @@ func TestWaitUntilInstanceInServicePolling(t *testing.T) {
 				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err).Times(detail.returnTimes)
 			}
 			assert.Equal(t, tc.result, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls, testTargetLifecycleMaxRetryCount))
+		})
+	}
+}
+
+func TestLoadManagedDaemonImage(t *testing.T) {
+	tcs := []struct {
+		name                         string
+		setDaemonManagerExpectations func(*mock_daemonmanager.MockDaemonManager)
+		setImageManagerExpectations  func(*mock_engine.MockImageManager)
+	}{
+		{
+			name: "no exclusion list update if image load fails",
+			setDaemonManagerExpectations: func(mdm *mock_daemonmanager.MockDaemonManager) {
+				mdm.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(2)
+				mdm.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, errors.New("error"))
+			},
+		},
+		{
+			name: "exclusion list is updated if image load succeeds",
+			setDaemonManagerExpectations: func(mdm *mock_daemonmanager.MockDaemonManager) {
+				mdm.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(3)
+				mdm.EXPECT().
+					LoadImage(gomock.Any(), gomock.Any()).
+					Return(&types.ImageInspect{ID: "image-id"}, nil)
+			},
+			setImageManagerExpectations: func(mim *mock_engine.MockImageManager) {
+				mim.EXPECT().AddImageToCleanUpExclusionList("name:tag")
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			ctrl.Finish()
+
+			dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+			daemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+			imageManager := mock_engine.NewMockImageManager(ctrl)
+
+			tc.setDaemonManagerExpectations(daemonManager)
+			if tc.setImageManagerExpectations != nil {
+				tc.setImageManagerExpectations(imageManager)
+			}
+
+			agent := &ecsAgent{ctx: context.Background(), dockerClient: dockerClient}
+			agent.loadManagedDaemonImage(daemonManager, imageManager)
 		})
 	}
 }

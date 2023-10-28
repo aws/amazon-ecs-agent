@@ -4,7 +4,7 @@
 package tasknetworkconfig
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
