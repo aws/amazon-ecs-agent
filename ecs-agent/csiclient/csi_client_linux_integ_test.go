@@ -19,6 +19,8 @@ import (
 	"context"
 	"encoding/json"
 	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +28,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const timeoutDuration = 5 * time.Second
 
 // Tests that CSIClient can fetch EBS volume metrics from EBS CSI Driver.
 //
@@ -36,13 +40,7 @@ import (
 // A typical environment for this test is an EC2 instance with a single EBS volume as its
 // root device volume.
 func TestNodeVolumeStats(t *testing.T) {
-	const timeoutDuration = 5 * time.Second
-
-	// Skip if lsblk command does not exist on the host
-	_, err := exec.LookPath("lsblk")
-	if err != nil {
-		t.Skip("lsblk command not found", err)
-	}
+	skipIfLsblkVerIsOld(t)
 
 	// Find the root volume using lsblk
 	lsblkCtx, lsblkCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
@@ -69,4 +67,25 @@ func TestNodeVolumeStats(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, metrics.Capacity > 0)
 	assert.True(t, metrics.Used > 0)
+}
+
+// Skips the test if lsblk version is older than 2.27 as those versions
+// don't support JSON output format. Agent itself depends on lsblk >= 2.27
+// for the same reason.
+func skipIfLsblkVerIsOld(t *testing.T) {
+	lsblkVerCtx, lsblkVerCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer lsblkVerCtxCancel()
+	output, err := exec.CommandContext(lsblkVerCtx, "bash", "-c", "lsblk --version | awk '{print $NF}'").CombinedOutput()
+	require.NoError(t, err)
+
+	lsblkVersion := strings.Split(string(output), ".")
+	require.Len(t, lsblkVersion, 3, "Failed to parse lsblk version from %s", string(output))
+	majorVer, err := strconv.Atoi(lsblkVersion[0])
+	require.NoError(t, err)
+	minorVer, err := strconv.Atoi(lsblkVersion[1])
+	require.NoError(t, err)
+
+	if majorVer < 2 || majorVer == 2 && minorVer < 27 {
+		t.Skip("Need lsblk version >= 2.27 but found ", string(output))
+	}
 }
