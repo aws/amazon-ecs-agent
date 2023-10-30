@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const timeoutDuration = 5 * time.Second
+const timeoutDuration = 1 * time.Second
 
 // Tests that CSIClient can fetch EBS volume metrics from EBS CSI Driver.
 //
