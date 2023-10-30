@@ -12,10 +12,17 @@
 # permissions and limitations under the License.
 .PHONY: all image mockgen clean
 
+# 'go' may not be on the $PATH for sudo tests
+GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 CSI_DRIVER_VERSION="v$(shell cat CSI_DRIVER_VERSION)"
 BUILD_DATE=$(shell date -u -Iseconds)
 GO_VERSION=$(shell cat ../../../GO_VERSION)
 IMAGE_REF?="ebs-csi-driver:latest"
+# -count=1 runs the test without using the build cache.  The build cache can
+# provide false positives when running integ tests, so we err on the side of
+# caution. See `go help test`
+# unit tests include the coverage profile
+GOTEST=${GO_EXECUTABLE} test -count=1
 
 all: tarfiles/ebs-csi-driver.tar
 
@@ -27,6 +34,9 @@ bin/ebs-csi-driver:
 
 image:
 	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_REF) .
+
+test:
+	GO111MODULE=on ${GOTEST} -v -race ./driver/... -tags unit -mod vendor -timeout=120s
 
 tarfiles/ebs-csi-driver.tar: image
 	mkdir -p tarfiles
