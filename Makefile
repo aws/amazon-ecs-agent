@@ -173,8 +173,9 @@ analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
 analyze-cover-profile-init: coverprofile-init.out
 	./scripts/analyze-cover-profile coverprofile-init.out
 
-run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
+run-integ-tests: test-registry gremlin start-ebs-csi-driver container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/... ./ecs-agent/...
+	$(MAKE) stop-ebs-csi-driver
 
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
@@ -289,13 +290,27 @@ exec-command-agent-test:
 
 	@./scripts/setup-test-registry
 
-.PHONY: fluentd gremlin image-cleanup-test-images
+.PHONY: fluentd gremlin ebs-csi-driver start-ebs-csi-driver stop-ebs-csi-driver image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
 
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
+
+EBS_CSI_DRIVER_DIR=./ecs-agent/daemonimages/csidriver
+
+ebs-csi-driver:
+	$(MAKE) -C $(EBS_CSI_DRIVER_DIR) $(MFLAGS) bin/ebs-csi-driver
+
+# Starts EBS CSI Driver as a background process.
+# The driver uses /tmp/ebs-csi-driver.sock as the socket file.
+start-ebs-csi-driver: ebs-csi-driver
+	$(EBS_CSI_DRIVER_DIR)/bin/ebs-csi-driver --endpoint unix:///tmp/ebs-csi-driver.sock &
+
+# Stops EBS CSI Driver process started by start-ebs-csi-driver target.
+stop-ebs-csi-driver:
+	ps aux | grep $(EBS_CSI_DRIVER_DIR)/bin/ebs-csi-driver | grep -v grep | awk '{print $$2}' | xargs -L1 kill
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
@@ -468,6 +483,7 @@ clean:
 	-rm -f .amazon-linux-rpm-integrated-done
 	-rm -f .generic-rpm-integrated-done
 	-rm -f amazon-ecs-volume-plugin
+	-rm -rf $(EBS_CSI_DRIVER_DIR)/bin
 
 clean-all: clean
 	# for our dockerfree builds, we likely don't have docker
