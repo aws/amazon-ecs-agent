@@ -22,7 +22,6 @@ import (
 
 	agentacs "github.com/aws/amazon-ecs-agent/agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/agent/acs/updater"
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -57,6 +56,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
+	ecsapi "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -301,7 +301,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	client api.ECSClient,
+	client ecsapi.ECSClient,
 	execCmdMgr execcmd.Manager) int {
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
@@ -781,7 +781,7 @@ func (agent *ecsAgent) loadManagedDaemonImage(dm dm.DaemonManager, imageManager 
 
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
-	client api.ECSClient,
+	client ecsapi.ECSClient,
 	additionalAttributes []*ecs.Attribute) error {
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
@@ -860,7 +860,7 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute,
+func (agent *ecsAgent) reregisterContainerInstance(client ecsapi.ECSClient, capabilities []*ecs.Attribute,
 	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice, outpostARN string) error {
 	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags,
 		registrationToken, platformDevices, outpostARN)
@@ -898,7 +898,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	imageManager engine.ImageManager,
 	taskEngine engine.TaskEngine,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	client api.ECSClient,
+	client ecsapi.ECSClient,
 	taskHandler *eventhandler.TaskHandler,
 	attachmentEventHandler *eventhandler.AttachmentEventHandler,
 	state dockerstate.TaskEngineState,
@@ -955,7 +955,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go session.Start(agent.ctx)
 }
 
-func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client api.ECSClient) {
+func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client ecsapi.ECSClient) {
 	for !agent.spotInstanceDrainingPoller(client) {
 		select {
 		case <-ctx.Done():
@@ -968,7 +968,7 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, clie
 
 // spotInstanceDrainingPoller returns true if spot instance interruption has been
 // set AND the container instance state is successfully updated to DRAINING.
-func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
+func (agent *ecsAgent) spotInstanceDrainingPoller(client ecsapi.ECSClient) bool {
 	// this endpoint 404s unless a interruption has been set, so expect failure in most cases.
 	resp, err := agent.ec2MetadataClient.SpotInstanceAction()
 	if err == nil {
@@ -1008,7 +1008,7 @@ func (agent *ecsAgent) startACSSession(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	client api.ECSClient,
+	client ecsapi.ECSClient,
 	state dockerstate.TaskEngineState,
 	taskHandler *eventhandler.TaskHandler,
 	doctor *doctor.Doctor) int {
