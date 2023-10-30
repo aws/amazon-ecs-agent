@@ -174,7 +174,7 @@ analyze-cover-profile-init: coverprofile-init.out
 	./scripts/analyze-cover-profile coverprofile-init.out
 
 run-integ-tests: test-registry gremlin start-ebs-csi-driver container-health-check-image run-sudo-tests
-	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m -v ./agent/... ./ecs-agent/...
+	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/... ./ecs-agent/...
 	$(MAKE) stop-ebs-csi-driver
 
 run-sudo-tests:
