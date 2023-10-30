@@ -52,11 +52,10 @@ func TestNodeVolumeStats(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(lsblkOut.BlockDevices) > 0)
 
-	// There is no serial reported for EBS volumes on Xen devices.
-	// Skip the test for such instances.
 	volumeID := lsblkOut.BlockDevices[0].Serial
 	if volumeID == "" {
-		t.Skip("Test not supported on xen instances")
+		// Driver doesn't actually care about the volume ID as long as it's not empty
+		volumeID = "unknown"
 	}
 
 	// Get metrics for the root volume from EBS CSI Driver.
