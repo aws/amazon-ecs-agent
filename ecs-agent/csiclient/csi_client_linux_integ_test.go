@@ -40,7 +40,7 @@ const timeoutDuration = 1 * time.Second
 // A typical environment for this test is an EC2 instance with a single EBS volume as its
 // root device volume.
 func TestNodeVolumeStats(t *testing.T) {
-	skipIfLsblkVerIsOld(t)
+	skipForUnsupportedLsblk(t)
 
 	// Find the root volume using lsblk
 	lsblkCtx, lsblkCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
@@ -71,7 +71,12 @@ func TestNodeVolumeStats(t *testing.T) {
 // Skips the test if lsblk version is older than 2.27 as those versions
 // don't support JSON output format. Agent itself depends on lsblk >= 2.27
 // for the same reason.
-func skipIfLsblkVerIsOld(t *testing.T) {
+func skipForUnsupportedLsblk(t *testing.T) {
+	const (
+		requiredMajorVersion = 2
+		requiredMinorVersion = 27
+	)
+
 	lsblkVerCtx, lsblkVerCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer lsblkVerCtxCancel()
 	output, err := exec.CommandContext(lsblkVerCtx, "bash", "-c", "lsblk --version | awk '{print $NF}'").CombinedOutput()
@@ -84,7 +89,8 @@ func skipIfLsblkVerIsOld(t *testing.T) {
 	minorVer, err := strconv.Atoi(lsblkVersion[1])
 	require.NoError(t, err)
 
-	if majorVer < 2 || majorVer == 2 && minorVer < 27 {
-		t.Skip("Need lsblk version >= 2.27 but found ", string(output))
+	if majorVer < requiredMajorVersion || majorVer == requiredMajorVersion && minorVer < requiredMinorVersion {
+		t.Skipf("Need lsblk version >= %d.%d but found %s",
+			requiredMajorVersion, requiredMinorVersion, string(output))
 	}
 }
