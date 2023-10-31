@@ -19,8 +19,8 @@ package ec2_test
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
