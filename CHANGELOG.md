@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.79.0
+* Feature - Add support for finding EBS devices on Xen instances [#3971](https://github.com/aws/amazon-ecs-agent/pull/3971)
+* Feature - Add network builder and platform APIs [#3939](https://github.com/aws/amazon-ecs-agent/pull/3939)
+* Enhancement - Load managed daemon images in background to speed up startup time [#3984](https://github.com/aws/amazon-ecs-agent/pull/3984)
+* Enhancement - ECS client API update [#3974](https://github.com/aws/amazon-ecs-agent/pull/3974)
+* Enhancement - Upgrade Golang version to 1.20.10 [#3988](https://github.com/aws/amazon-ecs-agent/pull/3988)
+* Enhancement - Integrate the applicable shared ECS interfaces with agent [#4008](https://github.com/aws/amazon-ecs-agent/pull/4008)
+* Enhancement - Add generic Attachment interface to allow for multiple attachment types [#3969](https://github.com/aws/amazon-ecs-agent/pull/3969)
+* Enhancement - Minor refactor of TTL cache (allow nil TTL + get TTL) [#3968](https://github.com/aws/amazon-ecs-agent/pull/3968)
+* Enhancement - Update ecs-agent/ ECS model with missing fields + consume the same [#3999](https://github.com/aws/amazon-ecs-agent/pull/3999)
+* Bugfix - Update ecs-agent in-container path for managed daemon logging [#3982](https://github.com/aws/amazon-ecs-agent/pull/3982)
+* Bugfix - Fix local agent state for CSI driver daemon task [#3970](https://github.com/aws/amazon-ecs-agent/pull/3970)
+* Bugfix - Fix invalid task volumes field for EBS-backed task payload [#3975](https://github.com/aws/amazon-ecs-agent/pull/3975)
+* Bugfix - Bugfixes for EBS Task Attach [#3965](https://github.com/aws/amazon-ecs-agent/pull/3965)
+
 ## 1.78.1
 * Bugfix - revert "add apparmor support". [3993](https://github.com/aws/amazon-ecs-agent/pull/3993)
 
