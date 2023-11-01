@@ -50,4 +50,7 @@ const (
 	GetNetworkConfigurationByTaskMetricName = dbClientMetricNamespace + ".GetNetworkConfigurationByTask"
 	SaveNetworkNamespaceMetricName          = dbClientMetricNamespace + ".SaveNetworkNamespace"
 	GetNetworkNamespaceMetricName           = dbClientMetricNamespace + ".GetNetworkNamespace"
+
+	networkBuilderNamespace         = "NetworkBuilder"
+	BuildNetworkNamespaceMetricName = networkBuilderNamespace + ".BuildNetworkNamespace"
 )

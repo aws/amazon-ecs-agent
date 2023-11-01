@@ -19,6 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
@@ -27,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type NetworkBuilder interface {
@@ -78,16 +78,19 @@ func (nb *networkBuilder) Start(
 	mode string, taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace,
 ) error {
-	netNS.Mutex.Lock()
-	defer netNS.Mutex.Unlock()
-
-	logrus.WithFields(logrus.Fields{
+	logFields := map[string]interface{}{
 		"NetworkMode":           mode,
 		"NetNSName":             netNS.Name,
 		"NetNSPath":             netNS.Path,
 		"AppMeshEnabled":        netNS.AppMeshConfig != nil,
 		"ServiceConnectEnabled": netNS.ServiceConnectConfig != nil,
-	}).Info("Starting network namespace setup")
+	}
+	metricEntry := nb.metricsFactory.New(metrics.BuildNetworkNamespaceMetricName).WithFields(logFields)
+
+	netNS.Mutex.Lock()
+	defer netNS.Mutex.Unlock()
+
+	logger.Info("Starting network namespace setup", logFields)
 
 	var err error
 	switch mode {
@@ -96,6 +99,8 @@ func (nb *networkBuilder) Start(
 	default:
 		err = errors.New("invalid network mode: " + mode)
 	}
+
+	metricEntry.Done(err)
 
 	return err
 }
@@ -117,14 +122,14 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	if netNS.KnownState == status.NetworkNone &&
 		netNS.DesiredState == status.NetworkReadyPull {
 
-		logrus.Debugf("Creating netns: %s", netNS.Path)
+		logger.Debug("Creating netns: " + netNS.Path)
 		// Create network namespace on the host.
 		err := nb.platformAPI.CreateNetNS(netNS.Path)
 		if err != nil {
 			return err
 		}
 
-		logrus.Debug("Creating DNS config files")
+		logger.Debug("Creating DNS config files")
 
 		// Create necessary DNS config files for the netns.
 		err = nb.platformAPI.CreateDNSConfig(taskID, netNS)
@@ -137,16 +142,16 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	// Depending on the type of interfaces in the netns, there maybe operations
 	// to execute when the netns desired status is READY_PULL and READY.
 	for _, iface := range netNS.NetworkInterfaces {
-		logger := logrus.WithFields(logrus.Fields{
+		logFields := logger.Fields{
 			"Interface": iface,
 			"NetNSName": netNS.Name,
-		})
+		}
 		if iface.KnownStatus == netNS.DesiredState {
 			logger.Debug("Interface already in desired state")
 			continue
 		}
 
-		logger.Debug("Configuring interface")
+		logger.Debug("Configuring interface", logFields)
 		iface.DesiredStatus = netNS.DesiredState
 
 		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
@@ -160,9 +165,9 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	if netNS.KnownState == status.NetworkReadyPull &&
 		netNS.DesiredState == status.NetworkReady {
 		if netNS.AppMeshConfig != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.Debug("Configuring AppMesh", logger.Fields{
 				"AppMeshConfig": netNS.AppMeshConfig,
-			}).Debug("Configuring AppMesh")
+			})
 
 			err := nb.platformAPI.ConfigureAppMesh(ctx, netNS.Path, netNS.AppMeshConfig)
 			if err != nil {
@@ -171,9 +176,9 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 
 		if netNS.ServiceConnectConfig != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.Debug("Configuring ServiceConnect", logger.Fields{
 				"ServiceConnectConfig": netNS.ServiceConnectConfig,
-			}).Debug("Configuring ServiceConnect")
+			})
 
 			err := nb.platformAPI.ConfigureServiceConnect(
 				ctx, netNS.Path, netNS.GetPrimaryInterface(), netNS.ServiceConnectConfig)
