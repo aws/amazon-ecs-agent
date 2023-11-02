@@ -134,7 +134,9 @@ func defaultImportAll() ([]*ManagedDaemon, error) {
 	}
 	var thisCommand []string
 	thisCommand = append(thisCommand, "--endpoint=unix://csi-driver/csi-driver.sock")
-	thisCommand = append(thisCommand, "--log_dir=/var/log")
+	thisCommand = append(thisCommand, "--log_file=/var/log/csi.log")
+	thisCommand = append(thisCommand, "--log_file_max_size=20")
+	thisCommand = append(thisCommand, "--logtostderr=false")
 	sysAdmin := "SYS_ADMIN"
 	addCapabilities := []*string{&sysAdmin}
 	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
