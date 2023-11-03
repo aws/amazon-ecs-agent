@@ -16,6 +16,7 @@ jobs:
       - name: get GO_VERSION
         id: get-go-version
         run: |
+          echo "This PR is opened by ${{ github.event.pull_request.user.login }} ."
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           set -eou pipefail
           go_version=$(cat -e GO_VERSION)
