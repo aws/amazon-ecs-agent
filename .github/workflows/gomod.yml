@@ -6,6 +6,7 @@ permissions: read-all
 
 jobs:
   check:
+    if: ${{ !startsWith(github.ref, 'refs/heads/dependabot') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
