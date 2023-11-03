@@ -6,7 +6,7 @@ permissions: read-all
 
 jobs:
   check:
-    if: ${{ github.event.pull_request.user.login != 'amogh09' }}
+    if: ${{ github.actor != 'amogh09' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -16,7 +16,6 @@ jobs:
       - name: get GO_VERSION
         id: get-go-version
         run: |
-          echo "This PR is opened by ${{ github.event.pull_request.user.login }} ."
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           set -eou pipefail
           go_version=$(cat -e GO_VERSION)
