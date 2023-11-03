@@ -25,7 +25,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/hectane/go-acl/api"
