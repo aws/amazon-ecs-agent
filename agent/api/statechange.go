@@ -26,9 +26,9 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 )
 
 // ContainerStateChange represents a state change that needs to be sent to the
