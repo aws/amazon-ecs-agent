@@ -1,9 +1,25 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package tasknetworkconfig
 
 import (
+	"sync"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 )
 
@@ -19,10 +35,13 @@ type NetworkNamespace struct {
 	// AppMeshConfig holds AppMesh related parameters for the particular netns.
 	AppMeshConfig *appmesh.AppMesh
 
-	// TODO: Add Service Connect model here once it is moved under the netlib package.
+	// ServiceConnectConfig holds ServiceConnect related parameters for the particular netns.
+	ServiceConnectConfig *serviceconnect.ServiceConnectConfig
 
 	KnownState   status.NetworkStatus
 	DesiredState status.NetworkStatus
+
+	Mutex sync.Mutex `json:"-"`
 }
 
 func NewNetworkNamespace(
@@ -53,7 +72,7 @@ func NewNetworkNamespace(
 
 // GetPrimaryInterface returns the network interface that has the index value of 0 within
 // the network namespace.
-func (ns NetworkNamespace) GetPrimaryInterface() *networkinterface.NetworkInterface {
+func (ns *NetworkNamespace) GetPrimaryInterface() *networkinterface.NetworkInterface {
 	for _, ni := range ns.NetworkInterfaces {
 		if ni.Default {
 			return ni
