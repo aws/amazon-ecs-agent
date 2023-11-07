@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -97,7 +98,7 @@ type TaskStateChange struct {
 // SubmitAttachmentStateChanges API.
 type AttachmentStateChange struct {
 	// Attachment is the ENI attachment object to send.
-	Attachment *ni.ENIAttachment
+	Attachment attachment.Attachment
 }
 
 // String returns a human readable string representation of a ContainerStateChange.
@@ -146,8 +147,8 @@ func (change *TaskStateChange) String() string {
 // String returns a human readable string representation of an AttachmentStateChange.
 func (change *AttachmentStateChange) String() string {
 	if change.Attachment != nil {
-		return fmt.Sprintf("%s -> %s, %s", change.Attachment.AttachmentARN, change.Attachment.Status.String(),
-			change.Attachment.String())
+		return fmt.Sprintf("%s -> %v, %s", change.Attachment.GetAttachmentARN(),
+			change.Attachment.GetAttachmentStatus(), change.Attachment.String())
 	}
 
 	return ""
