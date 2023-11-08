@@ -35,6 +35,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/doctor
 github.com/aws/amazon-ecs-agent/ecs-agent/ec2
 github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
+github.com/aws/amazon-ecs-agent/ecs-agent/grpcclient
+github.com/aws/amazon-ecs-agent/ecs-agent/grpcclient/credentialsfetcher
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
@@ -311,7 +313,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
+# github.com/opencontainers/runtime-spec v1.1.0
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -478,7 +480,6 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-google.golang.org/grpc/test/bufconn
 # google.golang.org/protobuf v1.30.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/protojson
