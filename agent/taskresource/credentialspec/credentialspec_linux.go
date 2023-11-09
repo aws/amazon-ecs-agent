@@ -36,8 +36,8 @@ import (
 
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient"
 	"github.com/pkg/errors"
 )
 

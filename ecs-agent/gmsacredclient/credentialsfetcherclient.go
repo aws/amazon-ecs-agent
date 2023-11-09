@@ -1,4 +1,4 @@
-package grpcclient
+package gmsacredclient
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/aws/amazon-ecs-agent/agent/taskresource/grpcclient/credentialsfetcher"
+	pb "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher"
 	"github.com/cihub/seelog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
