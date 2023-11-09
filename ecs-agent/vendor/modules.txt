@@ -125,6 +125,7 @@ github.com/docker/docker/api/types/swarm
 github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
+github.com/docker/docker/pkg/meminfo
 # github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
