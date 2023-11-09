@@ -55,4 +55,10 @@ const (
 	MessageID               = "messageID"
 	RequestType             = "requestType"
 	CredentialsID           = "credentialsID"
+	ContainerInstanceARN    = "containerInstanceARN"
+	AttributeName           = "attributeName"
+	AttributeValue          = "attributeValue"
+	Endpoint                = "endpoint"
+	TelemetryEndpoint       = "telemetryEndpoint"
+	ServiceConnectEndpoint  = "serviceConnectEndpoint"
 )
