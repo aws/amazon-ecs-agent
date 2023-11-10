@@ -1,0 +1,57 @@
+name: Run Go Mod on Dependabot PRs
+
+on: [push]
+
+jobs:
+  tidy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    if: github.actor == 'dependabot[bot]' || github.actor == 'Realmonia'
+    steps:
+      - name: Check secret availability
+        run: |
+          if [ -z "${{ secrets.NEW_TEST_SECRET }}" ]; then
+            echo "Secret is empty or not set."
+          else
+            echo "Secret is set."
+          fi
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          path: src/github.com/aws/amazon-ecs-agent
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.NEW_TEST_SECRET }}
+      - name: get GO_VERSION
+        id: get-go-version
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          set -eou pipefail
+          go_version=$(cat -e GO_VERSION)
+          go_version=${go_version%?}
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "invalid GO version"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
+      - name: Run go mod tidy and go mod vendor in all modules
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver && go mod tidy && go mod vendor
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/ecs-agent && go mod tidy && go mod vendor
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/agent && go mod tidy && go mod vendor
+      - name: Commit and push if changes are detected
+        run: |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/
+          git config user.name 'Realmonia'
+          git config user.email 'han.heming@icloud.com'
+          git add -A
+          git commit -m "Run go mod tidy" -a || echo "No changes to commit"
+          git push
+        with:
+          token: ${{ secrets.NEW_TEST_SECRET }}

@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           path: src/github.com/aws/amazon-ecs-agent
+          ref: ${{ github.head_ref }}
       - name: get GO_VERSION
         id: get-go-version
         run:  |

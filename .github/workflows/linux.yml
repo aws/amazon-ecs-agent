@@ -1,6 +1,6 @@
 name: Linux
 
-on: [pull_request]
+on: [push, pull_request]
 
 permissions: read-all
 jobs:
@@ -12,6 +12,7 @@ jobs:
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent
+          ref: ${{ github.head_ref }}
       - name: get GO_VERSION
         id: get-go-version
         run:  |
