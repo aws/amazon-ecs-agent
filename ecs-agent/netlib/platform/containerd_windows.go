@@ -36,7 +36,8 @@ type common struct {
 func NewPlatform(
 	platformString string,
 	volumeAccessor volume.VolumeAccessor,
-	stateDBDirectory string) (API, error) {
+	stateDBDirectory string,
+	netWrapper netwrapper.Net) (API, error) {
 	return nil, nil
 }
 
