@@ -50,7 +50,7 @@ func (c *common) CreateNetNS(netNSPath string) error {
 	return nil
 }
 
-func (c *common) DeleteNetNS(netNSName string) error {
+func (c *common) DeleteNetNS(netNSPath string) error {
 	return nil
 }
 

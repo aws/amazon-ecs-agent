@@ -201,8 +201,8 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 }
 
 func TestCommon_ConfigureInterface(t *testing.T) {
-	t.Run("create-regular-eni", testRegularENIConfiguration)
-	t.Run("create-branch-eni", testBranchENIConfiguration)
+	t.Run("configure-regular-eni", testRegularENIConfiguration)
+	t.Run("configure-branch-eni", testBranchENIConfiguration)
 }
 
 func testRegularENIConfiguration(t *testing.T) {
@@ -243,6 +243,17 @@ func testRegularENIConfiguration(t *testing.T) {
 	)
 	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
 	require.NoError(t, err)
+
+	// Delete workflow.
+	eni.Default = true
+	eni.DesiredStatus = status.NetworkDeleted
+	eniConfig = createENIPluginConfigs(netNSPath, eni)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
+	)
+	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
+	require.NoError(t, err)
 }
 
 func testBranchENIConfiguration(t *testing.T) {
@@ -265,6 +276,13 @@ func testBranchENIConfiguration(t *testing.T) {
 	branchENI.DesiredStatus = status.NetworkReady
 	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
+	require.NoError(t, err)
+
+	// Delete workflow.
+	branchENI.DesiredStatus = status.NetworkDeleted
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
 	require.NoError(t, err)
 }
