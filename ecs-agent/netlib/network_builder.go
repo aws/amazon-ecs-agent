@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/pkg/errors"
@@ -54,6 +55,7 @@ func NewNetworkBuilder(
 		platformString,
 		volumeAccessor,
 		stateDBDir,
+		netwrapper.NewNet(),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to instantiate network builder")
