@@ -125,14 +125,14 @@ func processCredentialsRequest(
 		return nil, "", "", msg, errors.New(errText)
 	}
 
-	seelog.Infof("Processing credential request, credentialType=%s taskARN=%s",
-		credentials.IAMRoleCredentials.RoleType, credentials.ARN)
+	seelog.Infof("Processing credential request, credentialType=%s taskARN=%s credentialScope=%s",
+		credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope)
 
 	if utils.ZeroOrNil(credentials.ARN) && utils.ZeroOrNil(credentials.IAMRoleCredentials) {
 		// This can happen when the agent is restarted and is reconciling its state.
 		errText := errPrefix + "Credentials uninitialized for ID"
-		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s: %s",
-			credentials.IAMRoleCredentials.RoleType, credentials.ARN, errText)
+		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrCredentialsUninitialized,
 			Message:       errText,
@@ -144,8 +144,8 @@ func processCredentialsRequest(
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
 		errText := errPrefix + "Error marshaling credentials"
-		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s: %s",
-			credentials.IAMRoleCredentials.RoleType, credentials.ARN, errText)
+		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrInternalServer,
 			Message:       "Internal server error",
