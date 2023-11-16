@@ -268,6 +268,7 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 		SecretAccessKey: "secret_access_key",
 		SessionToken:    "session_token",
 		Expiration:      "expiration",
+		CredentialScope: "credential_scope",
 		RoleType:        credentials.ApplicationRoleType,
 	}
 
@@ -278,6 +279,7 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 		SecretAccessKey: "secret_access_key",
 		SessionToken:    "session_token",
 		Expiration:      "expiration",
+		CredentialScope: "credential_scope",
 	}
 
 	auditLogger.EXPECT().Log(

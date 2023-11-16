@@ -95,7 +95,8 @@ const (
           "expiration": "2016-03-25T06:17:19.318+0000",
           "roleArn": "r1",
           "secretAccessKey": "secretAccessKey",
-          "sessionToken": "token"
+          "sessionToken": "token",
+          "credentialScope": "scope"
         },
         "version": "3",
         "volumes": [],
@@ -125,7 +126,8 @@ const (
       "expiration": "later",
       "roleArn": "r1",
       "secretAccessKey": "newskid",
-      "sessionToken": "newstkn"
+      "sessionToken": "newstkn",
+      "credentialScope": "cdsp"
     }
   }
 }
@@ -976,6 +978,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 						SessionToken:    "newstkn",
 						Expiration:      "later",
 						CredentialsID:   credentialsIdInRefreshMessage,
+						CredentialScope: "cdsp",
 						RoleType:        rolecredentials.ApplicationRoleType,
 					},
 				}

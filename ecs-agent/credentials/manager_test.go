@@ -35,6 +35,7 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 		RoleArn:         aws.String("roleArn"),
 		SecretAccessKey: aws.String("OhhSecret"),
 		SessionToken:    aws.String("sessionToken"),
+		CredentialScope: aws.String("credentialScope"),
 	}
 
 	roleType := "roleType"
@@ -47,6 +48,7 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 		RoleArn:         "roleArn",
 		SecretAccessKey: "OhhSecret",
 		SessionToken:    "sessionToken",
+		CredentialScope: "credentialScope",
 		RoleType:        "roleType",
 	}
 	assert.Equal(t, credentials, expectedCredentials, "Mismatch between expected and constructed credentials")
@@ -99,6 +101,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 			SessionToken:    "stkn",
 			Expiration:      "ts",
 			CredentialsID:   "cid1",
+			CredentialScope: "cdsp",
 		},
 	}
 
@@ -118,6 +121,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 			SessionToken:    "stkn2",
 			Expiration:      "ts2",
 			CredentialsID:   "cid1",
+			CredentialScope: "cdsp",
 		},
 	}
 	err = manager.SetTaskCredentials(&updatedCredentials)
@@ -138,6 +142,7 @@ func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 		SessionToken:    "stkn",
 		Expiration:      "ts",
 		CredentialsID:   "cid1",
+		CredentialScope: "cdsp",
 	}
 	generatedURI := credentials.GenerateCredentialsEndpointRelativeURI()
 	expectedURI := fmt.Sprintf(credentialsEndpointRelativeURIFormat, CredentialsPath, "cid1")
@@ -157,6 +162,7 @@ func TestRemoveExistingCredentials(t *testing.T) {
 			SessionToken:    "stkn",
 			Expiration:      "ts",
 			CredentialsID:   "cid1",
+			CredentialScope: "cdsp",
 		},
 	}
 	err := manager.SetTaskCredentials(&credentials)

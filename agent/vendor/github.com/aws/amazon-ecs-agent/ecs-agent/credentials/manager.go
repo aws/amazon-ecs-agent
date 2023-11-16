@@ -58,7 +58,8 @@ type IAMRoleCredentials struct {
 	// Expiration is a string instead of a timestamp. This is to avoid any loss of context
 	// while marshalling/unmarshalling this field in the agent. The agent just echo's
 	// whatever is sent by the backend.
-	Expiration string `json:"Expiration"`
+	Expiration      string `json:"Expiration"`
+	CredentialScope string `json:"CredentialScope"`
 	// RoleType distinguishes between TaskRole and ExecutionRole for the
 	// credentials that are sent from the backend
 	RoleType string `json:"-"`
@@ -100,6 +101,7 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 		AccessKeyID:     aws.StringValue(roleCredentials.AccessKeyId),
 		SecretAccessKey: aws.StringValue(roleCredentials.SecretAccessKey),
 		Expiration:      aws.StringValue(roleCredentials.Expiration),
+		CredentialScope: aws.StringValue(roleCredentials.CredentialScope),
 		RoleType:        roleType,
 	}
 }
