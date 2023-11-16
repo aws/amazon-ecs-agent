@@ -26,11 +26,17 @@ import (
 )
 
 const (
-	TestImageName        = "TestDaemon"
-	TestImageTag         = "testTag"
-	TestImagePath        = "/test/image/path"
-	TestAgentPath        = "/test/agent/path"
-	TestMountPointVolume = "testVolume"
+	TestImageName                       = "TestDaemon"
+	TestImageTag                        = "testTag"
+	TestImagePath                       = "/test/image/path"
+	TestAgentPath                       = "/test/agent/path"
+	TestMountPointVolume                = "testVolume"
+	TestContainerId                     = "testContainerId"
+	TestLoadedDaemonImageRef            = "TestLoadedDaemonImageRef"
+	TestCommand                         = "testCommand1"
+	TestCGroup               CGroupType = "testCGroup"
+	TestNetNS                NetNSType  = "testNetNS"
+	TestHealthCheckTest                 = "testHealthCheckTest"
 )
 
 func TestNewManagedDaemon(t *testing.T) {
@@ -64,6 +70,86 @@ func TestNewManagedDaemon(t *testing.T) {
 		t.Run(c.testName, func(t *testing.T) {
 			assert.Equal(t, c.expectedDaemon.GetImageName(), c.testImageName, "Wrong value for Managed Daemon Image Name")
 			assert.Equal(t, c.expectedDaemon.GetImageTag(), c.testImageTag, "Wrong value for Managed Daemon Image Tag")
+		})
+	}
+}
+
+func TestCreateManagedDaemon(t *testing.T) {
+	cases := []struct {
+		testName                 string
+		testImageName            string
+		testImageTag             string
+		testLoadedDaemonImageRef string
+		testCGroup               CGroupType
+		testNetNS                NetNSType
+		testContainerId          string
+		testHealthCheckTest      []string
+		testHealthCheckInterval  time.Duration
+		testHealthCheckTimeout   time.Duration
+		testHealthCheckRetries   int
+		testCommands             []string
+		daemonCreators           []func(daemon *ManagedDaemon)
+	}{
+		{
+			testName:                 "Create ManagedDaemon with name and tag",
+			testImageName:            TestImageName,
+			testImageTag:             TestImageTag,
+			testLoadedDaemonImageRef: TestLoadedDaemonImageRef,
+			daemonCreators:           []func(daemon *ManagedDaemon){WithImageAttributes(TestImageName, TestImageTag, TestLoadedDaemonImageRef)},
+		},
+		{
+			testName:                 "Create ManagedDaemon with cGroup and netNS",
+			testImageName:            TestImageName,
+			testImageTag:             TestImageTag,
+			testLoadedDaemonImageRef: TestLoadedDaemonImageRef,
+			testCGroup:               TestCGroup,
+			testNetNS:                TestNetNS,
+			daemonCreators:           []func(daemon *ManagedDaemon){WithImageAttributes(TestImageName, TestImageTag, TestLoadedDaemonImageRef), WithCGroupAndNetNS(TestCGroup, TestNetNS)},
+		},
+		{
+			testName:                 "Create ManagedDaemon with containerId",
+			testImageName:            TestImageName,
+			testImageTag:             TestImageTag,
+			testLoadedDaemonImageRef: TestLoadedDaemonImageRef,
+			testContainerId:          TestContainerId,
+			daemonCreators:           []func(daemon *ManagedDaemon){WithImageAttributes(TestImageName, TestImageTag, TestLoadedDaemonImageRef), WithContainerId(TestContainerId)},
+		},
+		{
+			testName:                 "Create ManagedDaemon with healthChecks",
+			testImageName:            TestImageName,
+			testImageTag:             TestImageTag,
+			testLoadedDaemonImageRef: TestLoadedDaemonImageRef,
+			testHealthCheckTest:      []string{TestHealthCheckTest},
+			testHealthCheckInterval:  10,
+			testHealthCheckTimeout:   30,
+			testHealthCheckRetries:   3,
+			daemonCreators: []func(daemon *ManagedDaemon){WithImageAttributes(TestImageName, TestImageTag, TestLoadedDaemonImageRef),
+				WithHealthChecks([]string{TestHealthCheckTest}, 10, 30, 3)},
+		},
+		{
+			testName:                 "Create ManagedDaemon with command",
+			testImageName:            TestImageName,
+			testImageTag:             TestImageTag,
+			testLoadedDaemonImageRef: TestLoadedDaemonImageRef,
+			testCommands:             []string{TestCommand},
+			daemonCreators:           []func(daemon *ManagedDaemon){WithImageAttributes(TestImageName, TestImageTag, TestLoadedDaemonImageRef), WithCommands([]string{TestCommand})},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testName, func(t *testing.T) {
+			tmd := CreateManagedDaemon(c.daemonCreators...)
+			assert.Equal(t, c.testImageName, tmd.imageName, "Wrong value for Managed Daemon Image Name")
+			assert.Equal(t, c.testImageTag, tmd.imageTag, "Wrong value for Managed Daemon Image Tag")
+			assert.Equal(t, c.testLoadedDaemonImageRef, tmd.loadedDaemonImageRef, "Wrong value for Managed Daemon LoadedDaemonImageRef")
+			assert.Equal(t, c.testCGroup, tmd.cGroup, "Wrong value for Managed Daemon cGroup")
+			assert.Equal(t, c.testNetNS, tmd.netNs, "Wrong value for Managed Daemon netNS")
+			assert.Equal(t, c.testContainerId, tmd.containerId, "Wrong value for Managed Daemon containerId")
+			assert.Equal(t, c.testHealthCheckTest, tmd.healthCheckTest, "Wrong value for Managed Daemon healthCheckTest")
+			assert.Equal(t, c.testHealthCheckInterval, tmd.healthCheckInterval, "Wrong value for Managed Daemon healthCheckInterval")
+			assert.Equal(t, c.testHealthCheckTimeout, tmd.healthCheckTimeout, "Wrong value for Managed Daemon healthCheckTimeout")
+			assert.Equal(t, c.testHealthCheckRetries, tmd.healthCheckRetries, "Wrong value for Managed Daemon healthCheckRetries")
+			assert.Equal(t, c.testCommands, tmd.command, "Wrong value for Managed Daemon command")
 		})
 	}
 }

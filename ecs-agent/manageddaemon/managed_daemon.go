@@ -37,6 +37,11 @@ type ManagedDaemon struct {
 	imageName string
 	imageTag  string
 
+	containerId string
+
+	cGroup CGroupType
+	netNs  NetNSType
+
 	healthCheckTest     []string
 	healthCheckInterval time.Duration
 	healthCheckTimeout  time.Duration
@@ -64,8 +69,10 @@ type ManagedDaemon struct {
 	privileged      bool
 }
 
-// A valid managed daemon will require
-// healthcheck and mount points to be added
+// NewManagedDaemon A valid managed daemon will require
+// healthcheck and mount points to be added.
+//
+// Deprecated:  Use CreateManagedDaemon instead
 func NewManagedDaemon(
 	imageName string,
 	imageTag string,
@@ -78,6 +85,80 @@ func NewManagedDaemon(
 		imageName:          imageName,
 		imageTag:           imageTag,
 		healthCheckRetries: 0,
+	}
+	return newManagedDaemon
+}
+
+// WithImageAttributes returns a method to enrich ManagedDaemon with imageName, imageTag and loadedDaemonImageRef
+func WithImageAttributes(
+	imageName string,
+	imageTag string,
+	loadedDaemonImageRef string,
+) func(*ManagedDaemon) {
+	if imageTag == "" {
+		imageTag = imageTagDefault
+	}
+	return func(newManagedDaemon *ManagedDaemon) {
+		newManagedDaemon.imageName = imageName
+		newManagedDaemon.imageTag = imageTag
+		newManagedDaemon.loadedDaemonImageRef = loadedDaemonImageRef
+	}
+}
+
+// WithCGroupAndNetNS returns a method to enrich ManagedDaemon with cGroup and netNS
+func WithCGroupAndNetNS(
+	cGroup CGroupType,
+	netNS NetNSType,
+) func(*ManagedDaemon) {
+	return func(newManagedDaemon *ManagedDaemon) {
+		newManagedDaemon.cGroup = cGroup
+		newManagedDaemon.netNs = netNS
+	}
+}
+
+// WithHealthChecks returns a method to enrich ManagedDaemon with health check attributes
+func WithHealthChecks(
+	healthCheckTest []string,
+	healthCheckInterval time.Duration,
+	healthCheckTimeout time.Duration,
+	healthCheckRetries int,
+) func(*ManagedDaemon) {
+	return func(newManagedDaemon *ManagedDaemon) {
+		newManagedDaemon.healthCheckTest = healthCheckTest
+		newManagedDaemon.healthCheckInterval = healthCheckInterval
+		newManagedDaemon.healthCheckTimeout = healthCheckTimeout
+		newManagedDaemon.healthCheckRetries = healthCheckRetries
+	}
+}
+
+// WithContainerId returns a method to enrich ManagedDaemon with containerId
+func WithContainerId(
+	containerId string,
+) func(*ManagedDaemon) {
+	return func(newManagedDaemon *ManagedDaemon) {
+		newManagedDaemon.containerId = containerId
+	}
+}
+
+// WithCommands returns a method to enrich ManagedDaemon with command
+func WithCommands(
+	command []string,
+) func(*ManagedDaemon) {
+	return func(newManagedDaemon *ManagedDaemon) {
+		newManagedDaemon.command = command
+	}
+}
+
+// CreateManagedDaemon : Create ManagedDaemon using setter methods
+//
+// A valid managed daemon will require
+// healthcheck and mount points to be added
+func CreateManagedDaemon(
+	daemonCreators ...func(*ManagedDaemon),
+) *ManagedDaemon {
+	newManagedDaemon := &ManagedDaemon{imageTag: imageTagDefault, healthCheckRetries: 0}
+	for _, daemonCreator := range daemonCreators {
+		daemonCreator(newManagedDaemon)
 	}
 	return newManagedDaemon
 }
