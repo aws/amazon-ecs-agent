@@ -475,6 +475,7 @@ func New(
 	acsENI *ecsacs.ElasticNetworkInterface,
 	guestNetNSName string,
 	peerInterface *ecsacs.ElasticNetworkInterface,
+	macToName map[string]string,
 ) (*NetworkInterface, error) {
 	var err error
 
@@ -519,6 +520,7 @@ func New(
 	networkInterface.KnownStatus = status.NetworkNone
 	networkInterface.DesiredStatus = status.NetworkReadyPull
 	networkInterface.GuestNetNSName = guestNetNSName
+	networkInterface.setDeviceName(macToName)
 
 	return networkInterface, nil
 }

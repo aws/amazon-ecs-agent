@@ -229,6 +229,7 @@ func getTestInterfacesData() ([]*ecsacs.ElasticNetworkInterface, []networkinterf
 			Default:                      true,
 			KnownStatus:                  status.NetworkNone,
 			DesiredStatus:                status.NetworkReadyPull,
+			DeviceName:                   "eth1",
 		},
 		{
 			ID:         eniID2,
@@ -253,6 +254,7 @@ func getTestInterfacesData() ([]*ecsacs.ElasticNetworkInterface, []networkinterf
 			Index:                        int64(1),
 			KnownStatus:                  status.NetworkNone,
 			DesiredStatus:                status.NetworkReadyPull,
+			DeviceName:                   "eth2",
 		},
 	}
 

@@ -19,6 +19,8 @@ package netlib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -32,7 +34,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	mock_platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform/mocks"
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -66,12 +70,32 @@ func TestNetworkBuilder_Start(t *testing.T) {
 func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetworkconfig.TaskNetworkConfig)) func(*testing.T) {
 
 	return func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		// Create a networkBuilder for the warmpool platform.
-		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
+		mockNet := mock_netwrapper.NewMockNet(ctrl)
+		platformAPI, err := platform.NewPlatform(platform.WarmpoolPlatform, nil, "", mockNet)
 		require.NoError(t, err)
+		netBuilder := &networkBuilder{
+			platformAPI: platformAPI,
+		}
 
 		// Generate input task payload and a reference to verify the output with.
 		taskPayload, expectedConfig := dataGenF(taskID)
+
+		var ifaces []net.Interface
+		idx := 1
+		for _, eni := range taskPayload.ElasticNetworkInterfaces {
+			hw, err := net.ParseMAC(aws.StringValue(eni.MacAddress))
+			require.NoError(t, err)
+			ifaces = append(ifaces, net.Interface{
+				HardwareAddr: hw,
+				Name:         fmt.Sprintf("eth%d", idx),
+			})
+			idx += 1
+		}
+		mockNet.EXPECT().Interfaces().Return(ifaces, nil).Times(1)
 
 		// Invoke networkBuilder function for building the task network config.
 		actualConfig, err := netBuilder.BuildTaskNetworkConfiguration(taskID, taskPayload)
