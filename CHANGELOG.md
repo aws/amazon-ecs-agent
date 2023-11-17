@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.79.1
+* Enhancement - Update golang.org/x/net to v0.17.0 [#3964](https://github.com/aws/amazon-ecs-agent/pull/3964)
+* Enhancement - Update google.golang.org/grpc to 1.56.3 [#3991](https://github.com/aws/amazon-ecs-agent/pull/3991)
+* Enhancement - Implement regular ENI and branch ENI configuration for the containerd platform [#3972](https://github.com/aws/amazon-ecs-agent/pull/3972)
+* Enhancement - Decouple ENI in ecs-agent/ AttachmentStateChange [#4019](https://github.com/aws/amazon-ecs-agent/pull/4019)
+* Bugfix - Bugfix to log EBS CSI to a file [#4010](https://github.com/aws/amazon-ecs-agent/pull/4010)
+
 ## 1.79.0
 * Feature - Add support for finding EBS devices on Xen instances [#3971](https://github.com/aws/amazon-ecs-agent/pull/3971)
 * Feature - Add network builder and platform APIs [#3939](https://github.com/aws/amazon-ecs-agent/pull/3939)

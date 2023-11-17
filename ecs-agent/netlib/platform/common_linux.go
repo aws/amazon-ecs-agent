@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
@@ -77,6 +78,7 @@ type common struct {
 	netlink            netlinkwrapper.NetLink
 	stateDBDir         string
 	cniClient          ecscni.CNI
+	net                netwrapper.Net
 }
 
 // NewPlatform creates an implementation of the platform API depending on the
@@ -85,6 +87,7 @@ func NewPlatform(
 	platformString string,
 	volumeAccessor volume.VolumeAccessor,
 	stateDBDirectory string,
+	netWrapper netwrapper.Net,
 ) (API, error) {
 	commonPlatform := common{
 		nsUtil:             ecscni.NewNetNSUtil(),
@@ -94,6 +97,7 @@ func NewPlatform(
 		netlink:            netlinkwrapper.New(),
 		stateDBDir:         stateDBDirectory,
 		cniClient:          ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
+		net:                netWrapper,
 	}
 
 	// TODO: implement remaining platforms - FoF, windows.
@@ -155,6 +159,10 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 		return nil, errors.New("interfaces list cannot be empty")
 	}
 
+	macToNames, err := c.interfacesMACToName()
+	if err != nil {
+		return nil, err
+	}
 	// If task payload has only one interface, the network configuration is
 	// straight forward. It will have only one network namespace containing
 	// the corresponding network interface.
@@ -166,7 +174,8 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
 			taskPayload.ElasticNetworkInterfaces,
-			taskPayload.ProxyConfiguration)
+			taskPayload.ProxyConfiguration,
+			macToNames)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +226,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 			continue
 		}
 
-		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil)
+		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames)
 		if err != nil {
 			return nil, err
 		}
@@ -232,12 +241,13 @@ func (c *common) buildNetNS(
 	taskID string,
 	index int,
 	networkInterfaces []*ecsacs.ElasticNetworkInterface,
-	proxyConfig *ecsacs.ProxyConfiguration) (*tasknetworkconfig.NetworkNamespace, error) {
+	proxyConfig *ecsacs.ProxyConfiguration,
+	macToName map[string]string) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
 	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
-		iface, err := networkinterface.New(ni, "", nil)
+		iface, err := networkinterface.New(ni, "", nil, macToName)
 		if err != nil {
 			return nil, err
 		}
@@ -282,6 +292,24 @@ func (c *common) CreateNetNS(netNSPath string) error {
 	err = c.nsUtil.ExecInNSPath(netNSPath, c.setUpLoFunc(netNSPath))
 
 	return err
+}
+
+func (c *common) DeleteNetNS(netNSPath string) error {
+	nsExists, err := c.nsUtil.NSExists(netNSPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
+	}
+
+	if !nsExists {
+		return nil
+	}
+
+	err = c.nsUtil.DelNetNS(netNSPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete netns %s", netNSPath)
+	}
+
+	return nil
 }
 
 // setUpLoFunc returns a method that sets the loop back interface inside a
@@ -607,4 +635,21 @@ func (c *common) configureServiceConnect(
 	}
 
 	return nil
+}
+
+// interfacesMACToName lists all network interfaces on the host inside the default
+// netns and returns a mac address to device name map.
+func (c *common) interfacesMACToName() (map[string]string, error) {
+	links, err := c.net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	// Build a map of interface MAC address to name on the host.
+	macToName := make(map[string]string)
+	for _, link := range links {
+		macToName[link.HardwareAddr.String()] = link.Name
+	}
+
+	return macToName, nil
 }

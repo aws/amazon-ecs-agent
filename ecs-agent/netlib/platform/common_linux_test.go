@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ioutilwrapper/mocks"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
@@ -58,10 +60,10 @@ const (
 )
 
 func TestNewPlatform(t *testing.T) {
-	_, err := NewPlatform(WarmpoolPlatform, nil, "")
+	_, err := NewPlatform(WarmpoolPlatform, nil, "", nil)
 	assert.NoError(t, err)
 
-	_, err = NewPlatform("invalid-platform", nil, "")
+	_, err = NewPlatform("invalid-platform", nil, "", nil)
 	assert.Error(t, err)
 }
 
@@ -201,8 +203,45 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 }
 
 func TestCommon_ConfigureInterface(t *testing.T) {
-	t.Run("create-regular-eni", testRegularENIConfiguration)
-	t.Run("create-branch-eni", testBranchENIConfiguration)
+	t.Run("configure-regular-eni", testRegularENIConfiguration)
+	t.Run("configure-branch-eni", testBranchENIConfiguration)
+}
+
+// TestInterfacesMACToName verifies interfacesMACToName behaves as expected.
+func TestInterfacesMACToName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNet := mock_netwrapper.NewMockNet(ctrl)
+	commonPlatform := &common{
+		net: mockNet,
+	}
+
+	// Prepare test data.
+	testMac, err := net.ParseMAC(trunkENIMac)
+	require.NoError(t, err)
+	testIface := []net.Interface{
+		{
+			HardwareAddr: testMac,
+			Name:         "eth1",
+		},
+	}
+	expected := map[string]string{
+		trunkENIMac: "eth1",
+	}
+
+	// Positive case.
+	mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
+	actual, err := commonPlatform.interfacesMACToName()
+	require.NoError(t, err)
+	require.Equal(t, expected, actual)
+
+	// Negative case.
+	testErr := errors.New("no interfaces to chat with")
+	mockNet.EXPECT().Interfaces().Return(testIface, testErr).Times(1)
+	_, err = commonPlatform.interfacesMACToName()
+	require.Error(t, err)
+	require.Equal(t, testErr, err)
 }
 
 func testRegularENIConfiguration(t *testing.T) {
@@ -243,6 +282,17 @@ func testRegularENIConfiguration(t *testing.T) {
 	)
 	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
 	require.NoError(t, err)
+
+	// Delete workflow.
+	eni.Default = true
+	eni.DesiredStatus = status.NetworkDeleted
+	eniConfig = createENIPluginConfigs(netNSPath, eni)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
+	)
+	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
+	require.NoError(t, err)
 }
 
 func testBranchENIConfiguration(t *testing.T) {
@@ -265,6 +315,13 @@ func testBranchENIConfiguration(t *testing.T) {
 	branchENI.DesiredStatus = status.NetworkReady
 	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
+	require.NoError(t, err)
+
+	// Delete workflow.
+	branchENI.DesiredStatus = status.NetworkDeleted
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
 	require.NoError(t, err)
 }

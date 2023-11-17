@@ -19,6 +19,8 @@ package netlib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -32,7 +34,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	mock_platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform/mocks"
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -61,17 +65,42 @@ func TestNetworkBuilder_Start(t *testing.T) {
 	t.Run("awsvpc", testNetworkBuilder_StartAWSVPC)
 }
 
+// TestNetworkBuilder_Stop verifies stop workflow for AWSVPC mode.
+func TestNetworkBuilder_Stop(t *testing.T) {
+	t.Run("awsvpc", testNetworkBuilder_StopAWSVPC)
+}
+
 // getTestFunc returns a test function that verifies the capability of the networkBuilder
 // to translate a given input task payload into desired network data models.
 func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetworkconfig.TaskNetworkConfig)) func(*testing.T) {
 
 	return func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		// Create a networkBuilder for the warmpool platform.
-		netBuilder, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
+		mockNet := mock_netwrapper.NewMockNet(ctrl)
+		platformAPI, err := platform.NewPlatform(platform.WarmpoolPlatform, nil, "", mockNet)
 		require.NoError(t, err)
+		netBuilder := &networkBuilder{
+			platformAPI: platformAPI,
+		}
 
 		// Generate input task payload and a reference to verify the output with.
 		taskPayload, expectedConfig := dataGenF(taskID)
+
+		var ifaces []net.Interface
+		idx := 1
+		for _, eni := range taskPayload.ElasticNetworkInterfaces {
+			hw, err := net.ParseMAC(aws.StringValue(eni.MacAddress))
+			require.NoError(t, err)
+			ifaces = append(ifaces, net.Interface{
+				HardwareAddr: hw,
+				Name:         fmt.Sprintf("eth%d", idx),
+			})
+			idx += 1
+		}
+		mockNet.EXPECT().Interfaces().Return(ifaces, nil).Times(1)
 
 		// Invoke networkBuilder function for building the task network config.
 		actualConfig, err := netBuilder.BuildTaskNetworkConfiguration(taskID, taskPayload)
@@ -254,4 +283,65 @@ func getExpectedCalls_StartAWSVPC(
 	calls = append(calls, mockEntry.EXPECT().Done(nil).Times(1))
 
 	return calls
+}
+
+func testNetworkBuilder_StopAWSVPC(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	platformAPI := mock_platform.NewMockAPI(ctrl)
+	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	netBuilder := &networkBuilder{
+		platformAPI:    platformAPI,
+		metricsFactory: metricsFactory,
+	}
+
+	// Single ENI use case without AppMesh and service connect configs.
+	_, taskNetConfig := getSingleNetNSMultiIfaceAWSVPCTestData(taskID)
+	netNS := taskNetConfig.GetPrimaryNetNS()
+	mockEntry = mock_metrics.NewMockEntry(ctrl)
+	t.Run("multi-eni", func(*testing.T) {
+		gomock.InOrder(
+			getExpectedCalls_StopAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+		)
+		netBuilder.Stop(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
+	})
+}
+
+// getExpectedCalls_StopAWSVPC returns a list of gomock calls that will be executed
+// while test stop workflow for AWSVPC.
+func getExpectedCalls_StopAWSVPC(
+	ctx context.Context,
+	platformAPI *mock_platform.MockAPI,
+	metricsFactory *mock_metrics.MockEntryFactory,
+	mockEntry *mock_metrics.MockEntry,
+	netNS *tasknetworkconfig.NetworkNamespace,
+) []*gomock.Call {
+	var calls []*gomock.Call
+
+	calls = append(calls,
+		metricsFactory.EXPECT().New(metrics.DeleteNetworkNamespaceMetricName).Return(mockEntry).Times(1),
+		mockEntry.EXPECT().WithFields(gomock.Any()).Return(mockEntry).Times(1))
+
+	// Stop() should not be invoked when desired state = DELETED.
+	if netNS.DesiredState != status.NetworkDeleted {
+		calls = append(calls,
+			mockEntry.EXPECT().Done(gomock.Any()).Times(1))
+		return calls
+	}
+
+	// For each interface inside the netns, the network builder needs to invoke the
+	// `ConfigureInterface` platformAPI.
+	for _, iface := range netNS.NetworkInterfaces {
+		if iface.KnownStatus == netNS.DesiredState {
+			continue
+		}
+		calls = append(calls,
+			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface).Return(nil).Times(1))
+	}
+
+	return append(calls,
+		platformAPI.EXPECT().DeleteNetNS(netNS.Path).Return(nil).Times(1))
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 )
 
@@ -36,7 +37,8 @@ type common struct {
 func NewPlatform(
 	platformString string,
 	volumeAccessor volume.VolumeAccessor,
-	stateDBDirectory string) (API, error) {
+	stateDBDirectory string,
+	netWrapper netwrapper.Net) (API, error) {
 	return nil, nil
 }
 
@@ -50,7 +52,7 @@ func (c *common) CreateNetNS(netNSPath string) error {
 	return nil
 }
 
-func (c *common) DeleteNetNS(netNSName string) error {
+func (c *common) DeleteNetNS(netNSPath string) error {
 	return nil
 }
 

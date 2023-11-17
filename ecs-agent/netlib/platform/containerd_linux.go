@@ -35,10 +35,6 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload)
 }
 
-func (c *containerd) DeleteNetNS(netnsName string) error {
-	return nil
-}
-
 func (c *containerd) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
 	return c.common.createDNSConfig(taskID, false, netNS)
 }

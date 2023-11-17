@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/pkg/errors"
@@ -54,6 +55,7 @@ func NewNetworkBuilder(
 		platformString,
 		volumeAccessor,
 		stateDBDir,
+		netwrapper.NewNet(),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to instantiate network builder")
@@ -106,13 +108,37 @@ func (nb *networkBuilder) Start(
 }
 
 func (nb *networkBuilder) Stop(ctx context.Context, mode string, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
-	// TODO: To be implemented.
-	return nil
+	logFields := map[string]interface{}{
+		"NetworkMode":           mode,
+		"NetNSName":             netNS.Name,
+		"NetNSPath":             netNS.Path,
+		"AppMeshEnabled":        netNS.AppMeshConfig != nil,
+		"ServiceConnectEnabled": netNS.ServiceConnectConfig != nil,
+	}
+	metricEntry := nb.metricsFactory.New(metrics.DeleteNetworkNamespaceMetricName).WithFields(logFields)
+
+	netNS.Mutex.Lock()
+	defer netNS.Mutex.Unlock()
+
+	logger.Info("Deleting network namespace setup", logFields)
+
+	var err error
+	switch mode {
+	case ecs.NetworkModeAwsvpc:
+		err = nb.stopAWSVPC(ctx, netNS)
+	default:
+		err = errors.New("invalid network mode: " + mode)
+	}
+
+	metricEntry.Done(err)
+
+	return err
 }
 
 // startAWSVPC executes the required platform API methods in order to configure
 // the task's network namespace running in AWSVPC mode.
 func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
+	var err error
 	if netNS.DesiredState == status.NetworkDeleted {
 		return errors.New("invalid transition state encountered: " + netNS.DesiredState.String())
 	}
@@ -124,7 +150,7 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 
 		logger.Debug("Creating netns: " + netNS.Path)
 		// Create network namespace on the host.
-		err := nb.platformAPI.CreateNetNS(netNS.Path)
+		err = nb.platformAPI.CreateNetNS(netNS.Path)
 		if err != nil {
 			return err
 		}
@@ -138,27 +164,10 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 	}
 
-	// Execute CNI plugins to configure the interfaces in the namespace.
-	// Depending on the type of interfaces in the netns, there maybe operations
-	// to execute when the netns desired status is READY_PULL and READY.
-	for _, iface := range netNS.NetworkInterfaces {
-		logFields := logger.Fields{
-			"Interface": iface,
-			"NetNSName": netNS.Name,
-		}
-		if iface.KnownStatus == netNS.DesiredState {
-			logger.Debug("Interface already in desired state")
-			continue
-		}
-
-		logger.Debug("Configuring interface", logFields)
-		iface.DesiredStatus = netNS.DesiredState
-
-		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
-		if err != nil {
-			return err
-		}
-		iface.KnownStatus = netNS.DesiredState
+	// Configure each interface inside the network namespace.
+	err = nb.configureNetNSInterfaces(ctx, netNS)
+	if err != nil {
+		return err
 	}
 
 	// Configure AppMesh and service connect rules in the netns.
@@ -169,7 +178,7 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 				"AppMeshConfig": netNS.AppMeshConfig,
 			})
 
-			err := nb.platformAPI.ConfigureAppMesh(ctx, netNS.Path, netNS.AppMeshConfig)
+			err = nb.platformAPI.ConfigureAppMesh(ctx, netNS.Path, netNS.AppMeshConfig)
 			if err != nil {
 				return errors.Wrapf(err, "failed to configure AppMesh in netns %s", netNS.Name)
 			}
@@ -180,7 +189,7 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 				"ServiceConnectConfig": netNS.ServiceConnectConfig,
 			})
 
-			err := nb.platformAPI.ConfigureServiceConnect(
+			err = nb.platformAPI.ConfigureServiceConnect(
 				ctx, netNS.Path, netNS.GetPrimaryInterface(), netNS.ServiceConnectConfig)
 			if err != nil {
 				return errors.Wrapf(err, "failed to configure ServiceConnect in netns %s", netNS.Name)
@@ -188,5 +197,44 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 	}
 
+	return err
+}
+
+// configureNetNSInterfaces executes the platform API to configure every interface inside a network namespace.
+func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+	for _, iface := range netNS.NetworkInterfaces {
+		logFields := logger.Fields{
+			"Interface": iface,
+			"NetNSName": netNS.Name,
+		}
+		if iface.KnownStatus == netNS.DesiredState {
+			logger.Debug("Interface already in desired state", logFields)
+			continue
+		}
+
+		// The interface desired status is driven by the network namespace's desired state.
+		logger.Debug("Configuring interface", logFields)
+		iface.DesiredStatus = netNS.DesiredState
+
+		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
+		if err != nil {
+			return err
+		}
+		iface.KnownStatus = netNS.DesiredState
+	}
+
 	return nil
+}
+
+func (nb *networkBuilder) stopAWSVPC(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+	if netNS.DesiredState != status.NetworkDeleted {
+		return errors.New("invalid transition state encountered: " + netNS.DesiredState.String())
+	}
+
+	err := nb.configureNetNSInterfaces(ctx, netNS)
+	if err != nil {
+		return err
+	}
+
+	return nb.platformAPI.DeleteNetNS(netNS.Path)
 }

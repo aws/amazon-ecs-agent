@@ -35,7 +35,7 @@ type API interface {
 	CreateNetNS(netNSPath string) error
 
 	// DeleteNetNS deletes the specified network namespace.
-	DeleteNetNS(netNSName string) error
+	DeleteNetNS(netNSPath string) error
 
 	// CreateDNSConfig creates the following DNS config files depending on the
 	// network namespace configuration:
