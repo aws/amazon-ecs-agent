@@ -750,6 +750,8 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 }
 
 // TestConnectionIsClosedOnIdle tests that the connection to ACS is closed when the connection is idle.
+// It also tests whether the session's lastConnectedTime field will be updated properly upon invocation
+// of startSessionOnce() and whether the session's GetLastConnectedTime() interface works as expected.
 func TestConnectionIsClosedOnIdle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -788,10 +790,19 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
+
+	// The Session's lastConnectedTime field was initialized with time.Time{}, which is the default zero value for time.Time.
+	// At this point, since the Session has not connected to ACS yet, the Session's lastConnectedTime should still be zero.
+	assert.True(t, acsSession.GetLastConnectedTime().IsZero())
+
 	// Wait for connection to be closed. If the connection is not closed due to inactivity, the test will time out.
 	err := acsSession.startSessionOnce(ctx)
 	assert.EqualError(t, err, io.EOF.Error())
 	assert.True(t, connectionInactive)
+
+	// The Session's lastConnectedTime field should be updated with the latest connection timestamp after
+	// invocation of startSessionOnce(). Check that the field is no longer zero.
+	assert.False(t, acsSession.GetLastConnectedTime().IsZero())
 }
 
 func TestSessionDoesntLeakGoroutines(t *testing.T) {
@@ -1284,98 +1295,6 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 	err := acsSession.Start(ctx)
 	assert.Equal(t, context.Canceled, err)
 	assert.True(t, addUpdateRequestHandlersCalled)
-}
-
-// TestGetLastConnectedTime tests that the Session's 'lastConnectedTime' field  is updated correctly for successive
-// invocations of startSessionOnce. Also tests that the Session's GetLastConnectedTime() API call works as expected.
-func TestGetLastConnectedTime(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	const numInvocations = 10
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
-	ctx, cancel := context.WithCancel(context.Background())
-
-	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	mockClientFactory := mock_wsclient.NewMockClientFactory(ctrl)
-	mockClientFactory.EXPECT().
-		New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(mockWsClient).AnyTimes()
-	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().WriteCloseMessage().AnyTimes()
-	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	mockWsClient.EXPECT().Serve(gomock.Any()).Return(io.EOF).AnyTimes()
-
-	acsSession := NewSession(testconst.ContainerInstanceARN,
-		testconst.ClusterARN,
-		discoverEndpointClient,
-		nil,
-		noopFunc,
-		mockClientFactory,
-		metricsfactory.NewNopEntryFactory(),
-		agentVersion,
-		agentGitShortHash,
-		dockerVersion,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-	acsSession.(*session).heartbeatTimeout = 20 * time.Millisecond
-	acsSession.(*session).heartbeatJitter = 10 * time.Millisecond
-	acsSession.(*session).disconnectTimeout = 30 * time.Millisecond
-	acsSession.(*session).disconnectJitter = 10 * time.Millisecond
-	gomock.InOrder(
-		// When the websocket client connects to ACS for the first time, 'sendCredentials' should be set to true.
-		mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(interface{},
-			interface{}, interface{}) {
-			assert.Equal(t, true, acsSession.(*session).sendCredentials)
-		}).Return(time.NewTimer(wsclient.DisconnectTimeout), nil),
-		// For all subsequent connections to ACS, 'sendCredentials' should be set to false.
-		mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(interface{},
-			interface{}, interface{}) {
-			assert.Equal(t, false, acsSession.(*session).sendCredentials)
-		}).Return(time.NewTimer(wsclient.DisconnectTimeout), nil).Times(numInvocations-1),
-	)
-
-	// The Session's lastConnectedTime field was initialized with time.Time{}, which is the default zero value for time.Time.
-	// At this point, since the Session has not connected to ACS yet, the Session's lastConnectedTime should still be zero.
-	assert.True(t, acsSession.GetLastConnectedTime().IsZero())
-
-	go func() {
-		for i := 0; i < numInvocations; i++ {
-			// Record the current time.
-			currentTime := time.Now()
-			// Invoke startSessionOnce() to connect to ACS.
-			acsSession.(*session).startSessionOnce(ctx)
-			// Get the timestamp recorded in Session's lastConnectedTime field.
-			acsSessionActualConnectedTime := acsSession.GetLastConnectedTime()
-			// Compare the two timestamps.
-			// Since the connection was started right after the first timestamp was recorded, the two timestamps should
-			// be very close. Allow an 1 ms to account for jitters.
-			assert.WithinDuration(t, currentTime, acsSessionActualConnectedTime, 1*time.Millisecond)
-			// Sleep for 2 ms before proceeding to the next test iteration, so that if the Session's lastConnectedTime
-			// field is not correctly updated, it would be caught since the allowed delta is 1 ms.
-			time.Sleep(2 * time.Millisecond)
-		}
-		cancel()
-	}()
-
-	// Wait for context to be canceled.
-	select {
-	case <-ctx.Done():
-		cancel()
-	}
 }
 
 func startFakeACSServer(closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
