@@ -51,6 +51,7 @@ const (
 	SaveNetworkNamespaceMetricName          = dbClientMetricNamespace + ".SaveNetworkNamespace"
 	GetNetworkNamespaceMetricName           = dbClientMetricNamespace + ".GetNetworkNamespace"
 
-	networkBuilderNamespace         = "NetworkBuilder"
-	BuildNetworkNamespaceMetricName = networkBuilderNamespace + ".BuildNetworkNamespace"
+	networkBuilderNamespace          = "NetworkBuilder"
+	BuildNetworkNamespaceMetricName  = networkBuilderNamespace + ".BuildNetworkNamespace"
+	DeleteNetworkNamespaceMetricName = networkBuilderNamespace + ".DeleteNetworkNamespace"
 )
