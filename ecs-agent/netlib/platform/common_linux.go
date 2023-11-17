@@ -294,6 +294,24 @@ func (c *common) CreateNetNS(netNSPath string) error {
 	return err
 }
 
+func (c *common) DeleteNetNS(netNSPath string) error {
+	nsExists, err := c.nsUtil.NSExists(netNSPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
+	}
+
+	if !nsExists {
+		return nil
+	}
+
+	err = c.nsUtil.DelNetNS(netNSPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete netns %s", netNSPath)
+	}
+
+	return nil
+}
+
 // setUpLoFunc returns a method that sets the loop back interface inside a
 // particular network namespace to the state "UP". This function is used to
 // set up the loop back interface inside a task network namespace soon after
