@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,6 +87,23 @@ func TestUint16SliceToStringSlice(t *testing.T) {
 				assert.Equal(t, num, uint16(reconverted))
 			}
 
+		})
+	}
+}
+
+func TestInt64PtrToIntPtr(t *testing.T) {
+	testCases := []struct {
+		input          *int64
+		expectedOutput *int
+		name           string
+	}{
+		{nil, nil, "nil"},
+		{aws.Int64(2147483647), aws.Int(2147483647), "smallest max value type int can hold"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, Int64PtrToIntPtr(tc.input))
 		})
 	}
 }
