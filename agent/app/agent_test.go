@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -50,6 +49,7 @@ import (
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
@@ -103,7 +103,7 @@ func setup(t *testing.T) (*gomock.Controller,
 	*mock_credentials.MockManager,
 	*mock_dockerstate.MockTaskEngineState,
 	*mock_engine.MockImageManager,
-	*mock_api.MockECSClient,
+	*mock_ecs.MockECSClient,
 	*mock_dockerapi.MockDockerClient,
 	*mock_factory.MockStateManager,
 	*mock_factory.MockSaveableOption,
@@ -116,7 +116,7 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_credentials.NewMockManager(ctrl),
 		mock_dockerstate.NewMockTaskEngineState(ctrl),
 		mock_engine.NewMockImageManager(ctrl),
-		mock_api.NewMockECSClient(ctrl),
+		mock_ecs.NewMockECSClient(ctrl),
 		mock_dockerapi.NewMockDockerClient(ctrl),
 		mock_factory.NewMockStateManager(ctrl),
 		mock_factory.NewMockSaveableOption(ctrl),
@@ -970,7 +970,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1030,7 +1030,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1092,7 +1092,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1152,7 +1152,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1212,7 +1212,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1271,7 +1271,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1330,7 +1330,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1389,7 +1389,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	defer ctrl.Finish()
 
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -1677,7 +1677,7 @@ func TestSpotInstanceActionCheck_Sunny(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	ec2Client := mock_ec2.NewMockClient(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	for _, test := range tests {
 		myARN := "myARN"
@@ -1706,7 +1706,7 @@ func TestSpotInstanceActionCheck_Fail(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	ec2Client := mock_ec2.NewMockClient(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	for _, test := range tests {
 		myARN := "myARN"
@@ -1729,7 +1729,7 @@ func TestSpotInstanceActionCheck_NoInstanceActionYet(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	ec2Client := mock_ec2.NewMockClient(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	myARN := "myARN"
 	agent := &ecsAgent{

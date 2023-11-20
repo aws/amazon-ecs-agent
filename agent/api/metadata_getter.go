@@ -25,7 +25,7 @@ type containerMetadataGetter struct {
 	container *apicontainer.Container
 }
 
-func NewContainerMetadataGetter(container *apicontainer.Container) *containerMetadataGetter {
+func newContainerMetadataGetter(container *apicontainer.Container) *containerMetadataGetter {
 	return &containerMetadataGetter{
 		container: container,
 	}
@@ -58,7 +58,7 @@ type taskMetadataGetter struct {
 	task *apitask.Task
 }
 
-func NewTaskMetadataGetter(task *apitask.Task) *taskMetadataGetter {
+func newTaskMetadataGetter(task *apitask.Task) *taskMetadataGetter {
 	return &taskMetadataGetter{
 		task: task,
 	}

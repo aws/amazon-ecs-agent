@@ -15,6 +15,8 @@ package utils
 import (
 	"reflect"
 	"strconv"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 func ZeroOrNil(obj interface{}) bool {
@@ -48,4 +50,12 @@ func Uint16SliceToStringSlice(slice []uint16) []*string {
 		stringSlice[i] = &str
 	}
 	return stringSlice
+}
+
+// Int64PtrToIntPtr converts a *int64 to *int.
+func Int64PtrToIntPtr(int64ptr *int64) *int {
+	if int64ptr == nil {
+		return nil
+	}
+	return aws.Int(int(aws.Int64Value(int64ptr)))
 }
