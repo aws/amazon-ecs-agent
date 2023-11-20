@@ -24,10 +24,11 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
-
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -360,4 +361,137 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetNetworkBindings(t *testing.T) {
+	testContainerStateChange := getTestContainerStateChange()
+	expectedNetworkBindings := []*ecs.NetworkBinding{
+		{
+			BindIP:        aws.String("0.0.0.0"),
+			ContainerPort: aws.Int64(10),
+			HostPort:      aws.Int64(10),
+			Protocol:      aws.String("tcp"),
+		},
+		{
+			BindIP:        aws.String("1.2.3.4"),
+			ContainerPort: aws.Int64(12),
+			HostPort:      aws.Int64(12),
+			Protocol:      aws.String("udp"),
+		},
+		{
+			BindIP:        aws.String("5.6.7.8"),
+			ContainerPort: aws.Int64(15),
+			HostPort:      aws.Int64(20),
+			Protocol:      aws.String("tcp"),
+		},
+		{
+			BindIP:             aws.String("::"),
+			ContainerPortRange: aws.String("21-22"),
+			HostPortRange:      aws.String("60001-60002"),
+			Protocol:           aws.String("udp"),
+		},
+		{
+			BindIP:             aws.String("0.0.0.0"),
+			ContainerPortRange: aws.String("96-97"),
+			HostPortRange:      aws.String("47001-47002"),
+			Protocol:           aws.String("tcp"),
+		},
+	}
+
+	networkBindings := getNetworkBindings(testContainerStateChange)
+	assert.ElementsMatch(t, expectedNetworkBindings, networkBindings)
+}
+
+func getTestContainerStateChange() ContainerStateChange {
+	testContainer := &apicontainer.Container{
+		Name:              "cont",
+		NetworkModeUnsafe: "bridge",
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 10,
+				HostPort:      10,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: 12,
+				HostPort:      12,
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: 15,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPortRange: "21-22",
+				Protocol:           apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPortRange: "96-97",
+				Protocol:           apicontainer.TransportProtocolTCP,
+			},
+		},
+		ContainerHasPortRange: true,
+		ContainerPortSet: map[int]struct{}{
+			10: {},
+			12: {},
+			15: {},
+		},
+		ContainerPortRangeMap: map[string]string{
+			"21-22": "60001-60002",
+			"96-97": "47001-47002",
+		},
+	}
+
+	testContainerStateChange := ContainerStateChange{
+		TaskArn:       "arn",
+		ContainerName: "cont",
+		Status:        apicontainerstatus.ContainerRunning,
+		Container:     testContainer,
+		PortBindings: []apicontainer.PortBinding{
+			{
+				ContainerPort: 10,
+				HostPort:      10,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: 12,
+				HostPort:      12,
+				BindIP:        "1.2.3.4",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: 15,
+				HostPort:      20,
+				BindIP:        "5.6.7.8",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: 21,
+				HostPort:      60001,
+				BindIP:        "::",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: 22,
+				HostPort:      60002,
+				BindIP:        "::",
+				Protocol:      apicontainer.TransportProtocolUDP,
+			},
+			{
+				ContainerPort: 96,
+				HostPort:      47001,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+			{
+				ContainerPort: 97,
+				HostPort:      47002,
+				BindIP:        "0.0.0.0",
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+	}
+
+	return testContainerStateChange
 }

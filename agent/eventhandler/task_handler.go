@@ -27,7 +27,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -79,7 +80,7 @@ type TaskHandler struct {
 	maxDrainEventsFrequency time.Duration
 
 	state  dockerstate.TaskEngineState
-	client api.ECSClient
+	client ecs.ECSClient
 	ctx    context.Context
 }
 
@@ -104,7 +105,7 @@ type taskSendableEvents struct {
 func NewTaskHandler(ctx context.Context,
 	dataClient data.Client,
 	state dockerstate.TaskEngineState,
-	client api.ECSClient) *TaskHandler {
+	client ecs.ECSClient) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 	taskHandler := &TaskHandler{
 		ctx:                       ctx,
@@ -131,7 +132,7 @@ func NewTaskHandler(ctx context.Context,
 // If the event is for task state change, it triggers the non-blocking
 // handler.submitTaskEvents method to submit the batched container state
 // changes and the task state change to ECS
-func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client api.ECSClient) error {
+func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client ecs.ECSClient) error {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
 	switch change.GetEventType() {
@@ -273,7 +274,7 @@ func (handler *TaskHandler) batchManagedAgentEventUnsafe(event api.ManagedAgentS
 
 // flushBatchUnsafe attaches the task arn's container events to TaskStateChange event
 // by creating the sendable event list. It then submits this event to ECS asynchronously
-func (handler *TaskHandler) flushBatchUnsafe(taskStateChange *api.TaskStateChange, client api.ECSClient) {
+func (handler *TaskHandler) flushBatchUnsafe(taskStateChange *api.TaskStateChange, client ecs.ECSClient) {
 	taskStateChange.Containers = append(taskStateChange.Containers,
 		handler.tasksToContainerStates[taskStateChange.TaskARN]...)
 	// All container events for the task have now been copied to the
@@ -318,7 +319,7 @@ func (handler *TaskHandler) getTaskEventsUnsafe(event *sendableEvent) *taskSenda
 
 // Continuously retries sending an event until it succeeds, sleeping between each
 // attempt
-func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, client api.ECSClient, taskARN string) {
+func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, client ecs.ECSClient, taskARN string) {
 	defer metrics.MetricsEngineGlobal.RecordECSClientMetric("SUBMIT_TASK_EVENTS")()
 	defer handler.removeTaskEvents(taskARN)
 
@@ -358,7 +359,7 @@ func (handler *TaskHandler) removeTaskEvents(taskARN string) {
 // the handler's submitTaskEvents async method to submit this change if
 // there's no go routines already sending changes for this event list
 func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
-	client api.ECSClient,
+	client ecs.ECSClient,
 	handler *TaskHandler) {
 
 	taskEvents.lock.Lock()
@@ -442,7 +443,7 @@ func (taskEvents *taskSendableEvents) toStringUnsafe() string {
 // handleInvalidParamException removes the event from event queue when its parameters are
 // invalid to reduce redundant API call
 func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element) {
-	if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
+	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
 		event := eventToSubmit.Value.(*sendableEvent)
 		logger.Warn("TaskHandler: Event is sent with invalid parameters; just removing", event.toFields())
 		events.Remove(eventToSubmit)
