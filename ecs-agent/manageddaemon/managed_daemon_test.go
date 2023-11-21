@@ -333,3 +333,31 @@ func TestIsValidManagedDaemon(t *testing.T) {
 		})
 	}
 }
+
+func TestSetContainerId(t *testing.T) {
+	testContainerId := "testContainerId"
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
+	tmd.SetContainerId(testContainerId)
+	assert.Equal(t, testContainerId, tmd.GetContainerId(), "Wrong value for set ContainerId")
+}
+
+func TestSetContainerCGroup(t *testing.T) {
+	testContainerCGroup := "testContainerCGroup"
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
+	tmd.SetContainerCGroup(testContainerCGroup)
+	assert.Equal(t, testContainerCGroup, tmd.GetContainerCGroup(), "Wrong value for set ContainerCGroup")
+}
+
+func TestSetNetworkNameSpace(t *testing.T) {
+	testNetworkNameSpace := "testNetworkNameSpace"
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
+	tmd.SetNetworkNameSpace(testNetworkNameSpace)
+	assert.Equal(t, testNetworkNameSpace, tmd.GetNetworkNameSpace(), "Wrong value for set NetworkNameSpace")
+}
+
+func TestSetCommand(t *testing.T) {
+	testCommand := []string{"testCommand1", "testCommand2"}
+	tmd := NewManagedDaemon(TestImageName, TestImageTag)
+	tmd.SetCommand(testCommand)
+	assert.Equal(t, testCommand, tmd.GetCommand(), "Wrong value for set Command")
+}
