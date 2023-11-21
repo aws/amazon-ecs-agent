@@ -100,10 +100,14 @@ func NewPlatform(
 		net:                netWrapper,
 	}
 
-	// TODO: implement remaining platforms - FoF, windows.
+	// TODO: implement remaining platforms - windows.
 	switch platformString {
 	case WarmpoolPlatform:
 		return &containerd{
+			common: commonPlatform,
+		}, nil
+	case FirecrackerPlatform:
+		return &firecraker{
 			common: commonPlatform,
 		}, nil
 	}
@@ -114,13 +118,16 @@ func NewPlatform(
 // into the task network configuration data structure internal to the agent.
 func (c *common) buildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task,
+	singleNetNS bool,
+	ifaceToGuestNetNS map[string]string,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := aws.StringValue(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
-		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload)
+		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload, singleNetNS, ifaceToGuestNetNS)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
@@ -145,16 +152,19 @@ func (c *common) GetNetNSPath(netNSName string) string {
 }
 
 // buildAWSVPCNetworkNamespaces returns list of NetworkNamespace which will be used to
-// create the task's network configuration. All cases except those for FoF is covered by
-// this method. FoF requires a separate specific implementation because the network setup
-// is different due to the presence of the microVM.
+// create the task's network configuration.
 // Use cases covered by this method are:
 //  1. Single interface, network namespace (the only externally available config).
 //  2. Single netns, multiple interfaces (For a non-managed multi-ENI experience. Eg EKS use case).
 //  3. Multiple netns, multiple interfaces (future use case for internal customer who need
 //     a managed multi-ENI experience).
-func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
-	taskPayload *ecsacs.Task) ([]*tasknetworkconfig.NetworkNamespace, error) {
+//  4. Single netns, multiple interfaces (for V2N tasks on FoF).
+func (c *common) buildAWSVPCNetworkNamespaces(
+	taskID string,
+	taskPayload *ecsacs.Task,
+	singleNetNS bool,
+	ifaceToGuestNetNS map[string]string,
+) ([]*tasknetworkconfig.NetworkNamespace, error) {
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
@@ -163,19 +173,17 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	if err != nil {
 		return nil, err
 	}
-	// If task payload has only one interface, the network configuration is
-	// straight forward. It will have only one network namespace containing
-	// the corresponding network interface.
-	// Empty Name fields in network interface names indicate that all
-	// interfaces share the same network namespace. This use case is
-	// utilized by certain internal teams like EKS on Fargate.
-	if len(taskPayload.ElasticNetworkInterfaces) == 1 ||
+	// If we require all interfaces to be in one single netns, the network configuration is straight forward.
+	// This case is identified if the singleNetNS flag is set, or if the ENIs have an empty 'Name' field,
+	// or if there is only on ENI in the payload.
+	if singleNetNS || len(taskPayload.ElasticNetworkInterfaces) == 1 ||
 		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" {
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
 			taskPayload.ElasticNetworkInterfaces,
 			taskPayload.ProxyConfiguration,
-			macToNames)
+			macToNames,
+			ifaceToGuestNetNS)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +234,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 			continue
 		}
 
-		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames)
+		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -237,17 +245,21 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	return netNSs, nil
 }
 
+// buildNetNS creates a single network namespace object using the input network config data.
 func (c *common) buildNetNS(
 	taskID string,
 	index int,
 	networkInterfaces []*ecsacs.ElasticNetworkInterface,
 	proxyConfig *ecsacs.ProxyConfiguration,
-	macToName map[string]string) (*tasknetworkconfig.NetworkNamespace, error) {
+	macToName map[string]string,
+	ifaceToGuestNetNS map[string]string,
+) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
 	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
-		iface, err := networkinterface.New(ni, "", nil, macToName)
+		guestNetNS := ifaceToGuestNetNS[aws.StringValue(ni.Name)]
+		iface, err := networkinterface.New(ni, guestNetNS, networkInterfaces, macToName)
 		if err != nil {
 			return nil, err
 		}
