@@ -32,7 +32,7 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 
-	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload)
+	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload, false, nil)
 }
 
 func (c *containerd) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
