@@ -5,13 +5,12 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	pb "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher"
 	"github.com/cihub/seelog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type CredentialsFetcherClient struct {
@@ -62,6 +61,114 @@ type CredentialsFetcherResponse struct {
 	KerberosTicketPaths []string
 }
 
+// Credentials fetcher is a daemon running on the host which supports gMSA on linux
+type CredentialsFetcherArnResponse struct {
+	//lease id is a unique identifier associated with the kerberos tickets created for a container
+	LeaseID string
+	//path to the kerberos tickets created for the service accounts
+	KerberosTicketsMap map[string]string
+}
+
+// HealthCheck() invokes credentials fetcher daemon running on the host
+// to check the health status of daemon
+func (c CredentialsFetcherClient) HealthCheck(ctx context.Context, serviceName string) (string, error) {
+	if len(serviceName) == 0 {
+		return "", status.Errorf(codes.InvalidArgument, "service name should not be empty")
+	}
+	defer c.conn.Close()
+	client := pb.NewCredentialsFetcherServiceClient(c.conn)
+
+	request := &pb.HealthCheckRequest{Service: serviceName}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	response, err := client.HealthCheck(ctx, request)
+	if err != nil {
+		seelog.Errorf("credentials-fetcher daemon status is unhealthy during health check: %v", err)
+		return "", err
+	}
+	seelog.Debugf("credentials-fetcher daemon is running")
+
+	return response.GetStatus(), nil
+}
+
+// AddKerberosArnLease() invokes credentials fetcher daemon running on the host
+// to create kerberos tickets associated with gMSA accounts
+func (c CredentialsFetcherClient) AddKerberosArnLease(ctx context.Context, credentialspecsArns []string, accessKeyId string, secretKey string, sessionToken string, region string) (CredentialsFetcherArnResponse, error) {
+	if len(credentialspecsArns) == 0 {
+		return CredentialsFetcherArnResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecArns should not be empty")
+	}
+
+	if len(accessKeyId) == 0 || len(secretKey) == 0 || len(sessionToken) == 0 || len(region) == 0 {
+		return CredentialsFetcherArnResponse{}, status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
+	}
+
+	defer c.conn.Close()
+	client := pb.NewCredentialsFetcherServiceClient(c.conn)
+
+	request := &pb.KerberosArnLeaseRequest{CredspecArns: credentialspecsArns, AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	response, err := client.AddKerberosArnLease(ctx, request)
+	if err != nil {
+		seelog.Errorf("could not create kerberos tickets: %v", err)
+		return CredentialsFetcherArnResponse{}, err
+	}
+	seelog.Infof("created kerberos tickets and associated with LeaseID: %s", response.GetLeaseId())
+
+	credentialsFetcherResponse := CredentialsFetcherArnResponse{
+		LeaseID:            response.GetLeaseId(),
+		KerberosTicketsMap: make(map[string]string),
+	}
+
+	for _, value := range response.GetKrbTicketResponseMap() {
+		credSpecArns := value.GetCredspecArns()
+		_, ok := credentialsFetcherResponse.KerberosTicketsMap[credSpecArns]
+		if !ok {
+			credentialsFetcherResponse.KerberosTicketsMap[credSpecArns] = value.GetCreatedKerberosFilePaths()
+		}
+	}
+
+	return credentialsFetcherResponse, nil
+}
+
+// RenewKerberosArnLease() invokes credentials fetcher daemon running on the host
+// to renew kerberos tickets associated with gMSA accounts
+func (c CredentialsFetcherClient) RenewKerberosArnLease(ctx context.Context, credentialspecsArns []string, accessKeyId string, secretKey string, sessionToken string, region string) (string, error) {
+	if len(credentialspecsArns) == 0 {
+		return codes.InvalidArgument.String(), status.Errorf(codes.InvalidArgument, "credentialspecArns should not be empty")
+	}
+
+	if len(accessKeyId) == 0 || len(secretKey) == 0 || len(sessionToken) == 0 || len(region) == 0 {
+		return codes.InvalidArgument.String(), status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
+	}
+
+	defer c.conn.Close()
+	client := pb.NewCredentialsFetcherServiceClient(c.conn)
+
+	request := &pb.KerberosArnLeaseRequest{CredspecArns: credentialspecsArns, AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	response, err := client.RenewKerberosArnLease(ctx, request)
+	if err != nil {
+		seelog.Errorf("could not renew kerberos tickets: %v", err)
+		return codes.Internal.String(), err
+	}
+
+	if response.GetStatus() == "failed" {
+		return codes.Internal.String(), status.Errorf(codes.Internal, "renewal of kerberos tickets failed")
+	}
+
+	seelog.Infof("renewal of kerberos tickets are successful")
+
+	return codes.OK.String(), nil
+}
+
 // AddKerberosLease() invokes credentials fetcher daemon running on the host
 // to create kerberos tickets associated with gMSA accounts
 func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credentialspecs []string) (CredentialsFetcherResponse, error) {
@@ -74,7 +181,7 @@ func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credenti
 
 	request := &pb.CreateKerberosLeaseRequest{CredspecContents: credentialspecs}
 
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	response, err := client.AddKerberosLease(ctx, request)
@@ -110,7 +217,7 @@ func (c CredentialsFetcherClient) AddNonDomainJoinedKerberosLease(ctx context.Co
 
 	request := &pb.CreateNonDomainJoinedKerberosLeaseRequest{CredspecContents: credentialspecs, Username: username, Password: password, Domain: domain}
 
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	response, err := client.AddNonDomainJoinedKerberosLease(ctx, request)
@@ -141,7 +248,7 @@ func (c CredentialsFetcherClient) RenewNonDomainJoinedKerberosLease(ctx context.
 
 	request := &pb.RenewNonDomainJoinedKerberosLeaseRequest{Username: username, Password: password, Domain: domain}
 
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	response, err := client.RenewNonDomainJoinedKerberosLease(ctx, request)
@@ -170,7 +277,7 @@ func (c CredentialsFetcherClient) DeleteKerberosLease(ctx context.Context, lease
 
 	request := &pb.DeleteKerberosLeaseRequest{LeaseId: leaseid}
 
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	response, err := client.DeleteKerberosLease(ctx, request)
