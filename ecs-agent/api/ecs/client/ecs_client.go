@@ -438,15 +438,25 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecsmod
 }
 
 func (client *ecsClient) getAdditionalAttributes() []*ecsmodel.Attribute {
-	attrs := []*ecsmodel.Attribute{
-		{
+	var attrs []*ecsmodel.Attribute
+
+	// Add a check to ensure only non-empty values are added
+	// to API call.
+	if client.configAccessor.OSType() != "" {
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osTypeAttrName),
 			Value: aws.String(client.configAccessor.OSType()),
-		},
-		{
+		})
+	}
+
+	// OSFamily should be treated as an optional field as it is not applicable for all agents
+	// using ecs client shared library. Add a check to ensure only non-empty values are added
+	// to API call.
+	if client.configAccessor.OSFamily() != "" {
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osFamilyAttrName),
 			Value: aws.String(client.configAccessor.OSFamily()),
-		},
+		})
 	}
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
 	// this is not needed since the CPU arch is reported via instance identity document in those cases.
