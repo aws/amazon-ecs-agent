@@ -190,6 +190,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilitySingleRegionAccounts,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
