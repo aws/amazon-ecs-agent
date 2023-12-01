@@ -40,12 +40,46 @@ type mockCredentialsFetcherServer struct {
 	pb.UnimplementedCredentialsFetcherServiceServer
 }
 
+func (*mockCredentialsFetcherServer) HealthCheck(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
+	if len(req.GetService()) == 0 {
+		return &pb.HealthCheckResponse{Status: "Failed"}, status.Errorf(codes.InvalidArgument, "service name should not be empty")
+	}
+
+	return &pb.HealthCheckResponse{Status: "OK"}, nil
+}
+
 func (*mockCredentialsFetcherServer) AddKerberosLease(ctx context.Context, req *pb.CreateKerberosLeaseRequest) (*pb.CreateKerberosLeaseResponse, error) {
 	if len(req.GetCredspecContents()) == 0 {
 		return &pb.CreateKerberosLeaseResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecs request should not be empty")
 	}
 
 	return &pb.CreateKerberosLeaseResponse{LeaseId: leaseid, CreatedKerberosFilePaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}}, nil
+}
+
+func (*mockCredentialsFetcherServer) AddKerberosArnLease(ctx context.Context, req *pb.KerberosArnLeaseRequest) (*pb.CreateKerberosArnLeaseResponse, error) {
+	if len(req.GetCredspecArns()) == 0 {
+		return &pb.CreateKerberosArnLeaseResponse{}, status.Errorf(codes.InvalidArgument, "credentialspecsarns request should not be empty")
+	}
+
+	if len(req.GetAccessKeyId()) == 0 || len(req.GetSecretAccessKey()) == 0 || len(req.GetSessionToken()) == 0 || len(req.GetRegion()) == 0 {
+		return &pb.CreateKerberosArnLeaseResponse{}, status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
+	}
+
+	var responseMap = &pb.KerberosTicketArnResponse{CredspecArns: "arn:aws:s3:::gmsacredspec/gmsa-cred-spec.json", CreatedKerberosFilePaths: "/var/credentials-fetcher/krbdir/123456/webapp01"}
+
+	return &pb.CreateKerberosArnLeaseResponse{LeaseId: leaseid, KrbTicketResponseMap: []*pb.KerberosTicketArnResponse{responseMap}}, nil
+}
+
+func (*mockCredentialsFetcherServer) RenewKerberosArnLease(ctx context.Context, req *pb.KerberosArnLeaseRequest) (*pb.RenewKerberosArnLeaseResponse, error) {
+	if len(req.GetCredspecArns()) == 0 {
+		return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, status.Errorf(codes.InvalidArgument, "credentialspecsarns request should not be empty")
+	}
+
+	if len(req.GetAccessKeyId()) == 0 || len(req.GetSecretAccessKey()) == 0 || len(req.GetSessionToken()) == 0 || len(req.GetRegion()) == 0 {
+		return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
+	}
+
+	return &pb.RenewKerberosArnLeaseResponse{Status: "OK"}, nil
 }
 
 func (*mockCredentialsFetcherServer) AddNonDomainJoinedKerberosLease(ctx context.Context, req *pb.CreateNonDomainJoinedKerberosLeaseRequest) (*pb.CreateNonDomainJoinedKerberosLeaseResponse, error) {
@@ -94,6 +128,45 @@ func dialer() func(context.Context, string) (net.Conn, error) {
 	}
 }
 
+func TestCredentialsFetcherClient_Health(t *testing.T) {
+	tests := []struct {
+		name          string
+		serviceName   string
+		response      string
+		expectedError string
+	}{
+		{
+			"inactive credentials-fetcher daemon",
+			"",
+			"Failed",
+			"rpc error: code = InvalidArgument desc = service name should not be empty",
+		},
+		{
+			"active credentials-fetcher daemon",
+			"testservice",
+			"OK",
+			"",
+		},
+	}
+
+	ctx := context.Background()
+
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).HealthCheck(context.Background(), tt.serviceName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+			} else {
+				assert.Equal(t, tt.response, response)
+			}
+		})
+	}
+}
+
 func TestCredentialsFetcherClient_AddKerberosLease(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -124,6 +197,128 @@ func TestCredentialsFetcherClient_AddKerberosLease(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			response, err := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosLease(context.Background(), tt.credspecContents)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+			} else {
+				assert.Equal(t, tt.response, response)
+			}
+		})
+	}
+}
+
+func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosArnLease(t *testing.T) {
+	tests := []struct {
+		name          string
+		credspecArn   []string
+		accessId      string
+		secretKey     string
+		sessionToken  string
+		region        string
+		response      CredentialsFetcherArnResponse
+		expectedError string
+	}{
+		{
+			"invalid request empty credspecArn contents",
+			[]string{},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			"testregion",
+			CredentialsFetcherArnResponse{},
+			"rpc error: code = InvalidArgument desc = credentialspecArns should not be empty",
+		},
+		{
+			"invalid request username, password or domain should not be empty",
+			[]string{credspec_webapp01},
+			"",
+			"",
+			"",
+			"",
+			CredentialsFetcherArnResponse{},
+			"rpc error: code = InvalidArgument desc = accessid, secretkey, sessiontoken or region should not be empty",
+		},
+		{
+			"valid request credspecs associated to gMSA account",
+			[]string{credspec_webapp01},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			"testregion",
+			CredentialsFetcherArnResponse{LeaseID: "123456", KerberosTicketsMap: map[string]string{"arn:aws:s3:::gmsacredspec/gmsa-cred-spec.json": "/var/credentials-fetcher/krbdir/123456/webapp01"}},
+			"",
+		},
+	}
+
+	ctx := context.Background()
+
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosArnLease(context.Background(), tt.credspecArn, tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+			} else {
+				assert.Equal(t, tt.response, response)
+			}
+		})
+	}
+}
+
+func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testing.T) {
+	tests := []struct {
+		name          string
+		credspecArn   []string
+		accessId      string
+		secretKey     string
+		sessionToken  string
+		region        string
+		response      string
+		expectedError string
+	}{
+		{
+			"invalid request empty credspecArn contents",
+			[]string{},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			"testregion",
+			"",
+			"rpc error: code = InvalidArgument desc = credentialspecArns should not be empty",
+		},
+		{
+			"invalid request username, password or domain should not be empty",
+			[]string{credspec_webapp01},
+			"",
+			"",
+			"",
+			"",
+			"",
+			"rpc error: code = InvalidArgument desc = accessid, secretkey, sessiontoken or region should not be empty",
+		},
+		{
+			"valid request credspecs associated to gMSA account",
+			[]string{credspec_webapp01},
+			"testusername",
+			"testpassword",
+			"testdomain",
+			"testregion",
+			"OK",
+			"",
+		},
+	}
+
+	ctx := context.Background()
+
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewKerberosArnLease(context.Background(), tt.credspecArn, tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
