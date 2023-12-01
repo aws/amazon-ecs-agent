@@ -20,11 +20,11 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	handlersutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -104,7 +104,7 @@ func processCredentialsRequest(
 ) ([]byte, string, string, *handlersutils.ErrorMessage, error) {
 	if credentialsID == "" {
 		errText := errPrefix + "No Credential ID in the request"
-		seelog.Errorf("Error processing credential request: %s", errText)
+		logger.Error(fmt.Sprintf("Error processing credential request: %s", errText))
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrNoIDInRequest,
 			Message:       errText,
@@ -116,7 +116,7 @@ func processCredentialsRequest(
 	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		errText := errPrefix + "Credentials not found"
-		seelog.Errorf("Error processing credential request: %s", errText)
+		logger.Error(fmt.Sprintf("Error processing credential request: %s", errText))
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrInvalidIDInRequest,
 			Message:       errText,
@@ -124,15 +124,17 @@ func processCredentialsRequest(
 		}
 		return nil, "", "", msg, errors.New(errText)
 	}
-
-	seelog.Infof("Processing credential request, credentialType=%s taskARN=%s credentialScope=%s",
-		credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope)
+	logger.Info("Processing credential request", logger.Fields{
+		"credentialType":  credentials.IAMRoleCredentials.RoleType,
+		"taskARN":         credentials.ARN,
+		"credentialScope": credentials.IAMRoleCredentials.CredentialScope,
+	})
 
 	if utils.ZeroOrNil(credentials.ARN) && utils.ZeroOrNil(credentials.IAMRoleCredentials) {
 		// This can happen when the agent is restarted and is reconciling its state.
 		errText := errPrefix + "Credentials uninitialized for ID"
-		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
-			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText)
+		logger.Error(fmt.Sprintf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText))
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrCredentialsUninitialized,
 			Message:       errText,
@@ -144,8 +146,8 @@ func processCredentialsRequest(
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
 		errText := errPrefix + "Error marshaling credentials"
-		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
-			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText)
+		logger.Error(fmt.Sprintf("Error processing credential request credentialType=%s taskARN=%s credentialScope=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, credentials.IAMRoleCredentials.CredentialScope, errText))
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrInternalServer,
 			Message:       "Internal server error",
