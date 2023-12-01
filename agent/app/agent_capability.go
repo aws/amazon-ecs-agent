@@ -81,6 +81,7 @@ const (
 	capabilityServiceConnect                               = "service-connect-v1"
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
+	capabilitySingleRegionAccounts                         = "single-region-accounts"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -110,6 +111,8 @@ var (
 		capabilityEnvFilesS3,
 		// support container port range in container definition - port mapping field
 		capabilityContainerPortRange,
+		// support single region accounts in agent
+		capabilitySingleRegionAccounts,
 	}
 	// use empty struct as value type to simulate set
 	capabilityExecInvalidSsmVersions = map[string]struct{}{}
@@ -194,6 +197,8 @@ var (
 //	ecs.capability.external
 //	ecs.capability.service-connect-v1
 //	ecs.capability.network.container-port-range
+//	ecs.capability.single-region-accounts
+
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 

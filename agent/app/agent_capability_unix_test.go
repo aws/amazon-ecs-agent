@@ -549,6 +549,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabiltyPIDAndIPCNamespaceSharing,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilitySingleRegionAccounts,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -706,6 +707,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabiltyPIDAndIPCNamespaceSharing,
 		attributePrefix + appMeshAttributeSuffix,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilitySingleRegionAccounts,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -913,6 +915,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityFirelensLoggingDriver + capabilityFireLensLoggingDriverConfigBufferLimitSuffix,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabilityContainerPortRange,
+		attributePrefix + capabilitySingleRegionAccounts,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
