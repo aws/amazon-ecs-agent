@@ -319,6 +319,10 @@ func TestRegisterContainerInstance(t *testing.T) {
 			mockCfgAccessorOverride: nil,
 		},
 		{
+			name:                    "retry GetDynamicData",
+			mockCfgAccessorOverride: nil,
+		},
+		{
 			name: "no instance identity doc",
 			mockCfgAccessorOverride: func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
 				cfgAccessor.EXPECT().NoInstanceIdentityDocument().Return(true).AnyTimes()
@@ -386,6 +390,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 						Return("", errors.New("fake unit test error")),
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
 						Return(expectedIID, nil),
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+						Return("", errors.New("fake unit test error")),
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 						Return(expectedIIDSig, nil),
 				)
@@ -1359,6 +1365,25 @@ func TestWithIPv6PortBindingExcludedSetFalse(t *testing.T) {
 	})
 
 	assert.NoError(t, err, "Unable to submit container state change")
+}
+
+func TestTrimStringPtr(t *testing.T) {
+	const testMaxLen = 32
+	testCases := []struct {
+		inputStringPtr *string
+		expectedOutput *string
+		name           string
+	}{
+		{nil, nil, "nil"},
+		{aws.String("abc"), aws.String("abc"), "input does not exceed max length"},
+		{aws.String("abcdefghijklmnopqrstuvwxyz1234567890"),
+			aws.String("abcdefghijklmnopqrstuvwxyz123456"), "input exceeds max length"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, trimStringPtr(tc.inputStringPtr, testMaxLen))
+		})
+	}
 }
 
 func extractTagsMapFromRegisterContainerInstanceInput(req *ecsmodel.RegisterContainerInstanceInput) map[string]string {

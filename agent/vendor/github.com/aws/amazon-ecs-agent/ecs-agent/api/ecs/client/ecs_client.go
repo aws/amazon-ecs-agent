@@ -294,8 +294,22 @@ func (client *ecsClient) setInstanceIdentity(
 	registerRequest.InstanceIdentityDocument = &instanceIdentityDoc
 
 	if iidRetrieved {
-		instanceIdentitySignature, err = client.ec2metadata.
-			GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource)
+		ctx, cancel = context.WithTimeout(context.Background(), setInstanceIdRetryTimeOut)
+		defer cancel()
+		err = retry.RetryWithBackoffCtx(ctx, backoff, func() error {
+			var attemptErr error
+			logger.Debug("Attempting to get Instance Identity Signature")
+			instanceIdentitySignature, attemptErr = client.ec2metadata.
+				GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource)
+			if attemptErr != nil {
+				logger.Debug("Unable to get instance identity signature, retrying", logger.Fields{
+					field.Error: attemptErr,
+				})
+				return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
+			}
+			logger.Debug("Successfully retrieved Instance Identity Signature")
+			return nil
+		})
 		if err != nil {
 			logger.Error("Unable to get instance identity signature", logger.Fields{
 				field.Error: err,
@@ -424,15 +438,25 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecsmod
 }
 
 func (client *ecsClient) getAdditionalAttributes() []*ecsmodel.Attribute {
-	attrs := []*ecsmodel.Attribute{
-		{
+	var attrs []*ecsmodel.Attribute
+
+	// Add a check to ensure only non-empty values are added
+	// to API call.
+	if client.configAccessor.OSType() != "" {
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osTypeAttrName),
 			Value: aws.String(client.configAccessor.OSType()),
-		},
-		{
+		})
+	}
+
+	// OSFamily should be treated as an optional field as it is not applicable for all agents
+	// using ecs client shared library. Add a check to ensure only non-empty values are added
+	// to API call.
+	if client.configAccessor.OSFamily() != "" {
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osFamilyAttrName),
 			Value: aws.String(client.configAccessor.OSFamily()),
-		},
+		})
 	}
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
 	// this is not needed since the CPU arch is reported via instance identity document in those cases.
@@ -521,7 +545,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 		PullStartedAt:      change.PullStartedAt,
 		PullStoppedAt:      change.PullStoppedAt,
 		ExecutionStoppedAt: change.ExecutionStoppedAt,
-		ManagedAgents:      change.ManagedAgents,
+		ManagedAgents:      formatManagedAgents(change.ManagedAgents),
 		Containers:         formatContainers(change.Containers, client.shouldExcludeIPv6PortBinding, change.TaskARN),
 	}
 
@@ -752,18 +776,29 @@ func (client *ecsClient) UpdateContainerInstancesState(instanceARN string, statu
 	return err
 }
 
+func formatManagedAgents(managedAgents []*ecsmodel.ManagedAgentStateChange) []*ecsmodel.ManagedAgentStateChange {
+	var result []*ecsmodel.ManagedAgentStateChange
+	for _, m := range managedAgents {
+		if m.Reason != nil {
+			m.Reason = trimStringPtr(m.Reason, ecsMaxContainerReasonLength)
+		}
+		result = append(result, m)
+	}
+	return result
+}
+
 func formatContainers(containers []*ecsmodel.ContainerStateChange, shouldExcludeIPv6PortBinding bool,
 	taskARN string) []*ecsmodel.ContainerStateChange {
 	var result []*ecsmodel.ContainerStateChange
 	for _, c := range containers {
 		if c.RuntimeId != nil {
-			c.RuntimeId = aws.String(trimString(aws.StringValue(c.RuntimeId), ecsMaxRuntimeIDLength))
+			c.RuntimeId = trimStringPtr(c.RuntimeId, ecsMaxRuntimeIDLength)
 		}
 		if c.Reason != nil {
-			c.Reason = aws.String(trimString(aws.StringValue(c.Reason), ecsMaxContainerReasonLength))
+			c.Reason = trimStringPtr(c.Reason, ecsMaxContainerReasonLength)
 		}
 		if c.ImageDigest != nil {
-			c.ImageDigest = aws.String(trimString(aws.StringValue(c.ImageDigest), ecsMaxImageDigestLength))
+			c.ImageDigest = trimStringPtr(c.ImageDigest, ecsMaxImageDigestLength)
 		}
 		if shouldExcludeIPv6PortBinding {
 			c.NetworkBindings = excludeIPv6PortBindingFromNetworkBindings(c.NetworkBindings,
@@ -789,6 +824,13 @@ func excludeIPv6PortBindingFromNetworkBindings(networkBindings []*ecsmodel.Netwo
 		result = append(result, binding)
 	}
 	return result
+}
+
+func trimStringPtr(inputStringPtr *string, maxLen int) *string {
+	if inputStringPtr == nil {
+		return nil
+	}
+	return aws.String(trimString(aws.StringValue(inputStringPtr), maxLen))
 }
 
 func trimString(inputString string, maxLen int) string {

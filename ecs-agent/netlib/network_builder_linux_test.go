@@ -56,9 +56,13 @@ func TestNewNetworkBuilder(t *testing.T) {
 // the network builder is able to translate the input task payload into the desired
 // network data models.
 func TestNetworkBuilder_BuildTaskNetworkConfiguration(t *testing.T) {
-	t.Run("containerd-default", getTestFunc(getSingleNetNSAWSVPCTestData))
-	t.Run("containerd-multi-interface", getTestFunc(getSingleNetNSMultiIfaceAWSVPCTestData))
-	t.Run("containerd-multi-netns", getTestFunc(getMultiNetNSMultiIfaceAWSVPCTestData))
+	// Warmpool test cases.
+	t.Run("containerd-default", getTestFunc(getSingleNetNSAWSVPCTestData, platform.WarmpoolPlatform))
+	t.Run("containerd-multi-interface", getTestFunc(getSingleNetNSMultiIfaceAWSVPCTestData, platform.WarmpoolPlatform))
+	t.Run("containerd-multi-netns", getTestFunc(getMultiNetNSMultiIfaceAWSVPCTestData, platform.WarmpoolPlatform))
+
+	// Firecracker test cases.
+	t.Run("firecracker-v2n-veth", getTestFunc(getV2NTestData, platform.FirecrackerPlatform))
 }
 
 func TestNetworkBuilder_Start(t *testing.T) {
@@ -72,7 +76,10 @@ func TestNetworkBuilder_Stop(t *testing.T) {
 
 // getTestFunc returns a test function that verifies the capability of the networkBuilder
 // to translate a given input task payload into desired network data models.
-func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetworkconfig.TaskNetworkConfig)) func(*testing.T) {
+func getTestFunc(
+	dataGenF func(string) (input *ecsacs.Task, expected tasknetworkconfig.TaskNetworkConfig),
+	plt string,
+) func(*testing.T) {
 
 	return func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -80,7 +87,7 @@ func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetwork
 
 		// Create a networkBuilder for the warmpool platform.
 		mockNet := mock_netwrapper.NewMockNet(ctrl)
-		platformAPI, err := platform.NewPlatform(platform.WarmpoolPlatform, nil, "", mockNet)
+		platformAPI, err := platform.NewPlatform(plt, nil, "", mockNet)
 		require.NoError(t, err)
 		netBuilder := &networkBuilder{
 			platformAPI: platformAPI,
@@ -89,10 +96,27 @@ func getTestFunc(dataGenF func(string) (input *ecsacs.Task, expected tasknetwork
 		// Generate input task payload and a reference to verify the output with.
 		taskPayload, expectedConfig := dataGenF(taskID)
 
+		// The agent expects the regular / trunk ENI to be present on the host.
+		// We should mock the net.Interfaces() method to return a list of interfaces
+		// on the host accordingly.
 		var ifaces []net.Interface
 		idx := 1
 		for _, eni := range taskPayload.ElasticNetworkInterfaces {
-			hw, err := net.ParseMAC(aws.StringValue(eni.MacAddress))
+			var mac string
+			// In case of regular ENIs, the agent expects to find an interface with
+			// the ACS ENI's MAC address on the host. In case of branch ENIs (which
+			// use VLAN ID), the agent expects to find a trunk interface with the MAC
+			// address specified in the VLAN properties of the ACS ENI.
+			if eni.InterfaceVlanProperties == nil {
+				mac = aws.StringValue(eni.MacAddress)
+			} else {
+				mac = aws.StringValue(eni.InterfaceVlanProperties.TrunkInterfaceMacAddress)
+			}
+			// Veth and V2N interfaces will not have a MAC address associated with them.
+			if mac == "" {
+				continue
+			}
+			hw, err := net.ParseMAC(mac)
 			require.NoError(t, err)
 			ifaces = append(ifaces, net.Interface{
 				HardwareAddr: hw,
