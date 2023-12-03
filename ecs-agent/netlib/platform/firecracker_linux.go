@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -53,8 +55,12 @@ func (f *firecraker) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.Net
 }
 
 func (f *firecraker) ConfigureInterface(
-	ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error {
-	return f.common.configureInterface(ctx, netNSPath, iface)
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
+	return f.common.configureInterface(ctx, netNSPath, iface, netDAO)
 }
 
 func (f *firecraker) ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error {

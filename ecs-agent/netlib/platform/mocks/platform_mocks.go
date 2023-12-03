@@ -23,6 +23,7 @@ import (
 	reflect "reflect"
 
 	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	appmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	serviceconnect "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
@@ -83,17 +84,17 @@ func (mr *MockAPIMockRecorder) ConfigureAppMesh(arg0, arg1, arg2 interface{}) *g
 }
 
 // ConfigureInterface mocks base method.
-func (m *MockAPI) ConfigureInterface(arg0 context.Context, arg1 string, arg2 *networkinterface.NetworkInterface) error {
+func (m *MockAPI) ConfigureInterface(arg0 context.Context, arg1 string, arg2 *networkinterface.NetworkInterface, arg3 data.NetworkDataClient) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigureInterface", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ConfigureInterface", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ConfigureInterface indicates an expected call of ConfigureInterface.
-func (mr *MockAPIMockRecorder) ConfigureInterface(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockAPIMockRecorder) ConfigureInterface(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureInterface", reflect.TypeOf((*MockAPI)(nil).ConfigureInterface), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureInterface", reflect.TypeOf((*MockAPI)(nil).ConfigureInterface), arg0, arg1, arg2, arg3)
 }
 
 // ConfigureServiceConnect mocks base method.

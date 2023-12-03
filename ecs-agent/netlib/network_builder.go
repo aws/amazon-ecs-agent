@@ -216,11 +216,16 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 		logger.Debug("Configuring interface", logFields)
 		iface.DesiredStatus = netNS.DesiredState
 
-		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface)
+		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface, nb.networkDAO)
 		if err != nil {
 			return err
 		}
 		iface.KnownStatus = netNS.DesiredState
+
+		// Save new state of the network interface in the database.
+		if err = nb.networkDAO.SaveNetworkNamespace(netNS); err != nil {
+			return err
+		}
 	}
 
 	return nil

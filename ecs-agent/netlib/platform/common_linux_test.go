@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
@@ -38,6 +39,7 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
+	currentCNITypes "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,6 +59,7 @@ const (
 	searchDomainName  = "us-west-2.test.compute.internal"
 	searchDomainName2 = "us-west-2.test2.compute.internal"
 	trunkENIMac       = "f0:5c:89:a3:ab:03"
+	geneveMac         = "f0:5c:89:a3:ab:04"
 )
 
 func TestNewPlatform(t *testing.T) {
@@ -67,6 +70,8 @@ func TestNewPlatform(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TestCommon_CreateNetNS verifies the precise set of operations are executed
+// in order to create a network namespace on the host.
 func TestCommon_CreateNetNS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -110,6 +115,9 @@ func TestCommon_CreateNetNS(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestCommon_CreateDNSFiles creates a dummy interface which has IP and DNS
+// configurations and verifies the precise list of operations are executed
+// in order to configure DNS of the network namespace.
 func TestCommon_CreateDNSFiles(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -203,8 +211,9 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 }
 
 func TestCommon_ConfigureInterface(t *testing.T) {
-	t.Run("configure-regular-eni", testRegularENIConfiguration)
-	t.Run("configure-branch-eni", testBranchENIConfiguration)
+	t.Run("regular-eni", testRegularENIConfiguration)
+	t.Run("branch-eni", testBranchENIConfiguration)
+	t.Run("geneve-interface", testGeneveInterfaceConfiguration)
 }
 
 // TestInterfacesMACToName verifies interfacesMACToName behaves as expected.
@@ -244,6 +253,8 @@ func TestInterfacesMACToName(t *testing.T) {
 	require.Equal(t, testErr, err)
 }
 
+// testRegularENIConfiguration verifies the precise list of operations are invoked
+// with the correct arguments while configuring a regular ENI on a host.
 func testRegularENIConfiguration(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -260,16 +271,16 @@ func testRegularENIConfiguration(t *testing.T) {
 
 	eni := getTestRegularENI()
 
+	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
 	bridgeConfig := createBridgePluginConfig(netNSPath)
-
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
 		cniClient.EXPECT().Add(gomock.Any(), bridgeConfig).Return(nil, nil).Times(1),
 		cniClient.EXPECT().Add(gomock.Any(), eniConfig).Return(nil, nil).Times(1),
 	)
-	err := commonPlatform.configureInterface(ctx, netNSPath, eni)
+	err := commonPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
 
 	// Non-primary ENI case.
@@ -280,7 +291,7 @@ func testRegularENIConfiguration(t *testing.T) {
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
 		cniClient.EXPECT().Add(gomock.Any(), eniConfig).Return(nil, nil).Times(1),
 	)
-	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
+	err = commonPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
 
 	// Delete workflow.
@@ -291,7 +302,7 @@ func testRegularENIConfiguration(t *testing.T) {
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
 	)
-	err = commonPlatform.configureInterface(ctx, netNSPath, eni)
+	err = commonPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
 }
 
@@ -309,19 +320,62 @@ func testBranchENIConfiguration(t *testing.T) {
 
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
-	err := commonPlatform.configureInterface(ctx, netNSPath, branchENI)
+	err := commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
 	branchENI.DesiredStatus = status.NetworkReady
 	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
-	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
+	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
 	// Delete workflow.
 	branchENI.DesiredStatus = status.NetworkDeleted
 	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
 	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
-	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI)
+	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
+	require.NoError(t, err)
+}
+
+func testGeneveInterfaceConfiguration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	netDAO := mock_data.NewMockNetworkDataClient(ctrl)
+	commonPlatform := &common{
+		cniClient: cniClient,
+	}
+
+	v2nIface := getTestV2NInterface()
+
+	cniResult := &currentCNITypes.Result{
+		Interfaces: []*currentCNITypes.Interface{
+			{
+				Mac: geneveMac,
+			},
+		},
+	}
+
+	cniConfig := NewTunnelConfig(netNSPath, v2nIface, VPCTunnelInterfaceTypeGeneve)
+	netDAO.EXPECT().AssignGeneveDstPort(v2nIface.TunnelProperties.ID).
+		Return(uint16(v2nIface.TunnelProperties.DestinationPort), nil).Times(1)
+	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(cniResult, nil).Times(1)
+	err := commonPlatform.configureInterface(ctx, netNSPath, v2nIface, netDAO)
+	require.NoError(t, err)
+
+	v2nIface.DesiredStatus = status.NetworkReady
+	cniConfig = NewTunnelConfig(netNSPath, v2nIface, VPCTunnelInterfaceTypeTap)
+	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	err = commonPlatform.configureInterface(ctx, netNSPath, v2nIface, netDAO)
+	require.NoError(t, err)
+
+	v2nIface.DesiredStatus = status.NetworkDeleted
+	cniConfig = NewTunnelConfig(netNSPath, v2nIface, VPCTunnelInterfaceTypeTap)
+	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
+	netDAO.EXPECT().ReleaseGeneveDstPort(v2nIface.TunnelProperties.DestinationPort, v2nIface.TunnelProperties.ID).
+		Return(nil).Times(1)
+	err = commonPlatform.configureInterface(ctx, netNSPath, v2nIface, netDAO)
 	require.NoError(t, err)
 }

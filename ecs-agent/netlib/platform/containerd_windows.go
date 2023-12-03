@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -64,7 +65,12 @@ func (c *common) GetNetNSPath(netNSName string) string {
 	return ""
 }
 
-func (c *common) ConfigureInterface(ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error {
+func (c *common) ConfigureInterface(
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
 	return nil
 }
 
