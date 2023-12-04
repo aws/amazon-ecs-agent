@@ -41,19 +41,21 @@ const (
 	DEFAULT_LOGLEVEL_WHEN_DRIVER_SET         = "off"
 	DEFAULT_ROLLOVER_TYPE                    = "date"
 	DEFAULT_OUTPUT_FORMAT                    = logFmt
+	DEFAULT_TIMESTAMP_FORMAT                 = time.RFC3339
 	DEFAULT_MAX_FILE_SIZE            float64 = 10
 	DEFAULT_MAX_ROLL_COUNT           int     = 24
 )
 
 type logConfig struct {
-	RolloverType  string
-	MaxRollCount  int
-	MaxFileSizeMB float64
-	logfile       string
-	driverLevel   string
-	instanceLevel string
-	outputFormat  string
-	lock          sync.Mutex
+	RolloverType    string
+	MaxRollCount    int
+	MaxFileSizeMB   float64
+	logfile         string
+	driverLevel     string
+	instanceLevel   string
+	outputFormat    string
+	timestampFormat string
+	lock            sync.Mutex
 }
 
 var Config *logConfig
@@ -87,7 +89,7 @@ func logfmtFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(level.String())
 		buf.WriteByte(' ')
 		buf.WriteString("time=")
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
+		buf.WriteString(context.CallTime().UTC().Format(Config.timestampFormat))
 		buf.WriteByte(' ')
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredTxtFormatPrefix) {
@@ -112,7 +114,7 @@ func jsonFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(`{"level":"`)
 		buf.WriteString(level.String())
 		buf.WriteString(`","time":"`)
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
+		buf.WriteString(context.CallTime().UTC().Format(Config.timestampFormat))
 		buf.WriteString(`",`)
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredJsonFormatPrefix) {
@@ -234,15 +236,59 @@ func setInstanceLevelDefault() string {
 	return DEFAULT_LOGLEVEL
 }
 
+// SetConfigLogFile sets the default output file of the logger.
+func SetConfigLogFile(logFile string) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	Config.logfile = logFile
+}
+
+// SetConfigLogFormat sets the output format of the logger.
+// e.g. json, xml, etc.
+func SetConfigLogFormat(logFormat string) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	os.Setenv(LOG_OUTPUT_FORMAT_ENV_VAR, logFormat)
+	Config.outputFormat = logFormat
+}
+
+// SetConfigMaxFileSizeMB sets the max file size of a log file
+// in Megabytes before the logger rotates to a new file.
+func SetConfigMaxFileSizeMB(maxSizeInMB float64) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	// Parse unit as string to set as environment variable.
+	strsize := strconv.FormatFloat(maxSizeInMB, 'f', -1, 64)
+	os.Setenv(LOG_MAX_FILE_SIZE_ENV_VAR, strsize)
+	Config.MaxFileSizeMB = maxSizeInMB
+}
+
+// SetTimestampFormat sets the time formatting
+// for custom seelog formatters. It will expect
+// a valid time format such as time.RFC3339
+// or "2006-01-02T15:04:05.000".
+func SetTimestampFormat(format string) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	if format != "" {
+		Config.timestampFormat = format
+	}
+}
+
 func init() {
 	Config = &logConfig{
-		logfile:       os.Getenv(LOGFILE_ENV_VAR),
-		driverLevel:   DEFAULT_LOGLEVEL,
-		instanceLevel: setInstanceLevelDefault(),
-		RolloverType:  DEFAULT_ROLLOVER_TYPE,
-		outputFormat:  DEFAULT_OUTPUT_FORMAT,
-		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
-		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logfile:         os.Getenv(LOGFILE_ENV_VAR),
+		driverLevel:     DEFAULT_LOGLEVEL,
+		instanceLevel:   setInstanceLevelDefault(),
+		RolloverType:    DEFAULT_ROLLOVER_TYPE,
+		outputFormat:    DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB:   DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:    DEFAULT_MAX_ROLL_COUNT,
+		timestampFormat: DEFAULT_TIMESTAMP_FORMAT,
 	}
 }
 
