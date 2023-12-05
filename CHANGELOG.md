@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.79.2
+* Enhancement - Set device names while building task network config [#4026](https://github.com/aws/amazon-ecs-agent/pull/4026)
+* Enhancement - Record and emit the timestamp that the last connection was established [#4035](https://github.com/aws/amazon-ecs-agent/pull/4035)
+* Enhancement - Add network delete workflow for AWSVPC [#4031](https://github.com/aws/amazon-ecs-agent/pull/4031)
+* Enhancement - Consume ECS client from ecs-agent module in agent module  [#4032](https://github.com/aws/amazon-ecs-agent/pull/4032)
+* Enhancement - Add Firecracker platform implementation in netlib [#4038](https://github.com/aws/amazon-ecs-agent/pull/4038)
+* Enhancement - Add containerId, networkNameSpace, containerCGroup to ManagedDaemon [#4041](https://github.com/aws/amazon-ecs-agent/pull/4041)
+* Enhancement - Trim managed agent reason + add retries for getting instance identity signature [#4042](https://github.com/aws/amazon-ecs-agent/pull/4042)
+* Code Quality Improvement  - Add check in ecs clint library to ensure only non empty values are added to API request. [#4044](https://github.com/aws/amazon-ecs-agent/pull/4044)
+* Enhancement - Update grpc contract credfetcher [#4043](https://github.com/aws/amazon-ecs-agent/pull/4043)
+* Enhancement - Add credentials-fetcher Dockerfile [#4047](https://github.com/aws/amazon-ecs-agent/pull/4047)
+
 ## 1.79.1
 * Enhancement - Update golang.org/x/net to v0.17.0 [#3964](https://github.com/aws/amazon-ecs-agent/pull/3964)
 * Enhancement - Update google.golang.org/grpc to 1.56.3 [#3991](https://github.com/aws/amazon-ecs-agent/pull/3991)
