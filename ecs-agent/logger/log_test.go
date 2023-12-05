@@ -102,6 +102,18 @@ func TestLogfmtFormat_Structured_debug(t *testing.T) {
 `, s)
 }
 
+func TestLogfmtFormat_Structured_Timestamp(t *testing.T) {
+	SetTimestampFormat("2006-01-02T15:04:05.000")
+	defer SetTimestampFormat(DEFAULT_TIMESTAMP_FORMAT)
+	logfmt := logfmtFormatter("")
+	fm := defaultStructuredTextFormatter.Format("This is my log message")
+	out := logfmt(fm, seelog.DebugLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.Equal(t, `level=debug time=2018-10-01T01:02:03.000 msg="This is my log message"
+`, s)
+}
+
 func TestJSONFormat_debug(t *testing.T) {
 	jsonF := jsonFormatter("")
 	out := jsonF("This is my log message", seelog.DebugLvl, &LogContextMock{})
@@ -117,6 +129,17 @@ func TestJSONFormat_Structured_debug(t *testing.T) {
 	s, ok := out.(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message"}`, s)
+}
+
+func TestJSONFormat_Structured_Timestamp(t *testing.T) {
+	SetTimestampFormat("2006-01-02T15:04:05.000")
+	defer SetTimestampFormat(DEFAULT_TIMESTAMP_FORMAT)
+	jsonF := jsonFormatter("")
+	fm := defaultStructuredJsonFormatter.Format("This is my log message")
+	out := jsonF(fm, seelog.DebugLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03.000", "msg": "This is my log message"}`, s)
 }
 
 func TestSetLevel(t *testing.T) {
