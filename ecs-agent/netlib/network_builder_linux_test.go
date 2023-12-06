@@ -25,7 +25,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
@@ -43,12 +42,12 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
-	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
+	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
 	nb := nbi.(*networkBuilder)
 	require.NoError(t, err)
 	require.NotNil(t, nb.platformAPI)
 
-	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, data.Client{}, "")
+	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, nil, "")
 	require.Error(t, err)
 	require.Nil(t, nbi)
 }

@@ -15,12 +15,13 @@ package netlib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
@@ -28,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
 
@@ -49,7 +51,7 @@ func NewNetworkBuilder(
 	platformString string,
 	metricsFactory metrics.EntryFactory,
 	volumeAccessor volume.VolumeAccessor,
-	db data.Client,
+	networkDao data.NetworkDataClient,
 	stateDBDir string) (NetworkBuilder, error) {
 	pAPI, err := platform.NewPlatform(
 		platformString,
@@ -64,7 +66,7 @@ func NewNetworkBuilder(
 	return &networkBuilder{
 		platformAPI:    pAPI,
 		metricsFactory: metricsFactory,
-		networkDAO:     netlibdata.NewNetworkDataClient(db, metricsFactory),
+		networkDAO:     networkDao,
 	}, nil
 }
 
@@ -202,6 +204,7 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 
 // configureNetNSInterfaces executes the platform API to configure every interface inside a network namespace.
 func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+	var errs error
 	for _, iface := range netNS.NetworkInterfaces {
 		logFields := logger.Fields{
 			"Interface": iface,
@@ -218,28 +221,49 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 
 		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface, nb.networkDAO)
 		if err != nil {
-			return err
+			if netNS.DesiredState == status.NetworkDeleted {
+				logger.Error(fmt.Sprintf("Failed to delete interface: %v", err), logFields)
+				errs = multierror.Append(err, errs)
+			} else {
+				return err
+			}
 		}
 		iface.KnownStatus = netNS.DesiredState
 
 		// Save new state of the network interface in the database.
 		if err = nb.networkDAO.SaveNetworkNamespace(netNS); err != nil {
-			return err
+			if netNS.DesiredState == status.NetworkDeleted {
+				logger.Error(fmt.Sprintf("Failed to persist interface state: %v", err), logFields)
+				errs = multierror.Append(err, errs)
+			} else {
+				return err
+			}
 		}
 	}
 
-	return nil
+	return errs
 }
 
 func (nb *networkBuilder) stopAWSVPC(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+	var errs error
 	if netNS.DesiredState != status.NetworkDeleted {
 		return errors.New("invalid transition state encountered: " + netNS.DesiredState.String())
 	}
 
+	logFields := logger.Fields{
+		"NetNSName": netNS.Name,
+	}
 	err := nb.configureNetNSInterfaces(ctx, netNS)
 	if err != nil {
-		return err
+		logger.Error(fmt.Sprintf("Failed to cleanup interfaces in netns: %v", err), logFields)
+		errs = multierror.Append(err, errs)
 	}
 
-	return nb.platformAPI.DeleteNetNS(netNS.Path)
+	err = nb.platformAPI.DeleteNetNS(netNS.Path)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to network namespace: %v", err), logFields)
+		errs = multierror.Append(err, errs)
+	}
+
+	return errs
 }
