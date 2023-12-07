@@ -24,10 +24,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -41,7 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
-	currentCNITypes "github.com/containernetworking/cni/pkg/types/100"
+	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
 )
@@ -667,7 +666,7 @@ func (c *common) configureGENEVEInterface(
 		if len(result) == 0 {
 			return errors.New("eni pull configuration: empty result from network setup")
 		}
-		newResult, err := currentCNITypes.GetResult(*result[0])
+		newResult, err := cnitypes.GetResult(*result[0])
 		if err != nil {
 			return err
 		}

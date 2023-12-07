@@ -207,8 +207,10 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 	var errs error
 	for _, iface := range netNS.NetworkInterfaces {
 		logFields := logger.Fields{
-			"Interface": iface,
-			"NetNSName": netNS.Name,
+			"Interface":     iface,
+			"NetNSName":     netNS.Name,
+			"KnownStatus":   iface.KnownStatus,
+			"DesiredStatus": iface.DesiredStatus,
 		}
 		if iface.KnownStatus == netNS.DesiredState {
 			logger.Debug("Interface already in desired state", logFields)
@@ -222,7 +224,7 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface, nb.networkDAO)
 		if err != nil {
 			if netNS.DesiredState == status.NetworkDeleted {
-				logger.Error(fmt.Sprintf("Failed to delete interface: %v", err), logFields)
+				logger.Error(fmt.Sprintf("Failed to configure interface: %v", err), logFields)
 				errs = multierror.Append(err, errs)
 			} else {
 				return err
@@ -261,7 +263,7 @@ func (nb *networkBuilder) stopAWSVPC(ctx context.Context, netNS *tasknetworkconf
 
 	err = nb.platformAPI.DeleteNetNS(netNS.Path)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to network namespace: %v", err), logFields)
+		logger.Error(fmt.Sprintf("Failed to delete network namespace: %v", err), logFields)
 		errs = multierror.Append(err, errs)
 	}
 
