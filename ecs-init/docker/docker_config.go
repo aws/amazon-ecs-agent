@@ -14,7 +14,10 @@
 package docker
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
@@ -60,6 +63,10 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		UsernsMode:  usernsMode,
 		CapAdd:      caps,
 		Init:        true,
+	}
+
+	if ctrdapparmor.HostSupports() {
+		hostConfig.SecurityOpt = []string{fmt.Sprintf("apparmor:%s", config.ECSAgentAppArmorProfileName())}
 	}
 
 	if config.RunPrivileged() {
