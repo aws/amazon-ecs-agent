@@ -80,3 +80,10 @@ func (ns *NetworkNamespace) GetPrimaryInterface() *networkinterface.NetworkInter
 	}
 	return nil
 }
+
+// IsPrimary returns true if the netns index is zero. This indicates that the primary interface of the task
+// will be inside this netns. Image pulls, secret pulls, container logging, etc will happen over the
+// primary netns.
+func (ns *NetworkNamespace) IsPrimary() bool {
+	return ns.Index == 0
+}

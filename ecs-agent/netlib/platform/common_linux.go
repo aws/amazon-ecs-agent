@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -38,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
+	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
 )
@@ -208,6 +211,13 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	// set of network interface names, both those containers share the same namespace.
 	// If not, they reside in two different namespaces. Also, an interface can only
 	// belong to one NetworkNamespace object.
+
+	// Order the containers such that the container attached to the interface with index 0 comes first.
+	sort.Slice(taskPayload.Containers, func(i, j int) bool {
+		iName := aws.StringValue(taskPayload.Containers[i].NetworkInterfaceNames[0])
+		jName := aws.StringValue(taskPayload.Containers[j].NetworkInterfaceNames[0])
+		return aws.Int64Value(ifNameMap[iName].Index) < aws.Int64Value(ifNameMap[jName].Index)
+	})
 
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	nsIndex := 0
@@ -540,6 +550,7 @@ func (c *common) configureInterface(
 	ctx context.Context,
 	netNSPath string,
 	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
 ) error {
 	var err error
 	switch iface.InterfaceAssociationProtocol {
@@ -547,6 +558,8 @@ func (c *common) configureInterface(
 		err = c.configureRegularENI(ctx, netNSPath, iface)
 	case networkinterface.VLANInterfaceAssociationProtocol:
 		err = c.configureBranchENI(ctx, netNSPath, iface)
+	case networkinterface.V2NInterfaceAssociationProtocol:
+		err = c.configureGENEVEInterface(ctx, netNSPath, iface, netDAO)
 	default:
 		err = errors.New("invalid interface association protocol %s" + iface.InterfaceAssociationProtocol)
 	}
@@ -607,6 +620,71 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 	}
 
 	return err
+}
+
+func (c *common) configureGENEVEInterface(
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
+	var cniNetConf ecscni.PluginConfig
+	add := true
+
+	// Generate CNI network configuration based on the ENI's desired state.
+	switch iface.DesiredStatus {
+	case status.NetworkReadyPull:
+		// Assign destination port and set device name for V2N ENI.
+		if err := ecscni.SetV2NDstPortAndDeviceName(iface, netDAO); err != nil {
+			return err
+		}
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeGeneve)
+	case status.NetworkReady:
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeTap)
+	case status.NetworkDeleted:
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeTap)
+		add = false
+	}
+
+	result, err := c.executeCNIPlugin(ctx, add, cniNetConf)
+	if err != nil {
+		return err
+	}
+
+	switch iface.DesiredStatus {
+	case status.NetworkReadyPull:
+		// Once the ENI configuration for the READY_PULL state is complete, we need to read the
+		// OS assigned MAC address of the GENEVE interface. This MAC address is then associated
+		// with the V2N ENI. This MAC address will get persisted to the database once the ENI
+		// manager's state transitions from NONE to READY_PULL.
+		//
+		// This MAC address will later be used to create the interface definition
+		// in the request for creating the MicroVM. The benefit of this approach is that the agent
+		// will be aware of the MAC address assigned to the TAP interface inside the MicroVM (the one
+		// connected to the GENEVE interface) and can use this info for the network setup inside
+		// the MicroVM at a later stage.
+		if len(result) == 0 {
+			return errors.New("eni pull configuration: empty result from network setup")
+		}
+		newResult, err := cnitypes.GetResult(*result[0])
+		if err != nil {
+			return err
+		}
+		if len(newResult.Interfaces) == 0 || newResult.Interfaces[0].Mac == "" {
+			return errors.New("eni pull configuration: no mac address assigned")
+		}
+		iface.MacAddress = newResult.Interfaces[0].Mac
+	case status.NetworkDeleted:
+		// Once the task is stopped and the GENEVE interface is deleted, we can release the port so
+		// that it can be re-used by another task.
+		vni := iface.TunnelProperties.ID
+		dstPort := iface.TunnelProperties.DestinationPort
+		if err = netDAO.ReleaseGeneveDstPort(dstPort, vni); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // configureAppMesh configures AppMesh in a network namespace.
