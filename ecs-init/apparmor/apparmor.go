@@ -1,3 +1,16 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package apparmor
 
 import (
@@ -5,37 +18,36 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/docker/docker/pkg/aaparser"
 	aaprofile "github.com/docker/docker/profiles/apparmor"
 )
 
 const (
-	ECSDefaultProfileName = "ecs-default"
-	appArmorProfileDir    = "/etc/apparmor.d"
+	ECSAgentDefaultProfileName = config.ECSAgentAppArmorDefaultProfileName
+	appArmorProfileDir         = "/etc/apparmor.d"
 )
 
-const ecsDefaultProfile = `
+const ecsAgentDefaultProfile = `
 #include <tunables/global>
 
-profile ecs-default flags=(attach_disconnected,mediate_deleted) {
+profile ecs-agent-default flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
-  network inet, # Allow IPv4 traffic
-  network inet6, # Allow IPv6 traffic
-
-  capability net_admin, # Allow network configuration
-  capability sys_admin, # Allow ECS Agent to invoke the setns system call
-  capability dac_override, # Allow ECS Agent to file read, write, and execute permission
- 
+  network inet,
+  network inet6,
+  network netlink,
+  network unix,
+  capability,
   file,
   umount,
   # Host (privileged) processes may send signals to container processes.
   signal (receive) peer=unconfined,
   # Container processes may send signals amongst themselves.
-  signal (send,receive) peer=ecs-default,
+  signal (send,receive) peer=ecs-agent-default,
 
   # ECS agent requires DBUS send
-  dbus (send) bus=system,
+  dbus (send,receive) bus=system,
 
   deny @{PROC}/* w,   # deny write for all files directly in /proc (not in a subdir)
   # deny write to files not in /proc/<number>/** or /proc/sys/**
@@ -56,7 +68,8 @@ profile ecs-default flags=(attach_disconnected,mediate_deleted) {
   deny /sys/kernel/security/** rwklx,
 
   # suppress ptrace denials when using 'docker ps' or using 'ps' inside a container
-  ptrace (trace,read,tracedby,readby) peer=ecs-default,
+  ptrace (trace,read,tracedby,readby) peer=ecs-agent-default,
+  ptrace (trace,read,tracedby,readby) peer=docker-default,
 }
 `
 
@@ -69,10 +82,7 @@ var (
 // LoadDefaultProfile ensures the default profile to be loaded with the given name.
 // Returns nil error if the profile is already loaded.
 func LoadDefaultProfile(profileName string) error {
-	yes, err := isProfileLoaded(profileName)
-	if yes {
-		return nil
-	}
+	_, err := isProfileLoaded(profileName)
 	if err != nil {
 		return err
 	}
@@ -82,7 +92,7 @@ func LoadDefaultProfile(profileName string) error {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(ecsDefaultProfile)
+	_, err = f.WriteString(ecsAgentDefaultProfile)
 	if err != nil {
 		return err
 	}

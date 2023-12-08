@@ -206,12 +206,12 @@ func (e *Engine) PreStartGPU() error {
 	return nil
 }
 
-// PreStartAppArmor sets up the ecs-default AppArmor profile if we're running
+// PreStartAppArmor sets up the ecs-agent-default AppArmor profile if we're running
 // on an AppArmor-enabled system.
 func (e *Engine) PreStartAppArmor() error {
 	if hostSupports() {
-		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSDefaultProfileName)
-		return loadDefaultProfile(apparmor.ECSDefaultProfileName)
+		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSAgentDefaultProfileName)
+		return loadDefaultProfile(apparmor.ECSAgentDefaultProfileName)
 	}
 	return nil
 }
