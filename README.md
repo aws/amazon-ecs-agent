@@ -266,6 +266,7 @@ Additionally, the following environment variable(s) can be used to configure the
 | `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to block access to ECS Agent's introspection port from off-host (or containers in awsvpc network mode), and removes the rule upon stop. If `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` is set to true, this rule will not be added/removed. | false |
 | `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
 | `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
+| `ECS_AGENT_APPARMOR_PROFILE` | `unconfined` | Specifies the name of the AppArmor profile to run the ecs-agent container under. This only applies to AppArmor-enabled systems, such as Ubuntu, Debian, and SUSE. If unset, defaults to the profile written out by ecs-init (ecs-agent-default). | `ecs-agent-default` |
 
 
 
