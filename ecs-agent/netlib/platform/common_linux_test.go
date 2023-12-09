@@ -161,12 +161,12 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 	nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
 	osWrapper := mock_oswrapper.NewMockOS(ctrl)
 	mockFile := mock_oswrapper.NewMockFile(ctrl)
-	volumeAccessor := mock_volume.NewMockVolumeAccessor(ctrl)
+	volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
 	commonPlatform := &common{
-		ioutil:             ioutil,
-		nsUtil:             nsUtil,
-		os:                 osWrapper,
-		taskVolumeAccessor: volumeAccessor,
+		ioutil:            ioutil,
+		nsUtil:            nsUtil,
+		os:                osWrapper,
+		dnsVolumeAccessor: volumeAccessor,
 	}
 
 	// Test creation of hosts file.
@@ -183,6 +183,7 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 	)
 	hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
 
+	taskID := "taskID"
 	gomock.InOrder(
 		// Creation of netns path.
 		osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
@@ -202,11 +203,11 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 		ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
 
 		// CopyToVolume created files into task volume.
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
 	)
-	err := commonPlatform.createDNSConfig("taskID", false, netns)
+	err := commonPlatform.createDNSConfig(taskID, false, netns)
 	require.NoError(t, err)
 }
 

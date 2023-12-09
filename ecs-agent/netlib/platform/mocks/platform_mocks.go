@@ -139,6 +139,20 @@ func (mr *MockAPIMockRecorder) CreateNetNS(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetNS", reflect.TypeOf((*MockAPI)(nil).CreateNetNS), arg0)
 }
 
+// DeleteDNSConfig mocks base method.
+func (m *MockAPI) DeleteDNSConfig(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDNSConfig", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDNSConfig indicates an expected call of DeleteDNSConfig.
+func (mr *MockAPIMockRecorder) DeleteDNSConfig(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDNSConfig", reflect.TypeOf((*MockAPI)(nil).DeleteDNSConfig), arg0)
+}
+
 // DeleteNetNS mocks base method.
 func (m *MockAPI) DeleteNetNS(arg0 string) error {
 	m.ctrl.T.Helper()

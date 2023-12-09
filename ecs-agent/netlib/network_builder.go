@@ -50,7 +50,7 @@ type networkBuilder struct {
 func NewNetworkBuilder(
 	platformString string,
 	metricsFactory metrics.EntryFactory,
-	volumeAccessor volume.VolumeAccessor,
+	volumeAccessor volume.TaskVolumeAccessor,
 	networkDao data.NetworkDataClient,
 	stateDBDir string) (NetworkBuilder, error) {
 	pAPI, err := platform.NewPlatform(
@@ -258,6 +258,12 @@ func (nb *networkBuilder) stopAWSVPC(ctx context.Context, netNS *tasknetworkconf
 	err := nb.configureNetNSInterfaces(ctx, netNS)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to cleanup interfaces in netns: %v", err), logFields)
+		errs = multierror.Append(err, errs)
+	}
+
+	err = nb.platformAPI.DeleteDNSConfig(netNS.Name)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to cleanup DNS config files: %v", err))
 		errs = multierror.Append(err, errs)
 	}
 

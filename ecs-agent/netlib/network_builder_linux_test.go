@@ -373,5 +373,6 @@ func getExpectedCalls_StopAWSVPC(
 	}
 
 	return append(calls,
+		platformAPI.EXPECT().DeleteDNSConfig(netNS.Name).Return(nil).Times(1),
 		platformAPI.EXPECT().DeleteNetNS(netNS.Path).Return(nil).Times(1))
 }
