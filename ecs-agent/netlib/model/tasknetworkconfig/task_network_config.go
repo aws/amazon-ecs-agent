@@ -59,3 +59,17 @@ func (tnc *TaskNetworkConfig) GetPrimaryNetNS() *NetworkNamespace {
 
 	return nil
 }
+
+// GetEniNamesToAssociationProtocolMapping returns a map of ENI names to
+// interface association protocols (like tunnel/veth).
+func (tnc *TaskNetworkConfig) GetEniNamesToAssociationProtocolMapping() map[string]string {
+	eniNameToAssociationProtocol := make(map[string]string)
+	for _, netNS := range tnc.NetworkNamespaces {
+		for _, iface := range netNS.NetworkInterfaces {
+			if iface.Name != "" {
+				eniNameToAssociationProtocol[iface.Name] = iface.InterfaceAssociationProtocol
+			}
+		}
+	}
+	return eniNameToAssociationProtocol
+}
