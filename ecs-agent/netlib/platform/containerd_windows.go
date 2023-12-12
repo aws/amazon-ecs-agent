@@ -37,7 +37,7 @@ type common struct {
 
 func NewPlatform(
 	platformString string,
-	volumeAccessor volume.VolumeAccessor,
+	volumeAccessor volume.TaskVolumeAccessor,
 	stateDBDirectory string,
 	netWrapper netwrapper.Net) (API, error) {
 	return nil, nil
@@ -58,6 +58,10 @@ func (c *common) DeleteNetNS(netNSPath string) error {
 }
 
 func (c *common) CreateDNSConfig(taskNetConfig *tasknetworkconfig.TaskNetworkConfig) error {
+	return nil
+}
+
+func (c *common) DeleteDNSConfig(netNSName string) error {
 	return nil
 }
 

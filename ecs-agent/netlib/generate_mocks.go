@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package volume
+package netlib
 
-//go:generate mockgen -destination=mocks/volume_accessor_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/volume TaskVolumeAccessor
+//go:generate mockgen -destination=mocks/netbuilder_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/netlib NetworkBuilder

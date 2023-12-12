@@ -74,33 +74,33 @@ const (
 // It contains all fields and methods that can be commonly used by all
 // platforms.
 type common struct {
-	nsUtil             ecscni.NetNSUtil
-	taskVolumeAccessor volume.VolumeAccessor
-	os                 oswrapper.OS
-	ioutil             ioutilwrapper.IOUtil
-	netlink            netlinkwrapper.NetLink
-	stateDBDir         string
-	cniClient          ecscni.CNI
-	net                netwrapper.Net
+	nsUtil            ecscni.NetNSUtil
+	dnsVolumeAccessor volume.TaskVolumeAccessor
+	os                oswrapper.OS
+	ioutil            ioutilwrapper.IOUtil
+	netlink           netlinkwrapper.NetLink
+	stateDBDir        string
+	cniClient         ecscni.CNI
+	net               netwrapper.Net
 }
 
 // NewPlatform creates an implementation of the platform API depending on the
 // platform type where the agent is executing.
 func NewPlatform(
 	platformString string,
-	volumeAccessor volume.VolumeAccessor,
+	volumeAccessor volume.TaskVolumeAccessor,
 	stateDBDirectory string,
 	netWrapper netwrapper.Net,
 ) (API, error) {
 	commonPlatform := common{
-		nsUtil:             ecscni.NewNetNSUtil(),
-		taskVolumeAccessor: volumeAccessor,
-		os:                 oswrapper.NewOS(),
-		ioutil:             ioutilwrapper.NewIOUtil(),
-		netlink:            netlinkwrapper.New(),
-		stateDBDir:         stateDBDirectory,
-		cniClient:          ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
-		net:                netWrapper,
+		nsUtil:            ecscni.NewNetNSUtil(),
+		dnsVolumeAccessor: volumeAccessor,
+		os:                oswrapper.NewOS(),
+		ioutil:            ioutilwrapper.NewIOUtil(),
+		netlink:           netlinkwrapper.New(),
+		stateDBDir:        stateDBDirectory,
+		cniClient:         ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
+		net:               netWrapper,
 	}
 
 	// TODO: implement remaining platforms - windows.
@@ -334,6 +334,22 @@ func (c *common) DeleteNetNS(netNSPath string) error {
 	return nil
 }
 
+// DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
+func (c *common) DeleteDNSConfig(netNSName string) error {
+	if netNSName == "" {
+		return errors.New("netns name cannot be empty")
+	}
+	netNSDir := filepath.Join(networkConfigFileDirectory, netNSName)
+	_, err := c.os.Stat(netNSDir)
+	if c.os.IsNotExist(err) {
+		return errors.Wrap(err, "network config directory not found")
+	} else if err != nil {
+		return err
+	}
+
+	return c.os.RemoveAll(netNSDir)
+}
+
 // setUpLoFunc returns a method that sets the loop back interface inside a
 // particular network namespace to the state "UP". This function is used to
 // set up the loop back interface inside a task network namespace soon after
@@ -385,7 +401,7 @@ func (c *common) createDNSConfig(
 	// Next, copy these files into a task volume, which can be used by containers as well, to
 	// configure their network.
 	configFiles := []string{HostsFileName, ResolveConfFileName, HostnameFileName}
-	if err := c.copyNetworkConfigFilesToTask(netNS.Name, configFiles); err != nil {
+	if err := c.copyNetworkConfigFilesToTask(taskID, netNS.Name, configFiles); err != nil {
 		return err
 	}
 	return nil
@@ -431,10 +447,10 @@ func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkin
 
 // copyNetworkConfigFilesToTask copies the contents of the DNS config files for a
 // task into the task volume.
-func (c *common) copyNetworkConfigFilesToTask(netNSName string, configFiles []string) error {
+func (c *common) copyNetworkConfigFilesToTask(taskID, netNSName string, configFiles []string) error {
 	for _, file := range configFiles {
 		source := filepath.Join(networkConfigFileDirectory, netNSName, file)
-		err := c.taskVolumeAccessor.CopyToVolume(source, file, networkConfigFileMode)
+		err := c.dnsVolumeAccessor.CopyToVolume(taskID, source, file, networkConfigFileMode)
 		if err != nil {
 			return errors.Wrapf(err, "unable to populate %s for task", file)
 		}

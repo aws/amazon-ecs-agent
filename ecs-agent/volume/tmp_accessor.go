@@ -12,7 +12,7 @@ type tmpAccessor struct {
 	tmpDir string
 }
 
-func NewTmpAccessor(tmpDirName string) VolumeAccessor {
+func NewTmpAccessor(tmpDirName string) TaskVolumeAccessor {
 	return &tmpAccessor{
 		tmpDir: tmpDirName,
 	}
@@ -21,7 +21,7 @@ func NewTmpAccessor(tmpDirName string) VolumeAccessor {
 // CopyToVolume copies the source file into a subdirectory under /tmp.
 // Name of the subdirectory can be configured by specifying a value
 // for tmpDir while creating tmpAccessor.
-func (t *tmpAccessor) CopyToVolume(src, dst string, mode os.FileMode) error {
+func (t *tmpAccessor) CopyToVolume(taskID, src, dst string, mode os.FileMode) error {
 	// Read source file.
 	contents, err := os.ReadFile(src)
 	if err != nil {

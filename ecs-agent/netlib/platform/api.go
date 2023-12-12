@@ -48,6 +48,9 @@ type API interface {
 	// have access to the accurate DNS configuration information.
 	CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
+	// DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
+	DeleteDNSConfig(netNSName string) error
+
 	// GetNetNSPath returns the path of a network namespace.
 	GetNetNSPath(netNSName string) string
 
