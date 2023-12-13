@@ -73,3 +73,17 @@ func (tnc *TaskNetworkConfig) GetEniNamesToAssociationProtocolMapping() map[stri
 	}
 	return eniNameToAssociationProtocol
 }
+
+// GetInterfaceNamesToNetNSMapping returns a map where key is interface name and value is the netns
+// in which the interface exists.
+func (tnc *TaskNetworkConfig) GetInterfaceNamesToNetNSMapping() map[string]*NetworkNamespace {
+	name2NetNS := make(map[string]*NetworkNamespace)
+	for _, netNS := range tnc.NetworkNamespaces {
+		for _, iface := range netNS.NetworkInterfaces {
+			if iface.Name != "" {
+				name2NetNS[iface.Name] = netNS
+			}
+		}
+	}
+	return name2NetNS
+}
