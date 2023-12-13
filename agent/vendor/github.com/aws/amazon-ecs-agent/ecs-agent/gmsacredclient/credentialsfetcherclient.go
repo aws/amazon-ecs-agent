@@ -137,11 +137,7 @@ func (c CredentialsFetcherClient) AddKerberosArnLease(ctx context.Context, crede
 
 // RenewKerberosArnLease() invokes credentials fetcher daemon running on the host
 // to renew kerberos tickets associated with gMSA accounts
-func (c CredentialsFetcherClient) RenewKerberosArnLease(ctx context.Context, credentialspecsArns []string, accessKeyId string, secretKey string, sessionToken string, region string) (string, error) {
-	if len(credentialspecsArns) == 0 {
-		return codes.InvalidArgument.String(), status.Errorf(codes.InvalidArgument, "credentialspecArns should not be empty")
-	}
-
+func (c CredentialsFetcherClient) RenewKerberosArnLease(ctx context.Context, accessKeyId string, secretKey string, sessionToken string, region string) (string, error) {
 	if len(accessKeyId) == 0 || len(secretKey) == 0 || len(sessionToken) == 0 || len(region) == 0 {
 		return codes.InvalidArgument.String(), status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
 	}
@@ -149,7 +145,7 @@ func (c CredentialsFetcherClient) RenewKerberosArnLease(ctx context.Context, cre
 	defer c.conn.Close()
 	client := pb.NewCredentialsFetcherServiceClient(c.conn)
 
-	request := &pb.KerberosArnLeaseRequest{CredspecArns: credentialspecsArns, AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
+	request := &pb.RenewKerberosArnLeaseRequest{AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()

@@ -70,11 +70,7 @@ func (*mockCredentialsFetcherServer) AddKerberosArnLease(ctx context.Context, re
 	return &pb.CreateKerberosArnLeaseResponse{LeaseId: leaseid, KrbTicketResponseMap: []*pb.KerberosTicketArnResponse{responseMap}}, nil
 }
 
-func (*mockCredentialsFetcherServer) RenewKerberosArnLease(ctx context.Context, req *pb.KerberosArnLeaseRequest) (*pb.RenewKerberosArnLeaseResponse, error) {
-	if len(req.GetCredspecArns()) == 0 {
-		return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, status.Errorf(codes.InvalidArgument, "credentialspecsarns request should not be empty")
-	}
-
+func (*mockCredentialsFetcherServer) RenewKerberosArnLease(ctx context.Context, req *pb.RenewKerberosArnLeaseRequest) (*pb.RenewKerberosArnLeaseResponse, error) {
 	if len(req.GetAccessKeyId()) == 0 || len(req.GetSecretAccessKey()) == 0 || len(req.GetSessionToken()) == 0 || len(req.GetRegion()) == 0 {
 		return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, status.Errorf(codes.InvalidArgument, "accessid, secretkey, sessiontoken or region should not be empty")
 	}
@@ -220,9 +216,9 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosArnLease(t *testing.
 		{
 			"invalid request empty credspecArn contents",
 			[]string{},
-			"testusername",
-			"testpassword",
-			"testdomain",
+			"testaccessid",
+			"testsecret",
+			"testsession",
 			"testregion",
 			CredentialsFetcherArnResponse{},
 			"rpc error: code = InvalidArgument desc = credentialspecArns should not be empty",
@@ -239,10 +235,10 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosArnLease(t *testing.
 		},
 		{
 			"valid request credspecs associated to gMSA account",
-			[]string{credspec_webapp01},
-			"testusername",
-			"testpassword",
-			"testdomain",
+			[]string{"arn:aws:s3:::gmsacredspec/gmsa-cred-spec.json#123456789/gmsatest"},
+			"testaccessid",
+			"testsecret",
+			"testsession",
 			"testregion",
 			CredentialsFetcherArnResponse{LeaseID: "123456", KerberosTicketsMap: map[string]string{"arn:aws:s3:::gmsacredspec/gmsa-cred-spec.json": "/var/credentials-fetcher/krbdir/123456/webapp01"}},
 			"",
@@ -270,7 +266,6 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosArnLease(t *testing.
 func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testing.T) {
 	tests := []struct {
 		name          string
-		credspecArn   []string
 		accessId      string
 		secretKey     string
 		sessionToken  string
@@ -279,18 +274,7 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testin
 		expectedError string
 	}{
 		{
-			"invalid request empty credspecArn contents",
-			[]string{},
-			"testusername",
-			"testpassword",
-			"testdomain",
-			"testregion",
-			"",
-			"rpc error: code = InvalidArgument desc = credentialspecArns should not be empty",
-		},
-		{
 			"invalid request username, password or domain should not be empty",
-			[]string{credspec_webapp01},
 			"",
 			"",
 			"",
@@ -300,16 +284,14 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testin
 		},
 		{
 			"valid request credspecs associated to gMSA account",
-			[]string{credspec_webapp01},
-			"testusername",
-			"testpassword",
-			"testdomain",
+			"testaccessid",
+			"testsecret",
+			"testsessiontoken",
 			"testregion",
 			"OK",
 			"",
 		},
 	}
-
 	ctx := context.Background()
 
 	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
@@ -318,7 +300,7 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewKerberosArnLease(context.Background(), tt.credspecArn, tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
+			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewKerberosArnLease(context.Background(), tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
