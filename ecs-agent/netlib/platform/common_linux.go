@@ -113,6 +113,12 @@ func NewPlatform(
 		return &firecraker{
 			common: commonPlatform,
 		}, nil
+	case WarmpoolDebugPlatform:
+		return &containerdDebug{
+			containerd: containerd{
+				common: commonPlatform,
+			},
+		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformString)
 }
