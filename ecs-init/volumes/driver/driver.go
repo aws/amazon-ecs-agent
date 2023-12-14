@@ -15,6 +15,8 @@ package driver
 
 import "github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 
+//go:generate mockgen.sh $GOPACKAGE_mock $GOFILE ./mock
+
 // VolumeDriver contains the methods for volume drivers to implement
 type VolumeDriver interface {
 	Setup(string, *types.Volume)
