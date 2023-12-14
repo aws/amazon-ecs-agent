@@ -49,41 +49,41 @@ func (m *MockVolumeDriver) EXPECT() *MockVolumeDriverMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockVolumeDriver) Create(arg0 *driver.CreateRequest) error {
+func (m *MockVolumeDriver) Create(createRequest *driver.CreateRequest) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0)
+	ret := m.ctrl.Call(m, "Create", createRequest)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockVolumeDriverMockRecorder) Create(arg0 interface{}) *gomock.Call {
+func (mr *MockVolumeDriverMockRecorder) Create(createRequest interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockVolumeDriver)(nil).Create), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockVolumeDriver)(nil).Create), createRequest)
 }
 
 // Remove mocks base method.
-func (m *MockVolumeDriver) Remove(arg0 *driver.RemoveRequest) error {
+func (m *MockVolumeDriver) Remove(removeRequest *driver.RemoveRequest) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", arg0)
+	ret := m.ctrl.Call(m, "Remove", removeRequest)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove.
-func (mr *MockVolumeDriverMockRecorder) Remove(arg0 interface{}) *gomock.Call {
+func (mr *MockVolumeDriverMockRecorder) Remove(removeRequest interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockVolumeDriver)(nil).Remove), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockVolumeDriver)(nil).Remove), removeRequest)
 }
 
 // Setup mocks base method.
-func (m *MockVolumeDriver) Setup(arg0 string, arg1 *types.Volume) {
+func (m *MockVolumeDriver) Setup(volumeName string, volume *types.Volume) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Setup", arg0, arg1)
+	m.ctrl.Call(m, "Setup", volumeName, volume)
 }
 
 // Setup indicates an expected call of Setup.
-func (mr *MockVolumeDriverMockRecorder) Setup(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockVolumeDriverMockRecorder) Setup(volumeName, volume interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Setup", reflect.TypeOf((*MockVolumeDriver)(nil).Setup), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Setup", reflect.TypeOf((*MockVolumeDriver)(nil).Setup), volumeName, volume)
 }
