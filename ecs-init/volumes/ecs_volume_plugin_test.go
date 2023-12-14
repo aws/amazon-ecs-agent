@@ -17,6 +17,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/stretchr/testify/assert"
@@ -29,11 +30,11 @@ func NewTestVolumeDriver() *TestVolumeDriver {
 	return &TestVolumeDriver{}
 }
 
-func (t *TestVolumeDriver) Create(r *CreateRequest) error {
+func (t *TestVolumeDriver) Create(r *driver.CreateRequest) error {
 	return nil
 }
 
-func (t *TestVolumeDriver) Remove(r *RemoveRequest) error {
+func (t *TestVolumeDriver) Remove(r *driver.RemoveRequest) error {
 	return nil
 }
 
@@ -49,11 +50,11 @@ func NewTestVolumeDriverError() *TestVolumeDriverError {
 	return &TestVolumeDriverError{}
 }
 
-func (t *TestVolumeDriverError) Create(r *CreateRequest) error {
+func (t *TestVolumeDriverError) Create(r *driver.CreateRequest) error {
 	return errors.New("create error")
 }
 
-func (t *TestVolumeDriverError) Remove(r *RemoveRequest) error {
+func (t *TestVolumeDriverError) Remove(r *driver.RemoveRequest) error {
 	return errors.New("remove error")
 }
 
@@ -63,7 +64,7 @@ func (t *TestVolumeDriverError) Setup(n string, v *types.Volume) {
 
 func TestVolumeCreateHappyPath(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -103,7 +104,7 @@ func TestVolumeCreateHappyPath(t *testing.T) {
 
 func TestVolumeCreateTargetSpecified(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -138,7 +139,7 @@ func TestVolumeCreateTargetSpecified(t *testing.T) {
 
 func TestVolumeCreateSaveFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -176,7 +177,7 @@ func TestVolumeCreateSaveFailure(t *testing.T) {
 
 func TestVolumeCreateFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriverError(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -207,7 +208,7 @@ func TestVolumeCreateFailure(t *testing.T) {
 
 func TestCreateNoVolumeType(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -232,7 +233,7 @@ func TestCreateNoVolumeType(t *testing.T) {
 
 func TestCreateNoDriverFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       make(map[string]*types.Volume),
 	}
 	req := &volume.CreateRequest{
@@ -247,7 +248,7 @@ func TestCreateNoDriverFailure(t *testing.T) {
 
 func TestCreateMountCreationFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriverError(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -270,7 +271,7 @@ func TestCreateMountCreationFailure(t *testing.T) {
 
 func TestGetMountPathSuccess(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       make(map[string]*types.Volume),
 	}
 	createMountPath = func(path string) error {
@@ -286,7 +287,7 @@ func TestGetMountPathSuccess(t *testing.T) {
 
 func TestGetMountPathFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       make(map[string]*types.Volume),
 	}
 	createMountPath = func(path string) error {
@@ -302,7 +303,7 @@ func TestGetMountPathFailure(t *testing.T) {
 
 func TestCleanMountPathSuccess(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       make(map[string]*types.Volume),
 	}
 	removeMountPath = func(path string) error {
@@ -316,7 +317,7 @@ func TestCleanMountPathSuccess(t *testing.T) {
 
 func TestCleanMountPathFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       make(map[string]*types.Volume),
 	}
 	removeMountPath = func(path string) error {
@@ -335,7 +336,7 @@ func TestVolumeMountSuccess(t *testing.T) {
 		Path: path,
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
@@ -349,7 +350,7 @@ func TestVolumeMountSuccess(t *testing.T) {
 func TestVolumeMountFailure(t *testing.T) {
 	volName := "vol"
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       map[string]*types.Volume{},
 	}
 	req := &volume.MountRequest{Name: volName}
@@ -365,7 +366,7 @@ func TestVolumeUnmountSuccess(t *testing.T) {
 		Path: path,
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
@@ -377,7 +378,7 @@ func TestVolumeUnmountSuccess(t *testing.T) {
 func TestVolumeUnmountFailure(t *testing.T) {
 	volName := "vol"
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes:       map[string]*types.Volume{},
 	}
 	req := &volume.UnmountRequest{Name: volName}
@@ -392,7 +393,7 @@ func TestVolumeRemoveHappyPath(t *testing.T) {
 		Type: "efs",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*types.Volume{
@@ -424,7 +425,7 @@ func TestVolumeRemoveFailure(t *testing.T) {
 		Type: "efs",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriverError(),
 		},
 		volumes: map[string]*types.Volume{
@@ -445,7 +446,7 @@ func TestVolumeRemoveFailure(t *testing.T) {
 
 func TestRemoveVolumeNotFound(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*types.Volume{},
@@ -463,7 +464,7 @@ func TestRemoveVolumeDriverNotFound(t *testing.T) {
 		Type: "efs",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"xyz": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*types.Volume{
@@ -483,7 +484,7 @@ func TestVolumeRemoveMountPathFailure(t *testing.T) {
 		Type: "efs",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*types.Volume{
@@ -515,7 +516,7 @@ func TestVolumeRemoveStateSaveFailure(t *testing.T) {
 		Type: "efs",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*types.Volume{
@@ -542,7 +543,7 @@ func TestVolumeRemoveStateSaveFailure(t *testing.T) {
 func TestListVolumes(t *testing.T) {
 	vol := &types.Volume{}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			"vol":  vol,
 			"vol1": vol,
@@ -560,7 +561,7 @@ func TestGetVolume(t *testing.T) {
 		CreatedAt: "2020-01-17T21:20:04Z",
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			"vol":  vol,
 			"vol1": vol,
@@ -578,7 +579,7 @@ func TestGetVolume(t *testing.T) {
 func TestGetVolumeError(t *testing.T) {
 	vol := &types.Volume{}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			"vol":  vol,
 			"vol1": vol,
@@ -597,7 +598,7 @@ func TestVolumePath(t *testing.T) {
 		Path: path,
 	}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			"vol":   &types.Volume{},
 			volName: vol1,
@@ -613,7 +614,7 @@ func TestVolumePath(t *testing.T) {
 func TestVolumePathError(t *testing.T) {
 	vol := &types.Volume{}
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{},
+		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
 			"vol":  vol,
 			"vol1": vol,
@@ -633,7 +634,7 @@ func TestCapabilities(t *testing.T) {
 
 func TestPluginLoadState(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewECSVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
@@ -695,7 +696,7 @@ func TestPluginInvalidState(t *testing.T) {
 
 func TestPluginEmptyState(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),

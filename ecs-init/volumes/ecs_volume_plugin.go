@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
@@ -34,7 +35,7 @@ const (
 
 // AmazonECSVolumePlugin holds list of volume drivers and volumes information
 type AmazonECSVolumePlugin struct {
-	volumeDrivers map[string]VolumeDriver
+	volumeDrivers map[string]driver.VolumeDriver
 	volumes       map[string]*types.Volume
 	state         *StateManager
 	lock          sync.RWMutex
@@ -43,32 +44,13 @@ type AmazonECSVolumePlugin struct {
 // NewAmazonECSVolumePlugin initiates the volume drivers
 func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]VolumeDriver{
+		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewECSVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
 	}
 	return plugin
-}
-
-// VolumeDriver contains the methods for volume drivers to implement
-type VolumeDriver interface {
-	Setup(string, *types.Volume)
-	Create(*CreateRequest) error
-	Remove(*RemoveRequest) error
-}
-
-// CreateRequest holds fields necessary for creating a volume
-type CreateRequest struct {
-	Name    string
-	Path    string
-	Options map[string]string
-}
-
-// RemoveRequest holds fields necessary for removing a volume
-type RemoveRequest struct {
-	Name string
 }
 
 // LoadState loads past state information of the plugin
@@ -107,7 +89,7 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 	return nil
 }
 
-func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver, error) {
+func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (driver.VolumeDriver, error) {
 	if driverType == "" {
 		return a.volumeDrivers[defaultDriverType], nil
 	}
@@ -158,7 +140,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		}
 	}
 
-	req := &CreateRequest{
+	req := &driver.CreateRequest{
 		Name:    r.Name,
 		Path:    target,
 		Options: r.Options,
@@ -263,7 +245,7 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
 	}
 
-	req := &RemoveRequest{
+	req := &driver.RemoveRequest{
 		Name: r.Name,
 	}
 	err = volDriver.Remove(req)

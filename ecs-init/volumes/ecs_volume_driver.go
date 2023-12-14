@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/cihub/seelog"
 )
@@ -53,7 +54,7 @@ func (e *ECSVolumeDriver) Setup(name string, v *types.Volume) {
 }
 
 // Create implements ECSVolumeDriver's Create volume method
-func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
+func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -94,7 +95,7 @@ func setOptions(options map[string]string) *MountHelper {
 }
 
 // Remove implements ECSVolumeDriver's Remove volume method
-func (e *ECSVolumeDriver) Remove(req *RemoveRequest) error {
+func (e *ECSVolumeDriver) Remove(req *driver.RemoveRequest) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	mnt, ok := e.volumeMounts[req.Name]

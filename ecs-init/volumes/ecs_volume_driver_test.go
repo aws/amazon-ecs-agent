@@ -17,12 +17,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestVolumeDriverCreateHappyPath(t *testing.T) {
 	e := NewECSVolumeDriver()
-	req := CreateRequest{
+	req := driver.CreateRequest{
 		Name: "vol",
 		Path: VolumeMountPathPrefix + "vol",
 		Options: map[string]string{
@@ -43,7 +44,7 @@ func TestVolumeDriverCreateHappyPath(t *testing.T) {
 
 func TestVolumeDriverCreateFailure(t *testing.T) {
 	e := NewECSVolumeDriver()
-	req := CreateRequest{
+	req := driver.CreateRequest{
 		Name: "vol",
 		Path: VolumeMountPathPrefix + "vol",
 		Options: map[string]string{
@@ -65,7 +66,7 @@ func TestVolumeDriverCreateFailure(t *testing.T) {
 func TestCreateVolumeExists(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := CreateRequest{
+	req := driver.CreateRequest{
 		Name: "vol",
 		Path: VolumeMountPathPrefix + "vol",
 		Options: map[string]string{
@@ -80,7 +81,7 @@ func TestCreateVolumeExists(t *testing.T) {
 
 func TestCreateVolumeMissingOption(t *testing.T) {
 	e := NewECSVolumeDriver()
-	req := CreateRequest{
+	req := driver.CreateRequest{
 		Name: "vol",
 		Path: VolumeMountPathPrefix + "vol",
 		Options: map[string]string{
@@ -95,7 +96,7 @@ func TestCreateVolumeMissingOption(t *testing.T) {
 func TestRemoveVolumeHappyPath(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := RemoveRequest{
+	req := driver.RemoveRequest{
 		Name: "vol",
 	}
 	lookPath = func(string) (string, error) {
@@ -115,7 +116,7 @@ func TestRemoveVolumeHappyPath(t *testing.T) {
 func TestRemoveVolumeUnmounted(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := RemoveRequest{
+	req := driver.RemoveRequest{
 		Name: "vol",
 	}
 	lookPath = func(string) (string, error) {
@@ -135,7 +136,7 @@ func TestRemoveVolumeUnmounted(t *testing.T) {
 func TestRemoveUnmountFailure(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := RemoveRequest{
+	req := driver.RemoveRequest{
 		Name: "vol",
 	}
 	lookPath = func(string) (string, error) {
@@ -155,7 +156,7 @@ func TestRemoveUnmountFailure(t *testing.T) {
 func TestRemoveUnmountNotFound(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := RemoveRequest{
+	req := driver.RemoveRequest{
 		Name: "vol",
 	}
 	lookPath = func(string) (string, error) {
@@ -171,7 +172,7 @@ func TestRemoveUnmountNotFound(t *testing.T) {
 func TestRemoveVolumeNotPresent(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
-	req := RemoveRequest{
+	req := driver.RemoveRequest{
 		Name: "vol1",
 	}
 	assert.Error(t, e.Remove(&req), "expected error when volume to remove is not found")
