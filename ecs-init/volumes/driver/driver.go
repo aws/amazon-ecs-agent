@@ -19,9 +19,15 @@ import "github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 
 // VolumeDriver contains the methods for volume drivers to implement
 type VolumeDriver interface {
-	Setup(string, *types.Volume)
-	Create(*CreateRequest) error
-	Remove(*RemoveRequest) error
+	// Setup is used to add a volume to the driver's state.
+	// It should be called when the state of a volume is being loaded from storage.
+	Setup(volumeName string, volume *types.Volume)
+
+	// Create mounts the volume on the host.
+	Create(createRequest *CreateRequest) error
+
+	// Remove unmounts the volume from the host.
+	Remove(removeRequest *RemoveRequest) error
 }
 
 // CreateRequest holds fields necessary for creating a volume
