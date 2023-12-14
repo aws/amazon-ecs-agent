@@ -167,35 +167,64 @@ func TestRetrieveCredentials(t *testing.T) {
 }
 
 func TestRetrieveSSMCredentials(t *testing.T) {
-	fv, _, ssmClientCreator, _, _, mockSSMClient, _, _ := setup(t)
-	credentialsParameterARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
-
-	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
-	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
-				Name:  aws.String("test"),
-				Value: aws.String(ssmTestData),
-			},
+	cases := []struct {
+		Name                         string
+		CredentialsParameterARN      string
+		CredentialsParameterArgument string
+	}{
+		{
+			Name:                         "TestRetrieveSSMCredentialsSimple",
+			CredentialsParameterARN:      "arn:aws:ssm:us-west-2:123456789012:parameter/test",
+			CredentialsParameterArgument: "/test",
+		},
+		{
+			Name:                         "TestRetrieveSSMCredentialsSimple",
+			CredentialsParameterARN:      "arn:aws:ssm:us-west-2:123456789012:parameter/hello",
+			CredentialsParameterArgument: "/hello",
+		},
+		{
+			Name:                         "TestRetrieveSSMCredentialsPath",
+			CredentialsParameterARN:      "arn:aws:ssm:us-west-2:123456789012:parameter/path1/path2/hello",
+			CredentialsParameterArgument: "/path1/path2/hello",
 		},
 	}
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			fv, _, ssmClientCreator, _, _, mockSSMClient, _, _ := setup(t)
+			credentialsParameterARN := tc.CredentialsParameterARN
 
-	iamCredentials := credentials.IAMRoleCredentials{
-		CredentialsID: "test-cred-id",
+			ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
+			ssmClientOutput := &ssm.GetParametersOutput{
+				InvalidParameters: []*string{},
+				Parameters: []*ssm.Parameter{
+					&ssm.Parameter{
+						Name:  aws.String("test"),
+						Value: aws.String(ssmTestData),
+					},
+				},
+			}
+
+			iamCredentials := credentials.IAMRoleCredentials{
+				CredentialsID: "test-cred-id",
+			}
+
+			gomock.InOrder(
+				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
+				mockSSMClient.EXPECT().GetParameters(&ssm.GetParametersInput{
+					Names:          []*string{&tc.CredentialsParameterArgument},
+					WithDecryption: aws.Bool(false),
+				}).Return(ssmClientOutput, nil).Times(1),
+			)
+
+			err := fv.retrieveSSMCredentials(credentialsParameterARN, iamCredentials)
+			assert.NoError(t, err)
+
+			credentials := fv.Credentials
+			assert.Equal(t, "user", credentials.Username)
+			assert.Equal(t, "pass", credentials.Password)
+		})
 	}
 
-	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-	)
-
-	err := fv.retrieveSSMCredentials(credentialsParameterARN, iamCredentials)
-	assert.NoError(t, err)
-
-	credentials := fv.Credentials
-	assert.Equal(t, "user", credentials.Username)
-	assert.Equal(t, "pass", credentials.Password)
 }
 
 func TestRetrieveASMCredentials(t *testing.T) {

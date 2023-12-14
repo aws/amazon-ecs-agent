@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -479,7 +478,9 @@ func (fv *FSxWindowsFileServerResource) retrieveSSMCredentials(credentialsParame
 	}
 
 	ssmClient := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials)
-	ssmParam := filepath.Base(parsedARN.Resource)
+	// parsedARN.Resource looks like "arn:aws:ssm:us-west-2:123456789012:parameter/sample1/sample2/parameter1"
+	// We split by parameter and get ["", "/sample1/sample2/parameter1"]
+	ssmParam := strings.Split(parsedARN.Resource, "parameter")[1]
 	ssmParams := []string{ssmParam}
 
 	ssmParamMap, err := ssm.GetParametersFromSSM(ssmParams, ssmClient)
