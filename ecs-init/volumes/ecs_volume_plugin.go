@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
 )
@@ -34,7 +35,7 @@ const (
 // AmazonECSVolumePlugin holds list of volume drivers and volumes information
 type AmazonECSVolumePlugin struct {
 	volumeDrivers map[string]VolumeDriver
-	volumes       map[string]*Volume
+	volumes       map[string]*types.Volume
 	state         *StateManager
 	lock          sync.RWMutex
 }
@@ -45,7 +46,7 @@ func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 		volumeDrivers: map[string]VolumeDriver{
 			"efs": NewECSVolumeDriver(),
 		},
-		volumes: make(map[string]*Volume),
+		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
 	}
 	return plugin
@@ -53,17 +54,9 @@ func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 
 // VolumeDriver contains the methods for volume drivers to implement
 type VolumeDriver interface {
-	Setup(string, *Volume)
+	Setup(string, *types.Volume)
 	Create(*CreateRequest) error
 	Remove(*RemoveRequest) error
-}
-
-// Volume holds full details about a volume
-type Volume struct {
-	Type      string
-	Path      string
-	Options   map[string]string
-	CreatedAt string
 }
 
 // CreateRequest holds fields necessary for creating a volume
@@ -101,7 +94,7 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 			seelog.Errorf("Could not load state: %v", err)
 			return fmt.Errorf("could not load plugin state: %v", err)
 		}
-		volume := &Volume{
+		volume := &types.Volume{
 			Type:      vol.Type,
 			Path:      vol.Path,
 			Options:   vol.Options,
@@ -180,7 +173,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		return err
 	}
 	seelog.Infof("Volume %s created successfully", r.Name)
-	vol := &Volume{
+	vol := &types.Volume{
 		Type:      driverType,
 		Path:      target,
 		Options:   r.Options,

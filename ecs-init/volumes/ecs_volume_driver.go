@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/cihub/seelog"
 )
 
@@ -38,7 +39,7 @@ func NewECSVolumeDriver() *ECSVolumeDriver {
 }
 
 // Setup creates the mount helper
-func (e *ECSVolumeDriver) Setup(name string, v *Volume) {
+func (e *ECSVolumeDriver) Setup(name string, v *types.Volume) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
