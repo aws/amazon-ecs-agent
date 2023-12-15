@@ -3,7 +3,6 @@
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
 // License is located at
-//
 //	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
@@ -18,8 +17,10 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
+	mock_driver "github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -185,25 +186,11 @@ func TestVolumeCreateFailure(t *testing.T) {
 	req := &volume.CreateRequest{
 		Name: "vol",
 		Options: map[string]string{
-			"type": "efs",
+			"type": "unknown",
 		},
 	}
-	createMountPath = func(path string) error {
-		return nil
-	}
-
-	var removeInvoked bool
-	removeMountPath = func(path string) error {
-		removeInvoked = true
-		return nil
-	}
-	defer func() {
-		createMountPath = createMountDir
-		removeMountPath = deleteMountPath
-	}()
 	assert.Error(t, plugin.Create(req), "expected error while creating volume")
 	assert.Len(t, plugin.volumes, 0)
-	assert.True(t, removeInvoked)
 }
 
 func TestCreateNoVolumeType(t *testing.T) {
@@ -329,62 +316,6 @@ func TestCleanMountPathFailure(t *testing.T) {
 	assert.Error(t, plugin.CleanupMountPath("vol"), "expected error when host mount path cannot be removed")
 }
 
-func TestVolumeMountSuccess(t *testing.T) {
-	volName := "vol"
-	path := VolumeMountPathPrefix + volName
-	vol := &types.Volume{
-		Path: path,
-	}
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{},
-		volumes: map[string]*types.Volume{
-			volName: vol,
-		},
-	}
-	req := &volume.MountRequest{Name: volName}
-	res, err := plugin.Mount(req)
-	assert.NoError(t, err)
-	assert.Equal(t, path, res.Mountpoint)
-}
-
-func TestVolumeMountFailure(t *testing.T) {
-	volName := "vol"
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{},
-		volumes:       map[string]*types.Volume{},
-	}
-	req := &volume.MountRequest{Name: volName}
-	res, err := plugin.Mount(req)
-	assert.Error(t, err)
-	assert.Nil(t, res)
-}
-
-func TestVolumeUnmountSuccess(t *testing.T) {
-	volName := "vol"
-	path := VolumeMountPathPrefix + volName
-	vol := &types.Volume{
-		Path: path,
-	}
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{},
-		volumes: map[string]*types.Volume{
-			volName: vol,
-		},
-	}
-	req := &volume.UnmountRequest{Name: volName}
-	assert.NoError(t, plugin.Unmount(req))
-}
-
-func TestVolumeUnmountFailure(t *testing.T) {
-	volName := "vol"
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{},
-		volumes:       map[string]*types.Volume{},
-	}
-	req := &volume.UnmountRequest{Name: volName}
-	assert.Error(t, plugin.Unmount(req), "expected error when volume to unmount is not present")
-}
-
 func TestVolumeRemoveHappyPath(t *testing.T) {
 	volName := "vol"
 	path := VolumeMountPathPrefix + volName
@@ -417,33 +348,6 @@ func TestVolumeRemoveHappyPath(t *testing.T) {
 	assert.Len(t, plugin.state.VolState.Volumes, 0)
 }
 
-func TestVolumeRemoveFailure(t *testing.T) {
-	volName := "vol"
-	path := VolumeMountPathPrefix + volName
-	vol := &types.Volume{
-		Path: path,
-		Type: "efs",
-	}
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{
-			"efs": NewTestVolumeDriverError(),
-		},
-		volumes: map[string]*types.Volume{
-			volName: vol,
-		},
-		state: NewStateManager(),
-	}
-	saveStateToDisk = func(b []byte) error {
-		return nil
-	}
-	defer func() {
-		saveStateToDisk = saveState
-	}()
-	req := &volume.RemoveRequest{Name: volName}
-	assert.Error(t, plugin.Remove(req), "expected error when remove volume fails")
-	assert.Len(t, plugin.volumes, 1)
-}
-
 func TestRemoveVolumeNotFound(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]driver.VolumeDriver{
@@ -454,26 +358,6 @@ func TestRemoveVolumeNotFound(t *testing.T) {
 	}
 	req := &volume.RemoveRequest{Name: "vol"}
 	assert.Error(t, plugin.Remove(req), "expected error when volume to remove is not found")
-}
-
-func TestRemoveVolumeDriverNotFound(t *testing.T) {
-	volName := "vol"
-	path := VolumeMountPathPrefix + volName
-	vol := &types.Volume{
-		Path: path,
-		Type: "efs",
-	}
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{
-			"xyz": NewTestVolumeDriver(),
-		},
-		volumes: map[string]*types.Volume{
-			volName: vol,
-		},
-		state: NewStateManager(),
-	}
-	req := &volume.RemoveRequest{Name: volName}
-	assert.Error(t, plugin.Remove(req), "expected error when corresponding volume driver not found")
 }
 
 func TestVolumeRemoveMountPathFailure(t *testing.T) {
@@ -600,9 +484,9 @@ func TestVolumePath(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]driver.VolumeDriver{},
 		volumes: map[string]*types.Volume{
-			"vol":   &types.Volume{},
+			"vol":   {},
 			volName: vol1,
-			"vol2":  &types.Volume{},
+			"vol2":  {},
 		},
 	}
 	req := &volume.PathRequest{Name: volName}
@@ -742,4 +626,351 @@ func TestPluginEmptyState(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "efs", volInfo.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
+}
+
+// Tests for plugin's Mount method.
+func TestPluginMount(t *testing.T) {
+	const (
+		volName       = "volume"
+		volPath       = "path"
+		driverTypeEFS = "efs"
+		reqMountID    = "mountID"
+	)
+	volOpts := map[string]string{"opt1": "opt1"}
+
+	tcs := []struct {
+		name                  string
+		pluginVolumes         map[string]*types.Volume
+		setDriverExpectations func(d *mock_driver.MockVolumeDriver)
+		mockSaveStateFn       func(b []byte) error
+		req                   *volume.MountRequest
+		expectedResponse      *volume.MountResponse
+		expectedError         string
+		assertPluginState     func(t *testing.T, plugin *AmazonECSVolumePlugin)
+	}{
+		{
+			name:          "volume not found",
+			req:           &volume.MountRequest{Name: "unknown"},
+			expectedError: "volume unknown not found",
+		},
+		{
+			name: "first mount on the volume",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().
+					Create(&driver.CreateRequest{Name: volName, Path: volPath, Options: volOpts}).
+					Return(nil)
+			},
+			pluginVolumes:    map[string]*types.Volume{volName: {Path: volPath, Options: volOpts}},
+			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				assert.Equal(t,
+					map[string]*types.Volume{
+						volName: {
+							Path:    volPath,
+							Options: volOpts,
+							Mounts:  map[string]*string{reqMountID: nil},
+						},
+					},
+					plugin.volumes)
+			},
+		},
+		{
+			name: "volume already has mounts - no interaction with driver",
+			pluginVolumes: map[string]*types.Volume{
+				volName: {
+					Path:   volPath,
+					Mounts: map[string]*string{"someMount": nil},
+				},
+			},
+			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]*string{reqMountID: nil, "someMount": nil}
+				assert.Equal(t,
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
+			},
+		},
+		{
+			name:          "invalid driver type",
+			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Type: "unknown"}},
+			req:           &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedError: "Volume volume's driver type unknown not supported: volume unknown type not supported",
+		},
+		{
+			name: "driver fails to mount",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().
+					Create(&driver.CreateRequest{Name: volName, Path: volPath}).
+					Return(errors.New("some error"))
+			},
+			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath}},
+			req:           &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedError: "failed to mount volume volume: some error",
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				// No mounts expected on the volume
+				assert.Equal(t, map[string]*types.Volume{volName: {Path: volPath}}, plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{Volumes: map[string]*VolumeInfo{
+						volName: {Path: volPath, Mounts: map[string]*string{}},
+					}},
+					plugin.state.VolState)
+			},
+		},
+		{
+			name: "roll back changes if saving state fails",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().Create(&driver.CreateRequest{Name: volName, Path: volPath}).Return(nil)
+				d.EXPECT().Remove(&driver.RemoveRequest{Name: volName}).Return(nil) // mount rollback
+			},
+			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath}},
+			mockSaveStateFn: func(b []byte) error {
+				return errors.New("some error")
+			},
+			req:           &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedError: "mount failed due to an error while saving state: some error",
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				// No mounts expected on the volume
+				mounts := map[string]*string{}
+				assert.Equal(t,
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Prepare a mock driver
+			efsDriver := mock_driver.NewMockVolumeDriver(ctrl)
+			if tc.setDriverExpectations != nil {
+				tc.setDriverExpectations(efsDriver)
+			}
+
+			// Mock saveState function for preparing plugin for testing
+			saveStateToDisk = func(b []byte) error {
+				return nil
+			}
+			defer func() {
+				saveStateToDisk = saveState
+			}()
+
+			// Prepare a plugin for testing with state loaded
+			pluginState := NewStateManager()
+			plugin := AmazonECSVolumePlugin{
+				volumes:       tc.pluginVolumes,
+				volumeDrivers: map[string]driver.VolumeDriver{driverTypeEFS: efsDriver},
+				state:         pluginState,
+			}
+			for volName, vol := range tc.pluginVolumes {
+				pluginState.recordVolume(volName, vol)
+			}
+
+			// Mock saveState function for the test case
+			if tc.mockSaveStateFn != nil {
+				saveStateToDisk = tc.mockSaveStateFn
+			}
+
+			// Test
+			res, err := plugin.Mount(tc.req)
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedResponse, res)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+			if tc.assertPluginState != nil {
+				tc.assertPluginState(t, &plugin)
+			}
+		})
+	}
+}
+
+// Tests for plugin's Unmount method.
+func TestPluginUnmount(t *testing.T) {
+	const (
+		volName       = "volume"
+		volPath       = "path"
+		driverTypeEFS = "efs"
+		reqMountID    = "mountID"
+	)
+	volOpts := map[string]string{"opt1": "opt1"}
+
+	tcs := []struct {
+		name                  string
+		pluginVolumes         map[string]*types.Volume
+		setDriverExpectations func(d *mock_driver.MockVolumeDriver)
+		mockSaveStateFn       func(b []byte) error
+		req                   *volume.UnmountRequest
+		expectedError         string
+		assertPluginState     func(t *testing.T, plugin *AmazonECSVolumePlugin)
+	}{
+		{
+			name:          "volume not found",
+			req:           &volume.UnmountRequest{Name: "unknown"},
+			expectedError: "volume unknown not found",
+		},
+		{
+			name: "only one mount on the volume",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().Remove(&driver.RemoveRequest{Name: volName}).Return(nil)
+			},
+			pluginVolumes: map[string]*types.Volume{
+				volName: {Path: volPath, Mounts: map[string]*string{reqMountID: nil}},
+			},
+			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				assert.Equal(t,
+					map[string]*types.Volume{
+						volName: {Path: volPath, Mounts: map[string]*string{}},
+					},
+					plugin.volumes)
+			},
+		},
+		{
+			name: "more than one mount on the volume - no interaction with the driver",
+			pluginVolumes: map[string]*types.Volume{
+				volName: {
+					Path:   volPath,
+					Mounts: map[string]*string{"someMount": nil, reqMountID: nil},
+				},
+			},
+			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]*string{"someMount": nil}
+				assert.Equal(t,
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
+			},
+		},
+		{
+			name:          "invalid driver type",
+			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Type: "unknown"}},
+			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			expectedError: "volume volume of type unknown is unsupported: volume unknown type not supported",
+		},
+		{
+			name: "driver fails to unmount",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().
+					Remove(&driver.RemoveRequest{Name: volName}).
+					Return(errors.New("some error"))
+			},
+			pluginVolumes: map[string]*types.Volume{
+				volName: {Path: volPath, Mounts: map[string]*string{reqMountID: nil}},
+			},
+			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			expectedError: "failed to unmount volume volume: some error",
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				// Mount should still exist in the plugin state
+				mounts := map[string]*string{reqMountID: nil}
+				assert.Equal(t,
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
+			},
+		},
+		{
+			name: "roll back unmount if saving state fails",
+			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
+				d.EXPECT().Remove(&driver.RemoveRequest{Name: volName}).Return(nil)
+				d.EXPECT().
+					Create(&driver.CreateRequest{Name: volName, Path: volPath, Options: volOpts}).
+					Return(nil)
+			},
+			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Options: volOpts}},
+			mockSaveStateFn: func(b []byte) error {
+				return errors.New("some error")
+			},
+			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			expectedError: "unmount failed due to an error while saving state: some error",
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				// Mount should still exist in state
+				mounts := map[string]*string{reqMountID: nil}
+				assert.Equal(t,
+					map[string]*types.Volume{
+						volName: {Path: volPath, Mounts: mounts, Options: volOpts},
+					},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{
+							volName: {Path: volPath, Mounts: mounts, Options: volOpts},
+						},
+					},
+					plugin.state.VolState)
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Prepare a mock driver
+			efsDriver := mock_driver.NewMockVolumeDriver(ctrl)
+			if tc.setDriverExpectations != nil {
+				tc.setDriverExpectations(efsDriver)
+			}
+
+			// Mock saveState function for preparing plugin for testing
+			saveStateToDisk = func(b []byte) error {
+				return nil
+			}
+			defer func() {
+				saveStateToDisk = saveState
+			}()
+
+			// Prepare a plugin for testing with state loaded
+			pluginState := NewStateManager()
+			plugin := AmazonECSVolumePlugin{
+				volumes:       tc.pluginVolumes,
+				volumeDrivers: map[string]driver.VolumeDriver{driverTypeEFS: efsDriver},
+				state:         pluginState,
+			}
+			for volName, vol := range tc.pluginVolumes {
+				pluginState.recordVolume(volName, vol)
+			}
+
+			// Mock saveState function from the test case
+			if tc.mockSaveStateFn != nil {
+				saveStateToDisk = tc.mockSaveStateFn
+			}
+
+			// Test
+			err := plugin.Unmount(tc.req)
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+			if tc.assertPluginState != nil {
+				tc.assertPluginState(t, &plugin)
+			}
+		})
+	}
 }
