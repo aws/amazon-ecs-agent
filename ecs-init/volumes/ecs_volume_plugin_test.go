@@ -664,15 +664,19 @@ func TestPluginMount(t *testing.T) {
 			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
 			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]*string{reqMountID: nil}
 				assert.Equal(t,
 					map[string]*types.Volume{
-						volName: {
-							Path:    volPath,
-							Options: volOpts,
-							Mounts:  map[string]*string{reqMountID: nil},
-						},
+						volName: {Path: volPath, Options: volOpts, Mounts: mounts},
 					},
 					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{
+							volName: {Path: volPath, Options: volOpts, Mounts: mounts},
+						},
+					},
+					plugin.state.VolState)
 			},
 		},
 		{
@@ -729,12 +733,10 @@ func TestPluginMount(t *testing.T) {
 				d.EXPECT().Create(&driver.CreateRequest{Name: volName, Path: volPath}).Return(nil)
 				d.EXPECT().Remove(&driver.RemoveRequest{Name: volName}).Return(nil) // mount rollback
 			},
-			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath}},
-			mockSaveStateFn: func(b []byte) error {
-				return errors.New("some error")
-			},
-			req:           &volume.MountRequest{Name: volName, ID: reqMountID},
-			expectedError: "mount failed due to an error while saving state: some error",
+			pluginVolumes:   map[string]*types.Volume{volName: {Path: volPath}},
+			mockSaveStateFn: func(b []byte) error { return errors.New("some error") },
+			req:             &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedError:   "mount failed due to an error while saving state: some error",
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
 				// No mounts expected on the volume
 				mounts := map[string]*string{}
@@ -834,11 +836,15 @@ func TestPluginUnmount(t *testing.T) {
 			},
 			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]*string{}
 				assert.Equal(t,
-					map[string]*types.Volume{
-						volName: {Path: volPath, Mounts: map[string]*string{}},
-					},
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
 			},
 		},
 		{
@@ -901,12 +907,10 @@ func TestPluginUnmount(t *testing.T) {
 					Create(&driver.CreateRequest{Name: volName, Path: volPath, Options: volOpts}).
 					Return(nil)
 			},
-			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Options: volOpts}},
-			mockSaveStateFn: func(b []byte) error {
-				return errors.New("some error")
-			},
-			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
-			expectedError: "unmount failed due to an error while saving state: some error",
+			pluginVolumes:   map[string]*types.Volume{volName: {Path: volPath, Options: volOpts}},
+			mockSaveStateFn: func(b []byte) error { return errors.New("some error") },
+			req:             &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			expectedError:   "unmount failed due to an error while saving state: some error",
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
 				// Mount should still exist in state
 				mounts := map[string]*string{reqMountID: nil}
