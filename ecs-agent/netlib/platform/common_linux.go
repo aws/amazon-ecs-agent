@@ -119,6 +119,12 @@ func NewPlatform(
 				common: commonPlatform,
 			},
 		}, nil
+	case FirecrackerDebugPlatform:
+		return &firecrackerDebug{
+			firecraker: firecraker{
+				common: commonPlatform,
+			},
+		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformString)
 }
