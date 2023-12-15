@@ -115,3 +115,9 @@ func (e *ECSVolumeDriver) Remove(req *driver.RemoveRequest) error {
 	seelog.Infof("Unmounted volume %s successfully.", req.Name)
 	return err
 }
+
+// Method to check if a volume is currently mounted.
+func (e *ECSVolumeDriver) IsMounted(volumeName string) bool {
+	_, exists := e.volumeMounts[volumeName]
+	return exists
+}

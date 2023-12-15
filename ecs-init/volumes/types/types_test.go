@@ -41,13 +41,13 @@ func TestAddMount(t *testing.T) {
 func TestRemoveMount(t *testing.T) {
 	t.Run("no-op when mount not found", func(t *testing.T) {
 		v := &Volume{}
-		v.RemoveMount("id")
+		assert.False(t, v.RemoveMount("id"))
 		assert.Empty(t, v.Mounts)
 	})
 	t.Run("mount should be removed if it exists", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
-		v.RemoveMount("id")
+		assert.True(t, v.RemoveMount("id"))
 		assert.Empty(t, v.Mounts)
 	})
 }

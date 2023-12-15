@@ -272,7 +272,10 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 
 	// Remove the mount from the volume
 	seelog.Infof("Removing mount %s from volume %s", r.ID, r.Name)
-	vol.RemoveMount(r.ID)
+	if exists := vol.RemoveMount(r.ID); !exists {
+		seelog.Warnf("Mount %s was not found on volume %s, this is a no-op", r.ID, r.Name)
+		return nil
+	}
 
 	// If there are no more mounts left on the volume then unmount the volume from the host
 	if len(vol.Mounts) == 0 {
@@ -306,8 +309,11 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 
 // Remove implements Docker volume plugin's Remove Method
 func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
+	seelog.Infof("Received Remove request %+v", r)
+
 	a.lock.Lock()
 	defer a.lock.Unlock()
+
 	seelog.Infof("Removing volume %s", r.Name)
 	vol, ok := a.volumes[r.Name]
 	if !ok {
@@ -315,15 +321,38 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
 
+	// get corresponding volume driver to unmount
+	volDriver, err := a.getVolumeDriver(vol.Type)
+	if err != nil {
+		seelog.Errorf("Volume %s removal failure: %s", r.Name, err)
+		return err
+	}
+	if volDriver == nil {
+		// this case should not happen normally
+		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
+	}
+
+	// Although unmounts are handled by Unmount method, unmount the volume if it's still
+	// mounted. This is mainly to unmount volumes created by an older version of the
+	// plugin in which unmounts were not handled by Unmount method.
+	if volDriver.IsMounted(r.Name) {
+		if err := volDriver.Remove(&driver.RemoveRequest{Name: r.Name}); err != nil {
+			seelog.Errorf("Volume %s removal failure: %v", r.Name, err)
+			return err
+		}
+	}
+
 	// remove the volume information
 	delete(a.volumes, r.Name)
 	// cleanup the volume's host mount path
-	if err := a.CleanupMountPath(vol.Path); err != nil {
+	err = a.CleanupMountPath(vol.Path)
+	if err != nil {
 		seelog.Errorf("Cleaning mount path failed for volume %s: %v", r.Name, err)
 	}
 	seelog.Infof("Saving state after removing volume %s", r.Name)
 	// remove the state of deleted volume
-	if err := a.state.removeVolume(r.Name); err != nil {
+	err = a.state.removeVolume(r.Name)
+	if err != nil {
 		seelog.Errorf("Error saving state after removing volume %s: %v", r.Name, err)
 	}
 	return nil
