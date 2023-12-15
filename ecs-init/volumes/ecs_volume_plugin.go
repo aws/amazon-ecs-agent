@@ -336,6 +336,7 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	// mounted. This is mainly to unmount volumes created by an older version of the
 	// plugin in which unmounts were not handled by Unmount method.
 	if volDriver.IsMounted(r.Name) {
+		seelog.Infof("Volume %s is currently mounted, unmouting it", r.Name)
 		if err := volDriver.Remove(&driver.RemoveRequest{Name: r.Name}); err != nil {
 			seelog.Errorf("Volume %s removal failure: %v", r.Name, err)
 			return err
