@@ -23,8 +23,16 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// TODO: might be a good idea to check the mount point with a tool like mountpoint instead of matching error message.
-const notMountedErrMsg = "not mounted"
+const (
+	// TODO: might be a good idea to check the mount point with a tool like mountpoint instead of matching error message.
+	notMountedErrMsg = "not mounted"
+
+	// This error is returned when volume is already unmounted
+	// Example -
+	// $ sudo umount -l abc
+	// umount: abc: no mount point specified.
+	noMountPointSpecifiedErrMsg = "no mount point specified"
+)
 
 // ECSVolumeDriver holds mount helper and methods for different Volume Mounts
 type ECSVolumeDriver struct {
@@ -104,7 +112,8 @@ func (e *ECSVolumeDriver) Remove(req *driver.RemoveRequest) error {
 	}
 	err := mnt.Unmount()
 	if err != nil {
-		if strings.Contains(err.Error(), notMountedErrMsg) {
+		if strings.Contains(err.Error(), notMountedErrMsg) ||
+			strings.Contains(err.Error(), noMountPointSpecifiedErrMsg) {
 			seelog.Infof("Unmounting volume %s failed because it's not mounted.", req.Name)
 			delete(e.volumeMounts, req.Name)
 			return nil
