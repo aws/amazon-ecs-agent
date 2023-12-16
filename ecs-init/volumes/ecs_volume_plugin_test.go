@@ -822,6 +822,33 @@ func TestPluginMount(t *testing.T) {
 			},
 		},
 		{
+			name: "duplicate mount is a no-op",
+			pluginVolumes: map[string]*types.Volume{
+				volName: {
+					Path:    volPath,
+					Mounts:  map[string]*string{reqMountID: nil},
+					Options: volOpts,
+				},
+			},
+			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
+			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]*string{reqMountID: nil}
+				assert.Equal(t,
+					map[string]*types.Volume{
+						volName: {Path: volPath, Options: volOpts, Mounts: mounts},
+					},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{
+							volName: {Path: volPath, Options: volOpts, Mounts: mounts},
+						},
+					},
+					plugin.state.VolState)
+			},
+		},
+		{
 			name: "roll back changes if saving state fails",
 			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
 				d.EXPECT().Create(&driver.CreateRequest{Name: volName, Path: volPath}).Return(nil)
