@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
 	"github.com/cihub/seelog"
 )
 
@@ -61,7 +62,7 @@ func NewStateManager() *StateManager {
 	}
 }
 
-func (s *StateManager) recordVolume(volName string, vol *Volume) error {
+func (s *StateManager) recordVolume(volName string, vol *types.Volume) error {
 	s.VolState.Volumes[volName] = &VolumeInfo{
 		Type:      vol.Type,
 		Path:      vol.Path,
