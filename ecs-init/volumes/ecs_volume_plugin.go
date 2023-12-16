@@ -190,6 +190,11 @@ func deleteMountPath(path string) error {
 func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	seelog.Infof("Received mount request %+v", r)
 
+	// Validate the request
+	if len(r.ID) == 0 {
+		return nil, fmt.Errorf("no mount ID in the request")
+	}
+
 	// Acquire write lock
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -247,6 +252,11 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 // Unmount implements Docker volume plugin's Unmount Method
 func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	seelog.Infof("Received unmount request %+v", r)
+
+	// Validate the request
+	if len(r.ID) == 0 {
+		return fmt.Errorf("no mount ID in the request")
+	}
 
 	// Acquire write lock
 	a.lock.Lock()

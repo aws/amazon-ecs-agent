@@ -744,7 +744,7 @@ func TestPluginMount(t *testing.T) {
 	}{
 		{
 			name:          "volume not found",
-			req:           &volume.MountRequest{Name: "unknown"},
+			req:           &volume.MountRequest{Name: "unknown", ID: reqMountID},
 			expectedError: "volume unknown not found",
 		},
 		{
@@ -800,6 +800,11 @@ func TestPluginMount(t *testing.T) {
 			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Type: "unknown"}},
 			req:           &volume.MountRequest{Name: volName, ID: reqMountID},
 			expectedError: "Volume volume's driver type unknown not supported: volume unknown type not supported",
+		},
+		{
+			name:          "no ID in the request",
+			req:           &volume.MountRequest{Name: volName},
+			expectedError: "no mount ID in the request",
 		},
 		{
 			name: "driver fails to mount",
@@ -944,7 +949,7 @@ func TestPluginUnmount(t *testing.T) {
 	}{
 		{
 			name:          "volume not found",
-			req:           &volume.UnmountRequest{Name: "unknown"},
+			req:           &volume.UnmountRequest{Name: "unknown", ID: reqMountID},
 			expectedError: "volume unknown not found",
 		},
 		{
@@ -994,6 +999,11 @@ func TestPluginUnmount(t *testing.T) {
 			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Type: "unknown"}},
 			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			expectedError: "volume volume of type unknown is unsupported: volume unknown type not supported",
+		},
+		{
+			name:          "no ID in the request",
+			req:           &volume.UnmountRequest{Name: volName},
+			expectedError: "no mount ID in the request",
 		},
 		{
 			name: "driver fails to unmount",
