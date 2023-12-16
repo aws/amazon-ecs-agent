@@ -113,6 +113,18 @@ func NewPlatform(
 		return &firecraker{
 			common: commonPlatform,
 		}, nil
+	case WarmpoolDebugPlatform:
+		return &containerdDebug{
+			containerd: containerd{
+				common: commonPlatform,
+			},
+		}, nil
+	case FirecrackerDebugPlatform:
+		return &firecrackerDebug{
+			firecraker: firecraker{
+				common: commonPlatform,
+			},
+		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformString)
 }
@@ -494,7 +506,7 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 	return nil
 }
 
-func (c *common) copyFile(src, dst string, fileMode os.FileMode) error {
+func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {
 	contents, err := c.ioutil.ReadFile(src)
 	if err != nil {
 		return errors.Wrapf(err, "unable to read %s", src)

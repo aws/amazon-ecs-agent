@@ -87,3 +87,14 @@ func (ns *NetworkNamespace) GetPrimaryInterface() *networkinterface.NetworkInter
 func (ns *NetworkNamespace) IsPrimary() bool {
 	return ns.Index == 0
 }
+
+// GetInterfaceByIndex returns the interface in the netns that has the specified index.
+func (ns *NetworkNamespace) GetInterfaceByIndex(idx int64) *networkinterface.NetworkInterface {
+	for _, iface := range ns.NetworkInterfaces {
+		if iface.Index == idx {
+			return iface
+		}
+	}
+
+	return nil
+}
