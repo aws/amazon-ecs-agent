@@ -117,7 +117,7 @@ func TestConfigureInterfaceSuccessWithRetry(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		os.EXPECT().Setenv(VPCCNIPluginLogFileEnv, gomock.Any()),
+		os.EXPECT().Setenv(VPCCNIPluginLogFileEnv, gomock.Any()).Times(1),
 		// First invocation of CNI plugin fails.
 		cniClient.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("failed")),
 		// During the retry the CNI plugin calls succeed.
@@ -159,7 +159,7 @@ func TestContainerd_CreateNetNS(t *testing.T) {
 	// Negative case.
 	err = errors.New("invalid operation")
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(err, nil).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(false, err).Times(1),
 	)
 	err = testC.CreateNetNS(netNSID)
 	require.Error(t, err)
@@ -196,7 +196,7 @@ func TestContainerd_DeleteNetNS(t *testing.T) {
 	// Negative case.
 	err = errors.New("invalid operation")
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(err, nil).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(false, err).Times(1),
 	)
 	err = testC.DeleteNetNS(netNSID)
 	require.Error(t, err)
