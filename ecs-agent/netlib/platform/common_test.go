@@ -62,8 +62,9 @@ func getTestInterface() *networkinterface.NetworkInterface {
 				Address:  addr2,
 			},
 		},
-		DomainNameSearchList:     []string{searchDomainName, searchDomainName2},
-		DeviceName:               deviceName,
-		SubnetGatewayIPV4Address: subnetGatewayCIDR,
+		DomainNameSearchList:         []string{searchDomainName, searchDomainName2},
+		DeviceName:                   deviceName,
+		SubnetGatewayIPV4Address:     subnetGatewayCIDR,
+		InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
 	}
 }

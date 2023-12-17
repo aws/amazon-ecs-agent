@@ -59,12 +59,13 @@ func NewPlatform(
 	platformString string,
 	_ volume.TaskVolumeAccessor,
 	_ string,
-	_ netwrapper.Net) (API, error) {
+	net netwrapper.Net) (API, error) {
 	c := containerd{
 		common: common{
 			nsUtil:    ecscni.NewNetNSUtil(),
 			cniClient: ecscni.NewCNIClient([]string{GetCNIPluginPath()}),
 			os:        oswrapper.NewOS(),
+			net:       net,
 		},
 	}
 	switch platformString {

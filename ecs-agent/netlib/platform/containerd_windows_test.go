@@ -143,7 +143,7 @@ func TestContainerd_CreateNetNS(t *testing.T) {
 
 	// Positive case.
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(false).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(false, nil).Times(1),
 		nsUtil.EXPECT().NewNetNS(netNSID).Return(nil).Times(1),
 	)
 	err := testC.CreateNetNS(netNSID)
@@ -151,7 +151,7 @@ func TestContainerd_CreateNetNS(t *testing.T) {
 
 	// NetNS exists case.
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(true).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(true, nil).Times(1),
 	)
 	err = testC.CreateNetNS(netNSID)
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestContainerd_DeleteNetNS(t *testing.T) {
 
 	// Positive case.
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(false).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(false, nil).Times(1),
 		nsUtil.EXPECT().DelNetNS(netNSID).Return(nil).Times(1),
 	)
 	err := testC.DeleteNetNS(netNSID)
@@ -188,7 +188,7 @@ func TestContainerd_DeleteNetNS(t *testing.T) {
 
 	// NetNS exists case.
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(true).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(true, nil).Times(1),
 	)
 	err = testC.DeleteNetNS(netNSID)
 	require.NoError(t, err)
