@@ -56,6 +56,7 @@ func TestConfigureENISuccessWithoutRetry(t *testing.T) {
 	}
 
 	gomock.InOrder(
+		os.EXPECT().Setenv(VPCCNIPluginLogFileEnv, `C:\ProgramData\Amazon\Fargate\log\cni\vpc-eni.log`).Times(1),
 		// First Add invocation is to move task ENI into the task namespace.
 		mockCNIClient.EXPECT().Add(gomock.Any(), gomock.Any()).Do(
 			func(_ context.Context, config ecscni.PluginConfig) {
