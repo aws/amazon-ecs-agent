@@ -44,7 +44,7 @@ func TestConfigureENISuccessWithoutRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	mockCNIClient := mock_ecscni.NewMockCNI(ctrl)
+	mockCNIClient := mock_ecscni2.NewMockCNI(ctrl)
 	os := mock_oswrapper.NewMockOS(ctrl)
 
 	iface := getTestInterface()
@@ -105,7 +105,7 @@ func TestConfigureInterfaceSuccessWithRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	cniClient := mock_ecscni.NewMockCNI(ctrl)
+	cniClient := mock_ecscni2.NewMockCNI(ctrl)
 	os := mock_oswrapper.NewMockOS(ctrl)
 
 	iface := getTestInterface()
@@ -134,7 +134,7 @@ func TestContainerd_CreateNetNS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	nsUtil := mock_ecscni2.NewMockNetNSUtil(ctrl)
+	nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
 	testC := &containerd{
 		common{
 			nsUtil: nsUtil,
@@ -171,7 +171,7 @@ func TestContainerd_DeleteNetNS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	nsUtil := mock_ecscni2.NewMockNetNSUtil(ctrl)
+	nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
 	testC := &containerd{
 		common{
 			nsUtil: nsUtil,
