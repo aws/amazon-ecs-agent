@@ -19,6 +19,7 @@ package netlib
 import (
 	"encoding/json"
 	"fmt"
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 	"net"
 	"testing"
 
@@ -47,7 +48,8 @@ func getTestFunc(
 		defer ctrl.Finish()
 
 		// Create a networkBuilder for the warmpool platform.
-		platformAPI, err := platform.NewPlatform(plt, nil, "", nil)
+		mockNet := mock_netwrapper.NewMockNet(ctrl)
+		platformAPI, err := platform.NewPlatform(plt, nil, "", mockNet)
 		require.NoError(t, err)
 		netBuilder := &networkBuilder{
 			platformAPI: platformAPI,
