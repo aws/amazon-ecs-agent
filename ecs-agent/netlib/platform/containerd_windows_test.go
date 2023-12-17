@@ -117,7 +117,7 @@ func TestConfigureInterfaceSuccessWithRetry(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		os.EXPECT().Setenv(VPCCNIPluginLogFileEnv, gomock.Any()).Times(1),
+		os.EXPECT().Setenv(VPCCNIPluginLogFileEnv, `C:\ProgramData\Amazon\Fargate\log\cni\vpc-eni.log`).Times(1),
 		// First invocation of CNI plugin fails.
 		cniClient.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("failed")),
 		// During the retry the CNI plugin calls succeed.
