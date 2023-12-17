@@ -15,6 +15,7 @@ package platform
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 )
 
 const (
@@ -66,5 +67,7 @@ func getTestInterface() *networkinterface.NetworkInterface {
 		DeviceName:                   deviceName,
 		SubnetGatewayIPV4Address:     subnetGatewayCIDR,
 		InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
+		KnownStatus:                  status.NetworkNone,
+		DesiredStatus:                status.NetworkReadyPull,
 	}
 }

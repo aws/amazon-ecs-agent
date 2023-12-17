@@ -79,6 +79,10 @@ func getTestFunc(
 		actualConfig, err := netBuilder.BuildTaskNetworkConfiguration(taskID, taskPayload)
 		require.NoError(t, err)
 
+		// NetNS path on windows is auto generated in place. Hence, we exclude it from verification.
+		for i := 0; i < len(actualConfig.NetworkNamespaces); i++ {
+			expected.NetworkNamespaces[i].Path = actualConfig.NetworkNamespaces[i].Path
+		}
 		// Convert the obtained output and the reference data into json data to make it
 		// easier to compare.
 		expected, err := json.Marshal(expectedConfig)

@@ -159,7 +159,7 @@ func TestContainerd_CreateNetNS(t *testing.T) {
 	// Negative case.
 	err = errors.New("invalid operation")
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(err).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(err, nil).Times(1),
 	)
 	err = testC.CreateNetNS(netNSID)
 	require.Error(t, err)
@@ -196,7 +196,7 @@ func TestContainerd_DeleteNetNS(t *testing.T) {
 	// Negative case.
 	err = errors.New("invalid operation")
 	gomock.InOrder(
-		nsUtil.EXPECT().NSExists(netNSID).Return(err).Times(1),
+		nsUtil.EXPECT().NSExists(netNSID).Return(err, nil).Times(1),
 	)
 	err = testC.DeleteNetNS(netNSID)
 	require.Error(t, err)
