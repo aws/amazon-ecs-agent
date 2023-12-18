@@ -191,6 +191,9 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 	seelog.Infof("Received mount request %+v", r)
 
 	// Validate the request
+	if len(r.Name) == 0 {
+		return nil, fmt.Errorf("no volume in the request")
+	}
 	if len(r.ID) == 0 {
 		return nil, fmt.Errorf("no mount ID in the request")
 	}
@@ -254,6 +257,9 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	seelog.Infof("Received unmount request %+v", r)
 
 	// Validate the request
+	if len(r.Name) == 0 {
+		return fmt.Errorf("no volume in the request")
+	}
 	if len(r.ID) == 0 {
 		return fmt.Errorf("no mount ID in the request")
 	}

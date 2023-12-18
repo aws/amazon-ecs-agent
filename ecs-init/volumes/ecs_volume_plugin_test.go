@@ -807,6 +807,11 @@ func TestPluginMount(t *testing.T) {
 			expectedError: "no mount ID in the request",
 		},
 		{
+			name:          "no volume in the request",
+			req:           &volume.MountRequest{},
+			expectedError: "no volume in the request",
+		},
+		{
 			name: "driver fails to mount",
 			setDriverExpectations: func(d *mock_driver.MockVolumeDriver) {
 				d.EXPECT().
@@ -1004,6 +1009,11 @@ func TestPluginUnmount(t *testing.T) {
 			name:          "no ID in the request",
 			req:           &volume.UnmountRequest{Name: volName},
 			expectedError: "no mount ID in the request",
+		},
+		{
+			name:          "no volume in the request",
+			req:           &volume.UnmountRequest{},
+			expectedError: "no volume in the request",
 		},
 		{
 			name: "driver fails to unmount",
