@@ -135,6 +135,7 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 		taskPayload.ElasticNetworkInterfaces,
 		macToNames,
 	)
+	iface.Default = true
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create network interface model")
 	}
