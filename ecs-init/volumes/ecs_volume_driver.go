@@ -127,6 +127,8 @@ func (e *ECSVolumeDriver) Remove(req *driver.RemoveRequest) error {
 
 // Method to check if a volume is currently mounted.
 func (e *ECSVolumeDriver) IsMounted(volumeName string) bool {
+	e.lock.RLock()
+	defer e.lock.RUnlock()
 	_, exists := e.volumeMounts[volumeName]
 	return exists
 }

@@ -196,3 +196,15 @@ func TestRemoveVolumeNotPresent(t *testing.T) {
 	assert.Error(t, e.Remove(&req), "expected error when volume to remove is not found")
 	assert.Len(t, e.volumeMounts, 1)
 }
+
+func TestIsMounted(t *testing.T) {
+	t.Run("not unmounted", func(t *testing.T) {
+		e := NewECSVolumeDriver()
+		assert.False(t, e.IsMounted("nope"))
+	})
+	t.Run("mounted", func(t *testing.T) {
+		e := NewECSVolumeDriver()
+		e.volumeMounts["vol"] = &MountHelper{}
+		assert.True(t, e.IsMounted("vol"))
+	})
+}
