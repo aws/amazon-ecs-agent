@@ -70,10 +70,10 @@ func TestConfigureENISuccessWithoutRetry(t *testing.T) {
 				assert.Equal(t, nameServer, pluginConfig.DNS.Nameservers[0])
 				assert.Equal(t, deviceName, pluginConfig.ENIName)
 				assert.Equal(t, eniMAC, pluginConfig.ENIMACAddress)
-				assert.Len(t, pluginConfig.ENIIPAddresses, 2)
+				assert.Len(t, pluginConfig.ENIIPAddresses, 1)
 				assert.Equal(t, ipv4Addr, strings.Split(pluginConfig.ENIIPAddresses[0], "/")[0])
 				assert.Len(t, pluginConfig.GatewayIPAddresses, 1)
-				assert.Equal(t, subnetGatewayCIDR, pluginConfig.GatewayIPAddresses[0])
+				assert.Equal(t, strings.Split(eniSubnetGateway, "/")[0], pluginConfig.GatewayIPAddresses[0])
 				assert.True(t, pluginConfig.BlockIMDS)
 				assert.False(t, pluginConfig.UseExistingNetwork)
 			}).Return(nil, nil),
