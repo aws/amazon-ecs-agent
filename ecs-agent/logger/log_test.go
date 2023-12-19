@@ -142,7 +142,7 @@ func TestJSONFormat_Structured_Timestamp(t *testing.T) {
 	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03.000", "msg": "This is my log message"}`, s)
 }
 
-func TestSetLevel(t *testing.T) {
+func TestSetLogLevels(t *testing.T) {
 	resetEnv := func() {
 		os.Unsetenv(LOGLEVEL_ENV_VAR)
 		os.Unsetenv(LOGLEVEL_ON_INSTANCE_ENV_VAR)
@@ -241,8 +241,11 @@ func TestSetLevel(t *testing.T) {
 				MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 				MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 			}
-			SetLevel(os.Getenv(LOGLEVEL_ENV_VAR), os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR))
+
+			SetDriverLogLevel(test.loglevel)
 			require.Equal(t, test.expectedLoglevel, Config.driverLevel)
+
+			SetInstanceLogLevel(test.loglevelInstance)
 			require.Equal(t, test.expectedLoglevelInstance, Config.instanceLevel)
 		})
 	}
