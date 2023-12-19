@@ -32,15 +32,12 @@ import (
 )
 
 const (
-	netNSPath         = "ns1"
-	ipAddress         = "169.254.0.1"
-	eniID             = "eni-abe4d"
-	eniMAC            = "f0:5c:89:a3:ab:01"
-	subnetGatewayCIDR = "10.1.0.1/24"
-	deviceName        = "eth1"
-	vni               = "ABC123"
-	destinationIP     = "10.0.3.1"
-	destinationPort   = 6081
+	netNSPath       = "ns1"
+	ipAddress       = "169.254.0.1"
+	eniID           = "eni-abe4d"
+	vni             = "ABC123"
+	destinationIP   = "10.0.3.1"
+	destinationPort = 6081
 )
 
 func TestCreateBridgeConfig(t *testing.T) {

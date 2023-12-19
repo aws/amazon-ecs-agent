@@ -46,22 +46,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	hostName          = "db.app.com"
-	hostName2         = "be.app.com"
-	addr              = "169.254.2.3"
-	addr2             = "169.254.2.4"
-	dnsName           = "amazon.com"
-	nameServer        = "10.1.0.2"
-	nameServer2       = "10.2.0.2"
-	ipv4Addr          = "10.1.0.196"
-	ipv4Addr2         = "10.2.0.196"
-	searchDomainName  = "us-west-2.test.compute.internal"
-	searchDomainName2 = "us-west-2.test2.compute.internal"
-	trunkENIMac       = "f0:5c:89:a3:ab:03"
-	geneveMac         = "f0:5c:89:a3:ab:04"
-)
-
 func TestNewPlatform(t *testing.T) {
 	_, err := NewPlatform(WarmpoolPlatform, nil, "", nil)
 	assert.NoError(t, err)
@@ -124,32 +108,7 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 
 	netNSName := "netns-name"
 	netNSPath := "/etc/netns/" + netNSName
-	iface := &networkinterface.NetworkInterface{
-		PrivateDNSName:    dnsName,
-		DomainNameServers: []string{nameServer, nameServer2},
-		Default:           true,
-		IPV4Addresses: []*networkinterface.IPV4Address{
-			{
-				Address: ipv4Addr,
-				Primary: true,
-			},
-			{
-				Address: ipv4Addr2,
-				Primary: false,
-			},
-		},
-		DNSMappingList: []networkinterface.DNSMapping{
-			{
-				Hostname: hostName,
-				Address:  addr,
-			},
-			{
-				Hostname: hostName2,
-				Address:  addr2,
-			},
-		},
-		DomainNameSearchList: []string{searchDomainName, searchDomainName2},
-	}
+	iface := getTestInterface()
 
 	netns := &tasknetworkconfig.NetworkNamespace{
 		Name:              netNSName,
