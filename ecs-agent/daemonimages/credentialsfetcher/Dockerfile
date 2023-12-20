@@ -16,7 +16,6 @@ FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal
 
 RUN dnf install -y krb5-workstation jq unzip && mkdir /krb5 && chmod 755 /krb5
 RUN dnf install -y sssd
-RUN dnf install -y realmd
 RUN dnf install -y which
 RUN dnf install -y credentials-fetcher
 
