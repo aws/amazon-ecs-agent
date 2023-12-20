@@ -18,8 +18,12 @@ package tasknetworkconfig
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/stretchr/testify/assert"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"fmt"
 	"testing"
 )
 
@@ -78,4 +82,30 @@ func TestNewTaskNetConfig(t *testing.T) {
 	assert.Equal(t, 2, len(taskNetConfig.NetworkNamespaces))
 	assert.Equal(t, *netNSs[0], *taskNetConfig.NetworkNamespaces[0])
 	assert.Equal(t, *netNSs[1], *taskNetConfig.NetworkNamespaces[1])
+}
+
+// TestTaskNetworkConfig_GetInterfaceNamesToNetNSMapping verifies the map created
+// between interface name and netNS is accurate.
+func TestTaskNetworkConfig_GetInterfaceNamesToNetNSMapping(t *testing.T) {
+	var netNSs []*NetworkNamespace
+	for i := 0; i < 3; i++ {
+		netNSs = append(netNSs, &NetworkNamespace{
+			Name: fmt.Sprintf("ns%d", i),
+			NetworkInterfaces: []*ni.NetworkInterface{
+				{
+					Name: fmt.Sprintf("ni%d", i),
+				},
+			},
+		})
+	}
+
+	netConfig := &TaskNetworkConfig{
+		NetworkNamespaces: netNSs,
+	}
+
+	name2NetNS := netConfig.GetInterfaceNamesToNetNSMapping()
+	require.Equal(t, 3, len(name2NetNS))
+	for i := 0; i < 3; i++ {
+		require.Equal(t, name2NetNS[fmt.Sprintf("ni%d", i)].Name, fmt.Sprintf("ns%d", i))
+	}
 }

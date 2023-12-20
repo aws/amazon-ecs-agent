@@ -115,10 +115,10 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 		ElasticNetworkInterfaces: enis,
 		Containers: []*ecsacs.Container{
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName1)},
+				NetworkInterfaceNames: []*string{aws.String(ifName2)},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName2)},
+				NetworkInterfaceNames: []*string{aws.String(ifName1)},
 			},
 			{
 				NetworkInterfaceNames: []*string{aws.String(ifName1)},
@@ -277,16 +277,16 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 		ElasticNetworkInterfaces: enis,
 		Containers: []*ecsacs.Container{
 			{
-				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
-			},
-			{
-				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
-			},
-			{
 				NetworkInterfaceNames: []*string{aws.String(secondaryIfaceName), aws.String(vethIfaceName)},
 			},
 			{
 				NetworkInterfaceNames: []*string{aws.String(secondaryIfaceName), aws.String(vethIfaceName)},
+			},
+			{
+				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
+			},
+			{
+				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
 			},
 		},
 	}

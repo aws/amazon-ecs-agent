@@ -18,6 +18,7 @@ package platform
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -31,12 +32,12 @@ import (
 )
 
 const (
-	netNSPath         = "ns1"
-	ipAddress         = "169.254.0.1"
-	eniID             = "eni-abe4d"
-	eniMAC            = "f0:5c:89:a3:ab:01"
-	subnetGatewayCIDR = "10.1.0.1/24"
-	deviceName        = "eth1"
+	netNSPath       = "ns1"
+	ipAddress       = "169.254.0.1"
+	eniID           = "eni-abe4d"
+	vni             = "ABC123"
+	destinationIP   = "10.0.3.1"
+	destinationPort = 6081
 )
 
 func TestCreateBridgeConfig(t *testing.T) {
@@ -190,5 +191,24 @@ func getTestBranchENI() *networkinterface.NetworkInterface {
 		},
 		UserID: uint32(1000),
 		Index:  0,
+	}
+}
+
+func getTestV2NInterface() *networkinterface.NetworkInterface {
+	return &networkinterface.NetworkInterface{
+		InterfaceAssociationProtocol: networkinterface.V2NInterfaceAssociationProtocol,
+		SubnetGatewayIPV4Address:     networkinterface.DefaultGeneveInterfaceGateway,
+		DesiredStatus:                status.NetworkReadyPull,
+		IPV4Addresses: []*networkinterface.IPV4Address{
+			{
+				Address: networkinterface.DefaultGeneveInterfaceIPAddress,
+			},
+		},
+		TunnelProperties: &networkinterface.TunnelProperties{
+			ID:                   vni,
+			DestinationIPAddress: destinationIP,
+			DestinationPort:      destinationPort,
+		},
+		DeviceName: fmt.Sprintf(networkinterface.GeneveInterfaceNamePattern, vni, destinationPort),
 	}
 }

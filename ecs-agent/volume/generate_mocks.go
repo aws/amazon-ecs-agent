@@ -13,4 +13,4 @@
 
 package volume
 
-//go:generate mockgen -destination=mocks/volume_accessor_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/volume VolumeAccessor
+//go:generate mockgen -destination=mocks/volume_accessor_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/volume TaskVolumeAccessor

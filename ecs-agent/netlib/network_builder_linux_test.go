@@ -25,9 +25,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
@@ -42,12 +42,12 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
-	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, data.Client{}, "")
+	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
 	nb := nbi.(*networkBuilder)
 	require.NoError(t, err)
 	require.NotNil(t, nb.platformAPI)
 
-	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, data.Client{}, "")
+	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, nil, "")
 	require.Error(t, err)
 	require.Nil(t, nbi)
 }
@@ -152,9 +152,11 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	platformAPI := mock_platform.NewMockAPI(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	netDao := mock_data.NewMockNetworkDataClient(ctrl)
 	netBuilder := &networkBuilder{
 		platformAPI:    platformAPI,
 		metricsFactory: metricsFactory,
+		networkDAO:     netDao,
 	}
 
 	// Single ENI use case without AppMesh and service connect configs.
@@ -166,7 +168,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	netNS.DesiredState = status.NetworkReadyPull
 	t.Run("single-eni-default", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -180,7 +182,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("single-eni-appmesh-readypull", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -192,7 +194,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("single-eni-appmesh-ready", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -206,7 +208,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("single-eni-serviceconnect-ready", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -218,7 +220,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("single-eni-serviceconnect-readypull", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -229,7 +231,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("multi-eni-default", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -240,7 +242,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("deleted", func(*testing.T) {
 		gomock.InOrder(
-			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
 		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
@@ -256,6 +258,7 @@ func getExpectedCalls_StartAWSVPC(
 	platformAPI *mock_platform.MockAPI,
 	metricsFactory *mock_metrics.MockEntryFactory,
 	mockEntry *mock_metrics.MockEntry,
+	netDao *mock_data.MockNetworkDataClient,
 	netNS *tasknetworkconfig.NetworkNamespace,
 ) []*gomock.Call {
 	var calls []*gomock.Call
@@ -287,7 +290,8 @@ func getExpectedCalls_StartAWSVPC(
 			continue
 		}
 		calls = append(calls,
-			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface).Return(nil).Times(1))
+			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface, gomock.Any()).Return(nil).Times(1),
+			netDao.EXPECT().SaveNetworkNamespace(netNS).Return(nil).Times(1))
 	}
 
 	// AppMesh/ServiceConnect configurations are executed only during the READY_PULL -> READY transitions.
@@ -309,6 +313,8 @@ func getExpectedCalls_StartAWSVPC(
 	return calls
 }
 
+// testNetworkBuilder_StopAWSVPC verifies that the cleanup of AWSVPC
+// network on the host works as expected.
 func testNetworkBuilder_StopAWSVPC(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -363,9 +369,10 @@ func getExpectedCalls_StopAWSVPC(
 			continue
 		}
 		calls = append(calls,
-			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface).Return(nil).Times(1))
+			platformAPI.EXPECT().ConfigureInterface(ctx, netNS.Path, iface, gomock.Any()).Return(nil).Times(1))
 	}
 
 	return append(calls,
+		platformAPI.EXPECT().DeleteDNSConfig(netNS.Name).Return(nil).Times(1),
 		platformAPI.EXPECT().DeleteNetNS(netNS.Path).Return(nil).Times(1))
 }
