@@ -24,9 +24,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 )
 
 // getDockerClientMock backs up getDockerClient package-level function and replaces it with the mock passed as
@@ -582,5 +586,50 @@ func TestPostStopCredentialsProxyRouteRemoveError(t *testing.T) {
 	err := engine.PostStop()
 	if err != nil {
 		t.Errorf("engine post-stop error: %v", err)
+	}
+}
+
+func TestPreStartAppArmorSetup(t *testing.T) {
+	testCases := []struct {
+		name             string
+		hostSupports     bool
+		loadProfileError error
+		expectedError    error
+	}{
+		{
+			name:             "HostNotSupported",
+			hostSupports:     false,
+			loadProfileError: nil,
+			expectedError:    nil,
+		},
+		{
+			name:             "HostSupportedNoError",
+			hostSupports:     true,
+			loadProfileError: nil,
+			expectedError:    nil,
+		},
+		{
+			name:             "HostSupportedWithError",
+			hostSupports:     true,
+			loadProfileError: errors.New("error loading apparmor profile"),
+			expectedError:    errors.New("error loading apparmor profile"),
+		},
+	}
+	defer func() {
+		hostSupports = ctrdapparmor.HostSupports
+		loadDefaultProfile = apparmor.LoadDefaultProfile
+	}()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hostSupports = func() bool {
+				return tc.hostSupports
+			}
+			loadDefaultProfile = func(profile string) error {
+				return tc.loadProfileError
+			}
+			engine := &Engine{}
+			err := engine.PreStartAppArmor()
+			assert.Equal(t, tc.expectedError, err)
+		})
 	}
 }
