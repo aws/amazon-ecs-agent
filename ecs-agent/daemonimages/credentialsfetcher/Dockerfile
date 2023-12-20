@@ -14,17 +14,15 @@
 # use minimal amazonlinux:2023 base for credentials-fetcher image
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal
 
-RUN dnf install -y krb5-workstation jq unzip && mkdir /krb5 && chmod 755 /krb5
+RUN dnf install -y krb5-workstation
 RUN dnf install -y sssd
-RUN dnf install -y realmd
 RUN dnf install -y which
 RUN dnf install -y credentials-fetcher
 
 RUN mkdir -p /var/credentials-fetcher/krbdir
 RUN mkdir -p /var/credentials-fetcher/logging
 RUN mkdir -p /var/credentials-fetcher/socket
-
-VOLUME ["/krb5","/etc/krb5.conf.d","/var/scratch"]
+RUN mkdir -p /var/scratch
 
 RUN cp /usr/sbin/krb5.conf /etc/krb5.conf
 
