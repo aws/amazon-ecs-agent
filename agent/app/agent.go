@@ -295,8 +295,9 @@ func (agent *ecsAgent) start() int {
 		})
 		return exitcodes.ExitError
 	}
-	client, err := ecsclient.NewECSClient(agent.credentialProvider, cfgAccessor, agent.ec2MetadataClient,
+	clientFactory := ecsclient.NewECSClientFactory(agent.credentialProvider, cfgAccessor, agent.ec2MetadataClient,
 		version.String(), ecsclient.WithIPv6PortBindingExcluded(true))
+	client, err := clientFactory.NewClient()
 	if err != nil {
 		logger.Critical("Unable to create new ECS client", logger.Fields{
 			field.Error: err,
