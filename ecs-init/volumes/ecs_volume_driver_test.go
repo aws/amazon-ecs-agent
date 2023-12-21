@@ -114,23 +114,41 @@ func TestRemoveVolumeHappyPath(t *testing.T) {
 }
 
 func TestRemoveVolumeUnmounted(t *testing.T) {
-	e := NewECSVolumeDriver()
-	e.volumeMounts["vol"] = &MountHelper{}
-	req := driver.RemoveRequest{
-		Name: "vol",
+	tcs := []struct {
+		name     string
+		errorMsg string
+	}{
+		{
+			name:     "not mounted",
+			errorMsg: "not mounted",
+		},
+		{
+			name:     "no mount point specified",
+			errorMsg: "umount: abc: no mount point specified.",
+		},
 	}
-	lookPath = func(string) (string, error) {
-		return "path", nil
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewECSVolumeDriver()
+			e.volumeMounts["vol"] = &MountHelper{}
+			req := driver.RemoveRequest{
+				Name: "vol",
+			}
+			lookPath = func(string) (string, error) {
+				return "path", nil
+			}
+			runUnmount = func(string, string) error {
+				return errors.New(tc.errorMsg)
+			}
+			defer func() {
+				lookPath = getPath
+				runUnmount = runUnmountCommand
+			}()
+			assert.NoError(t, e.Remove(&req), "expected no error when unmount failed because of not mounted")
+			assert.Len(t, e.volumeMounts, 0)
+		})
 	}
-	runUnmount = func(string, string) error {
-		return errors.New("not mounted")
-	}
-	defer func() {
-		lookPath = getPath
-		runUnmount = runUnmountCommand
-	}()
-	assert.NoError(t, e.Remove(&req), "expected no error when unmount failed because of not mounted")
-	assert.Len(t, e.volumeMounts, 0)
 }
 
 func TestRemoveUnmountFailure(t *testing.T) {
@@ -177,4 +195,16 @@ func TestRemoveVolumeNotPresent(t *testing.T) {
 	}
 	assert.Error(t, e.Remove(&req), "expected error when volume to remove is not found")
 	assert.Len(t, e.volumeMounts, 1)
+}
+
+func TestIsMounted(t *testing.T) {
+	t.Run("not unmounted", func(t *testing.T) {
+		e := NewECSVolumeDriver()
+		assert.False(t, e.IsMounted("nope"))
+	})
+	t.Run("mounted", func(t *testing.T) {
+		e := NewECSVolumeDriver()
+		e.volumeMounts["vol"] = &MountHelper{}
+		assert.True(t, e.IsMounted("vol"))
+	})
 }
