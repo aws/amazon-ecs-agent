@@ -1028,16 +1028,11 @@ func TestPluginUnmount(t *testing.T) {
 			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			expectedError: "failed to unmount volume volume: some error",
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				// Mount should still exist in the plugin state
-				mounts := map[string]*string{reqMountID: nil}
+				// Mount should not exist in the plugin state
+				mounts := map[string]*string{}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
-				assert.Equal(t,
-					&VolumeState{
-						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
-					},
-					plugin.state.VolState)
 			},
 		},
 		{

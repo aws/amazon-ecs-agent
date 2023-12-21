@@ -297,7 +297,6 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	if len(vol.Mounts) == 0 {
 		seelog.Infof("No active mounts left on volume %s, unmounting it", r.Name)
 		if err := volDriver.Remove(&driver.RemoveRequest{Name: r.Name}); err != nil {
-			vol.AddMount(r.ID)
 			seelog.Errorf("Failed to unmount volume %v: %v", r.Name, err)
 			return fmt.Errorf("failed to unmount volume %v: %w", r.Name, err)
 		}
