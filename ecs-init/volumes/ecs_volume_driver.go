@@ -66,10 +66,6 @@ func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	if _, ok := e.volumeMounts[r.Name]; ok {
-		return fmt.Errorf("volume already exists")
-	}
-
 	mnt := setOptions(r.Options)
 	mnt.Target = r.Path
 
