@@ -268,7 +268,7 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	// Find  the volume
+	// Find the volume
 	vol, ok := a.volumes[r.Name]
 	if !ok {
 		seelog.Errorf("Volume %s to unmount is not found", r.Name)
