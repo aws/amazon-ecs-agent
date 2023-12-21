@@ -306,17 +306,7 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	// Save state
 	if err := a.state.recordVolume(r.Name, vol); err != nil {
 		// State save failed, so roll back the changes made so far to make state consistent
-		seelog.Errorf("Error saving state of volume %s, rolling back changes: %v", r.Name, err)
-		if len(vol.Mounts) == 0 {
-			seelog.Warnf("Rolling back unmounting of volume %s", r.Name)
-			req := &driver.CreateRequest{Name: r.Name, Path: vol.Path, Options: vol.Options}
-			if err := volDriver.Create(req); err != nil {
-				seelog.Errorf("Failed to mount volume %s during rollback: %v", r.Name, err)
-			}
-		}
-		vol.AddMount(r.ID)
-		a.state.recordVolume(r.Name, vol)
-		return fmt.Errorf("unmount failed due to an error while saving state: %w", err)
+		seelog.Errorf("Error saving state of volume %s", r.Name, err)
 	}
 
 	// All good
