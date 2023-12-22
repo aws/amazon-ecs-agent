@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime"
 	"strings"
 	"time"
 
@@ -417,7 +416,7 @@ func getCpuAndMemory() (int64, int64) {
 		})
 	}
 
-	cpu := runtime.NumCPU() * 1024
+	cpu := utils.GetNumCPU() * 1024
 
 	return int64(cpu), mem
 }
