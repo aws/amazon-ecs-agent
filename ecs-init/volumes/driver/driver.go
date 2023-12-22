@@ -28,6 +28,9 @@ type VolumeDriver interface {
 
 	// Remove unmounts the volume from the host.
 	Remove(removeRequest *RemoveRequest) error
+
+	// Method to check if a volume is currently mounted.
+	IsMounted(volumeName string) bool
 }
 
 // CreateRequest holds fields necessary for creating a volume

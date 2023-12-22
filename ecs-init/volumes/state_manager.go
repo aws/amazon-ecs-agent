@@ -47,10 +47,11 @@ type VolumeState struct {
 
 // VolumeInfo contains the information of managed volumes
 type VolumeInfo struct {
-	Type      string            `json:"type,omitempty"`
-	Path      string            `json:"path,omitempty"`
-	Options   map[string]string `json:"options,omitempty"`
-	CreatedAt string            `json:"createdAt,omitempty"`
+	Type      string             `json:"type,omitempty"`
+	Path      string             `json:"path,omitempty"`
+	Options   map[string]string  `json:"options,omitempty"`
+	CreatedAt string             `json:"createdAt,omitempty"`
+	Mounts    map[string]*string `json:"mounts,omitempty"`
 }
 
 // NewStateManager initializes the state manager of volume plugin
@@ -63,11 +64,18 @@ func NewStateManager() *StateManager {
 }
 
 func (s *StateManager) recordVolume(volName string, vol *types.Volume) error {
+	// Copy the mounts so that the map is not shared
+	mountsCopy := map[string]*string{}
+	for k, v := range vol.Mounts {
+		mountsCopy[k] = v
+	}
+
 	s.VolState.Volumes[volName] = &VolumeInfo{
 		Type:      vol.Type,
 		Path:      vol.Path,
 		Options:   vol.Options,
 		CreatedAt: vol.CreatedAt,
+		Mounts:    mountsCopy,
 	}
 	return s.save()
 }

@@ -62,6 +62,20 @@ func (mr *MockVolumeDriverMockRecorder) Create(createRequest interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockVolumeDriver)(nil).Create), createRequest)
 }
 
+// IsMounted mocks base method.
+func (m *MockVolumeDriver) IsMounted(volumeName string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMounted", volumeName)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsMounted indicates an expected call of IsMounted.
+func (mr *MockVolumeDriverMockRecorder) IsMounted(volumeName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMounted", reflect.TypeOf((*MockVolumeDriver)(nil).IsMounted), volumeName)
+}
+
 // Remove mocks base method.
 func (m *MockVolumeDriver) Remove(removeRequest *driver.RemoveRequest) error {
 	m.ctrl.T.Helper()
