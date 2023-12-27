@@ -55,12 +55,12 @@ type NetworkInterface struct {
 	// InterfaceAssociationProtocol is the type of NetworkInterface, valid value: "default", "vlan"
 	InterfaceAssociationProtocol string `json:",omitempty"`
 
-	Index         int64                `json:"Index,omitempty"`
-	UserID        uint32               `json:"UserID,omitempty"`
-	Name          string               `json:"Name,omitempty"`
-	DeviceName    string               `json:"DeviceName,omitempty"`
-	KnownStatus   status.NetworkStatus `json:"KnownStatus,omitempty"`
-	DesiredStatus status.NetworkStatus `json:"DesiredStatus,omitempty"`
+	Index         int64                `json:"Index"`
+	UserID        uint32               `json:"UserID"`
+	Name          string               `json:"Name"`
+	DeviceName    string               `json:"DeviceName"`
+	KnownStatus   status.NetworkStatus `json:"KnownStatus"`
+	DesiredStatus status.NetworkStatus `json:"DesiredStatus"`
 
 	// GuestNetNSName represents the interface's network namespace inside a guest OS if applicable.
 	// A sample use case is while running tasks inside Firecracker microVMs.
