@@ -88,6 +88,7 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 	mode := aws.StringValue(taskPayload.NetworkMode)
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
+		logger.Debug("Starting network model building")
 		return c.buildAWSVPCNetworkConfig(taskID, taskPayload)
 	default:
 		return nil, errors.New("invalid network mode")
@@ -100,22 +101,29 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 	taskID string,
 	taskPayload *ecsacs.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	logger.Debug("Checking ENI slice length")
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
 
 	// Find primary network interface in order to build the task netns name.
+	logger.Debug("Finding primary ENI")
 	var primaryIF *ecsacs.ElasticNetworkInterface
 	for _, eni := range taskPayload.ElasticNetworkInterfaces {
 		if aws.Int64Value(eni.Index) == 0 {
+			logger.Debug("Primary ENI found")
 			primaryIF = eni
 		}
 	}
+	logger.Debug("Getting interface name")
 	ifName := networkinterface.GetInterfaceName(primaryIF)
+	logger.Debug("Getting netns name")
 	netNSName := networkinterface.NetNSName(taskID, ifName)
+	logger.Debug("Getting netns path")
 	netNSPath := c.GetNetNSPath(netNSName)
 
 	// Make a map of mac addresses to network interfaces to make lookup easier.
+	logger.Debug("Getting interface to MAC address list")
 	macToNames, err := c.interfacesMACToName()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get read network devices")

@@ -73,6 +73,7 @@ func NewNetworkBuilder(
 // BuildTaskNetworkConfiguration builds the task's network configuration
 func (nb *networkBuilder) BuildTaskNetworkConfiguration(
 	taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	logger.Debug("Building network configuration")
 	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload)
 }
 

@@ -17,6 +17,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 
 	"github.com/containernetworking/cni/pkg/types"
@@ -71,6 +72,7 @@ func (c *common) executeCNIPlugin(
 // interfacesMACToName lists all network interfaces on the host inside the default
 // netns and returns a mac address to device name map.
 func (c *common) interfacesMACToName() (map[string]string, error) {
+	logger.Debug("Getting interface list")
 	links, err := c.net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -79,8 +81,10 @@ func (c *common) interfacesMACToName() (map[string]string, error) {
 	// Build a map of interface MAC address to name on the host.
 	macToName := make(map[string]string)
 	for _, link := range links {
+		logger.Debug("Mapping interface hardware address to name")
 		macToName[link.HardwareAddr.String()] = link.Name
 	}
 
+	logger.Debug("Returning interfaces list")
 	return macToName, nil
 }
