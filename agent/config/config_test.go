@@ -162,6 +162,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_EXCLUDE_IPV6_PORTBINDING", "true")()
 	defer setTestEnv("ECS_WARM_POOLS_CHECK", "false")()
 	defer setTestEnv("ECS_DYNAMIC_HOST_PORT_RANGE", "200-300")()
+	defer setTestEnv("ECS_DOCKER_RUNTIME", "custom-runtime")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -222,6 +223,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.ShouldExcludeIPv6PortBinding.Enabled(), "Wrong value for ShouldExcludeIPv6PortBinding")
 	assert.False(t, conf.WarmPoolsSupport.Enabled(), "Wrong value for WarmPoolsSupport")
 	assert.Equal(t, "200-300", conf.DynamicHostPortRange)
+	assert.Equal(t, "custom-runtime", conf.Runtime)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
