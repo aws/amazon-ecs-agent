@@ -3542,6 +3542,21 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 	assert.Equal(t, testTask.NvidiaRuntime, dockerHostConfig.Runtime)
 }
 
+func TestDockerHostConfigCustomRuntime(t *testing.T) {
+	testTask := &Task{
+		Arn: "test",
+		Containers: []*apicontainer.Container{
+			{
+				Name:   "myName1",
+				Image:  "image:tag",
+			},
+		},
+
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{Runtime: "custom-runtime"})
+	assert.Equal(t, "custom-runtime", dockerHostConfig.Runtime)
+}
+
 func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 	testTask := &Task{
 		Arn: "test",
