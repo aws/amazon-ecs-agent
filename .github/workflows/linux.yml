@@ -1,6 +1,6 @@
 name: Linux
 
-on: [push, pull_request]
+on: [pull_request]
 
 permissions: read-all
 jobs:
