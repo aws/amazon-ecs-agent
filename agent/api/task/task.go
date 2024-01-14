@@ -1946,6 +1946,15 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 // overrideContainerRuntime overrides the runtime for the container in host config if needed.
 func (task *Task) overrideContainerRuntime(container *apicontainer.Container, hostCfg *dockercontainer.HostConfig,
 	cfg *config.Config) *apierrors.HostConfigError {
+	if cfg.Runtime != "" {
+		logger.Debug("Setting runtime for container", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			"runTime":       cfg.Runtime,
+		})
+		hostCfg.Runtime = cfg.Runtime
+	}
+
 	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
 		if !cfg.External.Enabled() {
 			if task.NvidiaRuntime == "" {

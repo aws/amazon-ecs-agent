@@ -376,4 +376,7 @@ type Config struct {
 	// cgroup setting at the ECS task level.
 	// see https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid
 	TaskPidsLimit int
+
+	// Runtime specifies a custom docker runtime to be used when launching tasks.
+	Runtime string
 }

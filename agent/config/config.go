@@ -597,6 +597,7 @@ func environmentConfig() (Config, error) {
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
+		Runtime:                             os.Getenv("ECS_DOCKER_RUNTIME"),
 	}, err
 }
 
