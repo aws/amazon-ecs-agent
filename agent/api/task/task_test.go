@@ -3547,10 +3547,11 @@ func TestDockerHostConfigCustomRuntime(t *testing.T) {
 		Arn: "test",
 		Containers: []*apicontainer.Container{
 			{
-				Name:   "myName1",
-				Image:  "image:tag",
+				Name:  "myName1",
+				Image: "image:tag",
 			},
 		},
+	}
 
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{Runtime: "custom-runtime"})
