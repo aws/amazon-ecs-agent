@@ -138,31 +138,6 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	}
 }
 
-func TestCompareDockerVersionsWithMinAPIVersion(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	minAPIVersion := "1.12"
-	apiVersion := "1.32"
-	versions := []string{"1.11", "1.33"}
-	rightVersion := "1.25"
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	for _, version := range versions {
-		_, err := getDockerClientForVersion("endpoint", version, minAPIVersion, apiVersion, ctx)
-		assert.EqualError(t, err, "version detection using MinAPIVersion: unsupported version: "+version)
-	}
-
-	mockClients := make(map[string]*mock_sdkclient.MockClient)
-	newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
-		mockClients[version] = mock_sdkclient.NewMockClient(ctrl)
-		mockClients[version].EXPECT().Ping(gomock.Any())
-		return mockClients[version], nil
-	}
-	client, _ := getDockerClientForVersion("endpoint", rightVersion, minAPIVersion, apiVersion, ctx)
-	assert.Equal(t, mockClients[rightVersion], client)
-}
-
 func TestGetClientCached(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

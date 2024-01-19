@@ -1097,26 +1097,24 @@ func (agent *ecsAgent) startACSSession(
 	return exitcodes.ExitSuccess
 }
 
-// validateRequiredVersion validates docker version.
+// verifyRequiredDockerVersion validates docker version.
 // Minimum docker version supported is 1.9.0, maps to api version 1.21
 // see https://docs.docker.com/develop/sdk/#api-version-matrix
 func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
-	supportedVersions := agent.dockerClient.SupportedVersions()
+	supportedVersions := dockerclient.SupportedVersionsExtended(agent.dockerClient.SupportedVersions)
 	if len(supportedVersions) == 0 {
 		seelog.Critical("Could not get supported docker versions.")
 		return exitcodes.ExitError, false
 	}
 
-	// if api version 1.21 is supported, it means docker version is at least 1.9.0
 	for _, version := range supportedVersions {
-		if version == dockerclient.Version_1_21 {
+		if version == dockerclient.MinDockerAPIVersion {
 			return -1, true
 		}
 	}
 
-	// api 1.21 is not supported, docker version is older than 1.9.0
-	seelog.Criticalf("Required minimum docker API verion %s is not supported",
-		dockerclient.Version_1_21)
+	seelog.Criticalf("Required minimum docker API version %s is not supported",
+		dockerclient.MinDockerAPIVersion)
 	return exitcodes.ExitTerminal, false
 }
 
