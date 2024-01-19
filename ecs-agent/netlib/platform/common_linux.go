@@ -186,7 +186,8 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	// This case is identified if the singleNetNS flag is set, or if the ENIs have an empty 'Name' field,
 	// or if there is only on ENI in the payload.
 	if singleNetNS || len(taskPayload.ElasticNetworkInterfaces) == 1 ||
-		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" {
+		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" ||
+		len(taskPayload.Containers[0].NetworkInterfaceNames) == 0 {
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
 			taskPayload.ElasticNetworkInterfaces,
