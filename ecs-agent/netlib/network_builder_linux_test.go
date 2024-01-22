@@ -59,6 +59,7 @@ func TestNetworkBuilder_BuildTaskNetworkConfiguration(t *testing.T) {
 	// Warmpool test cases.
 	t.Run("containerd-default", getTestFunc(getSingleNetNSAWSVPCTestData, platform.WarmpoolPlatform))
 	t.Run("containerd-multi-interface", getTestFunc(getSingleNetNSMultiIfaceAWSVPCTestData, platform.WarmpoolPlatform))
+	t.Run("containerd-multi-interface-with-names", getTestFunc(getSingleNetNSMultiIfaceWithNameTestData, platform.WarmpoolPlatform))
 	t.Run("containerd-multi-netns", getTestFunc(getMultiNetNSMultiIfaceAWSVPCTestData, platform.WarmpoolPlatform))
 
 	// Firecracker test cases.
