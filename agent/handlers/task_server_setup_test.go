@@ -261,84 +261,13 @@ var (
 		ExecutionStoppedAtUnsafe: now,
 		LaunchType:               "EC2",
 	}
-	container1 = &apicontainer.Container{
-		Name:                containerName,
-		Image:               imageName,
-		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
-		CPU:                 cpu,
-		Memory:              memory,
-		Type:                apicontainer.ContainerNormal,
-		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
-			{
-				ContainerPort: containerPort,
-				Protocol:      apicontainer.TransportProtocolTCP,
-			},
-		},
-		NetworkModeUnsafe: bridgeMode,
-		NetworkSettingsUnsafe: &types.NetworkSettings{
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: bridgeIPAddr,
-			},
-		},
-	}
-	bridgeContainer = &apicontainer.DockerContainer{
-		DockerID:   containerID,
-		DockerName: containerName,
-		Container:  container1,
-	}
 	bridgeContainerNoNetwork = &apicontainer.DockerContainer{
 		DockerID:   containerID,
 		DockerName: containerName,
 		Container:  container,
 	}
 	containerNameToBridgeContainer = map[string]*apicontainer.DockerContainer{
-		taskARN: bridgeContainer,
-	}
-	expectedBridgeContainerResponse = v2.ContainerResponse{
-		ID:            containerID,
-		Name:          containerName,
-		DockerName:    containerName,
-		Image:         imageName,
-		ImageID:       imageID,
-		DesiredStatus: statusRunning,
-		KnownStatus:   statusRunning,
-		Limits: v2.LimitsResponse{
-			CPU:    aws.Float64(cpu),
-			Memory: aws.Int64(memory),
-		},
-		Type:   containerType,
-		Labels: labels,
-		Ports: []tmdsresponse.PortResponse{
-			{
-				ContainerPort: containerPort,
-				Protocol:      containerPortProtocol,
-			},
-		},
-		Networks: []tmdsresponse.Network{
-			{
-				NetworkMode:   bridgeMode,
-				IPv4Addresses: []string{bridgeIPAddr},
-			},
-		},
-	}
-	expectedBridgeTaskResponse = v2.TaskResponse{
-		Cluster:       clusterName,
-		TaskARN:       taskARN,
-		Family:        family,
-		Revision:      version,
-		DesiredStatus: statusRunning,
-		KnownStatus:   statusRunning,
-		Containers:    []v2.ContainerResponse{expectedBridgeContainerResponse},
-		Limits: &v2.LimitsResponse{
-			CPU:    aws.Float64(cpu),
-			Memory: aws.Int64(memory),
-		},
-		PullStartedAt:      aws.Time(now.UTC()),
-		PullStoppedAt:      aws.Time(now.UTC()),
-		ExecutionStoppedAt: aws.Time(now.UTC()),
-		AvailabilityZone:   availabilityzone,
+		taskARN: bridgeModeDockerContainerWithNetwork(),
 	}
 	attachmentIndexVar          = attachmentIndex
 	expectedV4ContainerResponse = v4.ContainerResponse{
@@ -394,7 +323,77 @@ var (
 			Type: containerType,
 		},
 	}
-	expectedV4BridgeContainerResponse = v4ContainerResponseFromV2(expectedBridgeContainerResponse, []v4.Network{{
+)
+
+func bridgeModeDockerContainerWithNetwork() *apicontainer.DockerContainer {
+	return &apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  bridgeModeContainerWithNetwork(),
+	}
+}
+
+func bridgeModeContainerWithNetwork() *apicontainer.Container {
+	container := &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+			{
+				ContainerPort: containerPort,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		NetworkModeUnsafe: bridgeMode,
+		NetworkSettingsUnsafe: &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: bridgeIPAddr,
+			},
+		},
+	}
+	container.SetLabels(map[string]string{
+		"foo": "bar",
+	})
+	return container
+}
+
+func expectedBridgeContainerResponse() *v2.ContainerResponse {
+	return &v2.ContainerResponse{
+		ID:            containerID,
+		Name:          containerName,
+		DockerName:    containerName,
+		Image:         imageName,
+		ImageID:       imageID,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Limits: v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		Type:   containerType,
+		Labels: labels,
+		Ports: []tmdsresponse.PortResponse{
+			{
+				ContainerPort: containerPort,
+				Protocol:      containerPortProtocol,
+			},
+		},
+		Networks: []tmdsresponse.Network{
+			{
+				NetworkMode:   bridgeMode,
+				IPv4Addresses: []string{bridgeIPAddr},
+			},
+		},
+	}
+}
+
+func expectedV4BridgeContainerResponse() *v4.ContainerResponse {
+	response := v4ContainerResponseFromV2(*expectedBridgeContainerResponse(), []v4.Network{{
 		Network: tmdsresponse.Network{
 			NetworkMode:   bridgeMode,
 			IPv4Addresses: []string{bridgeIPAddr},
@@ -407,7 +406,28 @@ var (
 			SubnetGatewayIPV4Address: "",
 		}},
 	})
-)
+	return &response
+}
+
+func expectedBridgeTaskResponse() *v2.TaskResponse {
+	return &v2.TaskResponse{
+		Cluster:       clusterName,
+		TaskARN:       taskARN,
+		Family:        family,
+		Revision:      version,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Containers:    []v2.ContainerResponse{*expectedBridgeContainerResponse()},
+		Limits: &v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		PullStartedAt:      aws.Time(now.UTC()),
+		PullStoppedAt:      aws.Time(now.UTC()),
+		ExecutionStoppedAt: aws.Time(now.UTC()),
+		AvailabilityZone:   availabilityzone,
+	}
+}
 
 func standardTask() *apitask.Task {
 	task := apitask.Task{
@@ -546,7 +566,7 @@ func expectedV4BridgeTaskResponse() v4.TaskResponse {
 			AvailabilityZone:   availabilityzone,
 			LaunchType:         "EC2",
 		},
-		[]v4.ContainerResponse{expectedV4BridgeContainerResponse},
+		[]v4.ContainerResponse{*expectedV4BridgeContainerResponse()},
 		vpcID,
 	)
 }
@@ -640,7 +660,6 @@ func standardECSTaskTags() []*ecs.Tag {
 
 func init() {
 	container.SetLabels(labels)
-	container1.SetLabels(labels)
 }
 
 // TestInvalidPath tests if HTTP status code 404 is returned when invalid path is queried.
@@ -1604,6 +1623,7 @@ func TestV3ContainerMetadata(t *testing.T) {
 		})
 	})
 	t.Run("happy case bridge mode", func(t *testing.T) {
+		bridgeContainer := bridgeModeDockerContainerWithNetwork()
 		testTMDSRequest(t, TMDSTestCase[v2.ContainerResponse]{
 			path: v3BasePath + v3EndpointID,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -1615,7 +1635,7 @@ func TestV3ContainerMetadata(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: expectedBridgeContainerResponse,
+			expectedResponseBody: *expectedBridgeContainerResponse(),
 		})
 	})
 }
@@ -1682,8 +1702,10 @@ func TestV3TaskMetadata(t *testing.T) {
 			expectedResponseBody: expectedTaskResponse(),
 		})
 	})
-	t.Run("bridge mode container not found", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[string]{
+	t.Run("bridge mode container not found - can happen when container is waiting to start", func(t *testing.T) {
+		expectedResponse := expectedBridgeTaskResponse()
+		expectedResponse.Containers = nil
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path: v3BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -1694,12 +1716,14 @@ func TestV3TaskMetadata(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(nil, false),
 				)
 			},
-			expectedStatusCode:   http.StatusInternalServerError,
-			expectedResponseBody: fmt.Sprintf("Unable to find container '%s'", containerID),
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
 		})
 	})
-	t.Run("bridge mode container no network settings", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[string]{
+	t.Run("bridge mode container no network settings - can happen when container was recently started and is awaiting metadata update", func(t *testing.T) {
+		expectedResponse := expectedBridgeTaskResponse()
+		expectedResponse.Containers = nil
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path: v3BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -1710,12 +1734,12 @@ func TestV3TaskMetadata(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
 				)
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: fmt.Sprintf(
-				"Unable to generate network response for container '%s'", containerID),
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
 		})
 	})
 	t.Run("happy case bridge mode", func(t *testing.T) {
+		bridgeContainer := bridgeModeDockerContainerWithNetwork()
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path: v3BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -1728,7 +1752,7 @@ func TestV3TaskMetadata(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: expectedBridgeTaskResponse,
+			expectedResponseBody: *expectedBridgeTaskResponse(),
 		})
 	})
 }
@@ -1810,6 +1834,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 		})
 	})
 	t.Run("bridge mode container not found during network population", func(t *testing.T) {
+		bridgeContainer := bridgeModeDockerContainerWithNetwork()
 		testTMDSRequest(t, TMDSTestCase[string]{
 			path: v4BasePath + v3EndpointID,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -1841,6 +1866,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 		})
 	})
 	t.Run("happy case bridge mode", func(t *testing.T) {
+		bridgeContainer := bridgeModeDockerContainerWithNetwork()
 		testTMDSRequest(t, TMDSTestCase[v4.ContainerResponse]{
 			path: v4BasePath + v3EndpointID,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -1852,7 +1878,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: expectedV4BridgeContainerResponse,
+			expectedResponseBody: *expectedV4BridgeContainerResponse(),
 		})
 	})
 }
@@ -1997,6 +2023,7 @@ func TestV4TaskMetadata(t *testing.T) {
 		})
 	})
 	t.Run("happy case bridge mode", func(t *testing.T) {
+		bridgeContainer := bridgeModeDockerContainerWithNetwork()
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path: v4BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -2273,8 +2300,12 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 			expectedResponseBody: expectedTaskResponseNoContainers,
 		})
 	})
-	t.Run("bridge mode container not found", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[string]{
+	t.Run("bridge mode container not found - can happen when container is waiting to start", func(t *testing.T) {
+		expectedResponse := expectedBridgeTaskResponse()
+		expectedResponse.Containers = nil
+		expectedResponse.ContainerInstanceTags = containerInstanceTags
+		expectedResponse.TaskTags = taskTags
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                     path,
 			setECSClientExpectations: happyECSClientExpectations,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -2286,12 +2317,16 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(nil, false),
 				)
 			},
-			expectedStatusCode:   http.StatusInternalServerError,
-			expectedResponseBody: fmt.Sprintf("Unable to find container '%s'", containerID),
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
 		})
 	})
-	t.Run("bridge mode container no network settings", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[string]{
+	t.Run("bridge mode container no network settings - can happen when container was recently started and is awaiting metadata update", func(t *testing.T) {
+		expectedResponse := expectedBridgeTaskResponse()
+		expectedResponse.Containers = nil
+		expectedResponse.ContainerInstanceTags = containerInstanceTags
+		expectedResponse.TaskTags = taskTags
+		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                     path,
 			setECSClientExpectations: happyECSClientExpectations,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -2303,9 +2338,8 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
 				)
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponseBody: fmt.Sprintf(
-				"Unable to generate network response for container '%s'", containerID),
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
 		})
 	})
 }

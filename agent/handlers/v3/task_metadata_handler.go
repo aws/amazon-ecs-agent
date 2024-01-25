@@ -21,6 +21,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/cihub/seelog"
@@ -69,12 +71,17 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient ecs.ECSCli
 			for _, containerResponse := range taskResponse.Containers {
 				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
 				if err != nil {
-					errResponseJSON, err := json.Marshal(err.Error())
-					if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-						return
-					}
-					utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
-					return
+					// Container is not yet started by Docker so its DockerID is unknown,
+					// or its network metadata is still pending metadata update.
+					// We don't want to fail the request because of these reasons.
+					logger.Warn("Failed to retrieve network metadata, skipping the container",
+						logger.Fields{
+							field.Container:   containerResponse.ID,
+							field.TaskARN:     taskARN,
+							field.RequestType: utils.RequestTypeTaskMetadata,
+							field.Error:       err,
+						})
+					continue
 				}
 				containerResponse.Networks = networks
 				responses = append(responses, containerResponse)
