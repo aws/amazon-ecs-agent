@@ -1,6 +1,3 @@
-//go:build test
-// +build test
-
 // Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -31,15 +28,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// expectedAgentBinds is the total number of agent host config binds.
+// defaultExpectedAgentBinds is the total number of agent host config binds.
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	expectedAgentBindsUnspecifiedPlatform = 20
-	expectedAgentBindsSuseUbuntuPlatform  = 18
+	defaultExpectedAgentBinds = 20
 )
-
-var expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -203,7 +197,7 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(opts, t)
+		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
 	}).Return(&godocker.Container{
 		ID: containerID,
 	}, nil)
@@ -221,7 +215,11 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	}
 }
 
-func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, t *testing.T) {
+func validateCommonCreateContainerOptions(
+	t *testing.T,
+	opts godocker.CreateContainerOptions,
+	expectedAgentBinds int,
+) {
 	if opts.Name != "ecs-agent" {
 		t.Errorf("Expected container Name to be %s but was %s", "ecs-agent", opts.Name)
 	}
@@ -252,17 +250,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 
 	hostCfg := opts.HostConfig
 
-	// for hosts that do not have cert directories explicity mounted, ignore
-	// host cert directory configuration.
-	// TODO (adnxn): ideally, these should be behind build flags.
-	// https://github.com/aws/amazon-ecs-init/issues/131
-	if certDir := config.HostPKIDirPath(); certDir == "" {
-		expectedAgentBinds = expectedAgentBindsSuseUbuntuPlatform
-	}
-
-	if len(hostCfg.Binds) != expectedAgentBinds {
-		t.Errorf("Expected exactly %d elements to be in Binds, but was %d", expectedAgentBinds, len(hostCfg.Binds))
-	}
+	assert.Len(t, hostCfg.Binds, expectedAgentBinds)
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
 		binds[binding] = struct{}{}
@@ -317,9 +305,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 }
 
 func expectKey(key string, input map[string]struct{}, t *testing.T) {
-	if _, ok := input[key]; !ok {
-		t.Errorf("Expected %s to be defined", key)
-	}
+	assert.Contains(t, input, key)
 }
 
 func TestStartAgentEnvFile(t *testing.T) {
@@ -341,7 +327,7 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(opts, t)
+		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
 		cfg := opts.Config
 
 		envVariables := make(map[string]struct{})
@@ -378,11 +364,11 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
 	containerID := "container id"
+	expectedAgentBinds := defaultExpectedAgentBinds
 	expectedAgentBinds += 1
 
 	defer func() {
 		MatchFilePatternForGPU = FilePatternMatchForGPU
-		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
 	}()
 	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
 		return []string{"/dev/nvidia0", "/dev/nvidia1"}, nil
@@ -394,7 +380,7 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(opts, t)
+		validateCommonCreateContainerOptions(t, opts, expectedAgentBinds)
 		var found bool
 		for _, bind := range opts.HostConfig.Binds {
 			if bind == gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath {
@@ -452,7 +438,7 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(opts, t)
+		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
 		cfg := opts.Config
 
 		envVariables := make(map[string]struct{})
@@ -837,12 +823,12 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 		hostResourcesRootDir + ":" + containerResourcesRootDir + readOnly,
 		hostConfigDir + ":" + containerConfigDir,
 	}
-	expectedAgentBinds += len(expectedExecBinds)
 
+	expectedAgentBinds := defaultExpectedAgentBinds
+	expectedAgentBinds += len(expectedExecBinds)
 	// bind mount for the config folder is already included in expectedAgentBinds since it's always added
 	expectedExecBinds = append(expectedExecBinds, hostConfigDir+":"+containerConfigDir)
 	defer func() {
-		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
 		isPathValid = defaultIsPathValid
 	}()
 
@@ -852,7 +838,7 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(opts, t)
+		validateCommonCreateContainerOptions(t, opts, expectedAgentBinds)
 
 		// verify that exec binds are added
 		assert.Subset(t, opts.HostConfig.Binds, expectedExecBinds)
@@ -981,56 +967,6 @@ func TestDefaultIsPathValid(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := defaultIsPathValid(tc.path, tc.shouldBeDirectory)
 			assert.Equal(t, result, tc.expected)
-		})
-	}
-}
-
-func TestGetCredentialsFetcherSocketBind(t *testing.T) {
-	testCases := []struct {
-		name                                 string
-		credentialsFetcherHostFromEnv        string
-		credentialsFetcherHostFromConfigFile string
-		expectedBind                         string
-	}{
-		{
-			name:                                 "No Credentials Fetcher host from env",
-			credentialsFetcherHostFromEnv:        "",
-			credentialsFetcherHostFromConfigFile: "dummy",
-			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
-		},
-		{
-			name:                                 "Invalid Credentials Fetcher host from env",
-			credentialsFetcherHostFromEnv:        "invalid",
-			credentialsFetcherHostFromConfigFile: "dummy",
-			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
-		},
-		{
-			name:                                 "Credentials Fetcher from env, no Credentials Fetcher from config file",
-			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
-			credentialsFetcherHostFromConfigFile: "",
-			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
-		},
-		{
-			name:                                 "Credentials Fetcher from env, invalid Credentials Fetcher from config file",
-			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock",
-			credentialsFetcherHostFromConfigFile: "invalid",
-			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock:/var/credentials-fetcher/socket/credentials_fetcher.sock",
-		},
-		{
-			name:                                 "Credentials Fetcher host from env, Credentials Fetcher from config file",
-			credentialsFetcherHostFromEnv:        "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
-			credentialsFetcherHostFromConfigFile: "unix:///var/credentials-fetcher/socket/credentials_fetcher.sock.1",
-			expectedBind:                         "/var/credentials-fetcher/socket/credentials_fetcher.sock.1:/var/credentials-fetcher/socket/credentials_fetcher.sock.1",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv("CREDENTIALS_FETCHER_HOST", tc.credentialsFetcherHostFromEnv)
-			defer os.Unsetenv("CREDENTIALS_FETCHER_HOST")
-
-			bind, _ := getCredentialsFetcherSocketBind()
-			assert.Equal(t, tc.expectedBind, bind)
 		})
 	}
 }

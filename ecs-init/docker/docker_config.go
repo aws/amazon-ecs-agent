@@ -62,7 +62,12 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
 		CapAdd:      caps,
-		Init:        true,
+	}
+
+	// Task ENI feature requires agent to be "init" process, so set it if docker API
+	// version is new enough for this feature.
+	if dockerVersionCompare(dockerAPIVersion, enableTaskENIDockerClientAPIVersion) >= 0 {
+		hostConfig.Init = true
 	}
 
 	if ctrdapparmor.HostSupports() {
