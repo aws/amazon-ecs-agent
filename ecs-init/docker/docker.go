@@ -59,7 +59,7 @@ const (
 	minBackoffDuration = time.Second
 	// maxBackoffDuration specifies the maximum backoff duration for ping to
 	// return a success response from docker socket
-	maxBackoffDuration = 5 * time.Second
+	maxBackoffDuration = 3 * time.Second
 	// backoffJitterMultiple specifies the backoff jitter multiplier
 	// coefficient when pinging the docker socket
 	backoffJitterMultiple = 0.2
@@ -325,6 +325,10 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 	}
 	if config.RunningInExternal() {
 		// Task networking is not supported when not running on EC2. Explicitly disable since it's enabled by default.
+		envVariables["ECS_ENABLE_TASK_ENI"] = "false"
+	}
+	if dockerVersionCompare(dockerAPIVersion, enableTaskENIDockerClientAPIVersion) < 0 {
+		// Task networking is not supported before docker API version 1.25
 		envVariables["ECS_ENABLE_TASK_ENI"] = "false"
 	}
 
