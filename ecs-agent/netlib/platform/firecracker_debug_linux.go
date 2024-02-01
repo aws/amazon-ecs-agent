@@ -7,5 +7,10 @@ type firecrackerDebug struct {
 }
 
 func (fc *firecrackerDebug) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
-	return fc.common.createDNSConfig(taskID, true, netNS)
+	err := fc.common.createDNSConfig(taskID, true, netNS)
+	if err != nil {
+		return err
+	}
+
+	return fc.configureSecondaryDNSConfig(taskID, netNS)
 }
