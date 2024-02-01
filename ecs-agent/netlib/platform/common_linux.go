@@ -407,8 +407,7 @@ func (c *common) createDNSConfig(
 
 	// Next, copy these files into a task volume, which can be used by containers as well, to
 	// configure their network.
-	configFiles := []string{HostsFileName, ResolveConfFileName, HostnameFileName}
-	if err := c.copyNetworkConfigFilesToTask(taskID, netNS.Name, configFiles); err != nil {
+	if err := c.copyNetworkConfigFilesToTask(taskID, netNS.Name); err != nil {
 		return err
 	}
 	return nil
@@ -454,7 +453,8 @@ func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkin
 
 // copyNetworkConfigFilesToTask copies the contents of the DNS config files for a
 // task into the task volume.
-func (c *common) copyNetworkConfigFilesToTask(taskID, netNSName string, configFiles []string) error {
+func (c *common) copyNetworkConfigFilesToTask(taskID, netNSName string) error {
+	configFiles := []string{HostsFileName, ResolveConfFileName, HostnameFileName}
 	for _, file := range configFiles {
 		source := filepath.Join(networkConfigFileDirectory, netNSName, file)
 		err := c.dnsVolumeAccessor.CopyToVolume(taskID, source, file, networkConfigFileMode)
@@ -583,8 +583,11 @@ func (c *common) configureInterface(
 		err = c.configureBranchENI(ctx, netNSPath, iface)
 	case networkinterface.V2NInterfaceAssociationProtocol:
 		err = c.configureGENEVEInterface(ctx, netNSPath, iface, netDAO)
+	case networkinterface.VETHInterfaceAssociationProtocol:
+		// Do nothing.
+		return nil
 	default:
-		err = errors.New("invalid interface association protocol %s" + iface.InterfaceAssociationProtocol)
+		err = errors.New("invalid interface association protocol " + iface.InterfaceAssociationProtocol)
 	}
 	return err
 }
