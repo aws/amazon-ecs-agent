@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
@@ -80,9 +79,8 @@ var notFoundErr = awserr.NewRequestFailure(awserr.Error(awserr.New("NotFound", "
 var badReqErr = awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, "")
 var serverErr = awserr.NewRequestFailure(awserr.Error(awserr.New("InternalServerError", "", errors.New(""))), 500, "")
 var apiVersions = []dockerclient.DockerVersion{
-	dockerclient.Version_1_21,
-	dockerclient.Version_1_22,
-	dockerclient.Version_1_23}
+	dockerclient.MinDockerAPIVersion,
+}
 var capabilities []*ecs.Attribute
 var testHostCPU = int64(1024)
 var testHostMEMORY = int64(1024)
@@ -249,13 +247,11 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockDaemonManagers := map[string]dm.DaemonManager{md.EbsCsiDriver: mockDaemonManager}
 	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 
 	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -313,13 +309,11 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	mockDaemonManagers := map[string]dm.DaemonManager{md.EbsCsiDriver: mockDaemonManager}
 	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 
 	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -444,10 +438,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
 	}
 
-	var discoverEndpointsInvoked sync.WaitGroup
-	discoverEndpointsInvoked.Add(2)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	containermetadata := mock_containermetadata.NewMockManager(ctrl)
 	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
@@ -468,28 +459,28 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 		return []*md.ManagedDaemon{}, nil
 	}
 
+	waitC := make(chan bool, 3)
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).Return("20.10.15", nil).AnyTimes()
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until acs session has bee started
-		discoverEndpointsInvoked.Done()
+		// Ensures that the test waits until acs session has been started
+		waitC <- true
 	}).Return("poll-endpoint", nil)
 	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
 	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until telemetry session has bee started
-		discoverEndpointsInvoked.Done()
+		// Ensures that the test waits until telemetry session has been started
+		waitC <- true
 	}).Return("telemetry-endpoint", nil)
 	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 		"tele-endpoint", nil).AnyTimes()
 
 	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -535,17 +526,30 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 		serviceconnectManager: mockServiceConnectManager,
 	}
 
-	var agentW sync.WaitGroup
-	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
 			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client, execCmdMgr)
-		agentW.Done()
+		waitC <- true
 	}()
 
-	discoverEndpointsInvoked.Wait()
+	timeoutC := time.After(time.Second * 30)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-waitC:
+			// expect to receive 2 times from this channel
+		case <-timeoutC:
+			ctrl.Finish()
+			// cancel the loop
+			i = 4
+		}
+	}
 	cancel()
-	agentW.Wait()
+	// wait for agent to exit
+	select {
+	case <-waitC:
+	case <-time.After(time.Second * 10):
+		t.Logf("Timed out waiting for agent to exit")
+	}
 
 	assertMetadata(t, data.AgentVersionKey, version.Version, dataClient)
 	assertMetadata(t, data.AvailabilityZoneKey, availabilityZone, dataClient)
@@ -991,8 +995,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1051,8 +1054,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1113,8 +1115,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1173,8 +1174,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1234,8 +1234,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1293,8 +1292,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	retriableError := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1352,8 +1350,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	cannotRetryError := apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1410,8 +1407,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
-		mockDockerClient.EXPECT().KnownVersions().Return(nil),
+		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1468,12 +1464,11 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
+
 	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
