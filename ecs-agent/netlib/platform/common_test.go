@@ -35,6 +35,8 @@ const (
 	deviceName        = "eth1"
 	eniMAC            = "f0:5c:89:a3:ab:01"
 	subnetGatewayCIDR = "10.1.0.1/24"
+	primaryENIName    = "primary-eni"
+	secondaryENIName  = "secondary-eni"
 )
 
 func getTestInterface() *networkinterface.NetworkInterface {
@@ -69,5 +71,6 @@ func getTestInterface() *networkinterface.NetworkInterface {
 		InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
 		KnownStatus:                  status.NetworkNone,
 		DesiredStatus:                status.NetworkReadyPull,
+		Name:                         primaryENIName,
 	}
 }
