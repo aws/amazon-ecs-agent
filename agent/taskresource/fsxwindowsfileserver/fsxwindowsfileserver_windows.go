@@ -719,7 +719,7 @@ func (fv *FSxWindowsFileServerResource) updateAppliedStatusUnsafe(knownStatus re
 // GetAppliedStatus safely returns the currently applied status of the resource
 func (fv *FSxWindowsFileServerResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	fv.lock.RLock()
-	defer fv.lock.RLock()
+	defer fv.lock.RUnlock()
 
 	return fv.appliedStatusUnsafe
 }
