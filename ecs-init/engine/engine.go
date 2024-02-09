@@ -143,9 +143,12 @@ func (e *Engine) PreStart() error {
 		return engineError("could not create route to the credentials proxy", err)
 	}
 	// Add the EBS Task Attach host mount point
-	err = os.MkdirAll(config.MountDirectoryEBS(), mountFilePermission)
-	if err != nil {
-		return engineError("could not create EBS mount directory", err)
+	// Skip for External, EBS Task Attach is not supported for External launch type
+	if !config.RunningInExternal() {
+		err = os.MkdirAll(config.MountDirectoryEBS(), mountFilePermission)
+		if err != nil {
+			return engineError("could not create EBS mount directory", err)
+		}
 	}
 
 	docker, err := getDockerClient()
