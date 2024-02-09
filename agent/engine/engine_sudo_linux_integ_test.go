@@ -607,7 +607,8 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
 	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testConfigFileName, testLogConfigFileName string) {
-	inspectState, _ := client.ContainerInspect(ctx, containerId)
+	inspectState, err := client.ContainerInspect(ctx, containerId)
+	require.NoError(t, err)
 
 	expectedMounts := []struct {
 		source    string

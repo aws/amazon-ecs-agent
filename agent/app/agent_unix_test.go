@@ -90,7 +90,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	// invoked via go routines, which will lead to occasional test failues
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
@@ -136,8 +136,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBranchENIPluginName).Return(cniCapabilities, nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		cniClient.EXPECT().Version(ecscni.ECSBranchENIPluginName).Return("v2", nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
@@ -453,7 +451,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	ec2MetadataClient.EXPECT().PrimaryENIMAC().Return("mac", nil)
@@ -482,8 +480,6 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
@@ -558,7 +554,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	discoverEndpointsInvoked.Add(2)
 
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -632,7 +628,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	ec2MetadataClient.EXPECT().PrimaryENIMAC().Return("mac", nil)
@@ -662,8 +658,6 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
@@ -741,7 +735,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	discoverEndpointsInvoked.Add(2)
 
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	mockGPUManager.EXPECT().Initialize().Return(errors.New("init error"))
@@ -797,7 +791,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	// invoked via go routines, which will lead to occasional test failures
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)

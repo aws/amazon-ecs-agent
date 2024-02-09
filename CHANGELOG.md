@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.81.0
+* Bugfix - Fix ECS agent docker API failures on docker engine 25.x [#4075](https://github.com/aws/amazon-ecs-agent/pull/4075)
+* Bugfix - Fix a bug in the creation of network namespace models for AWSVPC mode tasks which causes the agent to crash in an edge case situation. [#4076](https://github.com/aws/amazon-ecs-agent/pull/4076)
+
 ## 1.80.0
 * Enhancement - Add a mock for VolumeDriver interface [#4056](https://github.com/aws/amazon-ecs-agent/pull/4056)
 * Enhancement - Update logger Config setter access pattern [#4051](https://github.com/aws/amazon-ecs-agent/pull/4051)
