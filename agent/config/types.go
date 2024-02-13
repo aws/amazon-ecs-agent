@@ -301,6 +301,9 @@ type Config struct {
 
 	// GPUSupportEnabled specifies if the Agent is capable of launching GPU tasks
 	GPUSupportEnabled bool
+
+	// EBSTASupportEnabled specifies if the Agent can support tasks needing EBS Task Attach
+	EBSTASupportEnabled bool
 	// InferentiaSupportEnabled specifies whether the built-in support for inferentia task is enabled.
 	InferentiaSupportEnabled bool
 
