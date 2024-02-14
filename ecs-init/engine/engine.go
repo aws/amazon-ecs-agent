@@ -19,6 +19,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
@@ -26,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/docker"
-	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
+	initexec "github.com/aws/amazon-ecs-agent/ecs-init/exec"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
@@ -48,6 +51,7 @@ const (
 	serviceStartMaxRetries        = math.MaxInt64 // essentially retry forever
 	failedContainerLogWindowSize  = "200"         // as string for log config
 	mountFilePermission           = 0755
+	devicePluginsDir              = "/var/lib/ecs/device-plugins"
 )
 
 // Injection point for testing purposes
@@ -88,7 +92,7 @@ func New() (*Engine, error) {
 		return nil, err
 	}
 
-	cmdExec := exec.NewExec()
+	cmdExec := initexec.NewExec()
 	loopbackRouting, err := sysctl.NewIpv4RouteLocalNet(cmdExec)
 	if err != nil {
 		return nil, err
@@ -114,8 +118,35 @@ func New() (*Engine, error) {
 // to handle credentials requests from containers by rerouting these requests to
 // to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
+	// run all available device drivers
+	driversRun := []string{}
+	err := filepath.Walk(devicePluginsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if filepath.Ext(path) == ".bin" {
+			driversRun = append(driversRun, path)
+			pathSplit := strings.Split(path, "/")
+			pathFile := pathSplit[len(pathSplit)-1]
+			pathBin := filepath.Join(devicePluginsDir, pathFile)
+			log.Infof("pre-start deviceCmd to run: %v", pathBin)
+			deviceCmd := exec.Command(pathBin)
+			output, err := deviceCmd.Output()
+			log.Infof("pre-start deviceCmd: %v", output)
+			if err != nil {
+				log.Infof("pre-start deviceCmd err: %v", err)
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Infof("prestart walk error: %v", err)
+	} else {
+		log.Infof("ran drivers: %v", driversRun)
+	}
 	// setup gpu if necessary
-	err := e.PreStartGPU()
+	err = e.PreStartGPU()
 	if err != nil {
 		return err
 	}

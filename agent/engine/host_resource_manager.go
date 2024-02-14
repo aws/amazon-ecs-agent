@@ -29,6 +29,7 @@ import (
 const (
 	CPU      = "CPU"
 	GPU      = "GPU"
+	BANANA   = "BANANA"
 	MEMORY   = "MEMORY"
 	PORTSTCP = "PORTS_TCP"
 	PORTSUDP = "PORTS_UDP"
@@ -390,6 +391,13 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		Name:           utils.Strptr(GPU),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpuIDs,
+	}
+
+	bananaIDs := []*string{}
+	consumedResourceMap[BANANA] = &ecs.Resource{
+		Name:           utils.Strptr(BANANA),
+		Type:           utils.Strptr("STRINGSET"),
+		StringSetValue: bananaIDs,
 	}
 
 	logger.Info("Initializing host resource manager, initialHostResource", logger.Fields{"initialHostResource": resourceMap})

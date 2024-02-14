@@ -220,6 +220,9 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 	registerRequest.PlatformDevices = platformDevices
 	registerRequest = client.setInstanceIdentity(registerRequest)
 
+	logger.Info("REGISTER PAYLOAD %v", registerRequest)
+	logger.Info("REGISTER PLATFORM DEVICES %v", registerRequest.PlatformDevices)
+
 	resources, err := client.getResources()
 	if err != nil {
 		return "", "", err
