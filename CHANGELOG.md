@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.81.1
+* Enhancement - Update go version to 1.20.12 [#4092](https://github.com/aws/amazon-ecs-agent/pull/4092)
+* Bugfix - fix bug where the lock is never released for FSx task resource [#4088](https://github.com/aws/amazon-ecs-agent/pull/4088)
+
 ## 1.81.0
 * Bugfix - Fix ECS agent docker API failures on docker engine 25.x [#4075](https://github.com/aws/amazon-ecs-agent/pull/4075)
 * Bugfix - Fix a bug in the creation of network namespace models for AWSVPC mode tasks which causes the agent to crash in an edge case situation. [#4076](https://github.com/aws/amazon-ecs-agent/pull/4076)
