@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/cihub/seelog"
@@ -79,12 +80,12 @@ func handleConnection(conn net.Conn) error {
 
 	// parse the custom health check command from the request
 	request := string(buf[4:n])
-
+	app, args := strings.Fields(request)[0], strings.Fields(request)[1:]
 	log.Infof("Running a custom healthcheck cmd: %v, with timeout: %v", request, timeout)
 
 	// execute the custom healthcheck command
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	cmd := exec.CommandContext(ctx, request)
+	cmd := exec.CommandContext(ctx, app, args...)
 	defer cancel()
 	err = cmd.Start()
 	if err != nil {
