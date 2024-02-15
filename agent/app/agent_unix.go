@@ -17,7 +17,12 @@
 package app
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+
+	"github.com/aws/aws-sdk-go/aws"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -212,6 +217,62 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 		}
 	}
 	return nil
+}
+
+type Object struct {
+	ID   string `json:"ID"`
+	Type string `json:"Type"`
+}
+
+func (agent *ecsAgent) getDevicePlugins() []*ecs.PlatformDevice {
+	var out []*ecs.PlatformDevice
+	// Define a struct that matches the JSON structure
+	var files []string
+
+	// Walk through the directory to find all json files
+	err := filepath.Walk("/var/lib/ecs/device-plugins/", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			seelog.Error(err)
+			return err
+		}
+		// Check if the file is not a directory and ends with ".json"
+		if !info.IsDir() && filepath.Ext(path) == ".json" {
+			seelog.Info("Found json file: " + path)
+			files = append(files, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		seelog.Error(err)
+		return nil
+	}
+
+	for _, file := range files {
+		// Read the file
+		file, err := ioutil.ReadFile(file)
+		if err != nil {
+			seelog.Error(err)
+			return nil
+		}
+
+		// Parse the JSON into a slice of `Object` structs
+		var objects []Object
+		err = json.Unmarshal(file, &objects)
+		if err != nil {
+			seelog.Error(err)
+			return nil
+		}
+
+		for _, obj := range objects {
+			out = append(out, &ecs.PlatformDevice{
+				Type: aws.String(obj.Type),
+				Id:   aws.String(obj.ID),
+			})
+		}
+	}
+
+	return out
 }
 
 func (agent *ecsAgent) loadPauseContainer() error {
