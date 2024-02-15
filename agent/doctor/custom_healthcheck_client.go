@@ -26,7 +26,7 @@ func runCustomHealthCheckCmd(cmd string, timeout int) string {
 	request = append(request, []byte(cmd)...)
 
 	// send a request to ECS init
-	log.Infof("Sending custom healthcheck command to ecs-init: %v", cmd)
+	log.Debugf("Sending custom healthcheck command to ecs-init: %v", cmd)
 	_, err = conn.Write(request)
 	if err != nil {
 		log.Errorf("Error sending the custom healthcheck command: %v, err: %v", cmd, err)

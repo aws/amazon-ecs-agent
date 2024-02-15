@@ -31,7 +31,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
-
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -441,6 +440,11 @@ func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishIns
 	if instanceStatuses == nil {
 		return nil, doctor.EmptyHealthcheckError
 	}
+
+	logger.Info("Reporting instance status", logger.Fields{
+		field.ContainerInstanceARN: cs.doctor.GetContainerInstanceArn(),
+		"InstanceStatus":           instanceStatuses,
+	})
 
 	return &ecstcs.PublishInstanceStatusRequest{
 		Metadata:  metadata,
