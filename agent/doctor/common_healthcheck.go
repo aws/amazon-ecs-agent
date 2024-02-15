@@ -20,6 +20,5 @@ type commonHealthcheck struct {
 	LastStatus doctor.HealthcheckStatus `json:"LastStatus,omitempty"`
 	// LastTimeStamp is the timestamp of last container health status
 	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
-
-	lock sync.RWMutex
+	lock          sync.RWMutex
 }

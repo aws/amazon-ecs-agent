@@ -649,13 +649,13 @@ func (agent *ecsAgent) initMetricsEngine() {
 func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN string) (*doctor.Doctor, error) {
 	// configure the required healthchecks
 	runtimeHealthCheck := dockerdoctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
-	customHealthCheckList := dockerdoctor.ParseCustomHealthChecks()
+	customHealthChecks := dockerdoctor.NewCustomHealthchecks()
 
 	// put the healthchecks in a list
 	healthcheckList := []doctor.Healthcheck{
 		runtimeHealthCheck,
 	}
-	healthcheckList = append(healthcheckList, customHealthCheckList...)
+	healthcheckList = append(healthcheckList, customHealthChecks...)
 
 	// set up the doctor and return it
 	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)

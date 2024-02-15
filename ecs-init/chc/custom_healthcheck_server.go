@@ -18,7 +18,8 @@ const (
 	defaultCmdTimeout = 15
 )
 
-func StartCustomHealthCheckServer() {
+// StartCustomHealthcheckServer starts the custom health check server.
+func StartCustomHealthcheckServer() {
 	err := os.Remove(ecsInitSocket) // remove any previous socket file
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -54,6 +55,7 @@ func StartCustomHealthCheckServer() {
 	}
 }
 
+// handleConnection parses a request, executes the custom health check command, and sends a response back to the ECS agent.
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
@@ -98,7 +100,7 @@ func handleConnection(conn net.Conn) error {
 		if errors.As(err, &exitErr) {
 			response = strconv.Itoa(exitErr.ExitCode())
 		} else {
-			log.Errorf("invalid error during cmd.Wait(): %v", err)
+			log.Errorf("Invalid error during cmd.Wait(): %v", err)
 		}
 	} else {
 		response = "0"

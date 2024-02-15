@@ -279,7 +279,7 @@ func (e *Engine) StartSupervised() error {
 
 		// start the custom healthcheck server,
 		// this will receive request from the ECS agent to run custom health check commands on the container instance
-		go chc.StartCustomHealthCheckServer()
+		go chc.StartCustomHealthcheckServer()
 
 		log.Info("Starting Amazon Elastic Container Service Agent")
 		agentExitCode, err = docker.StartAgent()

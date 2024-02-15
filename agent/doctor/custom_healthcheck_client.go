@@ -2,51 +2,43 @@ package doctor
 
 import (
 	"encoding/binary"
-	"fmt"
-	log "github.com/cihub/seelog"
 	"net"
-	"os"
+
+	log "github.com/cihub/seelog"
 )
 
 const (
 	ecsInitSocket = "/var/run/ecs.sock"
 )
 
-type CustomHealthCheckClient interface {
-	runCustomHealthCheckCmd(string) string
-}
-
-type CustomHealthCheckGoClient struct {
-}
-
-func runCustomHealthCheckCmd(commandMsg string, timeout int) string {
+// runCustomHealthCheckCmd requests ECS init to run the custom healthcheck command and returns the response
+func runCustomHealthCheckCmd(cmd string, timeout int) string {
 	conn, err := net.Dial("unix", ecsInitSocket)
 	if err != nil {
-		fmt.Println("Error connecting:", err.Error())
-		os.Exit(1)
+		log.Errorf("Error connecting to the ECS init socket: %v, err: %v", ecsInitSocket, err)
+		return ""
 	}
 	defer conn.Close()
 
-	// Pack together timeout and the command message to send it
-	byteMessage := make([]byte, 4)
-	binary.LittleEndian.PutUint32(byteMessage, uint32(timeout))
-	byteMessage = append(byteMessage, []byte(commandMsg)...)
+	// Pack together timeout and the custom healthcheck command
+	request := make([]byte, 4)
+	binary.LittleEndian.PutUint32(request, uint32(timeout))
+	request = append(request, []byte(cmd)...)
 
-	log.Infof("Sending custom healthcheck command to ecs-init: %v", commandMsg)
-	_, err = conn.Write(byteMessage)
+	// send a request to ECS init
+	log.Infof("Sending custom healthcheck command to ecs-init: %v", cmd)
+	_, err = conn.Write(request)
 	if err != nil {
-		log.Errorf("Error while sending the custom healthcheck command: %v, err: %v", commandMsg, err)
+		log.Errorf("Error sending the custom healthcheck command: %v, err: %v", cmd, err)
 		return ""
 	}
 
-	// Wait for response
+	// Parse the response received from ECS init
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
 	if err != nil {
-		fmt.Println("Error receiving response:", err.Error())
+		log.Errorf("Error receiving response from ECS init: %v", err)
 		return ""
 	}
-
-	response := string(buf[0:n])
-	return response
+	return string(buf[0:n])
 }
