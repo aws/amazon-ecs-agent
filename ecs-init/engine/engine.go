@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
+	"github.com/aws/amazon-ecs-agent/ecs-init/chc"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/docker"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
@@ -275,6 +276,10 @@ func (e *Engine) StartSupervised() error {
 		if err != nil {
 			return engineError("could not remove existing Agent container", err)
 		}
+
+		// start the custom healthcheck server,
+		// this will receive request from the ECS agent to run custom health check commands on the container instance
+		go chc.StartCustomHealthCheckServer()
 
 		log.Info("Starting Amazon Elastic Container Service Agent")
 		agentExitCode, err = docker.StartAgent()
