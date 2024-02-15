@@ -834,12 +834,12 @@ func (agent *ecsAgent) registerContainerInstance(
 
 	platformDevices := agent.getPlatformDevices()
 	platformDevices = append(platformDevices, &ecsmodel.PlatformDevice{
-		Id:   aws.String("tang-keke"),
-		Type: aws.String("HUNGRY_VELOCIRAPTOR"),
+		Id:   aws.String("jeremy"),
+		Type: aws.String("BANANA"),
 	})
 	platformDevices = append(platformDevices, &ecsmodel.PlatformDevice{
-		Id:   aws.String("han_liangliang"),
-		Type: aws.String("HUNGRY_VELOCIRAPTOR"),
+		Id:   aws.String("dave"),
+		Type: aws.String("BANANA"),
 	})
 	platformDevices = append(platformDevices, agent.getDevicePlugins()...)
 
