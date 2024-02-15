@@ -26,7 +26,7 @@ func NewCustomHealthchecks() []doctor.Healthcheck {
 // newCustomHealthcheck returns a custom healthcheck object.
 func newCustomHealthcheck() *customHealthcheck {
 	// TODO: Parse single health check here
-	name := "SSM_CHECK"
+	name := "AMAZON_SSM_AGENT"
 	command := "sudo systemctl is-active amazon-ssm-agent"
 	timeout := 10
 
