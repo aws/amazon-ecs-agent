@@ -68,3 +68,7 @@ func (e *ebsCSIDaemonHealthcheck) RunCheck() doctor.HealthcheckStatus {
 func (e *ebsCSIDaemonHealthcheck) GetHealthcheckType() string {
 	return doctor.HealthcheckTypeEBSDaemon
 }
+
+func (e *ebsCSIDaemonHealthcheck) GetHealthcheckName() string {
+	return "ebs"
+}

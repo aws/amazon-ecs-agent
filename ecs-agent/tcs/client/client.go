@@ -464,6 +464,7 @@ func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
 			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
 			Type:             aws.String(healthcheck.GetHealthcheckType()),
+			Name:             aws.String(healthcheck.GetHealthcheckName()),
 		}
 		instanceStatuses = append(instanceStatuses, instanceStatus)
 	}

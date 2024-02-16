@@ -34,6 +34,7 @@ func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *DockerRuntimeHe
 	return &DockerRuntimeHealthcheck{
 		commonHealthcheckConfig: commonHealthcheckConfig{
 			HealthcheckType:  doctor.HealthcheckTypeContainerRuntime,
+			HealthcheckName:  "Docker",
 			Status:           doctor.HealthcheckStatusInitializing,
 			TimeStamp:        nowTime,
 			StatusChangeTime: nowTime,
@@ -75,6 +76,12 @@ func (dhc *DockerRuntimeHealthcheck) GetHealthcheckType() string {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.HealthcheckType
+}
+
+func (dhc *DockerRuntimeHealthcheck) GetHealthcheckName() string {
+	dhc.lock.RLock()
+	defer dhc.lock.RUnlock()
+	return dhc.HealthcheckName
 }
 
 func (dhc *DockerRuntimeHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {

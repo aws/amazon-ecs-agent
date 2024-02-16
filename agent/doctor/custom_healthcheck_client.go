@@ -9,10 +9,21 @@ import (
 
 const (
 	ecsInitSocket = "/var/run/ecs.sock"
+	systemctlCmd  = "systemctl is-active "
 )
 
 // runCustomHealthCheckCmd requests ECS init to run the custom healthcheck command and returns the response
-func runCustomHealthCheckCmd(cmd string, timeout int) string {
+func runCustomHealthCheckCmd(name string, hcType string, timeout int) string {
+	var cmd string
+	// parse the health check type
+	switch hcType {
+	case "systemd-service":
+	default:
+		log.Errorf("Unknown healthcheck type, defaulting to systemd-service type: %v", hcType)
+
+	}
+	cmd = systemctlCmd + name
+
 	conn, err := net.Dial("unix", ecsInitSocket)
 	if err != nil {
 		log.Errorf("Error connecting to the ECS init socket: %v, err: %v", ecsInitSocket, err)

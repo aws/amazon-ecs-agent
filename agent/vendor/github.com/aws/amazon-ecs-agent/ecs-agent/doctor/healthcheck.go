@@ -25,6 +25,7 @@ const (
 
 type Healthcheck interface {
 	GetHealthcheckType() string
+	GetHealthcheckName() string
 	GetHealthcheckStatus() HealthcheckStatus
 	GetHealthcheckTime() time.Time
 	GetStatusChangeTime() time.Time

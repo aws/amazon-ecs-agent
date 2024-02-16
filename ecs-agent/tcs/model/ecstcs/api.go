@@ -502,6 +502,8 @@ type InstanceStatus struct {
 	Status *string `locationName:"status" type:"string" enum:"InstanceHealthcheckStatus"`
 
 	Type *string `locationName:"type" type:"string"`
+
+	Name *string `locationName:"type" type:"string"`
 }
 
 // String returns the string representation.

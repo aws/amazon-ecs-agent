@@ -8,6 +8,8 @@ import (
 )
 
 type commonHealthcheckConfig struct {
+	// HealthcheckName is the reported healthcheck name
+	HealthcheckName string `json:"HealthcheckName,omitempty"`
 	// HealthcheckType is the reported healthcheck type
 	HealthcheckType string `json:"HealthcheckType,omitempty"`
 	// Status is the container health status
