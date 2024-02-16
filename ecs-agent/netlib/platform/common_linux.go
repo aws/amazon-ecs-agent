@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
@@ -182,6 +183,12 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Info("Building network configuration for awsvpc task", map[string]interface{}{
+		"SingleNetNS":            singleNetNS,
+		"ENICount":               len(taskPayload.ElasticNetworkInterfaces),
+		"HasContainerENIMapping": len(taskPayload.Containers[0].NetworkInterfaceNames) == 0,
+	})
 	// If we require all interfaces to be in one single netns, the network configuration is straight forward.
 	// This case is identified if the singleNetNS flag is set, or if the ENIs have an empty 'Name' field,
 	// or if there is only on ENI in the payload.
@@ -291,6 +298,10 @@ func (c *common) buildNetNS(
 	netNSName := networkinterface.NetNSName(taskID, primaryIF.Name)
 	netNSPath := c.GetNetNSPath(netNSName)
 
+	logger.Info("Building network namespace model", map[string]interface{}{
+		"NetNSName": netNSName,
+		"NetNSPath": netNSPath,
+	})
 	return tasknetworkconfig.NewNetworkNamespace(
 		netNSName,
 		netNSPath,
@@ -301,6 +312,9 @@ func (c *common) buildNetNS(
 
 // CreateNetNS creates a new network namespace with the specified path.
 func (c *common) CreateNetNS(netNSPath string) error {
+	logger.Info("Creating network namespace", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
 	nsExists, err := c.nsUtil.NSExists(netNSPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
@@ -324,6 +338,9 @@ func (c *common) CreateNetNS(netNSPath string) error {
 }
 
 func (c *common) DeleteNetNS(netNSPath string) error {
+	logger.Info("Deleting network namespace", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
 	nsExists, err := c.nsUtil.NSExists(netNSPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
@@ -343,6 +360,10 @@ func (c *common) DeleteNetNS(netNSPath string) error {
 
 // DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
 func (c *common) DeleteDNSConfig(netNSName string) error {
+	logger.Info("Deleting DNS config", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
 	if netNSName == "" {
 		return errors.New("netns name cannot be empty")
 	}
@@ -389,6 +410,11 @@ func (c *common) createDNSConfig(
 	taskID string,
 	reuseHostDNSConfig bool,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
+	logger.Info("Creating DNS config", map[string]interface{}{
+		"NetNSPath":          netNS.Path,
+		"ReuseHostDNSConfig": reuseHostDNSConfig,
+	})
+
 	// For debug mode, resolv.conf and hosts files are same as the host machine.
 	// But for non debug mode they are all created using the data available in the ENI.
 	primaryIF := netNS.GetPrimaryInterface()
@@ -419,6 +445,10 @@ func (c *common) createDNSConfig(
 // 2. /etc/netns/<netNSName>/hostname
 // 3. /etc/netns/<netNSName>/hosts
 func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkinterface.NetworkInterface) error {
+	logger.Info("Creating DNS config files in netns directory", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
 	// Create the dns configuration file directory.
 	_, err := c.os.Stat(filepath.Join(networkConfigFileDirectory, netNSName))
 	if err != nil && c.os.IsNotExist(err) {
@@ -515,6 +545,10 @@ func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {
 
 // createHostnameFileForNetNS creates the hostname file for the given network namespace.
 func (c *common) createHostnameFileForNetNS(netConfigFilesDir string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating hostname file", map[string]interface{}{
+		"NetConfigFilesDir": netConfigFilesDir,
+	})
+
 	// \n is used as line separater for hosts file. Therefore we add \n at the end.
 	// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
 	hostname := fmt.Sprintf("%s\n", iface.GetHostname())
@@ -540,6 +574,10 @@ func (c *common) createHostnameFileForDefaultNetNS() error {
 }
 
 func (c *common) createResolvConfigFile(netConfigFilesDir string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating resolv.conf file", map[string]interface{}{
+		"NetConfigFilesDir": netConfigFilesDir,
+	})
+
 	data := c.nsUtil.BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList)
 
 	return c.ioutil.WriteFile(
@@ -549,6 +587,10 @@ func (c *common) createResolvConfigFile(netConfigFilesDir string, iface *network
 }
 
 func (c *common) createHostsFile(netNSName string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating hosts file", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
 	var contents bytes.Buffer
 	// \n is used as line separater for hosts file. Therefore we add \n at the end.
 	// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
@@ -594,6 +636,11 @@ func (c *common) configureInterface(
 
 // configureRegularENI configures a network interface for an ENI.
 func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring regular ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
 	var cniNetConf []ecscni.PluginConfig
 	var add bool
 	var err error
@@ -625,6 +672,11 @@ func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni 
 
 // configureBranchENI configures a network interface for a branch ENI.
 func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring branch ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
 	var cniNetConf ecscni.PluginConfig
 	var err error
 	add := true
@@ -654,6 +706,11 @@ func (c *common) configureGENEVEInterface(
 	iface *networkinterface.NetworkInterface,
 	netDAO netlibdata.NetworkDataClient,
 ) error {
+	logger.Info("Configuring GENEVE interface", map[string]interface{}{
+		"ENIName":   iface.Name,
+		"NetNSPath": netNSPath,
+	})
+
 	var cniNetConf ecscni.PluginConfig
 	add := true
 
@@ -676,6 +733,11 @@ func (c *common) configureGENEVEInterface(
 	if err != nil {
 		return err
 	}
+
+	logger.Info("GENEVE interface configured", map[string]interface{}{
+		"ENIName":   iface.Name,
+		"NetNSPath": netNSPath,
+	})
 
 	switch iface.DesiredStatus {
 	case status.NetworkReadyPull:
@@ -720,6 +782,10 @@ func (c *common) configureAppMesh(
 	netNSPath string,
 	cfg *appmesh.AppMesh,
 ) error {
+	logger.Info("Configuring AppMesh", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
+
 	c.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
 	defer c.os.Unsetenv(CNIPluginLogFileEnv)
 
@@ -741,6 +807,10 @@ func (c *common) configureServiceConnect(
 	taskENI *networkinterface.NetworkInterface,
 	scConfig *serviceconnect.ServiceConnectConfig,
 ) error {
+	logger.Info("Configuring ServiceConnect", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
+
 	c.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
 	defer c.os.Unsetenv(CNIPluginLogFileEnv)
 
