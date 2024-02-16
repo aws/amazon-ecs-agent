@@ -649,14 +649,14 @@ func (agent *ecsAgent) initMetricsEngine() {
 func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN string) (*doctor.Doctor, error) {
 	var healthcheckList []doctor.Healthcheck
 
-	// add the docker container runtime health check
+	// add the docker runtime health check
 	runtimeHealthCheck := dockerdoctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
 	healthcheckList = append(healthcheckList, runtimeHealthCheck)
 
 	// add the custom health checks
 	customHealthChecks := dockerdoctor.NewCustomHealthchecks()
 	for _, hc := range customHealthChecks {
-		healthcheckList = append(healthcheckList, &hc)
+		healthcheckList = append(healthcheckList, hc)
 	}
 
 	// set up the doctor and return it
@@ -665,7 +665,7 @@ func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN s
 
 // setClusterInConfig sets the cluster name in the config object based on
 // previous state. It returns an error if there's a mismatch between the
-// the current cluster name with what's restored from the cluster state
+// current cluster name with what's restored from the cluster state
 func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 	// TODO Handle default cluster in a sane and unified way across the codebase
 	configuredCluster := agent.cfg.Cluster

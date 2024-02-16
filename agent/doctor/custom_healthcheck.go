@@ -3,7 +3,6 @@ package doctor
 import (
 	"encoding/json"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
@@ -12,30 +11,24 @@ import (
 
 const customHealthcheckFile = "/etc/ecs/healthcheck.json"
 
-type customHealthcheck struct {
-	// HealthcheckType is the reported healthcheck type
-	HealthcheckType string `json:"Name,omitempty"`
-	// Command is the custom healthcheck command
-	Command string `json:"Command,omitempty"`
-	// Timeout is the timeout for the custom healthcheck command
-	Timeout int `json:"Timeout,omitempty"`
-	// Status is the container health status
-	Status doctor.HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
-	// Timestamp is the timestamp when container health status changed
-	TimeStamp time.Time `json:"TimeStamp,omitempty"`
-	// StatusChangeTime is the latest time the health status changed
-	StatusChangeTime time.Time `json:"StatusChangeTime,omitempty"`
-	// LastStatus is the last container health status
-	LastStatus doctor.HealthcheckStatus `json:"LastStatus,omitempty"`
-	// LastTimeStamp is the timestamp of last container health status
-	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
-	lock          sync.RWMutex
+// customHealthcheckFromJSON represents the healthcheck input from the healthcheck.json file
+type customHealthcheckFromJSON struct {
+	Name    string `json:"name"`
+	Command string `json:"command"`
+	Timeout int    `json:"timeout"`
+}
+
+// customHealthcheckConfig represents the custom healthcheck object
+type customHealthcheckConfig struct {
+	commonHealthcheckConfig
+	Command string
+	Timeout int
 }
 
 // NewCustomHealthchecks returns a list of custom healthchecks.
 // It parses the healthcheck configuration from a healthcheck.json file.
-func NewCustomHealthchecks() []customHealthcheck {
-	var customHealthcheckList []customHealthcheck
+func NewCustomHealthchecks() []*customHealthcheckConfig {
+	var hcJSON []customHealthcheckFromJSON
 	_, err := os.Stat(customHealthcheckFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -43,39 +36,39 @@ func NewCustomHealthchecks() []customHealthcheck {
 		} else {
 			log.Errorf("error stat file, err: %v", err)
 		}
-		return customHealthcheckList
+		return nil
 	}
 	data, _ := os.ReadFile(customHealthcheckFile)
-	err = json.Unmarshal(data, &customHealthcheckList)
+	err = json.Unmarshal(data, &hcJSON)
 	if err != nil {
 		log.Errorf("error unmarshalling healthcheck json file, err: %v", err)
+		return nil
 	}
-	return newCustomHealthchecks(customHealthcheckList)
-}
 
-// newCustomHealthcheck returns a list of custom healthcheck objects.
-func newCustomHealthchecks(input []customHealthcheck) []customHealthcheck {
-	var result []customHealthcheck
-	nowTime := time.Now()
-	for _, hc := range input {
-		name := hc.HealthcheckType
-		command := hc.Command
-		timeout := hc.Timeout
-		r := customHealthcheck{
-			HealthcheckType:  name,
-			Status:           doctor.HealthcheckStatusInitializing,
-			TimeStamp:        nowTime,
-			StatusChangeTime: nowTime,
-			Command:          command,
-			Timeout:          timeout,
-		}
-		result = append(result, r)
+	var result []*customHealthcheckConfig
+	for _, hc := range hcJSON {
+		result = append(result, newCustomHealthcheck(hc))
 	}
 	return result
 }
 
+// newCustomHealthcheck returns a list of custom healthcheck objects.
+func newCustomHealthcheck(input customHealthcheckFromJSON) *customHealthcheckConfig {
+	nowTime := time.Now()
+	return &customHealthcheckConfig{
+		commonHealthcheckConfig: commonHealthcheckConfig{
+			HealthcheckType:  input.Name,
+			Status:           doctor.HealthcheckStatusInitializing,
+			TimeStamp:        nowTime,
+			StatusChangeTime: nowTime,
+		},
+		Command: input.Command,
+		Timeout: input.Timeout,
+	}
+}
+
 // RunCheck runs the custom healthcheck command and returns the result.
-func (chc *customHealthcheck) RunCheck() doctor.HealthcheckStatus {
+func (chc *customHealthcheckConfig) RunCheck() doctor.HealthcheckStatus {
 	res := runCustomHealthCheckCmd(chc.Command, chc.Timeout)
 	resultStatus := doctor.HealthcheckStatusOk
 	if res != "0" {
@@ -87,7 +80,7 @@ func (chc *customHealthcheck) RunCheck() doctor.HealthcheckStatus {
 }
 
 // SetHealthcheckStatus sets the healthcheck status.
-func (chc *customHealthcheck) SetHealthcheckStatus(healthStatus doctor.HealthcheckStatus) {
+func (chc *customHealthcheckConfig) SetHealthcheckStatus(healthStatus doctor.HealthcheckStatus) {
 	chc.lock.Lock()
 	defer chc.lock.Unlock()
 	nowTime := time.Now()
@@ -105,42 +98,42 @@ func (chc *customHealthcheck) SetHealthcheckStatus(healthStatus doctor.Healthche
 }
 
 // GetHealthcheckType returns the healthcheck type.
-func (chc *customHealthcheck) GetHealthcheckType() string {
+func (chc *customHealthcheckConfig) GetHealthcheckType() string {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.HealthcheckType
 }
 
 // GetHealthcheckStatus returns the healthcheck status.
-func (chc *customHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
+func (chc *customHealthcheckConfig) GetHealthcheckStatus() doctor.HealthcheckStatus {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.Status
 }
 
 // GetHealthcheckTime returns the healthcheck time.
-func (chc *customHealthcheck) GetHealthcheckTime() time.Time {
+func (chc *customHealthcheckConfig) GetHealthcheckTime() time.Time {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.TimeStamp
 }
 
 // GetStatusChangeTime returns the time when the status changed.
-func (chc *customHealthcheck) GetStatusChangeTime() time.Time {
+func (chc *customHealthcheckConfig) GetStatusChangeTime() time.Time {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.StatusChangeTime
 }
 
 // GetLastHealthcheckStatus returns the last healthcheck status.
-func (chc *customHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
+func (chc *customHealthcheckConfig) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.LastStatus
 }
 
 // GetLastHealthcheckTime returns the last healthcheck time.
-func (chc *customHealthcheck) GetLastHealthcheckTime() time.Time {
+func (chc *customHealthcheckConfig) GetLastHealthcheckTime() time.Time {
 	chc.lock.RLock()
 	defer chc.lock.RUnlock()
 	return chc.LastTimeStamp
