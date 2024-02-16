@@ -1,46 +1,77 @@
 package doctor
 
 import (
+	"encoding/json"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	log "github.com/cihub/seelog"
 )
 
+const customHealthcheckFile = "/etc/ecs/healthcheck.json"
+
 type customHealthcheck struct {
-	commonHealthcheck
-	Command string `json:"command,omitempty"`
-	Timeout int    `json:"timeout,omitempty"`
+	// HealthcheckType is the reported healthcheck type
+	HealthcheckType string `json:"Name,omitempty"`
+	// Command is the custom healthcheck command
+	Command string `json:"Command,omitempty"`
+	// Timeout is the timeout for the custom healthcheck command
+	Timeout int `json:"Timeout,omitempty"`
+	// Status is the container health status
+	Status doctor.HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
+	// Timestamp is the timestamp when container health status changed
+	TimeStamp time.Time `json:"TimeStamp,omitempty"`
+	// StatusChangeTime is the latest time the health status changed
+	StatusChangeTime time.Time `json:"StatusChangeTime,omitempty"`
+	// LastStatus is the last container health status
+	LastStatus doctor.HealthcheckStatus `json:"LastStatus,omitempty"`
+	// LastTimeStamp is the timestamp of last container health status
+	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
+	lock          sync.RWMutex
 }
 
 // NewCustomHealthchecks returns a list of custom healthchecks.
 // It parses the healthcheck configuration from a healthcheck.json file.
-func NewCustomHealthchecks() []doctor.Healthcheck {
-	// TODO: parse the list of health check
-	customHealthchecks := []doctor.Healthcheck{
-		newCustomHealthcheck(),
+func NewCustomHealthchecks() []customHealthcheck {
+	var customHealthcheckList []customHealthcheck
+	_, err := os.Stat(customHealthcheckFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Infof("Custom healthcheck file not found: %v", customHealthcheckFile)
+		} else {
+			log.Errorf("error stat file, err: %v", err)
+		}
+		return customHealthcheckList
 	}
-	return customHealthchecks
+	data, _ := os.ReadFile(customHealthcheckFile)
+	err = json.Unmarshal(data, &customHealthcheckList)
+	if err != nil {
+		log.Errorf("error unmarshalling healthcheck json file, err: %v", err)
+	}
+	return newCustomHealthchecks(customHealthcheckList)
 }
 
-// newCustomHealthcheck returns a custom healthcheck object.
-func newCustomHealthcheck() *customHealthcheck {
-	// TODO: Parse single health check here
-	name := "AMAZON_SSM_AGENT"
-	command := "sudo systemctl is-active amazon-ssm-agent"
-	timeout := 10
-
+// newCustomHealthcheck returns a list of custom healthcheck objects.
+func newCustomHealthchecks(input []customHealthcheck) []customHealthcheck {
+	var result []customHealthcheck
 	nowTime := time.Now()
-	return &customHealthcheck{
-		commonHealthcheck: commonHealthcheck{
+	for _, hc := range input {
+		name := hc.HealthcheckType
+		command := hc.Command
+		timeout := hc.Timeout
+		r := customHealthcheck{
 			HealthcheckType:  name,
 			Status:           doctor.HealthcheckStatusInitializing,
 			TimeStamp:        nowTime,
 			StatusChangeTime: nowTime,
-		},
-		Command: command,
-		Timeout: timeout,
+			Command:          command,
+			Timeout:          timeout,
+		}
+		result = append(result, r)
 	}
+	return result
 }
 
 // RunCheck runs the custom healthcheck command and returns the result.
