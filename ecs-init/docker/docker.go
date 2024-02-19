@@ -290,6 +290,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		"ECS_AVAILABLE_LOGGING_DRIVERS":         `["json-file","syslog","awslogs","fluentd","none"]`,
 		"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
+		"ECS_EBSTA_SUPPORTED":                   "true",
 		"ECS_AGENT_LABELS":                      "",
 		"ECS_VOLUME_PLUGIN_CAPABILITIES":        `["efsAuth"]`,
 	}
