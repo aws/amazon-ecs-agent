@@ -327,7 +327,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables["ECS_ENABLE_TASK_ENI"] = "false"
 	}
 
-	if config.RunningInExternal() || !isPathValid(config.MountDirectoryEBS(), true) {
+	if !isPathValid(config.MountDirectoryEBS(), true) {
 		// EBS Task Attach (EBSTA) is not supported for external instances
 		// If EBS mount directory fails to get created, tasks requiring EBSTA can not be supported
 		// Disable EBSTA Support for these cases
