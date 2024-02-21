@@ -270,7 +270,6 @@ Additionally, the following environment variable(s) can be used to configure the
 | `ECS_AGENT_APPARMOR_PROFILE` | `unconfined` | Specifies the name of the AppArmor profile to run the ecs-agent container under. This only applies to AppArmor-enabled systems, such as Ubuntu, Debian, and SUSE. If unset, defaults to the profile written out by ecs-init (ecs-agent-default). | `ecs-agent-default` |
 
 
-
 ### Persistence
 
 When you run the Amazon ECS Container Agent in production, its `datadir` should be persisted between runs of the Docker
