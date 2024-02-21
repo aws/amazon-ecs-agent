@@ -1,4 +1,9 @@
 # Changelog
+## 1.81.1
+* Enhancement - Update go version to 1.20.12 [#4092](https://github.com/aws/amazon-ecs-agent/pull/4092)
+* Enhancement - Add extra logs in netlib package [#4095](https://github.com/aws/amazon-ecs-agent/pull/4095)
+* Bugfix - fix bug where the lock is never released for FSx task resource [#4088](https://github.com/aws/amazon-ecs-agent/pull/4088)
+* Bugfix - Create DNS files for second ENI [#4087](https://github.com/aws/amazon-ecs-agent/pull/4087)
 
 ## 1.81.0
 * Bugfix - Fix ECS agent docker API failures on docker engine 25.x [#4075](https://github.com/aws/amazon-ecs-agent/pull/4075)
