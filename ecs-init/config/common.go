@@ -173,7 +173,7 @@ func LogDirectory() string {
 	return directoryPrefix + "/var/log/ecs"
 }
 
-func initLogFile() string {
+func InitLogFile() string {
 	return LogDirectory() + "/ecs-init.log"
 }
 
