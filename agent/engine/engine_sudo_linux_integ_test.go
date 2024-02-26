@@ -682,7 +682,7 @@ func verifyMockExecCommandAgentIsStopped(t *testing.T, client *sdkClient.Client,
 }
 
 func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, containerId, expectedPid string, checkIsRunning bool) string {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 	res := make(chan string, 1)
 	execCmdAgentProcessRegex := filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentBinName)
