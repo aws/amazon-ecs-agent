@@ -34,4 +34,7 @@ jobs:
           set -eoux pipefail
           export GOPATH=$GITHUB_WORKSPACE
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make run-integ-tests
+          make test-silent
+          make analyze-cover-profile
+          make test-init
+          make analyze-cover-profile-init
