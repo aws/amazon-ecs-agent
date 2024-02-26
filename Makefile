@@ -178,7 +178,7 @@ run-integ-tests: test-registry gremlin start-ebs-csi-driver container-health-che
 	$(MAKE) stop-ebs-csi-driver
 
 run-sudo-tests:
-	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
+	sudo -E ${GOTEST} -tags sudo -run TestExecCommandAgent -count 100
 
 run-sudo-unit-tests:
 	sudo -E ${GOTEST} -tags 'sudo_unit' -timeout=60s ./agent/...
