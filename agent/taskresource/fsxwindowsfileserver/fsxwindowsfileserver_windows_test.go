@@ -143,7 +143,7 @@ func TestRetrieveCredentials(t *testing.T) {
 		InvalidParameters: []*string{},
 		Parameters: []*ssm.Parameter{
 			&ssm.Parameter{
-				Name:  aws.String("test"),
+				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
 		},
@@ -167,35 +167,74 @@ func TestRetrieveCredentials(t *testing.T) {
 }
 
 func TestRetrieveSSMCredentials(t *testing.T) {
-	fv, _, ssmClientCreator, _, _, mockSSMClient, _, _ := setup(t)
-	credentialsParameterARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
-
-	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
-	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
-				Name:  aws.String("test"),
-				Value: aws.String(ssmTestData),
-			},
+	cases := []struct {
+		Name                     string
+		CredentialsParameterARN  string
+		CredentialsParameterName string
+	}{
+		{
+			Name:                     "TestRetrieveSSMCredentialsSimple",
+			CredentialsParameterARN:  "arn:aws:ssm:us-west-2:123456789012:parameter/hello",
+			CredentialsParameterName: "/hello",
+		},
+		{
+			Name:                     "TestRetrieveSSMCredentialsPath",
+			CredentialsParameterARN:  "arn:aws:ssm:us-west-2:123456789012:parameter/path1/path2/hello",
+			CredentialsParameterName: "/path1/path2/hello",
+		},
+		{
+			Name:                     "TestRetrieveSSMCredentialsSimpleWithParameter",
+			CredentialsParameterARN:  "arn:aws:ssm:us-east-2:958991572715:parameter/parameter",
+			CredentialsParameterName: "/parameter",
+		},
+		{
+			Name:                     "TestRetrieveSSMCredentialsPathWithParameter",
+			CredentialsParameterARN:  "arn:aws:ssm:us-east-2:958991572715:parameter/path1/path2/parameter",
+			CredentialsParameterName: "/path1/path2/parameter",
+		},
+		{
+			Name:                     "TestRetrieveSSMCredentialsPathWithParameter2",
+			CredentialsParameterARN:  "arn:aws:ssm:us-east-2:958991572715:parameter/path1/parameter/hello",
+			CredentialsParameterName: "/path1/parameter/hello",
 		},
 	}
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			fv, _, ssmClientCreator, _, _, mockSSMClient, _, _ := setup(t)
+			credentialsParameterARN := tc.CredentialsParameterARN
 
-	iamCredentials := credentials.IAMRoleCredentials{
-		CredentialsID: "test-cred-id",
+			ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
+			ssmClientOutput := &ssm.GetParametersOutput{
+				InvalidParameters: []*string{},
+				Parameters: []*ssm.Parameter{
+					&ssm.Parameter{
+						Name:  aws.String(tc.CredentialsParameterName),
+						Value: aws.String(ssmTestData),
+					},
+				},
+			}
+
+			iamCredentials := credentials.IAMRoleCredentials{
+				CredentialsID: "test-cred-id",
+			}
+
+			gomock.InOrder(
+				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
+				mockSSMClient.EXPECT().GetParameters(&ssm.GetParametersInput{
+					Names:          []*string{&tc.CredentialsParameterName},
+					WithDecryption: aws.Bool(false),
+				}).Return(ssmClientOutput, nil).Times(1),
+			)
+
+			err := fv.retrieveSSMCredentials(credentialsParameterARN, iamCredentials)
+			assert.NoError(t, err)
+
+			credentials := fv.Credentials
+			assert.Equal(t, "user", credentials.Username)
+			assert.Equal(t, "pass", credentials.Password)
+		})
 	}
 
-	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-	)
-
-	err := fv.retrieveSSMCredentials(credentialsParameterARN, iamCredentials)
-	assert.NoError(t, err)
-
-	credentials := fv.Credentials
-	assert.Equal(t, "user", credentials.Username)
-	assert.Equal(t, "pass", credentials.Password)
 }
 
 func TestRetrieveASMCredentials(t *testing.T) {
@@ -489,7 +528,7 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 		InvalidParameters: []*string{},
 		Parameters: []*ssm.Parameter{
 			&ssm.Parameter{
-				Name:  aws.String("test"),
+				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
 		},
@@ -574,7 +613,7 @@ func TestCreateSSM(t *testing.T) {
 		InvalidParameters: []*string{},
 		Parameters: []*ssm.Parameter{
 			&ssm.Parameter{
-				Name:  aws.String("test"),
+				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
 		},

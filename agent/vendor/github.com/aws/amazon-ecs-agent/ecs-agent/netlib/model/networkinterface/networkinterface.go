@@ -55,13 +55,16 @@ type NetworkInterface struct {
 	// InterfaceAssociationProtocol is the type of NetworkInterface, valid value: "default", "vlan"
 	InterfaceAssociationProtocol string `json:",omitempty"`
 
-	Index          int64                `json:"Index,omitempty"`
-	UserID         uint32               `json:"UserID,omitempty"`
-	Name           string               `json:"Name,omitempty"`
-	DeviceName     string               `json:"DeviceName,omitempty"`
-	GuestNetNSName string               `json:"GuestNetNSName,omitempty"`
-	KnownStatus    status.NetworkStatus `json:"KnownStatus,omitempty"`
-	DesiredStatus  status.NetworkStatus `json:"DesiredStatus,omitempty"`
+	Index         int64                `json:"Index"`
+	UserID        uint32               `json:"UserID"`
+	Name          string               `json:"Name"`
+	DeviceName    string               `json:"DeviceName"`
+	KnownStatus   status.NetworkStatus `json:"KnownStatus"`
+	DesiredStatus status.NetworkStatus `json:"DesiredStatus"`
+
+	// GuestNetNSName represents the interface's network namespace inside a guest OS if applicable.
+	// A sample use case is while running tasks inside Firecracker microVMs.
+	GuestNetNSName string `json:"GuestNetNSName,omitempty"`
 
 	// InterfaceVlanProperties contains information for an interface
 	// that is supposed to be used as a VLAN device
@@ -413,6 +416,7 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.StringValue(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 		interfaceVlanProperties.VlanID = aws.StringValue(acsENI.InterfaceVlanProperties.VlanId)
 		ni.InterfaceVlanProperties = &interfaceVlanProperties
+		ni.InterfaceAssociationProtocol = VLANInterfaceAssociationProtocol
 	}
 
 	for _, nameserverIP := range acsENI.DomainNameServers {
@@ -474,7 +478,8 @@ func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 func New(
 	acsENI *ecsacs.ElasticNetworkInterface,
 	guestNetNSName string,
-	peerInterface *ecsacs.ElasticNetworkInterface,
+	ifaceList []*ecsacs.ElasticNetworkInterface,
+	macToName map[string]string,
 ) (*NetworkInterface, error) {
 	var err error
 
@@ -493,7 +498,7 @@ func New(
 		}
 
 	case VETHInterfaceAssociationProtocol:
-		networkInterface, err = vethPairFromACS(acsENI, peerInterface)
+		networkInterface, err = vethPairFromACS(acsENI, ifaceList)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to unmarshal interface veth properties")
 		}
@@ -519,6 +524,9 @@ func New(
 	networkInterface.KnownStatus = status.NetworkNone
 	networkInterface.DesiredStatus = status.NetworkReadyPull
 	networkInterface.GuestNetNSName = guestNetNSName
+	if err = networkInterface.setDeviceName(macToName); err != nil {
+		return nil, err
+	}
 
 	return networkInterface, nil
 }
@@ -559,7 +567,7 @@ func (ni *NetworkInterface) setDeviceName(macToName map[string]string) error {
 
 // IsPrimary returns whether the NetworkInterface is the primary NetworkInterface of the task.
 func (ni *NetworkInterface) IsPrimary() bool {
-	return ni.Index == 0
+	return ni.Default
 }
 
 // ShouldGenerateNetworkConfigFiles can be used to check if network configuration files (hosts,
@@ -621,11 +629,20 @@ func v2nTunnelFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 // vethPairFromACS creates an NetworkInterface model with veth pair properties from the ACS NetworkInterface payload.
 func vethPairFromACS(
 	acsENI *ecsacs.ElasticNetworkInterface,
-	peerInterface *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
+	ifaceList []*ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	if acsENI.InterfaceVethProperties == nil ||
 		acsENI.InterfaceVethProperties.PeerInterface == nil {
 		return nil, errors.New("interface veth properties not found in payload")
 	}
+
+	peerName := aws.StringValue(acsENI.InterfaceVethProperties.PeerInterface)
+	var peerInterface *ecsacs.ElasticNetworkInterface
+	for _, iface := range ifaceList {
+		if aws.StringValue(iface.Name) == peerName {
+			peerInterface = iface
+		}
+	}
+
 	if aws.StringValue(peerInterface.InterfaceAssociationProtocol) == VETHInterfaceAssociationProtocol {
 		return nil, errors.New("peer interface cannot be veth")
 	}
