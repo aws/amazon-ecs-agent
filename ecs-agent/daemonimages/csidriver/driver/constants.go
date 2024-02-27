@@ -1,15 +1,21 @@
-// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"). You may
-// not use this file except in compliance with the License. A copy of the
-// License is located at
-//
-//      http://aws.amazon.com/apache2.0/
-//
-// or in the "license" file accompanying this file. This file is distributed
-// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
-// express or implied. See the License for the specific language governing
-// permissions and limitations under the License.
+// this file has been modified from its original found in:
+// https://github.com/kubernetes-sigs/aws-ebs-csi-driver
+
+/*
+Copyright 2019 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package driver
 
@@ -45,14 +51,20 @@ const (
 	// BlockSizeKey configures the block size when formatting a volume
 	BlockSizeKey = "blocksize"
 
-	// INodeSizeKey configures the inode size when formatting a volume
-	INodeSizeKey = "inodesize"
+	// InodeSizeKey configures the inode size when formatting a volume
+	InodeSizeKey = "inodesize"
 
-	// BytesPerINodeKey configures the `bytes-per-inode` when formatting a volume
-	BytesPerINodeKey = "bytesperinode"
+	// BytesPerInodeKey configures the `bytes-per-inode` when formatting a volume
+	BytesPerInodeKey = "bytesperinode"
 
-	// NumberOfINodesKey configures the `number-of-inodes` when formatting a volume
-	NumberOfINodesKey = "numberofinodes"
+	// NumberOfInodesKey configures the `number-of-inodes` when formatting a volume
+	NumberOfInodesKey = "numberofinodes"
+
+	// Ext4ClusterSizeKey enables the bigalloc option when formatting an ext4 volume
+	Ext4BigAllocKey = "ext4bigalloc"
+
+	// Ext4ClusterSizeKey configures the cluster size when formatting an ext4 volume with the bigalloc option enabled
+	Ext4ClusterSizeKey = "ext4clustersize"
 )
 
 type fileSystemConfig struct {
@@ -79,16 +91,16 @@ var (
 		},
 		FSTypeXfs: {
 			NotSupportedParams: map[string]struct{}{
-				BytesPerINodeKey:  {},
-				NumberOfINodesKey: {},
+				BytesPerInodeKey:  {},
+				NumberOfInodesKey: {},
 			},
 		},
 		FSTypeNtfs: {
 			NotSupportedParams: map[string]struct{}{
 				BlockSizeKey:      {},
-				INodeSizeKey:      {},
-				BytesPerINodeKey:  {},
-				NumberOfINodesKey: {},
+				InodeSizeKey:      {},
+				BytesPerInodeKey:  {},
+				NumberOfInodesKey: {},
 			},
 		},
 	}

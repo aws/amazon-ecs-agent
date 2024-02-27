@@ -22,6 +22,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
 )
@@ -42,7 +45,7 @@ type AttachmentEventHandler struct {
 	// lock is used to safely access the attachmentARNToHandler map
 	lock sync.Mutex
 
-	client api.ECSClient
+	client ecs.ECSClient
 	ctx    context.Context
 }
 
@@ -60,14 +63,14 @@ type attachmentHandler struct {
 	// lock is used to ensure that the attached status of an attachment won't be sent multiple times
 	lock sync.Mutex
 
-	client api.ECSClient
+	client ecs.ECSClient
 	ctx    context.Context
 }
 
 // NewAttachmentEventHandler returns a new AttachmentEventHandler object
 func NewAttachmentEventHandler(ctx context.Context,
 	dataClient data.Client,
-	client api.ECSClient) *AttachmentEventHandler {
+	client ecs.ECSClient) *AttachmentEventHandler {
 	return &AttachmentEventHandler{
 		ctx:                    ctx,
 		client:                 client,
@@ -92,7 +95,7 @@ func (eventHandler *AttachmentEventHandler) AddStateChangeEvent(change statechan
 		return fmt.Errorf("eventhandler: received malformed attachment state change event: %v", event)
 	}
 
-	attachmentARN := event.Attachment.AttachmentARN
+	attachmentARN := event.Attachment.GetAttachmentARN()
 	eventHandler.lock.Lock()
 	if _, ok := eventHandler.attachmentARNToHandler[attachmentARN]; !ok {
 		eventHandler.attachmentARNToHandler[attachmentARN] = &attachmentHandler{
@@ -127,14 +130,14 @@ func (handler *attachmentHandler) submitAttachmentEvent(attachmentChange *api.At
 }
 
 func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *api.AttachmentStateChange) error {
-	if !attachmentChangeShouldBeSent(attachmentChange) {
+	if !attachmentChange.Attachment.ShouldNotify() {
 		seelog.Debugf("AttachmentHandler: not sending attachment state change [%s] as it should not be sent", attachmentChange.String())
 		// if the attachment state change should not be sent, we don't need to retry anymore so return nil here
 		return nil
 	}
 
 	seelog.Infof("AttachmentHandler: sending attachment state change: %s", attachmentChange.String())
-	if err := handler.client.SubmitAttachmentStateChange(*attachmentChange); err != nil {
+	if err := handler.client.SubmitAttachmentStateChange(*attachmentChange.ToECSAgent()); err != nil {
 		seelog.Errorf("AttachmentHandler: error submitting attachment state change [%s]: %v", attachmentChange.String(), err)
 		return err
 	}
@@ -143,14 +146,19 @@ func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *ap
 	attachmentChange.Attachment.SetSentStatus()
 	attachmentChange.Attachment.StopAckTimer()
 
-	err := handler.dataClient.SaveENIAttachment(attachmentChange.Attachment)
-	if err != nil {
-		seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+	switch typedAttachment := attachmentChange.Attachment.(type) {
+	case *ni.ENIAttachment:
+		err := handler.dataClient.SaveENIAttachment(typedAttachment)
+		if err != nil {
+			seelog.Errorf("AttachmentHandler: error saving ENI state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+		}
+	case *resource.ResourceAttachment:
+		err := handler.dataClient.SaveResourceAttachment(typedAttachment)
+		if err != nil {
+			seelog.Errorf("AttachmentHandler: error saving Resource state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+		}
+	default:
+		seelog.Errorf("Unable to save attachment state after submitted attachment state change [%s]: unknown attachment type", attachmentChange.String())
 	}
 	return nil
-}
-
-// attachmentChangeShouldBeSent checks whether an attachment state change should be sent to backend
-func attachmentChangeShouldBeSent(attachmentChange *api.AttachmentStateChange) bool {
-	return !attachmentChange.Attachment.HasExpired() && !attachmentChange.Attachment.IsSent()
 }

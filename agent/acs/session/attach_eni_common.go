@@ -127,7 +127,7 @@ func (eniHandler *eniHandler) removeENIAttachmentData(mac string) {
 		seelog.Errorf("Unable to retrieve ENI Attachment for mac address %s: ", mac)
 		return
 	}
-	attachmentId, err := utils.GetENIAttachmentId(attachmentToRemove.AttachmentARN)
+	attachmentId, err := utils.GetAttachmentId(attachmentToRemove.AttachmentARN)
 	if err != nil {
 		seelog.Errorf("Failed to get attachment id for %s: %v", attachmentToRemove.AttachmentARN, err)
 	} else {

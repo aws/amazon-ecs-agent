@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
@@ -206,14 +206,14 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	supportedVersions := make(map[dockerclient.DockerVersion]bool)
-	// Determine API versions to report as supported. Supported versions are also used for capability-enablement, except
-	// logging drivers.
-	for _, version := range agent.dockerClient.SupportedVersions() {
+	// Determine API versions to report as supported via com.amazonaws.ecs.capability.docker-remote-api.X.XX capabilities
+	// and for determining which features we support that depend on specific docker API versions
+	for _, version := range dockerclient.SupportedVersionsExtended(agent.dockerClient.SupportedVersions) {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
 		supportedVersions[version] = true
 	}
 
-	capabilities = agent.appendLoggingDriverCapabilities(capabilities)
+	capabilities = agent.appendLoggingDriverCapabilities(capabilities, supportedVersions)
 
 	if agent.cfg.SELinuxCapable.Enabled() {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
@@ -295,8 +295,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// add service-connect capabilities if applicable
 	capabilities = agent.appendServiceConnectCapabilities(capabilities)
 
-	// add ebs-task-attach attribute if applicable
-	capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+	if agent.cfg.EBSTASupportEnabled {
+		// add ebs-task-attach attribute if applicable
+		capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+	}
 
 	if agent.cfg.External.Enabled() {
 		// Add external specific capability; remove external unsupported capabilities.
@@ -315,7 +317,6 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Att
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
 	}
-
 	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok && !agent.cfg.DisableDockerHealthCheck.Enabled() {
 		// Docker health check was added in API 1.24
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"container-health-check")
@@ -339,17 +340,10 @@ func (agent *ecsAgent) appendGMSADomainlessCapabilities(capabilities []*ecs.Attr
 	return capabilities
 }
 
-func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	knownVersions := make(map[dockerclient.DockerVersion]struct{})
-	// Determine known API versions. Known versions are used exclusively for logging-driver enablement, since none of
-	// the structural API elements change.
-	for _, version := range agent.dockerClient.KnownVersions() {
-		knownVersions[version] = struct{}{}
-	}
-
+func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
 	for _, loggingDriver := range agent.cfg.AvailableLoggingDrivers {
 		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
-		if _, ok := knownVersions[requiredVersion]; ok {
+		if _, ok := supportedVersions[requiredVersion]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"logging-driver."+string(loggingDriver))
 		}
 	}
@@ -522,12 +516,16 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		if daemonDef.GetImageName() == md.EbsCsiDriver {
 			csiDaemonManager := dm.NewDaemonManager(daemonDef)
 			agent.setDaemonManager(md.EbsCsiDriver, csiDaemonManager)
-			if _, err := csiDaemonManager.LoadImage(agent.ctx, agent.dockerClient); err != nil {
-				logger.Error("Failed to load the EBS CSI Driver. This container instance will not be able to support EBS Task Attach",
+			imageExists, err := csiDaemonManager.ImageExists()
+			if !imageExists {
+				logger.Error(
+					"Either EBS Daemon image does not exist or failed to check its existence."+
+						" This container instance will not advertise EBS Task Attach capability.",
 					logger.Fields{
-						field.Error: err,
-					},
-				)
+						field.ImageName:    csiDaemonManager.GetManagedDaemon().GetImageName(),
+						field.ImageTARPath: csiDaemonManager.GetManagedDaemon().GetImageTarPath(),
+						field.Error:        err,
+					})
 				return capabilities
 			}
 		}

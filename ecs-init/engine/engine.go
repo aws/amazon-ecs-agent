@@ -145,7 +145,9 @@ func (e *Engine) PreStart() error {
 	// Add the EBS Task Attach host mount point
 	err = os.MkdirAll(config.MountDirectoryEBS(), mountFilePermission)
 	if err != nil {
-		return engineError("could not create EBS mount directory", err)
+		// Log error and continue
+		// If directory creation fails, set ECS_EBSTA_SUPPORTED=false in docker/docker.go
+		log.Error("could not create EBS mount directory", err)
 	}
 
 	docker, err := getDockerClient()
@@ -206,12 +208,12 @@ func (e *Engine) PreStartGPU() error {
 	return nil
 }
 
-// PreStartAppArmor sets up the ecs-default AppArmor profile if we're running
+// PreStartAppArmor sets up the ecs-agent-default AppArmor profile if we're running
 // on an AppArmor-enabled system.
 func (e *Engine) PreStartAppArmor() error {
 	if hostSupports() {
-		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSDefaultProfileName)
-		return loadDefaultProfile(apparmor.ECSDefaultProfileName)
+		log.Infof("pre-start: setting up %s AppArmor profile", apparmor.ECSAgentDefaultProfileName)
+		return loadDefaultProfile(apparmor.ECSAgentDefaultProfileName)
 	}
 	return nil
 }

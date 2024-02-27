@@ -31,9 +31,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	mock_http "github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
+	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	mock_http "github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock"
 	mock_client "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	"github.com/golang/mock/gomock"
@@ -58,7 +59,7 @@ func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *moc
 
 	mockacs := mock_client.NewMockClientServer(ctrl)
 	mockhttp := mock_http.NewMockRoundTripper(ctrl)
-	httpClient := httpclient.New(updateDownloadTimeout, false)
+	httpClient := httpclient.New(updateDownloadTimeout, false, agentversion.String(), config.OSType)
 	httpClient.Transport.(httpclient.OverridableTransport).SetTransport(mockhttp)
 
 	u := NewUpdater(cfg, dockerstate.NewTaskEngineState(), data.NewNoopClient(),

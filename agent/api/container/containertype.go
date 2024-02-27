@@ -53,6 +53,7 @@ var stringToContainerType = map[string]ContainerType{
 	"EMPTY_HOST_VOLUME": ContainerEmptyHostVolume,
 	"CNI_PAUSE":         ContainerCNIPause,
 	"NAMESPACE_PAUSE":   ContainerNamespacePause,
+	"MANAGED_DAEMON":    ContainerManagedDaemon,
 }
 
 // String converts the container type enum to a string

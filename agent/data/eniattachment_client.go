@@ -24,7 +24,7 @@ import (
 )
 
 func (c *client) SaveENIAttachment(eni *ni.ENIAttachment) error {
-	id, err := utils.GetENIAttachmentId(eni.AttachmentARN)
+	id, err := utils.GetAttachmentId(eni.AttachmentARN)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}

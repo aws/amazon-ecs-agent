@@ -17,7 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 )
 
 // taskProtection is type of Protection for a Task

@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	taskresourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -32,6 +32,7 @@ const (
 	DockerVolumeType               = "docker"
 	EFSVolumeType                  = "efs"
 	FSxWindowsFileServerVolumeType = "fsxWindowsFileServer"
+	AttachmentType                 = "attachment"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -78,6 +79,9 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
 	case apiresource.EBSTaskAttach:
 		return tv.unmarshalEBSVolume(intermediate["ebsVolumeConfiguration"])
+	case AttachmentType:
+		seelog.Warn("Obtaining the volume configuration from task attachments.")
+		return nil
 	default:
 		return errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}

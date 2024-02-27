@@ -22,8 +22,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -34,10 +32,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/eni"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/resource"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -76,7 +76,7 @@ type testHelper struct {
 func setup(t *testing.T, acsResponseSender wsclient.RespondFunc) *testHelper {
 	ctrl := gomock.NewController(t)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	dataClient := data.NewNoopClient()
 	credentialsManager := credentials.NewManager()
 	ctx := context.Background()
@@ -725,6 +725,12 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					AttachmentType: aws.String(apiresource.EBSTaskAttach),
 				},
 			},
+			Volumes: []*ecsacs.Volume{
+				{
+					Name: aws.String(taskresourcevolume.TestVolumeName),
+					Type: aws.String(apitask.AttachmentType),
+				},
+			},
 		},
 	}
 
@@ -858,7 +864,7 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 			Arn: aws.String(testconst.TaskARN),
 			ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 				{
-					InterfaceAssociationProtocol: aws.String(eni.VLANInterfaceAssociationProtocol),
+					InterfaceAssociationProtocol: aws.String(ni.VLANInterfaceAssociationProtocol),
 					AttachmentArn:                aws.String(attachmentARN),
 					Ec2Id:                        aws.String(ec2ID),
 					Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -890,7 +896,7 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 
 	// Validate the added task has the ENI trunk information as expected.
 	taskeni := addedTask.GetPrimaryENI()
-	assert.Equal(t, eni.VLANInterfaceAssociationProtocol, taskeni.InterfaceAssociationProtocol)
+	assert.Equal(t, ni.VLANInterfaceAssociationProtocol, taskeni.InterfaceAssociationProtocol)
 	assert.Equal(t, testconst.RandomMAC, taskeni.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 	assert.Equal(t, vlanID, taskeni.InterfaceVlanProperties.VlanID)
 }
@@ -1051,7 +1057,7 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 
 func TestHandleInvalidTask(t *testing.T) {
 	tester := setup(t, nil)
-	mockECSACSClient := mock_api.NewMockECSClient(tester.ctrl)
+	mockECSACSClient := mock_ecs.NewMockECSClient(tester.ctrl)
 	taskHandler := eventhandler.NewTaskHandler(tester.ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(),
 		mockECSACSClient)
 	tester.payloadMessageHandler.ecsClient = mockECSACSClient
@@ -1064,8 +1070,8 @@ func TestHandleInvalidTask(t *testing.T) {
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 
-	mockECSACSClient.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-		assert.NotNil(t, change.Task)
+	mockECSACSClient.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change ecs.TaskStateChange) {
+		assert.False(t, change.MetadataGetter.GetTaskIsNil())
 		wait.Done()
 	})
 

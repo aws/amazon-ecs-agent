@@ -44,11 +44,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
@@ -2226,4 +2229,64 @@ func TestTaskWaitForHostResources(t *testing.T) {
 	// Verify arn2 got dequeued
 	topTask, err = taskEngine.topTask()
 	assert.Error(t, err)
+}
+
+func TestUnstageVolumes(t *testing.T) {
+	tcs := []struct {
+		name      string
+		err       error
+		numErrors int
+	}{
+		{
+			name:      "Success",
+			err:       nil,
+			numErrors: 0,
+		},
+		{
+			name:      "Failure",
+			err:       errors.New("unable to unstage volume"),
+			numErrors: 1,
+		},
+		{
+			name:      "TimeoutFailure",
+			err:       errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded"),
+			numErrors: 1,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			mtask := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+					Volumes: []apitask.TaskVolume{
+						{
+							Name: taskresourcevolume.TestVolumeName,
+							Type: apiresource.EBSTaskAttach,
+							Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+								VolumeId:             taskresourcevolume.TestVolumeId,
+								VolumeName:           taskresourcevolume.TestVolumeId,
+								VolumeSizeGib:        taskresourcevolume.TestVolumeSizeGib,
+								SourceVolumeHostPath: taskresourcevolume.TestSourceVolumeHostPath,
+								DeviceName:           taskresourcevolume.TestDeviceName,
+								FileSystem:           taskresourcevolume.TestFileSystem,
+							},
+						},
+					},
+				},
+				ctx:                      ctx,
+				resourceStateChangeEvent: make(chan resourceStateChange),
+			}
+			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+			mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(tc.err).MinTimes(1).MaxTimes(5)
+
+			errors := mtask.UnstageVolumes(mockCsiClient)
+			assert.Len(t, errors, tc.numErrors)
+		})
+	}
 }

@@ -13,8 +13,10 @@
 package utils
 
 import (
+	"strconv"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,4 +60,50 @@ func TestZeroOrNil(t *testing.T) {
 		})
 	}
 
+}
+
+// TestUint16SliceToStringSlice tests the utils method Uint16SliceToStringSlice
+// By taking in a slice of untyped 16 bit ints, asserting the util function
+// returns the correct size of array, and asserts their equality.
+// This is done by re-converting the string into a uint16.
+func TestUint16SliceToStringSlice(t *testing.T) {
+	testCases := []struct {
+		param    []uint16
+		expected int
+		name     string
+	}{
+		{nil, 0, "Nil argument"},
+		{[]uint16{0, 1, 2, 3}, 4, "Basic set"},
+		{[]uint16{65535}, 1, "Max Value"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			output := Uint16SliceToStringSlice(tc.param)
+			assert.Equal(t, tc.expected, len(output), tc.name)
+			for idx, num := range tc.param {
+				reconverted, err := strconv.Atoi(*output[idx])
+				assert.NoError(t, err)
+				assert.Equal(t, num, uint16(reconverted))
+			}
+
+		})
+	}
+}
+
+func TestInt64PtrToIntPtr(t *testing.T) {
+	testCases := []struct {
+		input          *int64
+		expectedOutput *int
+		name           string
+	}{
+		{nil, nil, "nil"},
+		{aws.Int64(2147483647), aws.Int(2147483647), "smallest max value type int can hold"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, Int64PtrToIntPtr(tc.input))
+		})
+	}
 }

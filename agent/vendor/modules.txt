@@ -9,29 +9,36 @@ github.com/aws/amazon-ecs-agent/ecs-agent/acs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst
-github.com/aws/amazon-ecs-agent/ecs-agent/api
 github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet
 github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet/mocks
-github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo
+github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment
+github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource
+github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
-github.com/aws/amazon-ecs-agent/ecs-agent/api/eni
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
-github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks
-github.com/aws/amazon-ecs-agent/ecs-agent/api/resource
-github.com/aws/amazon-ecs-agent/ecs-agent/api/resource/mocks
-github.com/aws/amazon-ecs-agent/ecs-agent/api/status
 github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status
 github.com/aws/amazon-ecs-agent/ecs-agent/async
 github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/config
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers
 github.com/aws/amazon-ecs-agent/ecs-agent/csiclient
 github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/data
 github.com/aws/amazon-ecs-agent/ecs-agent/doctor
-github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs
+github.com/aws/amazon-ecs-agent/ecs-agent/ec2
+github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
+github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient
+github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher
+github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
+github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
@@ -42,6 +49,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/metrics
 github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface
+github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status
 github.com/aws/amazon-ecs-agent/ecs-agent/stats
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler
@@ -225,9 +233,7 @@ github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/meminfo
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
-github.com/docker/docker/pkg/process
 github.com/docker/docker/pkg/rootless
-github.com/docker/docker/pkg/system
 # github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
@@ -305,7 +311,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
+# github.com/opencontainers/runtime-spec v1.1.0
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -366,7 +372,7 @@ go.etcd.io/bbolt
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.14.0
+# golang.org/x/net v0.17.0
 ## explicit; go 1.17
 golang.org/x/net/html
 golang.org/x/net/html/atom
@@ -378,16 +384,15 @@ golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
-# golang.org/x/sys v0.11.0
+# golang.org/x/sys v0.13.0
 ## explicit; go 1.17
 golang.org/x/sys/execabs
-golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
-# golang.org/x/text v0.12.0
+# golang.org/x/text v0.13.0
 ## explicit; go 1.17
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
@@ -420,10 +425,10 @@ golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
-# google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
+# google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.53.0
+# google.golang.org/grpc v1.56.3
 ## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -473,7 +478,6 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-google.golang.org/grpc/test/bufconn
 # google.golang.org/protobuf v1.30.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/protojson

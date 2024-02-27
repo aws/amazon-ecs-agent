@@ -34,7 +34,7 @@ import (
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -106,10 +106,6 @@ func TestCapabilities(t *testing.T) {
 	// AnyTimes() because they are not called in windows.
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
@@ -255,11 +251,6 @@ func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribut
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
-			dockerclient.Version_1_19,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -295,7 +286,6 @@ func TestCapabilitiesECR(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -352,7 +342,6 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -407,7 +396,6 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -462,7 +450,6 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_19,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -517,7 +504,6 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_18,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -591,11 +577,6 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
-			dockerclient.Version_1_19,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -660,7 +641,6 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	// CNI plugins are platform dependent.
 	// Therefore, for any version query for any plugin return an error
 	cniClient.EXPECT().Version(gomock.Any()).Return("v1", errors.New("some error happened"))
@@ -727,7 +707,6 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -781,7 +760,6 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -834,7 +812,6 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -904,7 +881,6 @@ func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
 
 			gomock.InOrder(
 				client.EXPECT().SupportedVersions().Return(versionList),
-				client.EXPECT().KnownVersions().Return(versionList),
 				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 					gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -947,7 +923,6 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_24,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -998,7 +973,6 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 		dockerclient.Version_1_24,
 	})
-	client.EXPECT().KnownVersions().Return(nil)
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)
@@ -1058,7 +1032,6 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return(nil, errors.New("listPlugins error happened")),
@@ -1106,7 +1079,6 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1224,7 +1196,6 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 
 			gomock.InOrder(
 				client.EXPECT().SupportedVersions().Return(versionList),
-				client.EXPECT().KnownVersions().Return(versionList),
 				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
 				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 					gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1308,10 +1279,6 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 	// AnyTimes() because they are not called in windows.
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,

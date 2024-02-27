@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachmentinfo"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -45,12 +47,12 @@ const (
 	attachmentARN = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
 )
 
-func TestSendAttachmentEvent(t *testing.T) {
+func TestSendENIAttachmentEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
-	attachmentEvent := attachmentEvent(attachmentARN)
+	attachmentEvent := eniAttachmentEvent(attachmentARN)
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
@@ -64,9 +66,39 @@ func TestSendAttachmentEvent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
-		assert.Equal(t, attachmentARN, change.Attachment.AttachmentARN)
+		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
+		wg.Done()
+	})
+
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent))
+
+	wg.Wait()
+}
+
+func TestSendResAttachmentEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_ecs.NewMockECSClient(ctrl)
+
+	attachmentEvent := resAttachmentEvent(attachmentARN)
+
+	timeoutFunc := func() {
+		t.Error("Timeout sending ENI attach status")
+	}
+	assert.NoError(t, attachmentEvent.Attachment.StartTimer(timeoutFunc))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewAttachmentEventHandler(ctx, data.NewNoopClient(), client)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
+		assert.NotNil(t, change.Attachment)
+		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 		wg.Done()
 	})
 
@@ -78,9 +110,9 @@ func TestSendAttachmentEvent(t *testing.T) {
 func TestSendAttachmentEventRetries(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
-	attachmentEvent := attachmentEvent(attachmentARN)
+	attachmentEvent := eniAttachmentEvent(attachmentARN)
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
@@ -102,9 +134,9 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(retriable).Do(func(interface{}) { wg.Done() }),
-		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 			assert.NotNil(t, change.Attachment)
-			assert.Equal(t, attachmentARN, change.Attachment.AttachmentARN)
+			assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 			wg.Done()
 		}),
 	)
@@ -114,14 +146,14 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSendMultipleAttachmentEventsDifferentAttachments(t *testing.T) {
+func TestSendMutipleAttachmentEventsMixedAttachments(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
-	attachmentEvent1 := attachmentEvent("attachmentARN1")
-	attachmentEvent2 := attachmentEvent("attachmentARN2")
-	attachmentEvent3 := attachmentEvent("attachmentARN3")
+	attachmentEvent1 := eniAttachmentEvent("attachmentARN1")
+	attachmentEvent2 := resAttachmentEvent("attachmentARN2")
+	attachmentEvent3 := resAttachmentEvent("attachmentARN3")
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
@@ -139,11 +171,11 @@ func TestSendMultipleAttachmentEventsDifferentAttachments(t *testing.T) {
 
 	submittedAttachments := make(map[string]bool) // note down submitted attachments
 	mapLock := sync.Mutex{}                       // lock to protect the above map
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Times(3).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Times(3).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		mapLock.Lock()
 		defer mapLock.Unlock()
 
-		submittedAttachments[change.Attachment.AttachmentARN] = true
+		submittedAttachments[change.Attachment.GetAttachmentARN()] = true
 		wg.Done()
 	})
 
@@ -161,11 +193,11 @@ func TestSendMultipleAttachmentEventsDifferentAttachments(t *testing.T) {
 func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	dataClient := newTestDataClient(t)
 
-	attachmentEvent := attachmentEvent(attachmentARN)
+	attachmentEvent := eniAttachmentEvent(attachmentARN)
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
@@ -180,14 +212,14 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	}
 	defer cancel()
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
-		assert.Equal(t, attachmentARN, change.Attachment.AttachmentARN)
+		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 	})
 
 	handler.submitAttachmentEvent(&attachmentEvent)
 
-	assert.True(t, attachmentEvent.Attachment.AttachStatusSent)
+	assert.True(t, attachmentEvent.Attachment.IsSent())
 	res, err := dataClient.GetENIAttachments()
 	assert.NoError(t, err)
 	assert.Len(t, res, 1)
@@ -196,10 +228,9 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
-	attachmentEvent := attachmentEvent(attachmentARN)
-	attachmentEvent.Attachment.ExpiresAt = time.Now().Add(100 * time.Millisecond)
+	attachmentEvent := eniAttachmentEventWithExpiry(attachmentARN, 100*time.Millisecond)
 
 	// wait until eni attachment expires
 	time.Sleep(200 * time.Millisecond)
@@ -214,15 +245,15 @@ func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 	handler.submitAttachmentEvent(&attachmentEvent)
 
 	// no SubmitAttachmentStateChange should happen and attach status should not be sent
-	assert.False(t, attachmentEvent.Attachment.AttachStatusSent)
+	assert.False(t, attachmentEvent.Attachment.IsSent())
 }
 
 func TestSubmitAttachmentEventAttachmentIsSent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
-	attachmentEvent := attachmentEvent(attachmentARN)
+	attachmentEvent := resAttachmentEvent(attachmentARN)
 	attachmentEvent.Attachment.SetSentStatus()
 
 	timeoutFunc := func() {
@@ -243,32 +274,40 @@ func TestSubmitAttachmentEventAttachmentIsSent(t *testing.T) {
 	attachmentEvent.Attachment.StopAckTimer()
 }
 
-func TestAttachmentChangeShouldBeSent(t *testing.T) {
-	attachmentEvent := attachmentEvent(attachmentARN)
-	assert.True(t, attachmentChangeShouldBeSent(&attachmentEvent))
-}
-
-func TestAttachmentChangeShouldBeSentAttachmentExpired(t *testing.T) {
-	attachmentEvent := attachmentEvent(attachmentARN)
-	attachmentEvent.Attachment.ExpiresAt = time.Now()
-	time.Sleep(10 * time.Millisecond)
-
-	assert.False(t, attachmentChangeShouldBeSent(&attachmentEvent))
-}
-
-func TestAttachmentChangeShouldBeSentAttachmentIsSent(t *testing.T) {
-	attachmentEvent := attachmentEvent(attachmentARN)
-	attachmentEvent.Attachment.SetSentStatus()
-	assert.False(t, attachmentChangeShouldBeSent(&attachmentEvent))
-}
-
-func attachmentEvent(attachmentARN string) api.AttachmentStateChange {
+func eniAttachmentEvent(attachmentARN string) api.AttachmentStateChange {
 	return api.AttachmentStateChange{
 		Attachment: &ni.ENIAttachment{
-			AttachmentInfo: attachmentinfo.AttachmentInfo{
+			AttachmentInfo: attachment.AttachmentInfo{
 				AttachmentARN:    attachmentARN,
 				AttachStatusSent: false,
 				ExpiresAt:        time.Now().Add(time.Second),
+			},
+			AttachmentType: ni.ENIAttachmentTypeInstanceENI,
+		},
+	}
+}
+
+func resAttachmentEvent(attachmentARN string) api.AttachmentStateChange {
+	return api.AttachmentStateChange{
+		Attachment: &resource.ResourceAttachment{
+			AttachmentInfo: attachment.AttachmentInfo{
+				AttachmentARN:    attachmentARN,
+				Status:           attachment.AttachmentAttached,
+				AttachStatusSent: false,
+				ExpiresAt:        time.Now().Add(time.Second),
+			},
+			AttachmentType: resource.EBSTaskAttach,
+		},
+	}
+}
+
+func eniAttachmentEventWithExpiry(attachmentARN string, expiresAfter time.Duration) api.AttachmentStateChange {
+	return api.AttachmentStateChange{
+		Attachment: &ni.ENIAttachment{
+			AttachmentInfo: attachment.AttachmentInfo{
+				AttachmentARN:    attachmentARN,
+				AttachStatusSent: false,
+				ExpiresAt:        time.Now().Add(expiresAfter),
 			},
 			AttachmentType: ni.ENIAttachmentTypeInstanceENI,
 		},

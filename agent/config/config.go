@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -582,6 +582,7 @@ func environmentConfig() (Config, error) {
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		DisableDockerHealthCheck:            parseBooleanDefaultFalseConfig("ECS_DISABLE_DOCKER_HEALTH_CHECK"),
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
+		EBSTASupportEnabled:                 utils.ParseBool(os.Getenv("ECS_EBSTA_SUPPORTED"), true),
 		InferentiaSupportEnabled:            utils.ParseBool(os.Getenv("ECS_ENABLE_INF_SUPPORT"), false),
 		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),

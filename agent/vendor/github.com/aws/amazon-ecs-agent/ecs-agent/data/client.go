@@ -14,16 +14,13 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer"
-
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
-
-type NetworkDataClient interface {
-}
 
 type Client struct {
 	Accessor    DBAccessor
@@ -73,4 +70,35 @@ func (DBAccessor) Walk(bucket *bolt.Bucket, callback func(id string, data []byte
 	}
 
 	return nil
+}
+
+func (DBAccessor) WalkPrefix(bucket *bolt.Bucket, prefix string, callback func(id string, data []byte) error) error {
+	var (
+		cursor = bucket.Cursor()
+		search = []byte(prefix)
+	)
+
+	for id, data := cursor.Seek(search); id != nil && bytes.HasPrefix(id, search); id, data = cursor.Next() {
+		if err := callback(string(id), data); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (DBAccessor) GetBucket(tx *bolt.Tx, name string, nested ...string) (*bolt.Bucket, error) {
+	bucket := tx.Bucket([]byte(name))
+	if bucket == nil {
+		return nil, errors.New("bucket does not exist: " + name)
+	}
+
+	for _, n := range nested {
+		bucket = bucket.Bucket([]byte(n))
+		if bucket == nil {
+			return nil, errors.New("bucket does not exist: " + name)
+		}
+	}
+
+	return bucket, nil
 }

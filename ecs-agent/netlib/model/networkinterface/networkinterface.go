@@ -24,6 +24,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -53,15 +55,16 @@ type NetworkInterface struct {
 	// InterfaceAssociationProtocol is the type of NetworkInterface, valid value: "default", "vlan"
 	InterfaceAssociationProtocol string `json:",omitempty"`
 
-	Index          int64  `json:"Index,omitempty"`
-	UserID         uint32 `json:"UserID,omitempty"`
-	Name           string `json:"Name,omitempty"`
-	NetNSName      string `json:"NetNSName,omitempty"`
-	NetNSPath      string `json:"NetNSPath,omitempty"`
-	DeviceName     string `json:"DeviceName,omitempty"`
+	Index         int64                `json:"Index"`
+	UserID        uint32               `json:"UserID"`
+	Name          string               `json:"Name"`
+	DeviceName    string               `json:"DeviceName"`
+	KnownStatus   status.NetworkStatus `json:"KnownStatus"`
+	DesiredStatus status.NetworkStatus `json:"DesiredStatus"`
+
+	// GuestNetNSName represents the interface's network namespace inside a guest OS if applicable.
+	// A sample use case is while running tasks inside Firecracker microVMs.
 	GuestNetNSName string `json:"GuestNetNSName,omitempty"`
-	KnownStatus    Status `json:"KnownStatus,omitempty"`
-	DesiredStatus  Status `json:"DesiredStatus,omitempty"`
 
 	// InterfaceVlanProperties contains information for an interface
 	// that is supposed to be used as a VLAN device
@@ -83,6 +86,10 @@ type NetworkInterface struct {
 	ipv4SubnetPrefixLength string
 	ipv4SubnetCIDRBlock    string
 	ipv6SubnetCIDRBlock    string
+
+	// Default denotes whether the interface is responsible
+	// for handling default route within the netns it resides in.
+	Default bool
 
 	// guard protects access to fields of this struct.
 	guard sync.RWMutex
@@ -368,8 +375,8 @@ type IPV6Address struct {
 	Address string
 }
 
-// ENIFromACS validates the given ACS NetworkInterface information and creates an NetworkInterface object from it.
-func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
+// InterfaceFromACS validates the given ACS NetworkInterface information and creates an NetworkInterface object from it.
+func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	err := ValidateENI(acsENI)
 	if err != nil {
 		return nil, err
@@ -393,14 +400,6 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, erro
 		})
 	}
 
-	// Read NetworkInterface association properties.
-	var interfaceVlanProperties InterfaceVlanProperties
-
-	if aws.StringValue(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
-		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.StringValue(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)
-		interfaceVlanProperties.VlanID = aws.StringValue(acsENI.InterfaceVlanProperties.VlanId)
-	}
-
 	ni := &NetworkInterface{
 		ID:                           aws.StringValue(acsENI.Ec2Id),
 		MacAddress:                   aws.StringValue(acsENI.MacAddress),
@@ -409,7 +408,15 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, erro
 		SubnetGatewayIPV4Address:     aws.StringValue(acsENI.SubnetGatewayIpv4Address),
 		PrivateDNSName:               aws.StringValue(acsENI.PrivateDnsName),
 		InterfaceAssociationProtocol: aws.StringValue(acsENI.InterfaceAssociationProtocol),
-		InterfaceVlanProperties:      &interfaceVlanProperties,
+	}
+
+	// Read NetworkInterface association properties.
+	if aws.StringValue(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
+		var interfaceVlanProperties InterfaceVlanProperties
+		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.StringValue(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)
+		interfaceVlanProperties.VlanID = aws.StringValue(acsENI.InterfaceVlanProperties.VlanId)
+		ni.InterfaceVlanProperties = &interfaceVlanProperties
+		ni.InterfaceAssociationProtocol = VLANInterfaceAssociationProtocol
 	}
 
 	for _, nameserverIP := range acsENI.DomainNameServers {
@@ -470,10 +477,9 @@ func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 // New creates a new NetworkInterface model.
 func New(
 	acsENI *ecsacs.ElasticNetworkInterface,
-	netNSName string,
-	netNSPath string,
 	guestNetNSName string,
-	peerInterface *ecsacs.ElasticNetworkInterface,
+	ifaceList []*ecsacs.ElasticNetworkInterface,
+	macToName map[string]string,
 ) (*NetworkInterface, error) {
 	var err error
 
@@ -492,7 +498,7 @@ func New(
 		}
 
 	case VETHInterfaceAssociationProtocol:
-		networkInterface, err = vethPairFromACS(acsENI, peerInterface)
+		networkInterface, err = vethPairFromACS(acsENI, ifaceList)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to unmarshal interface veth properties")
 		}
@@ -501,9 +507,9 @@ func New(
 	// by the common NetworkInterface handler.
 	default:
 		// Acquire the NetworkInterface information from the payload.
-		networkInterface, err = ENIFromACS(acsENI)
+		networkInterface, err = InterfaceFromACS(acsENI)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to unmarshal eni")
+			return nil, errors.Wrap(err, "failed to unmarshal interface model")
 		}
 
 		// Historically, if there is no interface association protocol in the NetworkInterface payload, we assume
@@ -514,12 +520,13 @@ func New(
 	}
 
 	networkInterface.Index = aws.Int64Value(acsENI.Index)
-	networkInterface.Name = GetENIName(acsENI)
-	networkInterface.KnownStatus = StatusNone
-	networkInterface.DesiredStatus = StatusReadyPull
-	networkInterface.NetNSName = netNSName
-	networkInterface.NetNSPath = netNSPath
+	networkInterface.Name = GetInterfaceName(acsENI)
+	networkInterface.KnownStatus = status.NetworkNone
+	networkInterface.DesiredStatus = status.NetworkReadyPull
 	networkInterface.GuestNetNSName = guestNetNSName
+	if err = networkInterface.setDeviceName(macToName); err != nil {
+		return nil, err
+	}
 
 	return networkInterface, nil
 }
@@ -560,7 +567,7 @@ func (ni *NetworkInterface) setDeviceName(macToName map[string]string) error {
 
 // IsPrimary returns whether the NetworkInterface is the primary NetworkInterface of the task.
 func (ni *NetworkInterface) IsPrimary() bool {
-	return ni.Index == 0
+	return ni.Default
 }
 
 // ShouldGenerateNetworkConfigFiles can be used to check if network configuration files (hosts,
@@ -569,11 +576,11 @@ func (ni *NetworkInterface) IsPrimary() bool {
 // it was decided that for firecracker platform the files had to be generated for secondary ENIs as well.
 // Hence the NetworkInterface IsPrimary check was moved from here to warmpool specific APIs.
 func (ni *NetworkInterface) ShouldGenerateNetworkConfigFiles() bool {
-	return ni.DesiredStatus == StatusReadyPull
+	return ni.DesiredStatus == status.NetworkReadyPull
 }
 
-// GetENIName creates the NetworkInterface name from the NetworkInterface mac address in case it is empty in the ACS payload.
-func GetENIName(acsENI *ecsacs.ElasticNetworkInterface) string {
+// GetInterfaceName creates the NetworkInterface name from the NetworkInterface mac address in case it is empty in the ACS payload.
+func GetInterfaceName(acsENI *ecsacs.ElasticNetworkInterface) string {
 	if acsENI.Name != nil {
 		return aws.StringValue(acsENI.Name)
 	}
@@ -622,11 +629,20 @@ func v2nTunnelFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 // vethPairFromACS creates an NetworkInterface model with veth pair properties from the ACS NetworkInterface payload.
 func vethPairFromACS(
 	acsENI *ecsacs.ElasticNetworkInterface,
-	peerInterface *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
+	ifaceList []*ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	if acsENI.InterfaceVethProperties == nil ||
 		acsENI.InterfaceVethProperties.PeerInterface == nil {
 		return nil, errors.New("interface veth properties not found in payload")
 	}
+
+	peerName := aws.StringValue(acsENI.InterfaceVethProperties.PeerInterface)
+	var peerInterface *ecsacs.ElasticNetworkInterface
+	for _, iface := range ifaceList {
+		if aws.StringValue(iface.Name) == peerName {
+			peerInterface = iface
+		}
+	}
+
 	if aws.StringValue(peerInterface.InterfaceAssociationProtocol) == VETHInterfaceAssociationProtocol {
 		return nil, errors.New("peer interface cannot be veth")
 	}
@@ -644,4 +660,9 @@ func vethPairFromACS(
 			},
 		},
 		nil
+}
+
+// NetNSName returns the netns name that the specified network interface will be attached to in a desired task.
+func NetNSName(taskID, eniName string) string {
+	return fmt.Sprintf("%s-%s", taskID, eniName)
 }
