@@ -19,7 +19,6 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -33,6 +32,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -222,7 +222,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 }
 
 func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
-	cpuShareScaleFactor := runtime.NumCPU() * cpuSharesPerCore
+	cpuShareScaleFactor := eautils.GetNumCPU() * cpuSharesPerCore
 	testcases := []struct {
 		cpu          int64
 		cpuUnbounded config.BooleanDefaultFalse

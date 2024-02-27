@@ -30,14 +30,13 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	mock_taskprotection "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -781,7 +780,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
@@ -818,7 +817,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
@@ -870,7 +869,7 @@ func TestV3ContainerAssociations(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
@@ -904,7 +903,7 @@ func TestV3ContainerAssociation(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
@@ -933,7 +932,7 @@ func TestV4ContainerAssociations(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
@@ -967,7 +966,7 @@ func TestV4ContainerAssociation(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
@@ -998,7 +997,7 @@ func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1041,7 +1040,7 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1081,7 +1080,7 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1120,7 +1119,7 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1190,7 +1189,7 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			auditLog := mock_audit.NewMockAuditLogger(ctrl)
 			statsEngine := mock_stats.NewMockEngine(ctrl)
-			ecsClient := mock_api.NewMockECSClient(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1246,7 +1245,7 @@ func TestV4Unexpected500Error(t *testing.T) {
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			auditLog := mock_audit.NewMockAuditLogger(ctrl)
 			statsEngine := mock_stats.NewMockEngine(ctrl)
-			ecsClient := mock_api.NewMockECSClient(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
@@ -1304,7 +1303,7 @@ type TMDSTestCase[R TMDSResponse] struct {
 	// Function to set expectations on mock stats engine
 	setStatsEngineExpectations func(engine *mock_stats.MockEngine)
 	// Function to set expectations on mock ECS Client
-	setECSClientExpectations func(ecsClient *mock_api.MockECSClient)
+	setECSClientExpectations func(ecsClient *mock_ecs.MockECSClient)
 	// Function to set expectations on mock Task Protection Client Factory
 	setTaskProtectionClientFactoryExpectations func(
 		ctrl *gomock.Controller, factory *tp.MockTaskProtectionClientFactoryInterface)
@@ -1332,7 +1331,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	credsManager := mock_credentials.NewMockManager(ctrl)
 	taskProtectionClientFactory := tp.NewMockTaskProtectionClientFactoryInterface(ctrl)
 
@@ -2042,7 +2041,7 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 			testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 				path:                 path,
 				setStateExpectations: happyStateExpectations,
-				setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+				setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 					gomock.InOrder(
 						ecsClient.EXPECT().GetResourceTags(containerInstanceArn).
 							Return(ecsInstanceTags, nil),
@@ -2061,7 +2060,7 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 v2BaseMetadataWithTagsPath,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -2077,7 +2076,7 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 v2BaseMetadataWithTagsPath,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
@@ -2091,7 +2090,7 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 v2BaseMetadataWithTagsPath,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -2157,7 +2156,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 
 	path := v3BasePath + v3EndpointID + "/taskWithTags"
 
-	happyECSClientExpectations := func(ecsClient *mock_api.MockECSClient) {
+	happyECSClientExpectations := func(ecsClient *mock_ecs.MockECSClient) {
 		gomock.InOrder(
 			ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
 			ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
@@ -2190,7 +2189,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
@@ -2206,7 +2205,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -2220,7 +2219,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v2.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -2331,7 +2330,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		ResourceARN:  taskARN,
 	}
 
-	happyECSClientExpectations := func(ecsClient *mock_api.MockECSClient) {
+	happyECSClientExpectations := func(ecsClient *mock_ecs.MockECSClient) {
 		gomock.InOrder(
 			ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
 			ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
@@ -2368,7 +2367,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
@@ -2385,7 +2384,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -2402,7 +2401,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
-			setECSClientExpectations: func(ecsClient *mock_api.MockECSClient) {
+			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
 					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
 					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
@@ -3018,7 +3017,7 @@ func TestGetTaskProtection(t *testing.T) {
 			ctrl *gomock.Controller,
 			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
-			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
+			client := mock_ecs.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().GetTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
 			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
 		}
@@ -3289,7 +3288,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			ctrl *gomock.Controller,
 			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
-			client := mock_taskprotection.NewMockECSTaskProtectionSDK(ctrl)
+			client := mock_ecs.NewMockECSTaskProtectionSDK(ctrl)
 			client.EXPECT().UpdateTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
 			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
 		}

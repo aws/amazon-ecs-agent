@@ -17,7 +17,6 @@
 package task
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -33,6 +32,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
@@ -59,7 +59,7 @@ type PlatformFields struct {
 	MemoryUnbounded config.BooleanDefaultFalse `json:"memoryUnbounded"`
 }
 
-var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
+var cpuShareScaleFactor = eautils.GetNumCPU() * cpuSharesPerCore
 
 // adjustForPlatform makes Windows-specific changes to the task after unmarshal
 func (task *Task) adjustForPlatform(cfg *config.Config) {
