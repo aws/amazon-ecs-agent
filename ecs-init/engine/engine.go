@@ -145,7 +145,9 @@ func (e *Engine) PreStart() error {
 	// Add the EBS Task Attach host mount point
 	err = os.MkdirAll(config.MountDirectoryEBS(), mountFilePermission)
 	if err != nil {
-		return engineError("could not create EBS mount directory", err)
+		// Log error and continue
+		// If directory creation fails, set ECS_EBSTA_SUPPORTED=false in docker/docker.go
+		log.Error("could not create EBS mount directory", err)
 	}
 
 	docker, err := getDockerClient()
