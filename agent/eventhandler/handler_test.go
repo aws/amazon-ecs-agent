@@ -21,10 +21,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +33,7 @@ func TestHandleEngineEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	taskHandler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client)
@@ -53,14 +53,13 @@ func TestHandleEngineEvent(t *testing.T) {
 	}
 	assert.NoError(t, attachmentEvent.Attachment.StartTimer(timeoutFunc))
 
-	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change ecs.TaskStateChange) {
 		assert.Equal(t, 2, len(change.Containers))
-		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
-		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
+		assert.Equal(t, taskARN, change.TaskARN)
 		wg.Done()
 	})
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
 		assert.Equal(t, "attachmentARN", change.Attachment.GetAttachmentARN())
 		wg.Done()

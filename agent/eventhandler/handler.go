@@ -17,15 +17,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/cihub/seelog"
 )
 
 // HandleEngineEvents handles state change events from the state change event channel by sending it to
 // responsible event handler
-func HandleEngineEvents(ctx context.Context, taskEngine engine.TaskEngine, client api.ECSClient,
+func HandleEngineEvents(ctx context.Context, taskEngine engine.TaskEngine, client ecs.ECSClient,
 	taskHandler *TaskHandler, attachmentEventHandler *AttachmentEventHandler) {
 
 	for {
@@ -51,7 +51,7 @@ func HandleEngineEvents(ctx context.Context, taskEngine engine.TaskEngine, clien
 	}
 }
 
-func handleEngineEvent(event statechange.Event, client api.ECSClient, taskHandler *TaskHandler,
+func handleEngineEvent(event statechange.Event, client ecs.ECSClient, taskHandler *TaskHandler,
 	attachmentEventHandler *AttachmentEventHandler) error {
 	switch event.GetEventType() {
 	case statechange.TaskEvent, statechange.ContainerEvent, statechange.ManagedAgentEvent:

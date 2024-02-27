@@ -60,7 +60,14 @@ const (
 	stoppedSentWaitInterval                  = 30 * time.Second
 	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
-	unstageVolumeTimeout                     = 3 * time.Second
+	// unstage retries are ultimately limited by successful unstage or by the unstageVolumeTimeout
+	unstageVolumeTimeout = 30 * time.Second
+	// substantial min/max accommodate a csi-driver outage
+	unstageBackoffMin      = 5 * time.Second
+	unstageBackoffMax      = 10 * time.Second
+	unstageBackoffJitter   = 0.0
+	unstageBackoffMultiple = 1.5
+	unstageRetryAttempts   = 5
 )
 
 var (
@@ -1590,7 +1597,7 @@ func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) []error 
 			ebsCfg := tv.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
 			volumeId := ebsCfg.VolumeId
 			hostPath := ebsCfg.Source()
-			err := mtask.unstageVolumeWithTimeout(csiClient, volumeId, hostPath)
+			err := mtask.unstageVolumeWithRetriesAndTimeout(csiClient, volumeId, hostPath)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("%w; unable to unstage volume for task %s", err, task.String()))
 				continue
@@ -1600,8 +1607,15 @@ func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) []error 
 	return errors
 }
 
-func (mtask *managedTask) unstageVolumeWithTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {
+func (mtask *managedTask) unstageVolumeWithRetriesAndTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {
 	derivedCtx, cancel := context.WithTimeout(mtask.ctx, unstageVolumeTimeout)
 	defer cancel()
-	return csiClient.NodeUnstageVolume(derivedCtx, volumeId, hostPath)
+	backoff := retry.NewExponentialBackoff(unstageBackoffMin, unstageBackoffMax, unstageBackoffJitter, unstageBackoffMultiple)
+	err := retry.RetryNWithBackoff(backoff, unstageRetryAttempts, func() error {
+		logger.Debug("attempting CSI unstage with retries", logger.Fields{
+			field.TaskID: mtask.GetID(),
+		})
+		return csiClient.NodeUnstageVolume(derivedCtx, volumeId, hostPath)
+	})
+	return err
 }

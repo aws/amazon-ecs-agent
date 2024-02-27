@@ -16,6 +16,8 @@ package platform
 import (
 	"context"
 
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -32,7 +34,7 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 
-	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload)
+	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload, false, nil)
 }
 
 func (c *containerd) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
@@ -40,8 +42,12 @@ func (c *containerd) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.Net
 }
 
 func (c *containerd) ConfigureInterface(
-	ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error {
-	return c.common.configureInterface(ctx, netNSPath, iface)
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
+	return c.common.configureInterface(ctx, netNSPath, iface, netDAO)
 }
 
 func (c *containerd) ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error {

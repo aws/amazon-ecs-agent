@@ -22,9 +22,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -38,17 +41,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
+	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
 )
 
 const (
-	// Identifiers for each platform we support.
-	WarmpoolDebugPlatform    = "ec2-debug-warmpool"
-	FirecrackerDebugPlatform = "ec2-debug-firecracker"
-	WarmpoolPlatform         = "warmpool"
-	FirecrackerPlatform      = "firecracker"
-
 	networkConfigFileDirectory    = "/etc/netns"
 	networkConfigHostnameFilePath = "/etc/hostname"
 	networkConfigFileMode         = 0644
@@ -71,40 +69,56 @@ const (
 // It contains all fields and methods that can be commonly used by all
 // platforms.
 type common struct {
-	nsUtil             ecscni.NetNSUtil
-	taskVolumeAccessor volume.VolumeAccessor
-	os                 oswrapper.OS
-	ioutil             ioutilwrapper.IOUtil
-	netlink            netlinkwrapper.NetLink
-	stateDBDir         string
-	cniClient          ecscni.CNI
-	net                netwrapper.Net
+	nsUtil            ecscni.NetNSUtil
+	dnsVolumeAccessor volume.TaskVolumeAccessor
+	os                oswrapper.OS
+	ioutil            ioutilwrapper.IOUtil
+	netlink           netlinkwrapper.NetLink
+	stateDBDir        string
+	cniClient         ecscni.CNI
+	net               netwrapper.Net
 }
 
 // NewPlatform creates an implementation of the platform API depending on the
 // platform type where the agent is executing.
 func NewPlatform(
 	platformString string,
-	volumeAccessor volume.VolumeAccessor,
+	volumeAccessor volume.TaskVolumeAccessor,
 	stateDBDirectory string,
 	netWrapper netwrapper.Net,
 ) (API, error) {
 	commonPlatform := common{
-		nsUtil:             ecscni.NewNetNSUtil(),
-		taskVolumeAccessor: volumeAccessor,
-		os:                 oswrapper.NewOS(),
-		ioutil:             ioutilwrapper.NewIOUtil(),
-		netlink:            netlinkwrapper.New(),
-		stateDBDir:         stateDBDirectory,
-		cniClient:          ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
-		net:                netWrapper,
+		nsUtil:            ecscni.NewNetNSUtil(),
+		dnsVolumeAccessor: volumeAccessor,
+		os:                oswrapper.NewOS(),
+		ioutil:            ioutilwrapper.NewIOUtil(),
+		netlink:           netlinkwrapper.New(),
+		stateDBDir:        stateDBDirectory,
+		cniClient:         ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
+		net:               netWrapper,
 	}
 
-	// TODO: implement remaining platforms - FoF, windows.
+	// TODO: implement remaining platforms - windows.
 	switch platformString {
 	case WarmpoolPlatform:
 		return &containerd{
 			common: commonPlatform,
+		}, nil
+	case FirecrackerPlatform:
+		return &firecraker{
+			common: commonPlatform,
+		}, nil
+	case WarmpoolDebugPlatform:
+		return &containerdDebug{
+			containerd: containerd{
+				common: commonPlatform,
+			},
+		}, nil
+	case FirecrackerDebugPlatform:
+		return &firecrackerDebug{
+			firecraker: firecraker{
+				common: commonPlatform,
+			},
 		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformString)
@@ -114,13 +128,16 @@ func NewPlatform(
 // into the task network configuration data structure internal to the agent.
 func (c *common) buildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task,
+	singleNetNS bool,
+	ifaceToGuestNetNS map[string]string,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := aws.StringValue(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
-		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload)
+		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload, singleNetNS, ifaceToGuestNetNS)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
@@ -145,16 +162,19 @@ func (c *common) GetNetNSPath(netNSName string) string {
 }
 
 // buildAWSVPCNetworkNamespaces returns list of NetworkNamespace which will be used to
-// create the task's network configuration. All cases except those for FoF is covered by
-// this method. FoF requires a separate specific implementation because the network setup
-// is different due to the presence of the microVM.
+// create the task's network configuration.
 // Use cases covered by this method are:
 //  1. Single interface, network namespace (the only externally available config).
 //  2. Single netns, multiple interfaces (For a non-managed multi-ENI experience. Eg EKS use case).
 //  3. Multiple netns, multiple interfaces (future use case for internal customer who need
 //     a managed multi-ENI experience).
-func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
-	taskPayload *ecsacs.Task) ([]*tasknetworkconfig.NetworkNamespace, error) {
+//  4. Single netns, multiple interfaces (for V2N tasks on FoF).
+func (c *common) buildAWSVPCNetworkNamespaces(
+	taskID string,
+	taskPayload *ecsacs.Task,
+	singleNetNS bool,
+	ifaceToGuestNetNS map[string]string,
+) ([]*tasknetworkconfig.NetworkNamespace, error) {
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
@@ -163,19 +183,24 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	if err != nil {
 		return nil, err
 	}
-	// If task payload has only one interface, the network configuration is
-	// straight forward. It will have only one network namespace containing
-	// the corresponding network interface.
-	// Empty Name fields in network interface names indicate that all
-	// interfaces share the same network namespace. This use case is
-	// utilized by certain internal teams like EKS on Fargate.
-	if len(taskPayload.ElasticNetworkInterfaces) == 1 ||
-		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" {
+
+	logger.Info("Building network configuration for awsvpc task", map[string]interface{}{
+		"SingleNetNS":            singleNetNS,
+		"ENICount":               len(taskPayload.ElasticNetworkInterfaces),
+		"HasContainerENIMapping": len(taskPayload.Containers[0].NetworkInterfaceNames) == 0,
+	})
+	// If we require all interfaces to be in one single netns, the network configuration is straight forward.
+	// This case is identified if the singleNetNS flag is set, or if the ENIs have an empty 'Name' field,
+	// or if there is only on ENI in the payload.
+	if singleNetNS || len(taskPayload.ElasticNetworkInterfaces) == 1 ||
+		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" ||
+		len(taskPayload.Containers[0].NetworkInterfaceNames) == 0 {
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
 			taskPayload.ElasticNetworkInterfaces,
 			taskPayload.ProxyConfiguration,
-			macToNames)
+			macToNames,
+			ifaceToGuestNetNS)
 		if err != nil {
 			return nil, err
 		}
@@ -200,6 +225,13 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	// set of network interface names, both those containers share the same namespace.
 	// If not, they reside in two different namespaces. Also, an interface can only
 	// belong to one NetworkNamespace object.
+
+	// Order the containers such that the container attached to the interface with index 0 comes first.
+	sort.Slice(taskPayload.Containers, func(i, j int) bool {
+		iName := aws.StringValue(taskPayload.Containers[i].NetworkInterfaceNames[0])
+		jName := aws.StringValue(taskPayload.Containers[j].NetworkInterfaceNames[0])
+		return aws.Int64Value(ifNameMap[iName].Index) < aws.Int64Value(ifNameMap[jName].Index)
+	})
 
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	nsIndex := 0
@@ -226,7 +258,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 			continue
 		}
 
-		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames)
+		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -237,17 +269,21 @@ func (c *common) buildAWSVPCNetworkNamespaces(taskID string,
 	return netNSs, nil
 }
 
+// buildNetNS creates a single network namespace object using the input network config data.
 func (c *common) buildNetNS(
 	taskID string,
 	index int,
 	networkInterfaces []*ecsacs.ElasticNetworkInterface,
 	proxyConfig *ecsacs.ProxyConfiguration,
-	macToName map[string]string) (*tasknetworkconfig.NetworkNamespace, error) {
+	macToName map[string]string,
+	ifaceToGuestNetNS map[string]string,
+) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
 	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
-		iface, err := networkinterface.New(ni, "", nil, macToName)
+		guestNetNS := ifaceToGuestNetNS[aws.StringValue(ni.Name)]
+		iface, err := networkinterface.New(ni, guestNetNS, networkInterfaces, macToName)
 		if err != nil {
 			return nil, err
 		}
@@ -262,6 +298,10 @@ func (c *common) buildNetNS(
 	netNSName := networkinterface.NetNSName(taskID, primaryIF.Name)
 	netNSPath := c.GetNetNSPath(netNSName)
 
+	logger.Info("Building network namespace model", map[string]interface{}{
+		"NetNSName": netNSName,
+		"NetNSPath": netNSPath,
+	})
 	return tasknetworkconfig.NewNetworkNamespace(
 		netNSName,
 		netNSPath,
@@ -272,6 +312,9 @@ func (c *common) buildNetNS(
 
 // CreateNetNS creates a new network namespace with the specified path.
 func (c *common) CreateNetNS(netNSPath string) error {
+	logger.Info("Creating network namespace", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
 	nsExists, err := c.nsUtil.NSExists(netNSPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
@@ -295,6 +338,9 @@ func (c *common) CreateNetNS(netNSPath string) error {
 }
 
 func (c *common) DeleteNetNS(netNSPath string) error {
+	logger.Info("Deleting network namespace", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
 	nsExists, err := c.nsUtil.NSExists(netNSPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check netns %s", netNSPath)
@@ -310,6 +356,26 @@ func (c *common) DeleteNetNS(netNSPath string) error {
 	}
 
 	return nil
+}
+
+// DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
+func (c *common) DeleteDNSConfig(netNSName string) error {
+	logger.Info("Deleting DNS config", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
+	if netNSName == "" {
+		return errors.New("netns name cannot be empty")
+	}
+	netNSDir := filepath.Join(networkConfigFileDirectory, netNSName)
+	_, err := c.os.Stat(netNSDir)
+	if c.os.IsNotExist(err) {
+		return errors.Wrap(err, "network config directory not found")
+	} else if err != nil {
+		return err
+	}
+
+	return c.os.RemoveAll(netNSDir)
 }
 
 // setUpLoFunc returns a method that sets the loop back interface inside a
@@ -344,6 +410,11 @@ func (c *common) createDNSConfig(
 	taskID string,
 	reuseHostDNSConfig bool,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
+	logger.Info("Creating DNS config", map[string]interface{}{
+		"NetNSPath":          netNS.Path,
+		"ReuseHostDNSConfig": reuseHostDNSConfig,
+	})
+
 	// For debug mode, resolv.conf and hosts files are same as the host machine.
 	// But for non debug mode they are all created using the data available in the ENI.
 	primaryIF := netNS.GetPrimaryInterface()
@@ -362,8 +433,7 @@ func (c *common) createDNSConfig(
 
 	// Next, copy these files into a task volume, which can be used by containers as well, to
 	// configure their network.
-	configFiles := []string{HostsFileName, ResolveConfFileName, HostnameFileName}
-	if err := c.copyNetworkConfigFilesToTask(netNS.Name, configFiles); err != nil {
+	if err := c.copyNetworkConfigFilesToTask(taskID, netNS.Name); err != nil {
 		return err
 	}
 	return nil
@@ -375,6 +445,10 @@ func (c *common) createDNSConfig(
 // 2. /etc/netns/<netNSName>/hostname
 // 3. /etc/netns/<netNSName>/hosts
 func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkinterface.NetworkInterface) error {
+	logger.Info("Creating DNS config files in netns directory", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
 	// Create the dns configuration file directory.
 	_, err := c.os.Stat(filepath.Join(networkConfigFileDirectory, netNSName))
 	if err != nil && c.os.IsNotExist(err) {
@@ -409,10 +483,11 @@ func (c *common) createNetworkConfigFiles(netNSName string, primaryIF *networkin
 
 // copyNetworkConfigFilesToTask copies the contents of the DNS config files for a
 // task into the task volume.
-func (c *common) copyNetworkConfigFilesToTask(netNSName string, configFiles []string) error {
+func (c *common) copyNetworkConfigFilesToTask(taskID, netNSName string) error {
+	configFiles := []string{HostsFileName, ResolveConfFileName, HostnameFileName}
 	for _, file := range configFiles {
 		source := filepath.Join(networkConfigFileDirectory, netNSName, file)
-		err := c.taskVolumeAccessor.CopyToVolume(source, file, networkConfigFileMode)
+		err := c.dnsVolumeAccessor.CopyToVolume(taskID, source, file, networkConfigFileMode)
 		if err != nil {
 			return errors.Wrapf(err, "unable to populate %s for task", file)
 		}
@@ -456,7 +531,7 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 	return nil
 }
 
-func (c *common) copyFile(src, dst string, fileMode os.FileMode) error {
+func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {
 	contents, err := c.ioutil.ReadFile(src)
 	if err != nil {
 		return errors.Wrapf(err, "unable to read %s", src)
@@ -470,6 +545,10 @@ func (c *common) copyFile(src, dst string, fileMode os.FileMode) error {
 
 // createHostnameFileForNetNS creates the hostname file for the given network namespace.
 func (c *common) createHostnameFileForNetNS(netConfigFilesDir string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating hostname file", map[string]interface{}{
+		"NetConfigFilesDir": netConfigFilesDir,
+	})
+
 	// \n is used as line separater for hosts file. Therefore we add \n at the end.
 	// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
 	hostname := fmt.Sprintf("%s\n", iface.GetHostname())
@@ -495,6 +574,10 @@ func (c *common) createHostnameFileForDefaultNetNS() error {
 }
 
 func (c *common) createResolvConfigFile(netConfigFilesDir string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating resolv.conf file", map[string]interface{}{
+		"NetConfigFilesDir": netConfigFilesDir,
+	})
+
 	data := c.nsUtil.BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList)
 
 	return c.ioutil.WriteFile(
@@ -504,6 +587,10 @@ func (c *common) createResolvConfigFile(netConfigFilesDir string, iface *network
 }
 
 func (c *common) createHostsFile(netNSName string, iface *networkinterface.NetworkInterface) error {
+	logger.Info("Creating hosts file", map[string]interface{}{
+		"NetNSName": netNSName,
+	})
+
 	var contents bytes.Buffer
 	// \n is used as line separater for hosts file. Therefore we add \n at the end.
 	// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
@@ -528,6 +615,7 @@ func (c *common) configureInterface(
 	ctx context.Context,
 	netNSPath string,
 	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
 ) error {
 	var err error
 	switch iface.InterfaceAssociationProtocol {
@@ -535,14 +623,24 @@ func (c *common) configureInterface(
 		err = c.configureRegularENI(ctx, netNSPath, iface)
 	case networkinterface.VLANInterfaceAssociationProtocol:
 		err = c.configureBranchENI(ctx, netNSPath, iface)
+	case networkinterface.V2NInterfaceAssociationProtocol:
+		err = c.configureGENEVEInterface(ctx, netNSPath, iface, netDAO)
+	case networkinterface.VETHInterfaceAssociationProtocol:
+		// Do nothing.
+		return nil
 	default:
-		err = errors.New("invalid interface association protocol %s" + iface.InterfaceAssociationProtocol)
+		err = errors.New("invalid interface association protocol " + iface.InterfaceAssociationProtocol)
 	}
 	return err
 }
 
 // configureRegularENI configures a network interface for an ENI.
 func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring regular ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
 	var cniNetConf []ecscni.PluginConfig
 	var add bool
 	var err error
@@ -574,6 +672,11 @@ func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni 
 
 // configureBranchENI configures a network interface for a branch ENI.
 func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring branch ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
 	var cniNetConf ecscni.PluginConfig
 	var err error
 	add := true
@@ -597,6 +700,81 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 	return err
 }
 
+func (c *common) configureGENEVEInterface(
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
+	logger.Info("Configuring GENEVE interface", map[string]interface{}{
+		"ENIName":   iface.Name,
+		"NetNSPath": netNSPath,
+	})
+
+	var cniNetConf ecscni.PluginConfig
+	add := true
+
+	// Generate CNI network configuration based on the ENI's desired state.
+	switch iface.DesiredStatus {
+	case status.NetworkReadyPull:
+		// Assign destination port and set device name for V2N ENI.
+		if err := ecscni.SetV2NDstPortAndDeviceName(iface, netDAO); err != nil {
+			return err
+		}
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeGeneve)
+	case status.NetworkReady:
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeTap)
+	case status.NetworkDeleted:
+		cniNetConf = NewTunnelConfig(netNSPath, iface, VPCTunnelInterfaceTypeTap)
+		add = false
+	}
+
+	result, err := c.executeCNIPlugin(ctx, add, cniNetConf)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("GENEVE interface configured", map[string]interface{}{
+		"ENIName":   iface.Name,
+		"NetNSPath": netNSPath,
+	})
+
+	switch iface.DesiredStatus {
+	case status.NetworkReadyPull:
+		// Once the ENI configuration for the READY_PULL state is complete, we need to read the
+		// OS assigned MAC address of the GENEVE interface. This MAC address is then associated
+		// with the V2N ENI. This MAC address will get persisted to the database once the ENI
+		// manager's state transitions from NONE to READY_PULL.
+		//
+		// This MAC address will later be used to create the interface definition
+		// in the request for creating the MicroVM. The benefit of this approach is that the agent
+		// will be aware of the MAC address assigned to the TAP interface inside the MicroVM (the one
+		// connected to the GENEVE interface) and can use this info for the network setup inside
+		// the MicroVM at a later stage.
+		if len(result) == 0 {
+			return errors.New("eni pull configuration: empty result from network setup")
+		}
+		newResult, err := cnitypes.GetResult(*result[0])
+		if err != nil {
+			return err
+		}
+		if len(newResult.Interfaces) == 0 || newResult.Interfaces[0].Mac == "" {
+			return errors.New("eni pull configuration: no mac address assigned")
+		}
+		iface.MacAddress = newResult.Interfaces[0].Mac
+	case status.NetworkDeleted:
+		// Once the task is stopped and the GENEVE interface is deleted, we can release the port so
+		// that it can be re-used by another task.
+		vni := iface.TunnelProperties.ID
+		dstPort := iface.TunnelProperties.DestinationPort
+		if err = netDAO.ReleaseGeneveDstPort(dstPort, vni); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // configureAppMesh configures AppMesh in a network namespace.
 // This is used by warmpool and debug-warmpool platforms.
 func (c *common) configureAppMesh(
@@ -604,6 +782,10 @@ func (c *common) configureAppMesh(
 	netNSPath string,
 	cfg *appmesh.AppMesh,
 ) error {
+	logger.Info("Configuring AppMesh", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
+
 	c.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
 	defer c.os.Unsetenv(CNIPluginLogFileEnv)
 
@@ -625,6 +807,10 @@ func (c *common) configureServiceConnect(
 	taskENI *networkinterface.NetworkInterface,
 	scConfig *serviceconnect.ServiceConnectConfig,
 ) error {
+	logger.Info("Configuring ServiceConnect", map[string]interface{}{
+		"NetNSPath": netNSPath,
+	})
+
 	c.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
 	defer c.os.Unsetenv(CNIPluginLogFileEnv)
 
@@ -635,21 +821,4 @@ func (c *common) configureServiceConnect(
 	}
 
 	return nil
-}
-
-// interfacesMACToName lists all network interfaces on the host inside the default
-// netns and returns a mac address to device name map.
-func (c *common) interfacesMACToName() (map[string]string, error) {
-	links, err := c.net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-
-	// Build a map of interface MAC address to name on the host.
-	macToName := make(map[string]string)
-	for _, link := range links {
-		macToName[link.HardwareAddr.String()] = link.Name
-	}
-
-	return macToName, nil
 }
