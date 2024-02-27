@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/engine"
+	"github.com/aws/amazon-ecs-agent/ecs-init/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-init/version"
 
 	log "github.com/cihub/seelog"
@@ -37,7 +37,6 @@ const (
 )
 
 func main() {
-	defer log.Flush()
 	flag.Parse()
 	args := flag.Args()
 
@@ -46,12 +45,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger, err := log.LoggerFromConfigAsString(config.Logger())
-	if err != nil {
-		die(err, engine.DefaultInitErrorExitCode)
-	}
-	log.ReplaceLogger(logger)
-
+	logger.Setup()
+	defer log.Flush()
 	if args[0] == VERSION {
 		err := version.PrintVersion()
 		if err != nil {
