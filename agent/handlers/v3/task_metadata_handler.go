@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/cihub/seelog"
@@ -37,7 +37,7 @@ var TaskMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils
 var TaskWithTagsMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
 
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
-func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
+func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient ecs.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {

@@ -50,6 +50,16 @@ func TestDockerUnixSocketWithDockerHost(t *testing.T) {
 	}
 }
 
+func TestECSAgentAppArmorProfileName(t *testing.T) {
+	profile := ECSAgentAppArmorProfileName()
+	assert.Equal(t, profile, "ecs-agent-default")
+
+	os.Setenv(ECSAgentAppArmorProfileNameEnvVar, "docker-default")
+	defer os.Unsetenv(ECSAgentAppArmorProfileNameEnvVar)
+	profile = ECSAgentAppArmorProfileName()
+	assert.Equal(t, profile, "docker-default")
+}
+
 func TestGetAgentPartitionBucketRegion(t *testing.T) {
 	testCases := []struct {
 		region      string

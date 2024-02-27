@@ -1,7 +1,27 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package platform
 
 import (
+	"context"
+
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 )
 
@@ -13,21 +33,46 @@ type API interface {
 		taskID string,
 		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
-	// CreateNetNS creates a network namespace with the specified name.
-	CreateNetNS(netNSName string) error
+	// CreateNetNS creates a network namespace with the specified path.
+	CreateNetNS(netNSPath string) error
 
 	// DeleteNetNS deletes the specified network namespace.
-	DeleteNetNS(netnsName string) error
+	DeleteNetNS(netNSPath string) error
 
 	// CreateDNSConfig creates the following DNS config files depending on the
-	// task network configuration:
+	// network namespace configuration:
 	// 1. resolv.conf
 	// 2. hosts
 	// 3. hostname
 	// These files are then copied into desired locations so that containers will
 	// have access to the accurate DNS configuration information.
-	CreateDNSConfig(taskNetConfig *tasknetworkconfig.TaskNetworkConfig) error
+	CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
+
+	// DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
+	DeleteDNSConfig(netNSName string) error
 
 	// GetNetNSPath returns the path of a network namespace.
 	GetNetNSPath(netNSName string) string
+
+	// ConfigureInterface configures an interface inside a network namespace
+	// for it to be able to serve traffic.
+	ConfigureInterface(
+		ctx context.Context,
+		netNSPath string,
+		iface *networkinterface.NetworkInterface,
+		netDAO netlibdata.NetworkDataClient,
+	) error
+
+	// ConfigureAppMesh configures AppMesh specific rules inside the task network namespace
+	// to enable the AppMesh feature.
+	ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error
+
+	// ConfigureServiceConnect configures Service Connect specific rules inside the task network namespace
+	// to enable the ServiceConnect feature.
+	ConfigureServiceConnect(
+		ctx context.Context,
+		netNSPath string,
+		primaryIf *networkinterface.NetworkInterface,
+		scConfig *serviceconnect.ServiceConnectConfig,
+	) error
 }

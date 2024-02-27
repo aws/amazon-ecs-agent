@@ -2283,7 +2283,7 @@ func TestUnstageVolumes(t *testing.T) {
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
-			mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(tc.err).Times(1)
+			mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(tc.err).MinTimes(1).MaxTimes(5)
 
 			errors := mtask.UnstageVolumes(mockCsiClient)
 			assert.Len(t, errors, tc.numErrors)

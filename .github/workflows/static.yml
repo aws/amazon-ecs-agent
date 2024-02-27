@@ -16,8 +16,7 @@ jobs:
         run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           set -eou pipefail
-          go_version=$(cat -e GO_VERSION)
-          go_version=${go_version%?}
+          go_version=$(cat GO_VERSION | tr -d '\n')
           go_version_length=${#go_version}
           go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
           if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
@@ -52,8 +51,7 @@ jobs:
         run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           set -eou pipefail
-          go_version=$(cat -e GO_VERSION)
-          go_version=${go_version%?}
+          go_version=$(cat GO_VERSION | tr -d '\n')
           go_version_length=${#go_version}
           go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
           if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
@@ -88,8 +86,7 @@ jobs:
         run:  |
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           set -eou pipefail
-          go_version=$(cat -e GO_VERSION)
-          go_version=${go_version%?}
+          go_version=$(cat GO_VERSION | tr -d '\n')
           go_version_length=${#go_version}
           go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
           if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then

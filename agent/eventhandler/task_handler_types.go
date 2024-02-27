@@ -17,15 +17,15 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
 )
@@ -150,7 +150,7 @@ func (event *sendableEvent) send(
 	sendStatusToECS sendStatusChangeToECS,
 	setChangeSent setStatusSent,
 	eventType string,
-	client api.ECSClient,
+	client ecs.ECSClient,
 	eventToSubmit *list.Element,
 	dataClient data.Client,
 	backoff retry.Backoff,
@@ -175,18 +175,32 @@ func (event *sendableEvent) send(
 }
 
 // sendStatusChangeToECS defines a function type for invoking the appropriate ECS state change API
-type sendStatusChangeToECS func(client api.ECSClient, event *sendableEvent) error
+type sendStatusChangeToECS func(client ecs.ECSClient, event *sendableEvent) error
 
 // sendContainerStatusToECS invokes the SubmitContainerStateChange API to send a
 // container status change to ECS
-func sendContainerStatusToECS(client api.ECSClient, event *sendableEvent) error {
-	return client.SubmitContainerStateChange(event.containerChange)
+func sendContainerStatusToECS(client ecs.ECSClient, event *sendableEvent) error {
+	containerStateChange, err := event.containerChange.ToECSAgent()
+	if err != nil {
+		return err
+	}
+
+	// containerStateChange and err both nil in the case of an unsupported upstream container state.
+	// No-op (i.e., don't submit container state change) in this case.
+	if containerStateChange == nil {
+		return nil
+	}
+	return client.SubmitContainerStateChange(*containerStateChange)
 }
 
 // sendTaskStatusToECS invokes the SubmitTaskStateChange API to send a task
 // status change to ECS
-func sendTaskStatusToECS(client api.ECSClient, event *sendableEvent) error {
-	return client.SubmitTaskStateChange(event.taskChange)
+func sendTaskStatusToECS(client ecs.ECSClient, event *sendableEvent) error {
+	taskStateChange, err := event.taskChange.ToECSAgent()
+	if err != nil {
+		return err
+	}
+	return client.SubmitTaskStateChange(*taskStateChange)
 }
 
 // setStatusSent defines a function type to mark the event as sent

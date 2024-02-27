@@ -16,7 +16,10 @@ package ecscni
 import (
 	"fmt"
 
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
+	"github.com/pkg/errors"
 )
 
 // VPCTunnelConfig defines the configuration for vpc-tunnel plugin. This struct will
@@ -68,12 +71,18 @@ func (c *VPCTunnelConfig) PluginName() string {
 
 // SetV2NDstPortAndDeviceName assigns a destination port to the task ENI and assigns
 // it a device name with the pattern gnv<vni><dst port>.
-func SetV2NDstPortAndDeviceName(taskENI *networkinterface.NetworkInterface, dstPort uint16) {
-	vni := taskENI.TunnelProperties.ID
-	taskENI.TunnelProperties.DestinationPort = dstPort
+func SetV2NDstPortAndDeviceName(iface *networkinterface.NetworkInterface, netDAO netlibdata.NetworkDataClient) error {
+	vni := iface.TunnelProperties.ID
+	dstPort, err := netDAO.AssignGeneveDstPort(vni)
+	if err != nil {
+		return errors.Wrap(err, "failed to assign dst port for GENEVE interface")
+	}
+	iface.TunnelProperties.DestinationPort = dstPort
 
 	// Here the device name is set. Although we do not save it right here because it
 	// will get saved eventually when the network setup completes and ENI manager
 	// transitions to READY_PULL state.
-	taskENI.DeviceName = fmt.Sprintf(networkinterface.GeneveInterfaceNamePattern, vni, dstPort)
+	iface.DeviceName = fmt.Sprintf(networkinterface.GeneveInterfaceNamePattern, vni, dstPort)
+
+	return nil
 }

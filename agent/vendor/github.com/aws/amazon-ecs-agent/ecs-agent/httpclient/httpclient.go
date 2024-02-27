@@ -29,9 +29,9 @@ import (
 // Below constants taken from the default http.Client behavior.
 // Ref: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/custom-http.html
 const (
-	defaultDialTimeout         = 30 * time.Second
-	defaultDialKeepalive       = 30 * time.Second
-	defaultTLSHandshakeTimeout = 10 * time.Second
+	DefaultDialTimeout         = 30 * time.Second
+	DefaultDialKeepalive       = 30 * time.Second
+	DefaultTLSHandshakeTimeout = 10 * time.Second
 )
 
 //go:generate mockgen -destination=mock/$GOFILE -copyright_file=../../scripts/copyright_file net/http RoundTripper
@@ -66,10 +66,10 @@ func New(timeout time.Duration, insecureSkipVerify bool, agentVersion string, os
 	transport := &http.Transport{
 		Proxy: httpproxy.Proxy,
 		DialContext: (&net.Dialer{
-			Timeout:   defaultDialTimeout,
-			KeepAlive: defaultDialKeepalive,
+			Timeout:   DefaultDialTimeout,
+			KeepAlive: DefaultDialKeepalive,
 		}).DialContext,
-		TLSHandshakeTimeout: defaultTLSHandshakeTimeout,
+		TLSHandshakeTimeout: DefaultTLSHandshakeTimeout,
 	}
 	transport.TLSClientConfig = &tls.Config{}
 	cipher.WithSupportedCipherSuites(transport.TLSClientConfig)

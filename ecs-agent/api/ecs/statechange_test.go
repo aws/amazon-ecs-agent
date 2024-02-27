@@ -157,8 +157,8 @@ func TestAttachmentStateChangeString(t *testing.T) {
 		},
 	}
 
-	expectedStr := fmt.Sprintf("%s -> %s, %s", change.Attachment.AttachmentARN,
-		change.Attachment.Status.String(), change.Attachment.String())
+	expectedStr := fmt.Sprintf("%s -> %v, %s", change.Attachment.GetAttachmentARN(),
+		change.Attachment.GetAttachmentStatus(), change.Attachment.String())
 
 	assert.Equal(t, expectedStr, change.String())
 }
