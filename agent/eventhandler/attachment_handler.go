@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
@@ -44,7 +45,7 @@ type AttachmentEventHandler struct {
 	// lock is used to safely access the attachmentARNToHandler map
 	lock sync.Mutex
 
-	client api.ECSClient
+	client ecs.ECSClient
 	ctx    context.Context
 }
 
@@ -62,14 +63,14 @@ type attachmentHandler struct {
 	// lock is used to ensure that the attached status of an attachment won't be sent multiple times
 	lock sync.Mutex
 
-	client api.ECSClient
+	client ecs.ECSClient
 	ctx    context.Context
 }
 
 // NewAttachmentEventHandler returns a new AttachmentEventHandler object
 func NewAttachmentEventHandler(ctx context.Context,
 	dataClient data.Client,
-	client api.ECSClient) *AttachmentEventHandler {
+	client ecs.ECSClient) *AttachmentEventHandler {
 	return &AttachmentEventHandler{
 		ctx:                    ctx,
 		client:                 client,
@@ -136,7 +137,7 @@ func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *ap
 	}
 
 	seelog.Infof("AttachmentHandler: sending attachment state change: %s", attachmentChange.String())
-	if err := handler.client.SubmitAttachmentStateChange(*attachmentChange); err != nil {
+	if err := handler.client.SubmitAttachmentStateChange(*attachmentChange.ToECSAgent()); err != nil {
 		seelog.Errorf("AttachmentHandler: error submitting attachment state change [%s]: %v", attachmentChange.String(), err)
 		return err
 	}

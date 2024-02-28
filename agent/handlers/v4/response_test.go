@@ -22,10 +22,10 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
@@ -65,7 +65,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	defer ctrl.Finish()
 
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	now := time.Now()
 	task := &apitask.Task{
 		Arn:                 taskARN,

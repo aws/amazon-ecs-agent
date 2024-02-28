@@ -16,6 +16,8 @@ package platform
 import (
 	"context"
 
+	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -46,13 +48,27 @@ type API interface {
 	// have access to the accurate DNS configuration information.
 	CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
+	// DeleteDNSConfig deletes the directory at /etc/netns/<netns-name> and all its files.
+	DeleteDNSConfig(netNSName string) error
+
 	// GetNetNSPath returns the path of a network namespace.
 	GetNetNSPath(netNSName string) string
 
-	ConfigureInterface(ctx context.Context, netNSPath string, iface *networkinterface.NetworkInterface) error
+	// ConfigureInterface configures an interface inside a network namespace
+	// for it to be able to serve traffic.
+	ConfigureInterface(
+		ctx context.Context,
+		netNSPath string,
+		iface *networkinterface.NetworkInterface,
+		netDAO netlibdata.NetworkDataClient,
+	) error
 
+	// ConfigureAppMesh configures AppMesh specific rules inside the task network namespace
+	// to enable the AppMesh feature.
 	ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error
 
+	// ConfigureServiceConnect configures Service Connect specific rules inside the task network namespace
+	// to enable the ServiceConnect feature.
 	ConfigureServiceConnect(
 		ctx context.Context,
 		netNSPath string,

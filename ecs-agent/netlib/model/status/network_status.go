@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	eniStatusOrder = map[NetworkStatus]int{
+	statusOrder = map[NetworkStatus]int{
 		NetworkNone:      0,
 		NetworkReadyPull: 1,
 		NetworkReady:     2,
@@ -41,11 +41,11 @@ func (es NetworkStatus) String() string {
 	return string(es)
 }
 
-func (es NetworkStatus) ENIStatusBackwards(es2 NetworkStatus) bool {
-	return eniStatusOrder[es] < eniStatusOrder[es2]
+func (es NetworkStatus) StatusBackwards(es2 NetworkStatus) bool {
+	return statusOrder[es] < statusOrder[es2]
 }
 
-func GetAllENIStatuses() []NetworkStatus {
+func GetAllNetworkStatuses() []NetworkStatus {
 	return []NetworkStatus{
 		NetworkNone,
 		NetworkReadyPull,

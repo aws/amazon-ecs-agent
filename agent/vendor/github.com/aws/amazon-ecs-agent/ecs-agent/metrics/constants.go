@@ -50,8 +50,12 @@ const (
 	GetNetworkConfigurationByTaskMetricName = dbClientMetricNamespace + ".GetNetworkConfigurationByTask"
 	SaveNetworkNamespaceMetricName          = dbClientMetricNamespace + ".SaveNetworkNamespace"
 	GetNetworkNamespaceMetricName           = dbClientMetricNamespace + ".GetNetworkNamespace"
+	DelNetworkNamespaceMetricName           = dbClientMetricNamespace + ".DeleteNetworkNamespace"
+	AssignGeneveDstPortMetricName           = dbClientMetricNamespace + ".AssignGeneveDstPort"
 
-	networkBuilderNamespace          = "NetworkBuilder"
-	BuildNetworkNamespaceMetricName  = networkBuilderNamespace + ".BuildNetworkNamespace"
-	DeleteNetworkNamespaceMetricName = networkBuilderNamespace + ".DeleteNetworkNamespace"
+	networkBuilderNamespace               = "NetworkBuilder"
+	BuildNetworkNamespaceMetricName       = networkBuilderNamespace + ".BuildNetworkNamespace"
+	DeleteNetworkNamespaceMetricName      = networkBuilderNamespace + ".DeleteNetworkNamespace"
+	V2NDestinationPortExhaustedMetricName = networkBuilderNamespace + ".V2NDestinationPortExhausted"
+	ReleaseGeneveDstPortMetricName        = dbClientMetricNamespace + ".ReleaseGeneveDstPort"
 )

@@ -42,7 +42,7 @@ func TestTaskStateChangeMetadataGetter(t *testing.T) {
 		ExecutionStoppedAtUnsafe: t3,
 	}
 
-	metadataGetter := NewTaskMetadataGetter(task)
+	metadataGetter := newTaskMetadataGetter(task)
 
 	change := &ecs.TaskStateChange{
 		MetadataGetter: metadataGetter,
@@ -67,7 +67,7 @@ func TestContainerStateChangeMetadataGetter(t *testing.T) {
 		SentStatusUnsafe: apicontainerstatus.ContainerRunning,
 	}
 
-	metadataGetter := NewContainerMetadataGetter(container)
+	metadataGetter := newContainerMetadataGetter(container)
 
 	change := &ecs.ContainerStateChange{
 		MetadataGetter: metadataGetter,

@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -49,7 +50,7 @@ const (
 func TestSendENIAttachmentEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent := eniAttachmentEvent(attachmentARN)
 
@@ -65,7 +66,7 @@ func TestSendENIAttachmentEvent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
 		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 		wg.Done()
@@ -79,7 +80,7 @@ func TestSendENIAttachmentEvent(t *testing.T) {
 func TestSendResAttachmentEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent := resAttachmentEvent(attachmentARN)
 
@@ -95,7 +96,7 @@ func TestSendResAttachmentEvent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
 		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 		wg.Done()
@@ -109,7 +110,7 @@ func TestSendResAttachmentEvent(t *testing.T) {
 func TestSendAttachmentEventRetries(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent := eniAttachmentEvent(attachmentARN)
 
@@ -133,7 +134,7 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(retriable).Do(func(interface{}) { wg.Done() }),
-		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 			assert.NotNil(t, change.Attachment)
 			assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 			wg.Done()
@@ -148,7 +149,7 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 func TestSendMutipleAttachmentEventsMixedAttachments(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent1 := eniAttachmentEvent("attachmentARN1")
 	attachmentEvent2 := resAttachmentEvent("attachmentARN2")
@@ -170,7 +171,7 @@ func TestSendMutipleAttachmentEventsMixedAttachments(t *testing.T) {
 
 	submittedAttachments := make(map[string]bool) // note down submitted attachments
 	mapLock := sync.Mutex{}                       // lock to protect the above map
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Times(3).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Times(3).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		mapLock.Lock()
 		defer mapLock.Unlock()
 
@@ -192,7 +193,7 @@ func TestSendMutipleAttachmentEventsMixedAttachments(t *testing.T) {
 func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	dataClient := newTestDataClient(t)
 
@@ -211,7 +212,7 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	}
 	defer cancel()
 
-	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change ecs.AttachmentStateChange) {
 		assert.NotNil(t, change.Attachment)
 		assert.Equal(t, attachmentARN, change.Attachment.GetAttachmentARN())
 	})
@@ -227,7 +228,7 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent := eniAttachmentEventWithExpiry(attachmentARN, 100*time.Millisecond)
 
@@ -250,7 +251,7 @@ func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 func TestSubmitAttachmentEventAttachmentIsSent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
+	client := mock_ecs.NewMockECSClient(ctrl)
 
 	attachmentEvent := resAttachmentEvent(attachmentARN)
 	attachmentEvent.Attachment.SetSentStatus()

@@ -160,6 +160,39 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	}
 }
 
+func TestDockerConfigPortBindingContainerPortIsZero(t *testing.T) {
+	testTask := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "ContainerHavingPortBindingWithContainerPortZero",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 0,
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 0,
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+
+	dockerContainerConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	// Ensure that port zero is not included in the set of container ports that are exposed for the container.
+	_, ok := dockerContainerConfig.ExposedPorts["0/tcp"]
+	assert.False(t, ok, "Unexpectedly could get exposed ports 0/tcp")
+	_, ok = dockerContainerConfig.ExposedPorts["0/udp"]
+	assert.False(t, ok, "Unexpectedly could get exposed ports 0/udp")
+}
+
 func TestDockerHostConfigCPUShareZero(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{

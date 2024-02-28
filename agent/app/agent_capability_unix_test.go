@@ -88,10 +88,6 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
 		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
@@ -183,9 +179,6 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -269,9 +262,6 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -347,9 +337,6 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
 		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
@@ -444,9 +431,6 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
@@ -527,9 +511,6 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -606,9 +587,6 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -681,9 +659,6 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
@@ -769,9 +744,6 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -828,9 +800,6 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -882,9 +851,6 @@ func TestCapabilitiesUnix(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
@@ -967,9 +933,6 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 		}),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),

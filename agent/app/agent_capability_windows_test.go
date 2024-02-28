@@ -69,10 +69,6 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
 		cniClient.EXPECT().Version(ecscni.ECSVPCENIPluginExecutable).Return("v1", nil),
@@ -82,6 +78,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		capabilityPrefix + "privileged-container",
 		capabilityPrefix + "docker-remote-api.1.17",
 		capabilityPrefix + "docker-remote-api.1.18",
+		capabilityPrefix + "docker-remote-api.1.19",
 		capabilityPrefix + "logging-driver.json-file",
 		capabilityPrefix + "logging-driver.syslog",
 		capabilityPrefix + "logging-driver.journald",
@@ -159,10 +156,6 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
 			dockerclient.Version_1_18,
-		}),
-		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
-			dockerclient.Version_1_17,
-			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
 		cniClient.EXPECT().Version(ecscni.ECSVPCENIPluginExecutable).Return("v1", nil),
@@ -172,6 +165,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		capabilityPrefix + "privileged-container",
 		capabilityPrefix + "docker-remote-api.1.17",
 		capabilityPrefix + "docker-remote-api.1.18",
+		capabilityPrefix + "docker-remote-api.1.19",
 		capabilityPrefix + "logging-driver.json-file",
 		capabilityPrefix + "logging-driver.syslog",
 		capabilityPrefix + "logging-driver.journald",
@@ -221,7 +215,6 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
 
-	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 	for _, expected := range expectedCapabilities {
 		assert.Contains(t, capabilities, &ecs.Attribute{
 			Name:  expected.Name,

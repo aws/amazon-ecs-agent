@@ -56,6 +56,10 @@ const (
 	BridgeInterfaceName = "fargate-bridge"
 
 	IPAMDataFileName = "eni-ipam.db"
+
+	// Timeout duration for each network setup and cleanup operation before it is cancelled.
+	nsSetupTimeoutDuration   = 1 * time.Minute
+	nsCleanupTimeoutDuration = 30 * time.Second
 )
 
 // createENIPluginConfigs constructs the configuration object for eni plugin

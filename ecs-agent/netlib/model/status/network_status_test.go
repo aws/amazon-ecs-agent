@@ -55,11 +55,11 @@ func TestNetworkStatus(t *testing.T) {
 
 // TestNetworkStatusOrder verifies that order of statuses are as required.
 func TestNetworkStatusOrder(t *testing.T) {
-	assert.True(t, NetworkNone.ENIStatusBackwards(NetworkReadyPull))
-	assert.True(t, NetworkReadyPull.ENIStatusBackwards(NetworkReady))
-	assert.True(t, NetworkReady.ENIStatusBackwards(NetworkDeleted))
+	assert.True(t, NetworkNone.StatusBackwards(NetworkReadyPull))
+	assert.True(t, NetworkReadyPull.StatusBackwards(NetworkReady))
+	assert.True(t, NetworkReady.StatusBackwards(NetworkDeleted))
 
-	assert.False(t, NetworkReadyPull.ENIStatusBackwards(NetworkNone))
-	assert.False(t, NetworkReady.ENIStatusBackwards(NetworkReadyPull))
-	assert.False(t, NetworkDeleted.ENIStatusBackwards(NetworkReady))
+	assert.False(t, NetworkReadyPull.StatusBackwards(NetworkNone))
+	assert.False(t, NetworkReady.StatusBackwards(NetworkReadyPull))
+	assert.False(t, NetworkDeleted.StatusBackwards(NetworkReady))
 }
