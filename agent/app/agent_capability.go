@@ -295,8 +295,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// add service-connect capabilities if applicable
 	capabilities = agent.appendServiceConnectCapabilities(capabilities)
 
-	// add ebs-task-attach attribute if applicable
-	capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+	if agent.cfg.EBSTASupportEnabled {
+		// add ebs-task-attach attribute if applicable
+		capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+	}
 
 	if agent.cfg.External.Enabled() {
 		// Add external specific capability; remove external unsupported capabilities.
