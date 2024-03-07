@@ -1,4 +1,8 @@
 # Changelog
+## 1.82.0
+* Enhancement - Make ecs-init log level configurable [#4097](https://github.com/aws/amazon-ecs-agent/pull/4097).
+* Enhancement - Add ECS_EBSTA_SUPPORTED environment variable to enable/disable EBS Task Attach capabilities. The environment variable is set automatically by ecs-init [#4091](https://github.com/aws/amazon-ecs-agent/pull/4091).
+
 ## 1.81.1
 * Enhancement - Update go version to 1.20.12 [#4092](https://github.com/aws/amazon-ecs-agent/pull/4092)
 * Enhancement - Add extra logs in netlib package [#4095](https://github.com/aws/amazon-ecs-agent/pull/4095)
