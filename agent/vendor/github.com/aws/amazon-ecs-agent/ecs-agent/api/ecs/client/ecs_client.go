@@ -506,6 +506,9 @@ func (client *ecsClient) SubmitTaskStateChange(change ecs.TaskStateChange) error
 }
 
 func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error {
+
+	clusterARN := convertTaskToClusterARN(change.TaskARN)
+
 	if change.Attachment != nil {
 		// Confirm attachment by submitting attachment state change via SubmitTaskStateChange API (specifically in
 		// the input's Attachments field).
@@ -519,7 +522,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 		}
 
 		_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
-			Cluster:     aws.String(client.configAccessor.Cluster()),
+			Cluster:     aws.String(clusterARN),
 			Task:        aws.String(change.TaskARN),
 			Attachments: attachments,
 		})
@@ -537,7 +540,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 	}
 
 	req := ecsmodel.SubmitTaskStateChangeInput{
-		Cluster:            aws.String(client.configAccessor.Cluster()),
+		Cluster:            aws.String(clusterARN),
 		Task:               aws.String(change.TaskARN),
 		Status:             aws.String(change.Status.BackendStatus()),
 		Reason:             aws.String(trimString(change.Reason, ecsMaxTaskReasonLength)),
@@ -550,7 +553,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&req)
 	if err != nil {
-		logger.Warn("Could not submit task state change", logger.Fields{
+		logger.Error("Could not submit task state change", logger.Fields{
 			field.Error:       err,
 			"taskStateChange": change.String(),
 		})
@@ -560,9 +563,20 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 	return nil
 }
 
+func convertTaskToClusterARN(taskarn string) string {
+
+	taskarnsplit := strings.Split(taskarn, "/")
+	accountsplit := strings.ReplaceAll(taskarnsplit[0], "task", "cluster")
+	clusterARN := accountsplit + "/" + taskarnsplit[1]
+	return clusterARN
+
+}
+
 func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateChange) error {
+
+	clusterARN := convertTaskToClusterARN(change.TaskArn)
 	input := ecsmodel.SubmitContainerStateChangeInput{
-		Cluster:       aws.String(client.configAccessor.Cluster()),
+		Cluster:       aws.String(clusterARN),
 		ContainerName: aws.String(change.ContainerName),
 		Task:          aws.String(change.TaskArn),
 	}
@@ -603,7 +617,7 @@ func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateCha
 
 	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&input)
 	if err != nil {
-		logger.Warn("Could not submit container state change", logger.Fields{
+		logger.Error("Could not submit container state change", logger.Fields{
 			field.Error:            err,
 			field.TaskARN:          change.TaskArn,
 			"containerStateChange": change.String(),
