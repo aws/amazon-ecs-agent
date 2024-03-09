@@ -507,8 +507,10 @@ func (client *ecsClient) SubmitTaskStateChange(change ecs.TaskStateChange) error
 
 func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error {
 
-	clusterARN := convertTaskToClusterARN(change.TaskARN)
-
+	clusterARN := client.configAccessor.Cluster()
+	if len(change.ClusterARN) != 0 {
+		clusterARN = change.ClusterARN
+	}
 	if change.Attachment != nil {
 		// Confirm attachment by submitting attachment state change via SubmitTaskStateChange API (specifically in
 		// the input's Attachments field).
@@ -563,20 +565,10 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 	return nil
 }
 
-func convertTaskToClusterARN(taskarn string) string {
-
-	taskarnsplit := strings.Split(taskarn, "/")
-	accountsplit := strings.ReplaceAll(taskarnsplit[0], "task", "cluster")
-	clusterARN := accountsplit + "/" + taskarnsplit[1]
-	return clusterARN
-
-}
-
 func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateChange) error {
 
-	clusterARN := convertTaskToClusterARN(change.TaskArn)
 	input := ecsmodel.SubmitContainerStateChangeInput{
-		Cluster:       aws.String(clusterARN),
+		Cluster:       aws.String(client.configAccessor.Cluster()),
 		ContainerName: aws.String(change.ContainerName),
 		Task:          aws.String(change.TaskArn),
 	}

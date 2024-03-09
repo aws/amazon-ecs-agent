@@ -73,6 +73,8 @@ type ContainerStateChange struct {
 type TaskStateChange struct {
 	// Attachment is the ENI attachment object to send.
 	Attachment *ni.ENIAttachment
+	// ClusterARN is the unique identifier for the cluster.
+	ClusterARN string
 	// TaskArn is the unique identifier for the task.
 	TaskARN string
 	// Status is the status to send.
@@ -124,6 +126,9 @@ func (c *ContainerStateChange) String() string {
 // String returns a human readable string representation of a TaskStateChange.
 func (change *TaskStateChange) String() string {
 	res := fmt.Sprintf("%s -> %s", change.TaskARN, change.Status.String())
+	if len(change.ClusterARN) != 0 {
+		res += fmt.Sprintf(", ClusterARN: %s", change.ClusterARN)
+	}
 	if change.MetadataGetter != nil && !change.MetadataGetter.GetTaskIsNil() {
 		res += fmt.Sprintf(", Known Sent: %s, PullStartedAt: %s, PullStoppedAt: %s, ExecutionStoppedAt: %s",
 			change.MetadataGetter.GetTaskSentStatusString(),
