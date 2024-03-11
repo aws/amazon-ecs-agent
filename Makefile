@@ -332,7 +332,7 @@ gocyclo:
 govet:
 	go vet $(shell go list ./agent/... ./ecs-agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -type f -iregex '.*\.go')
+GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -not -path './ecs-agent/daemonimages/csidriver/vendor/*' -type f -iregex '.*\.go')
 
 .PHONY: importcheck
 importcheck:
