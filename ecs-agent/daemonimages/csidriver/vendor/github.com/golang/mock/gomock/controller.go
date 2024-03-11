@@ -15,21 +15,20 @@
 // Package gomock is a mock framework for Go.
 //
 // Standard usage:
+//   (1) Define an interface that you wish to mock.
+//         type MyInterface interface {
+//           SomeMethod(x int64, y string)
+//         }
+//   (2) Use mockgen to generate a mock from the interface.
+//   (3) Use the mock in a test:
+//         func TestMyThing(t *testing.T) {
+//           mockCtrl := gomock.NewController(t)
+//           defer mockCtrl.Finish()
 //
-//	(1) Define an interface that you wish to mock.
-//	      type MyInterface interface {
-//	        SomeMethod(x int64, y string)
-//	      }
-//	(2) Use mockgen to generate a mock from the interface.
-//	(3) Use the mock in a test:
-//	      func TestMyThing(t *testing.T) {
-//	        mockCtrl := gomock.NewController(t)
-//	        defer mockCtrl.Finish()
-//
-//	        mockObj := something.NewMockMyInterface(mockCtrl)
-//	        mockObj.EXPECT().SomeMethod(4, "blah")
-//	        // pass mockObj to a real object and play with it.
-//	      }
+//           mockObj := something.NewMockMyInterface(mockCtrl)
+//           mockObj.EXPECT().SomeMethod(4, "blah")
+//           // pass mockObj to a real object and play with it.
+//         }
 //
 // By default, expected calls are not enforced to run in any particular order.
 // Call order dependency can be enforced by use of InOrder and/or Call.After.
@@ -40,17 +39,17 @@
 //
 // Example of using Call.After to chain expected call order:
 //
-//	firstCall := mockObj.EXPECT().SomeMethod(1, "first")
-//	secondCall := mockObj.EXPECT().SomeMethod(2, "second").After(firstCall)
-//	mockObj.EXPECT().SomeMethod(3, "third").After(secondCall)
+//     firstCall := mockObj.EXPECT().SomeMethod(1, "first")
+//     secondCall := mockObj.EXPECT().SomeMethod(2, "second").After(firstCall)
+//     mockObj.EXPECT().SomeMethod(3, "third").After(secondCall)
 //
 // Example of using InOrder to declare expected call order:
 //
-//	gomock.InOrder(
-//	    mockObj.EXPECT().SomeMethod(1, "first"),
-//	    mockObj.EXPECT().SomeMethod(2, "second"),
-//	    mockObj.EXPECT().SomeMethod(3, "third"),
-//	)
+//     gomock.InOrder(
+//         mockObj.EXPECT().SomeMethod(1, "first"),
+//         mockObj.EXPECT().SomeMethod(2, "second"),
+//         mockObj.EXPECT().SomeMethod(3, "third"),
+//     )
 package gomock
 
 import (
@@ -90,24 +89,24 @@ type cleanuper interface {
 // goroutines. Each test should create a new Controller and invoke Finish via
 // defer.
 //
-//	func TestFoo(t *testing.T) {
-//	  ctrl := gomock.NewController(t)
-//	  defer ctrl.Finish()
-//	  // ..
-//	}
+//   func TestFoo(t *testing.T) {
+//     ctrl := gomock.NewController(t)
+//     defer ctrl.Finish()
+//     // ..
+//   }
 //
-//	func TestBar(t *testing.T) {
-//	  t.Run("Sub-Test-1", st) {
-//	    ctrl := gomock.NewController(st)
-//	    defer ctrl.Finish()
-//	    // ..
-//	  })
-//	  t.Run("Sub-Test-2", st) {
-//	    ctrl := gomock.NewController(st)
-//	    defer ctrl.Finish()
-//	    // ..
-//	  })
-//	})
+//   func TestBar(t *testing.T) {
+//     t.Run("Sub-Test-1", st) {
+//       ctrl := gomock.NewController(st)
+//       defer ctrl.Finish()
+//       // ..
+//     })
+//     t.Run("Sub-Test-2", st) {
+//       ctrl := gomock.NewController(st)
+//       defer ctrl.Finish()
+//       // ..
+//     })
+//   })
 type Controller struct {
 	// T should only be called within a generated mock. It is not intended to
 	// be used in user code and may be changed in future versions. T is the
