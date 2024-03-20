@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0
-	github.com/aws/aws-sdk-go v1.44.173
+	github.com/aws/aws-sdk-go v1.51.3
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/containernetworking/cni v1.1.2

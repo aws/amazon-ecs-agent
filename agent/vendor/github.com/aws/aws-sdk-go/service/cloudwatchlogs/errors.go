@@ -8,6 +8,18 @@ import (
 
 const (
 
+	// ErrCodeAccessDeniedException for service response error code
+	// "AccessDeniedException".
+	//
+	// You don't have sufficient permissions to perform this action.
+	ErrCodeAccessDeniedException = "AccessDeniedException"
+
+	// ErrCodeConflictException for service response error code
+	// "ConflictException".
+	//
+	// This operation attempted to create a resource that already exists.
+	ErrCodeConflictException = "ConflictException"
+
 	// ErrCodeDataAlreadyAcceptedException for service response error code
 	// "DataAlreadyAcceptedException".
 	//
@@ -73,11 +85,36 @@ const (
 	// The specified resource does not exist.
 	ErrCodeResourceNotFoundException = "ResourceNotFoundException"
 
+	// ErrCodeServiceQuotaExceededException for service response error code
+	// "ServiceQuotaExceededException".
+	//
+	// This request exceeds a service quota.
+	ErrCodeServiceQuotaExceededException = "ServiceQuotaExceededException"
+
 	// ErrCodeServiceUnavailableException for service response error code
 	// "ServiceUnavailableException".
 	//
 	// The service cannot complete the request.
 	ErrCodeServiceUnavailableException = "ServiceUnavailableException"
+
+	// ErrCodeSessionStreamingException for service response error code
+	// "SessionStreamingException".
+	//
+	// his exception is returned if an unknown error occurs during a Live Tail session.
+	ErrCodeSessionStreamingException = "SessionStreamingException"
+
+	// ErrCodeSessionTimeoutException for service response error code
+	// "SessionTimeoutException".
+	//
+	// This exception is returned in a Live Tail stream when the Live Tail session
+	// times out. Live Tail sessions time out after three hours.
+	ErrCodeSessionTimeoutException = "SessionTimeoutException"
+
+	// ErrCodeThrottlingException for service response error code
+	// "ThrottlingException".
+	//
+	// The request was throttled because of quota limits.
+	ErrCodeThrottlingException = "ThrottlingException"
 
 	// ErrCodeTooManyTagsException for service response error code
 	// "TooManyTagsException".
@@ -91,9 +128,17 @@ const (
 	// The most likely cause is an Amazon Web Services access key ID or secret key
 	// that's not valid.
 	ErrCodeUnrecognizedClientException = "UnrecognizedClientException"
+
+	// ErrCodeValidationException for service response error code
+	// "ValidationException".
+	//
+	// One of the parameters for the request is not valid.
+	ErrCodeValidationException = "ValidationException"
 )
 
 var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
+	"AccessDeniedException":          newErrorAccessDeniedException,
+	"ConflictException":              newErrorConflictException,
 	"DataAlreadyAcceptedException":   newErrorDataAlreadyAcceptedException,
 	"InvalidOperationException":      newErrorInvalidOperationException,
 	"InvalidParameterException":      newErrorInvalidParameterException,
@@ -103,7 +148,12 @@ var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
 	"OperationAbortedException":      newErrorOperationAbortedException,
 	"ResourceAlreadyExistsException": newErrorResourceAlreadyExistsException,
 	"ResourceNotFoundException":      newErrorResourceNotFoundException,
+	"ServiceQuotaExceededException":  newErrorServiceQuotaExceededException,
 	"ServiceUnavailableException":    newErrorServiceUnavailableException,
+	"SessionStreamingException":      newErrorSessionStreamingException,
+	"SessionTimeoutException":        newErrorSessionTimeoutException,
+	"ThrottlingException":            newErrorThrottlingException,
 	"TooManyTagsException":           newErrorTooManyTagsException,
 	"UnrecognizedClientException":    newErrorUnrecognizedClientException,
+	"ValidationException":            newErrorValidationException,
 }
