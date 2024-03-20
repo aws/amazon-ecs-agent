@@ -50,6 +50,89 @@ func (m *MockSecretsManagerAPI) EXPECT() *MockSecretsManagerAPIMockRecorder {
 	return m.recorder
 }
 
+// BatchGetSecretValue mocks base method.
+func (m *MockSecretsManagerAPI) BatchGetSecretValue(arg0 *secretsmanager.BatchGetSecretValueInput) (*secretsmanager.BatchGetSecretValueOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchGetSecretValue", arg0)
+	ret0, _ := ret[0].(*secretsmanager.BatchGetSecretValueOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BatchGetSecretValue indicates an expected call of BatchGetSecretValue.
+func (mr *MockSecretsManagerAPIMockRecorder) BatchGetSecretValue(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetSecretValue", reflect.TypeOf((*MockSecretsManagerAPI)(nil).BatchGetSecretValue), arg0)
+}
+
+// BatchGetSecretValuePages mocks base method.
+func (m *MockSecretsManagerAPI) BatchGetSecretValuePages(arg0 *secretsmanager.BatchGetSecretValueInput, arg1 func(*secretsmanager.BatchGetSecretValueOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchGetSecretValuePages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchGetSecretValuePages indicates an expected call of BatchGetSecretValuePages.
+func (mr *MockSecretsManagerAPIMockRecorder) BatchGetSecretValuePages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetSecretValuePages", reflect.TypeOf((*MockSecretsManagerAPI)(nil).BatchGetSecretValuePages), arg0, arg1)
+}
+
+// BatchGetSecretValuePagesWithContext mocks base method.
+func (m *MockSecretsManagerAPI) BatchGetSecretValuePagesWithContext(arg0 context.Context, arg1 *secretsmanager.BatchGetSecretValueInput, arg2 func(*secretsmanager.BatchGetSecretValueOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "BatchGetSecretValuePagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchGetSecretValuePagesWithContext indicates an expected call of BatchGetSecretValuePagesWithContext.
+func (mr *MockSecretsManagerAPIMockRecorder) BatchGetSecretValuePagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetSecretValuePagesWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).BatchGetSecretValuePagesWithContext), varargs...)
+}
+
+// BatchGetSecretValueRequest mocks base method.
+func (m *MockSecretsManagerAPI) BatchGetSecretValueRequest(arg0 *secretsmanager.BatchGetSecretValueInput) (*request.Request, *secretsmanager.BatchGetSecretValueOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchGetSecretValueRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*secretsmanager.BatchGetSecretValueOutput)
+	return ret0, ret1
+}
+
+// BatchGetSecretValueRequest indicates an expected call of BatchGetSecretValueRequest.
+func (mr *MockSecretsManagerAPIMockRecorder) BatchGetSecretValueRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetSecretValueRequest", reflect.TypeOf((*MockSecretsManagerAPI)(nil).BatchGetSecretValueRequest), arg0)
+}
+
+// BatchGetSecretValueWithContext mocks base method.
+func (m *MockSecretsManagerAPI) BatchGetSecretValueWithContext(arg0 context.Context, arg1 *secretsmanager.BatchGetSecretValueInput, arg2 ...request.Option) (*secretsmanager.BatchGetSecretValueOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "BatchGetSecretValueWithContext", varargs...)
+	ret0, _ := ret[0].(*secretsmanager.BatchGetSecretValueOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BatchGetSecretValueWithContext indicates an expected call of BatchGetSecretValueWithContext.
+func (mr *MockSecretsManagerAPIMockRecorder) BatchGetSecretValueWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchGetSecretValueWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).BatchGetSecretValueWithContext), varargs...)
+}
+
 // CancelRotateSecret mocks base method.
 func (m *MockSecretsManagerAPI) CancelRotateSecret(arg0 *secretsmanager.CancelRotateSecretInput) (*secretsmanager.CancelRotateSecretOutput, error) {
 	m.ctrl.T.Helper()
