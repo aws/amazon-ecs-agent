@@ -73,15 +73,19 @@ github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
 # github.com/containerd/containerd v1.6.26
 ## explicit; go 1.19
+github.com/containerd/containerd/log
 github.com/containerd/containerd/pkg/apparmor
 github.com/containerd/containerd/pkg/userns
+# github.com/containerd/log v0.1.0
+## explicit; go 1.20
+github.com/containerd/log
 # github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e => github.com/coreos/go-systemd/v22 v22.0.0
 ## explicit; go 1.12
 github.com/coreos/go-systemd/activation
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/docker/docker v23.0.8+incompatible
+# github.com/docker/docker v24.0.9+incompatible
 ## explicit
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/blkiodev
@@ -105,7 +109,9 @@ github.com/docker/docker/pkg/idtools
 github.com/docker/docker/pkg/ioutils
 github.com/docker/docker/pkg/jsonmessage
 github.com/docker/docker/pkg/longpath
+github.com/docker/docker/pkg/meminfo
 github.com/docker/docker/pkg/pools
+github.com/docker/docker/pkg/process
 github.com/docker/docker/pkg/stdcopy
 github.com/docker/docker/pkg/system
 github.com/docker/docker/profiles/apparmor
@@ -189,7 +195,6 @@ golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 # golang.org/x/sys v0.13.0
 ## explicit; go 1.17
-golang.org/x/sys/execabs
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
