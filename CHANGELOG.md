@@ -1,4 +1,11 @@
 # Changelog
+# 1.82.1
+* Bugfix - Pass clusterARN in task state change struct. [#4107](https://github.com/aws/amazon-ecs-agent/pull/4107)
+* Enhancement - Update go module dependencies [#4109](https://github.com/aws/amazon-ecs-agent/pull/4109)
+* Enhancement - ecs-init support for old docker engines (pre docker 17.x) and future docker engines (when api 1.25 is deprecated). [#4080](https://github.com/aws/amazon-ecs-agent/pull/4080)
+* Enhancement - Bump google.golang.org/protobuf from 1.31.0 to 1.33.0 [#4115](https://github.com/aws/amazon-ecs-agent/pull/4115)
+* Enhancement - Update SSM Agent version to 3.2.2303.0 for ECS exec [#4116](https://github.com/aws/amazon-ecs-agent/pull/4116)
+
 ## 1.82.0
 * Enhancement - Make ecs-init log level configurable [#4097](https://github.com/aws/amazon-ecs-agent/pull/4097).
 * Enhancement - Add ECS_EBSTA_SUPPORTED environment variable to enable/disable EBS Task Attach capabilities. The environment variable is set automatically by ecs-init [#4091](https://github.com/aws/amazon-ecs-agent/pull/4091).
