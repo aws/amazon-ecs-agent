@@ -50,6 +50,10 @@ func TestNewNetworkNamespace(t *testing.T) {
 	assert.Empty(t, netns.AppMeshConfig)
 	assert.Equal(t, *netIFs[0], *netns.NetworkInterfaces[0])
 	assert.Equal(t, *netIFs[1], *netns.NetworkInterfaces[1])
+
+	// Check if interfaces are sorted by `Index` field.
+	assert.Equal(t, int64(0), netns.NetworkInterfaces[0].Index)
+	assert.Equal(t, int64(1), netns.NetworkInterfaces[1].Index)
 }
 
 func TestNetworkNamespace_IsPrimary(t *testing.T) {
