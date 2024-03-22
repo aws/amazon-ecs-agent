@@ -378,6 +378,7 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 			InterfaceVethProperties: &ecsacs.NetworkInterfaceVethProperties{
 				PeerInterface: aws.String("primary"),
 			},
+			Index: aws.Int64(2),
 		},
 	}
 
@@ -445,6 +446,7 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 			GuestNetNSName: secondaryIfaceName,
 			KnownStatus:    status.NetworkNone,
 			DesiredStatus:  status.NetworkReadyPull,
+			Index:          int64(2),
 		},
 	}
 
