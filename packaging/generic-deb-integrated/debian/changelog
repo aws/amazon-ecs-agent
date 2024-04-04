@@ -1,3 +1,9 @@
+amazon-ecs-init (1.82.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.82.2
+
+ -- Yiyuan Zhong <yiyzhong@amazon.com>  Thu, 04 Apr 2024 18:00:00 +0000
+
 amazon-ecs-init (1.82.1-1) stable; urgency=medium
 
   * Cache Agent version 1.82.1

@@ -1,4 +1,11 @@
 # Changelog
+
+# 1.82.2
+* Enhancement - Bump aws-sdk-go version to 1.51.3 [#4120](https://github.com/aws/amazon-ecs-agent/pull/4120)
+* Enhancement - Update dependencies to include security patches reported by dependabot for agent [#4113](https://github.com/aws/amazon-ecs-agent/pull/4113)
+* Enhancement - Order network interfaces according to index value [#4126](https://github.com/aws/amazon-ecs-agent/pull/4126)
+* Bugfix - Explicitly set up ECS config dir in spec files [#4131](https://github.com/aws/amazon-ecs-agent/pull/4131)
+
 # 1.82.1
 * Bugfix - Pass clusterARN in task state change struct. [#4107](https://github.com/aws/amazon-ecs-agent/pull/4107)
 * Enhancement - Update go module dependencies [#4109](https://github.com/aws/amazon-ecs-agent/pull/4109)
