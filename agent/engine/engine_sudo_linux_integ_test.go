@@ -451,6 +451,7 @@ func TestExecCommandAgent(t *testing.T) {
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
 	killMockExecCommandAgent(t, client, cid, pidA)
 	seelog.Infof("kill signal sent to ExecCommandAgent (pidA=%s)", pidA)
+	waitForKillProcToFinish(t, client, cid)
 	verifyMockExecCommandAgentIsStopped(t, client, cid, pidA)
 	seelog.Infof("Verified mock ExecCommandAgent was killed (pidA=%s)", pidA)
 	pidB := verifyMockExecCommandAgentIsRunning(t, client, cid)
@@ -688,31 +689,16 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 	execCmdAgentProcessRegex := filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentBinName)
 	go func() {
 		for {
-			top, err := client.ContainerTop(ctx, containerId, nil)
+			pid, _, err := findContainerProcess(client, containerId, execCmdAgentProcessRegex)
 			if err != nil {
+				seelog.Errorf("Error when finding container process %s in container %s: %v",
+					execCmdAgentProcessRegex, containerId, err)
 				continue
 			}
-			cmdPos := -1
-			pidPos := -1
-			for i, t := range top.Titles {
-				if strings.ToUpper(t) == "CMD" {
-					cmdPos = i
-				}
-				if strings.ToUpper(t) == "PID" {
-					pidPos = i
-				}
-
+			if pid != "" {
+				res <- pid
+				return
 			}
-			require.NotEqual(t, -1, cmdPos, "CMD title not found in the container top response")
-			require.NotEqual(t, -1, pidPos, "PID title not found in the container top response")
-			for _, proc := range top.Processes {
-				matched, _ := regexp.MatchString(execCmdAgentProcessRegex, proc[cmdPos])
-				if matched {
-					res <- proc[pidPos]
-					return
-				}
-			}
-			seelog.Infof("Processes running in container: %s", top.Processes)
 			select {
 			case <-ctx.Done():
 				return
@@ -739,6 +725,58 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 	}
 	require.Equal(t, checkIsRunning, isRunning, "SSM agent was not found in container's process list")
 	return pid
+}
+
+// Waits for /kill process to finish in the container.
+func waitForKillProcToFinish(t *testing.T, client *sdkClient.Client, containerId string) {
+	for i := 0; i < 10; i++ {
+		seelog.Infof("Checking if kill process is running in container %s", containerId)
+		pid, _, err := findContainerProcess(client, containerId, testExecCommandAgentKillBin)
+		require.NoError(t, err, "error when finding kill process in container")
+		if pid == "" {
+			seelog.Info("Kill process is not running in the container")
+			return
+		}
+		seelog.Infof("Kill process is running with pid %s in container %s", pid, containerId)
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatalf("Timed out waiting for kill process to finish in container %s", containerId)
+}
+
+// Finds a process whose start command matches the provided regex in the container.
+// Returns the process's pid and command.
+func findContainerProcess(client *sdkClient.Client, containerId, matching string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	top, err := client.ContainerTop(ctx, containerId, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to run container top: %w", err)
+	}
+	cmdPos := -1
+	pidPos := -1
+	for i, t := range top.Titles {
+		if strings.ToUpper(t) == "CMD" {
+			cmdPos = i
+		}
+		if strings.ToUpper(t) == "PID" {
+			pidPos = i
+		}
+
+	}
+	if cmdPos == -1 {
+		return "", "", fmt.Errorf("CMD title not found in the container top response")
+	}
+	if pidPos == -1 {
+		return "", "", fmt.Errorf("PID title not found in the container top response")
+	}
+	seelog.Infof("Processes running in container %s: %s", containerId, top.Processes)
+	for _, proc := range top.Processes {
+		matched, _ := regexp.MatchString(matching, proc[cmdPos])
+		if matched {
+			return proc[pidPos], proc[cmdPos], nil
+		}
+	}
+	return "", "", nil
 }
 
 func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId, pid string) {
