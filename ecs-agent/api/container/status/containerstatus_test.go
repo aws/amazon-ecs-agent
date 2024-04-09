@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestShouldReportToBackend(t *testing.T) {
@@ -170,4 +171,115 @@ func TestUnmarshalContainerHealthStatus(t *testing.T) {
 			assert.Equal(t, status, tc.Status)
 		})
 	}
+}
+
+// Tests that all container statuses are marshaled to JSON with a quoted string.
+// Also tests that JSON marshaled container status can be unmarshaled.
+func TestContainerStatusMarshalUnmarshalJSON(t *testing.T) {
+	for strStatus, status := range containerStatusMap {
+		t.Run(fmt.Sprintf("marshal-unmarshal %v", strStatus), func(t *testing.T) {
+			marshaled, err := json.Marshal(status)
+			require.NoError(t, err)
+			require.Equal(t, fmt.Sprintf("%q", strStatus), string(marshaled))
+
+			var unmarshaled ContainerStatus
+			err = json.Unmarshal(marshaled, &unmarshaled)
+			require.NoError(t, err)
+			require.Equal(t, status, unmarshaled)
+		})
+	}
+}
+
+// Tests that a container status marshaled as text can be unmarshaled.
+func TestContainerStatusMarshalUnmarshalText(t *testing.T) {
+	for strStatus, status := range containerStatusMap {
+		t.Run(fmt.Sprintf("marshal-unmarshal %v", strStatus), func(t *testing.T) {
+			marshaled, err := status.MarshalText()
+			require.NoError(t, err)
+			require.Equal(t, fmt.Sprintf("%s", strStatus), string(marshaled))
+
+			var unmarshaled ContainerStatus
+			err = unmarshaled.UnmarshalText(marshaled)
+			require.NoError(t, err)
+			require.Equal(t, status, unmarshaled)
+		})
+	}
+}
+
+// Tests that MarshalText works as expected for container status pointers.
+func TestContainerStatusMarshalPointer(t *testing.T) {
+	status := ContainerPulled
+	ptr := &status
+	marshaled, err := ptr.MarshalText()
+	require.NoError(t, err)
+	assert.Equal(t, "PULLED", string(marshaled))
+}
+
+// Tests that unmarshaling an invalid text to container status fails.
+func TestContainerStatusTextUnmarshalError(t *testing.T) {
+	var status ContainerStatus
+	assert.EqualError(t, status.UnmarshalText([]byte("invalidStatus")),
+		"container status text unmarshal: unrecognized status: invalidStatus")
+}
+
+// Tests that string based statuses are used when a map with container status as keys is
+// marshaled to JSON.
+func TestContainerStatusKeyMarshal(t *testing.T) {
+	someMap := map[ContainerStatus]string{
+		ContainerStatusNone:           "",
+		ContainerPulled:               "",
+		ContainerCreated:              "",
+		ContainerRunning:              "",
+		ContainerResourcesProvisioned: "",
+		ContainerStopped:              "",
+	}
+	marshaled, err := json.Marshal(someMap)
+	require.NoError(t, err)
+
+	var unmarshaledMap map[string]string
+	err = json.Unmarshal(marshaled, &unmarshaledMap)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{
+		`NONE`:                  "",
+		`PULLED`:                "",
+		`CREATED`:               "",
+		`RUNNING`:               "",
+		`RESOURCES_PROVISIONED`: "",
+		`STOPPED`:               "",
+	}, unmarshaledMap)
+
+	var unmarshaled map[ContainerStatus]string
+	err = json.Unmarshal(marshaled, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, someMap, unmarshaled)
+}
+
+// Tests that JSON unmarshal of container status is backwards-compatible with legacy integer
+// based representations for JSON object keys.
+func TestContainerStatusJSONUnmarshalInt(t *testing.T) {
+	tcs := map[string]ContainerStatus{
+		`"0"`: ContainerStatusNone,
+		`"1"`: ContainerPulled,
+		`"2"`: ContainerCreated,
+		`"3"`: ContainerRunning,
+		`"4"`: ContainerResourcesProvisioned,
+		`"5"`: ContainerStopped,
+		`"6"`: ContainerZombie,
+	}
+	for intStatus, status := range tcs {
+		t.Run(fmt.Sprintf("%s - %s", intStatus, status.String()), func(t *testing.T) {
+			var unmarshaled ContainerStatus
+			err := json.Unmarshal([]byte(intStatus), &unmarshaled)
+			require.NoError(t, err)
+			assert.Equal(t, status, unmarshaled)
+		})
+	}
+}
+
+func TestTemporary(t *testing.T) {
+	marshaled := `{"1": "ok"}`
+	unmarshaled := map[ContainerStatus]string{}
+	err := json.Unmarshal([]byte(marshaled), &unmarshaled)
+	require.NoError(t, err)
 }
