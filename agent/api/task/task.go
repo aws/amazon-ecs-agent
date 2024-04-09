@@ -1052,7 +1052,7 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 		if container.ShouldPullWithASMAuth() {
 			container.BuildResourceDependency(asmAuthResource.GetName(),
 				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
-				apicontainerstatus.ContainerPulled)
+				apicontainerstatus.ContainerManifestPulled)
 		}
 	}
 }
@@ -3682,7 +3682,8 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 func (task *Task) HasActiveContainers() bool {
 	for _, container := range task.Containers {
 		containerStatus := container.GetKnownStatus()
-		if containerStatus >= apicontainerstatus.ContainerPulled && containerStatus <= apicontainerstatus.ContainerResourcesProvisioned {
+		if containerStatus >= apicontainerstatus.ContainerManifestPulled &&
+			containerStatus <= apicontainerstatus.ContainerResourcesProvisioned {
 			return true
 		}
 	}

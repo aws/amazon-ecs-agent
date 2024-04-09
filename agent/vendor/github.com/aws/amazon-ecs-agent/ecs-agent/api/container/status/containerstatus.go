@@ -22,6 +22,8 @@ import (
 const (
 	// ContainerStatusNone is the zero state of a container; this container has not completed pull
 	ContainerStatusNone ContainerStatus = iota
+	// ContainerManifestPulled represents a container which has had its image manifest pulled
+	ContainerManifestPulled
 	// ContainerPulled represents a container which has had the image pulled
 	ContainerPulled
 	// ContainerCreated represents a container that has been created
@@ -58,6 +60,7 @@ type ContainerHealthStatus int32
 
 var containerStatusMap = map[string]ContainerStatus{
 	"NONE":                  ContainerStatusNone,
+	"MANIFEST_PULLED":       ContainerManifestPulled,
 	"PULLED":                ContainerPulled,
 	"CREATED":               ContainerCreated,
 	"RUNNING":               ContainerRunning,

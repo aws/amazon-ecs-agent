@@ -31,6 +31,11 @@ func TestShouldReportToBackend(t *testing.T) {
 	assert.False(t, containerStatus.ShouldReportToBackend(ContainerRunning))
 	assert.False(t, containerStatus.ShouldReportToBackend(ContainerResourcesProvisioned))
 
+	// ContainerManifestPulled is not reported to backend
+	containerStatus = ContainerManifestPulled
+	assert.False(t, containerStatus.ShouldReportToBackend(ContainerRunning))
+	assert.False(t, containerStatus.ShouldReportToBackend(ContainerResourcesProvisioned))
+
 	// ContainerPulled is not reported to backend
 	containerStatus = ContainerPulled
 	assert.False(t, containerStatus.ShouldReportToBackend(ContainerRunning))
@@ -62,6 +67,11 @@ func TestShouldReportToBackend(t *testing.T) {
 func TestBackendStatus(t *testing.T) {
 	// BackendStatus is ContainerStatusNone when container status is ContainerStatusNone
 	var containerStatus ContainerStatus
+	assert.Equal(t, containerStatus.BackendStatus(ContainerRunning), ContainerStatusNone)
+	assert.Equal(t, containerStatus.BackendStatus(ContainerResourcesProvisioned), ContainerStatusNone)
+
+	// BackendStatus is still ContainerStatusNone when container status is ContainerManifestPulled
+	containerStatus = ContainerManifestPulled
 	assert.Equal(t, containerStatus.BackendStatus(ContainerRunning), ContainerStatusNone)
 	assert.Equal(t, containerStatus.BackendStatus(ContainerResourcesProvisioned), ContainerStatusNone)
 
@@ -98,19 +108,55 @@ type testContainerStatus struct {
 	SomeStatus ContainerStatus `json:"status"`
 }
 
-func TestUnmarshalContainerStatus(t *testing.T) {
-	status := ContainerStatusNone
-
-	err := json.Unmarshal([]byte(`"RUNNING"`), &status)
-	if err != nil {
-		t.Error(err)
+// Tests that pointers to a struct that contains ContainerStatus are marshaled correctly.
+func TestMarshalContainerStatusNestedPointer(t *testing.T) {
+	tcs := []struct {
+		status   ContainerStatus
+		expected string
+	}{
+		{status: ContainerStatusNone, expected: "NONE"},
+		{status: ContainerManifestPulled, expected: "MANIFEST_PULLED"},
+		{status: ContainerPulled, expected: "PULLED"},
+		{status: ContainerCreated, expected: "CREATED"},
+		{status: ContainerRunning, expected: "RUNNING"},
+		{status: ContainerResourcesProvisioned, expected: "RESOURCES_PROVISIONED"},
+		{status: ContainerStopped, expected: "STOPPED"},
 	}
-	if status != ContainerRunning {
-		t.Error("RUNNING should unmarshal to RUNNING, not " + status.String())
+	for _, tc := range tcs {
+		marshaled, err := json.Marshal(&testContainerStatus{SomeStatus: tc.status})
+		require.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf(`{"status":%q}`, tc.status), string(marshaled))
 	}
+}
 
+// Tests that ContainerStatus is unmarshaled correctly.
+func TestUnmarshalContainerStatusSimple(t *testing.T) {
+	tcs := []struct {
+		statusString string
+		expected     ContainerStatus
+	}{
+		{statusString: "NONE", expected: ContainerStatusNone},
+		{statusString: "MANIFEST_PULLED", expected: ContainerManifestPulled},
+		{statusString: "PULLED", expected: ContainerPulled},
+		{statusString: "CREATED", expected: ContainerCreated},
+		{statusString: "RUNNING", expected: ContainerRunning},
+		{statusString: "RESOURCES_PROVISIONED", expected: ContainerResourcesProvisioned},
+		{statusString: "STOPPED", expected: ContainerStopped},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.statusString, func(t *testing.T) {
+			status := ContainerStatusNone
+			err := json.Unmarshal([]byte(fmt.Sprintf("%q", tc.statusString)), &status)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, status)
+		})
+	}
+}
+
+// Tests that structs that have a ContainerStatus field are unmarshaled correctly.
+func TestUnmarshalContainerStatusNested(t *testing.T) {
 	var test testContainerStatus
-	err = json.Unmarshal([]byte(`{"status":"STOPPED"}`), &test)
+	err := json.Unmarshal([]byte(`{"status":"STOPPED"}`), &test)
 	if err != nil {
 		t.Error(err)
 	}
@@ -275,11 +321,4 @@ func TestContainerStatusJSONUnmarshalInt(t *testing.T) {
 			assert.Equal(t, status, unmarshaled)
 		})
 	}
-}
-
-func TestTemporary(t *testing.T) {
-	marshaled := `{"1": "ok"}`
-	unmarshaled := map[ContainerStatus]string{}
-	err := json.Unmarshal([]byte(marshaled), &unmarshaled)
-	require.NoError(t, err)
 }

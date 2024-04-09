@@ -106,6 +106,36 @@ func TestHandleEventError(t *testing.T) {
 			ExpectedOK:                            true,
 		},
 		{
+			Name:              "Manifest pull failed - default pull behavior",
+			EventStatus:       apicontainerstatus.ContainerManifestPulled,
+			ImagePullBehavior: config.ImagePullDefaultBehavior,
+			Error:             &dockerapi.DockerTimeoutError{},
+			ExpectedOK:        true,
+		},
+		{
+			Name:                             "Manifest pull failed - always pull behavior",
+			EventStatus:                      apicontainerstatus.ContainerManifestPulled,
+			ImagePullBehavior:                config.ImagePullAlwaysBehavior,
+			Error:                            &dockerapi.DockerTimeoutError{},
+			ExpectedTaskDesiredStatusStopped: true,
+			ExpectedOK:                       false,
+		},
+		{
+			Name:                             "Manifest pull failed - once pull behavior",
+			EventStatus:                      apicontainerstatus.ContainerManifestPulled,
+			ImagePullBehavior:                config.ImagePullOnceBehavior,
+			Error:                            &dockerapi.DockerTimeoutError{},
+			ExpectedTaskDesiredStatusStopped: true,
+			ExpectedOK:                       false,
+		},
+		{
+			Name:              "Manifest pull failed - prefer-cached pull behavior",
+			EventStatus:       apicontainerstatus.ContainerManifestPulled,
+			ImagePullBehavior: config.ImagePullPreferCachedBehavior,
+			Error:             &dockerapi.DockerTimeoutError{},
+			ExpectedOK:        true,
+		},
+		{
 			Name:                            "Pull failed",
 			Error:                           &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet: true,
@@ -248,17 +278,27 @@ func TestContainerNextState(t *testing.T) {
 		reason                       dependencygraph.DependencyError
 	}{
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running
-		// The expected next status is Pulled
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, true, nil},
+		// The expected next status is MANIFEST_PULLED
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerManifestPulled, true, nil},
 		// NONE -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
-		// is Running. The exptected next status is Pulled
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled, true, nil},
+		// is Running. The exptected next status is MANIFEST_PULLED
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerManifestPulled, true, nil},
 		// NONE -> NONE transition is not be allowed and is not actionable,
 		// when desired is Running
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// NONE -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
+		// MANIFEST_PULLED -> PULLED transition is allowed and actionable, when desired is Running
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, true, nil},
+		// MANIFEST_PULLED -> PULLED transition is allowed and actionable, when desired is RESOURCES_PROVISIONED
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled, true, nil},
+		// MANIFEST_PULLED -> MANIFEST_PULLED transition is not allowed and not actionable
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		// MANIFEST_PULLED -> NONE transition is not allowed and not actionable
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		// MANIFEST_PULLED -> STOPPED transition will result in STOPPED and is allowed, but not actionable
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
 		// PULLED -> RUNNING transition is allowed and actionable, when desired is Running
 		// The exptected next status is Created
 		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, true, nil},
@@ -376,10 +416,34 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		expectedTransitionActionable bool
 		reason                       error
 	}{
+		// NONE -> RUNNING transition is not allowed and not actionable, when manifest_pull depends on create and dependency is None
+		{
+			name:                         "manifest_pull depends on created, dependency is none",
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerManifestPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			expectedContainerStatus:      apicontainerstatus.ContainerStatusNone,
+			expectedTransitionActionable: false,
+			reason:                       dependencygraph.ErrContainerDependencyNotResolved,
+		},
+		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
+		{
+			name:                         "manifest_pull depends on running, dependency is created",
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerManifestPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerCreated,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
+			expectedContainerStatus:      apicontainerstatus.ContainerStatusNone,
+			expectedTransitionActionable: false,
+			reason:                       dependencygraph.ErrContainerDependencyNotResolved,
+		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when pull depends on create and dependency is None
 		{
-			name:                         "pull depends on created, dependency is none",
-			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			name:                         "pull depends on created, current is manifest_pulled, dependency is none",
+			containerCurrentStatus:       apicontainerstatus.ContainerManifestPulled,
 			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
 			containerDependentStatus:     apicontainerstatus.ContainerPulled,
 			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
@@ -390,8 +454,8 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
 		{
-			name:                         "pull depends on running, dependency is created",
-			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			name:                         "pull depends on running, current is manifest_pulled, dependency is created",
+			containerCurrentStatus:       apicontainerstatus.ContainerManifestPulled,
 			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
 			containerDependentStatus:     apicontainerstatus.ContainerPulled,
 			dependencyCurrentStatus:      apicontainerstatus.ContainerCreated,
@@ -404,7 +468,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		// The expected next status is Pulled
 		{
 			name:                         "pull depends on running, dependency is running, next status is pulled",
-			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerCurrentStatus:       apicontainerstatus.ContainerManifestPulled,
 			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
 			containerDependentStatus:     apicontainerstatus.ContainerPulled,
 			dependencyCurrentStatus:      apicontainerstatus.ContainerRunning,
@@ -416,7 +480,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		// The expected next status is Pulled
 		{
 			name:                         "pull depends on running, dependency is stopped, next status is pulled",
-			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerCurrentStatus:       apicontainerstatus.ContainerManifestPulled,
 			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
 			containerDependentStatus:     apicontainerstatus.ContainerPulled,
 			dependencyCurrentStatus:      apicontainerstatus.ContainerStopped,
@@ -427,13 +491,13 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is None and
 		// dependent status is Running
 		{
-			name:                         "create depends on running, dependency is none, next status is pulled",
+			name:                         "create depends on running, dependency is none, next status is manifest_pulled",
 			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
 			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
 			containerDependentStatus:     apicontainerstatus.ContainerCreated,
 			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
 			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
-			expectedContainerStatus:      apicontainerstatus.ContainerPulled,
+			expectedContainerStatus:      apicontainerstatus.ContainerManifestPulled,
 			expectedTransitionActionable: true,
 		},
 	}
@@ -485,11 +549,11 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
-		// The expected next status is Pulled
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, true, nil},
+		// The expected next status is MANIFEST_PULLED
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerManifestPulled, true, nil},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Stopped
-		// The expected next status is Pulled
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerPulled, true, nil},
+		// The expected next status is MANIFEST_PULLED
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerManifestPulled, true, nil},
 	}
 
 	for _, tc := range testCases {
@@ -538,13 +602,17 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 		// NONE -> RUNNING transition is not allowed when container is waiting for credentials
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, "not_existed", true, false, dependencygraph.CredentialsNotResolvedErr},
 		// NONE -> RUNNING transition is allowed when the required execution credentials existed
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, "existed", true, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerManifestPulled, "existed", true, true, nil},
+		// MANIFEST_PULLED -> RUNNING transition is not allowed when the credentials don't exist
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, "not_existed", true, false, dependencygraph.CredentialsNotResolvedErr},
+		// MANIFEST_PULLED -> RUNNING transition is allowed when the credentials exist
+		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, "existed", true, true, nil},
 		// PULLED -> RUNNING transition is allowed even the credentials is required
 		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, "not_existed", true, true, nil},
 		// NONE -> STOPPED transition is allowed even the credentials is required
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, "not_existed", true, false, nil},
 		// NONE -> RUNNING transition is allowed when the container doesn't use execution credentials
-		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, "not_existed", false, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerManifestPulled, "not_existed", false, true, nil},
 	}
 
 	taskEngine := &DockerTaskEngine{

@@ -38,12 +38,19 @@ func TestVerifyCgroupDependenciesResolved(t *testing.T) {
 		ExpectedResolved bool
 	}{
 		{
-			Name:            "resource none,container pull depends on resource created",
-			TargetKnown:     apicontainerstatus.ContainerStatusNone,
-			TargetDep:       apicontainerstatus.ContainerPulled,
-			DependencyKnown: resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
-			RequiredStatus:  resourcestatus.ResourceStatus(cgroup.CgroupCreated),
-
+			Name:             "resource none, container pull depends on resource created",
+			TargetKnown:      apicontainerstatus.ContainerStatusNone,
+			TargetDep:        apicontainerstatus.ContainerPulled,
+			DependencyKnown:  resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			RequiredStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			ExpectedResolved: true,
+		},
+		{
+			Name:             "resource none, current is manifest_pulled, container pull depends on resource created",
+			TargetKnown:      apicontainerstatus.ContainerManifestPulled,
+			TargetDep:        apicontainerstatus.ContainerPulled,
+			DependencyKnown:  resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			RequiredStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			ExpectedResolved: false,
 		},
 		{

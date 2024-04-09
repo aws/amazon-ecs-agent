@@ -2843,7 +2843,15 @@ func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
 	}
 
 	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields, nil, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	assert.Equal(t,
+		apicontainer.ResourceDependency{
+			Name:           asmauth.ResourceName,
+			RequiredStatus: resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
+		},
+		task.Containers[0].
+			TransitionDependenciesMap[apicontainerstatus.ContainerManifestPulled].
+			ResourceDependencies[0])
 }
 
 func TestPostUnmarshalTaskSecret(t *testing.T) {

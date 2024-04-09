@@ -20,15 +20,17 @@ import (
 // MapContainerToTaskStatus maps the container status to the corresponding task status. The
 // transition map is illustrated below.
 //
-// Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
+// Container: None -> ManifestPulled -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
 //
-// Task     : None ->     Created       ->         Running        -> Stopped
+// Task     : None -> ManifestPulled ->           Created -> Running ->                Stopped
 func MapContainerToTaskStatus(knownState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) TaskStatus {
 	switch knownState {
 	case apicontainerstatus.ContainerStatusNone:
 		return TaskStatusNone
 	case steadyState:
 		return TaskRunning
+	case apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerPulled:
+		return TaskManifestPulled
 	case apicontainerstatus.ContainerCreated:
 		return TaskCreated
 	case apicontainerstatus.ContainerStopped:

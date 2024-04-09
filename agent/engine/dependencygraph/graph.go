@@ -415,6 +415,12 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 	targetContainerKnownStatus := target.GetKnownStatus()
 	dependsOnContainerKnownStatus := dependsOnContainer.GetKnownStatus()
 
+	// Containers are allowed to transition to MANIFEST_PULLED irrespective of any container
+	// ordering dependencies.
+	if targetContainerKnownStatus < apicontainerstatus.ContainerManifestPulled {
+		return true
+	}
+
 	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 	// Allow this only if the environment variable ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT is enabled and
 	// known status of the `target` container state has not reached to 'Pulled' state;
