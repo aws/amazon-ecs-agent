@@ -1053,6 +1053,9 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 			container.BuildResourceDependency(asmAuthResource.GetName(),
 				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
 				apicontainerstatus.ContainerManifestPulled)
+			container.BuildResourceDependency(asmAuthResource.GetName(),
+				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
+				apicontainerstatus.ContainerPulled)
 		}
 	}
 }
