@@ -1526,7 +1526,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			"usingDockerAPIVersion":   minVersion,
 			"payloadDockerAPIVersion": *container.DockerConfig.Version,
 		})
-		client = client.WithVersion(minVersion)
+		// Error in creating versioned client is dealt with later when client.APIVersion() is called
+		client, _ = client.WithVersion(minVersion)
 	}
 
 	dockerContainerName := ""
@@ -1840,7 +1841,8 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 			"usingDockerAPIVersion":   minVersion,
 			"payloadDockerAPIVersion": *container.DockerConfig.Version,
 		})
-		client = client.WithVersion(minVersion)
+		// Error in creating versioned client is dealt with later when client.StartContainer() is called
+		client, _ = client.WithVersion(minVersion)
 	}
 
 	dockerID, err := engine.getDockerID(task, container)

@@ -138,6 +138,54 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	}
 }
 
+// Tests that sdkclientfactory.NewFactory checks that the server's API version is not lower
+// than the client's API version.
+func TestFactoryChecksServerVersion(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	allVersions := dockerclient.GetKnownAPIVersions()
+
+	// Set up the mocks and expectations
+	mockClients := make(map[string]*mock_sdkclient.MockClient)
+
+	serverAPIVersion := dockerclient.Version_1_35
+
+	// Ensure that agent pings all known versions of Docker API
+	for i := 0; i < len(allVersions); i++ {
+		mockClients[string(allVersions[i])] = mock_sdkclient.NewMockClient(ctrl)
+		mockClients[string(allVersions[i])].EXPECT().
+			ServerVersion(gomock.Any()).
+			Return(docker.Version{APIVersion: serverAPIVersion.String()}, nil)
+		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any()).AnyTimes()
+	}
+
+	// Define the function for the mock client
+	// For simplicity, we will pretend all versions of docker are available
+	newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
+		return mockClients[version], nil
+	}
+
+	// Count versions before serverAPIVersion
+	expectedClientCount := 0
+	for _, v := range allVersions {
+		if v.Compare(serverAPIVersion) <= 0 {
+			expectedClientCount++
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	factory := NewFactory(ctx, expectedEndpoint)
+	actualVersions := factory.FindSupportedAPIVersions()
+
+	assert.NotEmpty(t, actualVersions)
+	// Ensure that each supported version is lower than serverAPIVersion
+	for _, actualVersion := range actualVersions {
+		assert.True(t, actualVersion.Compare(serverAPIVersion) <= 0)
+	}
+}
+
 func TestGetClientCached(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
