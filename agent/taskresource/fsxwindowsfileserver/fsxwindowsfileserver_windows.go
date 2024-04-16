@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +46,7 @@ import (
 const (
 	psCredentialCommandFormat = "$(New-Object System.Management.Automation.PSCredential('%s', $(ConvertTo-SecureString '%s' -AsPlainText -Force)))"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
+	fsxVolumeType             = "fsx"
 )
 
 // FSxWindowsFileServerResource represents a fsxwindowsfileserver resource
@@ -293,6 +293,20 @@ func (cfg *FSxWindowsFileServerVolumeConfig) Source() string {
 	return utils.GetCanonicalPath(cfg.HostPath)
 }
 
+func (cfg *FSxWindowsFileServerVolumeConfig) GetType() string {
+	return fsxVolumeType
+}
+
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeId() string {
+	return cfg.FileSystemID
+}
+
+// Note: The name is within the FSxWindowsFileServerResource struct. In order to use this in the future, this needs to be modified.
+// Currently not meant for use
+func (cfg *FSxWindowsFileServerVolumeConfig) GetVolumeName() string {
+	return ""
+}
+
 // GetName safely returns the name of the fsxwindowsfileserver resource
 func (fv *FSxWindowsFileServerResource) GetName() string {
 	fv.lock.RLock()
@@ -464,15 +478,24 @@ func (fv *FSxWindowsFileServerResource) retrieveSSMCredentials(credentialsParame
 	}
 
 	ssmClient := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials)
-	ssmParam := filepath.Base(parsedARN.Resource)
-	ssmParams := []string{ssmParam}
+	// parsedARN.Resource looks like "arn:aws:ssm:us-west-2:123456789012:parameter/sample1/sample2/parameter1"
+	// We cut by parameter and get "arn:aws:ssm:us-west-2:123456789012:parameter", "/sample1/sample2/parameter1", True/False
+	_, ssmParamName, found := strings.Cut(parsedARN.Resource, "parameter")
+	if !found {
+		err = errors.New("unxpected error. expected fsx credential ssm arn but did not find string 'parameter' in the arn")
+		fv.setTerminalReason(err.Error())
+		return err
+
+	}
+
+	ssmParams := []string{ssmParamName}
 
 	ssmParamMap, err := ssm.GetParametersFromSSM(ssmParams, ssmClient)
 	if err != nil {
 		return err
 	}
 
-	ssmParamData, _ := ssmParamMap[ssmParam]
+	ssmParamData, _ := ssmParamMap[ssmParamName]
 	creds := FSxWindowsFileServerCredentials{}
 
 	if err := json.Unmarshal([]byte(ssmParamData), &creds); err != nil {
@@ -696,7 +719,7 @@ func (fv *FSxWindowsFileServerResource) updateAppliedStatusUnsafe(knownStatus re
 // GetAppliedStatus safely returns the currently applied status of the resource
 func (fv *FSxWindowsFileServerResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	fv.lock.RLock()
-	defer fv.lock.RLock()
+	defer fv.lock.RUnlock()
 
 	return fv.appliedStatusUnsafe
 }

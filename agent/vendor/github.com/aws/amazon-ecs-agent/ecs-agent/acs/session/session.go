@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -64,6 +64,7 @@ const (
 // The Session.Start() method can be used to start processing messages from ACS.
 type Session interface {
 	Start(context.Context) error
+	GetLastConnectedTime() time.Time
 }
 
 // session encapsulates all arguments needed to connect to ACS and to handle messages received by ACS.
@@ -71,7 +72,7 @@ type session struct {
 	containerInstanceARN           string
 	cluster                        string
 	credentialsProvider            *credentials.Credentials
-	discoverEndpointClient         api.ECSDiscoverEndpointSDK
+	ecsClient                      ecs.ECSClient
 	inactiveInstanceCB             func()
 	agentVersion                   string
 	agentHash                      string
@@ -97,12 +98,13 @@ type session struct {
 	disconnectTimeout              time.Duration
 	disconnectJitter               time.Duration
 	inactiveInstanceReconnectDelay time.Duration
+	lastConnectedTime              time.Time
 }
 
 // NewSession creates a new Session.
 func NewSession(containerInstanceARN string,
 	cluster string,
-	discoverEndpointClient api.ECSDiscoverEndpointSDK,
+	ecsClient ecs.ECSClient,
 	credentialsProvider *credentials.Credentials,
 	inactiveInstanceCB func(),
 	clientFactory wsclient.ClientFactory,
@@ -128,7 +130,7 @@ func NewSession(containerInstanceARN string,
 	return &session{
 		containerInstanceARN:           containerInstanceARN,
 		cluster:                        cluster,
-		discoverEndpointClient:         discoverEndpointClient,
+		ecsClient:                      ecsClient,
 		credentialsProvider:            credentialsProvider,
 		inactiveInstanceCB:             inactiveInstanceCB,
 		clientFactory:                  clientFactory,
@@ -155,6 +157,7 @@ func NewSession(containerInstanceARN string,
 		disconnectTimeout:              wsclient.DisconnectTimeout,
 		disconnectJitter:               wsclient.DisconnectJitterMax,
 		inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
+		lastConnectedTime:              time.Time{},
 	}
 }
 
@@ -217,7 +220,7 @@ func (s *session) Start(ctx context.Context) error {
 // startSessionOnce creates a session with ACS and handles requests using the passed
 // in arguments.
 func (s *session) startSessionOnce(ctx context.Context) error {
-	acsEndpoint, err := s.discoverEndpointClient.DiscoverPollEndpoint(s.containerInstanceARN)
+	acsEndpoint, err := s.ecsClient.DiscoverPollEndpoint(s.containerInstanceARN)
 	if err != nil {
 		logger.Error("ACS: Unable to discover poll endpoint", logger.Fields{
 			field.Error: err,
@@ -244,6 +247,9 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		return err
 	}
 	defer disconnectTimer.Stop()
+
+	// Record the timestamp of the last connection to ACS.
+	s.lastConnectedTime = time.Now()
 
 	// Connection to ACS was successful. Moving forward, rely on ACS to send credentials to Agent at its own cadence
 	// and make sure Agent does not force ACS to send credentials for any subsequent reconnects to ACS.
@@ -424,4 +430,9 @@ func formatDockerVersion(dockerVersionValue string) string {
 		return "DockerVersion: " + dockerVersionValue
 	}
 	return dockerVersionValue
+}
+
+// GetLastConnectedTime returns the timestamp that the last connection was established to ACS.
+func (s *session) GetLastConnectedTime() time.Time {
+	return s.lastConnectedTime
 }

@@ -15,12 +15,12 @@ package stats
 
 import (
 	"math"
-	"runtime"
 
+	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/docker/docker/api/types"
 )
 
-var numCores = uint64(runtime.NumCPU())
+var numCores = uint64(eautils.GetNumCPU())
 
 // nan32 returns a 32bit NaN.
 func nan32() float32 {

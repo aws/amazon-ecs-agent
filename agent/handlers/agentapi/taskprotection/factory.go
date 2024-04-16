@@ -13,14 +13,13 @@
 package taskprotection
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	ecsapi "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
@@ -37,7 +36,7 @@ type TaskProtectionClientFactory struct {
 // Helper function for retrieving credential from credentials manager and create ecs client
 func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 	taskRoleCredential credentials.TaskIAMRoleCredentials,
-) api.ECSTaskProtectionSDK {
+) ecsapi.ECSTaskProtectionSDK {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
 	cfg := aws.NewConfig().
 		WithCredentials(awscreds.NewStaticCredentials(taskCredential.AccessKeyID,

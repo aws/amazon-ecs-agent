@@ -18,10 +18,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -50,7 +50,7 @@ func NewDockerTelemetrySession(
 	credentialProvider *credentials.Credentials,
 	cfg *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	taskEngine engine.TaskEngine,
 	metricsChannel <-chan ecstcs.TelemetryMessage,
 	healthChannel <-chan ecstcs.HealthMessage,

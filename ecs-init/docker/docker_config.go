@@ -16,7 +16,6 @@ package docker
 import (
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -63,11 +62,16 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
 		CapAdd:      caps,
-		Init:        true,
+	}
+
+	// Task ENI feature requires agent to be "init" process, so set it if docker API
+	// version is new enough for this feature.
+	if dockerVersionCompare(dockerAPIVersion, enableTaskENIDockerClientAPIVersion) >= 0 {
+		hostConfig.Init = true
 	}
 
 	if ctrdapparmor.HostSupports() {
-		hostConfig.SecurityOpt = []string{fmt.Sprintf("apparmor:%s", apparmor.ECSDefaultProfileName)}
+		hostConfig.SecurityOpt = []string{fmt.Sprintf("apparmor:%s", config.ECSAgentAppArmorProfileName())}
 	}
 
 	if config.RunPrivileged() {

@@ -33,7 +33,7 @@ import (
 	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	mock_api "github.com/aws/amazon-ecs-agent/ecs-agent/api/mocks"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	rolecredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
@@ -224,8 +224,8 @@ func TestSessionReconnectsOnConnectErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -250,13 +250,13 @@ func TestSessionReconnectsOnConnectErrors(t *testing.T) {
 		}).Return(time.NewTimer(wsclient.DisconnectTimeout), nil).MinTimes(1),
 	)
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
@@ -345,8 +345,8 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -373,7 +373,7 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN:           testconst.ContainerInstanceARN,
-		discoverEndpointClient:         discoverEndpointClient,
+		ecsClient:                      ecsClient,
 		inactiveInstanceCB:             noopFunc,
 		backoff:                        mockBackoff,
 		clientFactory:                  mockClientFactory,
@@ -394,8 +394,8 @@ func TestSessionReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -422,15 +422,15 @@ func TestSessionReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 		mockBackoff.EXPECT().Reset().AnyTimes(),
 	)
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		inactiveInstanceCB:     noopFunc,
-		backoff:                mockBackoff,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		inactiveInstanceCB:   noopFunc,
+		backoff:              mockBackoff,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 	}
 
 	err := acsSession.Start(ctx)
@@ -444,8 +444,8 @@ func TestSessionCallsInactiveInstanceCB(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -477,7 +477,7 @@ func TestSessionCallsInactiveInstanceCB(t *testing.T) {
 	inactiveInstanceReconnectDelay := 200 * time.Millisecond
 	acsSession := session{
 		containerInstanceARN:           testconst.ContainerInstanceARN,
-		discoverEndpointClient:         discoverEndpointClient,
+		ecsClient:                      ecsClient,
 		inactiveInstanceCB:             inactiveInstanceCB,
 		clientFactory:                  mockClientFactory,
 		heartbeatTimeout:               20 * time.Millisecond,
@@ -499,8 +499,8 @@ func TestSessionReconnectDelayForInactiveInstanceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -537,7 +537,7 @@ func TestSessionReconnectDelayForInactiveInstanceError(t *testing.T) {
 	)
 	acsSession := session{
 		containerInstanceARN:           testconst.ContainerInstanceARN,
-		discoverEndpointClient:         discoverEndpointClient,
+		ecsClient:                      ecsClient,
 		inactiveInstanceCB:             noopFunc,
 		clientFactory:                  mockClientFactory,
 		heartbeatTimeout:               20 * time.Millisecond,
@@ -559,8 +559,8 @@ func TestSessionReconnectsOnServeErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -586,14 +586,14 @@ func TestSessionReconnectsOnServeErrors(t *testing.T) {
 	)
 
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		inactiveInstanceCB:     noopFunc,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		inactiveInstanceCB:   noopFunc,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
@@ -608,8 +608,8 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -631,14 +631,14 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 		}).Return(inactiveInstanceError),
 	)
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		inactiveInstanceCB:     noopFunc,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		inactiveInstanceCB:   noopFunc,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
@@ -653,8 +653,8 @@ func TestSessionStopsWhenContextIsErrorDueToTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Millisecond)
 	defer cancel()
@@ -674,7 +674,7 @@ func TestSessionStopsWhenContextIsErrorDueToTimeout(t *testing.T) {
 
 	acsSession := session{
 		containerInstanceARN:           testconst.ContainerInstanceARN,
-		discoverEndpointClient:         discoverEndpointClient,
+		ecsClient:                      ecsClient,
 		inactiveInstanceCB:             noopFunc,
 		clientFactory:                  mockClientFactory,
 		heartbeatTimeout:               20 * time.Millisecond,
@@ -694,7 +694,7 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
@@ -716,19 +716,19 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	gomock.InOrder(
 		// DiscoverPollEndpoint returns an error on its first invocation.
-		discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("", fmt.Errorf("oops")),
+		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("", fmt.Errorf("oops")),
 		// Second invocation returns a success.
-		discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil),
+		ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil),
 	)
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		inactiveInstanceCB:     noopFunc,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		inactiveInstanceCB:   noopFunc,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
@@ -750,12 +750,14 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 }
 
 // TestConnectionIsClosedOnIdle tests that the connection to ACS is closed when the connection is idle.
+// It also tests whether the session's lastConnectedTime field will be updated properly upon invocation
+// of startSessionOnce() and whether the session's GetLastConnectedTime() interface works as expected.
 func TestConnectionIsClosedOnIdle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -777,21 +779,30 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).MinTimes(1)
 	acsSession := session{
-		containerInstanceARN:   testconst.ContainerInstanceARN,
-		discoverEndpointClient: discoverEndpointClient,
-		inactiveInstanceCB:     noopFunc,
-		clientFactory:          mockClientFactory,
-		heartbeatTimeout:       20 * time.Millisecond,
-		heartbeatJitter:        10 * time.Millisecond,
-		disconnectTimeout:      30 * time.Millisecond,
-		disconnectJitter:       10 * time.Millisecond,
+		containerInstanceARN: testconst.ContainerInstanceARN,
+		ecsClient:            ecsClient,
+		inactiveInstanceCB:   noopFunc,
+		clientFactory:        mockClientFactory,
+		heartbeatTimeout:     20 * time.Millisecond,
+		heartbeatJitter:      10 * time.Millisecond,
+		disconnectTimeout:    30 * time.Millisecond,
+		disconnectJitter:     10 * time.Millisecond,
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
+
+	// The Session's lastConnectedTime field was initialized with time.Time{}, which is the default zero value for time.Time.
+	// At this point, since the Session has not connected to ACS yet, the Session's lastConnectedTime should still be zero.
+	assert.True(t, acsSession.GetLastConnectedTime().IsZero())
+
 	// Wait for connection to be closed. If the connection is not closed due to inactivity, the test will time out.
 	err := acsSession.startSessionOnce(ctx)
 	assert.EqualError(t, err, io.EOF.Error())
 	assert.True(t, connectionInactive)
+
+	// The Session's lastConnectedTime field should be updated with the latest connection timestamp after
+	// invocation of startSessionOnce(). Check that the field is no longer zero.
+	assert.False(t, acsSession.GetLastConnectedTime().IsZero())
 }
 
 func TestSessionDoesntLeakGoroutines(t *testing.T) {
@@ -804,7 +815,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	defer ctrl.Finish()
 
 	payloadMessageHandler := mock_session.NewMockPayloadMessageHandler(ctrl)
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	closeWS := make(chan bool)
@@ -824,7 +835,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	}()
 
 	timesConnected := 0
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil).
+	ecsClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil).
 		AnyTimes().Do(func(_ interface{}) {
 		timesConnected++
 	})
@@ -840,17 +851,17 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := session{
-			containerInstanceARN:   testconst.ContainerInstanceARN,
-			credentialsProvider:    testCreds,
-			dockerVersion:          dockerVersion,
-			minAgentConfig:         testMinAgentConfig,
-			discoverEndpointClient: discoverEndpointClient,
-			inactiveInstanceCB:     noopFunc,
-			clientFactory:          acsclient.NewACSClientFactory(),
-			metricsFactory:         metricsfactory.NewNopEntryFactory(),
-			payloadMessageHandler:  payloadMessageHandler,
-			heartbeatTimeout:       1 * time.Second,
-			doctor:                 emptyDoctor,
+			containerInstanceARN:  testconst.ContainerInstanceARN,
+			credentialsProvider:   testCreds,
+			dockerVersion:         dockerVersion,
+			minAgentConfig:        testMinAgentConfig,
+			ecsClient:             ecsClient,
+			inactiveInstanceCB:    noopFunc,
+			clientFactory:         acsclient.NewACSClientFactory(),
+			metricsFactory:        metricsfactory.NewNopEntryFactory(),
+			payloadMessageHandler: payloadMessageHandler,
+			heartbeatTimeout:      1 * time.Second,
+			doctor:                emptyDoctor,
 			backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 				connectionBackoffJitter, connectionBackoffMultiplier),
 		}
@@ -891,7 +902,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	defer ctrl.Finish()
 
 	credentialsMetadataSetter := mock_session.NewMockCredentialsMetadataSetter(ctrl)
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
 	closeWS := make(chan bool)
 	fakeServer, serverIn, requestsChan, errChan, err := startFakeACSServer(closeWS)
@@ -911,7 +922,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	}()
 
 	// DiscoverPollEndpoint returns the URL for the server that we started.
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil)
+	ecsClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil)
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
@@ -919,7 +930,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	go func() {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
-			discoverEndpointClient,
+			ecsClient,
 			testCreds,
 			noopFunc,
 			acsclient.NewACSClientFactory(),
@@ -993,8 +1004,8 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 	defer ctrl.Finish()
 
 	const numInvocations = 10
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
@@ -1010,7 +1021,7 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 
 	acsSession := NewSession(testconst.ContainerInstanceARN,
 		testconst.ClusterARN,
-		discoverEndpointClient,
+		ecsClient,
 		nil,
 		noopFunc,
 		mockClientFactory,
@@ -1066,8 +1077,8 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 func TestSessionReconnectCorrectlySetsAcsUrl(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockBackoff := mock_retry.NewMockBackoff(ctrl)
@@ -1110,7 +1121,7 @@ func TestSessionReconnectCorrectlySetsAcsUrl(t *testing.T) {
 	)
 	acsSession := NewSession(testconst.ContainerInstanceARN,
 		testconst.ClusterARN,
-		discoverEndpointClient,
+		ecsClient,
 		nil,
 		noopFunc,
 		mockClientFactory,
@@ -1148,7 +1159,7 @@ func TestStartSessionHandlesAttachResourceMessages(t *testing.T) {
 	defer ctrl.Finish()
 
 	resourceHandler := mock_session.NewMockResourceHandler(ctrl)
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
 	closeWS := make(chan bool)
 	fakeServer, serverIn, requestsChan, errChan, err := startFakeACSServer(closeWS)
@@ -1168,13 +1179,13 @@ func TestStartSessionHandlesAttachResourceMessages(t *testing.T) {
 	}()
 
 	// DiscoverPollEndpoint returns the URL for the server that we started.
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil)
+	ecsClient.EXPECT().DiscoverPollEndpoint(testconst.ContainerInstanceARN).Return(fakeServer.URL, nil)
 
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
-			discoverEndpointClient,
+			ecsClient,
 			testCreds,
 			noopFunc,
 			acsclient.NewACSClientFactory(),
@@ -1236,8 +1247,8 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 		addUpdateRequestHandlersCalled = true
 	}
 
-	discoverEndpointClient := mock_api.NewMockECSDiscoverEndpointSDK(ctrl)
-	discoverEndpointClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
@@ -1259,7 +1270,7 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 
 	acsSession := NewSession(testconst.ContainerInstanceARN,
 		testconst.ClusterARN,
-		discoverEndpointClient,
+		ecsClient,
 		nil,
 		noopFunc,
 		mockClientFactory,

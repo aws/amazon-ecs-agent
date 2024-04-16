@@ -62,6 +62,11 @@ type ManagedDaemon struct {
 
 	linuxParameters *ecsacs.LinuxParameters
 	privileged      bool
+
+	containerId string
+
+	containerCGroup  string
+	networkNameSpace string
 }
 
 // A valid managed daemon will require
@@ -134,7 +139,9 @@ func defaultImportAll() ([]*ManagedDaemon, error) {
 	}
 	var thisCommand []string
 	thisCommand = append(thisCommand, "--endpoint=unix://csi-driver/csi-driver.sock")
-	thisCommand = append(thisCommand, "--log_dir=/var/log")
+	thisCommand = append(thisCommand, "--log_file=/var/log/csi.log")
+	thisCommand = append(thisCommand, "--log_file_max_size=20")
+	thisCommand = append(thisCommand, "--logtostderr=false")
 	sysAdmin := "SYS_ADMIN"
 	addCapabilities := []*string{&sysAdmin}
 	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
@@ -182,6 +189,11 @@ func (md *ManagedDaemon) GetCommand() []string {
 	return md.command
 }
 
+func (md *ManagedDaemon) SetCommand(command []string) {
+	md.command = make([]string, len(command))
+	copy(md.command, command)
+}
+
 // returns list of mountpoints without the
 // agentCommunicationMount and applicationLogMount
 func (md *ManagedDaemon) GetFilteredMountPoints() []*MountPoint {
@@ -207,6 +219,26 @@ func (md *ManagedDaemon) GetEnvironment() map[string]string {
 
 func (md *ManagedDaemon) GetLoadedDaemonImageRef() string {
 	return md.loadedDaemonImageRef
+}
+
+func (md *ManagedDaemon) SetLoadedDaemonImageRef(loadedImageRef string) {
+	md.loadedDaemonImageRef = loadedImageRef
+}
+
+func (md *ManagedDaemon) GetHealthCheckTest() []string {
+	return md.healthCheckTest
+}
+
+func (md *ManagedDaemon) GetHealthCheckInterval() time.Duration {
+	return md.healthCheckInterval
+}
+
+func (md *ManagedDaemon) GetHealthCheckTimeout() time.Duration {
+	return md.healthCheckTimeout
+}
+
+func (md *ManagedDaemon) GetHealthCheckRetries() int {
+	return md.healthCheckRetries
 }
 
 func (md *ManagedDaemon) SetHealthCheck(
@@ -275,12 +307,32 @@ func (md *ManagedDaemon) SetEnvironment(environment map[string]string) {
 	}
 }
 
-func (md *ManagedDaemon) SetLoadedDaemonImageRef(loadedImageRef string) {
-	md.loadedDaemonImageRef = loadedImageRef
-}
-
 func (md *ManagedDaemon) SetPrivileged(isPrivileged bool) {
 	md.privileged = isPrivileged
+}
+
+func (md *ManagedDaemon) GetContainerId() string {
+	return md.containerId
+}
+
+func (md *ManagedDaemon) SetContainerId(containerId string) {
+	md.containerId = containerId
+}
+
+func (md *ManagedDaemon) GetContainerCGroup() string {
+	return md.containerCGroup
+}
+
+func (md *ManagedDaemon) SetContainerCGroup(containerCGroup string) {
+	md.containerCGroup = containerCGroup
+}
+
+func (md *ManagedDaemon) GetNetworkNameSpace() string {
+	return md.networkNameSpace
+}
+
+func (md *ManagedDaemon) SetNetworkNameSpace(networkNameSpace string) {
+	md.networkNameSpace = networkNameSpace
 }
 
 // AddMountPoint will add by MountPoint.SourceVolume

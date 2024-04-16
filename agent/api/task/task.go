@@ -42,14 +42,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
@@ -3649,12 +3650,12 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 	resources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: utils.Uint16SliceToStringSlice(tcpPortSet),
+		StringSetValue: commonutils.Uint16SliceToStringSlice(tcpPortSet),
 	}
 	resources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: utils.Uint16SliceToStringSlice(udpPortSet),
+		StringSetValue: commonutils.Uint16SliceToStringSlice(udpPortSet),
 	}
 
 	// GPU

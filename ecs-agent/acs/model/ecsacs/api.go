@@ -1346,6 +1346,8 @@ type IAMRoleCredentials struct {
 
 	AccessKeyId *string `locationName:"accessKeyId" type:"string"`
 
+	CredentialScope *string `locationName:"credentialScope" type:"string"`
+
 	CredentialsId *string `locationName:"credentialsId" type:"string"`
 
 	Expiration *string `locationName:"expiration" type:"string"`

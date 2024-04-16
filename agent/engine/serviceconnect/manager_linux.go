@@ -27,7 +27,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -36,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -119,7 +119,7 @@ type manager struct {
 	agentContainerTag       string
 	appnetInterfaceVersion  string
 
-	ecsClient            api.ECSClient
+	ecsClient            ecs.ECSClient
 	containerInstanceARN string
 }
 
@@ -143,7 +143,7 @@ func NewManager() Manager {
 	}
 }
 
-func (m *manager) SetECSClient(client api.ECSClient, containerInstanceARN string) {
+func (m *manager) SetECSClient(client ecs.ECSClient, containerInstanceARN string) {
 	m.ecsClient = client
 	m.containerInstanceARN = containerInstanceARN
 }

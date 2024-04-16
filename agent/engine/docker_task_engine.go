@@ -1505,7 +1505,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	})
 	client := engine.client
 	if container.DockerConfig.Version != nil {
-		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+		minVersion := dockerclient.GetSupportedDockerAPIVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+		logger.Debug("CreateContainer: overriding docker API version in task payload", logger.Fields{
+			field.TaskID:              task.GetID(),
+			field.Container:           container.Name,
+			"usingDockerAPIVersion":   minVersion,
+			"payloadDockerAPIVersion": *container.DockerConfig.Version,
+		})
+		client = client.WithVersion(minVersion)
 	}
 
 	dockerContainerName := ""
@@ -1812,7 +1819,14 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	})
 	client := engine.client
 	if container.DockerConfig.Version != nil {
-		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+		minVersion := dockerclient.GetSupportedDockerAPIVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
+		logger.Debug("StartContainer: overriding docker API version in task payload", logger.Fields{
+			field.TaskID:              task.GetID(),
+			field.Container:           container.Name,
+			"usingDockerAPIVersion":   minVersion,
+			"payloadDockerAPIVersion": *container.DockerConfig.Version,
+		})
+		client = client.WithVersion(minVersion)
 	}
 
 	dockerID, err := engine.getDockerID(task, container)

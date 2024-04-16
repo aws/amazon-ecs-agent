@@ -22,11 +22,11 @@ import (
 	context "context"
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/agent/api"
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	config "github.com/aws/amazon-ecs-agent/agent/config"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	types "github.com/docker/docker/api/types"
 	container0 "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
@@ -187,7 +187,7 @@ func (mr *MockManagerMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) *gomo
 }
 
 // SetECSClient mocks base method.
-func (m *MockManager) SetECSClient(arg0 api.ECSClient, arg1 string) {
+func (m *MockManager) SetECSClient(arg0 ecs.ECSClient, arg1 string) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetECSClient", arg0, arg1)
 }

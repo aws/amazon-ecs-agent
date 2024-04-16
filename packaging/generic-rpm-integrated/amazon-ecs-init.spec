@@ -19,7 +19,7 @@
 %global agent_image ecs-agent-v%{version}.tar
 
 Name:           amazon-ecs-init
-Version:        1.78.0
+Version:        1.82.2
 Release:        1
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -71,6 +71,7 @@ install -m %{no_exec_perm} -D %{SOURCE3} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-
 %{_libexecdir}/amazon-ecs-init
 %{_mandir}/man1/amazon-ecs-init.1*
 %{_libexecdir}/amazon-ecs-volume-plugin
+%dir %{_sysconfdir}/ecs
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
 %ghost %{_cachedir}/ecs/ecs-agent.tar
@@ -92,6 +93,36 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %systemd_postun_with_restart amazon-ecs-volume-plugin
 
 %changelog
+* Thu Apr 04 2024 Yiyuan Zhong <yiyzhong@amazon.com> - 1.82.2-1
+- Cache Agent version 1.82.2
+
+* Tue Mar 19 2024 Michael Ye <yemike@amazon.com> - 1.82.1-1
+- Cache Agent version 1.82.1
+
+* Wed Feb 28 2024 Amogh Rathore <amoghr@amazon.com> - 1.82.0-1
+- Cache Agent version 1.82.0
+
+* Tue Feb 20 2024 Yinyi Chen <yinyic@amazon.com> - 1.81.1-1
+- Cache Agent version 1.81.1
+
+* Wed Jan 31 2024 Chien-Han Lin <chilinn@amazon.com> - 1.81.0-1
+- Cache Agent version 1.81.0
+
+* Tue Jan 09 2024 Michael Ye <yemike@amazon.com> - 1.80.0-1
+- Cache Agent version 1.80.0
+
+* Mon Dec 04 2023 Dane Lim <slimdane@amazon.com> - 1.79.2-1
+- Cache Agent version 1.79.2
+
+* Mon Nov 13 2023 Chien-Han Lin <chilinn@amazon.com> - 1.79.1-1
+- Cache Agent version 1.79.1
+
+* Tue Oct 31 2023 Saisree Valluri <vsaisree@amazon.com> - 1.79.0-1
+- Cache Agent version 1.79.0
+
+* Thu Oct 26 2023 Anuj Singh <singholt@amazon.com> - 1.78.1-1
+- Cache Agent version 1.78.1
+
 * Wed Oct 11 2023 Cameron Sparr <cssparr@amazon.com> - 1.78.0-1
 - Cache Agent version 1.78.0
 

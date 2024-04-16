@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -40,7 +41,7 @@ type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 // payloadMessageHandler implements PayloadMessageHandler interface defined in ecs-agent module.
 type payloadMessageHandler struct {
 	taskEngine                  engine.TaskEngine
-	ecsClient                   api.ECSClient
+	ecsClient                   ecs.ECSClient
 	dataClient                  data.Client
 	taskHandler                 *eventhandler.TaskHandler
 	credentialsManager          credentials.Manager
@@ -49,7 +50,7 @@ type payloadMessageHandler struct {
 
 // NewPayloadMessageHandler creates a new payloadMessageHandler.
 func NewPayloadMessageHandler(taskEngine engine.TaskEngine,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	dataClient data.Client,
 	taskHandler *eventhandler.TaskHandler,
 	credentialsManager credentials.Manager,

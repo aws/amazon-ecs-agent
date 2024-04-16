@@ -14,11 +14,11 @@
 package v4
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
@@ -32,7 +32,7 @@ import (
 func NewTaskResponse(
 	taskARN string,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	cluster string,
 	az string,
 	vpcID string,

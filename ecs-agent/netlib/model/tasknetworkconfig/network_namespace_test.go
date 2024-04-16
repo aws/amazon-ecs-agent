@@ -1,12 +1,26 @@
 //go:build unit
 // +build unit
 
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package tasknetworkconfig
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNetworkNamespace_GetPrimaryInterface(t *testing.T) {
@@ -36,4 +50,31 @@ func TestNewNetworkNamespace(t *testing.T) {
 	assert.Empty(t, netns.AppMeshConfig)
 	assert.Equal(t, *netIFs[0], *netns.NetworkInterfaces[0])
 	assert.Equal(t, *netIFs[1], *netns.NetworkInterfaces[1])
+
+	// Check if interfaces are sorted by `Index` field.
+	assert.Equal(t, int64(0), netns.NetworkInterfaces[0].Index)
+	assert.Equal(t, int64(1), netns.NetworkInterfaces[1].Index)
+}
+
+func TestNetworkNamespace_IsPrimary(t *testing.T) {
+	testCases := []struct {
+		isPrimary bool
+		netNS     *NetworkNamespace
+	}{
+		{
+			isPrimary: true,
+			netNS: &NetworkNamespace{
+				Index: 0,
+			},
+		},
+		{
+			isPrimary: false,
+			netNS: &NetworkNamespace{
+				Index: 1,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		require.Equal(t, tc.isPrimary, tc.netNS.IsPrimary())
+	}
 }

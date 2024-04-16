@@ -41,9 +41,26 @@ const (
 	DEFAULT_LOGLEVEL_WHEN_DRIVER_SET         = "off"
 	DEFAULT_ROLLOVER_TYPE                    = "date"
 	DEFAULT_OUTPUT_FORMAT                    = logFmt
+	DEFAULT_TIMESTAMP_FORMAT                 = time.RFC3339
 	DEFAULT_MAX_FILE_SIZE            float64 = 10
 	DEFAULT_MAX_ROLL_COUNT           int     = 24
+	DEFAULT_LOGTO_STDOUT                     = true
 )
+
+// Because timestamp format will be called in the custom formatter
+// for each log message processed, it should not be handled
+// with an explicitly write protected configuration.
+var timestampFormat = DEFAULT_TIMESTAMP_FORMAT
+
+// logLevels is the mapping from ECS_LOGLEVEL to Seelog provided levels.
+var logLevels = map[string]string{
+	"debug": "debug",
+	"info":  "info",
+	"warn":  "warn",
+	"error": "error",
+	"crit":  "critical",
+	"none":  "off",
+}
 
 type logConfig struct {
 	RolloverType  string
@@ -53,6 +70,7 @@ type logConfig struct {
 	driverLevel   string
 	instanceLevel string
 	outputFormat  string
+	logToStdout   bool
 	lock          sync.Mutex
 }
 
@@ -87,7 +105,7 @@ func logfmtFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(level.String())
 		buf.WriteByte(' ')
 		buf.WriteString("time=")
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
+		buf.WriteString(context.CallTime().UTC().Format(timestampFormat))
 		buf.WriteByte(' ')
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredTxtFormatPrefix) {
@@ -112,7 +130,7 @@ func jsonFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(`{"level":"`)
 		buf.WriteString(level.String())
 		buf.WriteString(`","time":"`)
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
+		buf.WriteString(context.CallTime().UTC().Format(timestampFormat))
 		buf.WriteString(`",`)
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredJsonFormatPrefix) {
@@ -142,14 +160,26 @@ func reloadConfig() {
 }
 
 func seelogConfig() string {
+	driverLogChildren := []string{}
+	platformLogConfig := platformLogConfig()
+	if Config.logToStdout {
+		driverLogChildren = append(driverLogChildren, `	<console />`)
+	}
+	if platformLogConfig != "" {
+		driverLogChildren = append(driverLogChildren, platformLogConfig)
+	}
+
 	c := `
 <seelog type="asyncloop">
-	<outputs formatid="` + Config.outputFormat + `">
+	<outputs formatid="` + Config.outputFormat + `">`
+	if len(driverLogChildren) > 0 {
+		c += `
 		<filter levels="` + getLevelList(Config.driverLevel) + `">
-			<console />`
-	c += platformLogConfig()
-	c += `
+		`
+		c += strings.Join(driverLogChildren, "\n")
+		c += `
 		</filter>`
+	}
 	if Config.logfile != "" {
 		c += `
 		<filter levels="` + getLevelList(Config.instanceLevel) + `">`
@@ -157,6 +187,9 @@ func seelogConfig() string {
 			c += `
 			<rollingfile filename="` + Config.logfile + `" type="size"
 			 maxsize="` + strconv.Itoa(int(Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
+		} else if Config.RolloverType == "none" {
+			c += `
+			<file path="` + Config.logfile + `"/>`
 		} else {
 			c += `
 			<rollingfile filename="` + Config.logfile + `" type="date"
@@ -189,33 +222,6 @@ func getLevelList(fileLevel string) string {
 	return levelLists[fileLevel]
 }
 
-// SetLevel sets the log levels for logging
-func SetLevel(driverLogLevel, instanceLogLevel string) {
-	levels := map[string]string{
-		"debug": "debug",
-		"info":  "info",
-		"warn":  "warn",
-		"error": "error",
-		"crit":  "critical",
-		"none":  "off",
-	}
-
-	parsedDriverLevel, driverOk := levels[strings.ToLower(driverLogLevel)]
-	parsedInstanceLevel, instanceOk := levels[strings.ToLower(instanceLogLevel)]
-
-	if instanceOk || driverOk {
-		Config.lock.Lock()
-		defer Config.lock.Unlock()
-		if instanceOk {
-			Config.instanceLevel = parsedInstanceLevel
-		}
-		if driverOk {
-			Config.driverLevel = parsedDriverLevel
-		}
-		reloadConfig()
-	}
-}
-
 // GetLevel gets the log level
 func GetLevel() string {
 	Config.lock.Lock()
@@ -234,6 +240,105 @@ func setInstanceLevelDefault() string {
 	return DEFAULT_LOGLEVEL
 }
 
+// SetInstanceLogLevel explicitly sets the log level for instance logs.
+func SetInstanceLogLevel(instanceLogLevel string) {
+	parsedLevel, ok := logLevels[strings.ToLower(instanceLogLevel)]
+	if ok {
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+		Config.instanceLevel = parsedLevel
+		reloadConfig()
+	} else {
+		seelog.Error("Instance log level mapping not found")
+	}
+}
+
+// SetDriverLogLevel explicitly sets the log level for a custom driver.
+func SetDriverLogLevel(driverLogLevel string) {
+	parsedLevel, ok := logLevels[strings.ToLower(driverLogLevel)]
+	if ok {
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+		Config.driverLevel = parsedLevel
+		reloadConfig()
+	} else {
+		seelog.Error("Driver log level mapping not found")
+	}
+}
+
+// SetConfigLogFile sets the default output file of the logger.
+func SetConfigLogFile(logFile string) {
+	if logFile != "" {
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+
+		Config.logfile = logFile
+		reloadConfig()
+	} else {
+		seelog.Error("Cannot use empty log file")
+	}
+}
+
+// SetConfigOutputFormat sets the output format of the logger.
+// e.g. json, xml, etc.
+func SetConfigOutputFormat(outputFormat string) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	Config.outputFormat = outputFormat
+	reloadConfig()
+}
+
+// SetConfigMaxFileSizeMB sets the max file size of a log file
+// in Megabytes before the logger rotates to a new file.
+func SetConfigMaxFileSizeMB(maxSizeInMB float64) {
+	if maxSizeInMB > 0 {
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+
+		Config.MaxFileSizeMB = maxSizeInMB
+		reloadConfig()
+	} else {
+		seelog.Error("Invalid Max File Size Provided")
+	}
+}
+
+// SetRolloverType sets the logging rollover constraint.
+// This should be either size or date. Logger will roll
+// to a new log file based on this constraint.
+func SetRolloverType(rolloverType string) {
+	if rolloverType == "date" || rolloverType == "size" || rolloverType == "none" {
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+
+		Config.RolloverType = rolloverType
+		reloadConfig()
+	} else {
+		seelog.Error("Invalid log rollover type provided")
+	}
+}
+
+// SetTimestampFormat sets the time formatting
+// for custom seelog formatters. It will expect
+// a valid time format such as time.RFC3339
+// or "2006-01-02T15:04:05.000".
+func SetTimestampFormat(format string) {
+	if format != "" {
+		timestampFormat = format
+	}
+}
+
+// SetLogToStdout decides whether the logger
+// should write to stdout using the <console/> tag
+// in addition to logfiles that are set up.
+func SetLogToStdout(duplicate bool) {
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
+
+	Config.logToStdout = duplicate
+	reloadConfig()
+}
+
 func init() {
 	Config = &logConfig{
 		logfile:       os.Getenv(LOGFILE_ENV_VAR),
@@ -243,9 +348,13 @@ func init() {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 }
 
+// InitSeelog registers custom logging formats, updates the internal Config struct
+// and reloads the global logger. This should only be called once, as external
+// callers should use the Config struct over environment variables directly.
 func InitSeelog() {
 	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
 		seelog.Error(err)
@@ -257,8 +366,12 @@ func InitSeelog() {
 		seelog.Error(err)
 	}
 
-	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR), os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR))
-
+	if DriverLogLevel := os.Getenv(LOGLEVEL_ENV_VAR); DriverLogLevel != "" {
+		SetDriverLogLevel(DriverLogLevel)
+	}
+	if InstanceLogLevel := os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR); InstanceLogLevel != "" {
+		SetInstanceLogLevel(InstanceLogLevel)
+	}
 	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
 		Config.RolloverType = RolloverType
 	}

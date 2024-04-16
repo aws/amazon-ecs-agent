@@ -21,11 +21,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 )
 
-const (
-	// minDockerAPIVersion is the min Docker API version supported by agent
-	minDockerAPIVersion = dockerclient.Version_1_17
-)
-
 // GetClient on linux will simply return the cached client from the map
 func (f *factory) GetClient(version dockerclient.DockerVersion) (sdkclient.Client, error) {
 	return f.getClient(version)
@@ -33,27 +28,10 @@ func (f *factory) GetClient(version dockerclient.DockerVersion) (sdkclient.Clien
 
 // getAgentSupportedDockerVersions returns a list of agent-supported Docker versions for linux
 func getAgentSupportedDockerVersions() []dockerclient.DockerVersion {
-	return []dockerclient.DockerVersion{
-		dockerclient.Version_1_17,
-		dockerclient.Version_1_18,
-		dockerclient.Version_1_19,
-		dockerclient.Version_1_20,
-		dockerclient.Version_1_21,
-		dockerclient.Version_1_22,
-		dockerclient.Version_1_23,
-		dockerclient.Version_1_24,
-		dockerclient.Version_1_25,
-		dockerclient.Version_1_26,
-		dockerclient.Version_1_27,
-		dockerclient.Version_1_28,
-		dockerclient.Version_1_29,
-		dockerclient.Version_1_30,
-		dockerclient.Version_1_31,
-		dockerclient.Version_1_32,
-	}
+	return dockerclient.GetKnownAPIVersions()
 }
 
 // getDefaultVersion will return the default Docker API version for linux
 func GetDefaultVersion() dockerclient.DockerVersion {
-	return dockerclient.Version_1_21
+	return dockerclient.MinDockerAPIVersion
 }

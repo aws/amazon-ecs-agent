@@ -536,7 +536,8 @@
         "accessKeyId":{"shape":"String"},
         "secretAccessKey":{"shape":"SensitiveString"},
         "sessionToken":{"shape":"String"},
-        "expiration":{"shape":"String"}
+        "expiration":{"shape":"String"},
+        "credentialScope":{"shape":"String"}
       }
     },
     "IAMRoleCredentialsAckRequest":{

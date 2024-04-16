@@ -45,4 +45,17 @@ const (
 	agentAvailabilityNamespace     = "Availability"
 	ACSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".ACSDisconnectTimeout"
 	TCSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".TCSDisconnectTimeout"
+
+	dbClientMetricNamespace                 = "Data"
+	GetNetworkConfigurationByTaskMetricName = dbClientMetricNamespace + ".GetNetworkConfigurationByTask"
+	SaveNetworkNamespaceMetricName          = dbClientMetricNamespace + ".SaveNetworkNamespace"
+	GetNetworkNamespaceMetricName           = dbClientMetricNamespace + ".GetNetworkNamespace"
+	DelNetworkNamespaceMetricName           = dbClientMetricNamespace + ".DeleteNetworkNamespace"
+	AssignGeneveDstPortMetricName           = dbClientMetricNamespace + ".AssignGeneveDstPort"
+
+	networkBuilderNamespace               = "NetworkBuilder"
+	BuildNetworkNamespaceMetricName       = networkBuilderNamespace + ".BuildNetworkNamespace"
+	DeleteNetworkNamespaceMetricName      = networkBuilderNamespace + ".DeleteNetworkNamespace"
+	V2NDestinationPortExhaustedMetricName = networkBuilderNamespace + ".V2NDestinationPortExhausted"
+	ReleaseGeneveDstPortMetricName        = dbClientMetricNamespace + ".ReleaseGeneveDstPort"
 )

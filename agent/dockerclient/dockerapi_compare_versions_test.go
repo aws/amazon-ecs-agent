@@ -117,6 +117,16 @@ func TestDockerVersionMatches(t *testing.T) {
 			selector:       ">=1.9,<=1.9",
 			expectedOutput: true,
 		},
+		{
+			version:        "1.24",
+			selector:       ">=1.24",
+			expectedOutput: true,
+		},
+		{
+			version:        "1.25",
+			selector:       ">=1.24",
+			expectedOutput: true,
+		},
 	}
 
 	for i, testCase := range testCases {

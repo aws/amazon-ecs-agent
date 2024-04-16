@@ -32,6 +32,7 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -39,6 +40,7 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -62,6 +64,7 @@ func TestSeelogConfigWindows_WithoutLogFile(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -69,6 +72,7 @@ func TestSeelogConfigWindows_WithoutLogFile(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 	</outputs>
@@ -89,6 +93,7 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -96,6 +101,7 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="debug,info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -120,6 +126,7 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -127,6 +134,7 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -151,6 +159,7 @@ func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: 15,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -158,6 +167,7 @@ func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -182,6 +192,7 @@ func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: 15,
 		MaxRollCount:  10,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -189,6 +200,7 @@ func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -213,6 +225,7 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 		outputFormat:  "json",
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  10,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -220,6 +233,7 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 	<outputs formatid="json">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
@@ -244,6 +258,7 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -251,6 +266,7 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">
@@ -275,6 +291,7 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -282,6 +299,7 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="critical">
@@ -309,6 +327,7 @@ func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
 	}
 	c := seelogConfig()
 	require.Equal(t, `
@@ -316,6 +335,7 @@ func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
+
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">

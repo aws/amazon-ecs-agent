@@ -22,8 +22,6 @@ import (
 
 	agentacs "github.com/aws/amazon-ecs-agent/agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/agent/acs/updater"
-	"github.com/aws/amazon-ecs-agent/agent/api"
-	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -32,8 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	dockerdoctor "github.com/aws/amazon-ecs-agent/agent/doctor" // for Docker specific container instance health checks
-	ebs "github.com/aws/amazon-ecs-agent/agent/ebs"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ebs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
@@ -57,11 +54,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	acsclient "github.com/aws/amazon-ecs-agent/ecs-agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
+	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -288,8 +288,22 @@ func (agent *ecsAgent) start() int {
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewTaskEngineState()
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
-	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
-
+	cfgAccessor, err := config.NewAgentConfigAccessor(agent.cfg)
+	if err != nil {
+		logger.Critical("Unable to create new agent config accessor", logger.Fields{
+			field.Error: err,
+		})
+		return exitcodes.ExitError
+	}
+	clientFactory := ecsclient.NewECSClientFactory(agent.credentialProvider, cfgAccessor, agent.ec2MetadataClient,
+		version.String(), ecsclient.WithIPv6PortBindingExcluded(true))
+	client, err := clientFactory.NewClient()
+	if err != nil {
+		logger.Critical("Unable to create new ECS client", logger.Fields{
+			field.Error: err,
+		})
+		return exitcodes.ExitError
+	}
 	agent.initializeResourceFields(credentialsManager)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager())
 }
@@ -301,7 +315,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	client api.ECSClient,
+	client ecs.ECSClient,
 	execCmdMgr execcmd.Manager) int {
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
@@ -330,13 +344,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		// Find GPUs (if any) on the instance
 		platformDevices := agent.getPlatformDevices()
 		for _, device := range platformDevices {
-			if *device.Type == ecs.PlatformDeviceTypeGpu {
+			if *device.Type == ecsmodel.PlatformDeviceTypeGpu {
 				gpuIDs = append(gpuIDs, *device.Id)
 			}
 		}
 	}
 
-	hostResources["GPU"] = &ecs.Resource{
+	hostResources["GPU"] = &ecsmodel.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: aws.StringSlice(gpuIDs),
@@ -370,7 +384,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
 	}
 
-	var vpcSubnetAttributes []*ecs.Attribute
+	var vpcSubnetAttributes []*ecsmodel.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
@@ -433,17 +447,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	// Load Managed Daemon images asynchronously
+	agent.loadManagedDaemonImagesAsync(imageManager)
+
 	scManager := agent.serviceconnectManager
 	scManager.SetECSClient(client, agent.containerInstanceARN)
 	if loaded, _ := scManager.IsLoaded(agent.dockerClient); loaded {
 		imageManager.AddImageToCleanUpExclusionList(agent.serviceconnectManager.GetLoadedImageName())
-	}
-
-	// exclude all daemon images from cleanup
-	for _, csiDM := range agent.daemonManagers {
-		if loaded, _ := csiDM.IsLoaded(agent.dockerClient); loaded {
-			imageManager.AddImageToCleanUpExclusionList(csiDM.GetManagedDaemon().GetLoadedDaemonImageRef())
-		}
 	}
 
 	// Add container instance ARN to metadata manager
@@ -485,7 +495,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
 	// TODO add EBS watcher to async routines
-	agent.startEBSWatcher(state, taskEngine)
+	agent.startEBSWatcher(state, taskEngine, agent.dockerClient)
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
@@ -561,7 +571,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	hostResources map[string]*ecs.Resource,
+	hostResources map[string]*ecsmodel.Resource,
 	execCmdMgr execcmd.Manager,
 	serviceConnectManager engineserviceconnect.Manager,
 	daemonManagers map[string]dm.DaemonManager) (engine.TaskEngine, string, error) {
@@ -738,8 +748,8 @@ func (agent *ecsAgent) newStateManager(
 
 // constructVPCSubnetAttributes returns vpc and subnet IDs of the instance as
 // an attribute list
-func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{
+func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecsmodel.Attribute {
+	return []*ecsmodel.Attribute{
 		{
 			Name:  aws.String(vpcIDAttributeName),
 			Value: aws.String(agent.vpc),
@@ -751,10 +761,42 @@ func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecs.Attribute {
 	}
 }
 
+// Loads Managed Daemon images for all Managed Daemons registered on the Agent.
+// The images are loaded in the background. Successfully loaded images are added to
+// imageManager's cleanup exclusion list.
+func (agent *ecsAgent) loadManagedDaemonImagesAsync(imageManager engine.ImageManager) {
+	daemonManagers := agent.getDaemonManagers()
+	logger.Debug(fmt.Sprintf("Will load images for %d Managed Daemons", len(daemonManagers)))
+	for _, daemonManager := range daemonManagers {
+		go agent.loadManagedDaemonImage(daemonManager, imageManager)
+	}
+}
+
+// Loads Managed Daemon image and adds it to image cleanup exclusion list upon success.
+func (agent *ecsAgent) loadManagedDaemonImage(dm dm.DaemonManager, imageManager engine.ImageManager) {
+	imageRef := dm.GetManagedDaemon().GetImageRef()
+	logger.Info("Starting to load Managed Daemon image", logger.Fields{
+		field.ImageRef: imageRef,
+	})
+	image, err := dm.LoadImage(agent.ctx, agent.dockerClient)
+	if err != nil {
+		logger.Error("Failed to load Managed Daemon image", logger.Fields{
+			field.ImageRef: imageRef,
+			field.Error:    err,
+		})
+		return
+	}
+	logger.Info("Successfully loaded Managed Daemon image", logger.Fields{
+		field.ImageRef: imageRef,
+		field.ImageID:  image.ID,
+	})
+	imageManager.AddImageToCleanUpExclusionList(imageRef)
+}
+
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
-	client api.ECSClient,
-	additionalAttributes []*ecs.Attribute) error {
+	client ecs.ECSClient,
+	additionalAttributes []*ecsmodel.Attribute) error {
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		seelog.Errorf("Error getting valid credentials: %s", err)
@@ -802,7 +844,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return err
 		}
-		if utils.IsAWSErrorCodeEqual(err, ecs.ErrCodeInvalidParameterException) {
+		if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
 			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
 				field.Error: err,
 			})
@@ -832,8 +874,8 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute,
-	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice, outpostARN string) error {
+func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabilities []*ecsmodel.Attribute,
+	tags []*ecsmodel.Tag, registrationToken string, platformDevices []*ecsmodel.PlatformDevice, outpostARN string) error {
 	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags,
 		registrationToken, platformDevices, outpostARN)
 
@@ -870,7 +912,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	imageManager engine.ImageManager,
 	taskEngine engine.TaskEngine,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	client api.ECSClient,
+	client ecs.ECSClient,
 	taskHandler *eventhandler.TaskHandler,
 	attachmentEventHandler *eventhandler.AttachmentEventHandler,
 	state dockerstate.TaskEngineState,
@@ -927,7 +969,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go session.Start(agent.ctx)
 }
 
-func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client api.ECSClient) {
+func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client ecs.ECSClient) {
 	for !agent.spotInstanceDrainingPoller(client) {
 		select {
 		case <-ctx.Done():
@@ -940,7 +982,7 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, clie
 
 // spotInstanceDrainingPoller returns true if spot instance interruption has been
 // set AND the container instance state is successfully updated to DRAINING.
-func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
+func (agent *ecsAgent) spotInstanceDrainingPoller(client ecs.ECSClient) bool {
 	// this endpoint 404s unless a interruption has been set, so expect failure in most cases.
 	resp, err := agent.ec2MetadataClient.SpotInstanceAction()
 	if err == nil {
@@ -980,7 +1022,7 @@ func (agent *ecsAgent) startACSSession(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	client api.ECSClient,
+	client ecs.ECSClient,
 	state dockerstate.TaskEngineState,
 	taskHandler *eventhandler.TaskHandler,
 	doctor *doctor.Doctor) int {
@@ -1055,31 +1097,29 @@ func (agent *ecsAgent) startACSSession(
 	return exitcodes.ExitSuccess
 }
 
-// validateRequiredVersion validates docker version.
+// verifyRequiredDockerVersion validates docker version.
 // Minimum docker version supported is 1.9.0, maps to api version 1.21
 // see https://docs.docker.com/develop/sdk/#api-version-matrix
 func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
-	supportedVersions := agent.dockerClient.SupportedVersions()
+	supportedVersions := dockerclient.SupportedVersionsExtended(agent.dockerClient.SupportedVersions)
 	if len(supportedVersions) == 0 {
 		seelog.Critical("Could not get supported docker versions.")
 		return exitcodes.ExitError, false
 	}
 
-	// if api version 1.21 is supported, it means docker version is at least 1.9.0
 	for _, version := range supportedVersions {
-		if version == dockerclient.Version_1_21 {
+		if version == dockerclient.MinDockerAPIVersion {
 			return -1, true
 		}
 	}
 
-	// api 1.21 is not supported, docker version is older than 1.9.0
-	seelog.Criticalf("Required minimum docker API verion %s is not supported",
-		dockerclient.Version_1_21)
+	seelog.Criticalf("Required minimum docker API version %s is not supported",
+		dockerclient.MinDockerAPIVersion)
 	return exitcodes.ExitTerminal, false
 }
 
 // getContainerInstanceTagsFromEC2API will retrieve the tags of this instance remotely.
-func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecs.Tag, error) {
+func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecsmodel.Tag, error) {
 	// Get instance ID from ec2 metadata client.
 	instanceID, err := agent.ec2MetadataClient.InstanceID()
 	if err != nil {
@@ -1091,7 +1131,7 @@ func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecs.Tag, error) 
 
 // mergeTags will merge the local tags and ec2 tags, for the overlap part, ec2 tags
 // will be overridden by local tags.
-func mergeTags(localTags []*ecs.Tag, ec2Tags []*ecs.Tag) []*ecs.Tag {
+func mergeTags(localTags []*ecsmodel.Tag, ec2Tags []*ecsmodel.Tag) []*ecsmodel.Tag {
 	tagsMap := make(map[string]string)
 
 	for _, ec2Tag := range ec2Tags {
@@ -1138,6 +1178,11 @@ func (agent *ecsAgent) saveMetadata(key, val string) {
 
 func (agent *ecsAgent) setDaemonManager(key string, val dm.DaemonManager) {
 	agent.daemonManagers[key] = val
+}
+
+// Returns daemon managers map. Not designed to be thread-safe.
+func (agent *ecsAgent) getDaemonManagers() map[string]dm.DaemonManager {
+	return agent.daemonManagers
 }
 
 // setVPCSubnet sets the vpc and subnet ids for the agent by querying the

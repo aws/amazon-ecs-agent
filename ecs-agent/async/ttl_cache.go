@@ -107,12 +107,23 @@ func (t *ttlCache) GetTTL() *TTL {
 	return &TTL{Duration: t.ttl.Duration}
 }
 
-// SetTTL sets the time-to-live of the cache.
+// SetTTL sets the time-to-live of the cache. Existing entries in the cache are updated account for the new TTL.
 func (t *ttlCache) SetTTL(newTTL *TTL) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Update expiry of all entries in the cache.
+	// New TTL is nil, reset expiry of all entries in the cache and set cache TTL to nil if necessary.
+	if newTTL == nil {
+		if t.ttl != nil {
+			for _, val := range t.cache {
+				val.expiry = time.Time{}
+			}
+			t.ttl = nil
+		}
+		return
+	}
+
+	// New TTL is not nil, update expiry of all entries in the cache and set cache TTL accordingly.
 	if t.ttl != nil {
 		oldTTLDuration := t.ttl.Duration
 		for _, val := range t.cache {
@@ -124,6 +135,5 @@ func (t *ttlCache) SetTTL(newTTL *TTL) {
 			val.expiry = now.Add(newTTL.Duration)
 		}
 	}
-
 	t.ttl = &TTL{Duration: newTTL.Duration}
 }

@@ -258,6 +258,7 @@ additional details on each available environment variable.
 | `CREDENTIALS_FETCHER_SECRET_NAME_FOR_DOMAINLESS_GMSA`   | `secretmanager-secretname` | Used to support scaling option for gMSA on Linux [credentials-fetcher daemon](https://github.com/aws/credentials-fetcher). If user is configuring gMSA on a non-domain joined instance, they need to create an Active Directory user with access to retrieve principals for the gMSA account and store it in secrets manager | `secretmanager-secretname` | Not Applicable |
 | `ECS_DYNAMIC_HOST_PORT_RANGE` | `100-200` | This specifies the dynamic host port range that the agent uses to assign host ports from, for container ports mapping. If there are no available ports in the range for containers, including customer containers and Service Connect Agent containers (if Service Connect is enabled), service deployments would fail. | Defined by `/proc/sys/net/ipv4/ip_local_port_range` | `49152-65535` |
 | `ECS_TASK_PIDS_LIMIT` | `100` | Specifies the per-task pids limit cgroup setting for each task launched on the container instance. This setting maps to the pids.max cgroup setting at the ECS task level. See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid. If unset, pids will be unlimited. Min value is 1 and max value is 4194304 (4*1024*1024) | `unset` | Not Supported on Windows |
+| `ECS_EBSTA_SUPPORTED` | `true` | Whether to use the container instance with EBS Task Attach support. This variable is set properly by ecs-init. Its value indicates if correct environment to support EBS volumes by instance has been set up or not. ECS only schedules EBSTA tasks if this feature is supported by the platform type. Check [EBS Volume considerations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-considerations) for other EBS support details | `true` | Not Supported on Windows |
 
 Additionally, the following environment variable(s) can be used to configure the behavior of the ecs-init service. When using ECS-Init, all env variables, including the ECS Agent variables above, are read from path `/etc/ecs/ecs.config`:
 | Environment Variable Name | Example Value(s)            | Description | Default value |
@@ -266,7 +267,7 @@ Additionally, the following environment variable(s) can be used to configure the
 | `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to block access to ECS Agent's introspection port from off-host (or containers in awsvpc network mode), and removes the rule upon stop. If `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` is set to true, this rule will not be added/removed. | false |
 | `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
 | `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
-
+| `ECS_AGENT_APPARMOR_PROFILE` | `unconfined` | Specifies the name of the AppArmor profile to run the ecs-agent container under. This only applies to AppArmor-enabled systems, such as Ubuntu, Debian, and SUSE. If unset, defaults to the profile written out by ecs-init (ecs-agent-default). | `ecs-agent-default` |
 
 
 ### Persistence

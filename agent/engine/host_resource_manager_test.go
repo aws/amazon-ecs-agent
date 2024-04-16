@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -231,7 +232,7 @@ func TestConsumable(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		resources := getTestTaskResourceMap(tc.cpu, tc.mem, utils.Uint16SliceToStringSlice(tc.ports), utils.Uint16SliceToStringSlice(tc.portsUdp), aws.StringSlice(tc.gpus))
+		resources := getTestTaskResourceMap(tc.cpu, tc.mem, commonutils.Uint16SliceToStringSlice(tc.ports), commonutils.Uint16SliceToStringSlice(tc.portsUdp), aws.StringSlice(tc.gpus))
 		canBeConsumed, err := h.consumable(resources)
 		assert.Equal(t, canBeConsumed, tc.canBeConsumed, "Error in checking if resources can be successfully consumed")
 		assert.Equal(t, err, nil, "Error in checking if resources can be successfully consumed, error returned from consumable")
@@ -244,7 +245,7 @@ func TestResourceHealthTrue(t *testing.T) {
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
 	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
 
-	resources := getTestTaskResourceMap(1024, 1024, utils.Uint16SliceToStringSlice([]uint16{22}), utils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu2"}))
+	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu2"}))
 	err := h.checkResourcesHealth(resources)
 	assert.NoError(t, err, "Error in checking healthy resource map status")
 }
@@ -256,7 +257,7 @@ func TestResourceHealthGPUFalse(t *testing.T) {
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
 	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
 
-	resources := getTestTaskResourceMap(1024, 1024, utils.Uint16SliceToStringSlice([]uint16{22}), utils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu5"}))
+	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu5"}))
 	err := h.checkResourcesHealth(resources)
 	assert.Error(t, err, "Error in checking unhealthy resource map status")
 }

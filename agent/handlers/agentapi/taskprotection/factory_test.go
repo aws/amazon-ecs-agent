@@ -18,7 +18,7 @@ package taskprotection
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +52,7 @@ func TestGetECSClientHappyCase(t *testing.T) {
 	defer ctrl.Finish()
 
 	ret := factory.NewTaskProtectionClient(testIAMRoleCredentials)
-	_, ok := ret.(api.ECSTaskProtectionSDK)
+	_, ok := ret.(ecs.ECSTaskProtectionSDK)
 
 	// Assert response
 	assert.True(t, ok)

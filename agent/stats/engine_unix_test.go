@@ -18,6 +18,7 @@ package stats
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -30,6 +31,7 @@ import (
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
+	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -172,66 +174,100 @@ func TestServiceConnectWithDisabledMetrics(t *testing.T) {
 	assert.Len(t, engine.taskToServiceConnectStats, 1)
 }
 
-// TODO: Add a unhappy case in the near future
 func TestFetchEBSVolumeMetrics(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-	t1 := &apitask.Task{
-		Arn: "t1",
-		Volumes: []apitask.TaskVolume{
-			{
-				Name: "1",
-				Type: apiresource.EBSTaskAttach,
-				Volume: &taskresourcevolume.EBSTaskVolumeConfig{
-					VolumeId:             "vol-12345",
-					VolumeName:           "test-volume",
-					VolumeSizeGib:        "10",
-					SourceVolumeHostPath: "taskarn_vol-12345",
-					DeviceName:           "/dev/nvme1n1",
-					FileSystem:           "ext4",
+	tcs := []struct {
+		name                    string
+		setCSIClientExpectation func(*mock_csiclient.MockCSIClient)
+		expectedMetrics         []*ecstcs.VolumeMetric
+		numMetrics              int
+	}{
+		{
+			name: "Success",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(&csiclient.Metrics{
+					Used:     15 * 1024 * 1024 * 1024,
+					Capacity: 20 * 1024 * 1024 * 1024,
+				}, nil).Times(1)
+			},
+			expectedMetrics: []*ecstcs.VolumeMetric{
+				{
+					VolumeId:   aws.String("vol-12345"),
+					VolumeName: aws.String("test-volume"),
+					Utilized: &ecstcs.UDoubleCWStatsSet{
+						Max:         aws.Float64(15 * 1024 * 1024 * 1024),
+						Min:         aws.Float64(15 * 1024 * 1024 * 1024),
+						SampleCount: aws.Int64(1),
+						Sum:         aws.Float64(15 * 1024 * 1024 * 1024),
+					},
+					Size: &ecstcs.UDoubleCWStatsSet{
+						Max:         aws.Float64(20 * 1024 * 1024 * 1024),
+						Min:         aws.Float64(20 * 1024 * 1024 * 1024),
+						SampleCount: aws.Int64(1),
+						Sum:         aws.Float64(20 * 1024 * 1024 * 1024),
+					},
 				},
 			},
+			numMetrics: 1,
 		},
-	}
-
-	resolver.EXPECT().ResolveTaskByARN("t1").AnyTimes().Return(t1, nil)
-	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	engine.ctx = ctx
-	engine.resolver = resolver
-	engine.cluster = defaultCluster
-	engine.containerInstanceArn = defaultContainerInstance
-	engine.client = mockDockerClient
-	engine.csiClient = csiclient.NewDummyCSIClient()
-
-	expectedUsedBytes := aws.Float64(15 * 1024 * 1024 * 1024)
-	expectedTotalBytes := aws.Float64(20 * 1024 * 1024 * 1024)
-	expectedMetrics := []*ecstcs.VolumeMetric{
 		{
-			VolumeId:   aws.String("vol-12345"),
-			VolumeName: aws.String("test-volume"),
-			Utilized: &ecstcs.UDoubleCWStatsSet{
-				Max:         expectedUsedBytes,
-				Min:         expectedUsedBytes,
-				SampleCount: aws.Int64(1),
-				Sum:         expectedUsedBytes,
+			name: "Failure",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil, errors.New("err")).Times(1)
 			},
-			Size: &ecstcs.UDoubleCWStatsSet{
-				Max:         expectedTotalBytes,
-				Min:         expectedTotalBytes,
-				SampleCount: aws.Int64(1),
-				Sum:         expectedTotalBytes,
+			expectedMetrics: nil,
+			numMetrics:      0,
+		},
+		{
+			name: "TimeoutFailure",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil, errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded")).Times(1)
 			},
+			expectedMetrics: nil,
+			numMetrics:      0,
 		},
 	}
 
-	actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+			t1 := &apitask.Task{
+				Arn: "t1",
+				Volumes: []apitask.TaskVolume{
+					{
+						Name: "1",
+						Type: apiresource.EBSTaskAttach,
+						Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+							VolumeId:             "vol-12345",
+							VolumeName:           "test-volume",
+							VolumeSizeGib:        "10",
+							SourceVolumeHostPath: "taskarn_vol-12345",
+							DeviceName:           "/dev/nvme1n1",
+							FileSystem:           "ext4",
+						},
+					},
+				},
+			}
+			engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			engine.ctx = ctx
+			engine.resolver = resolver
+			engine.cluster = defaultCluster
+			engine.containerInstanceArn = defaultContainerInstance
+			engine.client = mockDockerClient
 
-	assert.Len(t, actualMetrics, 1)
-	assert.Equal(t, actualMetrics, expectedMetrics)
+			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+			tc.setCSIClientExpectation(mockCsiClient)
+			engine.csiClient = mockCsiClient
+
+			actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+
+			assert.Len(t, actualMetrics, tc.numMetrics)
+			assert.Equal(t, actualMetrics, tc.expectedMetrics)
+		})
+	}
+
 }

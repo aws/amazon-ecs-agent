@@ -21,7 +21,7 @@ package handlers
 import (
 	reflect "reflect"
 
-	api "github.com/aws/amazon-ecs-agent/ecs-agent/api"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -50,10 +50,10 @@ func (m *MockTaskProtectionClientFactoryInterface) EXPECT() *MockTaskProtectionC
 }
 
 // NewTaskProtectionClient mocks base method.
-func (m *MockTaskProtectionClientFactoryInterface) NewTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) api.ECSTaskProtectionSDK {
+func (m *MockTaskProtectionClientFactoryInterface) NewTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) ecs.ECSTaskProtectionSDK {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewTaskProtectionClient", arg0)
-	ret0, _ := ret[0].(api.ECSTaskProtectionSDK)
+	ret0, _ := ret[0].(ecs.ECSTaskProtectionSDK)
 	return ret0
 }
 

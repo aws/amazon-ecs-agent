@@ -1,3 +1,63 @@
+amazon-ecs-init (1.82.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.82.2
+
+ -- Yiyuan Zhong <yiyzhong@amazon.com>  Thu, 04 Apr 2024 18:00:00 +0000
+
+amazon-ecs-init (1.82.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.82.1
+
+ -- Michael Ye <yemike@amazon.com>  Tue, 19 Mar 2024 18:00:00 +0000
+
+amazon-ecs-init (1.82.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.82.0
+
+ -- Amogh Rathore <amoghr@amazon.com>  Wed, 28 Feb 2024 18:00:00 +0000
+
+amazon-ecs-init (1.81.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.81.1
+
+ -- Yinyi Chen <yinyic@amazon.com>  Tue, 20 Feb 2024 18:00:00 +0000
+
+amazon-ecs-init (1.81.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.81.0
+
+ -- Chien-Han Lin <chilinn@amazon.com>  Wed, 31 Jan 2024 18:00:00 +0000
+
+amazon-ecs-init (1.80.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.80.0
+
+ -- Michael Ye <yemike@amazon.com>  Tue, 09 Jan 2024 18:00:00 +0000
+
+amazon-ecs-init (1.79.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.79.2
+
+ -- Dane Lim <slimdane@amazon.com>  Mon, 04 Dec 2023 18:00:00 +0000
+
+amazon-ecs-init (1.79.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.79.1
+
+ -- Chien-Han Lin <chilinn@amazon.com>  Mon, 13 Nov 2023 18:00:00 +0000
+
+amazon-ecs-init (1.79.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.79.0
+
+ -- Saisree Valluri <vsaisree@amazon.com>  Tue, 31 Oct 2023 18:00:00 +0000
+
+amazon-ecs-init (1.78.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.78.1
+
+ -- Anuj Singh <singholt@amazon.com>  Thu, 26 Oct 2023 18:00:00 +0000
+
 amazon-ecs-init (1.78.0-1) stable; urgency=medium
 
   * Cache Agent version 1.78.0

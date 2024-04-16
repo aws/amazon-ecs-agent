@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -61,7 +61,7 @@ func (*manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 		runtime.GOOS, runtime.GOARCH))
 }
 
-func (m *manager) SetECSClient(api.ECSClient, string) {
+func (m *manager) SetECSClient(ecs.ECSClient, string) {
 }
 
 func (*manager) GetLoadedImageName() string {

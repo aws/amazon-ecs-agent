@@ -25,6 +25,9 @@ import (
 type DaemonManager interface {
 	GetManagedDaemon() *md.ManagedDaemon
 	CreateDaemonTask() (*apitask.Task, error)
+	// Returns true if the Daemon image is found on this host, false otherwise.
+	// Error is returned when something goes wrong when looking for the image.
+	ImageExists() (bool, error)
 	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
 	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
 }

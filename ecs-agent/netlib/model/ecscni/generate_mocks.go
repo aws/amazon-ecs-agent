@@ -13,4 +13,6 @@
 
 package ecscni
 
-//go:generate mockgen -destination=../mocks_libcni/libcni_mocks.go -copyright_file=../../../../scripts/copyright_file github.com/containernetworking/cni/libcni CNI
+//go:generate mockgen -destination=mocks_libcni/libcni_mocks.go -copyright_file=../../../../scripts/copyright_file github.com/containernetworking/cni/libcni CNI
+//go:generate mockgen -destination=mocks_nsutil/nsutil_mocks_linux.go -copyright_file=../../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni NetNSUtil
+//go:generate mockgen -destination=mocks_ecscni/ecscni_mocks.go -copyright_file=../../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni CNI

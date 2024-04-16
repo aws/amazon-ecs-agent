@@ -50,11 +50,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ecs_client/model/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -157,6 +158,39 @@ func TestDockerConfigPortBinding(t *testing.T) {
 			t.Fatalf("Could not get exposed ports %s", portProtocol)
 		}
 	}
+}
+
+func TestDockerConfigPortBindingContainerPortIsZero(t *testing.T) {
+	testTask := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "ContainerHavingPortBindingWithContainerPortZero",
+				Ports: []apicontainer.PortBinding{
+					{
+						ContainerPort: 0,
+						HostPort:      10,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+					{
+						ContainerPort: 0,
+						HostPort:      20,
+						BindIP:        "",
+						Protocol:      apicontainer.TransportProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+
+	dockerContainerConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	// Ensure that port zero is not included in the set of container ports that are exposed for the container.
+	_, ok := dockerContainerConfig.ExposedPorts["0/tcp"]
+	assert.False(t, ok, "Unexpectedly could get exposed ports 0/tcp")
+	_, ok = dockerContainerConfig.ExposedPorts["0/udp"]
+	assert.False(t, ok, "Unexpectedly could get exposed ports 0/udp")
 }
 
 func TestDockerHostConfigCPUShareZero(t *testing.T) {
@@ -5178,7 +5212,7 @@ func TestToHostResources(t *testing.T) {
 		},
 		{
 			task:              testTask4,
-			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), utils.Uint16SliceToStringSlice(portsTCP), utils.Uint16SliceToStringSlice(portsUDP), []*string{}),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), commonutils.Uint16SliceToStringSlice(portsTCP), commonutils.Uint16SliceToStringSlice(portsUDP), []*string{}),
 		},
 		{
 			task:              testTask5,

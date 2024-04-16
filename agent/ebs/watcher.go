@@ -22,10 +22,14 @@ import (
 	"time"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	apiebs "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	log "github.com/cihub/seelog"
 
@@ -47,13 +51,15 @@ type EBSWatcher struct {
 	csiClient       csi.CSIClient
 	scanTicker      *time.Ticker
 	// TODO: The dockerTaskEngine.stateChangeEvent will be used to send over the state change event for EBS attachments once it's been found and mounted/resize/format.
-	taskEngine ecsengine.TaskEngine
+	taskEngine   ecsengine.TaskEngine
+	dockerClient dockerapi.DockerClient
 }
 
 // NewWatcher is used to return a new instance of the EBSWatcher struct
 func NewWatcher(ctx context.Context,
 	state dockerstate.TaskEngineState,
-	taskEngine ecsengine.TaskEngine) *EBSWatcher {
+	taskEngine ecsengine.TaskEngine,
+	dockerClient dockerapi.DockerClient) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
 	// TODO pull this socket out into config
@@ -65,6 +71,7 @@ func NewWatcher(ctx context.Context,
 		discoveryClient: discoveryClient,
 		csiClient:       &csiClient,
 		taskEngine:      taskEngine,
+		dockerClient:    dockerClient,
 	}
 }
 
@@ -77,19 +84,100 @@ func (w *EBSWatcher) Start() {
 	for {
 		select {
 		case <-w.scanTicker.C:
-			pendingEBS := w.agentState.GetAllPendingEBSAttachmentsWithKey()
-			if len(pendingEBS) > 0 {
-				foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
-				w.overrideDeviceName(foundVolumes)
-				w.StageAll(foundVolumes)
-				w.NotifyAttached(foundVolumes)
-			}
+			w.tick()
 		case <-w.ctx.Done():
 			w.scanTicker.Stop()
 			log.Info("EBS Watcher Stopped due to agent stop")
 			return
 		}
 	}
+}
+
+// Method to handle watcher's tick.
+// If there are no pending EBS volume attachments in agent state, then this method is a no-op.
+// If there are pending EBS volume attachments in agent state then this method will ensure
+// that EBS Managed Daemon is running and then scan the host for the EBS volumes and process
+// the ones that are found.
+func (w *EBSWatcher) tick() {
+	pendingEBS := w.agentState.GetAllPendingEBSAttachmentsWithKey()
+	if len(pendingEBS) <= 0 {
+		return
+	}
+	if !w.daemonRunning() {
+		log.Info("EBS Managed Daemon is not currently running. Skipping EBS Watcher tick.")
+		return
+	}
+	foundVolumes := apiebs.ScanEBSVolumes(pendingEBS, w.discoveryClient)
+	w.overrideDeviceName(foundVolumes)
+	w.StageAll(foundVolumes)
+	w.NotifyAttached(foundVolumes)
+}
+
+// Checks if EBS Daemon Task is running and starts a new one it if it's not.
+func (w *EBSWatcher) daemonRunning() bool {
+	csiTask := w.taskEngine.GetDaemonTask(md.EbsCsiDriver)
+
+	// Check if task is running or about to run
+	if csiTask != nil && csiTask.GetKnownStatus() == status.TaskRunning {
+		logger.Debug("EBS Managed Daemon is running", logger.Fields{field.TaskID: csiTask.GetID()})
+		return true
+	}
+	if csiTask != nil && csiTask.GetKnownStatus() < status.TaskRunning {
+		logger.Debug("EBS Managed Daemon task is pending transitioning to running", logger.Fields{
+			field.TaskID:      csiTask.GetID(),
+			field.KnownStatus: csiTask.GetKnownStatus(),
+		})
+		return false
+	}
+
+	// Task is neither running nor about to run. We need to start a new one.
+
+	if csiTask == nil {
+		logger.Info("EBS Managed Daemon task has not been initialized. Will start a new one.")
+	} else {
+		logger.Info("EBS Managed Daemon task is beyond running state. Will start a new one.", logger.Fields{
+			field.TaskID:      csiTask.GetID(),
+			field.KnownStatus: csiTask.GetKnownStatus(),
+		})
+	}
+
+	ebsCsiDaemonManager, ok := w.taskEngine.GetDaemonManagers()[md.EbsCsiDriver]
+	if !ok {
+		log.Errorf("EBS Daemon Manager is not Initialized. EBS Task Attach is not supported.")
+		return false
+	}
+
+	// Check if Managed Daemon image has been loaded.
+	imageLoaded, err := ebsCsiDaemonManager.IsLoaded(w.dockerClient)
+	if !imageLoaded {
+		logger.Info("Image is not loaded yet so can't start a Managed Daemon task.", logger.Fields{
+			"ImageRef":  ebsCsiDaemonManager.GetManagedDaemon().GetImageRef(),
+			field.Error: err,
+		})
+		return false
+	}
+	logger.Debug("Managed Daemon image has been loaded", logger.Fields{
+		"ImageRef": ebsCsiDaemonManager.GetManagedDaemon().GetImageRef(),
+	})
+
+	// Create a new Managed Daemon task.
+	csiTask, err = ebsCsiDaemonManager.CreateDaemonTask()
+	if err != nil {
+		// Failed to create the task. There is nothing that the watcher can do at this time
+		// so swallow the error and try again later.
+		logger.Error("Failed to create EBS Managed Daemon task.", logger.Fields{field.Error: err})
+		return false
+	}
+
+	// Add the new task to task engine.
+	w.taskEngine.SetDaemonTask(md.EbsCsiDriver, csiTask)
+	w.taskEngine.AddTask(csiTask)
+	logger.Info("Added EBS Managed Daemon task to task engine", logger.Fields{
+		field.TaskID: csiTask.GetID(),
+	})
+
+	// Task is not confirmed to be running yet, so return false.
+	return false
 }
 
 // Stop will stop the EBS watcher
@@ -107,8 +195,7 @@ func (w *EBSWatcher) HandleResourceAttachment(ebs *apiebs.ResourceAttachment) {
 
 // HandleResourceAttachment processes the resource attachment message. It will:
 // 1. Check whether we already have this attachment in state and if so it's a noop.
-// 2. Start the EBS CSI driver if it's not already running
-// 3. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
+// 2. Otherwise add the attachment to state, start its ack timer, and save to the agent state.
 func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment) error {
 	attachmentType := ebs.GetAttachmentType()
 	if attachmentType != apiebs.EBSTaskAttach {
@@ -123,29 +210,6 @@ func (w *EBSWatcher) HandleEBSResourceAttachment(ebs *apiebs.ResourceAttachment)
 		return ebsAttachment.StartTimer(func() {
 			w.handleEBSAckTimeout(volumeId)
 		})
-	}
-
-	// start EBS CSI Driver Managed Daemon
-	// We want to avoid creating a new CSI driver task if there's already one that's not been stopped.
-	if runningCsiTask := w.taskEngine.GetDaemonTask(md.EbsCsiDriver); runningCsiTask != nil && !runningCsiTask.GetKnownStatus().Terminal() {
-		log.Debugf("engine ebs CSI driver is running with taskID: %v", runningCsiTask.GetID())
-	} else {
-		if ebsCsiDaemonManager, ok := w.taskEngine.GetDaemonManagers()[md.EbsCsiDriver]; ok {
-			if csiTask, err := ebsCsiDaemonManager.CreateDaemonTask(); err != nil {
-				// fail attachment and return
-				log.Errorf("Unable to start ebsCsiDaemon in the engine: error: %s", err)
-				if csiTask != nil {
-					log.Errorf("CSI task Error task ID: %s", csiTask.GetID())
-				}
-				return err
-			} else {
-				w.taskEngine.SetDaemonTask(md.EbsCsiDriver, csiTask)
-				w.taskEngine.AddTask(csiTask)
-				log.Infof("task_engine: Added EBS CSI task to engine")
-			}
-		} else {
-			log.Errorf("CSI Driver is not Initialized")
-		}
 	}
 
 	if err := w.addEBSAttachmentToState(ebs); err != nil {

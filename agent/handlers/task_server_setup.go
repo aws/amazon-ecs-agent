@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	tpfactory "github.com/aws/amazon-ecs-agent/agent/handlers/agentapi/taskprotection"
@@ -27,6 +26,7 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -57,7 +57,7 @@ func taskServerSetup(
 	credentialsManager credentials.Manager,
 	auditLogger auditinterface.AuditLogger,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	cluster string,
 	statsEngine stats.Engine,
 	steadyStateRate int,
@@ -102,7 +102,7 @@ func taskServerSetup(
 // v2HandlersSetup adds all handlers in v2 package to the mux router.
 func v2HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	statsEngine stats.Engine,
 	cluster string,
 	credentialsManager credentials.Manager,
@@ -123,7 +123,7 @@ func v2HandlersSetup(muxRouter *mux.Router,
 // v3HandlersSetup adds all handlers in v3 package to the mux router.
 func v3HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	statsEngine stats.Engine,
 	cluster string,
 	availabilityZone string,
@@ -141,7 +141,7 @@ func v3HandlersSetup(muxRouter *mux.Router,
 // v4HandlerSetup adda all handlers in v4 package to the mux router
 func v4HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	statsEngine stats.Engine,
 	cluster string,
 	availabilityZone string,
@@ -190,7 +190,7 @@ func ServeTaskHTTPEndpoint(
 	ctx context.Context,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	containerInstanceArn string,
 	cfg *config.Config,
 	statsEngine stats.Engine,

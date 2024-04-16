@@ -15,9 +15,9 @@ package v4
 import (
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
@@ -27,7 +27,7 @@ import (
 type TMDSAgentState struct {
 	state                dockerstate.TaskEngineState
 	statsEngine          stats.Engine
-	ecsClient            api.ECSClient
+	ecsClient            ecs.ECSClient
 	cluster              string
 	availabilityZone     string
 	vpcID                string
@@ -37,7 +37,7 @@ type TMDSAgentState struct {
 func NewTMDSAgentState(
 	state dockerstate.TaskEngineState,
 	statsEngine stats.Engine,
-	ecsClient api.ECSClient,
+	ecsClient ecs.ECSClient,
 	cluster string,
 	availabilityZone string,
 	vpcID string,

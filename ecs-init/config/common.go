@@ -46,7 +46,7 @@ const (
 	// DefaultAgentVersion is the version of the agent that will be
 	// fetched if required. This should look like v1.2.3 or an
 	// 8-character sha, as is downloadable from S3.
-	DefaultAgentVersion = "v1.78.0"
+	DefaultAgentVersion = "v1.82.2"
 
 	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
 	AgentPartitionBucketName = "amazon-ecs-agent"
@@ -104,6 +104,11 @@ const (
 	// defaultCredentialsFetcherSocketPath is set to /var/credentials-fetcher/socket/credentials_fetcher.sock
 	// in case path is not passed in the env variable
 	DefaultCredentialsFetcherSocketPath = "/var/credentials-fetcher/socket/credentials_fetcher.sock"
+
+	// ECSAgentAppArmorProfileNameEnvVar specifies the AppArmor profile name to use. Only applies
+	// on AppArmor-enabled platforms (such as Ubuntu and Debian).
+	ECSAgentAppArmorProfileNameEnvVar  = "ECS_AGENT_APPARMOR_PROFILE"
+	ECSAgentAppArmorDefaultProfileName = "ecs-agent-default"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -168,7 +173,7 @@ func LogDirectory() string {
 	return directoryPrefix + "/var/log/ecs"
 }
 
-func initLogFile() string {
+func InitLogFile() string {
 	return LogDirectory() + "/ecs-init.log"
 }
 
@@ -249,7 +254,7 @@ func CgroupMountpoint() string {
 
 // MountDirectoryEBS returns the location on disk where EBS volumes will be mounted
 func MountDirectoryEBS() string {
-       return directoryPrefix + "/mnt/ecs/ebs"
+	return directoryPrefix + "/mnt/ecs/ebs"
 }
 
 // HostCertsDirPath() returns the CA store path on the host
@@ -334,6 +339,15 @@ func RunPrivileged() bool {
 func RunningInExternal() bool {
 	envVar := os.Getenv(ExternalEnvVar)
 	return envVar == "true"
+}
+
+// ECSAgentApparmorProfileName returns the name of the AppArmor profile to use.
+func ECSAgentAppArmorProfileName() string {
+	envVar := os.Getenv(ECSAgentAppArmorProfileNameEnvVar)
+	if len(strings.TrimSpace(envVar)) == 0 {
+		return ECSAgentAppArmorDefaultProfileName
+	}
+	return envVar
 }
 
 func agentArtifactName(version string, arch string) (string, error) {

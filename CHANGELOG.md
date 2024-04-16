@@ -1,5 +1,80 @@
 # Changelog
 
+# 1.82.2
+* Enhancement - Bump aws-sdk-go version to 1.51.3 [#4120](https://github.com/aws/amazon-ecs-agent/pull/4120)
+* Enhancement - Update dependencies to include security patches reported by dependabot for agent [#4113](https://github.com/aws/amazon-ecs-agent/pull/4113)
+* Enhancement - Order network interfaces according to index value [#4126](https://github.com/aws/amazon-ecs-agent/pull/4126)
+* Bugfix - Explicitly set up ECS config dir in spec files [#4131](https://github.com/aws/amazon-ecs-agent/pull/4131)
+
+# 1.82.1
+* Bugfix - Pass clusterARN in task state change struct. [#4107](https://github.com/aws/amazon-ecs-agent/pull/4107)
+* Enhancement - Update go module dependencies [#4109](https://github.com/aws/amazon-ecs-agent/pull/4109)
+* Enhancement - ecs-init support for old docker engines (pre docker 17.x) and future docker engines (when api 1.25 is deprecated). [#4080](https://github.com/aws/amazon-ecs-agent/pull/4080)
+* Enhancement - Bump google.golang.org/protobuf from 1.31.0 to 1.33.0 [#4115](https://github.com/aws/amazon-ecs-agent/pull/4115)
+* Enhancement - Update SSM Agent version to 3.2.2303.0 for ECS exec [#4116](https://github.com/aws/amazon-ecs-agent/pull/4116)
+
+## 1.82.0
+* Enhancement - Make ecs-init log level configurable [#4097](https://github.com/aws/amazon-ecs-agent/pull/4097).
+* Enhancement - Add ECS_EBSTA_SUPPORTED environment variable to enable/disable EBS Task Attach capabilities. The environment variable is set automatically by ecs-init [#4091](https://github.com/aws/amazon-ecs-agent/pull/4091).
+
+## 1.81.1
+* Enhancement - Update go version to 1.20.12 [#4092](https://github.com/aws/amazon-ecs-agent/pull/4092)
+* Enhancement - Add extra logs in netlib package [#4095](https://github.com/aws/amazon-ecs-agent/pull/4095)
+* Bugfix - fix bug where the lock is never released for FSx task resource [#4088](https://github.com/aws/amazon-ecs-agent/pull/4088)
+* Bugfix - Create DNS files for second ENI [#4087](https://github.com/aws/amazon-ecs-agent/pull/4087)
+
+## 1.81.0
+* Bugfix - Fix ECS agent docker API failures on docker engine 25.x [#4075](https://github.com/aws/amazon-ecs-agent/pull/4075)
+* Bugfix - Fix a bug in the creation of network namespace models for AWSVPC mode tasks which causes the agent to crash in an edge case situation. [#4076](https://github.com/aws/amazon-ecs-agent/pull/4076)
+
+## 1.80.0
+* Enhancement - Add a mock for VolumeDriver interface [#4056](https://github.com/aws/amazon-ecs-agent/pull/4056)
+* Enhancement - Update logger Config setter access pattern [#4051](https://github.com/aws/amazon-ecs-agent/pull/4051)
+* Enhancement - Add AppArmor support [#4062](https://github.com/aws/amazon-ecs-agent/pull/4062)
+* Enhancement - Update credentials-fetcher docker file [#4068](https://github.com/aws/amazon-ecs-agent/pull/4068)
+* Enhancement - Add ECSClientFactory to create new ECS clients [ #4061](https://github.com/aws/amazon-ecs-agent/pull/4061)
+* Enhancement - Add CSI nodeUnstage retries. [#4069](https://github.com/aws/amazon-ecs-agent/pull/4069)
+* Bugfix - Fix EFS unmount hanging issue for awsvpc tasks [#4053](https://github.com/aws/amazon-ecs-agent/pull/4053)
+* Bugfix - Windows numCPU returning incorrectly for values above 64 [#4067](https://github.com/aws/amazon-ecs-agent/pull/4067)
+* Bugfix - fsx windows fileserver SSM arn parsing was incorrect [#4058](https://github.com/aws/amazon-ecs-agent/pull/4058)
+
+## 1.79.2
+* Enhancement - Set device names while building task network config [#4026](https://github.com/aws/amazon-ecs-agent/pull/4026)
+* Enhancement - Record and emit the timestamp that the last connection was established [#4035](https://github.com/aws/amazon-ecs-agent/pull/4035)
+* Enhancement - Add network delete workflow for AWSVPC [#4031](https://github.com/aws/amazon-ecs-agent/pull/4031)
+* Enhancement - Consume ECS client from ecs-agent module in agent module  [#4032](https://github.com/aws/amazon-ecs-agent/pull/4032)
+* Enhancement - Add Firecracker platform implementation in netlib [#4038](https://github.com/aws/amazon-ecs-agent/pull/4038)
+* Enhancement - Add containerId, networkNameSpace, containerCGroup to ManagedDaemon [#4041](https://github.com/aws/amazon-ecs-agent/pull/4041)
+* Enhancement - Trim managed agent reason + add retries for getting instance identity signature [#4042](https://github.com/aws/amazon-ecs-agent/pull/4042)
+* Code Quality Improvement  - Add check in ecs clint library to ensure only non empty values are added to API request. [#4044](https://github.com/aws/amazon-ecs-agent/pull/4044)
+* Enhancement - Update grpc contract credfetcher [#4043](https://github.com/aws/amazon-ecs-agent/pull/4043)
+* Enhancement - Add credentials-fetcher Dockerfile [#4047](https://github.com/aws/amazon-ecs-agent/pull/4047)
+
+## 1.79.1
+* Enhancement - Update golang.org/x/net to v0.17.0 [#3964](https://github.com/aws/amazon-ecs-agent/pull/3964)
+* Enhancement - Update google.golang.org/grpc to 1.56.3 [#3991](https://github.com/aws/amazon-ecs-agent/pull/3991)
+* Enhancement - Implement regular ENI and branch ENI configuration for the containerd platform [#3972](https://github.com/aws/amazon-ecs-agent/pull/3972)
+* Enhancement - Decouple ENI in ecs-agent/ AttachmentStateChange [#4019](https://github.com/aws/amazon-ecs-agent/pull/4019)
+* Bugfix - Bugfix to log EBS CSI to a file [#4010](https://github.com/aws/amazon-ecs-agent/pull/4010)
+
+## 1.79.0
+* Feature - Add support for finding EBS devices on Xen instances [#3971](https://github.com/aws/amazon-ecs-agent/pull/3971)
+* Feature - Add network builder and platform APIs [#3939](https://github.com/aws/amazon-ecs-agent/pull/3939)
+* Enhancement - Load managed daemon images in background to speed up startup time [#3984](https://github.com/aws/amazon-ecs-agent/pull/3984)
+* Enhancement - ECS client API update [#3974](https://github.com/aws/amazon-ecs-agent/pull/3974)
+* Enhancement - Upgrade Golang version to 1.20.10 [#3988](https://github.com/aws/amazon-ecs-agent/pull/3988)
+* Enhancement - Integrate the applicable shared ECS interfaces with agent [#4008](https://github.com/aws/amazon-ecs-agent/pull/4008)
+* Enhancement - Add generic Attachment interface to allow for multiple attachment types [#3969](https://github.com/aws/amazon-ecs-agent/pull/3969)
+* Enhancement - Minor refactor of TTL cache (allow nil TTL + get TTL) [#3968](https://github.com/aws/amazon-ecs-agent/pull/3968)
+* Enhancement - Update ecs-agent/ ECS model with missing fields + consume the same [#3999](https://github.com/aws/amazon-ecs-agent/pull/3999)
+* Bugfix - Update ecs-agent in-container path for managed daemon logging [#3982](https://github.com/aws/amazon-ecs-agent/pull/3982)
+* Bugfix - Fix local agent state for CSI driver daemon task [#3970](https://github.com/aws/amazon-ecs-agent/pull/3970)
+* Bugfix - Fix invalid task volumes field for EBS-backed task payload [#3975](https://github.com/aws/amazon-ecs-agent/pull/3975)
+* Bugfix - Bugfixes for EBS Task Attach [#3965](https://github.com/aws/amazon-ecs-agent/pull/3965)
+
+## 1.78.1
+* Bugfix - revert "add apparmor support". [3993](https://github.com/aws/amazon-ecs-agent/pull/3993)
+
 ## 1.78.0
 * Feature - Add AppArmor support. [#3941](https://github.com/aws/amazon-ecs-agent/pull/3941)
 * Enhancement - Update SSM Agent version to 3.2.1630.0 for ECS exec. [#3952](https://github.com/aws/amazon-ecs-agent/pull/3952)
