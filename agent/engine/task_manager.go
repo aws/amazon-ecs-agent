@@ -620,8 +620,9 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	}
 	if !taskKnownStatus.BackendRecognized() {
 		logger.Debug("Skipping event emission for task", logger.Fields{
-			field.TaskID: mtask.GetID(),
-			field.Error:  "status not recognized by ECS",
+			field.TaskID:      mtask.GetID(),
+			field.Error:       "status not recognized by ECS",
+			field.KnownStatus: taskKnownStatus.String(),
 		})
 		return
 	}
@@ -862,18 +863,19 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 	switch event.Status {
 	// event.Status is the desired container transition from container's known status
 	// (* -> event.Status)
-	case apicontainerstatus.ContainerPulled:
+	case apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerPulled:
 		// If the agent pull behavior is always or once, we receive the error because
-		// the image pull fails, the task should fail. If we don't fail task here,
+		// the image or manifest pull fails, the task should fail. If we don't fail task here,
 		// then the cached image will probably be used for creating container, and we
 		// don't want to use cached image for both cases.
 		if mtask.cfg.ImagePullBehavior == config.ImagePullAlwaysBehavior ||
 			mtask.cfg.ImagePullBehavior == config.ImagePullOnceBehavior {
-			logger.Error("Error while pulling image; moving task to STOPPED", logger.Fields{
+			logger.Error("Error while pulling image or its manifest; moving task to STOPPED", logger.Fields{
 				field.TaskID:    mtask.GetID(),
 				field.Image:     container.Image,
 				field.Container: container.Name,
 				field.Error:     event.Error,
+				field.Status:    event.Status,
 			})
 			// The task should be stopped regardless of whether this container is
 			// essential or non-essential.
@@ -881,15 +883,16 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 			return false
 		}
 		// If the agent pull behavior is prefer-cached, we receive the error because
-		// the image pull fails and there is no cached image in local, we don't make
+		// the image or manifest pull fails and there is no cached image in local, we don't make
 		// the task fail here, will let create container handle it instead.
 		// If the agent pull behavior is default, use local image cache directly,
 		// assuming it exists.
-		logger.Error("Error while pulling image; will try to run anyway", logger.Fields{
+		logger.Error("Error while pulling image or its manifest; will try to run anyway", logger.Fields{
 			field.TaskID:    mtask.GetID(),
 			field.Image:     container.Image,
 			field.Container: container.Name,
 			field.Error:     event.Error,
+			field.Status:    event.Status,
 		})
 		// proceed anyway
 		return true
