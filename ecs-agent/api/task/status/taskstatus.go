@@ -21,6 +21,8 @@ import (
 const (
 	// TaskStatusNone is the zero state of a task; this task has been received but no further progress has completed
 	TaskStatusNone TaskStatus = iota
+	// TaskManifestPulled represents a task which has had all its container image manifests pulled
+	TaskManifestPulled
 	// TaskPulled represents a task which has had all its container images pulled, but not all have yet progressed passed pull
 	TaskPulled
 	// TaskCreated represents a task which has had all its containers created
@@ -37,6 +39,8 @@ const (
 	TaskRunningString = "RUNNING"
 	//TaskCreatedString represents task created status string
 	TaskCreatedString = "CREATED"
+	// TaskManifestPulledString represents task manifest_pulled status string
+	TaskManifestPulledString = "MANIFEST_PULLED"
 	// TaskNoneString represents task none status string
 	TaskNoneString = "NONE"
 )
@@ -45,10 +49,11 @@ const (
 type TaskStatus int32
 
 var taskStatusMap = map[string]TaskStatus{
-	TaskNoneString:    TaskStatusNone,
-	TaskCreatedString: TaskCreated,
-	TaskRunningString: TaskRunning,
-	TaskStoppedString: TaskStopped,
+	TaskNoneString:           TaskStatusNone,
+	TaskManifestPulledString: TaskManifestPulled,
+	TaskCreatedString:        TaskCreated,
+	TaskRunningString:        TaskRunning,
+	TaskStoppedString:        TaskStopped,
 }
 
 // String returns a human readable string representation of this object

@@ -30,10 +30,19 @@ func TestTaskStatus(t *testing.T) {
 	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskStatusNone)
 	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned), TaskStatusNone)
 
-	// When container state is PULLED, Task state is still NONE
+	// When container state is MANIFEST_PULLED, Task state is MANIFEST_PULLED as well
+	containerStatus = apicontainerstatus.ContainerManifestPulled
+	assert.Equal(t,
+		MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		TaskManifestPulled)
+	assert.Equal(t,
+		MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		TaskManifestPulled)
+
+	// When container state is PULLED, Task state is still MANIFEST_PULLED
 	containerStatus = apicontainerstatus.ContainerPulled
-	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskStatusNone)
-	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned), TaskStatusNone)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskManifestPulled)
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned), TaskManifestPulled)
 
 	// When container state is CREATED, Task state is CREATED as well
 	containerStatus = apicontainerstatus.ContainerCreated

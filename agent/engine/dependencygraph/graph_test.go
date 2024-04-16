@@ -28,9 +28,12 @@ import (
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func volumeStrToVol(vols []string) []apicontainer.VolumeFrom {
@@ -46,6 +49,13 @@ func steadyStateContainer(name string, dependsOn []apicontainer.DependsOn, desir
 	container.Name = name
 	container.DependsOnUnsafe = dependsOn
 	container.DesiredStatusUnsafe = desiredState
+	return container
+}
+
+// Creates a container with supplied properties and MANIFEST_PULLED as its known state.
+func steadyStateManifestPulledContainer(name string, dependsOn []apicontainer.DependsOn, desiredState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
+	container := steadyStateContainer(name, dependsOn, desiredState, steadyState)
+	container.KnownStatusUnsafe = apicontainerstatus.ContainerManifestPulled
 	return container
 }
 
@@ -132,11 +142,11 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
-	php := steadyStateContainer("php", []apicontainer.DependsOn{{ContainerName: "db", Condition: startCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []apicontainer.DependsOn{{ContainerName: "dbdatavolume", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	php := steadyStateManifestPulledContainer("php", []apicontainer.DependsOn{{ContainerName: "db", Condition: startCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateManifestPulledContainer("db", []apicontainer.DependsOn{{ContainerName: "dbdatavolume", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{ContainerName: "php", Condition: startCondition}, {ContainerName: "htmldata", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{ContainerName: "sharedcssfiles", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateManifestPulledContainer("webserver", []apicontainer.DependsOn{{ContainerName: "php", Condition: startCondition}, {ContainerName: "htmldata", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateManifestPulledContainer("htmldata", []apicontainer.DependsOn{{ContainerName: "sharedcssfiles", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 
 	task = &apitask.Task{
@@ -168,6 +178,123 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 
 	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Php should resolve")
+}
+
+// Tests container dependency on execution role credentials.
+func TestExecutionRoleAuthDependencyResolution(t *testing.T) {
+	tcs := []struct {
+		name                     string
+		targetContainer          *apicontainer.Container
+		id                       string
+		cfg                      *config.Config
+		credsManagerExpectations func(*mock_credentials.MockManager)
+		expectedError            error
+	}{
+		{
+			name: "container does not depend on execution role",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerStatusNone,
+			},
+		},
+		{
+			name: "execution role dependent container is before manifest pulled state and creds are not resolved yet",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerStatusNone,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type:        apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{UseExecutionRole: true},
+				},
+			},
+			id: "id",
+			credsManagerExpectations: func(mm *mock_credentials.MockManager) {
+				mm.EXPECT().
+					GetTaskCredentials("id").
+					Return(credentials.TaskIAMRoleCredentials{}, false)
+			},
+			expectedError: CredentialsNotResolvedErr,
+		},
+		{
+			name: "execution role dependent container is at manifest pulled state and creds are not resolved yet",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerManifestPulled,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type:        apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{UseExecutionRole: true},
+				},
+			},
+			id: "id",
+			credsManagerExpectations: func(mm *mock_credentials.MockManager) {
+				mm.EXPECT().
+					GetTaskCredentials("id").
+					Return(credentials.TaskIAMRoleCredentials{}, false)
+			},
+			expectedError: CredentialsNotResolvedErr,
+		},
+		{
+			name: "execution role dependent container is at pulled state so creds not required anymore",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerPulled,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type:        apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{UseExecutionRole: true},
+				},
+			},
+		},
+		{
+			name: "execution role dependent container is before manifest pulled state and creds are resolved",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerStatusNone,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type:        apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{UseExecutionRole: true},
+				},
+			},
+			id: "id",
+			credsManagerExpectations: func(mm *mock_credentials.MockManager) {
+				mm.EXPECT().
+					GetTaskCredentials("id").
+					Return(credentials.TaskIAMRoleCredentials{}, true)
+			},
+			expectedError: nil,
+		},
+		{
+			name: "execution role dependent container is at manifest pulled state and creds are resolved",
+			targetContainer: &apicontainer.Container{
+				KnownStatusUnsafe: apicontainerstatus.ContainerManifestPulled,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type:        apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{UseExecutionRole: true},
+				},
+			},
+			id: "id",
+			credsManagerExpectations: func(mm *mock_credentials.MockManager) {
+				mm.EXPECT().
+					GetTaskCredentials("id").
+					Return(credentials.TaskIAMRoleCredentials{}, true)
+			},
+			expectedError: nil,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			credsManager := mock_credentials.NewMockManager(ctrl)
+			if tc.credsManagerExpectations != nil {
+				tc.credsManagerExpectations(credsManager)
+			}
+
+			dep, err := DependenciesAreResolved(
+				tc.targetContainer, nil, tc.id, credsManager, nil, tc.cfg)
+			if tc.expectedError == nil {
+				require.NoError(t, err)
+				assert.Nil(t, dep) // no dependency is returned for execution role
+			} else {
+				require.Equal(t, tc.expectedError, err)
+			}
+		})
+	}
 }
 
 func TestRunDependencies(t *testing.T) {
@@ -313,8 +440,28 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 		ResolvedErr     error
 	}{
 		{
-			Name:            "Nothing running, pull depends on running",
+			Name:            "Nothing running, manifest_pull depends on running",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDesired:   apicontainerstatus.ContainerRunning,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerStatusNone,
+			SatisfiedStatus: apicontainerstatus.ContainerRunning,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
+		},
+		{
+			Name:            "Nothing running, manifest_pull depends on resources provisioned",
+			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDesired:   apicontainerstatus.ContainerRunning,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerStatusNone,
+			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolved,
+		},
+		{
+			Name:            "Dependency is at None, current is manifest_pulled, pull depends on running",
+			TargetKnown:     apicontainerstatus.ContainerManifestPulled,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
 			TargetNext:      apicontainerstatus.ContainerPulled,
 			DependencyName:  "container",
@@ -322,10 +469,9 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 			SatisfiedStatus: apicontainerstatus.ContainerRunning,
 			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
-
 		{
-			Name:            "Nothing running, pull depends on resources provisioned",
-			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			Name:            "Dependency is at None, current is manifest_pulled, pull depends on resources provisioned",
+			TargetKnown:     apicontainerstatus.ContainerManifestPulled,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
 			TargetNext:      apicontainerstatus.ContainerPulled,
 			DependencyName:  "container",
@@ -343,28 +489,37 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 			SatisfiedStatus: apicontainerstatus.ContainerRunning,
 		},
 		{
-			Name:            "Dependency created, pull depends on running",
+			Name:            "Dependency created, manifest_pull depends on running",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
-			TargetNext:      apicontainerstatus.ContainerPulled,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
 			DependencyName:  "container",
 			DependencyKnown: apicontainerstatus.ContainerCreated,
 			SatisfiedStatus: apicontainerstatus.ContainerRunning,
 			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:            "Dependency created, pull depends on resources provisioned",
+			Name:            "Dependency created, manifest_pull depends on resources provisioned",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
-			TargetNext:      apicontainerstatus.ContainerPulled,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
 			DependencyName:  "container",
 			DependencyKnown: apicontainerstatus.ContainerCreated,
 			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
 			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:            "Dependency running, pull depends on running",
+			Name:            "Dependency running, manifest_pull depends on running",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDesired:   apicontainerstatus.ContainerRunning,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerRunning,
+			SatisfiedStatus: apicontainerstatus.ContainerRunning,
+		},
+		{
+			Name:            "Dependency running, current is manifest_pulled, pull depends on running",
+			TargetKnown:     apicontainerstatus.ContainerManifestPulled,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
 			TargetNext:      apicontainerstatus.ContainerPulled,
 			DependencyName:  "container",
@@ -372,20 +527,20 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 			SatisfiedStatus: apicontainerstatus.ContainerRunning,
 		},
 		{
-			Name:            "Dependency running, pull depends on resources provisioned",
+			Name:            "Dependency running, manifest_pull depends on resources provisioned",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
-			TargetNext:      apicontainerstatus.ContainerPulled,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
 			DependencyName:  "container",
 			DependencyKnown: apicontainerstatus.ContainerRunning,
 			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
 			ResolvedErr:     ErrContainerDependencyNotResolved,
 		},
 		{
-			Name:            "Dependency resources provisioned, pull depends on resources provisioned",
+			Name:            "Dependency resources provisioned, manifest_pull depends on resources provisioned",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDesired:   apicontainerstatus.ContainerRunning,
-			TargetNext:      apicontainerstatus.ContainerPulled,
+			TargetNext:      apicontainerstatus.ContainerManifestPulled,
 			DependencyName:  "container",
 			DependencyKnown: apicontainerstatus.ContainerResourcesProvisioned,
 			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
@@ -452,12 +607,28 @@ func TestVerifyResourceDependenciesResolved(t *testing.T) {
 		ExpectedResolved bool
 	}{
 		{
-			Name:             "resource none,container pull depends on resource created",
+			Name:             "resource none,container manifest_pull depends on resource created",
 			TargetKnown:      apicontainerstatus.ContainerStatusNone,
+			TargetDep:        apicontainerstatus.ContainerManifestPulled,
+			DependencyKnown:  resourcestatus.ResourceStatus(0),
+			RequiredStatus:   resourcestatus.ResourceStatus(1),
+			ExpectedResolved: false,
+		},
+		{
+			Name:             "resource none,container pull depends on resource created",
+			TargetKnown:      apicontainerstatus.ContainerManifestPulled,
 			TargetDep:        apicontainerstatus.ContainerPulled,
 			DependencyKnown:  resourcestatus.ResourceStatus(0),
 			RequiredStatus:   resourcestatus.ResourceStatus(1),
 			ExpectedResolved: false,
+		},
+		{
+			Name:             "resource created,container manifest_pull depends on resource created",
+			TargetKnown:      apicontainerstatus.ContainerStatusNone,
+			TargetDep:        apicontainerstatus.ContainerManifestPulled,
+			DependencyKnown:  resourcestatus.ResourceStatus(1),
+			RequiredStatus:   resourcestatus.ResourceStatus(1),
+			ExpectedResolved: true,
 		},
 		{
 			Name:             "resource created,container pull depends on resource created",
@@ -510,12 +681,27 @@ func TestVerifyTransitionResourceDependenciesResolved(t *testing.T) {
 		ResolvedErr     error
 	}{
 		{
-			Name:            "resource none,container pull depends on resource created",
+			Name:            "resource none,container manifest_pull depends on resource created",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDep:       apicontainerstatus.ContainerManifestPulled,
+			DependencyKnown: resourcestatus.ResourceStatus(0),
+			RequiredStatus:  resourcestatus.ResourceStatus(1),
+			ResolvedErr:     ErrResourceDependencyNotResolved,
+		},
+		{
+			Name:            "resource none,container pull depends on resource created",
+			TargetKnown:     apicontainerstatus.ContainerManifestPulled,
 			TargetDep:       apicontainerstatus.ContainerPulled,
 			DependencyKnown: resourcestatus.ResourceStatus(0),
 			RequiredStatus:  resourcestatus.ResourceStatus(1),
 			ResolvedErr:     ErrResourceDependencyNotResolved,
+		},
+		{
+			Name:            "resource created, manifest_pull depends on resource created",
+			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDep:       apicontainerstatus.ContainerManifestPulled,
+			DependencyKnown: resourcestatus.ResourceStatus(1),
+			RequiredStatus:  resourcestatus.ResourceStatus(1),
 		},
 		{
 			Name:            "resource created,container pull depends on resource created",
@@ -570,7 +756,7 @@ func TestTransitionDependencyResourceNotFound(t *testing.T) {
 		KnownStatusUnsafe:         apicontainerstatus.ContainerStatusNone,
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 	}
-	target.BuildResourceDependency("resource", resourcestatus.ResourceStatus(1), apicontainerstatus.ContainerPulled)
+	target.BuildResourceDependency("resource", resourcestatus.ResourceStatus(1), apicontainerstatus.ContainerManifestPulled)
 
 	resources := make(map[string]taskresource.TaskResource)
 	resources["resource1"] = mockResource // different resource name
@@ -1120,6 +1306,47 @@ func TestContainerOrderingIsResolvedWithDependentContainersPullUpfront(t *testin
 	}
 }
 
+// Tests that a dependent container is always able to transition to MANIFEST_PULLED state
+// regardless of any container ordering dependencies.
+func TestContainerOrderingDependenciesIsResolvedManifestPulled(t *testing.T) {
+	dependencyKnownStatuses := []apicontainerstatus.ContainerStatus{
+		apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerManifestPulled,
+		apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerCreated,
+		apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerResourcesProvisioned,
+		apicontainerstatus.ContainerStopped,
+	}
+	pullUpfrontSettings := []config.BooleanDefaultFalse{
+		{Value: config.ExplicitlyEnabled},
+		{Value: config.ExplicitlyDisabled},
+		{Value: config.NotSet},
+	}
+	dependencyConditions := []string{
+		createCondition, startCondition, successCondition, completeCondition, healthyCondition,
+	}
+	for _, dependencyKnownStatus := range dependencyKnownStatuses {
+		for _, pullUpfrontSetting := range pullUpfrontSettings {
+			for _, dependencyCondition := range dependencyConditions {
+				t.Run(
+					fmt.Sprintf("%v - %v - %v",
+						dependencyKnownStatus.String(), pullUpfrontSetting, dependencyCondition,
+					),
+					func(t *testing.T) {
+						target := &apicontainer.Container{
+							KnownStatusUnsafe: apicontainerstatus.ContainerStatusNone,
+						}
+						dep := &apicontainer.Container{
+							KnownStatusUnsafe: dependencyKnownStatus,
+						}
+						cfg := &config.Config{DependentContainersPullUpfront: pullUpfrontSetting}
+						isResolved := containerOrderingDependenciesIsResolved(
+							target, dep, dependencyCondition, cfg)
+						assert.True(t, isResolved)
+					})
+			}
+		}
+	}
+}
+
 func assertContainerTargetOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetKnown, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolvable bool, cfg *config.Config) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
@@ -1153,6 +1380,9 @@ func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, de
 func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolved bool, cfg *config.Config) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
+			// Transition to MANIFEST_PULLED is always allowed, so set current known state to
+			// MANIFEST_PULLED for testing ordering
+			KnownStatusUnsafe:   apicontainerstatus.ContainerManifestPulled,
 			DesiredStatusUnsafe: targetDesired,
 		}
 		dep := &apicontainer.Container{
@@ -1175,6 +1405,7 @@ func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
 		Resolved                      bool
 	}{
 		{
+			TargetKnown:                 apicontainerstatus.ContainerManifestPulled,
 			TargetDesired:               apicontainerstatus.ContainerCreated,
 			DependencyKnownHealthStatus: apicontainerstatus.ContainerHealthy,
 			HealthCheckType:             "docker",
@@ -1182,6 +1413,7 @@ func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
 			Resolved:                    true,
 		},
 		{
+			TargetKnown:                   apicontainerstatus.ContainerManifestPulled,
 			TargetDesired:                 apicontainerstatus.ContainerCreated,
 			DependencyKnownHealthStatus:   apicontainerstatus.ContainerUnhealthy,
 			HealthCheckType:               "docker",
@@ -1190,6 +1422,7 @@ func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
 			Resolved:                      false,
 		},
 		{
+			TargetKnown:   apicontainerstatus.ContainerManifestPulled,
 			TargetDesired: apicontainerstatus.ContainerCreated,
 			Resolved:      false,
 		},

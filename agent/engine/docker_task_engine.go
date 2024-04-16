@@ -289,6 +289,7 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 
 func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
 	containerStatusToTransitionFunction := map[apicontainerstatus.ContainerStatus]transitionApplyFunc{
+		apicontainerstatus.ContainerManifestPulled:       engine.pullContainerManifest,
 		apicontainerstatus.ContainerPulled:               engine.pullContainer,
 		apicontainerstatus.ContainerCreated:              engine.createContainer,
 		apicontainerstatus.ContainerRunning:              engine.startContainer,
@@ -1229,6 +1230,19 @@ func (engine *DockerTaskEngine) SetDaemonTask(daemonName string, task *apitask.T
 
 func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager {
 	return engine.daemonManagers
+}
+
+// Pulls the manifest of the container image.
+func (engine *DockerTaskEngine) pullContainerManifest(
+	task *apitask.Task, container *apicontainer.Container,
+) dockerapi.DockerContainerMetadata {
+	// Currently a no-op
+	logger.Debug("Manifest pull is currently a no-op", logger.Fields{
+		field.TaskID:    task.GetID(),
+		field.Container: container.Name,
+		field.Image:     container.Image,
+	})
+	return dockerapi.DockerContainerMetadata{}
 }
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {

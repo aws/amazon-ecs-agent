@@ -96,7 +96,10 @@ func TestIsKnownSteadyState(t *testing.T) {
 func TestGetNextStateProgression(t *testing.T) {
 	// This creates a container with `iota` ContainerStatus (NONE)
 	container := &Container{}
-	// NONE should transition to PULLED
+	// NONE should transition to MANIFEST_PULLED
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerManifestPulled)
+	container.SetKnownStatus(apicontainerstatus.ContainerManifestPulled)
+	// MANIFEST_PULLED should transition to PULLED
 	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerPulled)
 	container.SetKnownStatus(apicontainerstatus.ContainerPulled)
 	// PULLED should transition to CREATED
