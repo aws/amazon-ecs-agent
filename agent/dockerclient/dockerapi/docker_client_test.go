@@ -1256,7 +1256,12 @@ func TestUsesVersionedClient(t *testing.T) {
 	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
 	assert.NoError(t, err)
 
-	vclient := client.WithVersion(dockerclient.DockerVersion("1.20"))
+	sdkFactory.EXPECT().
+		GetClient(dockerclient.DockerVersion("1.20")).
+		Return(mockDockerSDK, nil)
+
+	vclient, err := client.WithVersion(dockerclient.DockerVersion("1.20"))
+	require.NoError(t, err)
 
 	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDockerSDK, nil)
 	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), gomock.Any(), types.ContainerStartOptions{}).Return(nil)
@@ -1280,7 +1285,12 @@ func TestUnavailableVersionError(t *testing.T) {
 	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
 	assert.NoError(t, err)
 
-	vclient := client.WithVersion(dockerclient.DockerVersion("1.21"))
+	sdkFactory.EXPECT().
+		GetClient(dockerclient.DockerVersion("1.21")).
+		Return(nil, errors.New("Cannot get client"))
+
+	vclient, err := client.WithVersion(dockerclient.DockerVersion("1.21"))
+	require.EqualError(t, err, "Cannot get client")
 
 	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 	metadata := vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)

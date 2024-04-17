@@ -461,11 +461,12 @@ func (mr *MockDockerClientMockRecorder) Version(arg0, arg1 interface{}) *gomock.
 }
 
 // WithVersion mocks base method.
-func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) dockerapi.DockerClient {
+func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) (dockerapi.DockerClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithVersion", arg0)
 	ret0, _ := ret[0].(dockerapi.DockerClient)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WithVersion indicates an expected call of WithVersion.

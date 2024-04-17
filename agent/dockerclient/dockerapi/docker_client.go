@@ -115,7 +115,7 @@ type DockerClient interface {
 
 	// WithVersion returns a new DockerClient for which all operations will use the given remote api version.
 	// A default version will be used for a client not produced via this method.
-	WithVersion(dockerclient.DockerVersion) DockerClient
+	WithVersion(dockerclient.DockerVersion) (DockerClient, error)
 
 	// ContainerEvents returns a channel of DockerContainerChangeEvents. Events are placed into the channel and should
 	// be processed by the listener.
@@ -260,14 +260,17 @@ type ImagePullResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
-func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
-	return &dockerGoClient{
+func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) (DockerClient, error) {
+	versionedClient := &dockerGoClient{
 		sdkClientFactory: dg.sdkClientFactory,
 		version:          version,
 		auth:             dg.auth,
 		config:           dg.config,
 		context:          dg.context,
 	}
+	// Check if the version is supported
+	_, err := versionedClient.sdkDockerClient()
+	return versionedClient, err
 }
 
 // NewDockerGoClient creates a new DockerGoClient
