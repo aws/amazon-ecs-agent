@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -44,6 +45,7 @@ type Client interface {
 	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
 	ContainerExecStart(ctx context.Context, execID string, config types.ExecStartCheck) error
 	ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error)
+	DistributionInspect(ctx context.Context, imageRef, encodedRegistryAuth string) (registry.DistributionInspect, error)
 	Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error)
 	ImageImport(ctx context.Context, source types.ImageImportSource, ref string,
 		options types.ImageImportOptions) (io.ReadCloser, error)
