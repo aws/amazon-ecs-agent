@@ -52,6 +52,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 )
 
@@ -120,6 +121,10 @@ type DockerClient interface {
 	// ContainerEvents returns a channel of DockerContainerChangeEvents. Events are placed into the channel and should
 	// be processed by the listener.
 	ContainerEvents(context.Context) (<-chan DockerContainerChangeEvent, error)
+
+	// Given an image reference and registry auth credentials, pulls the image manifest
+	// of the image from the registry.
+	PullImageManifest(context.Context, string, *apicontainer.RegistryAuthenticationData) (registry.DistributionInspect, error)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
@@ -327,6 +332,34 @@ func (dg *dockerGoClient) time() ttime.Time {
 		}
 	})
 	return dg._time
+}
+
+// Pulls image manifest from the registry
+func (dg *dockerGoClient) PullImageManifest(
+	ctx context.Context, imageRef string, authData *apicontainer.RegistryAuthenticationData,
+) (registry.DistributionInspect, error) {
+	// Get auth creds
+	sdkAuthConfig, err := dg.getAuthdata(imageRef, authData)
+	if err != nil {
+		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+	}
+	encodedAuth, err := registry.EncodeAuthConfig(sdkAuthConfig)
+	if err != nil {
+		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+	}
+
+	// Get an SDK Docker Client and call Distribution API
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return registry.DistributionInspect{}, CannotGetDockerClientError{version: dg.version, err: err}
+	}
+	distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
+	if err != nil {
+		err = redactEcrUrls(imageRef, err)
+		return registry.DistributionInspect{}, CannotPullContainerError{err}
+	}
+
+	return distInspect, nil
 }
 
 func (dg *dockerGoClient) PullImage(ctx context.Context, image string,

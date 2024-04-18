@@ -43,6 +43,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -50,6 +52,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang/mock/gomock"
@@ -293,6 +296,143 @@ func TestPullImageECRSuccess(t *testing.T) {
 	defer cancel()
 	metadata := client.PullImage(ctx, image, authData, defaultTestConfig().ImagePullTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
+}
+
+func TestPullImageManifest(t *testing.T) {
+	someErr := errors.New("some error")
+	testDigest, err := digest.Parse("sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")
+	require.NoError(t, err)
+	testDistributionInspect := registry.DistributionInspect{
+		Descriptor: ocispec.Descriptor{Digest: testDigest},
+	}
+	type testCase struct {
+		name                        string
+		ctx                         context.Context
+		imageRef                    string
+		authData                    *apicontainer.RegistryAuthenticationData
+		setSDKFactoryExpectations   func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller)
+		setECRClientExpectations    func(*mock_ecr.MockECRClient)
+		expectedError               error
+		expectedDistributionInspect registry.DistributionInspect
+	}
+	tcs := []testCase{
+		{
+			name:     "failure in getting ECR auth data",
+			ctx:      context.Background(),
+			imageRef: "image",
+			authData: &apicontainer.RegistryAuthenticationData{
+				Type:        apicontainer.AuthTypeECR,
+				ECRAuthData: &apicontainer.ECRAuthData{RegistryID: "registryId"},
+			},
+			setECRClientExpectations: func(me *mock_ecr.MockECRClient) {
+				me.EXPECT().GetAuthorizationToken("registryId").Return(nil, someErr)
+			},
+			expectedError: CannotPullECRContainerError{someErr},
+		},
+		{
+			name:     "Failure in getting SDK client",
+			ctx:      context.Background(),
+			imageRef: "image",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				f.EXPECT().GetDefaultClient().Return(nil, someErr)
+			},
+			expectedError: CannotGetDockerClientError{version: "", err: someErr},
+		},
+		{
+			name:     "Failure in DistributionInspect API - image URL is redacted",
+			ctx:      context.Background(),
+			imageRef: "image",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				client.EXPECT().
+					DistributionInspect(
+						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
+					Return(
+						registry.DistributionInspect{},
+						errors.New("Some error for https://prod-us-east-1-starport-layer-bucket.s3.us-east-1.amazonaws.com"))
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			expectedError: CannotPullContainerError{errors.New("Some error for REDACTED ECR URL related to image")},
+		},
+		{
+			name:     "Manifest is returned if there are no errors - no auth data",
+			ctx:      context.Background(),
+			imageRef: "image",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				client.EXPECT().
+					DistributionInspect(
+						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
+					Return(testDistributionInspect, nil)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			expectedDistributionInspect: testDistributionInspect,
+		},
+		func() testCase {
+			authData := &apicontainer.RegistryAuthenticationData{
+				Type:        apicontainer.AuthTypeASM,
+				ASMAuthData: &apicontainer.ASMAuthData{},
+			}
+			authConfig := types.AuthConfig{Username: "username", Password: "password"}
+			authData.ASMAuthData.SetDockerAuthConfig(authConfig)
+			encodedAuthConfig, err := registry.EncodeAuthConfig(authConfig)
+			require.NoError(t, err)
+			return testCase{
+				name:     "Manifest is returned if there are no errors - auth data",
+				ctx:      context.Background(),
+				imageRef: "image",
+				authData: authData,
+				setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+					client := mock_sdkclient.NewMockClient(ctrl)
+					client.EXPECT().
+						DistributionInspect(gomock.Any(), "image", encodedAuthConfig).
+						Return(testDistributionInspect, nil)
+					f.EXPECT().GetDefaultClient().Return(client, nil)
+				},
+				expectedDistributionInspect: testDistributionInspect,
+			}
+		}(),
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+			mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+			sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+			sdkFactory.EXPECT().GetDefaultClient().Return(mockDockerSDK, nil)
+
+			client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), context.Background())
+			require.NoError(t, err)
+
+			if tc.setSDKFactoryExpectations != nil {
+				tc.setSDKFactoryExpectations(sdkFactory, ctrl)
+			}
+
+			goClient, ok := client.(*dockerGoClient)
+			require.True(t, ok)
+			ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
+			ecrClient := mock_ecr.NewMockECRClient(ctrl)
+			mockTime := mock_ttime.NewMockTime(ctrl)
+			goClient.ecrClientFactory = ecrClientFactory
+			goClient._time = mockTime
+
+			if tc.setECRClientExpectations != nil {
+				ecrClientFactory.EXPECT().GetClient(tc.authData.ECRAuthData).Return(ecrClient, nil)
+				tc.setECRClientExpectations(ecrClient)
+			}
+
+			res, err := goClient.PullImageManifest(tc.ctx, tc.imageRef, tc.authData)
+			if tc.expectedError != nil {
+				assert.Equal(t, tc.expectedError, err)
+			} else {
+				require.Nil(t, err)
+				assert.Equal(t, tc.expectedDistributionInspect, res)
+			}
+		})
+	}
 }
 
 func TestPullImageECRAuthFail(t *testing.T) {
@@ -1243,16 +1383,13 @@ func TestPingSdkFailError(t *testing.T) {
 func TestUsesVersionedClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-
 	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
 	assert.NoError(t, err)
 
@@ -1272,16 +1409,13 @@ func TestUsesVersionedClient(t *testing.T) {
 func TestUnavailableVersionError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-
 	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
 	assert.NoError(t, err)
 
@@ -1294,7 +1428,6 @@ func TestUnavailableVersionError(t *testing.T) {
 
 	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 	metadata := vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
-
 	assert.NotNil(t, metadata.Error, "Expected error, didn't get one")
 	if namederr, ok := metadata.Error.(apierrors.NamedError); ok {
 		if namederr.ErrorName() != "CannotGetDockerclientError" {
