@@ -2710,6 +2710,83 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	}
 }
 
+// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
+func TestCreateContainerAwslogsLogDriver(t *testing.T) {
+	testCases := []struct {
+		name                      string
+		region                    string
+		expectedLogConfigEndpoint string
+	}{
+		{
+			name:                      "test container that uses awslogs log driver in IAD",
+			region:                    "us-east-1",
+			expectedLogConfigEndpoint: "",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in NCL",
+			region:                    "eu-isoe-west-1",
+			expectedLogConfigEndpoint: "https://logs.eu-isoe-west-1.cloud.adc-e.uk",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in ALE",
+			region:                    "us-isof-south-1",
+			expectedLogConfigEndpoint: "https://logs.us-isof-south-1.csp.hci.ic.gov",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LTW",
+			region:                    "us-isof-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.csp.hci.ic.gov",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			taskEngine.(*DockerTaskEngine).cfg.AWSRegion = tc.region
+
+			rawHostConfigInput := dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Type:   "awslogs",
+					Config: map[string]string{},
+				},
+			}
+			rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+			require.NoError(t, err)
+			testTask := &apitask.Task{
+				Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name: "test-container",
+						DockerConfig: apicontainer.DockerConfig{
+							HostConfig: func() *string {
+								s := string(rawHostConfig)
+								return &s
+							}(),
+						},
+					},
+				},
+			}
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Equal(t, tc.expectedLogConfigEndpoint, hostConfig.LogConfig.Config["awslogs-endpoint"])
+				})
+
+			ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+	}
+
+}
+
 // TestCreateContainerAddFirelensLogDriverConfig tests that in createContainer, when the
 // container is using firelens log driver, its logConfig is properly set.
 func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
