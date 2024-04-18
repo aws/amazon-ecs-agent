@@ -56,6 +56,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
+	ep "github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
@@ -84,6 +85,7 @@ const (
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
 	logDriverTypeFirelens       = "awsfirelens"
 	logDriverTypeFluentd        = "fluentd"
+	logDriverTypeAwslogs        = "awslogs"
 	logDriverTag                = "tag"
 	logDriverFluentdAddress     = "fluentd-address"
 	dataLogDriverPath           = "/data/firelens/"
@@ -1642,6 +1644,34 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				fluentNetworkHost: ipAddress,
 				fluentNetworkPort: FluentNetworkPortValue,
 			})
+		}
+	}
+
+	// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
+	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
+		region := engine.cfg.AWSRegion
+		if region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
+			endpoint := ""
+			dnsSuffix := ""
+			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
+			if !ok {
+				logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
+					"region":           region,
+					"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+				})
+				dnsSuffix = ep.AwsPartition().DNSSuffix()
+			} else {
+				resolvedEndpoint, err := partition.EndpointFor("logs", region)
+				if err == nil {
+					endpoint = resolvedEndpoint.URL
+				} else {
+					dnsSuffix = partition.DNSSuffix()
+				}
+			}
+			if endpoint == "" {
+				endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
+			}
+			hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 		}
 	}
 
