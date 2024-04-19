@@ -1,5 +1,15 @@
 # Changelog
 
+# 1.82.3
+* Enhancement - Implement TextMarshaler for ContainerStatus [#4135](https://github.com/aws/amazon-ecs-agent/pull/4135)
+* Enhancement - Add MANIFEST_PULLED internal container and task states [#4137](https://github.com/aws/amazon-ecs-agent/pull/4137)
+* Enhancement - Fail early when an unsupported docker API version is found [#4141](https://github.com/aws/amazon-ecs-agent/pull/4141)
+* Enhancement - Add functionality to pull image manifests to DockerClient [#4140](https://github.com/aws/amazon-ecs-agent/pull/4140)
+* Bugfix - Fix AL2023 integration tests [#4132](https://github.com/aws/amazon-ecs-agent/pull/4132)
+* Bugfix - Fix TestExecCommandAgent flakiness on AL1 [#4138](https://github.com/aws/amazon-ecs-agent/pull/4138)
+* Bugfix - Delete containers before the task from BoltDB [#3987](https://github.com/aws/amazon-ecs-agent/pull/3987)
+* Bugfix - Specifically set the CW endpoint when using awslogs as log driver for specifc regions [#4143](https://github.com/aws/amazon-ecs-agent/pull/4143)
+
 # 1.82.2
 * Enhancement - Bump aws-sdk-go version to 1.51.3 [#4120](https://github.com/aws/amazon-ecs-agent/pull/4120)
 * Enhancement - Update dependencies to include security patches reported by dependabot for agent [#4113](https://github.com/aws/amazon-ecs-agent/pull/4113)
