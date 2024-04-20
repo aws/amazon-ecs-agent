@@ -46,6 +46,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -146,6 +147,7 @@ func waitForTaskStoppedByCheckStatus(task *apitask.Task) {
 // removed matches with the generated container name during cleanup operation in the
 // test.
 func validateContainerRunWorkflow(t *testing.T,
+	ctrl *gomock.Controller,
 	container *apicontainer.Container,
 	task *apitask.Task,
 	imageManager *mock_engine.MockImageManager,
@@ -156,6 +158,13 @@ func validateContainerRunWorkflow(t *testing.T,
 	createdContainerName chan<- string,
 	assertions func(),
 ) {
+	// Prepare mock image manifest digest for test
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+		Return(registry.DistributionInspect{}, nil)
+
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 	client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
@@ -282,10 +291,12 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
+	fmt.Println("Got container running event")
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
+	fmt.Println("Got task running event")
 
 	select {
 	case <-stateChangeEvents:

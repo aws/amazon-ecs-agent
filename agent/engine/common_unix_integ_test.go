@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	testRegistryImage = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
-	dockerEndpoint    = "unix:///var/run/docker.sock"
+	testRegistryImage       = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
+	testRegistryImageDigest = "sha256:71c5ab100466f2e176a5b208b48c5a5c7ab864218bc81c30f314e356d02d55ca"
+	dockerEndpoint          = "unix:///var/run/docker.sock"
 )
 
 func createTestContainer() *apicontainer.Container {

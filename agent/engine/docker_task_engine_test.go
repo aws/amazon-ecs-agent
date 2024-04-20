@@ -67,6 +67,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -75,6 +77,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -274,7 +277,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}()
 
 			for _, container := range sleepTask.Containers {
-				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
+				validateContainerRunWorkflow(t, ctrl, container, sleepTask, imageManager,
 					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
@@ -374,7 +377,7 @@ func TestRemoveEvents(t *testing.T) {
 	}()
 
 	for _, container := range sleepTask.Containers {
-		validateContainerRunWorkflow(t, container, sleepTask, imageManager,
+		validateContainerRunWorkflow(t, ctrl, container, sleepTask, imageManager,
 			client, nil, &containerEventsWG,
 			eventStream, containerName, func() {
 			})
@@ -444,6 +447,11 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+		manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+		client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+		manifestPullClient.EXPECT().
+			PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+			Return(registry.DistributionInspect{}, nil)
 		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 
 		imageManager.EXPECT().RecordContainerReference(container)
@@ -504,7 +512,7 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	// set up expectations for each container in the task calling create + start
 	for _, container := range sleepTask.Containers {
-		validateContainerRunWorkflow(t, container, sleepTask, imageManager,
+		validateContainerRunWorkflow(t, ctrl, container, sleepTask, imageManager,
 			client, nil, &containerEventsWG,
 			eventStream, containerName, func() {
 			})
@@ -580,6 +588,12 @@ func TestStopWithPendingStops(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	defer discardEvents(stateChangeEvents)()
+
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil).MaxTimes(2)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(2).
+		Return(registry.DistributionInspect{}, nil)
 
 	pullDone := make(chan bool)
 	pullInvoked := make(chan bool)
@@ -780,6 +794,11 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	}
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+		manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+		client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+		manifestPullClient.EXPECT().
+			PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+			Return(registry.DistributionInspect{}, nil)
 		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 		imageManager.EXPECT().RecordContainerReference(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
@@ -841,9 +860,14 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	containerEventsWG := sync.WaitGroup{}
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
+			manifestPullClient.EXPECT().
+				PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+				Return(registry.DistributionInspect{}, nil),
 			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
@@ -917,9 +941,14 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	containerStoppingError := dockerapi.DockerContainerMetadata{
 		Error: dockerapi.CannotStopContainerError{errors.New("Error stopping container")},
 	}
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
+			manifestPullClient.EXPECT().
+				PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+				Return(registry.DistributionInspect{}, nil),
 			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
@@ -2261,6 +2290,11 @@ func TestContainerProgressParallize(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Times(2).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).
+		Return(registry.DistributionInspect{}, nil)
 	client.EXPECT().PullImage(gomock.Any(), fastPullImage, gomock.Any(), gomock.Any())
 	client.EXPECT().PullImage(gomock.Any(), slowPullImage, gomock.Any(), gomock.Any()).Do(
 		func(ctx interface{}, image interface{}, auth interface{}, timeout interface{}) {
@@ -3866,5 +3900,514 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 			}
 			assert.False(t, timeout)
 		})
+	}
+}
+
+func TestPullContainerManifest(t *testing.T) {
+	type testcase struct {
+		name                        string
+		containerType               apicontainer.ContainerType
+		containerName               string
+		image                       string
+		registryAuthData            *apicontainer.RegistryAuthenticationData
+		serviceConnectConfig        *serviceconnect.Config
+		imagePullBehavior           config.ImagePullBehaviorType
+		setDockerClientExpectations func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient)
+		expectedResult              dockerapi.DockerContainerMetadata
+		expectedDigest              string
+	}
+
+	someError := errors.New("some error")
+	tcs := []testcase{
+		{
+			name:          "no-op for CNI pause container",
+			containerType: apicontainer.ContainerCNIPause,
+		},
+		{
+			name:          "no-op for namespace pause container",
+			containerType: apicontainer.ContainerNamespacePause,
+		},
+		{
+			name:          "no-op for service connect relay container",
+			containerType: apicontainer.ContainerServiceConnectRelay,
+		},
+		{
+			name:          "no-op for managed daemon container",
+			containerType: apicontainer.ContainerManagedDaemon,
+		},
+		{
+			name:                 "no-op for service connect container",
+			serviceConnectConfig: &serviceconnect.Config{ContainerName: "my-sc-container"},
+			containerName:        "my-sc-container",
+		},
+		{
+			name:           "digest available in image reference",
+			image:          "public.ecr.aws/library/alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+			expectedDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		{
+			name:              "image pull not required - image inspect fails",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				d.EXPECT().InspectImage("myimage").Return(nil, nil)       // no error the first time
+				d.EXPECT().InspectImage("myimage").Return(nil, someError) // error the second time
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullImageManifestError{FromError: someError},
+			},
+		},
+		{
+			name:              "image pull not required - inspected image has no repo digest",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				inspectResult := &types.ImageInspect{}
+				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{},
+		},
+		{
+			name:              "image pull not required - repo digest invalid",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				inspectResult := &types.ImageInspect{RepoDigests: []string{"invalid"}}
+				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullImageManifestError{
+					FromError: errors.New("failed to parse repo digest from 'invalid'"),
+				},
+			},
+		},
+		{
+			name:              "image pull not required - repo digest valid",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				inspectResult := &types.ImageInspect{RepoDigests: []string{
+					"alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+				}}
+				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
+			},
+			expectedDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		{
+			name:              "image pull required - required docker API version unsupported",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(nil, someError)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{},
+		},
+		func() testcase {
+			manifestPullError := dockerapi.CannotPullImageManifestError{FromError: someError}
+			return testcase{
+				name:              "image pull required - manifest pull from registry failed",
+				image:             "myimage",
+				imagePullBehavior: config.ImagePullAlwaysBehavior,
+				setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+					versioned := mock_dockerapi.NewMockDockerClient(c)
+					versioned.EXPECT().
+						PullImageManifest(gomock.Any(), "myimage", nil).
+						Return(registry.DistributionInspect{}, manifestPullError)
+					d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+				},
+				expectedResult: dockerapi.DockerContainerMetadata{Error: manifestPullError},
+			}
+		}(),
+		{
+			name:              "image pull required - manifest pull from public registry succeeded",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				dgst, err := digest.Parse("sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b")
+				require.NoError(t, err)
+				versioned := mock_dockerapi.NewMockDockerClient(c)
+				versioned.EXPECT().
+					PullImageManifest(gomock.Any(), "myimage", nil).
+					Return(
+						registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: dgst}},
+						nil)
+				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+			},
+			expectedDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		func() testcase {
+			authdata := &apicontainer.RegistryAuthenticationData{}
+			return testcase{
+				name:              "image pull required - manifest pull from private registry",
+				image:             "myimage",
+				imagePullBehavior: config.ImagePullAlwaysBehavior,
+				registryAuthData:  authdata,
+				setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+					dgst, err := digest.Parse("sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b")
+					require.NoError(t, err)
+					versioned := mock_dockerapi.NewMockDockerClient(c)
+					versioned.EXPECT().
+						PullImageManifest(gomock.Any(), "myimage", authdata).
+						Return(
+							registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: dgst}},
+							nil)
+					d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+				},
+				expectedDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+			}
+		}(),
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{ImagePullBehavior: tc.imagePullBehavior}
+			ctrl, dockerClient, _, taskEngine, _, _, _, _ := mocks(t, context.Background(), cfg)
+			defer ctrl.Finish()
+
+			if tc.setDockerClientExpectations != nil {
+				tc.setDockerClientExpectations(ctrl, dockerClient)
+			}
+			engine, ok := taskEngine.(*DockerTaskEngine)
+			require.True(t, ok)
+
+			container := &apicontainer.Container{
+				Image: tc.image, Type: tc.containerType, Name: tc.containerName,
+				RegistryAuthentication: tc.registryAuthData,
+			}
+			task := &apitask.Task{
+				Containers:           []*apicontainer.Container{container},
+				ServiceConnectConfig: tc.serviceConnectConfig,
+			}
+			result := engine.pullContainerManifest(task, container)
+			assert.Equal(t, tc.expectedResult, result)
+			assert.Equal(t, tc.expectedDigest, container.GetImageDigest())
+		})
+	}
+}
+
+// This function simulates cases where manifest pull for the task container fails but the
+// task should continue its run anyway.
+func TestManifestPullFailuresTaskShouldContinue(t *testing.T) {
+	type testcase struct {
+		name              string
+		imagePullBehavior config.ImagePullBehaviorType
+		container         *apicontainer.Container
+	}
+	tcs := []testcase{
+		{
+			name:              "image pull behavior is default",
+			imagePullBehavior: config.ImagePullDefaultBehavior,
+			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up config
+			cfg := config.DefaultConfig()
+			cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+			cfg.ImagePullBehavior = tc.imagePullBehavior
+
+			// A test task
+			task := &apitask.Task{
+				Containers:          []*apicontainer.Container{tc.container},
+				Arn:                 testTaskARN,
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			}
+
+			// Set up task engine and mocks
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager :=
+				mocks(t, ctx, &cfg)
+			defer ctrl.Finish()
+			serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+			serviceConnectManager.EXPECT().
+				LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).
+				AnyTimes()
+
+			// time.Now() is called to record certain timestamps but we don't care about
+			// that for this test
+			mockTime.EXPECT().Now().AnyTimes().Return(time.Now())
+
+			// Set expectations on mocks for container transition to CREATED and RUNNING
+			eventStream := make(chan dockerapi.DockerContainerChangeEvent)
+			dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+
+			// Prepare error to be raised during manifest pull transition
+			manifestPullError := dockerapi.CannotPullImageManifestError{
+				FromError: errors.New("some error"),
+			}
+			manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+			gomock.InOrder(
+				// Expectations for transition to MANIFEST_PULLED
+				dockerClient.EXPECT().
+					WithVersion(dockerclient.Version_1_35).
+					Return(manifestPullClient, nil),
+				manifestPullClient.EXPECT().
+					PullImageManifest(
+						gomock.Any(), tc.container.Image, tc.container.RegistryAuthentication).
+					Return(registry.DistributionInspect{}, manifestPullError),
+
+				// Expectations for transition to PULLED
+				dockerClient.EXPECT().
+					PullImage(gomock.Any(), tc.container.Image, nil, gomock.Any()).
+					Return(dockerapi.DockerContainerMetadata{}),
+				imageManager.EXPECT().RecordContainerReference(tc.container).Return(nil),
+				imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
+
+				// Expectations for transition to CREATED
+				dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+				dockerClient.EXPECT().
+					CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Do(
+						func(ctx interface{}, config *dockercontainer.Config, y interface{},
+							containerName string, z time.Duration,
+						) {
+							eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						}).
+					Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
+
+				// Expectations for transition to RUNNING
+				dockerClient.EXPECT().
+					StartContainer(gomock.Any(), containerID, cfg.ContainerStartTimeout).
+					Do(
+						func(ctx interface{}, id string, timeout time.Duration) {
+							eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						}).
+					Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
+			)
+
+			// Start the task
+			err := taskEngine.Init(context.Background())
+			require.NoError(t, err)
+			taskEngine.AddTask(task)
+
+			// Wait for the task to reach RUNNING
+			waitForRunningEvents(t, taskEngine.StateChangeEvents())
+			// containerEventsWG.Wait()
+
+			// Expectations for cleanup
+			cleanup := make(chan time.Time)
+			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
+			containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(task.Arn)
+			require.True(t, ok)
+			dockerContainer, ok := containerMap[task.Containers[0].Name]
+			require.True(t, ok)
+			dockerClient.EXPECT().
+				RemoveContainer(
+					gomock.Any(), dockerContainer.DockerID,
+					dockerclient.RemoveContainerTimeout).
+				Return(nil)
+			imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
+
+			// Simulate container exit
+			eventStream <- dockerapi.DockerContainerChangeEvent{
+				Status: apicontainerstatus.ContainerStopped,
+				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+					DockerID: containerID,
+					ExitCode: aws.Int(0),
+				},
+			}
+			waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
+
+			// trigger cleanup, this ensures all the goroutines were finished
+			task.SetSentStatus(apitaskstatus.TaskStopped) // Needed to unblock cleanup
+			cleanup <- time.Now()
+			for {
+				tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+				if len(tasks) == 0 {
+					break
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		})
+	}
+}
+
+// This function simulates cases where manifest pull for the task container fails and the
+// task should stop.
+func TestManifestPullFailuresTaskShouldStop(t *testing.T) {
+	someError := errors.New("some error")
+	manifestPullErr := dockerapi.CannotPullImageManifestError{FromError: someError}
+	tcs := []struct {
+		name                        string
+		imagePullBehavior           config.ImagePullBehaviorType
+		container                   *apicontainer.Container
+		setImageManagerExpectations func(i *mock_engine.MockImageManager)
+		setDockerClientExpectations func(ctrl *gomock.Controller, d *mock_dockerapi.MockDockerClient)
+		expectedApplyingError       error
+	}{
+		{
+			name:              "image pull behavior always",
+			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(ctrl *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+				manifestPullClient.EXPECT().
+					PullImageManifest(gomock.Any(), "myimage", nil).
+					Return(registry.DistributionInspect{}, manifestPullErr)
+				d.EXPECT().
+					WithVersion(dockerclient.Version_1_35).
+					Return(manifestPullClient, nil)
+			},
+			expectedApplyingError: manifestPullErr,
+		},
+		{
+			name:              "image pull behavior once - image found in cache but not on host",
+			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			imagePullBehavior: config.ImagePullOnceBehavior,
+			setImageManagerExpectations: func(i *mock_engine.MockImageManager) {
+				i.EXPECT().
+					GetImageStateFromImageName("myimage").
+					Return(&image.ImageState{PullSucceeded: true}, true)
+			},
+			setDockerClientExpectations: func(ctrl *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				d.EXPECT().InspectImage("myimage").Return(nil, someError)
+			},
+			expectedApplyingError: dockerapi.CannotPullImageManifestError{FromError: someError},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up config
+			cfg := config.DefaultConfig()
+			cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+			cfg.ImagePullBehavior = tc.imagePullBehavior
+
+			// A test task
+			task := &apitask.Task{
+				Containers:          []*apicontainer.Container{tc.container},
+				Arn:                 testTaskARN,
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			}
+
+			// Set up task engine and mocks
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _, serviceConnectManager :=
+				mocks(t, ctx, &cfg)
+			defer ctrl.Finish()
+			serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
+			serviceConnectManager.EXPECT().
+				LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).
+				AnyTimes()
+			eventStream := make(chan dockerapi.DockerContainerChangeEvent)
+			dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+			cleanup := make(chan time.Time)
+			if tc.setImageManagerExpectations != nil {
+				tc.setImageManagerExpectations(imageManager)
+			}
+			if tc.setDockerClientExpectations != nil {
+				tc.setDockerClientExpectations(ctrl, dockerClient)
+			}
+
+			// We don't care about interaction with time for this test
+			mockTime.EXPECT().Now().AnyTimes().Return(time.Now())
+			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
+
+			// Start the task
+			err := taskEngine.Init(context.Background())
+			require.NoError(t, err)
+			taskEngine.AddTask(task)
+
+			// Verify that the task fails and the error is captured in the container.
+			verifyTaskIsStopped(taskEngine.StateChangeEvents(), task)
+			assert.Equal(t,
+				apierrors.NewNamedError(tc.expectedApplyingError),
+				tc.container.ApplyingError)
+		})
+	}
+}
+
+func TestImagePullRequired(t *testing.T) {
+	tcs := []struct {
+		name                        string
+		imagePullBehavior           config.ImagePullBehaviorType
+		container                   *apicontainer.Container
+		setImageManagerExpectations func(i *mock_engine.MockImageManager)
+		setDockerClientExpectations func(d *mock_dockerapi.MockDockerClient)
+		expected                    bool
+	}{
+		{
+			name:              "always required if pull behavior is always",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			expected:          true,
+		},
+		{
+			name:              "always required if pull behavior is default",
+			imagePullBehavior: config.ImagePullDefaultBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			expected:          true,
+		},
+		{
+			name:              "required if behavior is once and image is not in cache",
+			imagePullBehavior: config.ImagePullOnceBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			setImageManagerExpectations: func(i *mock_engine.MockImageManager) {
+				i.EXPECT().
+					GetImageStateFromImageName("myimage").
+					Return(nil, false)
+			},
+			expected: true,
+		},
+		{
+			name:              "required if behavior is once, image is in cache but last pull was unsuccessful",
+			imagePullBehavior: config.ImagePullOnceBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			setImageManagerExpectations: func(i *mock_engine.MockImageManager) {
+				i.EXPECT().
+					GetImageStateFromImageName("myimage").
+					Return(&image.ImageState{PullSucceeded: false}, true)
+			},
+			expected: true,
+		},
+		{
+			name:              "not required if behavior is once and image is in cache",
+			imagePullBehavior: config.ImagePullOnceBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			setImageManagerExpectations: func(i *mock_engine.MockImageManager) {
+				i.EXPECT().
+					GetImageStateFromImageName("myimage").
+					Return(&image.ImageState{PullSucceeded: true}, true)
+			},
+			expected: false,
+		},
+		{
+			name:              "required if behavior is prefer-cached and image is not on host",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			setDockerClientExpectations: func(d *mock_dockerapi.MockDockerClient) {
+				d.EXPECT().InspectImage("myimage").Return(nil, errors.New("not found"))
+			},
+			expected: true,
+		},
+		{
+			name:              "not required if behavior is prefer-cached and image is on the host",
+			imagePullBehavior: config.ImagePullPreferCachedBehavior,
+			container:         &apicontainer.Container{Image: "myimage"},
+			setDockerClientExpectations: func(d *mock_dockerapi.MockDockerClient) {
+				d.EXPECT().InspectImage("myimage").Return(&types.ImageInspect{}, nil)
+			},
+			expected: false,
+		},
+	}
+	for _, tc := range tcs {
+		ctrl, dockerClient, _, taskEngine, _, imageManager, _, _ :=
+			mocks(t, context.Background(), &defaultConfig)
+		defer ctrl.Finish()
+
+		if tc.setImageManagerExpectations != nil {
+			tc.setImageManagerExpectations(imageManager)
+		}
+		if tc.setDockerClientExpectations != nil {
+			tc.setDockerClientExpectations(dockerClient)
+		}
+
+		res := taskEngine.(*DockerTaskEngine).imagePullRequired(tc.imagePullBehavior, tc.container, "")
+		assert.Equal(t, tc.expected, res)
 	}
 }

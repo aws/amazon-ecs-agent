@@ -45,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -59,6 +60,7 @@ import (
 	ep "github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -1238,12 +1240,92 @@ func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager 
 func (engine *DockerTaskEngine) pullContainerManifest(
 	task *apitask.Task, container *apicontainer.Container,
 ) dockerapi.DockerContainerMetadata {
-	// Currently a no-op
-	logger.Debug("Manifest pull is currently a no-op", logger.Fields{
-		field.TaskID:    task.GetID(),
-		field.Container: container.Name,
-		field.Image:     container.Image,
+	switch container.Type {
+	case apicontainer.ContainerCNIPause,
+		apicontainer.ContainerNamespacePause,
+		apicontainer.ContainerServiceConnectRelay,
+		apicontainer.ContainerManagedDaemon:
+		// pause images and AppNet relay image are managed at startup
+		return dockerapi.DockerContainerMetadata{}
+	}
+	// AppNet Agent container image is also managed at start up
+	// (it uses the same image as AppNet Relay container)
+	if task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer() {
+		return dockerapi.DockerContainerMetadata{}
+	}
+
+	var imageManifestDigest digest.Digest
+	digestFromPayload := referenceutil.GetDigestFromImageRef(container.Image)
+	if digestFromPayload != "" {
+		// Digest available in task payload
+		imageManifestDigest = digestFromPayload
+	} else if !engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.GetID()) {
+		// Digest should be resolved by inspecting local image
+		imgInspect, err := engine.client.InspectImage(container.Image)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullImageManifestError{FromError: err},
+			}
+		}
+		if len(imgInspect.RepoDigests) == 0 {
+			// Image was not pulled from a registry, so the user must have cached it on the
+			// host directly. Skip digest resolution for this case as there is no digest.
+			return dockerapi.DockerContainerMetadata{}
+		}
+		parsedDigest := referenceutil.GetDigestFromImageRef(imgInspect.RepoDigests[0])
+		if parsedDigest == "" {
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullImageManifestError{
+					FromError: fmt.Errorf("failed to parse repo digest from '%s'", imgInspect.RepoDigests[0]),
+				},
+			}
+		}
+		imageManifestDigest = parsedDigest
+		logger.Info("Fetched image digest for container from local image inspect", logger.Fields{
+			field.TaskARN:       task.Arn,
+			field.ContainerName: container.Name,
+			field.ImageDigest:   imageManifestDigest.String(),
+		})
+	} else {
+		// Digest should be resolved by calling the registry
+
+		// Technically, API version 1.30 is enough to call Distribution API to fetch image manifests
+		// from registries. However, Docker engine versions between 17.06 (API version 1.30) and
+		// 17.12 (API version 1.35) support image pulls from v1 registries
+		// (using `disable-legacy-registry` option) whereas Distribution API does not work against
+		// v1 registries. So, to be safe, we will only attempt digest resolution if Docker engine
+		// version is >= 17.12 (API version 1.35).
+		supportedAPIVersion := dockerclient.GetSupportedDockerAPIVersion(dockerclient.Version_1_35)
+		client, err := engine.client.WithVersion(supportedAPIVersion)
+		if err != nil {
+			logger.Warn(
+				"Failed to find a supported API version that supports manifest pulls. Skipping digest resolution.",
+				logger.Fields{
+					field.TaskARN:        task.Arn,
+					field.ContainerName:  container.Name,
+					"requiredAPIVersion": supportedAPIVersion,
+				})
+			return dockerapi.DockerContainerMetadata{}
+		}
+		distInspect, manifestPullErr := client.PullImageManifest(
+			engine.ctx, container.Image, container.RegistryAuthentication)
+		if manifestPullErr != nil {
+			return dockerapi.DockerContainerMetadata{Error: manifestPullErr}
+		}
+		imageManifestDigest = distInspect.Descriptor.Digest
+		logger.Info("Fetched image manifest digest for container from registry", logger.Fields{
+			field.TaskARN:       task.Arn,
+			field.ContainerName: container.Name,
+			field.ImageDigest:   imageManifestDigest.String(),
+		})
+	}
+
+	logger.Debug("Setting image digest on container", logger.Fields{
+		field.TaskARN:       task.Arn,
+		field.ContainerName: container.Name,
+		field.ImageDigest:   imageManifestDigest.String(),
 	})
+	container.SetImageDigest(imageManifestDigest.String())
 	return dockerapi.DockerContainerMetadata{}
 }
 
@@ -1312,7 +1394,7 @@ func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.Image
 		// by inspecting the image.
 		_, err := engine.client.InspectImage(container.Image)
 		if err != nil {
-			logger.Info("Image inspect returned error, going to pull image for container", logger.Fields{
+			logger.Info("Image inspect returned error, manifest and image pull required", logger.Fields{
 				field.TaskID:    taskId,
 				field.Container: container.Name,
 				field.Image:     container.Image,

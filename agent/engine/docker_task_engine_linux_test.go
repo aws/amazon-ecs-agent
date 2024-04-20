@@ -33,6 +33,7 @@ import (
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -63,6 +64,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -115,6 +117,9 @@ func TestResourceContainerProgression(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes()
 
+	// Prepare mock image manifest digest for test
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
 	// Hierarchical memory accounting is always enabled in CgroupV2 and no controller file exists to configure it
 	if config.CgroupV2 {
 		gomock.InOrder(
@@ -122,6 +127,12 @@ func TestResourceContainerProgression(t *testing.T) {
 			mockControl.EXPECT().Exists(gomock.Any()).Return(false),
 			mockControl.EXPECT().Create(gomock.Any()).Return(nil),
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
+			manifestPullClient.EXPECT().
+				PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
+				Return(
+					registry.DistributionInspect{},
+					nil),
 			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
@@ -153,6 +164,10 @@ func TestResourceContainerProgression(t *testing.T) {
 			mockControl.EXPECT().Create(gomock.Any()).Return(nil),
 			mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
+			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
+			manifestPullClient.EXPECT().
+				PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
+				Return(registry.DistributionInspect{}, nil),
 			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
@@ -322,6 +337,15 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 
+	// Prepare mock image manifest digest for test
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
+		Return(
+			registry.DistributionInspect{},
+			nil)
+
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
 
@@ -408,7 +432,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			}
 
 			for _, container := range sleepTask.Containers {
-				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
+				validateContainerRunWorkflow(t, ctrl, container, sleepTask, imageManager,
 					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
@@ -421,6 +445,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
 				types.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
+			time.Sleep(5 * time.Second)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
@@ -675,6 +700,14 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
 	// Hence, do not enforce the order of invocation of these calls
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+
+	// Prepare mock image manifest digest for test
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), sleepContainer.Image, sleepContainer.RegistryAuthentication).
+		Return(registry.DistributionInspect{}, nil)
+
 	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
@@ -843,8 +876,15 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 	)
 
+	// Prepare mock image manifest digest for test
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().WithVersion(dockerclient.Version_1_35).Times(2).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).
+		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
@@ -1057,6 +1097,11 @@ func TestContainersWithServiceConnect(t *testing.T) {
 
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().WithVersion(dockerclient.Version_1_35).Times(2).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).
+		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
@@ -1255,6 +1300,11 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	// For SC and sleep container - those calls can happen in parallel
 	// Note that SC container won't trigger image-related calls as AppNet container images are cached and managed by Agent
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(1)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(1)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(1)

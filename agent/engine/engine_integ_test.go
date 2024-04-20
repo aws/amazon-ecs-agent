@@ -621,4 +621,56 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 	assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
 	// The second container should be waiting in MANIFEST_PULLED state
 	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+
+	// Assert that both containers have the right image digest populated
+	assert.Equal(t, testRegistryImageDigest, first.GetImageDigest())
+	assert.Equal(t, testRegistryImageDigest, second.GetImageDigest())
+}
+
+// Integration test for pullContainerManifest.
+// The test depends on 127.0.0.1:51670/busybox image that is prepared by `make test-registry`
+// command.
+func TestPullContainerManifestInteg(t *testing.T) {
+	tcs := []struct {
+		name           string
+		image          string
+		expectedDigest string
+	}{
+		{
+			name:           "digest available in image reference",
+			image:          "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expectedDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "digest can be resolved from explicit tag",
+			image:          "127.0.0.1:51670/busybox:latest",
+			expectedDigest: "sha256:51de9138b0cc394c813df84f334d638499333cac22edd05d0300b2c9a2dc80dd",
+		},
+		{
+			name:           "digest can be resolved without an explicit tag",
+			image:          "127.0.0.1:51670/busybox",
+			expectedDigest: "sha256:51de9138b0cc394c813df84f334d638499333cac22edd05d0300b2c9a2dc80dd",
+		},
+	}
+	imagePullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullPreferCachedBehavior, config.ImagePullOnceBehavior,
+	}
+	for _, tc := range tcs {
+		for _, imagePullBehavior := range imagePullBehaviors {
+			t.Run(fmt.Sprintf("%s - %d", tc.name, imagePullBehavior), func(t *testing.T) {
+				container := &apicontainer.Container{Image: tc.image}
+				task := &apitask.Task{Containers: []*apicontainer.Container{container}}
+				cfg := defaultTestConfigIntegTest()
+				cfg.ImagePullBehavior = imagePullBehavior
+				taskEngine, done, _ := setup(cfg, nil, t)
+				defer done()
+				engine, ok := taskEngine.(*DockerTaskEngine)
+				require.True(t, ok)
+				res := engine.pullContainerManifest(task, container)
+				require.NoError(t, res.Error)
+				assert.Equal(t, tc.expectedDigest, container.GetImageDigest())
+			})
+		}
+	}
 }
