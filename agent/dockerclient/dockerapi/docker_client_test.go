@@ -347,12 +347,42 @@ func TestPullImageManifest(t *testing.T) {
 				client.EXPECT().
 					DistributionInspect(
 						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
+					Times(maximumPullRetries).
 					Return(
 						registry.DistributionInspect{},
 						errors.New("Some error for https://prod-us-east-1-starport-layer-bucket.s3.us-east-1.amazonaws.com"))
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
-			expectedError: CannotPullContainerError{errors.New("Some error for REDACTED ECR URL related to image")},
+			expectedError: CannotPullImageManifestError{errors.New("Some error for REDACTED ECR URL related to image")},
+		},
+		{
+			name: "Error is returned if context is canceled",
+			ctx: func() context.Context {
+				c, cancel := context.WithCancel(context.Background())
+				cancel()
+				return c
+			}(),
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			imageRef:      "image",
+			expectedError: CannotPullImageManifestError{FromError: errors.New("context canceled")},
+		},
+		{
+			name: "Error is returned if context deadline is exceeded",
+			ctx: func() context.Context {
+				c, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+				time.Sleep(2 * time.Millisecond) // Give some time for deadline to be exceeded
+				cancel()
+				return c
+			}(),
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			imageRef:      "image",
+			expectedError: CannotPullImageManifestError{FromError: errors.New("context deadline exceeded")},
 		},
 		{
 			name:     "Manifest is returned if there are no errors - no auth data",
@@ -411,20 +441,18 @@ func TestPullImageManifest(t *testing.T) {
 				tc.setSDKFactoryExpectations(sdkFactory, ctrl)
 			}
 
-			goClient, ok := client.(*dockerGoClient)
-			require.True(t, ok)
 			ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 			ecrClient := mock_ecr.NewMockECRClient(ctrl)
-			mockTime := mock_ttime.NewMockTime(ctrl)
-			goClient.ecrClientFactory = ecrClientFactory
-			goClient._time = mockTime
+			client.(*dockerGoClient).ecrClientFactory = ecrClientFactory
+			client.(*dockerGoClient).manifestPullBackoff = retry.NewExponentialBackoff(
+				1*time.Nanosecond, 1*time.Nanosecond, 1, 1)
 
 			if tc.setECRClientExpectations != nil {
 				ecrClientFactory.EXPECT().GetClient(tc.authData.ECRAuthData).Return(ecrClient, nil)
 				tc.setECRClientExpectations(ecrClient)
 			}
 
-			res, err := goClient.PullImageManifest(tc.ctx, tc.imageRef, tc.authData)
+			res, err := client.PullImageManifest(tc.ctx, tc.imageRef, tc.authData)
 			if tc.expectedError != nil {
 				assert.Equal(t, tc.expectedError, err)
 			} else {

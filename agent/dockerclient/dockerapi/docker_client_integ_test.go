@@ -18,12 +18,14 @@ package dockerapi
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,6 +54,9 @@ func TestImageManifestPullInteg(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping test due to unsupported Docker version: %v", err)
 	}
+	// Make retries very fast
+	supportedClient.(*dockerGoClient).manifestPullBackoff = retry.NewExponentialBackoff(
+		time.Nanosecond, time.Nanosecond, 1, 1)
 
 	tcs := []struct {
 		name          string
@@ -99,12 +104,9 @@ func TestImageManifestPullInteg(t *testing.T) {
 		{
 			name: "Docker client version too old",
 			dockerClient: func() DockerClient {
-				sdkClientFactory := sdkclientfactory.NewFactory(context.Background(), dockerEndpoint)
-				cfg := &config.Config{}
-				defaultClient, err := NewDockerGoClient(sdkClientFactory, cfg, context.Background())
-				require.NoError(t, err)
+				// Prepare a Docker client with an older API version
 				version := dockerclient.GetSupportedDockerAPIVersion(dockerclient.Version_1_29)
-				unsupportedClient, err := defaultClient.WithVersion(version)
+				unsupportedClient, err := supportedClient.WithVersion(version)
 				require.NoError(t, err)
 				return unsupportedClient
 			}(),
