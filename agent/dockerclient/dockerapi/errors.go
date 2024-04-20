@@ -151,6 +151,20 @@ func (err CannotPullContainerError) ErrorName() string {
 	return "CannotPullContainerError"
 }
 
+// CannotPullImageManifestError indicates any error when trying to pull a container image manifest.
+type CannotPullImageManifestError struct {
+	FromError error
+}
+
+func (err CannotPullImageManifestError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns the name of CannotPullImageManifestError.
+func (err CannotPullImageManifestError) ErrorName() string {
+	return "CannotPullImageManifestError"
+}
+
 // CannotPullECRContainerError indicates any error when trying to pull
 // a container image from ECR
 type CannotPullECRContainerError struct {

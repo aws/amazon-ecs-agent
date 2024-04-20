@@ -124,7 +124,7 @@ type DockerClient interface {
 
 	// Given an image reference and registry auth credentials, pulls the image manifest
 	// of the image from the registry.
-	PullImageManifest(context.Context, string, *apicontainer.RegistryAuthenticationData) (registry.DistributionInspect, error)
+	PullImageManifest(context.Context, string, *apicontainer.RegistryAuthenticationData) (registry.DistributionInspect, apierrors.NamedError)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
@@ -244,6 +244,7 @@ type dockerGoClient struct {
 	ecrTokenCache            async.Cache
 	config                   *config.Config
 	context                  context.Context
+	manifestPullBackoff      retry.Backoff
 	imagePullBackoff         retry.Backoff
 	inactivityTimeoutHandler inactivityTimeoutHandlerFunc
 
@@ -267,11 +268,12 @@ type ImagePullResponse struct {
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) (DockerClient, error) {
 	versionedClient := &dockerGoClient{
-		sdkClientFactory: dg.sdkClientFactory,
-		version:          version,
-		auth:             dg.auth,
-		config:           dg.config,
-		context:          dg.context,
+		sdkClientFactory:    dg.sdkClientFactory,
+		version:             version,
+		auth:                dg.auth,
+		config:              dg.config,
+		context:             dg.context,
+		manifestPullBackoff: dg.manifestPullBackoff,
 	}
 	// Check if the version is supported
 	_, err := versionedClient.sdkDockerClient()
@@ -313,6 +315,8 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 		context:          ctx,
 		imagePullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
 			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
+		manifestPullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
+			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
 		inactivityTimeoutHandler: handleInactivityTimeout,
 	}, nil
 }
@@ -337,29 +341,65 @@ func (dg *dockerGoClient) time() ttime.Time {
 // Pulls image manifest from the registry
 func (dg *dockerGoClient) PullImageManifest(
 	ctx context.Context, imageRef string, authData *apicontainer.RegistryAuthenticationData,
-) (registry.DistributionInspect, error) {
+) (registry.DistributionInspect, apierrors.NamedError) {
 	// Get auth creds
 	sdkAuthConfig, err := dg.getAuthdata(imageRef, authData)
 	if err != nil {
-		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
 	encodedAuth, err := registry.EncodeAuthConfig(sdkAuthConfig)
 	if err != nil {
-		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
 
-	// Get an SDK Docker Client and call Distribution API
+	// Get an SDK Docker Client
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return registry.DistributionInspect{}, CannotGetDockerClientError{version: dg.version, err: err}
 	}
-	distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
+
+	// Call DistributionInspect API with retries
+	var distInspectPtr *registry.DistributionInspect
+	err = retry.RetryNWithBackoffCtx(ctx, dg.manifestPullBackoff, maximumPullRetries, func() error {
+		distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
+		if err != nil {
+			return err
+		}
+		distInspectPtr = &distInspect
+		return nil
+	})
+
 	if err != nil {
-		err = redactEcrUrls(imageRef, err)
-		return registry.DistributionInspect{}, CannotPullContainerError{err}
+		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		// Context was done while waiting for a retry attempt
+		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, ctxErr)
+	}
+	if distInspectPtr == nil {
+		// Shouldn't ever happen but to prevent a panic
+		return registry.DistributionInspect{}, CannotPullImageManifestError{
+			FromError: errors.New("failed to pull image manifest"),
+		}
 	}
 
-	return distInspect, nil
+	return *distInspectPtr, nil
+}
+
+// If the provided error is a NamedError then returns it, otherwise wraps the error in
+// a CannotPullImageManifestError after redacting sensitive information from the error
+// message.
+func wrapManifestPullErrorAsNamedError(image string, err error) apierrors.NamedError {
+	var retErr apierrors.NamedError
+	if err != nil {
+		engErr, ok := err.(apierrors.NamedError)
+		if !ok {
+			err = redactEcrUrls(image, err)
+			engErr = CannotPullImageManifestError{err}
+		}
+		retErr = engErr
+	}
+	return retErr
 }
 
 func (dg *dockerGoClient) PullImage(ctx context.Context, image string,

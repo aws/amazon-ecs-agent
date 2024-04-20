@@ -28,6 +28,7 @@ import (
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	status "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	errors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	types "github.com/docker/docker/api/types"
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
@@ -320,11 +321,11 @@ func (mr *MockDockerClientMockRecorder) PullImage(arg0, arg1, arg2, arg3 interfa
 }
 
 // PullImageManifest mocks base method.
-func (m *MockDockerClient) PullImageManifest(arg0 context.Context, arg1 string, arg2 *container.RegistryAuthenticationData) (registry.DistributionInspect, error) {
+func (m *MockDockerClient) PullImageManifest(arg0 context.Context, arg1 string, arg2 *container.RegistryAuthenticationData) (registry.DistributionInspect, errors.NamedError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PullImageManifest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(registry.DistributionInspect)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(errors.NamedError)
 	return ret0, ret1
 }
 
