@@ -376,7 +376,7 @@ func (dg *dockerGoClient) PullImageManifest(
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		// Context was done before manifest could be pulled
 		if errors.Is(ctxErr, context.DeadlineExceeded) {
-			timeoutErr := &DockerTimeoutError{time.Now().Sub(startTime), "MANIFEST_PULLED"}
+			timeoutErr := &DockerTimeoutError{time.Since(startTime), "MANIFEST_PULLED"}
 			return registry.DistributionInspect{}, timeoutErr
 		}
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, ctxErr)
