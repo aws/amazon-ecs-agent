@@ -359,6 +359,7 @@ func (dg *dockerGoClient) PullImageManifest(
 	}
 
 	// Call DistributionInspect API with retries
+	startTime := time.Now()
 	var distInspectPtr *registry.DistributionInspect
 	err = retry.RetryNWithBackoffCtx(ctx, dg.manifestPullBackoff, maximumPullRetries, func() error {
 		distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
@@ -373,7 +374,11 @@ func (dg *dockerGoClient) PullImageManifest(
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		// Context was done while waiting for a retry attempt
+		// Context was done before manifest could be pulled
+		if errors.Is(ctxErr, context.DeadlineExceeded) {
+			timeoutErr := &DockerTimeoutError{time.Now().Sub(startTime), "MANIFEST_PULLED"}
+			return registry.DistributionInspect{}, timeoutErr
+		}
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, ctxErr)
 	}
 	if distInspectPtr == nil {

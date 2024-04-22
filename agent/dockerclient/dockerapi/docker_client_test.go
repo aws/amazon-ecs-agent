@@ -312,7 +312,7 @@ func TestPullImageManifest(t *testing.T) {
 		authData                    *apicontainer.RegistryAuthenticationData
 		setSDKFactoryExpectations   func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller)
 		setECRClientExpectations    func(*mock_ecr.MockECRClient)
-		expectedError               error
+		assertError                 func(t *testing.T, err error)
 		expectedDistributionInspect registry.DistributionInspect
 	}
 	tcs := []testCase{
@@ -327,7 +327,9 @@ func TestPullImageManifest(t *testing.T) {
 			setECRClientExpectations: func(me *mock_ecr.MockECRClient) {
 				me.EXPECT().GetAuthorizationToken("registryId").Return(nil, someErr)
 			},
-			expectedError: CannotPullECRContainerError{someErr},
+			assertError: func(t *testing.T, err error) {
+				require.Equal(t, CannotPullECRContainerError{someErr}, err)
+			},
 		},
 		{
 			name:     "Failure in getting SDK client",
@@ -336,7 +338,9 @@ func TestPullImageManifest(t *testing.T) {
 			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
 				f.EXPECT().GetDefaultClient().Return(nil, someErr)
 			},
-			expectedError: CannotGetDockerClientError{version: "", err: someErr},
+			assertError: func(t *testing.T, err error) {
+				require.Equal(t, CannotGetDockerClientError{version: "", err: someErr}, err)
+			},
 		},
 		{
 			name:     "Failure in DistributionInspect API - image URL is redacted",
@@ -353,7 +357,10 @@ func TestPullImageManifest(t *testing.T) {
 						errors.New("Some error for https://prod-us-east-1-starport-layer-bucket.s3.us-east-1.amazonaws.com"))
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
-			expectedError: CannotPullImageManifestError{errors.New("Some error for REDACTED ECR URL related to image")},
+			assertError: func(t *testing.T, err error) {
+				expectedErr := CannotPullImageManifestError{errors.New("Some error for REDACTED ECR URL related to image")}
+				require.Equal(t, expectedErr, err)
+			},
 		},
 		{
 			name: "Error is returned if context is canceled",
@@ -366,8 +373,11 @@ func TestPullImageManifest(t *testing.T) {
 				client := mock_sdkclient.NewMockClient(ctrl)
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
-			imageRef:      "image",
-			expectedError: CannotPullImageManifestError{FromError: errors.New("context canceled")},
+			imageRef: "image",
+			assertError: func(t *testing.T, err error) {
+				require.Equal(t,
+					CannotPullImageManifestError{FromError: errors.New("context canceled")}, err)
+			},
 		},
 		{
 			name: "Error is returned if context deadline is exceeded",
@@ -381,8 +391,10 @@ func TestPullImageManifest(t *testing.T) {
 				client := mock_sdkclient.NewMockClient(ctrl)
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
-			imageRef:      "image",
-			expectedError: CannotPullImageManifestError{FromError: errors.New("context deadline exceeded")},
+			imageRef: "image",
+			assertError: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
 		},
 		{
 			name:     "Manifest is returned if there are no errors - no auth data",
@@ -453,8 +465,8 @@ func TestPullImageManifest(t *testing.T) {
 			}
 
 			res, err := client.PullImageManifest(tc.ctx, tc.imageRef, tc.authData)
-			if tc.expectedError != nil {
-				assert.Equal(t, tc.expectedError, err)
+			if tc.assertError != nil {
+				tc.assertError(t, err)
 			} else {
 				require.Nil(t, err)
 				assert.Equal(t, tc.expectedDistributionInspect, res)
