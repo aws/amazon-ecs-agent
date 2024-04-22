@@ -45,6 +45,8 @@ func getTestNetworkNamespaces() []*NetworkNamespace {
 }
 
 func getTestNetworkInterfaces() []*ni.NetworkInterface {
+	// Please DO NOT modify the order of interfaces here. Keeping the secondary interface
+	// as the first element in the list is intentional.
 	return []*ni.NetworkInterface{
 		{
 			Name:    secondaryInterfaceName,

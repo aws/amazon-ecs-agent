@@ -31,6 +31,7 @@ import (
 	types "github.com/docker/docker/api/types"
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
+	registry "github.com/docker/docker/api/types/registry"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -318,6 +319,21 @@ func (mr *MockDockerClientMockRecorder) PullImage(arg0, arg1, arg2, arg3 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PullImage", reflect.TypeOf((*MockDockerClient)(nil).PullImage), arg0, arg1, arg2, arg3)
 }
 
+// PullImageManifest mocks base method.
+func (m *MockDockerClient) PullImageManifest(arg0 context.Context, arg1 string, arg2 *container.RegistryAuthenticationData) (registry.DistributionInspect, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PullImageManifest", arg0, arg1, arg2)
+	ret0, _ := ret[0].(registry.DistributionInspect)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PullImageManifest indicates an expected call of PullImageManifest.
+func (mr *MockDockerClientMockRecorder) PullImageManifest(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PullImageManifest", reflect.TypeOf((*MockDockerClient)(nil).PullImageManifest), arg0, arg1, arg2)
+}
+
 // RemoveContainer mocks base method.
 func (m *MockDockerClient) RemoveContainer(arg0 context.Context, arg1 string, arg2 time.Duration) error {
 	m.ctrl.T.Helper()
@@ -461,11 +477,12 @@ func (mr *MockDockerClientMockRecorder) Version(arg0, arg1 interface{}) *gomock.
 }
 
 // WithVersion mocks base method.
-func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) dockerapi.DockerClient {
+func (m *MockDockerClient) WithVersion(arg0 dockerclient.DockerVersion) (dockerapi.DockerClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithVersion", arg0)
 	ret0, _ := ret[0].(dockerapi.DockerClient)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WithVersion indicates an expected call of WithVersion.

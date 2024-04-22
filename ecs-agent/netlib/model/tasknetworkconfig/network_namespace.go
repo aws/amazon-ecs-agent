@@ -14,6 +14,7 @@
 package tasknetworkconfig
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -58,6 +59,11 @@ func NewNetworkNamespace(
 		KnownState:        status.NetworkNone,
 		DesiredState:      status.NetworkReadyPull,
 	}
+
+	// Sort interfaces as per their index values in ascending order.
+	sort.Slice(netNS.NetworkInterfaces, func(i, j int) bool {
+		return netNS.NetworkInterfaces[i].Index < netNS.NetworkInterfaces[j].Index
+	})
 
 	var err error
 	if proxyConfig != nil {

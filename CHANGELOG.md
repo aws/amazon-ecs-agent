@@ -1,5 +1,38 @@
 # Changelog
 
+# 1.82.3
+* Enhancement - Implement TextMarshaler for ContainerStatus [#4135](https://github.com/aws/amazon-ecs-agent/pull/4135)
+* Enhancement - Add MANIFEST_PULLED internal container and task states [#4137](https://github.com/aws/amazon-ecs-agent/pull/4137)
+* Enhancement - Fail early when an unsupported docker API version is found [#4141](https://github.com/aws/amazon-ecs-agent/pull/4141)
+* Enhancement - Add functionality to pull image manifests to DockerClient [#4140](https://github.com/aws/amazon-ecs-agent/pull/4140)
+* Bugfix - Fix AL2023 integration tests [#4132](https://github.com/aws/amazon-ecs-agent/pull/4132)
+* Bugfix - Fix TestExecCommandAgent flakiness on AL1 [#4138](https://github.com/aws/amazon-ecs-agent/pull/4138)
+* Bugfix - Delete containers before the task from BoltDB [#3987](https://github.com/aws/amazon-ecs-agent/pull/3987)
+* Bugfix - Specifically set the CW endpoint when using awslogs as log driver for specifc regions [#4143](https://github.com/aws/amazon-ecs-agent/pull/4143)
+
+# 1.82.2
+* Enhancement - Bump aws-sdk-go version to 1.51.3 [#4120](https://github.com/aws/amazon-ecs-agent/pull/4120)
+* Enhancement - Update dependencies to include security patches reported by dependabot for agent [#4113](https://github.com/aws/amazon-ecs-agent/pull/4113)
+* Enhancement - Order network interfaces according to index value [#4126](https://github.com/aws/amazon-ecs-agent/pull/4126)
+* Bugfix - Explicitly set up ECS config dir in spec files [#4131](https://github.com/aws/amazon-ecs-agent/pull/4131)
+
+# 1.82.1
+* Bugfix - Pass clusterARN in task state change struct. [#4107](https://github.com/aws/amazon-ecs-agent/pull/4107)
+* Enhancement - Update go module dependencies [#4109](https://github.com/aws/amazon-ecs-agent/pull/4109)
+* Enhancement - ecs-init support for old docker engines (pre docker 17.x) and future docker engines (when api 1.25 is deprecated). [#4080](https://github.com/aws/amazon-ecs-agent/pull/4080)
+* Enhancement - Bump google.golang.org/protobuf from 1.31.0 to 1.33.0 [#4115](https://github.com/aws/amazon-ecs-agent/pull/4115)
+* Enhancement - Update SSM Agent version to 3.2.2303.0 for ECS exec [#4116](https://github.com/aws/amazon-ecs-agent/pull/4116)
+
+## 1.82.0
+* Enhancement - Make ecs-init log level configurable [#4097](https://github.com/aws/amazon-ecs-agent/pull/4097).
+* Enhancement - Add ECS_EBSTA_SUPPORTED environment variable to enable/disable EBS Task Attach capabilities. The environment variable is set automatically by ecs-init [#4091](https://github.com/aws/amazon-ecs-agent/pull/4091).
+
+## 1.81.1
+* Enhancement - Update go version to 1.20.12 [#4092](https://github.com/aws/amazon-ecs-agent/pull/4092)
+* Enhancement - Add extra logs in netlib package [#4095](https://github.com/aws/amazon-ecs-agent/pull/4095)
+* Bugfix - fix bug where the lock is never released for FSx task resource [#4088](https://github.com/aws/amazon-ecs-agent/pull/4088)
+* Bugfix - Create DNS files for second ENI [#4087](https://github.com/aws/amazon-ecs-agent/pull/4087)
+
 ## 1.81.0
 * Bugfix - Fix ECS agent docker API failures on docker engine 25.x [#4075](https://github.com/aws/amazon-ecs-agent/pull/4075)
 * Bugfix - Fix a bug in the creation of network namespace models for AWSVPC mode tasks which causes the agent to crash in an edge case situation. [#4076](https://github.com/aws/amazon-ecs-agent/pull/4076)

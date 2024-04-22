@@ -15,12 +15,15 @@ package status
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 )
 
 const (
 	// ContainerStatusNone is the zero state of a container; this container has not completed pull
 	ContainerStatusNone ContainerStatus = iota
+	// ContainerManifestPulled represents a container which has had its image manifest pulled
+	ContainerManifestPulled
 	// ContainerPulled represents a container which has had the image pulled
 	ContainerPulled
 	// ContainerCreated represents a container that has been created
@@ -57,6 +60,7 @@ type ContainerHealthStatus int32
 
 var containerStatusMap = map[string]ContainerStatus{
 	"NONE":                  ContainerStatusNone,
+	"MANIFEST_PULLED":       ContainerManifestPulled,
 	"PULLED":                ContainerPulled,
 	"CREATED":               ContainerCreated,
 	"RUNNING":               ContainerRunning,
@@ -138,6 +142,28 @@ func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
+	// Before MarshalText method was implemented for ContainerStatus, ContainerStatus was
+	// marshaled as an integer in cases that depend on MarshalText such as keys in a JSON object.
+	// To make unmarshaling backwards-compatible, check if the marshaled text is an integer
+	// and map it to container status.
+	if intStatus, err := strconv.Atoi(strStatus); err == nil {
+		// This map is only for making text unmarshaling compatible with old state files.
+		// Updates are NOT needed to this map as newer container states are introduced.
+		intContainerStatusMap := map[int]ContainerStatus{
+			0: ContainerStatusNone,
+			1: ContainerPulled,
+			2: ContainerCreated,
+			3: ContainerRunning,
+			4: ContainerResourcesProvisioned,
+			5: ContainerStopped,
+			6: ContainerZombie,
+		}
+		if stat, ok := intContainerStatusMap[intStatus]; ok {
+			*cs = stat
+			return nil
+		}
+	}
+
 	stat, ok := containerStatusMap[strStatus]
 	if !ok {
 		*cs = ContainerStatusNone
@@ -153,6 +179,26 @@ func (cs *ContainerStatus) MarshalJSON() ([]byte, error) {
 		return nil, nil
 	}
 	return []byte(`"` + cs.String() + `"`), nil
+}
+
+// Marshals a container status to its text form.
+// In some cases such as a map with ContainerStatus as keys, MarshalText method is used to
+// marshal container statuses by functions in the encoding package. Without this method
+// container statuses will be marshaled as integers which is undesirable.
+func (cs ContainerStatus) MarshalText() ([]byte, error) {
+	return []byte(cs.String()), nil
+}
+
+// Unmarshals a container status from its text form.
+func (cs *ContainerStatus) UnmarshalText(b []byte) error {
+	strStatus := string(b)
+	stat, ok := containerStatusMap[strStatus]
+	if !ok {
+		*cs = ContainerStatusNone
+		return errors.New("container status text unmarshal: unrecognized status: " + strStatus)
+	}
+	*cs = stat
+	return nil
 }
 
 // UnmarshalJSON overrides the logic for parsing the JSON-encoded container health data

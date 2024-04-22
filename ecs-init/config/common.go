@@ -46,7 +46,7 @@ const (
 	// DefaultAgentVersion is the version of the agent that will be
 	// fetched if required. This should look like v1.2.3 or an
 	// 8-character sha, as is downloadable from S3.
-	DefaultAgentVersion = "v1.81.0"
+	DefaultAgentVersion = "v1.82.3"
 
 	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
 	AgentPartitionBucketName = "amazon-ecs-agent"
@@ -173,7 +173,7 @@ func LogDirectory() string {
 	return directoryPrefix + "/var/log/ecs"
 }
 
-func initLogFile() string {
+func InitLogFile() string {
 	return LogDirectory() + "/ecs-init.log"
 }
 

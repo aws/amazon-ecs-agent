@@ -202,6 +202,7 @@ func getTestV2NInterface() *networkinterface.NetworkInterface {
 		IPV4Addresses: []*networkinterface.IPV4Address{
 			{
 				Address: networkinterface.DefaultGeneveInterfaceIPAddress,
+				Primary: true,
 			},
 		},
 		TunnelProperties: &networkinterface.TunnelProperties{
@@ -209,6 +210,9 @@ func getTestV2NInterface() *networkinterface.NetworkInterface {
 			DestinationIPAddress: destinationIP,
 			DestinationPort:      destinationPort,
 		},
-		DeviceName: fmt.Sprintf(networkinterface.GeneveInterfaceNamePattern, vni, destinationPort),
+		DeviceName:           fmt.Sprintf(networkinterface.GeneveInterfaceNamePattern, vni, destinationPort),
+		Name:                 secondaryENIName,
+		DomainNameServers:    []string{nameServer},
+		DomainNameSearchList: []string{searchDomainName},
 	}
 }

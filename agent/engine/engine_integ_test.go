@@ -592,3 +592,33 @@ func TestTaskCleanup(t *testing.T) {
 	_, err = client.ContainerInspect(ctx, cid)
 	assert.Error(t, err, "Inspect should not work")
 }
+
+// Tests that containers with ordering dependencies are able to reach MANIFEST_PULLED state
+// regardless of the dependencies.
+func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	first := createTestContainerWithImageAndName(testRegistryImage, "first")
+	first.Command = getLongRunningCommand()
+
+	second := createTestContainerWithImageAndName(testRegistryImage, "second")
+	second.SetDependsOn([]apicontainer.DependsOn{{ContainerName: first.Name, Condition: "COMPLETE"}})
+
+	task := &apitask.Task{
+		Arn:                 "test-arn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{first, second},
+	}
+
+	// Start the task and wait for first container to start running
+	go taskEngine.AddTask(task)
+	verifyContainerRunningStateChange(t, taskEngine)
+
+	// The first container should be in RUNNING state
+	assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
+	// The second container should be waiting in MANIFEST_PULLED state
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+}

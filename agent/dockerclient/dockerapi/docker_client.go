@@ -52,6 +52,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 )
 
@@ -115,11 +116,15 @@ type DockerClient interface {
 
 	// WithVersion returns a new DockerClient for which all operations will use the given remote api version.
 	// A default version will be used for a client not produced via this method.
-	WithVersion(dockerclient.DockerVersion) DockerClient
+	WithVersion(dockerclient.DockerVersion) (DockerClient, error)
 
 	// ContainerEvents returns a channel of DockerContainerChangeEvents. Events are placed into the channel and should
 	// be processed by the listener.
 	ContainerEvents(context.Context) (<-chan DockerContainerChangeEvent, error)
+
+	// Given an image reference and registry auth credentials, pulls the image manifest
+	// of the image from the registry.
+	PullImageManifest(context.Context, string, *apicontainer.RegistryAuthenticationData) (registry.DistributionInspect, error)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
@@ -260,14 +265,17 @@ type ImagePullResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
-func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
-	return &dockerGoClient{
+func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) (DockerClient, error) {
+	versionedClient := &dockerGoClient{
 		sdkClientFactory: dg.sdkClientFactory,
 		version:          version,
 		auth:             dg.auth,
 		config:           dg.config,
 		context:          dg.context,
 	}
+	// Check if the version is supported
+	_, err := versionedClient.sdkDockerClient()
+	return versionedClient, err
 }
 
 // NewDockerGoClient creates a new DockerGoClient
@@ -324,6 +332,34 @@ func (dg *dockerGoClient) time() ttime.Time {
 		}
 	})
 	return dg._time
+}
+
+// Pulls image manifest from the registry
+func (dg *dockerGoClient) PullImageManifest(
+	ctx context.Context, imageRef string, authData *apicontainer.RegistryAuthenticationData,
+) (registry.DistributionInspect, error) {
+	// Get auth creds
+	sdkAuthConfig, err := dg.getAuthdata(imageRef, authData)
+	if err != nil {
+		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+	}
+	encodedAuth, err := registry.EncodeAuthConfig(sdkAuthConfig)
+	if err != nil {
+		return registry.DistributionInspect{}, wrapPullErrorAsNamedError(imageRef, err)
+	}
+
+	// Get an SDK Docker Client and call Distribution API
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return registry.DistributionInspect{}, CannotGetDockerClientError{version: dg.version, err: err}
+	}
+	distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
+	if err != nil {
+		err = redactEcrUrls(imageRef, err)
+		return registry.DistributionInspect{}, CannotPullContainerError{err}
+	}
+
+	return distInspect, nil
 }
 
 func (dg *dockerGoClient) PullImage(ctx context.Context, image string,

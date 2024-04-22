@@ -56,6 +56,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
+	ep "github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
@@ -84,6 +85,7 @@ const (
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
 	logDriverTypeFirelens       = "awsfirelens"
 	logDriverTypeFluentd        = "fluentd"
+	logDriverTypeAwslogs        = "awslogs"
 	logDriverTag                = "tag"
 	logDriverFluentdAddress     = "fluentd-address"
 	dataLogDriverPath           = "/data/firelens/"
@@ -289,6 +291,7 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 
 func (engine *DockerTaskEngine) initializeContainerStatusToTransitionFunction() {
 	containerStatusToTransitionFunction := map[apicontainerstatus.ContainerStatus]transitionApplyFunc{
+		apicontainerstatus.ContainerManifestPulled:       engine.pullContainerManifest,
 		apicontainerstatus.ContainerPulled:               engine.pullContainer,
 		apicontainerstatus.ContainerCreated:              engine.createContainer,
 		apicontainerstatus.ContainerRunning:              engine.startContainer,
@@ -1231,6 +1234,19 @@ func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager 
 	return engine.daemonManagers
 }
 
+// Pulls the manifest of the container image.
+func (engine *DockerTaskEngine) pullContainerManifest(
+	task *apitask.Task, container *apicontainer.Container,
+) dockerapi.DockerContainerMetadata {
+	// Currently a no-op
+	logger.Debug("Manifest pull is currently a no-op", logger.Fields{
+		field.TaskID:    task.GetID(),
+		field.Container: container.Name,
+		field.Image:     container.Image,
+	})
+	return dockerapi.DockerContainerMetadata{}
+}
+
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
 	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause, apicontainer.ContainerServiceConnectRelay, apicontainer.ContainerManagedDaemon:
@@ -1512,7 +1528,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			"usingDockerAPIVersion":   minVersion,
 			"payloadDockerAPIVersion": *container.DockerConfig.Version,
 		})
-		client = client.WithVersion(minVersion)
+		// Error in creating versioned client is dealt with later when client.APIVersion() is called
+		client, _ = client.WithVersion(minVersion)
 	}
 
 	dockerContainerName := ""
@@ -1627,6 +1644,34 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				fluentNetworkHost: ipAddress,
 				fluentNetworkPort: FluentNetworkPortValue,
 			})
+		}
+	}
+
+	// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
+	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
+		region := engine.cfg.AWSRegion
+		if region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
+			endpoint := ""
+			dnsSuffix := ""
+			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
+			if !ok {
+				logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
+					"region":           region,
+					"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+				})
+				dnsSuffix = ep.AwsPartition().DNSSuffix()
+			} else {
+				resolvedEndpoint, err := partition.EndpointFor("logs", region)
+				if err == nil {
+					endpoint = resolvedEndpoint.URL
+				} else {
+					dnsSuffix = partition.DNSSuffix()
+				}
+			}
+			if endpoint == "" {
+				endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
+			}
+			hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 		}
 	}
 
@@ -1826,7 +1871,8 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 			"usingDockerAPIVersion":   minVersion,
 			"payloadDockerAPIVersion": *container.DockerConfig.Version,
 		})
-		client = client.WithVersion(minVersion)
+		// Error in creating versioned client is dealt with later when client.StartContainer() is called
+		client, _ = client.WithVersion(minVersion)
 	}
 
 	dockerID, err := engine.getDockerID(task, container)

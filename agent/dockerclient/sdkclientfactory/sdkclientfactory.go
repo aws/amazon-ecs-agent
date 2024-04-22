@@ -130,9 +130,16 @@ func findDockerVersions(ctx context.Context, endpoint string) map[dockerclient.D
 		}
 		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
-		_, err = dockerClient.ServerVersion(ctx)
+		serverVer, err := dockerClient.ServerVersion(ctx)
 		if err != nil {
 			log.Infof("Unable to get Docker client for version %s: %v", version, err)
+			continue
+		}
+		if version.Compare(dockerclient.DockerVersion(serverVer.APIVersion)) > 0 {
+			// Required client API version exceeds server's API version
+			log.Infof(
+				"Unable to get Docker client for version %s: server's API version is lower at %s",
+				version, serverVer.APIVersion)
 			continue
 		}
 		clients[version] = dockerClient

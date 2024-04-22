@@ -15,7 +15,6 @@ package platform
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -27,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
 )
 
 type firecraker struct {
@@ -51,7 +51,12 @@ func (f *firecraker) BuildTaskNetworkConfiguration(
 }
 
 func (f *firecraker) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
-	return f.common.createDNSConfig(taskID, false, netNS)
+	err := f.common.createDNSConfig(taskID, false, netNS)
+	if err != nil {
+		return err
+	}
+
+	return f.configureSecondaryDNSConfig(taskID, netNS)
 }
 
 func (f *firecraker) ConfigureInterface(
@@ -74,6 +79,33 @@ func (f *firecraker) ConfigureServiceConnect(
 	scConfig *serviceconnect.ServiceConnectConfig,
 ) error {
 	return errors.New("not implemented")
+}
+
+// configureSecondaryDNSConfig creates DNS config files for secondary interfaces. This is required because
+// on FoF, secondary interfaces reside in their own network namespace inside the microVM. The DNS config
+// inside the namespace will need to be the secondary interface DNS config.
+func (f *firecraker) configureSecondaryDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
+	for _, iface := range netNS.NetworkInterfaces {
+		// Omit primary interface and veth interfaces.
+		if iface.IsPrimary() || iface.VETHProperties != nil {
+			continue
+		}
+
+		// Create DNS files.
+		dnsDirName := networkinterface.NetNSName(taskID, iface.Name)
+		err := f.common.createNetworkConfigFiles(dnsDirName, iface)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create DNS config for interface %s", iface.Name)
+		}
+
+		// Copy to task volume.
+		err = f.common.copyNetworkConfigFilesToTask(taskID, dnsDirName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create DNS config for interface %s", iface.Name)
+		}
+	}
+
+	return nil
 }
 
 // assignInterfacesToNamespaces computes how many network namespaces the task needs and assigns
