@@ -25,10 +25,12 @@ import (
 	"time"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -43,6 +45,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -318,6 +321,12 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
 	// Hence, do not enforce the order of invocation of these calls
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(registry.DistributionInspect{}, nil)
 	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
@@ -515,6 +524,15 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().
+		WithVersion(dockerclient.Version_1_35).
+		Times(2).
+		Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(2).
+		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)

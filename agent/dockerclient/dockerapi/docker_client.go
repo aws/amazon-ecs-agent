@@ -270,7 +270,9 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) (Docke
 	versionedClient := &dockerGoClient{
 		sdkClientFactory:    dg.sdkClientFactory,
 		version:             version,
+		ecrClientFactory:    dg.ecrClientFactory,
 		auth:                dg.auth,
+		ecrTokenCache:       dg.ecrTokenCache,
 		config:              dg.config,
 		context:             dg.context,
 		manifestPullBackoff: dg.manifestPullBackoff,
@@ -371,6 +373,10 @@ func (dg *dockerGoClient) PullImageManifest(
 	})
 
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			timeoutErr := &DockerTimeoutError{time.Since(startTime), "MANIFEST_PULLED"}
+			return registry.DistributionInspect{}, timeoutErr
+		}
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {

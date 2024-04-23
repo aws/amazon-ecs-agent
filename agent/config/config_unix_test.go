@@ -46,6 +46,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.Equal(t, 3*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
 	assert.Equal(t, 4*time.Minute, cfg.ContainerCreateTimeout, "Default docker create container timeout set incorrectly")
+	assert.Equal(t, 1*time.Minute, cfg.ManifestPullTimeout, "Default manifest pull timeout set incorrectly")
 	assert.False(t, cfg.PrivilegedDisabled.Enabled(), "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
