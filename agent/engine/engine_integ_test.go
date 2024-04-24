@@ -642,58 +642,55 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 // The test depends on 127.0.0.1:51670/busybox image that is prepared by `make test-registry`
 // command.
 func TestPullContainerManifestInteg(t *testing.T) {
-	tcs := []struct {
-		name                string
-		image               string
-		setConfig           func(c *config.Config)
-		pullBehaviorsToSkip map[config.ImagePullBehaviorType]string
-		assertError         func(t *testing.T, err error)
-	}{
-		{
-			name:  "digest available in image reference",
-			image: "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
-		},
-		{
-			name:  "digest can be resolved from explicit tag",
-			image: "127.0.0.1:51670/busybox:latest",
-		},
-		{
-			name:  "digest can be resolved without an explicit tag",
-			image: "127.0.0.1:51670/busybox",
-		},
-		{
-			name:      "manifest pull can timeout",
-			image:     "127.0.0.1:51670/busybox",
-			setConfig: func(c *config.Config) { c.ManifestPullTimeout = 0 },
-			pullBehaviorsToSkip: map[config.ImagePullBehaviorType]string{
-				config.ImagePullPreferCachedBehavior: "",
-			},
-			assertError: func(t *testing.T, err error) {
-				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
-			},
-		},
-		{
-			name:      "manifest pull can timeout - non-zero timeout",
-			image:     "127.0.0.1:51670/busybox",
-			setConfig: func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
-			pullBehaviorsToSkip: map[config.ImagePullBehaviorType]string{
-				config.ImagePullPreferCachedBehavior: "",
-			},
-			assertError: func(t *testing.T, err error) {
-				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
-			},
-		},
-	}
-	imagePullBehaviors := []config.ImagePullBehaviorType{
+	allPullBehaviors := []config.ImagePullBehaviorType{
 		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
 		config.ImagePullOnceBehavior, config.ImagePullPreferCachedBehavior,
 	}
+	tcs := []struct {
+		name               string
+		image              string
+		setConfig          func(c *config.Config)
+		imagePullBehaviors []config.ImagePullBehaviorType
+		assertError        func(t *testing.T, err error)
+	}{
+		{
+			name:               "digest available in image reference",
+			image:              "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved from explicit tag",
+			image:              "127.0.0.1:51670/busybox:latest",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved without an explicit tag",
+			image:              "127.0.0.1:51670/busybox",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "manifest pull can timeout",
+			image:              "127.0.0.1:51670/busybox",
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 0 },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+		{
+			name:               "manifest pull can timeout - non-zero timeout",
+			image:              "127.0.0.1:51670/busybox",
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+	}
 	for _, tc := range tcs {
-		for _, imagePullBehavior := range imagePullBehaviors {
-			if _, ok := tc.pullBehaviorsToSkip[imagePullBehavior]; ok {
-				continue
-			}
-			t.Run(fmt.Sprintf("%s - %d", tc.name, imagePullBehavior), func(t *testing.T) {
+		for _, imagePullBehavior := range tc.imagePullBehaviors {
+			t.Run(fmt.Sprintf("%s - %v", tc.name, imagePullBehavior), func(t *testing.T) {
 				cfg := defaultTestConfigIntegTest()
 				cfg.ImagePullBehavior = imagePullBehavior
 
