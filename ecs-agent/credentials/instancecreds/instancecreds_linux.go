@@ -42,16 +42,18 @@ import (
 //     with instance role which doesn't have permissions needed to run ECS Agent
 func GetCredentials(isExternal bool) *credentials.Credentials {
 	mu.Lock()
-	credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
-	if isExternal {
-		credProviders = append(credProviders[:2], append([]credentials.Provider{providers.NewRotatingSharedCredentialsProvider()}, credProviders[2:]...)...)
-	} else {
-		credProviders = append(credProviders, providers.NewRotatingSharedCredentialsProvider())
+	if credentialChain == nil {
+		credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
+		if isExternal {
+			credProviders = append(credProviders[:2], append([]credentials.Provider{providers.NewRotatingSharedCredentialsProvider()}, credProviders[2:]...)...)
+		} else {
+			credProviders = append(credProviders, providers.NewRotatingSharedCredentialsProvider())
+		}
+		credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
+			VerboseErrors: false,
+			Providers:     credProviders,
+		})
 	}
-	credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
-		VerboseErrors: false,
-		Providers:     credProviders,
-	})
 	mu.Unlock()
 
 	// credentials.Credentials is concurrency-safe, so lock not needed here
