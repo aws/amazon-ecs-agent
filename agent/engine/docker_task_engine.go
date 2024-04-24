@@ -1240,15 +1240,11 @@ func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager 
 func (engine *DockerTaskEngine) pullContainerManifest(
 	task *apitask.Task, container *apicontainer.Container,
 ) dockerapi.DockerContainerMetadata {
-	switch container.Type {
-	case apicontainer.ContainerCNIPause,
-		apicontainer.ContainerNamespacePause,
-		apicontainer.ContainerServiceConnectRelay,
-		apicontainer.ContainerManagedDaemon:
-		// pause images and AppNet relay image are managed at startup
+	if container.IsInternal() {
+		// internal containers are not in-scope of digest resolution
 		return dockerapi.DockerContainerMetadata{}
 	}
-	// AppNet Agent container image is also managed at start up
+	// AppNet Agent container image is managed at start up so it is not in-scope for digest resolution.
 	// (it uses the same image as AppNet Relay container)
 	if task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer() {
 		return dockerapi.DockerContainerMetadata{}
@@ -1263,9 +1259,11 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 			field.TaskARN:       task.Arn,
 			field.ContainerName: container.Name,
 			field.Image:         container.Image,
+			field.ImageDigest:   imageManifestDigest.String(),
 		})
 	} else if !engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.GetID()) {
-		// Digest should be resolved by inspecting local image
+		// Image pull is not required for the container so we will use a locally available
+		// image for the container. Get digest from a locally available image.
 		imgInspect, err := engine.client.InspectImage(container.Image)
 		if err != nil {
 			logger.Error("Failed to inspect image to find repo digest", logger.Fields{
@@ -1280,7 +1278,7 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 		if len(imgInspect.RepoDigests) == 0 {
 			// Image was not pulled from a registry, so the user must have cached it on the
 			// host directly. Skip digest resolution for this case as there is no digest.
-			logger.Warn("No repo digest found", logger.Fields{
+			logger.Info("No repo digest found", logger.Fields{
 				field.TaskARN:       task.Arn,
 				field.ContainerName: container.Name,
 				field.Image:         container.Image,
