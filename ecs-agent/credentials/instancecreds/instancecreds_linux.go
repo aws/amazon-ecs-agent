@@ -28,20 +28,30 @@ import (
 // GetCredentials returns the instance credentials chain. This is the default chain
 // credentials plus the "rotating shared credentials provider", so credentials will
 // be checked in this order:
+//
 //  1. Env vars (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).
+//
 //  2. Shared credentials file (https://docs.aws.amazon.com/ses/latest/DeveloperGuide/create-shared-credentials-file.html) (file at ~/.aws/credentials containing access key id and secret access key).
+//
 //  3. EC2 role credentials. This is an IAM role that the user specifies when they launch their EC2 container instance (ie ecsInstanceRole (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html)).
+//
 //  4. Rotating shared credentials file located at /rotatingcreds/credentials
+//
+//     In the case of external instance `RotatingSharedCredentialsProvider` provider should be prioritized over
+//     `EC2RoleProvider` one as SSM credentials are going to be ignored in case agent is deployed to EC2
+//     with instance role which doesn't have permissions needed to run ECS Agent
 func GetCredentials(isExternal bool) *credentials.Credentials {
 	mu.Lock()
-	if credentialChain == nil {
-		credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
+	credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
+	if isExternal {
+		credProviders = append(credProviders[:2], append([]credentials.Provider{providers.NewRotatingSharedCredentialsProvider()}, credProviders[2:]...)...)
+	} else {
 		credProviders = append(credProviders, providers.NewRotatingSharedCredentialsProvider())
-		credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
-			VerboseErrors: false,
-			Providers:     credProviders,
-		})
 	}
+	credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
+		VerboseErrors: false,
+		Providers:     credProviders,
+	})
 	mu.Unlock()
 
 	// credentials.Credentials is concurrency-safe, so lock not needed here
