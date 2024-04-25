@@ -135,7 +135,14 @@
         "cpuStatsSet":{"shape":"CWStatsSet"},
         "memoryStatsSet":{"shape":"CWStatsSet"},
         "networkStatsSet":{"shape":"NetworkStatsSet"},
-        "storageStatsSet":{"shape":"StorageStatsSet"}
+        "storageStatsSet":{"shape":"StorageStatsSet"},
+        "restartStatsSet":{"shape":"RestartStatsSet"}
+      }
+    },
+    "RestartStatsSet":{
+      "type":"structure",
+	  "members":{
+        "restartCount":{"shape":"UInteger"}
       }
     },
     "ContainerMetrics":{
