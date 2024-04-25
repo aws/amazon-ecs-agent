@@ -54,3 +54,99 @@ func TestImageFromDigest(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDigestFromRepoDigests(t *testing.T) {
+	testDigest1 := "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+	testDigest2 := "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966"
+	tcs := []struct {
+		name           string
+		repoDigests    []string
+		imageRef       string
+		expectedDigest string
+		expectedError  string
+	}{
+		{
+			name: "repo digest matching imageRef is used - dockerhub",
+			repoDigests: []string{
+				"public.ecr.aws/library/alpine@" + testDigest1,
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "alpine",
+			expectedDigest: testDigest2,
+		},
+		{
+			name: "repo digest matching imageRef is used - ecr",
+			repoDigests: []string{
+				"public.ecr.aws/library/alpine@" + testDigest1,
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "public.ecr.aws/library/alpine",
+			expectedDigest: testDigest1,
+		},
+		{
+			name: "tags in image ref are ignored - dockerhub",
+			repoDigests: []string{
+				"public.ecr.aws/library/alpine@" + testDigest1,
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "alpine:edge",
+			expectedDigest: testDigest2,
+		},
+		{
+			name: "tags in image ref are ignored - ecr",
+			repoDigests: []string{
+				"public.ecr.aws/library/alpine@" + testDigest1,
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "public.ecr.aws/library/alpine:edge",
+			expectedDigest: testDigest1,
+		},
+		{
+			name:          "invalid image ref",
+			imageRef:      "invalid format",
+			expectedError: "failed to parse image reference 'invalid format': invalid reference format",
+		},
+		{
+			name:          "image ref not named",
+			imageRef:      "",
+			expectedError: "failed to parse image reference '': repository name must have at least one component",
+		},
+		{
+			name:           "invalid repo digests are skipped",
+			imageRef:       "alpine",
+			repoDigests:    []string{"invalid format", "alpine@" + testDigest1},
+			expectedDigest: testDigest1,
+		},
+		{
+			name:          "no repo digests match image ref",
+			imageRef:      "public.ecr.aws/library/alpine",
+			repoDigests:   []string{"alpine@" + testDigest1},
+			expectedError: "found no repo digest matching 'public.ecr.aws/library/alpine'",
+		},
+		{
+			name:           "image reference can be canonical",
+			repoDigests:    []string{"alpine@" + testDigest1},
+			imageRef:       "alpine@" + testDigest2,
+			expectedDigest: testDigest1,
+		},
+		{
+			name:          "non-canonical repo digests are skipped",
+			repoDigests:   []string{"alpine"},
+			imageRef:      "alpine",
+			expectedError: "found no repo digest matching 'alpine'",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			dgst, err := GetDigestFromRepoDigests(tc.repoDigests, tc.imageRef)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				expected, err := digest.Parse(tc.expectedDigest)
+				require.NoError(t, err)
+				assert.Equal(t, expected, dgst)
+			} else {
+				require.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}

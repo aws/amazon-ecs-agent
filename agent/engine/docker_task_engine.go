@@ -1285,17 +1285,18 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 			})
 			return dockerapi.DockerContainerMetadata{}
 		}
-		parsedDigest := referenceutil.GetDigestFromImageRef(imgInspect.RepoDigests[0])
-		if parsedDigest == "" {
-			logger.Error("Failed to parse repo digest", logger.Fields{
+		parsedDigest, err := referenceutil.GetDigestFromRepoDigests(
+			imgInspect.RepoDigests, container.Image)
+		if err != nil {
+			logger.Error("Failed to find a repo digest matching the image", logger.Fields{
 				field.TaskARN:       task.Arn,
 				field.ContainerName: container.Name,
 				field.Image:         container.Image,
-				field.ImageDigest:   imgInspect.RepoDigests[0],
+				"repoDigests":       imgInspect.RepoDigests,
 			})
 			return dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullImageManifestError{
-					FromError: fmt.Errorf("failed to parse repo digest from '%s'", imgInspect.RepoDigests[0]),
+					FromError: fmt.Errorf("failed to find a repo digest matching '%s'", container.Image),
 				},
 			}
 		}

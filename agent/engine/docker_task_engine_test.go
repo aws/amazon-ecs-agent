@@ -3961,7 +3961,7 @@ func TestPullContainerManifest(t *testing.T) {
 			},
 		},
 		{
-			name:              "image pull not required - inspected image has no repo digest",
+			name:              "image pull not required - inspected image has no repo digests",
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
@@ -3980,7 +3980,7 @@ func TestPullContainerManifest(t *testing.T) {
 			},
 			expectedResult: dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullImageManifestError{
-					FromError: errors.New("failed to parse repo digest from 'invalid'"),
+					FromError: errors.New("failed to find a repo digest matching 'myimage'"),
 				},
 			},
 		},
@@ -3990,7 +3990,7 @@ func TestPullContainerManifest(t *testing.T) {
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
 				inspectResult := &types.ImageInspect{
-					RepoDigests: []string{"alpine@" + testDigest.String()},
+					RepoDigests: []string{"myimage@" + testDigest.String()},
 				}
 				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
 			},
