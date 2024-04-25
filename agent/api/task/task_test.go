@@ -49,6 +49,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -3906,6 +3907,43 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 	assert.Equal(t, 1, len(task.ResourcesMapUnsafe))
 	assert.Equal(t, resourceDep,
 		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+}
+
+func TestPostUnmarshalTaskContainerRestartPolicy(t *testing.T) {
+	container := &apicontainer.Container{
+		Name:  "containerName",
+		Image: "image:tag",
+		RestartPolicy: &restart.RestartPolicy{
+			Enabled: true,
+		},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                testTaskARN,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{}
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields, nil, nil)
+	assert.NoError(t, err)
+
+	for _, c := range task.Containers {
+		assert.True(t, c.RestartPolicyEnabled())
+		assert.NotNil(t, c.RestartTracker)
+		assert.Equal(t, 0, c.RestartTracker.GetRestartCount())
+	}
 }
 
 func TestInitializeAndGetEnvfilesResource(t *testing.T) {

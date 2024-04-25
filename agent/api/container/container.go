@@ -23,6 +23,7 @@ import (
 	"time"
 
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -334,6 +335,13 @@ type Container struct {
 	ContainerPortSet map[int]struct{}
 	// ContainerPortRangeMap is a map of containerPortRange to its associated hostPortRange
 	ContainerPortRangeMap map[string]string
+
+	// RestartPolicy is an object representing the restart policy of the container
+	RestartPolicy *restart.RestartPolicy `json:"restartPolicy,omitempty"`
+	// RestartTracker tracks this container's restart policy metadata, such
+	// as restart count and last restart time. This is only initialized if the container
+	// has a restart policy defined and enabled.
+	RestartTracker *restart.RestartTracker `json:"restartTracker,omitempty"`
 }
 
 type DependsOn struct {
@@ -625,6 +633,16 @@ func (c *Container) IsEssential() bool {
 	defer c.lock.RUnlock()
 
 	return c.Essential
+}
+
+// RestartPolicyEnabled returns whether the restart policy is defined and enabled
+func (c *Container) RestartPolicyEnabled() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	if c.RestartPolicy == nil {
+		return false
+	}
+	return c.RestartPolicy.Enabled
 }
 
 // AWSLogAuthExecutionRole returns true if the auth is by execution role
