@@ -596,29 +596,122 @@ func TestTaskCleanup(t *testing.T) {
 // Tests that containers with ordering dependencies are able to reach MANIFEST_PULLED state
 // regardless of the dependencies.
 func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	first := createTestContainerWithImageAndName(testRegistryImage, "first")
-	first.Command = getLongRunningCommand()
-
-	second := createTestContainerWithImageAndName(testRegistryImage, "second")
-	second.SetDependsOn([]apicontainer.DependsOn{{ContainerName: first.Name, Condition: "COMPLETE"}})
-
-	task := &apitask.Task{
-		Arn:                 "test-arn",
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{first, second},
+	imagePullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullPreferCachedBehavior, config.ImagePullOnceBehavior,
 	}
 
-	// Start the task and wait for first container to start running
-	go taskEngine.AddTask(task)
-	verifyContainerRunningStateChange(t, taskEngine)
+	for _, behavior := range imagePullBehaviors {
+		t.Run(fmt.Sprintf("%v", behavior), func(t *testing.T) {
+			cfg := defaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = behavior
+			taskEngine, done, _ := setup(cfg, nil, t)
+			defer done()
 
-	// The first container should be in RUNNING state
-	assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
-	// The second container should be waiting in MANIFEST_PULLED state
-	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+			first := createTestContainerWithImageAndName(testRegistryImage, "first")
+			first.Command = getLongRunningCommand()
+
+			second := createTestContainerWithImageAndName(testRegistryImage, "second")
+			second.SetDependsOn([]apicontainer.DependsOn{{ContainerName: first.Name, Condition: "COMPLETE"}})
+
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{first, second},
+			}
+
+			// Start the task and wait for first container to start running
+			go taskEngine.AddTask(task)
+			verifyContainerRunningStateChange(t, taskEngine)
+
+			// The first container should be in RUNNING state
+			assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
+			// The second container should be waiting in MANIFEST_PULLED state
+			assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+
+			// Assert that both containers have the right image digest populated
+			assert.NotEmpty(t, first.GetImageDigest())
+			assert.NotEmpty(t, second.GetImageDigest())
+		})
+	}
+}
+
+// Integration test for pullContainerManifest.
+// The test depends on 127.0.0.1:51670/busybox image that is prepared by `make test-registry`
+// command.
+func TestPullContainerManifestInteg(t *testing.T) {
+	allPullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullOnceBehavior, config.ImagePullPreferCachedBehavior,
+	}
+	tcs := []struct {
+		name               string
+		image              string
+		setConfig          func(c *config.Config)
+		imagePullBehaviors []config.ImagePullBehaviorType
+		assertError        func(t *testing.T, err error)
+	}{
+		{
+			name:               "digest available in image reference",
+			image:              "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved from explicit tag",
+			image:              "127.0.0.1:51670/busybox:latest",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved without an explicit tag",
+			image:              "127.0.0.1:51670/busybox",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "manifest pull can timeout",
+			image:              "127.0.0.1:51670/busybox",
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 0 },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+		{
+			name:               "manifest pull can timeout - non-zero timeout",
+			image:              "127.0.0.1:51670/busybox",
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+	}
+	for _, tc := range tcs {
+		for _, imagePullBehavior := range tc.imagePullBehaviors {
+			t.Run(fmt.Sprintf("%s - %v", tc.name, imagePullBehavior), func(t *testing.T) {
+				cfg := defaultTestConfigIntegTest()
+				cfg.ImagePullBehavior = imagePullBehavior
+
+				if tc.setConfig != nil {
+					tc.setConfig(cfg)
+				}
+
+				taskEngine, done, _ := setup(cfg, nil, t)
+				defer done()
+
+				container := &apicontainer.Container{Image: tc.image}
+				task := &apitask.Task{Containers: []*apicontainer.Container{container}}
+
+				res := taskEngine.(*DockerTaskEngine).pullContainerManifest(task, container)
+				if tc.assertError == nil {
+					require.NoError(t, res.Error)
+					assert.NotEmpty(t, container.GetImageDigest())
+				} else {
+					tc.assertError(t, res.Error)
+				}
+			})
+		}
+	}
 }
