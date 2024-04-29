@@ -159,8 +159,12 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 		return err
 	}
 	container.ImageID = imageInspected.ID
-	imageDigest := imageManager.fetchRepoDigest(imageInspected, container)
-	container.SetImageDigest(imageDigest)
+	// For older Docker versions imageDigest is not populated during transition to
+	// MANIFEST_PULLED state. Populate it here if that's the case.
+	if container.GetImageDigest() == "" {
+		imageDigest := imageManager.fetchRepoDigest(imageInspected, container)
+		container.SetImageDigest(imageDigest)
+	}
 	added := imageManager.addContainerReferenceToExistingImageState(container)
 	if !added {
 		imageManager.addContainerReferenceToNewImageState(container, imageInspected.Size)

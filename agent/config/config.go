@@ -549,6 +549,7 @@ func environmentConfig() (Config, error) {
 		DeleteNonECSImagesEnabled:           parseBooleanDefaultFalseConfig("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"),
 		TaskCPUMemLimit:                     parseBooleanDefaultTrueConfig("ECS_ENABLE_TASK_CPU_MEM_LIMIT"),
 		DockerStopTimeout:                   parseDockerStopTimeout(),
+		ManifestPullTimeout:                 parseManifestPullTimeout(),
 		ContainerStartTimeout:               parseContainerStartTimeout(),
 		ContainerCreateTimeout:              parseContainerCreateTimeout(),
 		DependentContainersPullUpfront:      parseBooleanDefaultFalseConfig("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT"),
@@ -625,6 +626,7 @@ func (cfg *Config) String() string {
 			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
+			"ManifestPullTimeout: %v, "+
 			"DockerStopTimeout: %v, "+
 			"ContainerStartTimeout: %v, "+
 			"ContainerCreateTimeout: %v, "+
@@ -644,6 +646,7 @@ func (cfg *Config) String() string {
 		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
 		cfg.TaskCleanupWaitDuration,
+		cfg.ManifestPullTimeout,
 		cfg.DockerStopTimeout,
 		cfg.ContainerStartTimeout,
 		cfg.ContainerCreateTimeout,
