@@ -38,6 +38,7 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -48,8 +49,11 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -158,15 +162,29 @@ func validateContainerRunWorkflow(t *testing.T,
 	createdContainerName chan<- string,
 	assertions func(),
 ) {
-	// Prepare mock image manifest digest for test
+	// Prepare a test digest
+	testDigest, digestParseError := digest.Parse(
+		"sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b")
+	require.NoError(t, digestParseError)
+
+	// Get expected canonical reference for the container image and test digest
+	canonicalImageRef, canonicalRefErr := referenceutil.GetCanonicalRef(
+		container.Image, testDigest.String())
+	require.NoError(t, canonicalRefErr)
+
+	// Set expectations for transition to MANIFEST_PULLED state
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
 	manifestPullClient.EXPECT().
 		PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
-		Return(registry.DistributionInspect{}, nil)
+		Return(registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}}, nil)
 
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		PullImage(gomock.Any(), canonicalImageRef.String(), nil, gomock.Any()).
+		Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		TagImage(gomock.Any(), canonicalImageRef.String(), container.Image).Return(nil)
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)

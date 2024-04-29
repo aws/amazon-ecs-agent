@@ -55,6 +55,7 @@ type Client interface {
 	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
 	ImageRemove(ctx context.Context, imageID string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem,
 		error)
+	ImageTag(ctx context.Context, source, target string) error
 	Ping(ctx context.Context) (types.Ping, error)
 	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
 	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
