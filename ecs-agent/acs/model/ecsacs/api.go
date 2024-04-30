@@ -622,6 +622,8 @@ type Container struct {
 
 	ContainerArn *string `locationName:"containerArn" type:"string"`
 
+	ContainerRestartPolicy *ContainerRestartPolicy `locationName:"containerRestartPolicy" type:"structure"`
+
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
 	CredentialSpecs []*string `locationName:"credentialSpecs" type:"list"`
@@ -740,6 +742,34 @@ func (s ContainerDependency) String() string {
 // be included in the string output. The member name will be present, but the
 // value will be replaced with "sensitive".
 func (s ContainerDependency) GoString() string {
+	return s.String()
+}
+
+type ContainerRestartPolicy struct {
+	_ struct{} `type:"structure"`
+
+	Enabled *bool `locationName:"enabled" type:"boolean"`
+
+	IgnoredExitCodes []*int64 `locationName:"ignoredExitCodes" type:"list"`
+
+	RestartAttemptPeriod *int64 `locationName:"restartAttemptPeriod" type:"integer"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ContainerRestartPolicy) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ContainerRestartPolicy) GoString() string {
 	return s.String()
 }
 
