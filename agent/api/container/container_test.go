@@ -23,11 +23,13 @@ import (
 	"time"
 
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type configPair struct {
@@ -1331,6 +1333,73 @@ func TestGetCredentialSpec(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedOutputString, expectedOutputStr)
 		})
+	}
+}
+
+func TestRestartPolicy(t *testing.T) {
+	testCases := []struct {
+		name            string
+		container       *Container
+		restartCount    int
+		expectedEnabled bool
+	}{
+		{
+			name: "nil restart policy",
+			container: &Container{
+				RestartPolicy: nil,
+			},
+			restartCount:    0,
+			expectedEnabled: false,
+		},
+		{
+			name: "not enabled restart policy",
+			container: &Container{
+				RestartPolicy: &restart.RestartPolicy{},
+			},
+			restartCount:    0,
+			expectedEnabled: false,
+		},
+		{
+			name: "explicitly not enabled restart policy",
+			container: &Container{
+				RestartPolicy: &restart.RestartPolicy{
+					Enabled: false,
+				},
+			},
+			restartCount:    0,
+			expectedEnabled: false,
+		},
+		{
+			name: "enabled restart policy",
+			container: &Container{
+				RestartPolicy: &restart.RestartPolicy{
+					Enabled: true,
+				},
+			},
+			restartCount:    0,
+			expectedEnabled: true,
+		},
+		{
+			name: "enabled restart policy, record 5 restarts",
+			container: &Container{
+				RestartPolicy: &restart.RestartPolicy{
+					Enabled: true,
+				},
+			},
+			restartCount:    5,
+			expectedEnabled: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		require.Equal(t, tc.expectedEnabled, tc.container.RestartPolicyEnabled())
+		if tc.container.RestartPolicyEnabled() {
+			tc.container.RestartTracker = restart.NewRestartTracker(*tc.container.RestartPolicy)
+			for i := 0; i < tc.restartCount; i++ {
+				tc.container.RestartTracker.RecordRestart()
+			}
+			require.Equal(t, tc.restartCount, tc.container.RestartTracker.GetRestartCount())
+		}
 	}
 }
 
