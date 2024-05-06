@@ -16,6 +16,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart
 github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client
