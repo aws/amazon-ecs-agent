@@ -28,7 +28,7 @@ import (
 )
 
 // NewTaskResponse creates a new v4 response object for the task. It augments v2 task response
-// with additional network interface fields.
+// with additional fields for the v4 response.
 func NewTaskResponse(
 	taskARN string,
 	state dockerstate.TaskEngineState,
@@ -55,10 +55,12 @@ func NewTaskResponse(
 		if err != nil {
 			return nil, err
 		}
-		containers = append(containers, tmdsv4.ContainerResponse{
+		v4Response := &tmdsv4.ContainerResponse{
 			ContainerResponse: &v2Resp.Containers[i],
 			Networks:          networks,
-		})
+		}
+		v4Response = augmentContainerResponse(container.ID, state, v4Response)
+		containers = append(containers, *v4Response)
 	}
 
 	return &tmdsv4.TaskResponse{
@@ -69,8 +71,8 @@ func NewTaskResponse(
 	}, nil
 }
 
-// NewContainerResponse creates a new v4 container response based on container id.  It augments
-// v4 container response with additional network interface fields.
+// NewContainerResponse creates a new v4 container response based on container id. It augments
+// v2 container response with additional fields for v4.
 func NewContainerResponse(
 	containerID string,
 	state dockerstate.TaskEngineState,
@@ -87,10 +89,11 @@ func NewContainerResponse(
 	if err != nil {
 		return nil, err
 	}
-	return &tmdsv4.ContainerResponse{
+	v4Response := tmdsv4.ContainerResponse{
 		ContainerResponse: container,
 		Networks:          networks,
-	}, nil
+	}
+	return augmentContainerResponse(containerID, state, &v4Response), nil
 }
 
 // toV4NetworkResponse converts v2 network response to v4. Additional fields are only
@@ -119,6 +122,26 @@ func toV4NetworkResponse(
 	}
 
 	return resp, nil
+}
+
+// augmentContainerResponse augments the container response with additional fields.
+func augmentContainerResponse(
+	containerID string,
+	state dockerstate.TaskEngineState,
+	v4Response *tmdsv4.ContainerResponse,
+) *tmdsv4.ContainerResponse {
+	dockerContainer, ok := state.ContainerByID(containerID)
+	if !ok {
+		// did not find container, continue on and try next container(s)
+		// we don't return error here to avoid disrupting all of a TMDS response
+		// on a single missing container.
+		return v4Response
+	}
+	if dockerContainer.Container.RestartPolicyEnabled() {
+		restartCount := dockerContainer.Container.RestartTracker.GetRestartCount()
+		v4Response.RestartCount = &restartCount
+	}
+	return v4Response
 }
 
 // newNetworkInterfaceProperties creates the NetworkInterfaceProperties object for a given

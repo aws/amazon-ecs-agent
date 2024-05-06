@@ -132,11 +132,10 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
 		taskARN: dockerContainer,
 	}
-	gomock.InOrder(
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-	)
+	state.EXPECT().TaskByArn(taskARN).Return(task, true)
+	state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes()
+	state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true)
+	state.EXPECT().TaskByArn(taskARN).Return(task, true)
 
 	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster,
 		availabilityZone, vpcID, containerInstanceArn, task.ServiceName, false)
@@ -150,10 +149,8 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	assert.Equal(t, subnetGatewayIPV4Address, taskResponse.Containers[0].Networks[0].SubnetGatewayIPV4Address)
 	assert.Equal(t, serviceName, taskResponse.ServiceName)
 
-	gomock.InOrder(
-		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
-		state.EXPECT().TaskByID(containerID).Return(task, true).Times(2),
-	)
+	state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes()
+	state.EXPECT().TaskByID(containerID).Return(task, true).Times(2)
 	containerResponse, err := NewContainerResponse(containerID, state)
 	require.NoError(t, err)
 	_, err = json.Marshal(containerResponse)
