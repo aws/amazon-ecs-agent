@@ -322,3 +322,65 @@ func TestContainerStatusJSONUnmarshalInt(t *testing.T) {
 		})
 	}
 }
+
+// Tests for BackendStatusString method when a steady state is not provided.
+func TestContainerBackendStatusStringDefaultSteadyState(t *testing.T) {
+	tcs := []struct {
+		status   ContainerStatus
+		expected string
+	}{
+		{ContainerStatusNone, "PENDING"},
+		{ContainerManifestPulled, "PENDING"},
+		{ContainerPulled, "PENDING"},
+		{ContainerCreated, "PENDING"},
+		{ContainerRunning, "RUNNING"},
+		{ContainerResourcesProvisioned, "PENDING"},
+		{ContainerStopped, "STOPPED"},
+		{ContainerZombie, "PENDING"},
+	}
+	for _, tc := range tcs {
+		t.Run(fmt.Sprintf("%d", tc.status), func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.status.BackendStatusString(nil))
+		})
+	}
+}
+
+// Tests for BackendStatusString method when a steady state is provided.
+func TestBackendStatusSteadyStateProvided(t *testing.T) {
+	containerRunning := ContainerRunning
+	containerResourcesProvisioned := ContainerResourcesProvisioned
+
+	// Test states that should map to PENDING regardless of steady state
+	pendingStates := []ContainerStatus{
+		ContainerStatusNone, ContainerManifestPulled, ContainerPulled,
+		ContainerCreated, ContainerZombie,
+	}
+	for _, tc := range pendingStates {
+		t.Run(fmt.Sprintf("pending - %d", tc), func(t *testing.T) {
+			assert.Equal(t, "PENDING", tc.BackendStatusString(&containerRunning))
+			assert.Equal(t, "PENDING", tc.BackendStatusString(&containerResourcesProvisioned))
+		})
+	}
+
+	// Test that ContainerStopped maps to STOPPED regardless of steady state
+	t.Run("ContainerStopped maps to STOPPED", func(t *testing.T) {
+		assert.Equal(t, "STOPPED", ContainerStopped.BackendStatusString(&containerRunning))
+		assert.Equal(t, "STOPPED", ContainerStopped.BackendStatusString(&containerResourcesProvisioned))
+	})
+
+	// Test that steady state maps to RUNNING
+	t.Run("ContainerRunning maps to RUNNING when steady state is ContainerRunning", func(t *testing.T) {
+		assert.Equal(t, "RUNNING", ContainerRunning.BackendStatusString(&containerRunning))
+	})
+	t.Run("ContainerResourcesProvisioned maps to RUNNING when steady state is ContainerResourcesProvisioned", func(t *testing.T) {
+		assert.Equal(t, "RUNNING", ContainerResourcesProvisioned.BackendStatusString(&containerResourcesProvisioned))
+	})
+
+	// Test that non-steady non-STOPPED state maps to PENDING
+	t.Run("ContainerRunning maps to PENDING when steady state is ContainerResourcesProvisioned", func(t *testing.T) {
+		assert.Equal(t, "PENDING", ContainerRunning.BackendStatusString(&containerResourcesProvisioned))
+	})
+	t.Run("ContainerResourcesProvisioned maps to PENDING when steady state is ContainerRunning", func(t *testing.T) {
+		assert.Equal(t, "PENDING", ContainerResourcesProvisioned.BackendStatusString(&containerRunning))
+	})
+}

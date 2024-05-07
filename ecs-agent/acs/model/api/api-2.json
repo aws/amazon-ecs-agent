@@ -311,8 +311,21 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"}
+        "containerArn":{"shape":"String"},
+        "containerRestartPolicy":{"shape":"ContainerRestartPolicy"}
       }
+    },
+    "ContainerRestartPolicy":{
+      "type":"structure",
+      "members":{
+        "enabled":{"shape":"Boolean"},
+        "ignoredExitCodes":{"shape":"IntegerList"},
+        "restartAttemptPeriod":{"shape":"Integer"}
+      }
+    },
+    "IntegerList":{
+      "type":"list",
+      "member":{"shape":"Integer"}
     },
     "ContainerCondition":{
       "type":"string",

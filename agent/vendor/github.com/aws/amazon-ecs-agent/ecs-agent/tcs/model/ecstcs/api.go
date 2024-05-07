@@ -230,6 +230,8 @@ type ContainerMetric struct {
 
 	NetworkStatsSet *NetworkStatsSet `locationName:"networkStatsSet" type:"structure"`
 
+	RestartStatsSet *RestartStatsSet `locationName:"restartStatsSet" type:"structure"`
+
 	StorageStatsSet *StorageStatsSet `locationName:"storageStatsSet" type:"structure"`
 }
 
@@ -1068,6 +1070,30 @@ func (s *ResourceValidationException) StatusCode() int {
 // RequestID returns the service's response RequestID for request.
 func (s *ResourceValidationException) RequestID() string {
 	return s.RespMetadata.RequestID
+}
+
+type RestartStatsSet struct {
+	_ struct{} `type:"structure"`
+
+	RestartCount *int64 `locationName:"restartCount" type:"integer"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RestartStatsSet) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RestartStatsSet) GoString() string {
+	return s.String()
 }
 
 type ServerException struct {
