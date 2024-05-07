@@ -339,13 +339,14 @@ func TestContainerBackendStatusString(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(fmt.Sprintf("%d", tc.status), func(t *testing.T) {
-			assert.Equal(t, tc.expected, tc.status.BackendStatusString(ContainerRunning))
+			assert.Equal(t, tc.expected, tc.status.BackendStatusString(nil))
 		})
 	}
 	t.Run("steady state can be provided and maps to RUNNING status", func(t *testing.T) {
+		resourcesProvisioned := ContainerResourcesProvisioned
 		assert.Equal(t, "RUNNING",
-			ContainerResourcesProvisioned.BackendStatusString(ContainerResourcesProvisioned))
+			ContainerResourcesProvisioned.BackendStatusString(&resourcesProvisioned))
 		assert.Equal(t, "PENDING",
-			ContainerRunning.BackendStatusString(ContainerResourcesProvisioned))
+			ContainerRunning.BackendStatusString(&resourcesProvisioned))
 	})
 }
