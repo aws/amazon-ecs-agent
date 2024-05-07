@@ -859,9 +859,6 @@ func TestInvalidImageInteg(t *testing.T) {
 	verifyContainerStoppedStateChangeWithReason(t, taskEngine,
 		"CannotPullImageManifestError: Error response from daemon: manifest unknown: manifest unknown")
 	verifyTaskStoppedStateChange(t, taskEngine)
-
-	err := taskEngine.(*DockerTaskEngine).removeContainer(task, container)
-	require.NoError(t, err, "failed to remove container during cleanup")
 }
 
 // Tests that a task with an image that has a digest specified works normally.
