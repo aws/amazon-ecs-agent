@@ -1544,6 +1544,7 @@ func TestUpdateContainerReference(t *testing.T) {
 //	5  |       local         |              enabled           |    prefer-cached
 //	6  |       local         |              enabled           |       always
 func TestPullAndUpdateContainerReference(t *testing.T) {
+	testDigest := "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966"
 	testcases := []struct {
 		Name                 string
 		ImagePullUpfront     config.BooleanDefaultFalse
@@ -1551,8 +1552,10 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 		ImageState           *image.ImageState
 		ImageInspect         *types.ImageInspect
 		InspectImage         bool
+		ImageDigest          string
 		NumOfPulledContainer int
 		PullImageErr         apierrors.NamedError
+		TagImageErr          error
 	}{
 		{
 			Name:              "DependentContainersPullUpfrontEnabledWithRemoteImage",
@@ -1616,6 +1619,66 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 			NumOfPulledContainer: 0,
 			PullImageErr:         dockerapi.CannotPullContainerError{fmt.Errorf("error")},
 		},
+		{
+			Name:                 "upfront enabled, behavior always, pull success, tag failure",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullAlwaysBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			ImageDigest:          testDigest,
+			InspectImage:         false,
+			NumOfPulledContainer: 0,
+			PullImageErr:         nil,
+			TagImageErr:          errors.New("some error"),
+		},
+		{
+			Name:                 "upfront enabled, behavior always, pull success, tag timeout",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullAlwaysBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			ImageDigest:          testDigest,
+			InspectImage:         false,
+			NumOfPulledContainer: 0,
+			PullImageErr:         nil,
+			TagImageErr:          context.DeadlineExceeded,
+		},
+		{
+			Name:                 "upfront enabled, behavior always, pull success, tag success",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullAlwaysBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			ImageDigest:          testDigest,
+			InspectImage:         false,
+			NumOfPulledContainer: 1,
+			PullImageErr:         nil,
+			TagImageErr:          nil,
+		},
+		{
+			Name:                 "upfront enabled, behavior default, pull success, tag failure",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullDefaultBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			ImageDigest:          testDigest,
+			InspectImage:         true,
+			NumOfPulledContainer: 1,
+			PullImageErr:         nil,
+			TagImageErr:          errors.New("some error"),
+		},
+		{
+			Name:                 "upfront disabled, behavior default, pull success, tag failure",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+			ImagePullBehavior:    config.ImagePullDefaultBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			ImageDigest:          testDigest,
+			InspectImage:         false,
+			NumOfPulledContainer: 0,
+			PullImageErr:         nil,
+			TagImageErr:          errors.New("some error"),
+		},
 	}
 
 	for _, tc := range testcases {
@@ -1634,9 +1697,10 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 			imageName := "image"
 			taskArn := "taskArn"
 			container := &apicontainer.Container{
-				Type:      apicontainer.ContainerNormal,
-				Image:     imageName,
-				Essential: true,
+				Type:        apicontainer.ContainerNormal,
+				Image:       imageName,
+				Essential:   true,
+				ImageDigest: tc.ImageDigest,
 			}
 
 			task := &apitask.Task{
@@ -1644,11 +1708,19 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 				Containers: []*apicontainer.Container{container},
 			}
 
-			client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any()).
+			imageRef := imageName
+			if tc.ImageDigest != "" {
+				// If image digest exists then it is used to pull the image
+				imageRef = imageName + "@" + tc.ImageDigest
+			}
+			client.EXPECT().PullImage(gomock.Any(), imageRef, nil, gomock.Any()).
 				Return(dockerapi.DockerContainerMetadata{Error: tc.PullImageErr})
 
 			if tc.InspectImage {
-				client.EXPECT().InspectImage(imageName).Return(tc.ImageInspect, nil)
+				client.EXPECT().InspectImage(imageRef).Return(tc.ImageInspect, nil)
+			}
+			if tc.ImageDigest != "" {
+				client.EXPECT().TagImage(gomock.Any(), imageRef, imageName).Return(tc.TagImageErr)
 			}
 
 			imageManager.EXPECT().RecordContainerReference(container)
@@ -1656,7 +1728,20 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 			metadata := taskEngine.pullAndUpdateContainerReference(task, container)
 			pulledContainersMap, _ := taskEngine.State().PulledContainerMapByArn(taskArn)
 			require.Len(t, pulledContainersMap, tc.NumOfPulledContainer)
-			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.PullImageErr},
+			var expectedErr apierrors.NamedError
+			if tc.PullImageErr != nil {
+				expectedErr = tc.PullImageErr
+			} else if tc.TagImageErr != nil {
+				if tc.TagImageErr == context.DeadlineExceeded {
+					expectedErr = &dockerapi.DockerTimeoutError{
+						Duration:   tagImageTimeout,
+						Transition: "pulled",
+					}
+				} else {
+					expectedErr = &dockerapi.CannotPullContainerError{FromError: tc.TagImageErr}
+				}
+			}
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: expectedErr},
 				metadata, "expected metadata with error")
 		})
 	}
@@ -4103,6 +4188,7 @@ func TestPullContainerManifest(t *testing.T) {
 // This function simulates the various scenarios for transition to MANIFEST_PULLED state
 // where the task should complete its lifecycle.
 func TestManifestPullTaskShouldContinue(t *testing.T) {
+	testImage := "my.repo/repo/image"
 	testDigest, err := digest.Parse("sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b")
 	require.NoError(t, err)
 	type testcase struct {
@@ -4112,13 +4198,14 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 		setManifestPulledExpectations func(
 			ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 		) []*gomock.Call
-		shouldPullImage bool
+		shouldPullImage               bool
+		shouldPullWithoutCanonicalRef bool
 	}
 	tcs := []testcase{
 		{
 			name:              "task should continue if manifest pull succeeds and pull behavior is default",
 			imagePullBehavior: config.ImagePullDefaultBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
@@ -4128,7 +4215,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 						WithVersion(dockerclient.Version_1_35).
 						Return(manifestPullClient, nil),
 					manifestPullClient.EXPECT().
-						PullImageManifest(gomock.Any(), "myimage", nil).
+						PullImageManifest(gomock.Any(), testImage, nil).
 						Return(
 							registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}},
 							nil),
@@ -4139,7 +4226,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 		{
 			name:              "task should continue if manifest pull fails and pull behavior is default",
 			imagePullBehavior: config.ImagePullDefaultBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
@@ -4149,26 +4236,27 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 						WithVersion(dockerclient.Version_1_35).
 						Return(manifestPullClient, nil),
 					manifestPullClient.EXPECT().
-						PullImageManifest(gomock.Any(), "myimage", nil).
+						PullImageManifest(gomock.Any(), testImage, nil).
 						Return(registry.DistributionInspect{}, dockerapi.CannotPullImageManifestError{
 							FromError: errors.New("some error"),
 						}),
 				}
 			},
-			shouldPullImage: true,
+			shouldPullImage:               true,
+			shouldPullWithoutCanonicalRef: true,
 		},
 		{
 			name:              "task should continue if manifest pull succeeds and pull behavior is prefer-cached",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
 				inspectResult := &types.ImageInspect{
-					RepoDigests: []string{"myimage@" + testDigest.String()},
+					RepoDigests: []string{testImage + "@" + testDigest.String()},
 				}
 				return []*gomock.Call{
-					c.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil),
+					c.EXPECT().InspectImage(testImage).Times(2).Return(inspectResult, nil),
 				}
 			},
 			shouldPullImage: false,
@@ -4176,29 +4264,30 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 		{
 			name:              "task should continue if manifest pull fails and pull behavior is prefer-cached",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
 				manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 				return []*gomock.Call{
-					c.EXPECT().InspectImage("myimage").Return(nil, errors.New("some error")),
+					c.EXPECT().InspectImage(testImage).Return(nil, errors.New("some error")),
 					c.EXPECT().
 						WithVersion(dockerclient.Version_1_35).
 						Return(manifestPullClient, nil),
 					manifestPullClient.EXPECT().
-						PullImageManifest(gomock.Any(), "myimage", nil).
+						PullImageManifest(gomock.Any(), testImage, nil).
 						Return(registry.DistributionInspect{}, dockerapi.CannotPullImageManifestError{
 							FromError: errors.New("some error"),
 						}),
 				}
 			},
-			shouldPullImage: true,
+			shouldPullImage:               true,
+			shouldPullWithoutCanonicalRef: true,
 		},
 		{
 			name:              "task should continue if manifest pull succeeds and pull behavior is always",
 			imagePullBehavior: config.ImagePullAlwaysBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
@@ -4208,7 +4297,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 						WithVersion(dockerclient.Version_1_35).
 						Return(manifestPullClient, nil),
 					manifestPullClient.EXPECT().
-						PullImageManifest(gomock.Any(), "myimage", nil).
+						PullImageManifest(gomock.Any(), testImage, nil).
 						Return(
 							registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}},
 							nil),
@@ -4219,18 +4308,18 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 		{
 			name:              "task should continue if manifest pull succeeds and pull behavior is once",
 			imagePullBehavior: config.ImagePullOnceBehavior,
-			container:         &apicontainer.Container{Image: "myimage", Name: "container"},
+			container:         &apicontainer.Container{Image: testImage, Name: "container"},
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
 				inspectResult := &types.ImageInspect{
-					RepoDigests: []string{"myimage@" + testDigest.String()},
+					RepoDigests: []string{testImage + "@" + testDigest.String()},
 				}
 				return []*gomock.Call{
 					i.EXPECT().
-						GetImageStateFromImageName("myimage").
+						GetImageStateFromImageName(testImage).
 						Return(&image.ImageState{PullSucceeded: true}, true),
-					c.EXPECT().InspectImage("myimage").Return(inspectResult, nil),
+					c.EXPECT().InspectImage(testImage).Return(inspectResult, nil),
 				}
 			},
 			shouldPullImage: false,
@@ -4305,11 +4394,22 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 				}
 			}
 			if tc.shouldPullImage {
+				expectedPullRef := tc.container.Image
+				if !tc.shouldPullWithoutCanonicalRef {
+					expectedPullRef = tc.container.Image + "@" + testDigest.String()
+				}
 				transitionExpectations = append(transitionExpectations,
 					dockerClient.EXPECT().
-						PullImage(gomock.Any(), tc.container.Image, nil, gomock.Any()).
+						PullImage(gomock.Any(), expectedPullRef, nil, gomock.Any()).
 						Return(dockerapi.DockerContainerMetadata{}),
 				)
+				if !tc.shouldPullWithoutCanonicalRef {
+					transitionExpectations = append(transitionExpectations,
+						dockerClient.EXPECT().
+							TagImage(gomock.Any(), expectedPullRef, tc.container.Image).
+							Return(nil),
+					)
+				}
 			}
 			transitionExpectations = append(transitionExpectations,
 				imageManager.EXPECT().RecordContainerReference(tc.container).Return(nil),

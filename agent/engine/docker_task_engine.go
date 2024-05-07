@@ -82,6 +82,7 @@ const (
 	ipamCleanupTmeout                  = 5 * time.Second
 	minEngineConnectRetryDelay         = 2 * time.Second
 	maxEngineConnectRetryDelay         = 200 * time.Second
+	tagImageTimeout                    = 30 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
@@ -1534,13 +1535,79 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		defer clearCreds()
 	}
 
-	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
+	imageRef := container.Image
+	imageDigest := container.GetImageDigest()
+	if imageDigest != "" {
+		// If image digest is available then prepare a canonical reference to be used for image pull.
+		// This ensures that the image version referenced by the digest is pulled.
+		canonicalRef, err := referenceutil.GetCanonicalRef(imageRef, imageDigest)
+		if err != nil {
+			logger.Error("Failed to prepare a canonical reference. Cannot pull image.", logger.Fields{
+				field.TaskID:      task.GetID(),
+				field.Container:   container.Name,
+				field.Image:       imageRef,
+				field.ImageDigest: imageDigest,
+				field.Error:       err,
+			})
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullContainerError{
+					FromError: fmt.Errorf(
+						"failed to prepare a canonical reference with image '%s' and digest '%s': %w",
+						imageRef, imageDigest, err),
+				},
+			}
+		}
+		imageRef = canonicalRef.String()
+		logger.Info("Prepared a canonical reference for image pull", logger.Fields{
+			field.TaskID:      task.GetID(),
+			field.Container:   container.Name,
+			field.Image:       container.Image,
+			field.ImageDigest: imageDigest,
+			field.ImageRef:    imageRef,
+		})
+	}
+
+	metadata := engine.client.PullImage(engine.ctx, imageRef, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
 
 	// Don't add internal images(created by ecs-agent) into imagemanger state
 	if container.IsInternal() {
 		return metadata
 	}
 	pullSucceeded := metadata.Error == nil
+
+	if pullSucceeded && imageRef != container.Image {
+		// Resolved image manifest digest was used to pull the image.
+		// Tag the pulled image so that it can be found using the image reference in the task.
+		ctx, cancel := context.WithTimeout(engine.ctx, tagImageTimeout)
+		defer cancel()
+		err := engine.client.TagImage(ctx, imageRef, container.Image)
+		if err != nil {
+			logger.Error("Failed to tag image after pull", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: container.Name,
+				field.Image:     container.Image,
+				field.ImageRef:  imageRef,
+				field.Error:     err,
+			})
+			if errors.Is(err, context.DeadlineExceeded) {
+				metadata.Error = &dockerapi.DockerTimeoutError{
+					Duration:   tagImageTimeout,
+					Transition: "pulled",
+				}
+			} else {
+				metadata.Error = &dockerapi.CannotPullContainerError{FromError: err}
+			}
+			pullSucceeded = false
+		} else {
+			logger.Info("Successfully tagged image", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: container.Name,
+				field.Image:     container.Image,
+				field.ImageRef:  imageRef,
+			})
+		}
+	}
+
 	findCachedImage := false
 	if !pullSucceeded {
 		// If Agent failed to pull an image when
@@ -1548,11 +1615,11 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		// 2. ImagePullBehavior is not set to always
 		// search the image in local cached images
 		if engine.cfg.DependentContainersPullUpfront.Enabled() && engine.cfg.ImagePullBehavior != config.ImagePullAlwaysBehavior {
-			if _, err := engine.client.InspectImage(container.Image); err != nil {
+			if _, err := engine.client.InspectImage(imageRef); err != nil {
 				logger.Error("Failed to find cached image for container", logger.Fields{
 					field.TaskID:    task.GetID(),
 					field.Container: container.Name,
-					field.Image:     container.Image,
+					field.Image:     imageRef,
 					field.Error:     err,
 				})
 				// Stop the task if the container is an essential container,
@@ -1566,7 +1633,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 			logger.Info("Found cached image, use it directly for container", logger.Fields{
 				field.TaskID:    task.GetID(),
 				field.Container: container.Name,
-				field.Image:     container.Image,
+				field.Image:     imageRef,
 			})
 			findCachedImage = true
 		}

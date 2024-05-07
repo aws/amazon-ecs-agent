@@ -92,6 +92,10 @@ const (
 	pullRetryDelayMultiplier  = 2
 	pullRetryJitterMultiplier = 0.2
 
+	// retry settings for tagging images
+	tagImageRetryAttempts = 5
+	tagImageRetryInterval = 100 * time.Millisecond
+
 	// pollStatsTimeout is the timeout for polling Docker Stats API;
 	// keeping it same as streaming stats inactivity timeout
 	pollStatsTimeout = 18 * time.Second
@@ -128,6 +132,9 @@ type DockerClient interface {
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
+
+	// TagImage tags a local image.
+	TagImage(ctx context.Context, source string, target string) error
 
 	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
@@ -246,6 +253,7 @@ type dockerGoClient struct {
 	context                  context.Context
 	manifestPullBackoff      retry.Backoff
 	imagePullBackoff         retry.Backoff
+	imageTagBackoff          retry.Backoff
 	inactivityTimeoutHandler inactivityTimeoutHandlerFunc
 
 	_time     ttime.Time
@@ -276,6 +284,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) (Docke
 		config:              dg.config,
 		context:             dg.context,
 		manifestPullBackoff: dg.manifestPullBackoff,
+		imageTagBackoff:     dg.imageTagBackoff,
 	}
 	// Check if the version is supported
 	_, err := versionedClient.sdkDockerClient()
@@ -319,6 +328,7 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
 		manifestPullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
 			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
+		imageTagBackoff:          retry.NewConstantBackoff(tagImageRetryInterval),
 		inactivityTimeoutHandler: handleInactivityTimeout,
 	}, nil
 }
@@ -591,6 +601,34 @@ func getRepository(image string) string {
 		repository = image
 	}
 	return repository
+}
+
+// TagImage tags a local image.
+func (dg *dockerGoClient) TagImage(ctx context.Context, source string, target string) error {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return CannotGetDockerClientError{version: dg.version, err: err}
+	}
+
+	err = retry.RetryNWithBackoffCtx(ctx, dg.imageTagBackoff, tagImageRetryAttempts, func() error {
+		if tagErr := client.ImageTag(ctx, source, target); tagErr != nil {
+			logger.Error("Attempt to tag image failed", logger.Fields{
+				"source":    source,
+				"target":    target,
+				field.Error: tagErr,
+			})
+			return tagErr
+		}
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to tag image '%s' as '%s': %w", source, target, err)
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return nil
 }
 
 func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
