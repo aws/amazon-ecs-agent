@@ -613,11 +613,10 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			taskEngine, done, _ := setup(cfg, nil, t)
 			defer done()
 
-			image := "public.ecr.aws/docker/library/busybox:1.36.1"
-			first := createTestContainerWithImageAndName(image, "first")
+			first := createTestContainerWithImageAndName(testRegistryImage, "first")
 			first.Command = []string{"sh", "-c", "sleep 60"}
 
-			second := createTestContainerWithImageAndName(image, "second")
+			second := createTestContainerWithImageAndName(testRegistryImage, "second")
 			second.SetDependsOn([]apicontainer.DependsOn{
 				{ContainerName: first.Name, Condition: "COMPLETE"},
 			})
@@ -639,10 +638,9 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			// The second container should be waiting in MANIFEST_PULLED state
 			assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
 
-			// Assert that both containers have the right image digest populated
-			expectedDigest := "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966"
-			assert.Equal(t, expectedDigest, first.GetImageDigest())
-			assert.Equal(t, expectedDigest, second.GetImageDigest())
+			// Assert that both containers have digest populated
+			assert.NotEmpty(t, first.GetImageDigest())
+			assert.NotEmpty(t, second.GetImageDigest())
 
 			// Cleanup
 			first.SetDesiredStatus(apicontainerstatus.ContainerStopped)
@@ -652,7 +650,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			verifyTaskStoppedStateChange(t, taskEngine)
 			taskEngine.(*DockerTaskEngine).removeContainer(task, first)
 			taskEngine.(*DockerTaskEngine).removeContainer(task, second)
-			removeImage(t, image)
+			removeImage(t, testRegistryImage)
 		})
 	}
 }
