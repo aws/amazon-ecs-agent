@@ -178,6 +178,14 @@ func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected container to be STOPPED")
 }
 
+func verifyContainerStoppedStateChangeWithReason(t *testing.T, taskEngine TaskEngine, reason string) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
+		"Expected container to be STOPPED")
+	assert.Equal(t, reason, event.(api.ContainerStateChange).Reason)
+}
+
 func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents

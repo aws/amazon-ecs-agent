@@ -62,6 +62,10 @@ const (
 				"StartPeriod":100000000,
 				"Retries":3}
 		}`
+
+	// busybox image avaialble in a local registry set up by `make test-registry`
+	localRegistryBusyboxImage       = "127.0.0.1:51670/busybox"
+	localRegistryBusyboxImageDigest = "sha256:51de9138b0cc394c813df84f334d638499333cac22edd05d0300b2c9a2dc80dd"
 )
 
 func init() {
@@ -675,17 +679,17 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		},
 		{
 			name:               "digest can be resolved from explicit tag",
-			image:              "127.0.0.1:51670/busybox:latest",
+			image:              localRegistryBusyboxImage,
 			imagePullBehaviors: allPullBehaviors,
 		},
 		{
 			name:               "digest can be resolved without an explicit tag",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			imagePullBehaviors: allPullBehaviors,
 		},
 		{
 			name:               "manifest pull can timeout",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 0 },
 			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
 
@@ -695,7 +699,7 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		},
 		{
 			name:               "manifest pull can timeout - non-zero timeout",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
 			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
 			assertError: func(t *testing.T, err error) {
@@ -830,4 +834,70 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 
 	// Image should be the same
 	assert.Equal(t, inspectWithDigest.ID, inspectWithoutDigest.ID)
+}
+
+// Tests that a task with invalid image fails as expected.
+func TestInvalidImageInteg(t *testing.T) {
+	// Prepare task engine
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	// Prepare a task
+	container := createTestContainerWithImageAndName("127.0.0.1:51670/invalid-image", "container")
+	task := &apitask.Task{
+		Arn:                 "test-arn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{container},
+	}
+
+	// Start the task
+	go taskEngine.AddTask(task)
+
+	// The container and the task both should stop
+	verifyContainerStoppedStateChangeWithReason(t, taskEngine,
+		"CannotPullImageManifestError: Error response from daemon: manifest unknown: manifest unknown")
+	verifyTaskStoppedStateChange(t, taskEngine)
+
+	err := taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+	require.NoError(t, err, "failed to remove container during cleanup")
+}
+
+// Tests that a task with an image that has a digest specified works normally.
+func TestImageWithDigestInteg(t *testing.T) {
+	// Prepare task engine
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	// Prepare a task with image digest
+	container := createTestContainerWithImageAndName(
+		localRegistryBusyboxImage+"@"+localRegistryBusyboxImageDigest, "container")
+	container.Command = []string{"sh", "-c", "sleep 1"}
+	task := &apitask.Task{
+		Arn:                 "test-arn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{container},
+	}
+
+	// Start the task
+	go taskEngine.AddTask(task)
+
+	// The task should run
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	assert.Equal(t, localRegistryBusyboxImageDigest, container.GetImageDigest())
+
+	// Cleanup
+	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+	err := taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+	require.NoError(t, err, "failed to remove container during cleanup")
 }
