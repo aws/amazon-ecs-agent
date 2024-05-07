@@ -322,3 +322,30 @@ func TestContainerStatusJSONUnmarshalInt(t *testing.T) {
 		})
 	}
 }
+
+func TestContainerBackendStatusString(t *testing.T) {
+	tcs := []struct {
+		status   ContainerStatus
+		expected string
+	}{
+		{ContainerStatusNone, "PENDING"},
+		{ContainerManifestPulled, "PENDING"},
+		{ContainerPulled, "PENDING"},
+		{ContainerCreated, "PENDING"},
+		{ContainerRunning, "RUNNING"},
+		{ContainerResourcesProvisioned, "PENDING"},
+		{ContainerStopped, "STOPPED"},
+		{ContainerZombie, "PENDING"},
+	}
+	for _, tc := range tcs {
+		t.Run(fmt.Sprintf("%d", tc.status), func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.status.BackendStatusString(ContainerRunning))
+		})
+	}
+	t.Run("steady state can be provided and maps to RUNNING status", func(t *testing.T) {
+		assert.Equal(t, "RUNNING",
+			ContainerResourcesProvisioned.BackendStatusString(ContainerResourcesProvisioned))
+		assert.Equal(t, "PENDING",
+			ContainerRunning.BackendStatusString(ContainerResourcesProvisioned))
+	})
+}
