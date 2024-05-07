@@ -78,3 +78,34 @@ func GetDigestFromRepoDigests(repoDigests []string, imageRef string) (digest.Dig
 
 	return "", fmt.Errorf("found no repo digest matching '%s'", imageRef)
 }
+
+// Given an image reference and a manifest digest string, returns a canonical reference
+// for the image.
+// If the image reference has a digest then the canonical reference will still use the provided
+// manifest digest overwriting the exiting digest in the image reference.
+func GetCanonicalRef(imageRef string, manifestDigest string) (reference.Canonical, error) {
+	parsedDigest, err := digest.Parse(manifestDigest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image digest '%s': %w", manifestDigest, err)
+	}
+
+	parsedImageRef, err := reference.Parse(imageRef)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to parse image reference '%s': %w", imageRef, err)
+	}
+	namedImageRef, ok := parsedImageRef.(reference.Named)
+	if !ok {
+		return nil, fmt.Errorf("image reference '%s' is not a named reference, parsed as: %v",
+			imageRef, parsedImageRef)
+	}
+
+	canonicalRef, err := reference.WithDigest(namedImageRef, parsedDigest)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to produce a canonical reference using named reference '%v' and digest '%v': %w",
+			namedImageRef, parsedDigest, err)
+	}
+
+	return canonicalRef, nil
+}

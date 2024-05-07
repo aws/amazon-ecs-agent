@@ -462,6 +462,20 @@ func (mr *MockDockerClientMockRecorder) SystemPing(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemPing", reflect.TypeOf((*MockDockerClient)(nil).SystemPing), arg0, arg1)
 }
 
+// TagImage mocks base method.
+func (m *MockDockerClient) TagImage(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TagImage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TagImage indicates an expected call of TagImage.
+func (mr *MockDockerClientMockRecorder) TagImage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagImage", reflect.TypeOf((*MockDockerClient)(nil).TagImage), arg0, arg1, arg2)
+}
+
 // Version mocks base method.
 func (m *MockDockerClient) Version(arg0 context.Context, arg1 time.Duration) (string, error) {
 	m.ctrl.T.Helper()

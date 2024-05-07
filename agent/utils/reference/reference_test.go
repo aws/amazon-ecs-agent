@@ -150,3 +150,67 @@ func TestGetDigestFromRepoDigests(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCanonicalRef(t *testing.T) {
+	tcs := []struct {
+		name           string
+		imageRef       string
+		manifestDigest string
+		expected       string
+		expectedError  string
+	}{
+		{
+			name:           "invalid digest",
+			imageRef:       "alpine",
+			manifestDigest: "invalid digest",
+			expectedError:  "failed to parse image digest 'invalid digest': invalid checksum digest format",
+		},
+		{
+			name:           "invalid image reference format",
+			imageRef:       "invalid reference",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expectedError:  "failed to parse image reference 'invalid reference': invalid reference format",
+		},
+		{
+			name:           "no tag",
+			imageRef:       "alpine",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "has tag",
+			imageRef:       "alpine:latest",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "image reference's digest is overwritten",
+			imageRef:       "alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "no tag ecr",
+			imageRef:       "public.ecr.aws/library/alpine",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "public.ecr.aws/library/alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "has tag ecr",
+			imageRef:       "public.ecr.aws/library/alpine:latest",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "public.ecr.aws/library/alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			canonicalRef, err := GetCanonicalRef(tc.imageRef, tc.manifestDigest)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, canonicalRef.String())
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}
