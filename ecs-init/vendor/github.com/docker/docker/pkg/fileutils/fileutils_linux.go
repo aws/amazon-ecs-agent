@@ -1,11 +1,12 @@
 package fileutils
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/sirupsen/logrus"
+	"github.com/containerd/containerd/log"
 	"golang.org/x/sys/unix"
 )
 
@@ -29,7 +30,7 @@ func GetTotalUsedFds() int {
 
 	f, err := os.Open(name)
 	if err != nil {
-		logrus.WithError(err).Error("Error listing file descriptors")
+		log.G(context.TODO()).WithError(err).Error("Error listing file descriptors")
 		return -1
 	}
 	defer f.Close()
@@ -41,7 +42,7 @@ func GetTotalUsedFds() int {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			logrus.WithError(err).Error("Error listing file descriptors")
+			log.G(context.TODO()).WithError(err).Error("Error listing file descriptors")
 			return -1
 		}
 	}
