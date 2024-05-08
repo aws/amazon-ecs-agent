@@ -1,4 +1,13 @@
 # Changelog
+# 1.82.4
+* Enhancement - Add retries to DockerClient's manifest pull functionality and add utils/reference package [#4150](https://github.com/aws/amazon-ecs-agent/pull/4150)
+* Enhancement - ContainerRestartPolicy ACS and TCS models, TMDS updates [#4158](https://github.com/aws/amazon-ecs-agent/pull/4158)[#4163](https://github.com/aws/amazon-ecs-agent/pull/4163)
+* Enhancement - Add restart tracker and restart policy to ecs-agent module [#4162](https://github.com/aws/amazon-ecs-agent/pull/4162)
+* Enhancement - Add BackendStatusString method to ContainerStatus [#4167](https://github.com/aws/amazon-ecs-agent/pull/4167)
+* Enhancement - Simplify ContainerStatus.BackendStatusString() method [#4168](https://github.com/aws/amazon-ecs-agent/pull/4168)
+* Enhancement - Bump github.com/docker/docker from 23.0.8+incompatible to 24.0.9+incompatible in /ecs-init [#4122](https://github.com/aws/amazon-ecs-agent/pull/4122)
+* Bugfix - Update ca-certs base image [#4153](https://github.com/aws/amazon-ecs-agent/pull/4153)
+* Bugfix - fixing command typo [#4165](https://github.com/aws/amazon-ecs-agent/pull/4165)
 
 # 1.82.3
 * Enhancement - Implement TextMarshaler for ContainerStatus [#4135](https://github.com/aws/amazon-ecs-agent/pull/4135)
