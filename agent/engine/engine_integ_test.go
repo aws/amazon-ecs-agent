@@ -31,6 +31,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -64,8 +65,7 @@ const (
 		}`
 
 	// busybox image avaialble in a local registry set up by `make test-registry`
-	localRegistryBusyboxImage       = "127.0.0.1:51670/busybox"
-	localRegistryBusyboxImageDigest = "sha256:51de9138b0cc394c813df84f334d638499333cac22edd05d0300b2c9a2dc80dd"
+	localRegistryBusyboxImage = "127.0.0.1:51670/busybox"
 )
 
 func init() {
@@ -869,9 +869,16 @@ func TestImageWithDigestInteg(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 
+	// Find image digest
+	versionedClient, err := taskEngine.(*DockerTaskEngine).client.WithVersion(dockerclient.Version_1_35)
+	manifest, manifestPullError := versionedClient.PullImageManifest(
+		context.Background(), localRegistryBusyboxImage, nil)
+	require.NoError(t, manifestPullError)
+	imageDigest := manifest.Descriptor.Digest.String()
+
 	// Prepare a task with image digest
 	container := createTestContainerWithImageAndName(
-		localRegistryBusyboxImage+"@"+localRegistryBusyboxImageDigest, "container")
+		localRegistryBusyboxImage+"@"+imageDigest, "container")
 	container.Command = []string{"sh", "-c", "sleep 1"}
 	task := &apitask.Task{
 		Arn:                 "test-arn",
@@ -887,12 +894,13 @@ func TestImageWithDigestInteg(t *testing.T) {
 	// The task should run
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
-	assert.Equal(t, localRegistryBusyboxImageDigest, container.GetImageDigest())
+	assert.Equal(t, imageDigest, container.GetImageDigest())
 
 	// Cleanup
 	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
-	err := taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+	err = taskEngine.(*DockerTaskEngine).removeContainer(task, container)
 	require.NoError(t, err, "failed to remove container during cleanup")
+	removeImage(t, localRegistryBusyboxImage)
 }
