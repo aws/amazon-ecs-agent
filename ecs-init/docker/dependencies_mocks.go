@@ -20,7 +20,7 @@ package docker
 import (
 	reflect "reflect"
 
-	docker "github.com/fsouza/go-dockerclient"
+	docker "github.com/docker/docker/client"
 	gomock "github.com/golang/mock/gomock"
 )
 

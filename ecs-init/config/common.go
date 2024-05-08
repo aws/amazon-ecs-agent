@@ -24,7 +24,7 @@ import (
 	"github.com/cihub/seelog"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
-	godocker "github.com/fsouza/go-dockerclient"
+	godocker "github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
 

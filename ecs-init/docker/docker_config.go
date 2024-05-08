@@ -18,7 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
-	godocker "github.com/fsouza/go-dockerclient"
+	godocker "github.com/docker/docker/client"
 )
 
 // getPlatformSpecificEnvVariables gets a map of environment variable key-value

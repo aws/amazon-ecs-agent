@@ -1,7 +1,3 @@
-# github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1
-## explicit; go 1.16
-github.com/Azure/go-ansiterm
-github.com/Azure/go-ansiterm/winterm
 # github.com/Microsoft/go-winio v0.5.2
 ## explicit; go 1.13
 github.com/Microsoft/go-winio
@@ -74,45 +70,45 @@ github.com/cihub/seelog/archive/zip
 # github.com/containerd/containerd v1.6.26
 ## explicit; go 1.19
 github.com/containerd/containerd/pkg/apparmor
-github.com/containerd/containerd/pkg/userns
 # github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e => github.com/coreos/go-systemd/v22 v22.0.0
 ## explicit; go 1.12
 github.com/coreos/go-systemd/activation
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/distribution/reference v0.6.0
+## explicit; go 1.20
+github.com/distribution/reference
+# github.com/docker/distribution v2.8.3+incompatible
+## explicit
+github.com/docker/distribution/reference
 # github.com/docker/docker v23.0.8+incompatible
 ## explicit
+github.com/docker/docker/api
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/blkiodev
 github.com/docker/docker/api/types/container
+github.com/docker/docker/api/types/events
 github.com/docker/docker/api/types/filters
+github.com/docker/docker/api/types/image
 github.com/docker/docker/api/types/mount
 github.com/docker/docker/api/types/network
 github.com/docker/docker/api/types/registry
 github.com/docker/docker/api/types/strslice
 github.com/docker/docker/api/types/swarm
 github.com/docker/docker/api/types/swarm/runtime
+github.com/docker/docker/api/types/time
 github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
-github.com/docker/docker/libnetwork/ipamutils
-github.com/docker/docker/opts
+github.com/docker/docker/client
+github.com/docker/docker/errdefs
 github.com/docker/docker/pkg/aaparser
-github.com/docker/docker/pkg/archive
-github.com/docker/docker/pkg/fileutils
-github.com/docker/docker/pkg/homedir
-github.com/docker/docker/pkg/idtools
-github.com/docker/docker/pkg/ioutils
-github.com/docker/docker/pkg/jsonmessage
-github.com/docker/docker/pkg/longpath
-github.com/docker/docker/pkg/pools
-github.com/docker/docker/pkg/stdcopy
-github.com/docker/docker/pkg/system
 github.com/docker/docker/profiles/apparmor
 # github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
+github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-plugins-helpers v0.0.0-20181025120712-1e6269c305b8
 ## explicit
 github.com/docker/go-plugins-helpers/sdk
@@ -120,9 +116,6 @@ github.com/docker/go-plugins-helpers/volume
 # github.com/docker/go-units v0.4.0
 ## explicit
 github.com/docker/go-units
-# github.com/fsouza/go-dockerclient v0.0.0-20170830181106-98edf3edfae6
-## explicit
-github.com/fsouza/go-dockerclient
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
@@ -132,65 +125,38 @@ github.com/golang/mock/gomock
 # github.com/jmespath/go-jmespath v0.4.0 => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 ## explicit
 github.com/jmespath/go-jmespath
-# github.com/klauspost/compress v1.15.9
-## explicit; go 1.16
-github.com/klauspost/compress
-github.com/klauspost/compress/fse
-github.com/klauspost/compress/huff0
-github.com/klauspost/compress/internal/cpuinfo
-github.com/klauspost/compress/internal/snapref
-github.com/klauspost/compress/zstd
-github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/kr/text v0.2.0
 ## explicit
-# github.com/moby/patternmatcher v0.5.0
-## explicit; go 1.19
-github.com/moby/patternmatcher
-# github.com/moby/sys/sequential v0.5.0
-## explicit; go 1.17
-github.com/moby/sys/sequential
 # github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae
 ## explicit; go 1.13
-github.com/moby/term
-github.com/moby/term/windows
 # github.com/morikuni/aec v1.0.0
 ## explicit
-github.com/morikuni/aec
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit; go 1.12
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
+github.com/opencontainers/go-digest/digestset
 # github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b
 ## explicit; go 1.17
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.1.12
-## explicit; go 1.17
-github.com/opencontainers/runc/libcontainer/user
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sirupsen/logrus v1.9.3
-## explicit; go 1.13
-github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # golang.org/x/net v0.23.0
 ## explicit; go 1.18
-golang.org/x/net/context
-golang.org/x/net/context/ctxhttp
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 # golang.org/x/sys v0.18.0
 ## explicit; go 1.18
-golang.org/x/sys/execabs
-golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 ## explicit

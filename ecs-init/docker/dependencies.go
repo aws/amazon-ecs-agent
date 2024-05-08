@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 
 	log "github.com/cihub/seelog"
-	godocker "github.com/fsouza/go-dockerclient"
+	godocker "github.com/docker/docker/client"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
-	godocker "github.com/fsouza/go-dockerclient"
+	godocker "github.com/docker/docker/client"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
