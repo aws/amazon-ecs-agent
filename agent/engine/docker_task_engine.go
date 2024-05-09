@@ -1398,7 +1398,9 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	}
 
 	// Set the credentials for pull from ECR if necessary
-	if container.ShouldPullWithExecutionRole() {
+	pullWithExecRole := container.ShouldPullWithExecutionRole()
+	var execRoleArn string
+	if pullWithExecRole {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
 			logger.Error("Unable to acquire ECR credentials to pull image for container", logger.Fields{
@@ -1415,6 +1417,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 
 		iamCredentials := executionCredentials.GetIAMRoleCredentials()
 		container.SetRegistryAuthCredentials(iamCredentials)
+		execRoleArn = iamCredentials.RoleArn
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
 	}
@@ -1438,8 +1441,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	}
 
 	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
-
-	// Don't add internal images(created by ecs-agent) into imagemanger state
+	// Don't add internal images(created by ecs-agent) into image manager state
 	if container.IsInternal() {
 		return metadata
 	}
@@ -1462,7 +1464,11 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 				// and the image is not available in both remote and local caches
 				if container.IsEssential() {
 					task.SetDesiredStatus(apitaskstatus.TaskStopped)
-					engine.EmitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), metadata.Error.Error()))
+					errorMessage := metadata.Error.Error()
+					if pullWithExecRole && execRoleArn != "" {
+						errorMessage = apierrors.AugmentMessage(metadata.Error.Error(), execRoleArn)
+					}
+					engine.EmitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), errorMessage))
 				}
 				return dockerapi.DockerContainerMetadata{Error: metadata.Error}
 			}

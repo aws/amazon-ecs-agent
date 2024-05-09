@@ -1633,6 +1633,85 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 	}
 }
 
+func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
+	testcases := []struct {
+		Name           string
+		PullImageErr   apierrors.NamedError
+		ExpectedErrMsg string
+	}{
+		{
+			Name:           "API404RepoImageNotFound",
+			PullImageErr:   dockerapi.CannotPullContainerError{fmt.Errorf("API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found")},
+			ExpectedErrMsg: `CannotPullContainerError: The task can’t pull the image '111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1' from Amazon Elastic Container Registry using the task execution role 'MyCoolRoleArn'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'`,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			cfg := &config.Config{
+				DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+				ImagePullBehavior:              config.ImagePullDefaultBehavior,
+			}
+			ctrl, client, _, privateTaskEngine, credentialsManager, _, _, _ := mocks(t, ctx, cfg)
+			defer ctrl.Finish()
+
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine._time = nil
+			credentialsID := "execution role"
+			imageName := "image"
+			taskArn := "arn:aws:ecs:us-west-2:123456789012:task/my-cluster/3e7f1c06-e1bd-4a98-87d7-EXAMPLE"
+			container := &apicontainer.Container{
+				Image:     imageName,
+				Essential: true,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &apicontainer.ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			}
+			task := &apitask.Task{
+				Arn:                    taskArn,
+				Containers:             []*apicontainer.Container{container},
+				ExecutionCredentialsID: credentialsID,
+			}
+			roleCredentials := credentials.TaskIAMRoleCredentials{
+				IAMRoleCredentials: credentials.IAMRoleCredentials{
+					CredentialsID: "credsid",
+					RoleArn:       "MyCoolRoleArn",
+				},
+			}
+
+			client.EXPECT().PullImage(gomock.Any(), imageName, container.RegistryAuthentication, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{Error: tc.PullImageErr})
+			client.EXPECT().InspectImage(imageName).Return(nil, errors.New("Uhoh"))
+			task.SetKnownStatus(apitaskstatus.TaskStopped)
+			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+
+			stateChangeEvents := taskEngine.StateChangeEvents()
+			done := make(chan struct{})
+			defer discardEvents(stateChangeEvents)()
+			defer close(done)
+			go func() {
+				for {
+					select {
+					case event := <-stateChangeEvents:
+						taskEvent, _ := event.(api.TaskStateChange)
+						assert.Equal(t, tc.ExpectedErrMsg, taskEvent.Reason, "error message mismatch")
+					case <-done:
+						return
+					}
+				}
+			}()
+			metadata := taskEngine.pullAndUpdateContainerReference(task, container)
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.PullImageErr},
+				metadata, "expected metadata with error")
+		})
+	}
+}
+
 // TestMetadataFileUpdatedAgentRestart checks whether metadataManager.Update(...) is
 // invoked in the path DockerTaskEngine.Init() -> .synchronizeState() -> .updateMetadataFile(...)
 // for the following case:
