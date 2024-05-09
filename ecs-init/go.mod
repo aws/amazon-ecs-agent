@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.51.3
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/containerd v1.6.26
-	github.com/docker/docker v23.0.8+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-plugins-helpers v0.0.0-20181025120712-1e6269c305b8
 	github.com/golang/mock v1.6.0
 	github.com/pkg/errors v0.9.1
