@@ -5449,23 +5449,3 @@ func TestHasAContainerWithResolvedDigest(t *testing.T) {
 		assert.True(t, task.HasAContainerWithResolvedDigest())
 	})
 }
-
-func TestHasAContainerRequiringDigestResolution(t *testing.T) {
-	t.Run("false if no containers require digest resolution", func(t *testing.T) {
-		task := &Task{
-			Containers: []*apicontainer.Container{
-				{Image: "ubuntu@sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee"},
-			},
-		}
-		assert.False(t, task.HasAContainerRequiringDigestResolution())
-	})
-	t.Run("true if there is a container that would require digest resolution", func(t *testing.T) {
-		task := &Task{
-			Containers: []*apicontainer.Container{
-				{Image: "ubuntu@sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee"},
-				{Image: "ubuntu:latest"},
-			},
-		}
-		assert.True(t, task.HasAContainerRequiringDigestResolution())
-	})
-}

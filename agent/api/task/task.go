@@ -3732,13 +3732,3 @@ func (task *Task) HasAContainerWithResolvedDigest() bool {
 	}
 	return false
 }
-
-// Checks if a task has at least one container that would require image manifest digest resolution.
-func (task *Task) HasAContainerRequiringDigestResolution() bool {
-	for _, c := range task.Containers {
-		if c.DigestResolutionRequired() {
-			return true
-		}
-	}
-	return false
-}
