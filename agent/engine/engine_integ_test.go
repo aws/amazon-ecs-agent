@@ -836,29 +836,54 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 
 // Tests that a task with invalid image fails as expected.
 func TestInvalidImageInteg(t *testing.T) {
-	// Prepare task engine
-	cfg := defaultTestConfigIntegTest()
-	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _ := setup(cfg, nil, t)
-	defer done()
-
-	// Prepare a task
-	container := createTestContainerWithImageAndName("127.0.0.1:51670/invalid-image", "container")
-	task := &apitask.Task{
-		Arn:                 "test-arn",
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{container},
+	tcs := []struct {
+		name          string
+		image         string
+		expectedError string
+	}{
+		{
+			name:  "repo not found - fails during digest resolution",
+			image: "127.0.0.1:51670/invalid-image",
+			expectedError: "CannotPullImageManifestError: Error response from daemon: manifest" +
+				" unknown: manifest unknown",
+		},
+		{
+			name: "invalid digest provided - fails during pull",
+			image: "127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+			expectedError: "CannotPullContainerError: Error response from daemon: manifest for" +
+				" 127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000" +
+				" not found: manifest unknown: manifest unknown",
+		},
 	}
 
-	// Start the task
-	go taskEngine.AddTask(task)
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Prepare task engine
+			cfg := defaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+			taskEngine, done, _ := setup(cfg, nil, t)
+			defer done()
 
-	// The container and the task both should stop
-	verifyContainerStoppedStateChangeWithReason(t, taskEngine,
-		"CannotPullImageManifestError: Error response from daemon: manifest unknown: manifest unknown")
-	verifyTaskStoppedStateChange(t, taskEngine)
+			// Prepare a task
+			container := createTestContainerWithImageAndName(tc.image, "container")
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{container},
+			}
+
+			// Start the task
+			go taskEngine.AddTask(task)
+
+			// The container and the task both should stop
+			verifyContainerStoppedStateChangeWithReason(t, taskEngine, tc.expectedError)
+			verifyTaskStoppedStateChange(t, taskEngine)
+		})
+	}
 }
 
 // Tests that a task with an image that has a digest specified works normally.
