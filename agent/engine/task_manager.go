@@ -702,7 +702,6 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 			logger.Debug(err.Error(), logger.Fields{
 				field.TaskID:    mtask.GetID(),
 				field.Container: cont.Name,
-				field.Error:     err,
 			})
 		} else {
 			logger.Error("Skipping emitting event for container due to error", logger.Fields{
