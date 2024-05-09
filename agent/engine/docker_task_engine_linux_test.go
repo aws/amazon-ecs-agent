@@ -335,11 +335,12 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
 
-	// Prepare mock image manifest digest for test
+	// Container might progress to MANIFEST_PULLED state (there is a race condition)
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).AnyTimes().Return(manifestPullClient, nil)
 	manifestPullClient.EXPECT().
 		PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
+		AnyTimes().
 		Return(registry.DistributionInspect{}, nil)
 
 	err := taskEngine.Init(ctx)
