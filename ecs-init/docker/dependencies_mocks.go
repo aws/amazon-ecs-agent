@@ -20,7 +20,7 @@ package docker
 import (
 	reflect "reflect"
 
-	docker "github.com/docker/docker/client"
+	client "github.com/docker/docker/client"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -48,10 +48,10 @@ func (m *Mockdockerclient) EXPECT() *MockdockerclientMockRecorder {
 }
 
 // CreateContainer mocks base method.
-func (m *Mockdockerclient) CreateContainer(opts docker.CreateContainerOptions) (*docker.Container, error) {
+func (m *Mockdockerclient) CreateContainer(opts client.CreateContainerOptions) (*client.Container, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainer", opts)
-	ret0, _ := ret[0].(*docker.Container)
+	ret0, _ := ret[0].(*client.Container)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,10 +63,10 @@ func (mr *MockdockerclientMockRecorder) CreateContainer(opts interface{}) *gomoc
 }
 
 // ListContainers mocks base method.
-func (m *Mockdockerclient) ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error) {
+func (m *Mockdockerclient) ListContainers(opts client.ListContainersOptions) ([]client.APIContainers, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListContainers", opts)
-	ret0, _ := ret[0].([]docker.APIContainers)
+	ret0, _ := ret[0].([]client.APIContainers)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -78,10 +78,10 @@ func (mr *MockdockerclientMockRecorder) ListContainers(opts interface{}) *gomock
 }
 
 // ListImages mocks base method.
-func (m *Mockdockerclient) ListImages(opts docker.ListImagesOptions) ([]docker.APIImages, error) {
+func (m *Mockdockerclient) ListImages(opts client.ListImagesOptions) ([]client.APIImages, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListImages", opts)
-	ret0, _ := ret[0].([]docker.APIImages)
+	ret0, _ := ret[0].([]client.APIImages)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -93,7 +93,7 @@ func (mr *MockdockerclientMockRecorder) ListImages(opts interface{}) *gomock.Cal
 }
 
 // LoadImage mocks base method.
-func (m *Mockdockerclient) LoadImage(opts docker.LoadImageOptions) error {
+func (m *Mockdockerclient) LoadImage(opts client.LoadImageOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadImage", opts)
 	ret0, _ := ret[0].(error)
@@ -107,7 +107,7 @@ func (mr *MockdockerclientMockRecorder) LoadImage(opts interface{}) *gomock.Call
 }
 
 // Logs mocks base method.
-func (m *Mockdockerclient) Logs(opts docker.LogsOptions) error {
+func (m *Mockdockerclient) Logs(opts client.LogsOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Logs", opts)
 	ret0, _ := ret[0].(error)
@@ -135,7 +135,7 @@ func (mr *MockdockerclientMockRecorder) Ping() *gomock.Call {
 }
 
 // RemoveContainer mocks base method.
-func (m *Mockdockerclient) RemoveContainer(opts docker.RemoveContainerOptions) error {
+func (m *Mockdockerclient) RemoveContainer(opts client.RemoveContainerOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveContainer", opts)
 	ret0, _ := ret[0].(error)
@@ -149,7 +149,7 @@ func (mr *MockdockerclientMockRecorder) RemoveContainer(opts interface{}) *gomoc
 }
 
 // StartContainer mocks base method.
-func (m *Mockdockerclient) StartContainer(id string, hostConfig *docker.HostConfig) error {
+func (m *Mockdockerclient) StartContainer(id string, hostConfig *client.HostConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartContainer", id, hostConfig)
 	ret0, _ := ret[0].(error)
