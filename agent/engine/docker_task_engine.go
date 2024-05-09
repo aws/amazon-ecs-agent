@@ -1398,7 +1398,9 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	}
 
 	// Set the credentials for pull from ECR if necessary
-	if container.ShouldPullWithExecutionRole() {
+	pullWithExecRole := container.ShouldPullWithExecutionRole()
+	var execRoleArn string
+	if pullWithExecRole {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
 			logger.Error("Unable to acquire ECR credentials to pull image for container", logger.Fields{
@@ -1415,6 +1417,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 
 		iamCredentials := executionCredentials.GetIAMRoleCredentials()
 		container.SetRegistryAuthCredentials(iamCredentials)
+		execRoleArn = iamCredentials.RoleArn
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
 	}
@@ -1436,16 +1439,16 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		}
 		defer container.SetASMDockerAuthConfig(types.AuthConfig{})
 	}
-
 	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
-
-	// Don't add internal images(created by ecs-agent) into imagemanger state
+	// Don't add internal images(created by ecs-agent) into image manager state
 	if container.IsInternal() {
 		return metadata
 	}
 	pullSucceeded := metadata.Error == nil
 	findCachedImage := false
 	if !pullSucceeded {
+		// Extend error message
+		metadata.Error = apierrors.AugmentErrMsg(metadata.Error, execRoleArn)
 		// If Agent failed to pull an image when
 		// 1. DependentContainersPullUpfront is enabled
 		// 2. ImagePullBehavior is not set to always

@@ -1633,6 +1633,84 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 	}
 }
 
+func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
+	testcases := []struct {
+		Name         string
+		PullImageErr apierrors.NamedError
+		ExpectedErr  apierrors.NamedError
+		Role         string
+	}{
+		{
+			Name:         "MissingECRBatchGetImageError",
+			PullImageErr: dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("Check if image exists and role 'MyCoolRoleArn' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			Role:         "MyCoolRoleArn",
+		},
+		{
+			Name:         "ECRImageDoesNotExistError (no role passed)",
+			PullImageErr: dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
+			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
+			Role:         "",
+		},
+		{
+			Name:         "UntouchedError",
+			PullImageErr: dockerapi.CannotPullContainerError{fmt.Errorf("API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found")},
+			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found")},
+			Role:         "",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			cfg := &config.Config{
+				DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+				ImagePullBehavior:              config.ImagePullDefaultBehavior,
+			}
+			ctrl, client, _, privateTaskEngine, credentialsManager, _, _, _ := mocks(t, ctx, cfg)
+			defer ctrl.Finish()
+
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine._time = nil
+			credentialsID := "execution role"
+			imageName := "image"
+			taskArn := "arn:aws:ecs:us-west-2:123456789012:task/my-cluster/3e7f1c06-e1bd-4a98-87d7-EXAMPLE"
+			container := &apicontainer.Container{
+				Image:     imageName,
+				Essential: true,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &apicontainer.ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			}
+			task := &apitask.Task{
+				Arn:                    taskArn,
+				Containers:             []*apicontainer.Container{container},
+				ExecutionCredentialsID: credentialsID,
+			}
+			roleCredentials := credentials.TaskIAMRoleCredentials{
+				IAMRoleCredentials: credentials.IAMRoleCredentials{
+					CredentialsID: "credsid",
+					RoleArn:       tc.Role,
+				},
+			}
+
+			client.EXPECT().PullImage(gomock.Any(), imageName, container.RegistryAuthentication, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{Error: tc.PullImageErr})
+			client.EXPECT().InspectImage(imageName).Return(nil, errors.New("Uhoh"))
+			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+
+			metadata := taskEngine.pullAndUpdateContainerReference(task, container)
+
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.ExpectedErr},
+				metadata, "expected metadata with error")
+		})
+	}
+}
+
 // TestMetadataFileUpdatedAgentRestart checks whether metadataManager.Update(...) is
 // invoked in the path DockerTaskEngine.Init() -> .synchronizeState() -> .updateMetadataFile(...)
 // for the following case:
