@@ -24,7 +24,7 @@ import (
 	"github.com/cihub/seelog"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
-	godocker "github.com/docker/docker/client"
+	"github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 )
 
@@ -275,7 +275,7 @@ func HostPKIDirPath() string {
 
 // AgentDockerLogDriverConfiguration returns a LogConfig object
 // suitable for used with the managed container.
-func AgentDockerLogDriverConfiguration() godocker.LogConfig {
+func AgentDockerLogDriverConfiguration() container.LogConfig {
 	driver := defaultLogDriver
 	options := parseLogOptions()
 	if envDriver := os.Getenv(agentLogDriverEnvVar); envDriver != "" {
@@ -300,7 +300,7 @@ func AgentDockerLogDriverConfiguration() godocker.LogConfig {
 			"max-file": maxFiles,
 		}
 	}
-	return godocker.LogConfig{
+	return container.LogConfig{
 		Type:   driver,
 		Config: options,
 	}
