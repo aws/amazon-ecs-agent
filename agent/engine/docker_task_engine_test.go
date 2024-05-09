@@ -451,8 +451,15 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
 		manifestPullClient.EXPECT().
 			PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
-			Return(registry.DistributionInspect{}, nil)
-		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+			Return(registry.DistributionInspect{
+				Descriptor: ocispec.Descriptor{Digest: testDigest},
+			}, nil)
+		client.EXPECT().
+			PullImage(gomock.Any(), container.Image+"@"+testDigest.String(), nil, gomock.Any()).
+			Return(dockerapi.DockerContainerMetadata{})
+		client.EXPECT().
+			TagImage(gomock.Any(), container.Image+"@"+testDigest.String(), container.Image).
+			Return(nil)
 
 		imageManager.EXPECT().RecordContainerReference(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
@@ -476,6 +483,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	taskEngine.AddTask(sleepTask)
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 
 	// Now surprise surprise, it actually did start!
@@ -539,6 +547,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
 	taskEngine.AddTask(sleepTask) // actually add the task we created
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(sleepTask.Arn)
 	assert.True(t, ok)
@@ -798,8 +807,14 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 		client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
 		manifestPullClient.EXPECT().
 			PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
-			Return(registry.DistributionInspect{}, nil)
-		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+			Return(registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}}, nil)
+		expectedCanonicalRef := container.Image + "@" + testDigest.String()
+		client.EXPECT().
+			PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+			Return(dockerapi.DockerContainerMetadata{})
+		client.EXPECT().
+			TagImage(gomock.Any(), expectedCanonicalRef, container.Image).
+			Return(nil)
 		imageManager.EXPECT().RecordContainerReference(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
@@ -832,6 +847,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := testdata.LoadTask("sleep5")
@@ -862,13 +878,21 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	containerEventsWG := sync.WaitGroup{}
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	for _, container := range sleepTask.Containers {
+		expectedCanonicalRef := container.Image + "@" + testDigest.String()
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
 			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
 			manifestPullClient.EXPECT().
 				PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
-				Return(registry.DistributionInspect{}, nil),
-			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+				Return(
+					registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}},
+					nil),
+			client.EXPECT().
+				PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().
+				TagImage(gomock.Any(), expectedCanonicalRef, container.Image).
+				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -912,6 +936,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	containerEventsWG.Wait()
 	// Set the task desired status to be stopped and StopContainer will be called
@@ -943,13 +968,19 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	}
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	for _, container := range sleepTask.Containers {
+		expectedCanonicalRef := container.Image + "@" + testDigest.String()
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
 			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
 			manifestPullClient.EXPECT().
 				PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
-				Return(registry.DistributionInspect{}, nil),
-			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+				Return(registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}}, nil),
+			client.EXPECT().
+				PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().
+				TagImage(gomock.Any(), expectedCanonicalRef, container.Image).
+				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
 			// Simulate successful create container
@@ -974,6 +1005,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 
 	go taskEngine.AddTask(sleepTask)
 	// wait for task running
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := testdata.LoadTask("sleep5")
@@ -2437,10 +2469,13 @@ func TestContainerProgressParallize(t *testing.T) {
 	taskEngine.Init(ctx)
 	taskEngine.AddTask(testTask)
 
-	// Expect the fast pulled container to be running firs
+	// Expect the fast pulled container to be running first
 	fastPullContainerRunning := false
 	for event := range stateChangeEvents {
 		containerEvent, ok := event.(api.ContainerStateChange)
+		if ok && containerEvent.Status == apicontainerstatus.ContainerManifestPulled {
+			continue
+		}
 		if ok && containerEvent.Status == apicontainerstatus.ContainerRunning {
 			if containerEvent.ContainerName == fastPullImage {
 				fastPullContainerRunning = true
@@ -2453,6 +2488,9 @@ func TestContainerProgressParallize(t *testing.T) {
 		}
 
 		taskEvent, ok := event.(api.TaskStateChange)
+		if ok && taskEvent.Status == apitaskstatus.TaskManifestPulled {
+			continue
+		}
 		if ok && taskEvent.Status == apitaskstatus.TaskRunning {
 			break
 		}
@@ -4029,9 +4067,8 @@ func TestPullContainerManifest(t *testing.T) {
 			containerName:        "my-sc-container",
 		},
 		{
-			name:           "digest available in image reference",
-			image:          "public.ecr.aws/library/alpine@" + testDigest.String(),
-			expectedDigest: testDigest.String(),
+			name:  "digest is not resolved if already available in image reference",
+			image: "public.ecr.aws/library/alpine@" + testDigest.String(),
 		},
 		{
 			name:              "image pull not required - image inspect fails",
@@ -4458,6 +4495,10 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 			taskEngine.AddTask(task)
 
 			// Wait for the task to reach RUNNING
+			if !tc.shouldPullWithoutCanonicalRef {
+				// MANIFEST_PULLED event is emitted only if image digest is resolved
+				waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
+			}
 			waitForRunningEvents(t, taskEngine.StateChangeEvents())
 			dockerEventsSent.Wait()
 

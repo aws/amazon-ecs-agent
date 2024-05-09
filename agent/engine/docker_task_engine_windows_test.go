@@ -47,6 +47,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -324,10 +325,18 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	expectedCanonicalRef := sleepContainer.Image + "@" + testDigest.String()
 	manifestPullClient.EXPECT().
-		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(registry.DistributionInspect{}, nil)
-	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+		PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
+		Return(registry.DistributionInspect{
+			Descriptor: ocispec.Descriptor{Digest: testDigest},
+		}, nil)
+	client.EXPECT().
+		PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+		Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
+		Return(nil)
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
 

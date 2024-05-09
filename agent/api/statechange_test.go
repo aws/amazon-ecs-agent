@@ -27,50 +27,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func TestShouldBeReported(t *testing.T) {
-	cases := []struct {
-		status          apitaskstatus.TaskStatus
-		containerChange []ContainerStateChange
-		result          bool
-	}{
-		{ // Normal task state change to running
-			status: apitaskstatus.TaskRunning,
-			result: true,
-		},
-		{ // Normal task state change to stopped
-			status: apitaskstatus.TaskStopped,
-			result: true,
-		},
-		{ // Container changed while task is not in steady state
-			status: apitaskstatus.TaskCreated,
-			containerChange: []ContainerStateChange{
-				{TaskArn: "taskarn"},
-			},
-			result: true,
-		},
-		{ // No container change and task status not recognized
-			status: apitaskstatus.TaskCreated,
-			result: false,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(fmt.Sprintf("task change status: %s, container change: %t", tc.status, len(tc.containerChange) > 0),
-			func(t *testing.T) {
-				taskChange := TaskStateChange{
-					Status:     tc.status,
-					Containers: tc.containerChange,
-				}
-
-				assert.Equal(t, tc.result, taskChange.ShouldBeReported())
-			})
-	}
-}
 
 func TestSetTaskTimestamps(t *testing.T) {
 	t1 := time.Now()
@@ -494,4 +456,374 @@ func getTestContainerStateChange() ContainerStateChange {
 	}
 
 	return testContainerStateChange
+}
+
+func TestNewTaskStateChangeEvent(t *testing.T) {
+	tcs := []struct {
+		name          string
+		task          *apitask.Task
+		reason        string
+		expected      TaskStateChange
+		expectedError string
+	}{
+		{
+			name:          "internal tasks are never reported",
+			task:          &apitask.Task{IsInternal: true, Arn: "arn"},
+			expectedError: "should not send events for internal tasks or containers: arn",
+		},
+		{
+			name: "manifest_pulled state is not reported if there are no resolved digests",
+			task: &apitask.Task{
+				Arn:               "arn",
+				KnownStatusUnsafe: apitaskstatus.TaskManifestPulled,
+				Containers: []*apicontainer.Container{
+					{ImageDigest: ""},
+					{ImageDigest: "digest", Type: apicontainer.ContainerCNIPause},
+				},
+			},
+			expectedError: "create task state change event api: status MANIFEST_PULLED not" +
+				" eligible for backend reporting as no digests were resolved",
+		},
+		{
+			name: "manifest_pulled state is reported",
+			task: &apitask.Task{
+				Arn:               "arn",
+				KnownStatusUnsafe: apitaskstatus.TaskManifestPulled,
+				Containers:        []*apicontainer.Container{{ImageDigest: "digest"}},
+			},
+			expected: TaskStateChange{TaskARN: "arn", Status: apitaskstatus.TaskManifestPulled},
+		},
+		{
+			name:          "created state is not reported",
+			task:          &apitask.Task{Arn: "arn", KnownStatusUnsafe: apitaskstatus.TaskCreated},
+			expectedError: "create task state change event api: status not recognized by ECS: CREATED",
+		},
+		{
+			name:     "running state is reported",
+			task:     &apitask.Task{Arn: "arn", KnownStatusUnsafe: apitaskstatus.TaskRunning},
+			expected: TaskStateChange{TaskARN: "arn", Status: apitaskstatus.TaskRunning},
+		},
+		{
+			name:   "stopped state is reported",
+			task:   &apitask.Task{Arn: "arn", KnownStatusUnsafe: apitaskstatus.TaskRunning},
+			reason: "container stopped",
+			expected: TaskStateChange{
+				TaskARN: "arn", Status: apitaskstatus.TaskRunning, Reason: "container stopped",
+			},
+		},
+		{
+			name: "already sent status is not reported again",
+			task: &apitask.Task{
+				Arn:               "arn",
+				KnownStatusUnsafe: apitaskstatus.TaskManifestPulled,
+				SentStatusUnsafe:  apitaskstatus.TaskManifestPulled,
+			},
+			expectedError: "create task state change event api: status [MANIFEST_PULLED] already sent",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := NewTaskStateChangeEvent(tc.task, tc.reason)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				tc.expected.Task = tc.task
+				assert.Equal(t, tc.expected, res)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}
+
+func TestNewContainerStateChangeEvent(t *testing.T) {
+	tcs := []struct {
+		name          string
+		task          *apitask.Task
+		reason        string
+		expected      ContainerStateChange
+		expectedError string
+	}{
+		{
+			name: "internal containers are not reported",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{Name: "container", Type: apicontainer.ContainerCNIPause},
+				},
+			},
+			expectedError: "should not send events for internal tasks or containers: container",
+		},
+		{
+			name: "MANIFEST_PULLED state is reported if digest was resolved",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "digest",
+						KnownStatusUnsafe: apicontainerstatus.ContainerManifestPulled,
+					},
+				},
+			},
+			expected: ContainerStateChange{
+				TaskArn:       "arn",
+				ContainerName: "container",
+				Status:        apicontainerstatus.ContainerManifestPulled,
+				ImageDigest:   "digest",
+			},
+		},
+		{
+			name: "MANIFEST_PULLED state not is not reported if digest was not resolved",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "",
+						KnownStatusUnsafe: apicontainerstatus.ContainerManifestPulled,
+					},
+				},
+			},
+			expectedError: "should not send events for internal tasks or containers:" +
+				" create container state change event api:" +
+				" no need to send MANIFEST_PULLED event" +
+				" as no resolved digests were found",
+		},
+		{
+			name: "PULLED state is not reported",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "digest",
+						KnownStatusUnsafe: apicontainerstatus.ContainerPulled,
+					},
+				},
+			},
+			expectedError: "should not send events for internal tasks or containers:" +
+				" create container state change event api: " +
+				"status not recognized by ECS: PULLED",
+		},
+		{
+			name: "RUNNING state is reported",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "digest",
+						KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+					},
+				},
+			},
+			expected: ContainerStateChange{
+				TaskArn:       "arn",
+				ContainerName: "container",
+				Status:        apicontainerstatus.ContainerRunning,
+				ImageDigest:   "digest",
+			},
+		},
+		{
+			name: "STOPPED state is reported",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "digest",
+						KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+					},
+				},
+			},
+			reason: "container stopped",
+			expected: ContainerStateChange{
+				TaskArn:       "arn",
+				ContainerName: "container",
+				Status:        apicontainerstatus.ContainerStopped,
+				ImageDigest:   "digest",
+				Reason:        "container stopped",
+			},
+		},
+		{
+			name: "already sent state is not reported again",
+			task: &apitask.Task{
+				Arn: "arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "container",
+						ImageDigest:       "digest",
+						KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+						SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
+					},
+				},
+			},
+			expectedError: "should not send events for internal tasks or containers:" +
+				" create container state change event api:" +
+				" status [RUNNING] already sent for container container, task arn",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := NewContainerStateChangeEvent(tc.task, tc.task.Containers[0], tc.reason)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				tc.expected.Container = tc.task.Containers[0]
+				assert.Equal(t, tc.expected, res)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}
+
+func TestContainerStatusChangeStatus(t *testing.T) {
+	// Mapped status is ContainerStatusNone when container status is ContainerStatusNone
+	var containerStatus apicontainerstatus.ContainerStatus
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerStatusNone)
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerStatusNone)
+
+	// Mapped status is ContainerManifestPulled when container status is ContainerManifestPulled
+	containerStatus = apicontainerstatus.ContainerManifestPulled
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerManifestPulled)
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerManifestPulled)
+
+	// Mapped status is ContainerStatusNone when container status is ContainerPulled
+	containerStatus = apicontainerstatus.ContainerPulled
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerStatusNone)
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerStatusNone)
+
+	// Mapped status is ContainerStatusNone when container status is ContainerCreated
+	containerStatus = apicontainerstatus.ContainerCreated
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerStatusNone)
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerStatusNone)
+
+	containerStatus = apicontainerstatus.ContainerRunning
+	// Mapped status is ContainerRunning when container status is ContainerRunning
+	// and steady state is ContainerRunning
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerRunning)
+	// Mapped status is ContainerStatusNone when container status is ContainerRunning
+	// and steady state is ContainerResourcesProvisioned
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerStatusNone)
+
+	containerStatus = apicontainerstatus.ContainerResourcesProvisioned
+	// Mapped status is ContainerRunning when container status is ContainerResourcesProvisioned
+	// and steady state is ContainerResourcesProvisioned
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerRunning)
+
+	// Mapped status is ContainerStopped when container status is ContainerStopped
+	containerStatus = apicontainerstatus.ContainerStopped
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerRunning),
+		apicontainerstatus.ContainerStopped)
+	assert.Equal(t,
+		containerStatusChangeStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned),
+		apicontainerstatus.ContainerStopped)
+}
+
+func TestBuildContainerStateChangePayload(t *testing.T) {
+	tcs := []struct {
+		name          string
+		change        ContainerStateChange
+		expected      *ecsmodel.ContainerStateChange
+		expectedError string
+	}{
+		{
+			name:          "fails when no container name",
+			change:        ContainerStateChange{},
+			expectedError: "container state change has no container name",
+		},
+		{
+			name: "no result no error when container state is unsupported",
+			change: ContainerStateChange{
+				ContainerName: "container",
+				Status:        apicontainerstatus.ContainerStatusNone,
+			},
+			expected: nil,
+		},
+		{
+			name: "MANIFEST_PULLED state maps to PENDING",
+			change: ContainerStateChange{
+				ContainerName: "container",
+				Container:     &apicontainer.Container{},
+				Status:        apicontainerstatus.ContainerManifestPulled,
+				ImageDigest:   "digest",
+			},
+			expected: &ecsmodel.ContainerStateChange{
+				ContainerName:   aws.String("container"),
+				ImageDigest:     aws.String("digest"),
+				NetworkBindings: []*ecs.NetworkBinding{},
+				Status:          aws.String("PENDING"),
+			},
+		},
+		{
+			name: "RUNNING maps to RUNNING",
+			change: ContainerStateChange{
+				ContainerName: "container",
+				Container:     &apicontainer.Container{},
+				Status:        apicontainerstatus.ContainerRunning,
+				ImageDigest:   "digest",
+				RuntimeID:     "runtimeid",
+			},
+			expected: &ecsmodel.ContainerStateChange{
+				ContainerName:   aws.String("container"),
+				ImageDigest:     aws.String("digest"),
+				RuntimeId:       aws.String("runtimeid"),
+				NetworkBindings: []*ecs.NetworkBinding{},
+				Status:          aws.String("RUNNING"),
+			},
+		},
+		{
+			name: "STOPPED maps to STOPPED",
+			change: ContainerStateChange{
+				ContainerName: "container",
+				Container:     &apicontainer.Container{},
+				Status:        apicontainerstatus.ContainerStopped,
+				ImageDigest:   "digest",
+				RuntimeID:     "runtimeid",
+				ExitCode:      aws.Int(1),
+			},
+			expected: &ecsmodel.ContainerStateChange{
+				ContainerName:   aws.String("container"),
+				ImageDigest:     aws.String("digest"),
+				RuntimeId:       aws.String("runtimeid"),
+				ExitCode:        aws.Int64(1),
+				NetworkBindings: []*ecs.NetworkBinding{},
+				Status:          aws.String("STOPPED"),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := buildContainerStateChangePayload(tc.change)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, res)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
 }

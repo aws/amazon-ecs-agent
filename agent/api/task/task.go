@@ -3721,3 +3721,24 @@ func (task *Task) IsRunning() bool {
 
 	return taskStatus == apitaskstatus.TaskRunning
 }
+
+// Checks if the task has at least one container with a successfully
+// resolved image manifest digest.
+func (task *Task) HasAContainerWithResolvedDigest() bool {
+	for _, c := range task.Containers {
+		if c.DigestResolved() {
+			return true
+		}
+	}
+	return false
+}
+
+// Checks if a task has at least one container that would require image manifest digest resolution.
+func (task *Task) HasAContainerRequiringDigestResolution() bool {
+	for _, c := range task.Containers {
+		if c.DigestResolutionRequired() {
+			return true
+		}
+	}
+	return false
+}

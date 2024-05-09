@@ -102,38 +102,15 @@ func (cs *ContainerStatus) ShouldReportToBackend(steadyStateStatus ContainerStat
 	return *cs == steadyStateStatus || *cs == ContainerStopped
 }
 
-// BackendStatus maps the internal container status in the agent to that in the
-// backend
-//
-// Deprecated: Use BackendStatusString instead
-func (cs *ContainerStatus) BackendStatus(steadyStateStatus ContainerStatus) ContainerStatus {
-	if *cs == steadyStateStatus {
-		return ContainerRunning
-	}
-
-	if *cs == ContainerStopped {
-		return ContainerStopped
-	}
-
-	return ContainerStatusNone
-}
-
 // BackendStatusString maps the internal container status in Agent to a backend recognized
 // status string.
 //
 // Container steady state can be provided as an option. If provided, it will be used to
 // determine if the backend status is "RUNNING". If not provided, then ContainerRunning is
 // used as the default steady state.
-func (cs ContainerStatus) BackendStatusString(steadyStateStatusPtr *ContainerStatus) string {
-	var steadyState ContainerStatus
-	if steadyStateStatusPtr != nil {
-		steadyState = *steadyStateStatusPtr
-	} else {
-		steadyState = ContainerRunning
-	}
-
+func (cs ContainerStatus) BackendStatusString() string {
 	switch cs {
-	case steadyState:
+	case ContainerRunning:
 		return "RUNNING"
 	case ContainerStopped:
 		return "STOPPED"

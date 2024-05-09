@@ -981,7 +981,10 @@ func (engine *DockerTaskEngine) EmitTaskEvent(task *apitask.Task, reason string)
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
-			logger.Debug(err.Error())
+			logger.Debug(err.Error(), logger.Fields{
+				field.TaskID: task.GetID(),
+				field.Error:  err,
+			})
 		} else {
 			logger.Error("Unable to create task state change event", logger.Fields{
 				field.TaskID: task.GetID(),
@@ -1241,8 +1244,14 @@ func (engine *DockerTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager 
 func (engine *DockerTaskEngine) pullContainerManifest(
 	task *apitask.Task, container *apicontainer.Container,
 ) dockerapi.DockerContainerMetadata {
-	if container.IsInternal() {
-		// internal containers are not in-scope of digest resolution
+	if !container.DigestResolutionRequired() {
+		// Digest resolution not required
+		// (internal container or already has digest in image reference)
+		logger.Info("Digest resolution not required", logger.Fields{
+			field.TaskARN:       task.Arn,
+			field.ContainerName: container.Name,
+			field.Image:         container.Image,
+		})
 		return dockerapi.DockerContainerMetadata{}
 	}
 	// AppNet Agent container image is managed at start up so it is not in-scope for digest resolution.
@@ -1252,17 +1261,7 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 	}
 
 	var imageManifestDigest digest.Digest
-	digestFromPayload := referenceutil.GetDigestFromImageRef(container.Image)
-	if digestFromPayload != "" {
-		// Digest available in task payload
-		imageManifestDigest = digestFromPayload
-		logger.Info("Found image manifest digest in task payload", logger.Fields{
-			field.TaskARN:       task.Arn,
-			field.ContainerName: container.Name,
-			field.Image:         container.Image,
-			field.ImageDigest:   imageManifestDigest.String(),
-		})
-	} else if !engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.GetID()) {
+	if !engine.imagePullRequired(engine.cfg.ImagePullBehavior, container, task.GetID()) {
 		// Image pull is not required for the container so we will use a locally available
 		// image for the container. Get digest from a locally available image.
 		imgInspect, err := engine.client.InspectImage(container.Image)
