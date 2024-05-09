@@ -82,7 +82,7 @@ func GetDigestFromRepoDigests(repoDigests []string, imageRef string) (digest.Dig
 // Given an image reference and a manifest digest string, returns a canonical reference
 // for the image.
 // If the image reference has a digest then the canonical reference will still use the provided
-// manifest digest overwriting the exiting digest in the image reference.
+// manifest digest overwriting the existing digest in the image reference.
 func GetCanonicalRef(imageRef string, manifestDigest string) (reference.Canonical, error) {
 	parsedDigest, err := digest.Parse(manifestDigest)
 	if err != nil {

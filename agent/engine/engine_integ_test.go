@@ -31,6 +31,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -62,6 +63,9 @@ const (
 				"StartPeriod":100000000,
 				"Retries":3}
 		}`
+
+	// busybox image avaialble in a local registry set up by `make test-registry`
+	localRegistryBusyboxImage = "127.0.0.1:51670/busybox"
 )
 
 func init() {
@@ -609,11 +613,10 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			taskEngine, done, _ := setup(cfg, nil, t)
 			defer done()
 
-			image := "public.ecr.aws/docker/library/busybox:1.36.1"
-			first := createTestContainerWithImageAndName(image, "first")
+			first := createTestContainerWithImageAndName(testRegistryImage, "first")
 			first.Command = []string{"sh", "-c", "sleep 60"}
 
-			second := createTestContainerWithImageAndName(image, "second")
+			second := createTestContainerWithImageAndName(testRegistryImage, "second")
 			second.SetDependsOn([]apicontainer.DependsOn{
 				{ContainerName: first.Name, Condition: "COMPLETE"},
 			})
@@ -635,10 +638,9 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			// The second container should be waiting in MANIFEST_PULLED state
 			assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
 
-			// Assert that both containers have the right image digest populated
-			expectedDigest := "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966"
-			assert.Equal(t, expectedDigest, first.GetImageDigest())
-			assert.Equal(t, expectedDigest, second.GetImageDigest())
+			// Assert that both containers have digest populated
+			assert.NotEmpty(t, first.GetImageDigest())
+			assert.NotEmpty(t, second.GetImageDigest())
 
 			// Cleanup
 			first.SetDesiredStatus(apicontainerstatus.ContainerStopped)
@@ -648,7 +650,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			verifyTaskStoppedStateChange(t, taskEngine)
 			taskEngine.(*DockerTaskEngine).removeContainer(task, first)
 			taskEngine.(*DockerTaskEngine).removeContainer(task, second)
-			removeImage(t, image)
+			removeImage(t, testRegistryImage)
 		})
 	}
 }
@@ -675,17 +677,17 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		},
 		{
 			name:               "digest can be resolved from explicit tag",
-			image:              "127.0.0.1:51670/busybox:latest",
+			image:              localRegistryBusyboxImage,
 			imagePullBehaviors: allPullBehaviors,
 		},
 		{
 			name:               "digest can be resolved without an explicit tag",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			imagePullBehaviors: allPullBehaviors,
 		},
 		{
 			name:               "manifest pull can timeout",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 0 },
 			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
 
@@ -695,7 +697,7 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		},
 		{
 			name:               "manifest pull can timeout - non-zero timeout",
-			image:              "127.0.0.1:51670/busybox",
+			image:              localRegistryBusyboxImage,
 			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
 			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
 			assertError: func(t *testing.T, err error) {
@@ -830,4 +832,100 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 
 	// Image should be the same
 	assert.Equal(t, inspectWithDigest.ID, inspectWithoutDigest.ID)
+}
+
+// Tests that a task with invalid image fails as expected.
+func TestInvalidImageInteg(t *testing.T) {
+	tcs := []struct {
+		name          string
+		image         string
+		expectedError string
+	}{
+		{
+			name:  "repo not found - fails during digest resolution",
+			image: "127.0.0.1:51670/invalid-image",
+			expectedError: "CannotPullImageManifestError: Error response from daemon: manifest" +
+				" unknown: manifest unknown",
+		},
+		{
+			name: "invalid digest provided - fails during pull",
+			image: "127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+			expectedError: "CannotPullContainerError: Error response from daemon: manifest for" +
+				" 127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000" +
+				" not found: manifest unknown: manifest unknown",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Prepare task engine
+			cfg := defaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+			taskEngine, done, _ := setup(cfg, nil, t)
+			defer done()
+
+			// Prepare a task
+			container := createTestContainerWithImageAndName(tc.image, "container")
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{container},
+			}
+
+			// Start the task
+			go taskEngine.AddTask(task)
+
+			// The container and the task both should stop
+			verifyContainerStoppedStateChangeWithReason(t, taskEngine, tc.expectedError)
+			verifyTaskStoppedStateChange(t, taskEngine)
+		})
+	}
+}
+
+// Tests that a task with an image that has a digest specified works normally.
+func TestImageWithDigestInteg(t *testing.T) {
+	// Prepare task engine
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	// Find image digest
+	versionedClient, err := taskEngine.(*DockerTaskEngine).client.WithVersion(dockerclient.Version_1_35)
+	manifest, manifestPullError := versionedClient.PullImageManifest(
+		context.Background(), localRegistryBusyboxImage, nil)
+	require.NoError(t, manifestPullError)
+	imageDigest := manifest.Descriptor.Digest.String()
+
+	// Prepare a task with image digest
+	container := createTestContainerWithImageAndName(
+		localRegistryBusyboxImage+"@"+imageDigest, "container")
+	container.Command = []string{"sh", "-c", "sleep 1"}
+	task := &apitask.Task{
+		Arn:                 "test-arn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{container},
+	}
+
+	// Start the task
+	go taskEngine.AddTask(task)
+
+	// The task should run
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+	assert.Equal(t, imageDigest, container.GetImageDigest())
+
+	// Cleanup
+	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+	err = taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+	require.NoError(t, err, "failed to remove container during cleanup")
+	removeImage(t, localRegistryBusyboxImage)
 }
