@@ -4,14 +4,11 @@
 // Grammar
 //
 //	reference                       := name [ ":" tag ] [ "@" digest ]
-//	name                            := [domain '/'] remote-name
-//	domain                          := host [':' port-number]
-//	host                            := domain-name | IPv4address | \[ IPv6address \]	; rfc3986 appendix-A
-//	domain-name                     := domain-component ['.' domain-component]*
+//	name                            := [domain '/'] path-component ['/' path-component]*
+//	domain                          := domain-component ['.' domain-component]* [':' port-number]
 //	domain-component                := /([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])/
 //	port-number                     := /[0-9]+/
 //	path-component                  := alpha-numeric [separator alpha-numeric]*
-//	path (or "remote-name")         := path-component ['/' path-component]*
 //	alpha-numeric                   := /[a-z0-9]+/
 //	separator                       := /[_.]|__|[-]*/
 //
@@ -24,6 +21,7 @@
 //	digest-hex                      := /[0-9a-fA-F]{32,}/ ; At least 128 bit digest value
 //
 //	identifier                      := /[a-f0-9]{64}/
+//	short-identifier                := /[a-f0-9]{6,64}/
 package reference
 
 import (
@@ -35,13 +33,8 @@ import (
 )
 
 const (
-	// RepositoryNameTotalLengthMax is the maximum total number of characters in a repository name.
-	RepositoryNameTotalLengthMax = 255
-
 	// NameTotalLengthMax is the maximum total number of characters in a repository name.
-	//
-	// Deprecated: use [RepositoryNameTotalLengthMax] instead.
-	NameTotalLengthMax = RepositoryNameTotalLengthMax
+	NameTotalLengthMax = 255
 )
 
 var (
@@ -60,8 +53,8 @@ var (
 	// ErrNameEmpty is returned for empty, invalid repository names.
 	ErrNameEmpty = errors.New("repository name must have at least one component")
 
-	// ErrNameTooLong is returned when a repository name is longer than RepositoryNameTotalLengthMax.
-	ErrNameTooLong = fmt.Errorf("repository name must not be more than %v characters", RepositoryNameTotalLengthMax)
+	// ErrNameTooLong is returned when a repository name is longer than NameTotalLengthMax.
+	ErrNameTooLong = fmt.Errorf("repository name must not be more than %v characters", NameTotalLengthMax)
 
 	// ErrNameNotCanonical is returned when a name is not canonical.
 	ErrNameNotCanonical = errors.New("repository name must be canonical")
@@ -152,7 +145,7 @@ type namedRepository interface {
 	Path() string
 }
 
-// Domain returns the domain part of the [Named] reference.
+// Domain returns the domain part of the Named reference
 func Domain(named Named) string {
 	if r, ok := named.(namedRepository); ok {
 		return r.Domain()
@@ -161,7 +154,7 @@ func Domain(named Named) string {
 	return domain
 }
 
-// Path returns the name without the domain part of the [Named] reference.
+// Path returns the name without the domain part of the Named reference
 func Path(named Named) (name string) {
 	if r, ok := named.(namedRepository); ok {
 		return r.Path()
@@ -170,9 +163,6 @@ func Path(named Named) (name string) {
 	return path
 }
 
-// splitDomain splits a named reference into a hostname and path string.
-// If no valid hostname is found, the hostname is empty and the full value
-// is returned as name
 func splitDomain(name string) (string, string) {
 	match := anchoredNameRegexp.FindStringSubmatch(name)
 	if len(match) != 3 {
@@ -181,8 +171,21 @@ func splitDomain(name string) (string, string) {
 	return match[1], match[2]
 }
 
+// SplitHostname splits a named reference into a
+// hostname and name string. If no valid hostname is
+// found, the hostname is empty and the full value
+// is returned as name
+// DEPRECATED: Use Domain or Path
+func SplitHostname(named Named) (string, string) {
+	if r, ok := named.(namedRepository); ok {
+		return r.Domain(), r.Path()
+	}
+	return splitDomain(named.Name())
+}
+
 // Parse parses s and returns a syntactically valid Reference.
 // If an error was encountered it is returned, along with a nil Reference.
+// NOTE: Parse will not handle short digests.
 func Parse(s string) (Reference, error) {
 	matches := ReferenceRegexp.FindStringSubmatch(s)
 	if matches == nil {
@@ -195,6 +198,10 @@ func Parse(s string) (Reference, error) {
 		return nil, ErrReferenceInvalidFormat
 	}
 
+	if len(matches[1]) > NameTotalLengthMax {
+		return nil, ErrNameTooLong
+	}
+
 	var repo repository
 
 	nameMatch := anchoredNameRegexp.FindStringSubmatch(matches[1])
@@ -204,10 +211,6 @@ func Parse(s string) (Reference, error) {
 	} else {
 		repo.domain = ""
 		repo.path = matches[1]
-	}
-
-	if len(repo.path) > RepositoryNameTotalLengthMax {
-		return nil, ErrNameTooLong
 	}
 
 	ref := reference{
@@ -234,6 +237,7 @@ func Parse(s string) (Reference, error) {
 // the Named interface. The reference must have a name and be in the canonical
 // form, otherwise an error is returned.
 // If an error was encountered it is returned, along with a nil Reference.
+// NOTE: ParseNamed will not handle short digests.
 func ParseNamed(s string) (Named, error) {
 	named, err := ParseNormalizedNamed(s)
 	if err != nil {
@@ -248,15 +252,14 @@ func ParseNamed(s string) (Named, error) {
 // WithName returns a named object representing the given string. If the input
 // is invalid ErrReferenceInvalidFormat will be returned.
 func WithName(name string) (Named, error) {
+	if len(name) > NameTotalLengthMax {
+		return nil, ErrNameTooLong
+	}
+
 	match := anchoredNameRegexp.FindStringSubmatch(name)
 	if match == nil || len(match) != 3 {
 		return nil, ErrReferenceInvalidFormat
 	}
-
-	if len(match[2]) > RepositoryNameTotalLengthMax {
-		return nil, ErrNameTooLong
-	}
-
 	return repository{
 		domain: match[1],
 		path:   match[2],
@@ -317,13 +320,11 @@ func WithDigest(name Named, digest digest.Digest) (Canonical, error) {
 
 // TrimNamed removes any tag or digest from the named reference.
 func TrimNamed(ref Named) Named {
-	repo := repository{}
-	if r, ok := ref.(namedRepository); ok {
-		repo.domain, repo.path = r.Domain(), r.Path()
-	} else {
-		repo.domain, repo.path = splitDomain(ref.Name())
+	domain, path := SplitHostname(ref)
+	return repository{
+		domain: domain,
+		path:   path,
 	}
-	return repo
 }
 
 func getBestReferenceType(ref reference) Reference {
