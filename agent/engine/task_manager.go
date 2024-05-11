@@ -630,7 +630,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
-			logger.Debug(err.Error())
+			logger.Debug(err.Error(), logger.Fields{field.TaskID: mtask.GetID()})
 		} else {
 			logger.Error("Skipping emitting event for task due to error", logger.Fields{
 				field.TaskID: mtask.GetID(),

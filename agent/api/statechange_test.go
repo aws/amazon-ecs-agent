@@ -481,8 +481,9 @@ func TestNewTaskStateChangeEvent(t *testing.T) {
 					{ImageDigest: "digest", Type: apicontainer.ContainerCNIPause},
 				},
 			},
-			expectedError: "create task state change event api: status MANIFEST_PULLED not" +
-				" eligible for backend reporting as no digests were resolved",
+			expectedError: "should not send events for internal tasks or containers:" +
+				" create task state change event api: status MANIFEST_PULLED not eligible" +
+				" for backend reporting as no digests were resolved",
 		},
 		{
 			name: "manifest_pulled state is reported",

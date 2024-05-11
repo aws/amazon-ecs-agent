@@ -981,10 +981,7 @@ func (engine *DockerTaskEngine) EmitTaskEvent(task *apitask.Task, reason string)
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
-			logger.Debug(err.Error(), logger.Fields{
-				field.TaskID: task.GetID(),
-				field.Error:  err,
-			})
+			logger.Debug(err.Error(), logger.Fields{field.TaskID: task.GetID()})
 		} else {
 			logger.Error("Unable to create task state change event", logger.Fields{
 				field.TaskID: task.GetID(),

@@ -141,10 +141,12 @@ func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange
 			taskKnownStatus.String())
 	}
 	if taskKnownStatus == apitaskstatus.TaskManifestPulled && !task.HasAContainerWithResolvedDigest() {
-		return event, fmt.Errorf(
-			"create task state change event api: status %s not eligible for backend reporting as"+
-				" no digests were resolved",
-			apitaskstatus.TaskManifestPulled.String())
+		return event, ErrShouldNotSendEvent{
+			fmt.Sprintf(
+				"create task state change event api: status %s not eligible for backend reporting as"+
+					" no digests were resolved",
+				apitaskstatus.TaskManifestPulled.String()),
+		}
 	}
 
 	event = TaskStateChange{
