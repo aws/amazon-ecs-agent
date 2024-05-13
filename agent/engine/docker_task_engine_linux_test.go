@@ -58,6 +58,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
@@ -120,6 +121,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	// Mock versioned docker client to be used for transition to MANIFEST_PULLED state
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
+	expectedCanonicalRef := sleepContainer.Image + "@" + testDigest.String()
 	// Hierarchical memory accounting is always enabled in CgroupV2 and no controller file exists to configure it
 	if config.CgroupV2 {
 		gomock.InOrder(
@@ -130,8 +132,15 @@ func TestResourceContainerProgression(t *testing.T) {
 			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
 			manifestPullClient.EXPECT().
 				PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
-				Return(registry.DistributionInspect{}, nil),
-			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+				Return(registry.DistributionInspect{
+					Descriptor: ocispec.Descriptor{Digest: testDigest},
+				}, nil),
+			client.EXPECT().
+				PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().
+				TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
+				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -165,8 +174,15 @@ func TestResourceContainerProgression(t *testing.T) {
 			client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil),
 			manifestPullClient.EXPECT().
 				PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
-				Return(registry.DistributionInspect{}, nil),
-			client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+				Return(registry.DistributionInspect{
+					Descriptor: ocispec.Descriptor{Digest: testDigest},
+				}, nil),
+			client.EXPECT().
+				PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().
+				TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
+				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -313,7 +329,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepContainer := sleepTask.Containers[0]
 
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainerstatus.ContainerPulled)
+	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainerstatus.ContainerManifestPulled)
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	taskID := sleepTask.GetID()
@@ -334,14 +350,6 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(errors.New("cgroup create error")),
 	)
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
-
-	// Container might progress to MANIFEST_PULLED state (there is a race condition)
-	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	client.EXPECT().WithVersion(dockerclient.Version_1_35).AnyTimes().Return(manifestPullClient, nil)
-	manifestPullClient.EXPECT().
-		PullImageManifest(gomock.Any(), sleepContainer.Image, nil).
-		AnyTimes().
-		Return(registry.DistributionInspect{}, nil)
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)
@@ -702,9 +710,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
 	manifestPullClient.EXPECT().
 		PullImageManifest(gomock.Any(), sleepContainer.Image, sleepContainer.RegistryAuthentication).
-		Return(registry.DistributionInspect{}, nil)
+		Return(registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}}, nil)
 
-	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+	expectedCanonicalRef := sleepContainer.Image + "@" + testDigest.String()
+	client.EXPECT().
+		PullImage(gomock.Any(), expectedCanonicalRef, nil, gomock.Any()).
+		Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
+		Return(nil)
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
 

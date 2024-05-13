@@ -141,11 +141,32 @@ func loggerConfigIntegrationTest(logfile string) string {
 	return config
 }
 
+func verifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
+		"Expected container to be at MANIFEST_PULLED state")
+}
+
+func verifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
+		"Expected task to reach MANIFEST_PULLED state")
+}
+
 func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
+}
+
+func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskRunning, event.(api.TaskStateChange).Status,
+		"Expected task to be RUNNING")
 }
 
 func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {

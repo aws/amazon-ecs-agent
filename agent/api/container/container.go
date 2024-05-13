@@ -23,6 +23,7 @@ import (
 	"time"
 
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -1520,4 +1521,18 @@ func (c *Container) GetImageName() string {
 	defer c.lock.RUnlock()
 	containerImage := strings.Split(c.Image, ":")[0]
 	return containerImage
+}
+
+// Checks if the container has a resolved image manifest digest.
+// Always returns false for internal containers as those are out-of-scope of digest resolution.
+func (c *Container) DigestResolved() bool {
+	return !c.IsInternal() && c.GetImageDigest() != ""
+}
+
+// Checks if the container's image requires manifest digest resolution.
+// Manifest digest resolution is required if the container's image reference does not
+// have a digest.
+// Always returns false for internal containers as those are out-of-scope of digest resolution.
+func (c *Container) DigestResolutionRequired() bool {
+	return !c.IsInternal() && referenceutil.GetDigestFromImageRef(c.Image) == ""
 }
