@@ -81,13 +81,6 @@ func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine
 	return setup(defaultTestConfigIntegTest(), state, t)
 }
 
-func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
-		"Expected task to be RUNNING")
-}
-
 func verifyTaskRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
@@ -207,6 +200,8 @@ func TestHostVolumeMount(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -234,6 +229,8 @@ func TestSweepContainer(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -276,6 +273,8 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -295,6 +294,8 @@ func TestStartStopWithRuntimeID(t *testing.T) {
 	testTask := createTestTask("testTaskWithContainerID")
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChangeWithRuntimeID(t, taskEngine)
 	verifyTaskRunningStateChangeWithRuntimeID(t, taskEngine)
 	verifyContainerStoppedStateChangeWithRuntimeID(t, taskEngine)
@@ -329,6 +330,8 @@ func TestContainerHealthCheck(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskIsRunning(stateChangeEvents, testTask)
 
@@ -354,6 +357,8 @@ func TestEngineSynchronize(t *testing.T) {
 
 	// Start a task
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	// Record the container information
@@ -436,6 +441,8 @@ func TestLabels(t *testing.T) {
 		"label1":""
 	}}`)}
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -478,6 +485,8 @@ func TestLogDriverOptions(t *testing.T) {
 		}
 	}}`)}
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -526,6 +535,8 @@ func testNetworkMode(t *testing.T, networkMode string) {
 		HostConfig: aws.String(fmt.Sprintf(`{"NetworkMode":"%s"}`, networkMode))}
 
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -570,6 +581,8 @@ func TestTaskCleanup(t *testing.T) {
 	testTask := createTestTask(testArn)
 
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -631,6 +644,13 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 
 			// Start the task and wait for first container to start running
 			go taskEngine.AddTask(task)
+
+			// Both containers and the task should reach MANIFEST_PULLED state and emit events for it
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyTaskManifestPulledStateChange(t, taskEngine)
+
+			// The first container should start running
 			verifyContainerRunningStateChange(t, taskEngine)
 
 			// The first container should be in RUNNING state
@@ -664,16 +684,18 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		config.ImagePullOnceBehavior, config.ImagePullPreferCachedBehavior,
 	}
 	tcs := []struct {
-		name               string
-		image              string
-		setConfig          func(c *config.Config)
-		imagePullBehaviors []config.ImagePullBehaviorType
-		assertError        func(t *testing.T, err error)
+		name                      string
+		image                     string
+		setConfig                 func(c *config.Config)
+		imagePullBehaviors        []config.ImagePullBehaviorType
+		digestResolutionNotNeeded bool
+		assertError               func(t *testing.T, err error)
 	}{
 		{
-			name:               "digest available in image reference",
-			image:              "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
-			imagePullBehaviors: allPullBehaviors,
+			name:                      "digest available in image reference",
+			image:                     "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			digestResolutionNotNeeded: true,
+			imagePullBehaviors:        allPullBehaviors,
 		},
 		{
 			name:               "digest can be resolved from explicit tag",
@@ -724,7 +746,11 @@ func TestPullContainerManifestInteg(t *testing.T) {
 				res := taskEngine.(*DockerTaskEngine).pullContainerManifest(task, container)
 				if tc.assertError == nil {
 					require.NoError(t, res.Error)
-					assert.NotEmpty(t, container.GetImageDigest())
+					if tc.digestResolutionNotNeeded {
+						assert.Empty(t, container.GetImageDigest())
+					} else {
+						assert.NotEmpty(t, container.GetImageDigest())
+					}
 				} else {
 					tc.assertError(t, res.Error)
 				}
@@ -916,7 +942,7 @@ func TestImageWithDigestInteg(t *testing.T) {
 	// Start the task
 	go taskEngine.AddTask(task)
 
-	// The task should run
+	// The task should run. No MANIFEST_PULLED events expected.
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	assert.Equal(t, imageDigest, container.GetImageDigest())

@@ -59,6 +59,7 @@ import (
 const (
 	containerID                 = "containerID"
 	waitTaskStateChangeDuration = 2 * time.Minute
+	testDigest                  = digest.Digest("sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee")
 )
 
 var (
@@ -109,6 +110,9 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apita
 
 		taskEvent := event.(api.TaskStateChange)
 		if taskEvent.TaskARN != task.Arn {
+			continue
+		}
+		if taskEvent.Status == apitaskstatus.TaskManifestPulled {
 			continue
 		}
 		if taskEvent.Status == apitaskstatus.TaskRunning {
@@ -287,6 +291,7 @@ func addTaskToEngine(t *testing.T,
 	assert.NoError(t, err)
 
 	taskEngine.AddTask(sleepTask)
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
@@ -319,6 +324,18 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 		t.Fatal("Should be out of events")
 	default:
 	}
+}
+
+// waitForManifestPulledEvents waits for a task to emit 'MANIFEST_PULLED' events for a container
+// and the task
+func waitForManifestPulledEvents(t *testing.T, stateChangeEvents <-chan statechange.Event) {
+	event := <-stateChangeEvents
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
+		"Expected MANIFEST_PULLED state to be emitted for the container")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
+		"Expected MANIFEST_PULLED state to be emitted for the task")
 }
 
 // waitForStopEvents waits for a task to emit 'STOPPED' events for a container

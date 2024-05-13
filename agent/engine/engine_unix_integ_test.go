@@ -269,6 +269,8 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	testTask := createTestTask("testStartUnpulled")
 
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -449,6 +451,10 @@ func TestDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
+	require.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status, "Expected container to reach MANIFEST_PULLED state")
+	event = <-stateChangeEvents
+	require.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status, "Expected task to reach MANIFEST_PULLED state")
+	event = <-stateChangeEvents
 	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
@@ -504,6 +510,10 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
+	require.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status, "Expected container to reach MANIFEST_PULLED state")
+	event = <-stateChangeEvents
+	require.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status, "Expected task to reach MANIFEST_PULLED state")
+	event = <-stateChangeEvents
 	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
@@ -699,6 +709,8 @@ func TestInitOOMEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -753,6 +765,8 @@ func TestSignalEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -814,6 +828,8 @@ func TestDockerStopTimeout(t *testing.T) {
 
 	go dockerTaskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -840,6 +856,8 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -883,6 +901,8 @@ func TestSwapConfigurationTask(t *testing.T) {
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
 
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -930,6 +950,8 @@ func TestPerContainerStopTimeout(t *testing.T) {
 
 	go dockerTaskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -961,6 +983,8 @@ func TestMemoryOverCommit(t *testing.T) {
 	"MemoryReservation": 52428800 }`)}
 
 	go taskEngine.AddTask(testTask)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -1021,6 +1045,8 @@ func TestFluentdTag(t *testing.T) {
 		SourceVolume: "logs"}}
 	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
 	go taskEngine.AddTask(testTaskFleuntdDriver)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -1041,6 +1067,8 @@ func TestFluentdTag(t *testing.T) {
 	}}`)}
 
 	go taskEngine.AddTask(testTaskFluentdLogTag)
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -1101,6 +1129,8 @@ func TestDockerExecAPI(t *testing.T) {
 	finished := make(chan interface{})
 	go func() {
 		// Both containers should start
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, testTask)
 
@@ -1176,9 +1206,13 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	// goroutine to verify task running order
 	go func() {
 		// Tasks go RUNNING in order
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
 
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[1])
 
@@ -1186,6 +1220,8 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 		verifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[0])
 
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[2])
 
@@ -1264,9 +1300,13 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 	go func() {
 		// Tasks go RUNNING in order, 2nd task doesn't wait for 1st task
 		// to transition to STOPPED as resources are available
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
 
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[1])
 
@@ -1350,6 +1390,10 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 
 	// goroutine to verify task running order and verify assertions
 	go func() {
+		// First task goes to MANIFEST_PULLED
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
+
 		// 1st task goes to RUNNING
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
@@ -1455,6 +1499,8 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 			// goroutine to verify task running order and verify assertions
 			go func() {
 				// Task goes to RUNNING
+				verifyContainerManifestPulledStateChange(t, taskEngine)
+				verifyTaskManifestPulledStateChange(t, taskEngine)
 				verifyContainerRunningStateChange(t, taskEngine)
 				verifyTaskIsRunning(stateChangeEvents, testTask)
 

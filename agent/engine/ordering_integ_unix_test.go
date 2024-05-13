@@ -77,6 +77,11 @@ func TestGranularStopTimeout(t *testing.T) {
 	finished := make(chan interface{})
 	go func() {
 
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyContainerManifestPulledStateChange(t, taskEngine)
+		verifyTaskManifestPulledStateChange(t, taskEngine)
+
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
 		verifyContainerRunningStateChange(t, taskEngine)
