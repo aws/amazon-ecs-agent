@@ -14,7 +14,9 @@
 package apparmor
 
 import (
+	"errors"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
 
@@ -28,11 +30,22 @@ const (
 	appArmorProfileDir         = "/etc/apparmor.d"
 )
 
+type profile struct {
+	IncludeTunablesGlobal   bool
+	IncludeAbstractionsBase bool
+}
+
 const ecsAgentDefaultProfile = `
+{{if .IncludeTunablesGlobal}}
 #include <tunables/global>
+{{else}}
+@{PROC}=/proc/
+{{end}}
 
 profile ecs-agent-default flags=(attach_disconnected,mediate_deleted) {
+  {{if .IncludeAbstractionsBase}}
   #include <abstractions/base>
+  {{end}}
 
   network inet,
   network inet6,
@@ -77,6 +90,7 @@ var (
 	isProfileLoaded = aaprofile.IsLoaded
 	loadPath        = aaparser.LoadProfile
 	createFile      = os.Create
+	statFile        = os.Stat
 )
 
 // LoadDefaultProfile ensures the default profile to be loaded with the given name.
@@ -87,19 +101,45 @@ func LoadDefaultProfile(profileName string) error {
 		return err
 	}
 
+	includeTunablesGlobal, err := fileExists(filepath.Join(appArmorProfileDir, "tunables/global"))
+	if err != nil {
+		return err
+	}
+
+	includeAbstractionsBase, err := fileExists(filepath.Join(appArmorProfileDir, "abstractions/base"))
+	if err != nil {
+		return err
+	}
+
 	f, err := createFile(filepath.Join(appArmorProfileDir, profileName))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(ecsAgentDefaultProfile)
+
+	t := template.Must(template.New("profile").Parse(ecsAgentDefaultProfile))
+	err = t.Execute(f, profile{
+		IncludeTunablesGlobal:   includeTunablesGlobal,
+		IncludeAbstractionsBase: includeAbstractionsBase,
+	})
 	if err != nil {
 		return err
 	}
-	path := f.Name()
 
+	path := f.Name()
 	if err := loadPath(path); err != nil {
 		return fmt.Errorf("error loading apparmor profile %s: %w", path, err)
 	}
 	return nil
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := statFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
