@@ -193,6 +193,12 @@ func (err CannotPullECRContainerError) Retry() bool {
 	return false
 }
 
+func (err CannotPullECRContainerError) Constructor() func(string) apierrors.NamedError {
+	return func(msg string) apierrors.NamedError {
+		return CannotPullECRContainerError{errors.New(msg)}
+	}
+}
+
 // CannotPullContainerAuthError indicates any error when trying to pull
 // a container image
 type CannotPullContainerAuthError struct {

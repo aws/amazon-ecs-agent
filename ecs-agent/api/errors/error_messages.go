@@ -30,7 +30,7 @@ import (
 // 2. Parsers: Functions responsible for parsing error messages and identifying known error types.
 //    Each parser is associated with a specific error pattern and error type.
 // 3. Error Message Formatters: Functions to generate rich error messages for each known error type.
-//    These functions take parsed error data and additional arguments as input and produce augmented
+//    These functions take parsed error data and additional context as input and produce augmented
 //    error messages.
 //
 // Adding a New Error Type:
@@ -59,6 +59,7 @@ type DockerErrorType int
 const (
 	MissingECRBatchGetImageError DockerErrorType = iota
 	ECRImageDoesNotExistError
+	NetworkConfigurationError
 )
 
 type DockerError struct {
@@ -66,20 +67,27 @@ type DockerError struct {
 	RawError string
 }
 
+type ErrorContext struct {
+	ExecRole    string
+	NetworkMode string
+}
+
 // Defines the function signature for generating formatted error messages.
 // 'args' can be used to pass extra information into formatting call.
-type ErrorMessageFunc func(errorData DockerError, args ...string) string
+type ErrorMessageFunc func(errorData DockerError, ctx ErrorContext) string
 
 // A map associating DockerErrorType with functions to form error messages.
 var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
 	MissingECRBatchGetImageError: formatMissingImageOrPullImageError,
 	ECRImageDoesNotExistError:    formatMissingImageOrPullImageError,
+	NetworkConfigurationError:    formatNetworkConfigurationError,
 }
 
 // A map associating DockerErrorType with parser functions.
 var errorParsers = map[DockerErrorType]func(string) (DockerError, error){
 	MissingECRBatchGetImageError: parseMissingPullImagePermsError,
 	ECRImageDoesNotExistError:    parseImageDoesNotExistError,
+	NetworkConfigurationError:    parseNetworkConfigurationError,
 }
 
 // An interface that provides means to reconstruct Named Errors. This is
@@ -91,8 +99,9 @@ type ConstructibleNamedError interface {
 
 const (
 	// error message patterns used by parsers
-	PatternECRBatchGetImageError  = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
-	PatternImageDoesNotExistError = `denied: requested access to the resource is denied`
+	PatternECRBatchGetImageError     = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
+	PatternImageDoesNotExistError    = `denied: requested access to the resource is denied`
+	PatternNetworkConfigurationError = `request canceled while waiting for connection`
 	// internal errors
 	ErrorMessageDoesNotMatch = `ErrorMessageDoesNotMatch`
 	NumOfArgsUnknownForErrTy = `NumOfArgsUnknownForErrTy`
@@ -133,7 +142,18 @@ func parseImageDoesNotExistError(err string) (DockerError, error) {
 	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
 }
 
-func AugmentErrMsg(namedErr NamedError, args ...string) NamedError {
+func parseNetworkConfigurationError(err string) (DockerError, error) {
+	matched, _ := regexp.MatchString(PatternNetworkConfigurationError, err)
+	if matched {
+		return DockerError{
+			Type:     NetworkConfigurationError,
+			RawError: err,
+		}, nil
+	}
+	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
+}
+
+func AugmentErrMsg(namedErr NamedError, ctx ErrorContext) NamedError {
 
 	constructibleErr, ok := namedErr.(ConstructibleNamedError)
 	if !ok { // If namedErr is not a ConstructibleNamedError, return as-is.
@@ -141,7 +161,7 @@ func AugmentErrMsg(namedErr NamedError, args ...string) NamedError {
 	}
 
 	// Augment the error message.
-	augmentedMsg := AugmentMessage(namedErr.Error(), args...)
+	augmentedMsg := AugmentMessage(namedErr.Error(), ctx)
 	// Reconstruct new NamedError.
 	newError := constructibleErr.Constructor()(augmentedMsg)
 	return newError
@@ -158,7 +178,7 @@ func AugmentErrMsg(namedErr NamedError, args ...string) NamedError {
 //
 // Currently, the function is set up in a safe manner - all failures are ignored, and
 // the original error message string is returned.
-func AugmentMessage(errMsg string, args ...string) string {
+func AugmentMessage(errMsg string, ctx ErrorContext) string {
 	var errorData DockerError
 	var err error
 
@@ -182,21 +202,51 @@ func AugmentMessage(errMsg string, args ...string) string {
 		return errMsg
 	}
 
-	return formattedErrorMessage(errorData, args...)
+	return formattedErrorMessage(errorData, ctx)
 }
 
 // Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
-func formatMissingImageOrPullImageError(errorData DockerError, args ...string) string {
+func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext) string {
 	rawError := errorData.RawError
 	roleName := ""
 
-	if len(args) > 0 && args[0] != "" {
-		roleName = "'" + args[0] + "' "
+	if ctx.ExecRole != "" {
+		roleName = "'" + ctx.ExecRole + "' "
 	}
 
 	formattedMessage := fmt.Sprintf(
 		"Check if image exists and role %shas permissions to pull images from Amazon ECR. %s",
 		roleName, rawError)
+
+	return formattedMessage
+}
+
+// Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
+func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) string {
+	rawError := errorData.RawError
+	entity := ""
+
+	// Valid network modes
+	isHostNetworkMode := map[string]bool{
+		"bridge":  true,
+		"host":    true,
+		"none":    true,
+		"default": true,
+	}
+
+	// Check if the first argument specifies the network mode
+	if ctx.NetworkMode != "" {
+		networkMode := ctx.NetworkMode
+		if networkMode == "awsvpc" {
+			entity = "task "
+		} else if isHostNetworkMode[ctx.NetworkMode] {
+			entity = "host "
+		}
+	}
+
+	formattedMessage := fmt.Sprintf(
+		"Check your %snetwork configuration. %s",
+		entity, rawError)
 
 	return formattedMessage
 }

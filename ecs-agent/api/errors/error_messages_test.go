@@ -27,7 +27,7 @@ import (
 type testCaseAugmentMessage struct {
 	testName    string
 	errMsg      string
-	args        []string
+	ctx         ErrorContext
 	expectedMsg string
 }
 
@@ -36,56 +36,98 @@ func TestAugmentMessage(t *testing.T) {
 		{
 			testName:    "Successful augmentation with args",
 			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
-			args:        []string{"MyBrokenRole"},
+			ctx:         ErrorContext{ExecRole: "MyBrokenRole"},
 			expectedMsg: "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 		},
 		{
 			testName:    "Successful augmentation with args 2",
 			errMsg:      "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
-			args:        []string{"MyBrokenRole"},
+			ctx:         ErrorContext{ExecRole: "MyBrokenRole"},
 			expectedMsg: "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (no args)",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{},
+			expectedMsg: "Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args wrong arg",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "foo"},
+			expectedMsg: "Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (host) 1",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "bridge"},
+			expectedMsg: "Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (host) 2",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "none"},
+			expectedMsg: "Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (host) 3",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "host"},
+			expectedMsg: "Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (host) 4",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "default"},
+			expectedMsg: "Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 3 (task) 1",
+			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			ctx:         ErrorContext{NetworkMode: "awsvpc"},
+			expectedMsg: "Check your task network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 		},
 		{
 			testName:    "Successful augmentation without args",
 			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
-			args:        []string{},
+			ctx:         ErrorContext{},
 			expectedMsg: "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 		},
 		{
 			testName:    "Successful augmentation without args 2",
 			errMsg:      "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
-			args:        []string{},
+			ctx:         ErrorContext{},
 			expectedMsg: "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
 		},
 		{
 			testName:    "Does not recognize unknown error",
 			errMsg:      "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
-			args:        []string{},
+			ctx:         ErrorContext{},
 			expectedMsg: "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
 		},
 		{
 			testName:    "Does not recognize unknown error (with args)",
 			errMsg:      "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
-			args:        []string{"example/image", "taskRole", "foo", "Bar"},
+			ctx:         ErrorContext{ExecRole: "foo", NetworkMode: "bridge"},
 			expectedMsg: "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
 		},
 		{
 			testName:    "empty (with args)",
 			errMsg:      "",
-			args:        []string{"example/image", "taskRole", "foo", "Bar"},
+			ctx:         ErrorContext{},
 			expectedMsg: "",
 		},
 		{
 			testName:    "empty",
 			errMsg:      "",
-			args:        []string{},
+			ctx:         ErrorContext{},
 			expectedMsg: "",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("AugmentMessage %s", tc.testName), func(t *testing.T) {
-			actualMsg := AugmentMessage(tc.errMsg, tc.args...)
+			actualMsg := AugmentMessage(tc.errMsg, tc.ctx)
 			require.Equal(t, tc.expectedMsg, actualMsg)
 		})
 	}
@@ -132,28 +174,28 @@ func TestAugmentErrMsg(t *testing.T) {
 	tests := []struct {
 		name         string
 		err          NamedError
-		args         []string
+		ctx          ErrorContext
 		expectedMsg  string
 		expectedName string
 	}{
 		{
 			name:         "Non-constructible NamedError",
 			err:          UnknownError{FromError: errors.New("some err")},
-			args:         []string{"additional context"},
+			ctx:          ErrorContext{},
 			expectedMsg:  "some err",
 			expectedName: "UnknownError",
 		},
 		{
 			name:         "NamedError error message updated with args",
 			err:          KnownError{FromError: errors.New("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
-			args:         []string{"MyBrokenRole"},
+			ctx:          ErrorContext{ExecRole: "MyBrokenRole"},
 			expectedMsg:  "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 			expectedName: "KnownError",
 		},
 		{
 			name:         "NamedError error message updated no args",
 			err:          KnownError{FromError: errors.New("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
-			args:         []string{},
+			ctx:          ErrorContext{},
 			expectedMsg:  "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 			expectedName: "KnownError",
 		},
@@ -161,7 +203,7 @@ func TestAugmentErrMsg(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			augmentedErr := AugmentErrMsg(tc.err, tc.args...)
+			augmentedErr := AugmentErrMsg(tc.err, tc.ctx)
 			require.Equal(t, augmentedErr.Error(), tc.expectedMsg)
 			require.Equal(t, augmentedErr.ErrorName(), tc.expectedName)
 		})

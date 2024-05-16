@@ -1448,7 +1448,8 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	findCachedImage := false
 	if !pullSucceeded {
 		// Extend error message
-		metadata.Error = apierrors.AugmentErrMsg(metadata.Error, execRoleArn)
+		errCtx := apierrors.ErrorContext{ExecRole: execRoleArn, NetworkMode: task.NetworkMode}
+		metadata.Error = apierrors.AugmentErrMsg(metadata.Error, errCtx)
 		// If Agent failed to pull an image when
 		// 1. DependentContainersPullUpfront is enabled
 		// 2. ImagePullBehavior is not set to always
