@@ -43,69 +43,108 @@ import (
 //    function should take parsed error data and additional arguments as input and produce an augmented
 //    error message.
 // 5. Update `errorMessageFunctions` map to associate the new error type with its formatter function.
-// 6. If necessary, define validation details in the numOfArgsForFmtErrMsg function to assert the correct
-//    number of passed arguments for formatting the error message.
 //
 // Usage:
-// To augment an error message, call the AugmentMessage function with the original error message
-// and additional arguments. If the error message matches a known error pattern, it will be augmented
+// To augment an error message, call the AugmentErrMsg or AugmentMessage function with the original error
+// and additional arguments. If the error message matches known error pattern, it will be augmented
 // with extra information; otherwise, the original error message will be returned.
 //
 // Example:
 //   augmentedMsg := apierrors.AugmentMessage("API error (404): repository not found", "execRole")
 //
 
-// DockerErrorType represents the type of Docker API error.
+// DockerErrorType represents the type of error returned by Docker client.
 type DockerErrorType int
 
 const (
-	APIError404RepoNotFound DockerErrorType = iota
-	// Add more error types as needed
+	MissingECRBatchGetImageError DockerErrorType = iota
+	ECRImageDoesNotExistError
 )
 
 type DockerError struct {
-	Type      DockerErrorType
-	RepoImage string // This field is optional, present only for specific error types
-	// Add more fields as needed for other error types
+	Type     DockerErrorType
+	RawError string
 }
 
 // Defines the function signature for generating formatted error messages.
-// Note that the function does not perform validation - is is up to the caller to ensure
-// amount or passed arguments is correct.
+// 'args' can be used to pass extra information into formatting call.
 type ErrorMessageFunc func(errorData DockerError, args ...string) string
 
 // A map associating DockerErrorType with functions to form error messages.
 var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
-	APIError404RepoNotFound: formatAPIError404RepoNotFound,
-	// Add more mappings for other error types
+	MissingECRBatchGetImageError: formatMissingImageOrPullImageError,
+	ECRImageDoesNotExistError:    formatMissingImageOrPullImageError,
 }
 
 // A map associating DockerErrorType with parser functions.
 var errorParsers = map[DockerErrorType]func(string) (DockerError, error){
-	APIError404RepoNotFound: parse404RepoNotFound,
-	// Add more mappings for other error types
+	MissingECRBatchGetImageError: parseMissingPullImagePermsError,
+	ECRImageDoesNotExistError:    parseImageDoesNotExistError,
+}
+
+// An interface that provides means to reconstruct Named Errors. This is
+// used during error message augmentation process.
+type ConstructibleNamedError interface {
+	NamedError
+	Constructor() func(string) NamedError
 }
 
 const (
 	// error message patterns used by parsers
-	Pattern404RepoNotFound = `API error \((404)\): repository (.+) not found`
+	PatternECRBatchGetImageError  = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
+	PatternImageDoesNotExistError = `denied: requested access to the resource is denied`
 	// internal errors
 	ErrorMessageDoesNotMatch = `ErrorMessageDoesNotMatch`
 	NumOfArgsUnknownForErrTy = `NumOfArgsUnknownForErrTy`
 )
 
-// Parses a 404 Repository Not Found error message.
-func parse404RepoNotFound(err string) (DockerError, error) {
-	pattern := Pattern404RepoNotFound
-	regex := regexp.MustCompile(pattern)
+// A series of CannotPullContainerError error message parsers. Example messages:
+//
+//	CannotPullContainerError: Error response from daemon: pull access denied for
+//	123123123123.dkr.ecr.us-east-1.amazonaws.com/test_image, repository does not
+//	exist or may require 'docker login': {details}
+//	where "details" can be:
+//	  * Missing pull image permissions:
+//	    "denied: User: arn:aws:sts::123123123123:assumed-role/BrokenRole/xyz
+//	    is not authorized to perform: ecr:BatchGetImage on resource:
+//	    arn:aws:ecr:region:123123123123:repository/test_image
+//	    because no identity-based policy allows the ecr:BatchGetImage action"
+//	  * Image repository does not exist (or a type in repo URL):
+//	    "denied: requested access to the resource is denied"
+func parseMissingPullImagePermsError(err string) (DockerError, error) {
+	matched, _ := regexp.MatchString(PatternECRBatchGetImageError, err)
+	if matched {
+		return DockerError{
+			Type:     MissingECRBatchGetImageError,
+			RawError: err,
+		}, nil
+	}
+	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
+}
 
-	matches := regex.FindStringSubmatch(err)
-	if len(matches) != 3 {
-		return DockerError{}, errors.New(ErrorMessageDoesNotMatch)
+func parseImageDoesNotExistError(err string) (DockerError, error) {
+	matched, _ := regexp.MatchString(PatternImageDoesNotExistError, err)
+	if matched {
+		return DockerError{
+			Type:     ECRImageDoesNotExistError,
+			RawError: err,
+		}, nil
+	}
+	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
+}
+
+func AugmentErrMsg(namedErr NamedError, args ...string) NamedError {
+
+	constructibleErr, ok := namedErr.(ConstructibleNamedError)
+	if !ok { // If namedErr is not a ConstructibleNamedError, return as-is.
+		return namedErr
 	}
 
-	image := matches[2]
-	return DockerError{Type: APIError404RepoNotFound, RepoImage: image}, nil
+	// Augment the error message.
+	augmentedMsg := AugmentMessage(namedErr.Error(), args...)
+	// Reconstruct new NamedError.
+	newError := constructibleErr.Constructor()(augmentedMsg)
+	return newError
 }
 
 // Extend error messages with extra useful information.
@@ -114,11 +153,8 @@ func parse404RepoNotFound(err string) (DockerError, error) {
 //
 // Possible failure scenarios:
 // 1. Missing parser implementation.
-// 2. Missing validation details to assert the correct number of passed args for formatted message.
-// 3. Insufficient number of args passed to formatted message.
 //
-// Scenarios 1 and 2 can only occur if a new ErrorType was added incorrectly due to implementation oversight.
-// Scenario 3 can happen if the caller passes the wrong number of arguments.
+// This can only occur if a new ErrorType was added incorrectly due to implementation oversight.
 //
 // Currently, the function is set up in a safe manner - all failures are ignored, and
 // the original error message string is returned.
@@ -146,39 +182,21 @@ func AugmentMessage(errMsg string, args ...string) string {
 		return errMsg
 	}
 
-	// validate the number of arguments passed. If validation failed - return original.
-	numArgs, err := numOfArgsForFmtErrMsg(errorData)
-	if err != nil {
-		return errMsg
-	}
-	if len(args) < numArgs {
-		return errMsg
-	}
-
-	// Generate rich error message with provided arguments.
 	return formattedErrorMessage(errorData, args...)
 }
 
-// Returns number of arguments required in formatting function for given error type. Used in validation.
-func numOfArgsForFmtErrMsg(err DockerError) (int, error) {
-	switch err.Type {
-	case APIError404RepoNotFound:
-		return 1, nil // taskRole
-	default:
-		return 0, errors.New(NumOfArgsUnknownForErrTy)
+// Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
+func formatMissingImageOrPullImageError(errorData DockerError, args ...string) string {
+	rawError := errorData.RawError
+	roleName := ""
+
+	if len(args) > 0 && args[0] != "" {
+		roleName = "'" + args[0] + "' "
 	}
-}
 
-// Generates an error message for APIError404RepoNotFound.
-func formatAPIError404RepoNotFound(errorData DockerError, args ...string) string {
-	image := errorData.RepoImage
-	taskRole := args[0]
+	formattedMessage := fmt.Sprintf(
+		"Check if image exists and role %shas permissions to pull images from Amazon ECR. %s",
+		roleName, rawError)
 
-	return fmt.Sprintf(
-		"The task can’t pull the image"+
-			" '%s' from Amazon Elastic Container Registry using the task"+
-			" execution role '%s'. To fix this, verify that the"+
-			" image URI is correct. Also check that the task execution"+
-			" role has the additional permissions to pull Amazon ECR images."+
-			" Status Code: 404. Response: 'not found'", image, taskRole)
+	return formattedMessage
 }

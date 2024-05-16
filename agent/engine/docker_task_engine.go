@@ -1439,7 +1439,6 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		}
 		defer container.SetASMDockerAuthConfig(types.AuthConfig{})
 	}
-
 	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
 	// Don't add internal images(created by ecs-agent) into image manager state
 	if container.IsInternal() {
@@ -1448,6 +1447,9 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	pullSucceeded := metadata.Error == nil
 	findCachedImage := false
 	if !pullSucceeded {
+		// Extend error message
+		metadata.Error = apierrors.AugmentErrMsg(metadata.Error, execRoleArn)
+		logger.Info("___^^^ UPDATED MSG:" + metadata.Error.Error())
 		// If Agent failed to pull an image when
 		// 1. DependentContainersPullUpfront is enabled
 		// 2. ImagePullBehavior is not set to always
@@ -1464,11 +1466,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 				// and the image is not available in both remote and local caches
 				if container.IsEssential() {
 					task.SetDesiredStatus(apitaskstatus.TaskStopped)
-					errorMessage := metadata.Error.Error()
-					if pullWithExecRole && execRoleArn != "" {
-						errorMessage = apierrors.AugmentMessage(metadata.Error.Error(), execRoleArn)
-					}
-					engine.EmitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), errorMessage))
+					engine.EmitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), metadata.Error.Error()))
 				}
 				return dockerapi.DockerContainerMetadata{Error: metadata.Error}
 			}

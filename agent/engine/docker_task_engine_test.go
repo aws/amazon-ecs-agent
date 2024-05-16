@@ -1638,11 +1638,29 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 		Name           string
 		PullImageErr   apierrors.NamedError
 		ExpectedErrMsg string
+		ExpectedErr    apierrors.NamedError
+		Role           string
 	}{
 		{
-			Name:           "API404RepoImageNotFound",
+			Name:           "MissingECRBatchGetImageError",
+			PullImageErr:   dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			ExpectedErrMsg: `Check if image exists and role 'MyCoolRoleArn' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action`,
+			ExpectedErr:    dockerapi.CannotPullContainerError{fmt.Errorf("Check if image exists and role 'MyCoolRoleArn' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			Role:           "MyCoolRoleArn",
+		},
+		{
+			Name:           "ECRImageDoesNotExistError (no role passed)",
+			PullImageErr:   dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
+			ExpectedErrMsg: `Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied`,
+			ExpectedErr:    dockerapi.CannotPullContainerError{fmt.Errorf("Check if image exists and role 'MyCoolRoleArn' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
+			Role:           "",
+		},
+		{
+			Name:           "UntouchedError",
 			PullImageErr:   dockerapi.CannotPullContainerError{fmt.Errorf("API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found")},
-			ExpectedErrMsg: `CannotPullContainerError: The task can’t pull the image '111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1' from Amazon Elastic Container Registry using the task execution role 'MyCoolRoleArn'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'`,
+			ExpectedErrMsg: `"API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found"`,
+			ExpectedErr:    dockerapi.CannotPullContainerError{fmt.Errorf("API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found")},
+			Role:           "",
 		},
 	}
 
@@ -1680,7 +1698,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 			roleCredentials := credentials.TaskIAMRoleCredentials{
 				IAMRoleCredentials: credentials.IAMRoleCredentials{
 					CredentialsID: "credsid",
-					RoleArn:       "MyCoolRoleArn",
+					RoleArn:       tc.Role,
 				},
 			}
 
@@ -1699,14 +1717,14 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 					select {
 					case event := <-stateChangeEvents:
 						taskEvent, _ := event.(api.TaskStateChange)
-						assert.Equal(t, tc.ExpectedErrMsg, taskEvent.Reason, "error message mismatch")
+						assert.Equal(t, taskEvent.Reason, tc.ExpectedErrMsg, "error message mismatch")
 					case <-done:
 						return
 					}
 				}
 			}()
 			metadata := taskEngine.pullAndUpdateContainerReference(task, container)
-			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.PullImageErr},
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.ExpectedErr},
 				metadata, "expected metadata with error")
 		})
 	}

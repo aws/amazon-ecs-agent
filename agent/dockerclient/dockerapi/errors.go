@@ -14,11 +14,13 @@
 package dockerapi
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 )
 
 const (
@@ -149,6 +151,12 @@ func (err CannotPullContainerError) Error() string {
 // ErrorName returns name of the CannotPullContainerError.
 func (err CannotPullContainerError) ErrorName() string {
 	return "CannotPullContainerError"
+}
+
+func (err CannotPullContainerError) Constructor() func(string) apierrors.NamedError {
+	return func(msg string) apierrors.NamedError {
+		return CannotPullContainerError{errors.New(msg)}
+	}
 }
 
 // CannotPullImageManifestError indicates any error when trying to pull a container image manifest.

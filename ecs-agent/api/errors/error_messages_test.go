@@ -17,13 +17,14 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-type testCase struct {
+type testCaseAugmentMessage struct {
 	testName    string
 	errMsg      string
 	args        []string
@@ -31,42 +32,30 @@ type testCase struct {
 }
 
 func TestAugmentMessage(t *testing.T) {
-	testCases := []testCase{
+	testCases := []testCaseAugmentMessage{
 		{
-			testName:    "Successful augmentation 1",
-			errMsg:      "API error (404): repository repo/image not found",
-			args:        []string{"execution-role-arn"},
-			expectedMsg: "The task can’t pull the image 'repo/image' from Amazon Elastic Container Registry using the task execution role 'execution-role-arn'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'",
+			testName:    "Successful augmentation with args",
+			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
+			args:        []string{"MyBrokenRole"},
+			expectedMsg: "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 		},
 		{
-			testName:    "Successful augmentation 2",
-			errMsg:      "API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found",
-			args:        []string{"FooBarRole"},
-			expectedMsg: "The task can’t pull the image '111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1' from Amazon Elastic Container Registry using the task execution role 'FooBarRole'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'",
+			testName:    "Successful augmentation with args 2",
+			errMsg:      "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
+			args:        []string{"MyBrokenRole"},
+			expectedMsg: "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
 		},
 		{
-			testName:    "Successful augmentation 3",
-			errMsg:      "API error (404): repository 111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1 not found",
-			args:        []string{"FooBarRole"},
-			expectedMsg: "The task can’t pull the image '111122223333.dkr.ecr.us-east-1.amazonaws.com/repo1/image1' from Amazon Elastic Container Registry using the task execution role 'FooBarRole'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'",
-		},
-		{
-			testName:    "Match with arg surplus",
-			errMsg:      "API error (404): repository example/image not found",
-			args:        []string{"taskRole", "foo", "Bar"},
-			expectedMsg: "The task can’t pull the image 'example/image' from Amazon Elastic Container Registry using the task execution role 'taskRole'. To fix this, verify that the image URI is correct. Also check that the task execution role has the additional permissions to pull Amazon ECR images. Status Code: 404. Response: 'not found'",
-		},
-		{
-			testName:    "Match with args deficit - return original",
-			errMsg:      "API error (404): repository example/repository not found",
+			testName:    "Successful augmentation without args",
+			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 			args:        []string{},
-			expectedMsg: "API error (404): repository example/repository not found",
+			expectedMsg: "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 		},
 		{
-			testName:    "Match but case sensitivity does not match - return original",
-			errMsg:      "API ERror (404): repository example/repository nOt fouNd",
+			testName:    "Successful augmentation without args 2",
+			errMsg:      "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
 			args:        []string{},
-			expectedMsg: "API ERror (404): repository example/repository nOt fouNd",
+			expectedMsg: "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
 		},
 		{
 			testName:    "Does not recognize unknown error",
@@ -98,6 +87,83 @@ func TestAugmentMessage(t *testing.T) {
 		t.Run(fmt.Sprintf("AugmentMessage %s", tc.testName), func(t *testing.T) {
 			actualMsg := AugmentMessage(tc.errMsg, tc.args...)
 			require.Equal(t, tc.expectedMsg, actualMsg)
+		})
+	}
+}
+
+type testCaseAugmentErrMsg struct {
+	testName    string
+	errMsg      NamedError
+	expectedMsg string
+}
+
+type KnownError struct {
+	FromError error
+}
+
+func (err KnownError) Error() string {
+	return err.FromError.Error()
+}
+
+func (err KnownError) ErrorName() string {
+	return "KnownError"
+}
+
+func (err KnownError) Constructor() func(string) NamedError {
+	return func(msg string) NamedError {
+		return KnownError{errors.New(msg)}
+	}
+}
+
+// does not implement Constructor()
+type UnknownError struct {
+	FromError error
+}
+
+func (err UnknownError) Error() string {
+	return err.FromError.Error()
+}
+
+func (err UnknownError) ErrorName() string {
+	return "UnknownError"
+}
+
+func TestAugmentErrMsg(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          NamedError
+		args         []string
+		expectedMsg  string
+		expectedName string
+	}{
+		{
+			name:         "Non-constructible NamedError",
+			err:          UnknownError{FromError: errors.New("some err")},
+			args:         []string{"additional context"},
+			expectedMsg:  "some err",
+			expectedName: "UnknownError",
+		},
+		{
+			name:         "NamedError error message updated with args",
+			err:          KnownError{FromError: errors.New("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			args:         []string{"MyBrokenRole"},
+			expectedMsg:  "Check if image exists and role 'MyBrokenRole' has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
+			expectedName: "KnownError",
+		},
+		{
+			name:         "NamedError error message updated no args",
+			err:          KnownError{FromError: errors.New("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
+			args:         []string{},
+			expectedMsg:  "Check if image exists and role has permissions to pull images from Amazon ECR. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
+			expectedName: "KnownError",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			augmentedErr := AugmentErrMsg(tc.err, tc.args...)
+			require.Equal(t, augmentedErr.Error(), tc.expectedMsg)
+			require.Equal(t, augmentedErr.ErrorName(), tc.expectedName)
 		})
 	}
 }
