@@ -1700,7 +1700,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 		{
 			Name:         "NetworkError wrong network mode",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
+			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 			Role:         "",
 			NetworkMode:  "foo",
 		},

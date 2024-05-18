@@ -45,7 +45,7 @@ import (
 // 5. Update `errorMessageFunctions` map to associate the new error type with its formatter function.
 //
 // Usage:
-// To augment an error message, call the AugmentErrMsg or AugmentMessage function with the original error
+// To augment an error message, call the AugmentNamedErrMsg or AugmentMessage function with the original error
 // and additional arguments. If the error message matches known error pattern, it will be augmented
 // with extra information; otherwise, the original error message will be returned.
 //
@@ -60,6 +60,7 @@ const (
 	MissingECRBatchGetImageError DockerErrorType = iota
 	ECRImageDoesNotExistError
 	NetworkConfigurationError
+	ResourceInitializationError
 )
 
 type DockerError struct {
@@ -70,6 +71,7 @@ type DockerError struct {
 type ErrorContext struct {
 	ExecRole    string
 	NetworkMode string
+	SecretID    string
 }
 
 // Defines the function signature for generating formatted error messages.
@@ -81,6 +83,7 @@ var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
 	MissingECRBatchGetImageError: formatMissingImageOrPullImageError,
 	ECRImageDoesNotExistError:    formatMissingImageOrPullImageError,
 	NetworkConfigurationError:    formatNetworkConfigurationError,
+	ResourceInitializationError:  formatResourceInitializationError,
 }
 
 // A map associating DockerErrorType with parser functions.
@@ -88,6 +91,7 @@ var errorParsers = map[DockerErrorType]func(string) (DockerError, error){
 	MissingECRBatchGetImageError: parseMissingPullImagePermsError,
 	ECRImageDoesNotExistError:    parseImageDoesNotExistError,
 	NetworkConfigurationError:    parseNetworkConfigurationError,
+	ResourceInitializationError:  parseResourceInitializationError,
 }
 
 // An interface that provides means to reconstruct Named Errors. This is
@@ -99,9 +103,10 @@ type ConstructibleNamedError interface {
 
 const (
 	// error message patterns used by parsers
-	PatternECRBatchGetImageError     = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
-	PatternImageDoesNotExistError    = `denied: requested access to the resource is denied`
-	PatternNetworkConfigurationError = `request canceled while waiting for connection`
+	PatternECRBatchGetImageError       = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
+	PatternImageDoesNotExistError      = `denied: requested access to the resource is denied`
+	PatternNetworkConfigurationError   = `request canceled while waiting for connection`
+	PatternResourceInitializationError = `ResourceNotFoundException: Secrets Manager can't find the specified secret`
 	// internal errors
 	ErrorMessageDoesNotMatch = `ErrorMessageDoesNotMatch`
 	NumOfArgsUnknownForErrTy = `NumOfArgsUnknownForErrTy`
@@ -153,8 +158,18 @@ func parseNetworkConfigurationError(err string) (DockerError, error) {
 	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
 }
 
-func AugmentErrMsg(namedErr NamedError, ctx ErrorContext) NamedError {
+func parseResourceInitializationError(err string) (DockerError, error) {
+	matched, _ := regexp.MatchString(PatternResourceInitializationError, err)
+	if matched {
+		return DockerError{
+			Type:     ResourceInitializationError,
+			RawError: err,
+		}, nil
+	}
+	return DockerError{RawError: err}, errors.New(ErrorMessageDoesNotMatch)
+}
 
+func AugmentNamedErrMsg(namedErr NamedError, ctx ErrorContext) NamedError {
 	constructibleErr, ok := namedErr.(ConstructibleNamedError)
 	if !ok { // If namedErr is not a ConstructibleNamedError, return as-is.
 		return namedErr
@@ -221,25 +236,17 @@ func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext)
 	return formattedMessage
 }
 
-// Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
+// Generates error message for network misconfiguration errors.
 func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) string {
 	rawError := errorData.RawError
 	entity := ""
-
-	// Valid network modes
-	isHostNetworkMode := map[string]bool{
-		"bridge":  true,
-		"host":    true,
-		"none":    true,
-		"default": true,
-	}
 
 	// Check if the first argument specifies the network mode
 	if ctx.NetworkMode != "" {
 		networkMode := ctx.NetworkMode
 		if networkMode == "awsvpc" {
 			entity = "task "
-		} else if isHostNetworkMode[ctx.NetworkMode] {
+		} else {
 			entity = "host "
 		}
 	}
@@ -247,6 +254,22 @@ func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) st
 	formattedMessage := fmt.Sprintf(
 		"Check your %snetwork configuration. %s",
 		entity, rawError)
+
+	return formattedMessage
+}
+
+// Generates error message for ResourceInitialization Errors.
+func formatResourceInitializationError(errorData DockerError, ctx ErrorContext) string {
+	rawError := errorData.RawError
+	secretID := ""
+
+	if ctx.SecretID != "" {
+		secretID = "'" + ctx.SecretID + "' "
+	}
+
+	formattedMessage := fmt.Sprintf(
+		`ResourceInitializationError: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check that the secret ARN is correct. %s`,
+		secretID, rawError)
 
 	return formattedMessage
 }

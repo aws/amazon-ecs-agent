@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -188,4 +189,52 @@ func createASMInterface(secretValue string) mockGetSecretValue {
 			SecretString: aws.String(secretValue),
 		},
 	}
+}
+
+type brokenGetSecretValue struct {
+	secretsmanageriface.SecretsManagerAPI
+}
+
+func (m brokenGetSecretValue) GetSecretValue(input *secretsmanager.GetSecretValueInput) (*secretsmanager.GetSecretValueOutput, error) {
+	return nil, errors.New("ResourceNotFoundException: Secrets Manager can't find the specified secret.")
+}
+
+func TestGetDockerAuthFromASMErrorMessage(t *testing.T) {
+	origError := errors.New("ResourceInitializationError: The task can't retrieve the secret with ARN 'secret-value-id' from AWS Secrets Manager. Check that the secret ARN is correct. ResourceNotFoundException: Secrets Manager can't find the specified secret.")
+	expectedErr := ASMError{FromError: origError}
+
+	asmClient := brokenGetSecretValue{}
+	_, err := GetDockerAuthFromASM("secret-value-id", asmClient)
+
+	assert.Error(t, err)
+	_, isASMError := err.(ASMError)
+	assert.True(t, isASMError, "error is not of type ASMError")
+	assert.Equal(t, expectedErr.Error(), err.Error(), "error message mismatch")
+}
+
+func TestGetSecretFromASMWithInputErrorMessage(t *testing.T) {
+	origError := errors.Errorf("ResourceInitializationError: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check that the secret ARN is correct. secret %s: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom, valueFrom)
+	expectedErr := ASMError{FromError: origError}
+
+	asmClient := brokenGetSecretValue{}
+	secretValueInput := createSecretValueInput(toPtr(valueFrom), toPtr(versionID), nil)
+	_, err := GetSecretFromASMWithInput(secretValueInput, asmClient, jsonKey)
+
+	assert.Error(t, err)
+	_, isASMError := err.(ASMError)
+	assert.True(t, isASMError, "error is not of type ASMError")
+	assert.Equal(t, expectedErr.Error(), err.Error(), "error message mismatch")
+}
+
+func TestGetSecretFromASMErrorMessage(t *testing.T) {
+	origError := errors.New("ResourceInitializationError: The task can't retrieve the secret with ARN 'secretName' from AWS Secrets Manager. Check that the secret ARN is correct. secret secretName: ResourceNotFoundException: Secrets Manager can't find the specified secret.")
+	expectedErr := ASMError{FromError: origError}
+
+	asmClient := brokenGetSecretValue{}
+	_, err := GetSecretFromASM("secretName", asmClient)
+
+	assert.Error(t, err)
+	_, isASMError := err.(ASMError)
+	assert.True(t, isASMError, "error is not of type ASMError")
+	assert.Equal(t, expectedErr.Error(), err.Error(), "error message mismatch")
 }

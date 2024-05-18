@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
@@ -255,7 +256,8 @@ func (auth *ASMAuthResource) Create() error {
 	for _, a := range auth.GetRequiredASMResources() {
 		err := auth.retrieveASMDockerAuthData(a)
 		if err != nil {
-			auth.setTerminalReason(err.Error())
+			errorMsg := apierrors.AugmentMessage(err.Error(), apierrors.ErrorContext{SecretID: a.CredentialsParameter})
+			auth.setTerminalReason(errorMsg)
 			return err
 		}
 	}

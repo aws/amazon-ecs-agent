@@ -55,7 +55,7 @@ func TestAugmentMessage(t *testing.T) {
 			testName:    "Successful augmentation with args wrong arg",
 			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 			ctx:         ErrorContext{NetworkMode: "foo"},
-			expectedMsg: "Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+			expectedMsg: "Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 		},
 		{
 			testName:    "Successful augmentation with args 3 (host) 1",
@@ -86,6 +86,12 @@ func TestAugmentMessage(t *testing.T) {
 			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 			ctx:         ErrorContext{NetworkMode: "awsvpc"},
 			expectedMsg: "Check your task network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+		},
+		{
+			testName:    "Successful augmentation with args 4",
+			errMsg:      "ResourceNotFoundException: Secrets Manager can't find the specified secret.",
+			ctx:         ErrorContext{SecretID: "aws::arn::my-secret"},
+			expectedMsg: "ResourceInitializationError: The task can't retrieve the secret with ARN 'aws::arn::my-secret' from AWS Secrets Manager. Check that the secret ARN is correct. ResourceNotFoundException: Secrets Manager can't find the specified secret.",
 		},
 		{
 			testName:    "Successful augmentation without args",
@@ -133,7 +139,7 @@ func TestAugmentMessage(t *testing.T) {
 	}
 }
 
-type testCaseAugmentErrMsg struct {
+type testCaseAugmentNamedErrMsg struct {
 	testName    string
 	errMsg      NamedError
 	expectedMsg string
@@ -170,7 +176,7 @@ func (err UnknownError) ErrorName() string {
 	return "UnknownError"
 }
 
-func TestAugmentErrMsg(t *testing.T) {
+func TestAugmentNamedErrMsg(t *testing.T) {
 	tests := []struct {
 		name         string
 		err          NamedError
@@ -203,7 +209,7 @@ func TestAugmentErrMsg(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			augmentedErr := AugmentErrMsg(tc.err, tc.ctx)
+			augmentedErr := AugmentNamedErrMsg(tc.err, tc.ctx)
 			require.Equal(t, augmentedErr.Error(), tc.expectedMsg)
 			require.Equal(t, augmentedErr.ErrorName(), tc.expectedName)
 		})

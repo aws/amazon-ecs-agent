@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
@@ -32,6 +33,29 @@ type AuthDataValue struct {
 	Password *string
 }
 
+type ASMError struct {
+	FromError error
+}
+
+func (err ASMError) Error() string {
+	return err.FromError.Error()
+}
+
+func (err ASMError) ErrorName() string {
+	return "ASMError"
+}
+
+func (err ASMError) Constructor() func(string) apierrors.NamedError {
+	return func(msg string) apierrors.NamedError {
+		return ASMError{errors.New(msg)}
+	}
+}
+
+func wrapError(secretID string, origError error) error {
+	ctx := apierrors.ErrorContext{SecretID: secretID}
+	return apierrors.AugmentNamedErrMsg(ASMError{FromError: origError}, ctx)
+}
+
 // GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
 // retrieve the docker auth data
 func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (types.AuthConfig, error) {
@@ -41,8 +65,7 @@ func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsMan
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return types.AuthConfig{}, errors.Wrapf(err,
-			"asm fetching secret from the service for %s", secretID)
+		return types.AuthConfig{}, wrapError(secretID, err)
 	}
 
 	return extractASMValue(out)
@@ -91,9 +114,10 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (types.AuthConfig
 
 func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
 	client secretsmanageriface.SecretsManagerAPI, jsonKey string) (string, error) {
+	secretID := *input.SecretId
 	out, err := client.GetSecretValue(input)
 	if err != nil {
-		return "", errors.Wrapf(err, "secret %s", *input.SecretId)
+		return "", wrapError(secretID, errors.Wrapf(err, "secret %s", secretID))
 	}
 
 	if jsonKey == "" {
@@ -125,7 +149,7 @@ func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManager
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return "", errors.Wrapf(err, "secret %s", secretID)
+		return "", wrapError(secretID, errors.Wrapf(err, "secret %s", secretID))
 	}
 
 	return aws.StringValue(out.SecretString), nil
