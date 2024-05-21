@@ -153,6 +153,7 @@ test: test-ebs-csi
 	go tool cover -func cover.out > coverprofile.out
 	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
+	cat coverprofile-ecs-agent.out
 
 test-init:
 	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
