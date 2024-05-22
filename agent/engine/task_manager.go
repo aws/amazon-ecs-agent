@@ -445,10 +445,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	containerKnownStatus := container.GetKnownStatus()
 
 	eventLogFields := logger.Fields{
-		field.TaskID:    mtask.GetID(),
-		field.Container: container.Name,
-		field.RuntimeID: runtimeID,
-		field.Status:    event.Status.String(),
+		field.TaskID:        mtask.GetID(),
+		field.Container:     container.Name,
+		field.RuntimeID:     runtimeID,
+		"changeEventStatus": event.Status.String(),
+		field.KnownStatus:   containerKnownStatus.String(),
+		field.DesiredStatus: container.GetDesiredStatus().String(),
 	}
 
 	if event.Status.String() == apicontainerstatus.ContainerStatusNone.String() ||
@@ -467,9 +469,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
 	mtask.handleStoppedToRunningContainerTransition(event.Status, container)
 	if event.Status <= containerKnownStatus {
-		logger.Debug("Container change is redundant", eventLogFields, logger.Fields{
-			field.KnownStatus: containerKnownStatus.String(),
-		})
+		logger.Debug("Container change is redundant", eventLogFields)
 
 		// Only update container metadata when status stays RUNNING
 		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
@@ -480,6 +480,40 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	// Container has progressed its status if we reach here. Make sure to save it to database.
 	defer mtask.engine.saveContainerData(container)
+
+	// If container is transitioning to STOPPED, first check if we should short-circuit
+	// the stop workflow and restart the container.
+	if event.Status == apicontainerstatus.ContainerStopped && container.RestartPolicyEnabled() {
+		exitCode := event.DockerContainerMetadata.ExitCode
+		shouldRestart, reason := container.RestartTracker.ShouldRestart(exitCode, container.GetStartedAt(), container.GetDesiredStatus())
+		if shouldRestart {
+			container.RestartTracker.RecordRestart()
+			resp := mtask.engine.startContainer(mtask.Task, container)
+			if resp.Error == nil {
+				logger.Info("Restarted container", eventLogFields,
+					logger.Fields{
+						"restartCount":  container.RestartTracker.GetRestartCount(),
+						"lastRestartAt": container.RestartTracker.GetLastRestartAt().UTC().Format(time.RFC3339),
+					})
+				// return here because we have now restarted the container and we don't
+				// want to complete the rest of the "container stop" workflow
+				return
+			}
+			logger.Error("Restart container failed", eventLogFields,
+				logger.Fields{
+					"restartCount":  container.RestartTracker.GetRestartCount(),
+					"lastRestartAt": container.RestartTracker.GetLastRestartAt().UTC().Format(time.RFC3339),
+					field.Error:     resp.Error,
+				})
+		} else {
+			logger.Info("Not Restarting container", eventLogFields,
+				logger.Fields{
+					"restartCount":  container.RestartTracker.GetRestartCount(),
+					"lastRestartAt": container.RestartTracker.GetLastRestartAt().UTC().Format(time.RFC3339),
+					"reason":        reason,
+				})
+		}
+	}
 
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus
