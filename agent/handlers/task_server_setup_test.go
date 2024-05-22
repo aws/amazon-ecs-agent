@@ -1381,7 +1381,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	// Parse the response body
 	var actualResponseBody R
 	err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
-	require.NoError(t, err)
+	require.NoError(t, err, recorder.Body.String())
 
 	// Assert status code and body
 	assert.Equal(t, tc.expectedStatusCode, recorder.Code)
@@ -1801,8 +1801,9 @@ func TestV4ContainerMetadata(t *testing.T) {
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
-					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().TaskByID(containerID).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1817,7 +1818,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusInternalServerError,
@@ -1832,7 +1833,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode: http.StatusInternalServerError,
@@ -1846,9 +1847,9 @@ func TestV4ContainerMetadata(t *testing.T) {
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1939,8 +1940,10 @@ func TestV4TaskMetadata(t *testing.T) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 				)
 			},
@@ -1955,8 +1958,10 @@ func TestV4TaskMetadata(t *testing.T) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 					state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(pulledContainerNameToDockerContainer, true),
 				)
 			},
@@ -1972,8 +1977,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1988,8 +1994,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2004,8 +2011,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2340,8 +2348,10 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		gomock.InOrder(
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
@@ -2495,8 +2505,9 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			setECSClientExpectations: happyECSClientExpectations,
@@ -2515,8 +2526,9 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			setECSClientExpectations: happyECSClientExpectations,
@@ -3002,6 +3014,7 @@ func TestGetTaskProtection(t *testing.T) {
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
@@ -3273,6 +3286,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
