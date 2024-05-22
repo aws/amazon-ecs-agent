@@ -604,6 +604,7 @@ func getContainerEventLogFields(c api.ContainerStateChange) logger.Fields {
 	if c.Container != nil {
 		f["KnownSent"] = c.Container.GetSentStatus().String()
 	}
+	f["KnownStatus"] = c.Container.GetKnownStatus()
 	return f
 }
 
@@ -618,7 +619,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 			logger.Critical("Failed to release resources after tast stopped", logger.Fields{field.TaskARN: mtask.Arn})
 		}
 	}
-	if !taskKnownStatus.BackendRecognized() {
+	if taskKnownStatus != apitaskstatus.TaskManifestPulled && !taskKnownStatus.BackendRecognized() {
 		logger.Debug("Skipping event emission for task", logger.Fields{
 			field.TaskID:      mtask.GetID(),
 			field.Error:       "status not recognized by ECS",
@@ -629,7 +630,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
-			logger.Debug(err.Error())
+			logger.Debug(err.Error(), logger.Fields{field.TaskID: mtask.GetID()})
 		} else {
 			logger.Error("Skipping emitting event for task due to error", logger.Fields{
 				field.TaskID: mtask.GetID(),
@@ -698,7 +699,10 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
 		if _, ok := err.(api.ErrShouldNotSendEvent); ok {
-			logger.Debug(err.Error())
+			logger.Debug(err.Error(), logger.Fields{
+				field.TaskID:    mtask.GetID(),
+				field.Container: cont.Name,
+			})
 		} else {
 			logger.Error("Skipping emitting event for container due to error", logger.Fields{
 				field.TaskID:    mtask.GetID(),
