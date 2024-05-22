@@ -19,6 +19,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
@@ -135,6 +137,10 @@ func augmentContainerResponse(
 		// did not find container, continue on and try next container(s)
 		// we don't return error here to avoid disrupting all of a TMDS response
 		// on a single missing container.
+		logger.Warn("V4 container response: unable to find container in internal state",
+			logger.Fields{
+				field.RuntimeID: containerID,
+			})
 		return v4Response
 	}
 	if dockerContainer.Container.RestartPolicyEnabled() {
