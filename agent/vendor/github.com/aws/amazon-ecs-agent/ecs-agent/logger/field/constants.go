@@ -48,6 +48,7 @@ const (
 	ImagePulledAt           = "imagePulledAt"
 	ImageLastUsedAt         = "imageLastUsedAt"
 	ImagePullSucceeded      = "imagePullSucceeded"
+	ImageDigest             = "imageDigest"
 	ContainerName           = "containerName"
 	ContainerImage          = "containerImage"
 	ContainerExitCode       = "containerExitCode"

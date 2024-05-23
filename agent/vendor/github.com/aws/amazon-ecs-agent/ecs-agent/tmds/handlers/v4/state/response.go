@@ -57,10 +57,9 @@ type EphemeralStorageMetrics struct {
 // with the v2 container response object.
 type ContainerResponse struct {
 	*v2.ContainerResponse
-	Networks      []Network `json:"Networks,omitempty"`
-	Snapshotter   string    `json:"Snapshotter,omitempty"`
-	RestartCount  int       `json:"RestartCount,omitempty"`
-	LastRestartAt time.Time `json:"LastRestartAt,omitempty"`
+	Networks     []Network `json:"Networks,omitempty"`
+	Snapshotter  string    `json:"Snapshotter,omitempty"`
+	RestartCount *int      `json:"RestartCount,omitempty"`
 }
 
 // Network is the v4 Network response. It adds a bunch of information about network

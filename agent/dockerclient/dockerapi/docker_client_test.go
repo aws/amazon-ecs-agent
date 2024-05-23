@@ -2311,3 +2311,111 @@ func TestListPluginsWithFilter(t *testing.T) {
 	assert.Equal(t, 1, len(pluginNames))
 	assert.Equal(t, "name2", pluginNames[0])
 }
+
+func TestTagImage(t *testing.T) {
+	someError := errors.New("some error")
+	tcs := []struct {
+		name                      string
+		source                    string
+		target                    string
+		setSDKFactoryExpectations func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller)
+		ctx                       context.Context
+		expectedError             string
+		expectedSleeps            int
+	}{
+		{
+			name: "failed to get sdkclient",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				f.EXPECT().GetDefaultClient().Return(nil, someError)
+			},
+			expectedError:  someError.Error(),
+			expectedSleeps: 0,
+		},
+		{
+			name:   "all attempts exhausted",
+			source: "source",
+			target: "target",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				client.EXPECT().
+					ImageTag(gomock.Any(), "source", "target").
+					Times(tagImageRetryAttempts).
+					Return(someError)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			ctx:            context.Background(),
+			expectedError:  "failed to tag image 'source' as 'target': " + someError.Error(),
+			expectedSleeps: tagImageRetryAttempts - 1,
+		},
+		{
+			name:   "second attempt worked",
+			source: "source",
+			target: "target",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				client.EXPECT().ImageTag(gomock.Any(), "source", "target").Return(someError)
+				client.EXPECT().ImageTag(gomock.Any(), "source", "target").Return(nil)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			ctx:            context.Background(),
+			expectedSleeps: 1,
+		},
+		{
+			name: "canceled context",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			ctx: func() context.Context {
+				c, cancel := context.WithCancel(context.Background())
+				cancel()
+				return c
+			}(),
+			expectedError: "context canceled",
+		},
+		{
+			name: "deadline exceeded",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			ctx: func() context.Context {
+				c, cancel := context.WithTimeout(context.Background(), 0)
+				<-c.Done() // wait for deadline to be exceeded
+				cancel()
+				return c
+			}(),
+			expectedError: "context deadline exceeded",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Set up mocks
+			mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+			mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+			sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+			sdkFactory.EXPECT().GetDefaultClient().Return(mockDockerSDK, nil)
+
+			// Set up docker client for testing
+			client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), context.Background())
+			require.NoError(t, err)
+			// Make retries fast
+			client.(*dockerGoClient).imageTagBackoff = retry.NewConstantBackoff(0)
+
+			if tc.setSDKFactoryExpectations != nil {
+				tc.setSDKFactoryExpectations(sdkFactory, ctrl)
+			}
+
+			err = client.TagImage(tc.ctx, tc.source, tc.target)
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}

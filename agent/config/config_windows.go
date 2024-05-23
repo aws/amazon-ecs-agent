@@ -57,6 +57,10 @@ const (
 	dnsPort = 53
 	// NetBIOS over TCP/IP
 	netBIOSPort = 139
+	// minimumManifestPullTimeout is the minimum timeout allowed for manifest pulls
+	minimumManifestPullTimeout = 30 * time.Second
+	// defaultManifestPullTimeout is the default timeout for manifest pulls
+	defaultManifestPullTimeout = 1 * time.Minute
 	// defaultContainerStartTimeout specifies the value for container start timeout duration
 	defaultContainerStartTimeout = 8 * time.Minute
 	// minimumContainerStartTimeout specifies the minimum value for starting a container
@@ -121,6 +125,7 @@ func DefaultConfig() Config {
 		ReservedMemory:                      0,
 		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
+		ManifestPullTimeout:                 defaultManifestPullTimeout,
 		DockerStopTimeout:                   defaultDockerStopTimeout,
 		ContainerStartTimeout:               defaultContainerStartTimeout,
 		ContainerCreateTimeout:              defaultContainerCreateTimeout,

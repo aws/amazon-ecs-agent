@@ -336,6 +336,16 @@ func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (types.Auth
 	return d, ok
 }
 
+// Stores provided docker auth config against the provided secret ID.
+func (auth *ASMAuthResource) PutASMDockerAuthConfig(secretID string, authCfg types.AuthConfig) {
+	auth.lock.Lock()
+	defer auth.lock.Unlock()
+	if auth.dockerAuthData == nil {
+		auth.dockerAuthData = make(map[string]types.AuthConfig)
+	}
+	auth.dockerAuthData[secretID] = authCfg
+}
+
 func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {

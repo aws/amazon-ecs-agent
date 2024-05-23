@@ -108,6 +108,9 @@ type Config struct {
 	// This doesn't reserve memory usage on the instance
 	ReservedMemory uint16
 
+	// ManifestPullTimeout is the amount of time to wait for a manifest pull
+	ManifestPullTimeout time.Duration
+
 	// DockerStopTimeout specifies the amount of time before a SIGKILL is issued to
 	// containers managed by ECS
 	DockerStopTimeout time.Duration

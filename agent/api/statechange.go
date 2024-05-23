@@ -130,7 +130,7 @@ func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange
 		return event, ErrShouldNotSendEvent{task.Arn}
 	}
 	taskKnownStatus := task.GetKnownStatus()
-	if !taskKnownStatus.BackendRecognized() {
+	if taskKnownStatus != apitaskstatus.TaskManifestPulled && !taskKnownStatus.BackendRecognized() {
 		return event, errors.Errorf(
 			"create task state change event api: status not recognized by ECS: %v",
 			taskKnownStatus)
@@ -139,6 +139,14 @@ func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange
 		return event, errors.Errorf(
 			"create task state change event api: status [%s] already sent",
 			taskKnownStatus.String())
+	}
+	if taskKnownStatus == apitaskstatus.TaskManifestPulled && !task.HasAContainerWithResolvedDigest() {
+		return event, ErrShouldNotSendEvent{
+			fmt.Sprintf(
+				"create task state change event api: status %s not eligible for backend reporting as"+
+					" no digests were resolved",
+				apitaskstatus.TaskManifestPulled.String()),
+		}
 	}
 
 	event = TaskStateChange{
@@ -161,10 +169,20 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 		return event, err
 	}
 	contKnownStatus := cont.GetKnownStatus()
-	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
+	if contKnownStatus != apicontainerstatus.ContainerManifestPulled &&
+		!contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
 		return event, ErrShouldNotSendEvent{fmt.Sprintf(
 			"create container state change event api: status not recognized by ECS: %v",
 			contKnownStatus)}
+	}
+	if contKnownStatus == apicontainerstatus.ContainerManifestPulled && !cont.DigestResolved() {
+		// Transition to MANIFEST_PULLED state is sent to the backend only to report a resolved
+		// image manifest digest. No need to generate an event if the digest was not resolved
+		// which could happen due to various reasons.
+		return event, ErrShouldNotSendEvent{fmt.Sprintf(
+			"create container state change event api:"+
+				" no need to send %s event as no resolved digests were found",
+			apicontainerstatus.ContainerManifestPulled.String())}
 	}
 	if cont.GetSentStatus() >= contKnownStatus {
 		return event, ErrShouldNotSendEvent{fmt.Sprintf(
@@ -196,7 +214,7 @@ func newUncheckedContainerStateChangeEvent(task *apitask.Task, cont *apicontaine
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
 		RuntimeID:     cont.GetRuntimeID(),
-		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
+		Status:        containerStatusChangeStatus(contKnownStatus, cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  portBindings,
 		ImageDigest:   cont.GetImageDigest(),
@@ -204,6 +222,27 @@ func newUncheckedContainerStateChangeEvent(task *apitask.Task, cont *apicontaine
 		Container:     cont,
 	}
 	return event, nil
+}
+
+// Maps container known status to a suitable status for ContainerStateChange.
+//
+// Returns ContainerRunning if known status matches steady state status,
+// returns knownStatus if it is ContainerManifestPulled or ContainerStopped,
+// returns ContainerStatusNone for all other cases.
+func containerStatusChangeStatus(
+	knownStatus apicontainerstatus.ContainerStatus,
+	steadyStateStatus apicontainerstatus.ContainerStatus,
+) apicontainerstatus.ContainerStatus {
+	switch knownStatus {
+	case steadyStateStatus:
+		return apicontainerstatus.ContainerRunning
+	case apicontainerstatus.ContainerManifestPulled:
+		return apicontainerstatus.ContainerManifestPulled
+	case apicontainerstatus.ContainerStopped:
+		return apicontainerstatus.ContainerStopped
+	default:
+		return apicontainerstatus.ContainerStatusNone
+	}
 }
 
 // NewManagedAgentChangeEvent creates a new managedAgent change event to convey managed agent state changes
@@ -320,24 +359,6 @@ func (change *TaskStateChange) SetTaskTimestamps() {
 	if timestamp := change.Task.GetExecutionStoppedAt(); !timestamp.IsZero() {
 		change.ExecutionStoppedAt = aws.Time(timestamp.UTC())
 	}
-}
-
-// ShouldBeReported checks if the statechange should be reported to backend
-func (change *TaskStateChange) ShouldBeReported() bool {
-	// Events that should be reported:
-	// 1. Normal task state change: RUNNING/STOPPED
-	// 2. Container state change, with task status in CREATED/RUNNING/STOPPED
-	// The task timestamp will be sent in both of the event type
-	// TODO Move the Attachment statechange check into this method
-	if change.Status == apitaskstatus.TaskRunning || change.Status == apitaskstatus.TaskStopped {
-		return true
-	}
-
-	if len(change.Containers) != 0 {
-		return true
-	}
-
-	return false
 }
 
 func (change *TaskStateChange) ToFields() logger.Fields {
@@ -494,8 +515,11 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*ecsmodel.Co
 		statechange.ImageDigest = aws.String(change.ImageDigest)
 	}
 
-	stat := change.Status.String()
-	if stat != apicontainerstatus.ContainerStopped.String() && stat != apicontainerstatus.ContainerRunning.String() {
+	// TODO: This check already exists in NewContainerStateChangeEvent and shouldn't be repeated here; remove after verifying
+	stat := change.Status
+	if stat != apicontainerstatus.ContainerManifestPulled &&
+		stat != apicontainerstatus.ContainerStopped &&
+		stat != apicontainerstatus.ContainerRunning {
 		logger.Warn("Not submitting unsupported upstream container state", logger.Fields{
 			field.Status:        stat,
 			field.ContainerName: change.ContainerName,
@@ -503,10 +527,11 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*ecsmodel.Co
 		})
 		return nil, nil
 	}
-	if stat == "DEAD" {
-		stat = apicontainerstatus.ContainerStopped.String()
+	// TODO: This check is probably redundant as String() method never returns "DEAD"; remove after verifying
+	if stat.String() == "DEAD" {
+		stat = apicontainerstatus.ContainerStopped
 	}
-	statechange.Status = aws.String(stat)
+	statechange.Status = aws.String(stat.BackendStatusString())
 
 	if change.ExitCode != nil {
 		exitCode := int64(aws.IntValue(change.ExitCode))

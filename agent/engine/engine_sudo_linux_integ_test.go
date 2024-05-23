@@ -47,7 +47,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -130,6 +129,9 @@ func TestStartStopWithCgroup(t *testing.T) {
 	}
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
+
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskIsRunning(stateChangeEvents, testTask)
 
@@ -167,6 +169,8 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskIsRunning(stateChangeEvents, testTask)
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -434,6 +438,8 @@ func TestExecCommandAgent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -526,6 +532,8 @@ func TestManagedAgentEvent(t *testing.T) {
 
 			go taskEngine.AddTask(testTask)
 
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyTaskManifestPulledStateChange(t, taskEngine)
 			verifyContainerRunningStateChange(t, taskEngine)
 			verifyTaskRunningStateChange(t, taskEngine)
 
@@ -792,13 +800,6 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 		Detach: true,
 	})
 	require.NoError(t, err)
-}
-
-func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
-		"Expected task to be RUNNING")
 }
 
 func TestGMSATaskFile(t *testing.T) {

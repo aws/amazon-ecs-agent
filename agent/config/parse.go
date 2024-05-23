@@ -94,6 +94,19 @@ func parseDockerStopTimeout() time.Duration {
 	return dockerStopTimeout
 }
 
+func parseManifestPullTimeout() time.Duration {
+	var timeout time.Duration
+	parsedTimeout := parseEnvVariableDuration("ECS_MANIFEST_PULL_TIMEOUT")
+	if parsedTimeout >= minimumManifestPullTimeout {
+		timeout = parsedTimeout
+	} else if parsedTimeout != 0 {
+		// Parsed timeout too low
+		timeout = minimumManifestPullTimeout
+		seelog.Warnf("Discarded invalid value for manifest pull timeout, parsed as: %v", parsedTimeout)
+	}
+	return timeout
+}
+
 func parseContainerStartTimeout() time.Duration {
 	var containerStartTimeout time.Duration
 	parsedStartTimeout := parseEnvVariableDuration("ECS_CONTAINER_START_TIMEOUT")

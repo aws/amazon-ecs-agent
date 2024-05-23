@@ -289,7 +289,6 @@
         "environmentFiles":{"shape":"EnvironmentFiles"},
         "essential":{"shape":"Boolean"},
         "restartPolicy":{"shape":"RestartPolicy"},
-        "restartMaxAttempts":{"shape":"Integer"},
         "image":{"shape":"String"},
         "links":{"shape":"StringList"},
         "memory":{"shape":"Integer"},
@@ -311,11 +310,10 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"},
-        "containerRestartPolicy":{"shape":"ContainerRestartPolicy"}
+        "containerArn":{"shape":"String"}
       }
     },
-    "ContainerRestartPolicy":{
+    "RestartPolicy":{
       "type":"structure",
       "members":{
         "enabled":{"shape":"Boolean"},
@@ -795,14 +793,6 @@
         "ecrAuthData":{"shape":"ECRAuthData"},
         "asmAuthData":{"shape":"ASMAuthData"}
       }
-    },
-    "RestartPolicy":{
-      "type":"string",
-      "enum":[
-        "NEVER",
-        "UNLESS_TASK_STOPPED",
-        "ON_FAILURE"
-      ]
     },
     "RoleType":{
       "type":"string",
