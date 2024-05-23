@@ -42,19 +42,19 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 		return "", errors.Wrapf(err, "failed to run ebsnvme-id.exe: %s", string(output))
 	}
 
-	_, err = parseExecutableOutput(output, volumeID, deviceName)
+	actualDeviceName, err := parseExecutableOutput(output, volumeID)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse ebsnvme-id.exe output for volumeID: %s and deviceName: %s",
 			volumeID, deviceName)
 	}
 
-	log.Info(fmt.Sprintf("found volume with volumeID: %s and deviceName: %s", volumeID, deviceName))
+	log.Info(fmt.Sprintf("found volume with volumeID: %s and deviceName: %s", volumeID, actualDeviceName))
 
-	return "", nil
+	return actualDeviceName, nil
 }
 
-// parseExecutableOutput parses the output of `ebsnvme-id.exe` and returns the volumeId.
-func parseExecutableOutput(output []byte, candidateVolumeId string, candidateDeviceName string) (string, error) {
+// parseExecutableOutput parses the output of `ebsnvme-id.exe` and returns the deviceName.
+func parseExecutableOutput(output []byte, candidateVolumeId string) (string, error) {
 	/* The output of the ebsnvme-id.exe is emitted like the following:
 	Disk Number: 0
 	Volume ID: vol-0a1234f340444abcd
@@ -76,12 +76,12 @@ func parseExecutableOutput(output []byte, candidateVolumeId string, candidateDev
 	for volumeIndex := 0; volumeIndex <= len(volumeInfo)-volumeInfoLength; volumeIndex = volumeIndex + volumeInfoLength {
 		_, volumeId, deviceName, err := parseSet(volumeInfo[volumeIndex : volumeIndex+volumeInfoLength])
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to parse the output for volumeID: %s and deviceName: %s. "+
-				"Output:%s", candidateVolumeId, candidateDeviceName, out)
+			return "", errors.Wrapf(err, "failed to parse the output for volumeID: %s. "+
+				"Output:%s", candidateVolumeId, out)
 		}
 
-		if volumeId == candidateVolumeId && deviceName == candidateDeviceName {
-			return volumeId, nil
+		if volumeId == candidateVolumeId {
+			return deviceName, nil
 		}
 
 	}
