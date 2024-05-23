@@ -2955,7 +2955,17 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 		{
 			name:                      "test container that uses awslogs log driver in IAD",
 			region:                    "us-east-1",
-			expectedLogConfigEndpoint: "",
+			expectedLogConfigEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in BJS",
+			region:                    "cn-north-1",
+			expectedLogConfigEndpoint: "https://logs.cn-north-1.amazonaws.com.cn",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in OSU",
+			region:                    "us-gov-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-gov-east-1.amazonaws.com",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in NCL",
@@ -2984,8 +2994,10 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 
 			rawHostConfigInput := dockercontainer.HostConfig{
 				LogConfig: dockercontainer.LogConfig{
-					Type:   "awslogs",
-					Config: map[string]string{},
+					Type: "awslogs",
+					Config: map[string]string{
+						"awslogs-region": tc.region,
+					},
 				},
 			}
 			rawHostConfig, err := json.Marshal(&rawHostConfigInput)
