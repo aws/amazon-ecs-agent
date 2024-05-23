@@ -23,6 +23,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
@@ -195,6 +196,61 @@ func TestContainerResponse(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedContainerResponse, containerResponse)
+}
+
+func TestContainerResponseWithRestartPolicy(t *testing.T) {
+	restartPolicy := &restart.RestartPolicy{
+		Enabled: true,
+	}
+	container := &apicontainer.Container{
+		Name:    containerName,
+		Image:   imageName,
+		ImageID: imageID,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		VolumesUnsafe: []types.MountPoint{
+			{
+				Name:        volName,
+				Source:      volSource,
+				Destination: volDestination,
+			},
+		},
+		RestartPolicy:  restartPolicy,
+		RestartTracker: restart.NewRestartTracker(*restartPolicy),
+	}
+
+	container.SetCreatedAt(containerTime)
+	container.SetStartedAt(containerTime)
+	container.RestartTracker.RecordRestart()
+
+	dockerContainer := &apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  container,
+	}
+
+	eni := &ni.NetworkInterface{
+		IPV4Addresses: []*ni.IPV4Address{
+			{
+				Address: eniIPv4Address,
+			},
+		},
+	}
+
+	containerResponse := NewContainerResponse(dockerContainer, eni)
+
+	_, err := json.Marshal(containerResponse)
+	assert.NoError(t, err)
+
+	expectedContainerResponseWithRestartPolicy := expectedContainerResponse
+	rc := int(1)
+	expectedContainerResponseWithRestartPolicy.RestartCount = &rc
+
+	assert.Equal(t, expectedContainerResponseWithRestartPolicy, containerResponse)
 }
 
 func TestPortBindingsResponse(t *testing.T) {
