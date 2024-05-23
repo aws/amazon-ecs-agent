@@ -69,8 +69,6 @@ const (
 	srcBRResolv = "/run/netdog/resolv.conf"
 )
 
-var srcResolv = "/etc/resolv.conf"
-
 // common will be embedded within every implementation of the platform API.
 // It contains all fields and methods that can be commonly used by all
 // platforms.
@@ -528,6 +526,7 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 
 	// Check if the /run/netdog/resolv.conf file exists on the host. For Bottlerocket, instead of /etc/resolv.conf,
 	// this is the file we copy to the task network namespace dns config.
+	var srcResolv = "/etc/resolv.conf"
 	if _, err = c.os.Stat(srcBRResolv); err == nil {
 		srcResolv = srcBRResolv
 	}
