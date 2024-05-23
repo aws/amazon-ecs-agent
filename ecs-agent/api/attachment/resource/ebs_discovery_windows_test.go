@@ -39,7 +39,19 @@ func TestParseExecutableOutputWithHappyPath(t *testing.T) {
 		"Device Name: %s\r\n\r\n", testVolumeID, deviceName)
 	parsedOutput, err := parseExecutableOutput([]byte(output), testVolumeID, deviceName)
 	require.NoError(t, err)
-	assert.True(t, strings.Contains(parsedOutput, testVolumeID))
+	assert.True(t, strings.Contains(parsedOutput, deviceName))
+}
+
+func TestParseExecutableOutputWithDeviceNameMismatch(t *testing.T) {
+	output := fmt.Sprintf("Disk Number: 0\r\n"+
+		"Volume ID: vol-abcdef1234567890a\r\n"+
+		"Device Name: sda1\r\n\r\n"+
+		"Disk Number: 1\r\n"+
+		"Volume ID: %s\r\n"+
+		"Device Name: %s\r\n\r\n", testVolumeID, deviceName)
+	parsedOutput, err := parseExecutableOutput([]byte(output), testVolumeID, "MismatchedDeviceName")
+	require.NoError(t, err)
+	assert.True(t, strings.Contains(parsedOutput, deviceName))
 }
 
 func TestParseExecutableOutputWithMissingDiskNumber(t *testing.T) {
@@ -83,18 +95,6 @@ func TestParseExecutableOutputWithVolumeNameMismatch(t *testing.T) {
 		"Volume ID: %s\r\n"+
 		"Device Name: %s\r\n\r\n", testVolumeID, deviceName)
 	parsedOutput, err := parseExecutableOutput([]byte(output), "MismatchedVolumeName", deviceName)
-	require.Error(t, err)
-	assert.Equal(t, "", parsedOutput)
-}
-
-func TestParseExecutableOutputWithDeviceNameMismatch(t *testing.T) {
-	output := fmt.Sprintf("Disk Number: 0\r\n"+
-		"Volume ID: vol-abcdef1234567890a\r\n"+
-		"Device Name: sda1\r\n\r\n"+
-		"Disk Number: 1\r\n"+
-		"Volume ID: %s\r\n"+
-		"Device Name: %s\r\n\r\n", testVolumeID, deviceName)
-	parsedOutput, err := parseExecutableOutput([]byte(output), testVolumeID, "MismatchedDeviceName")
 	require.Error(t, err)
 	assert.Equal(t, "", parsedOutput)
 }

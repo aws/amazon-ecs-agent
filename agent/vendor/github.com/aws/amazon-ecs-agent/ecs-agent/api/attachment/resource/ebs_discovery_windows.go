@@ -42,15 +42,15 @@ func (api *EBSDiscoveryClient) ConfirmEBSVolumeIsAttached(deviceName, volumeID s
 		return "", errors.Wrapf(err, "failed to run ebsnvme-id.exe: %s", string(output))
 	}
 
-	_, err = parseExecutableOutput(output, volumeID, deviceName)
+	actualDeviceName, err := parseExecutableOutput(output, volumeID, deviceName)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse ebsnvme-id.exe output for volumeID: %s and deviceName: %s",
 			volumeID, deviceName)
 	}
 
-	log.Info(fmt.Sprintf("found volume with volumeID: %s and deviceName: %s", volumeID, deviceName))
+	log.Info(fmt.Sprintf("found volume with volumeID: %s and deviceName: %s", volumeID, actualDeviceName))
 
-	return "", nil
+	return actualDeviceName, nil
 }
 
 // parseExecutableOutput parses the output of `ebsnvme-id.exe` and returns the volumeId.
@@ -80,8 +80,8 @@ func parseExecutableOutput(output []byte, candidateVolumeId string, candidateDev
 				"Output:%s", candidateVolumeId, candidateDeviceName, out)
 		}
 
-		if volumeId == candidateVolumeId && deviceName == candidateDeviceName {
-			return volumeId, nil
+		if volumeId == candidateVolumeId {
+			return deviceName, nil
 		}
 
 	}
