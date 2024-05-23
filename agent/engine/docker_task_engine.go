@@ -1854,32 +1854,31 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
+	// We're currently relying on AWS SDK Go V1 to obtain/format the correct cloudwatch endpoint.
+	// This is will need to be updated once we upgrade to AWS SDK Go V2.
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
-		region := engine.cfg.AWSRegion
-		if region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
-			endpoint := ""
-			dnsSuffix := ""
-			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
-			if !ok {
-				logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
-					"region":           region,
-					"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
-				})
-				dnsSuffix = ep.AwsPartition().DNSSuffix()
+		region := hostConfig.LogConfig.Config["awslogs-region"]
+		endpoint := ""
+		dnsSuffix := ""
+		partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
+		if !ok {
+			logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
+				"region":           region,
+				"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+			})
+			dnsSuffix = ep.AwsPartition().DNSSuffix()
+		} else {
+			resolvedEndpoint, err := partition.EndpointFor("logs", region)
+			if err == nil {
+				endpoint = resolvedEndpoint.URL
 			} else {
-				resolvedEndpoint, err := partition.EndpointFor("logs", region)
-				if err == nil {
-					endpoint = resolvedEndpoint.URL
-				} else {
-					dnsSuffix = partition.DNSSuffix()
-				}
+				dnsSuffix = partition.DNSSuffix()
 			}
-			if endpoint == "" {
-				endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
-			}
-			hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 		}
+		if endpoint == "" {
+			endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
+		}
+		hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
