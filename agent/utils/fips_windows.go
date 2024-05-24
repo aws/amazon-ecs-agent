@@ -20,7 +20,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
-func DetectFIPSMode() bool {
+const FIPSModeFilePath = ""
+
+func DetectFIPSMode(filepath string) bool {
 	logger.Debug("set isFIPSEnabled to false by default on Windows")
 	return false
 }

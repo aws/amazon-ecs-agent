@@ -229,7 +229,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		errs = append(errs, err)
 	}
 	config := &envConfig
-	isFIPSEnabled = utils.DetectFIPSMode()
+	isFIPSEnabled = utils.DetectFIPSMode(utils.FIPSModeFilePath)
 
 	if config.External.Enabled() {
 		if config.AWSRegion == "" {

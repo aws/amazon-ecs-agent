@@ -20,20 +20,11 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// detectFIPSModeWithPath is a helper function for testing
-func detectFIPSModeWithPath(filePath string) bool {
-	data, err := ioutil.ReadFile(filePath)
-	if err == nil && strings.TrimSpace(string(data)) == "1" {
-		return true
-	}
-	return false
-}
 func TestDetectFIPSMode(t *testing.T) {
 	// Create a temporary file to mock the FIPS mode file
 	tempFile, err := ioutil.TempFile("", "fips_enabled")
@@ -45,7 +36,7 @@ func TestDetectFIPSMode(t *testing.T) {
 	tempFile.Sync()
 	// Initialize the logger
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	result := detectFIPSModeWithPath(tempFile.Name())
+	result := DetectFIPSMode(tempFile.Name())
 	assert.True(t, result, "FIPS mode should be detected")
 	// Test FIPS mode disabled
 	tempFile.Truncate(0)
@@ -53,6 +44,9 @@ func TestDetectFIPSMode(t *testing.T) {
 	_, err = tempFile.WriteString("0\n")
 	assert.NoError(t, err)
 	tempFile.Sync()
-	result = detectFIPSModeWithPath(tempFile.Name())
+	result = DetectFIPSMode(tempFile.Name())
 	assert.False(t, result, "FIPS mode should not be detected")
+	// Test when the FIPS file does not exist
+	result = DetectFIPSMode("nonexistent_file")
+	assert.False(t, result, "FIPS mode should not be detected when file is missing")
 }

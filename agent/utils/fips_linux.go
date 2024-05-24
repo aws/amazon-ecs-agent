@@ -23,10 +23,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
-const fipsModeFilePath = "/proc/sys/crypto/fips_enabled"
+const FIPSModeFilePath = "/proc/sys/crypto/fips_enabled"
 
-func DetectFIPSMode() bool {
-	data, err := os.ReadFile(fipsModeFilePath)
+// DetectFIPSMode checks if FIPS mode is enabled based on the provided file path.
+func DetectFIPSMode(filePath string) bool {
+	data, err := os.ReadFile(filePath)
 	if err == nil && strings.TrimSpace(string(data)) == "1" {
 		logger.Debug("FIPS mode detected on the host")
 		return true
