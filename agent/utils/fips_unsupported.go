@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build !windows && !linux
+// +build !windows,!linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,29 +17,12 @@
 package utils
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
-const FIPSModeFilePath = "/proc/sys/crypto/fips_enabled"
+const FIPSModeFilePath = ""
 
-// DetectFIPSMode checks if FIPS mode is enabled based on the provided file path.
-func DetectFIPSMode(filePath string) bool {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		logger.Debug(fmt.Sprintf("Error while detecting FIPS is enabled or not, err: %v", err))
-		return false
-	}
-
-	fipsValue := strings.TrimSpace(string(data))
-	if fipsValue == "1" {
-		logger.Info("FIPS mode detected on the host")
-		return true
-	}
-
-	logger.Debug(fmt.Sprintf("FIPS mode not enabled. FIPS mode explicitly set to %v", fipsValue))
+func DetectFIPSMode(filepath string) bool {
+	logger.Debug("FIPS mode detection is not supported on this platform")
 	return false
 }
