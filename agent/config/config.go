@@ -188,6 +188,9 @@ var (
 
 	// CgroupV2 Specifies whether or not to run in Cgroups V2 mode.
 	CgroupV2 = false
+
+	// isFIPSEnabled indicates whether FIPS mode is enabled on the host
+	isFIPSEnabled = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -226,6 +229,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		errs = append(errs, err)
 	}
 	config := &envConfig
+	isFIPSEnabled = utils.DetectFIPSMode(utils.FIPSModeFilePath)
 
 	if config.External.Enabled() {
 		if config.AWSRegion == "" {
@@ -656,4 +660,8 @@ func (cfg *Config) String() string {
 		cfg.DynamicHostPortRange,
 		cfg.platformString(),
 	)
+}
+
+func IsFIPSEnabled() bool {
+	return isFIPSEnabled
 }
