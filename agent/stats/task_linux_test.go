@@ -35,6 +35,7 @@ import (
 )
 
 func TestTaskStatsCollection(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
@@ -97,6 +98,7 @@ func TestTaskStatsCollection(t *testing.T) {
 }
 
 func TestTaskStatsCollectionError(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
