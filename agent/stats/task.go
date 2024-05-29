@@ -121,7 +121,7 @@ func (taskStat *StatsTask) processStatsStream() error {
 				}
 				return nil
 			}
-			if err := taskStat.StatsQueue.Add(rawStat); err != nil {
+			if err := taskStat.StatsQueue.Add(rawStat, nil); err != nil {
 				logger.Warn("Error converting task stats", logger.Fields{
 					field.TaskID: taskId,
 					field.Error:  err,

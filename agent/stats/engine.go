@@ -878,6 +878,19 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			containerMetric.StorageStatsSet = storageStatsSet
 		}
 
+		restartStatsSet, err := container.statsQueue.GetRestartStatsSet()
+		if err != nil && age > gracePeriod {
+			// we expect to get an error here if there are no restart metrics,
+			// which would be common as it just means there is no restart policy on
+			// the container, so just log a debug message here.
+			logger.Debug("Unable to get restart stats for container", logger.Fields{
+				field.Container: dockerID,
+				field.Error:     err,
+			})
+		} else {
+			containerMetric.RestartStatsSet = restartStatsSet
+		}
+
 		task, err := engine.resolver.ResolveTask(dockerID)
 		if err != nil {
 			logger.Warn("Task not found for container", logger.Fields{
