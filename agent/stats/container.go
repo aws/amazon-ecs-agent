@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -107,6 +108,29 @@ func (container *StatsContainer) collect() {
 	}
 }
 
+func (container *StatsContainer) getApiContainer(dockerID string) (*apicontainer.Container, error) {
+	if container.resolver == nil {
+		return nil, fmt.Errorf("Container ID=%s has no stats metadata resolver", dockerID)
+	}
+	dockerContainer, err := container.resolver.ResolveContainer(dockerID)
+	if err != nil {
+		return nil, err
+	}
+	return dockerContainer.Container, nil
+}
+
+func getNonDockerContainerStats(apiContainer *apicontainer.Container) *NonDockerContainerStats {
+	if apiContainer == nil {
+		return nil
+	}
+	var nonDockerStats *NonDockerContainerStats
+	if apiContainer.RestartPolicyEnabled() {
+		nonDockerStats = &NonDockerContainerStats{}
+		nonDockerStats.restartCount = int64(apiContainer.RestartTracker.GetRestartCount())
+	}
+	return nonDockerStats
+}
+
 func (container *StatsContainer) processStatsStream() error {
 	dockerID := container.containerMetadata.DockerID
 	seelog.Debugf("Collecting stats for container %s", dockerID)
@@ -114,6 +138,11 @@ func (container *StatsContainer) processStatsStream() error {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
 	dockerStats, errC := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
+
+	apiContainer, err := container.getApiContainer(dockerID)
+	if err != nil {
+		seelog.Errorf("Will not be able to get restart stats set, error: %s", err)
+	}
 
 	returnError := false
 	for {
@@ -140,7 +169,7 @@ func (container *StatsContainer) processStatsStream() error {
 				return err
 			}
 
-			if err := container.statsQueue.Add(rawStat); err != nil {
+			if err := container.statsQueue.Add(rawStat, getNonDockerContainerStats(apiContainer)); err != nil {
 				seelog.Warnf("Container [%s]: error converting stats for container: %v", dockerID, err)
 			}
 		}
