@@ -317,8 +317,22 @@ func createFakeContainerStats() []*ContainerStats {
 		TxPackets: 60,
 	}
 	return []*ContainerStats{
-		{22400432, 1839104, uint64(100), uint64(200), netStats, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		{116499979, 3649536, uint64(300), uint64(400), netStats, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{
+			cpuUsage:          22400432,
+			memoryUsage:       1839104,
+			storageReadBytes:  uint64(100),
+			storageWriteBytes: uint64(200),
+			networkStats:      netStats,
+			timestamp:         parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		},
+		{
+			cpuUsage:          116499979,
+			memoryUsage:       3649536,
+			storageReadBytes:  uint64(300),
+			storageWriteBytes: uint64(400),
+			networkStats:      netStats,
+			timestamp:         parseNanoTime("2015-02-12T21:22:05.232291187Z"),
+		},
 	}
 }
 

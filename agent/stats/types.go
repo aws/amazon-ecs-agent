@@ -29,8 +29,16 @@ type ContainerStats struct {
 	memoryUsage       uint64
 	storageReadBytes  uint64
 	storageWriteBytes uint64
+	restartCount      *int64
 	networkStats      *NetworkStats
 	timestamp         time.Time
+}
+
+// NonDockerContainerStats contains stats for a container that are not gotten from docker.
+// These are amended to the docker stats and added to the stats queue if they are
+// available.
+type NonDockerContainerStats struct {
+	restartCount int64
 }
 
 // NetworkStats contains the network stats information for a container
@@ -54,6 +62,7 @@ type UsageStats struct {
 	StorageReadBytes  uint64        `json:"storageReadBytes"`
 	StorageWriteBytes uint64        `json:"storageWriteBytes"`
 	NetworkStats      *NetworkStats `json:"networkStats"`
+	RestartCount      *int64        `json:"restartCount"`
 	Timestamp         time.Time     `json:"timestamp"`
 	cpuUsage          uint64
 	// sent indicates if the stat has been sent to TACS already.

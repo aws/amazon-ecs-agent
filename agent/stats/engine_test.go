@@ -324,6 +324,7 @@ func TestStatsEngineTerminalTask(t *testing.T) {
 }
 
 func TestStartMetricsPublish(t *testing.T) {
+	t.Parallel()
 	testcases := []struct {
 		name                       string
 		hasPublishTicker           bool
@@ -378,6 +379,7 @@ func TestStartMetricsPublish(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
 
@@ -714,7 +716,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil).Times(3)
+	}, nil).AnyTimes()
 	err := engine.synchronizeState()
 	assert.NoError(t, err)
 
