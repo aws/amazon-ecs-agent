@@ -61,11 +61,14 @@ func (queue *Queue) Reset() {
 }
 
 // Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(dockerStat *types.StatsJSON) error {
+func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats *NonDockerContainerStats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
 		return err
+	}
+	if nonDockerStats != nil {
+		stat.restartCount = &nonDockerStats.restartCount
 	}
 	queue.add(stat)
 	return nil
@@ -85,6 +88,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
 		CPUUsagePerc:      float32(nan32()),
+		RestartCount:      rawStat.restartCount,
 		MemoryUsageInMegs: uint32(rawStat.memoryUsage / BytesInMiB),
 		StorageReadBytes:  rawStat.storageReadBytes,
 		StorageWriteBytes: rawStat.storageWriteBytes,
@@ -184,6 +188,73 @@ func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
 		errOut = fmt.Errorf(errStr)
 	}
 	return storageStatsSet, errOut
+}
+
+// GetRestartStatsSet gets the stats set for container restarts
+func (queue *Queue) GetRestartStatsSet() (*ecstcs.RestartStatsSet, error) {
+	return queue.getRestartStatsSet(getRestartCount)
+}
+
+func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (*ecstcs.RestartStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	var firstStat, lastStat int64
+	firstStat = -1
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate restart stats set")
+	}
+
+	for i, stat := range queue.buffer {
+		if stat.sent {
+			// don't send stats to TACS if already sent
+			continue
+		}
+		thisStat := getInt(&stat)
+		if thisStat == nil {
+			continue
+		}
+		if i == queueLength-1 {
+			// get final unsent stat in the queue
+			lastStat = *thisStat
+		}
+
+		if firstStat == -1 {
+			// firstStat is unset so set it here
+			if i > 0 {
+				// some stats in queue were sent already, so use the stat previous to the
+				// first to diff with the last stat.
+				thisStat = getInt(&queue.buffer[i-1])
+				if thisStat == nil {
+					continue
+				}
+			}
+			firstStat = *thisStat
+		}
+	}
+
+	if firstStat == -1 {
+		// no non-nil stats found, most likely this means that the container
+		// does not have a restart policy set.
+		return nil, fmt.Errorf("No non-nil restart count stats found, not sending RestartStatsSet." +
+			" Most likely the container does not have a restart policy configured")
+	}
+
+	// get the diff in restart count between the first stat and the last stat in the
+	// queue. Examples:
+	//    [ 0 1 3 3 4 5 ] = 5 - 0 = 5 restarts
+	//    [ 0(sent) 1(sent) 3(sent) 4(unsent) 5(unsent) 7(unsent) ] = 7 - 3 = 4 restarts
+	result := lastStat - firstStat
+	if result < 0 {
+		return nil, fmt.Errorf("Negative restart count calculated, firstStat=%d lastStat=%d result=%d", firstStat, lastStat, result)
+	}
+
+	return &ecstcs.RestartStatsSet{
+		RestartCount: &result,
+	}, nil
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.
@@ -324,6 +395,10 @@ func getStorageWriteBytes(s *UsageStats) uint64 {
 	return s.StorageWriteBytes
 }
 
+func getRestartCount(s *UsageStats) *int64 {
+	return s.RestartCount
+}
+
 // getInt64WithOverflow truncates a uint64 to fit an int64
 // it returns overflow as a second int64
 func getInt64WithOverflow(uintStat uint64) (int64, int64) {
@@ -336,6 +411,7 @@ func getInt64WithOverflow(uintStat uint64) (int64, int64) {
 
 type getUsageFloatFunc func(*UsageStats) float64
 type getUsageIntFunc func(*UsageStats) uint64
+type getIntPointerFunc func(*UsageStats) *int64
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.

@@ -120,6 +120,13 @@ func getRandomMemoryUtilizationInBytes() []uint64 {
 	}
 }
 
+func getTestRestartCount(i int64, includeRestartCount bool) *int64 {
+	if !includeRestartCount {
+		return nil
+	}
+	return &i
+}
+
 func getPredictableHighMemoryUtilizationInBytes(size int) []uint64 {
 	var memBytes []uint64
 	for i := 0; i < size; i++ {
@@ -136,7 +143,7 @@ func getLargeInt64Stats(size int) []uint64 {
 	return uintStats
 }
 
-func getContainerStats(predictableHighUtilization bool) []*ContainerStats {
+func getContainerStats(predictableHighUtilization bool, includeRestartCount bool) []*ContainerStats {
 	timestamps := getTimestamps()
 	cpuTimes := getUintStats()
 	var memoryUtilizationInBytes []uint64
@@ -165,13 +172,14 @@ func getContainerStats(predictableHighUtilization bool) []*ContainerStats {
 				TxErrors:  0,
 				TxPackets: uintStats[i],
 			},
-			timestamp: time})
+			restartCount: getTestRestartCount(int64(i), includeRestartCount),
+			timestamp:    time})
 	}
 	return stats
 }
 
 func createQueue(size int, predictableHighUtilization bool) *Queue {
-	stats := getContainerStats(predictableHighUtilization)
+	stats := getContainerStats(predictableHighUtilization, false)
 	queue := NewQueue(size)
 	for _, stat := range stats {
 		queue.add(stat)
@@ -190,9 +198,11 @@ func TestQueueReset(t *testing.T) {
 	require.Error(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.Error(t, err)
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
 
 	// add some metrics, and getting stats sets should now succeed:
-	stats := getContainerStats(false)
+	stats := getContainerStats(false, false)
 	for i := 0; i < 4; i++ {
 		queue.add(stats[i])
 	}
@@ -204,6 +214,9 @@ func TestQueueReset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.NoError(t, err)
+	// restart stats still fail if not added
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
 
 	// after resetting the queue, there are no metrics to send and getting stats sets should error again:
 	queue.Reset()
@@ -214,6 +227,8 @@ func TestQueueReset(t *testing.T) {
 	_, err = queue.GetStorageStatsSet()
 	require.Error(t, err)
 	_, err = queue.GetNetworkStatsSet()
+	require.Error(t, err)
+	_, err = queue.GetRestartStatsSet()
 	require.Error(t, err)
 
 	// add single stat to queue and getting stats sets should succeed again:
@@ -226,6 +241,59 @@ func TestQueueReset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.NoError(t, err)
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+}
+
+func TestQueueWithRestartStats(t *testing.T) {
+	queue := NewQueue(10)
+	// empty queue should throw errors getting stats sets:
+	restartStats, err := queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+
+	// add metrics with restart count, and getting should now succeed.
+	stats := getContainerStats(false, true)
+	for i := 0; i < 4; i++ {
+		queue.add(stats[i])
+	}
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	require.Equal(t, int64(3), *restartStats.RestartCount)
+
+	// after resetting the queue, there are no metrics to send and getting stats sets should error again:
+	queue.Reset()
+	restartStats, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+
+	// add single stat to queue and getting stats sets should succeed again:
+	queue.add(stats[4])
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	require.Equal(t, int64(1), *restartStats.RestartCount)
+
+	// add a stat with a lower restart count, and verify that this returns an error
+	queue.add(stats[2])
+	restartStats, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+	queue.Reset()
+
+	// add rest of metrics, overflowing queue, and verify values
+	for i := 5; i < len(stats); i++ {
+		queue.add(stats[i])
+	}
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	// expect count to be length of queue (10) minus 1
+	require.Equal(t, int64(9), *restartStats.RestartCount)
 }
 
 func TestQueueAddRemove(t *testing.T) {
