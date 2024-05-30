@@ -230,13 +230,12 @@ func toPtr(input string) *string {
 }
 
 func createSecretValueInput(secretID *string, versionID *string, versionStage *string) *secretsmanager.GetSecretValueInput {
-				return &secretsmanager.GetSecretValueInput{
+	return &secretsmanager.GetSecretValueInput{
 		SecretId:     secretID,
 		VersionId:    versionID,
 		VersionStage: versionStage,
 	}
 }
-
 
 func TestGetSecretFromASMWithInputErrorMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -244,12 +243,12 @@ func TestGetSecretFromASMWithInputErrorMessage(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-	GetSecretValue(gomock.Any()).
-	Return(nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secrets Manager can't find the specified secret.", nil))
-	
+		GetSecretValue(gomock.Any()).
+		Return(nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secrets Manager can't find the specified secret.", nil))
+
 	secretValueInput := createSecretValueInput(toPtr(valueFrom), toPtr(versionID), nil)
 	_, err := GetSecretFromASMWithInput(secretValueInput, mockSecretsManager, jsonKey)
-	
+
 	assert.Error(t, err)
 	aerr, ok := errors.Cause(err).(awserr.Error)
 	require.True(t, ok, "error is not of type awserr.Error")
