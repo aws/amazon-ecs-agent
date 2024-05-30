@@ -1666,7 +1666,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 			Name:         "NetworkError awsvpc",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your task network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			Role:         "",
+			Role:         "MyCoolRoleArn",
 			NetworkMode:  apitask.AWSVPCNetworkMode,
 		},
 		{
@@ -1680,7 +1680,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 			Name:         "NetworkError default",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			Role:         "",
+			Role:         "MyCoolRoleArn",
 			NetworkMode:  "default",
 		},
 		{
@@ -1694,14 +1694,14 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 			Name:         "NetworkError no network mode",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			Role:         "",
+			Role:         "MyCoolRoleArn",
 			NetworkMode:  "",
 		},
 		{
 			Name:         "NetworkError wrong network mode",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("Check your host network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			Role:         "",
+			Role:         "MyCoolRoleArn",
 			NetworkMode:  "foo",
 		},
 	}
@@ -1728,7 +1728,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
 					Type: "ecr",
 					ECRAuthData: &apicontainer.ECRAuthData{
-						UseExecutionRole: true,
+						UseExecutionRole: !(tc.Role == ""),
 					},
 				},
 			}

@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package errors
+package errormessages
 
 import (
 	"errors"
@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 )
 
 type testCaseAugmentMessage struct {
@@ -88,12 +89,6 @@ func TestAugmentMessage(t *testing.T) {
 			expectedMsg: "Check your task network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 		},
 		{
-			testName:    "Successful augmentation with args 4",
-			errMsg:      "ResourceNotFoundException: Secrets Manager can't find the specified secret.",
-			ctx:         ErrorContext{SecretID: "aws::arn::my-secret"},
-			expectedMsg: "ResourceInitializationError: The task can't retrieve the secret with ARN 'aws::arn::my-secret' from AWS Secrets Manager. Check that the secret ARN is correct. ResourceNotFoundException: Secrets Manager can't find the specified secret.",
-		},
-		{
 			testName:    "Successful augmentation without args",
 			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 			ctx:         ErrorContext{},
@@ -141,7 +136,7 @@ func TestAugmentMessage(t *testing.T) {
 
 type testCaseAugmentNamedErrMsg struct {
 	testName    string
-	errMsg      NamedError
+	errMsg      apierrors.NamedError
 	expectedMsg string
 }
 
@@ -157,8 +152,8 @@ func (err KnownError) ErrorName() string {
 	return "KnownError"
 }
 
-func (err KnownError) Constructor() func(string) NamedError {
-	return func(msg string) NamedError {
+func (err KnownError) Constructor() func(string) apierrors.NamedError {
+	return func(msg string) apierrors.NamedError {
 		return KnownError{errors.New(msg)}
 	}
 }
@@ -179,13 +174,13 @@ func (err UnknownError) ErrorName() string {
 func TestAugmentNamedErrMsg(t *testing.T) {
 	tests := []struct {
 		name         string
-		err          NamedError
+		err          apierrors.NamedError
 		ctx          ErrorContext
 		expectedMsg  string
 		expectedName string
 	}{
 		{
-			name:         "Non-constructible NamedError",
+			name:         "Non-augmentable NamedError",
 			err:          UnknownError{FromError: errors.New("some err")},
 			ctx:          ErrorContext{},
 			expectedMsg:  "some err",

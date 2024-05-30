@@ -17,8 +17,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	"github.com/cihub/seelog"
@@ -33,27 +34,30 @@ type AuthDataValue struct {
 	Password *string
 }
 
-type ASMError struct {
-	FromError error
+func resourceInitializationErrMsg(secretID string) string {
+	return fmt.Sprintf(
+		`ResourceInitializationError: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check that the secret ARN is correct`,
+		secretID)
 }
 
-func (err ASMError) Error() string {
-	return err.FromError.Error()
-}
-
-func (err ASMError) ErrorName() string {
-	return "ASMError"
-}
-
-func (err ASMError) Constructor() func(string) apierrors.NamedError {
-	return func(msg string) apierrors.NamedError {
-		return ASMError{errors.New(msg)}
+// Augment error message with extra details for most common exceptions:
+func augmentErrMsg(secretID string, err error) string {
+	if secretID != "" {
+		secretID = "'" + secretID + "' "
+	} else {
+		logger.Warn("augmentErrMsg: SecretID is empty (which is unexpected)")
 	}
-}
-
-func wrapError(secretID string, origError error) error {
-	ctx := apierrors.ErrorContext{SecretID: secretID}
-	return apierrors.AugmentNamedErrMsg(ASMError{FromError: origError}, ctx)
+	if aerr, ok := err.(awserr.Error); ok {
+		switch aerr.Code() {
+		case secretsmanager.ErrCodeResourceNotFoundException:
+			fmt.Println(aerr.Message())
+			return resourceInitializationErrMsg(secretID)
+		default:
+			return err.Error()
+		}
+	} else {
+		return err.Error()
+	}
 }
 
 // GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
@@ -65,7 +69,8 @@ func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsMan
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return types.AuthConfig{}, wrapError(secretID, err)
+		return types.AuthConfig{}, errors.Wrapf(err,
+			"asm fetching secret from the service for %s", secretID)
 	}
 
 	return extractASMValue(out)
@@ -117,7 +122,7 @@ func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
 	secretID := *input.SecretId
 	out, err := client.GetSecretValue(input)
 	if err != nil {
-		return "", wrapError(secretID, errors.Wrapf(err, "secret %s", secretID))
+		return "", errors.Wrap(err, augmentErrMsg(secretID, err))
 	}
 
 	if jsonKey == "" {
@@ -149,7 +154,7 @@ func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManager
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return "", wrapError(secretID, errors.Wrapf(err, "secret %s", secretID))
+		return "", errors.Wrapf(err, "secret %s", secretID)
 	}
 
 	return aws.StringValue(out.SecretString), nil

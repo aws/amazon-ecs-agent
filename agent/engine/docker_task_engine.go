@@ -27,6 +27,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apierrormsgs "github.com/aws/amazon-ecs-agent/agent/api/errormessages"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -1448,8 +1449,8 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	findCachedImage := false
 	if !pullSucceeded {
 		// Extend error message
-		errCtx := apierrors.ErrorContext{ExecRole: execRoleArn, NetworkMode: task.NetworkMode}
-		metadata.Error = apierrors.AugmentNamedErrMsg(metadata.Error, errCtx)
+		errCtx := apierrormsgs.ErrorContext{ExecRole: execRoleArn, NetworkMode: task.NetworkMode}
+		metadata.Error = apierrormsgs.AugmentNamedErrMsg(metadata.Error, errCtx)
 		// If Agent failed to pull an image when
 		// 1. DependentContainersPullUpfront is enabled
 		// 2. ImagePullBehavior is not set to always
