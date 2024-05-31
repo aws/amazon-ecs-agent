@@ -97,7 +97,7 @@ var errorParsers = map[DockerErrorType]func(string) (DockerError, error){
 // used during error message augmentation process.
 type AugmentableNamedError interface {
 	apierrors.NamedError
-	Constructor() func(string) apierrors.NamedError
+	WithAugmentedErrorMessage() func(string) apierrors.NamedError
 }
 
 const (
@@ -165,7 +165,7 @@ func AugmentNamedErrMsg(namedErr apierrors.NamedError, ctx ErrorContext) apierro
 	// Augment the error message.
 	augmentedMsg := AugmentMessage(namedErr.Error(), ctx)
 	// Reconstruct new NamedError.
-	newError := augmentableErr.Constructor()(augmentedMsg)
+	newError := augmentableErr.WithAugmentedErrorMessage()(augmentedMsg)
 	return newError
 }
 

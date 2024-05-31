@@ -152,13 +152,13 @@ func (err KnownError) ErrorName() string {
 	return "KnownError"
 }
 
-func (err KnownError) Constructor() func(string) apierrors.NamedError {
+func (err KnownError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
 	return func(msg string) apierrors.NamedError {
 		return KnownError{errors.New(msg)}
 	}
 }
 
-// does not implement Constructor()
+// does not implement WithAugmentedErrorMessage()
 type UnknownError struct {
 	FromError error
 }

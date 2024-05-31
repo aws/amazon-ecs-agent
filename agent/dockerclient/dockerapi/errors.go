@@ -153,7 +153,7 @@ func (err CannotPullContainerError) ErrorName() string {
 	return "CannotPullContainerError"
 }
 
-func (err CannotPullContainerError) Constructor() func(string) apierrors.NamedError {
+func (err CannotPullContainerError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
 	return func(msg string) apierrors.NamedError {
 		return CannotPullContainerError{errors.New(msg)}
 	}
@@ -193,7 +193,7 @@ func (err CannotPullECRContainerError) Retry() bool {
 	return false
 }
 
-func (err CannotPullECRContainerError) Constructor() func(string) apierrors.NamedError {
+func (err CannotPullECRContainerError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
 	return func(msg string) apierrors.NamedError {
 		return CannotPullECRContainerError{errors.New(msg)}
 	}
