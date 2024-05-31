@@ -50,7 +50,6 @@ func augmentErrMsg(secretID string, err error) string {
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
 		case secretsmanager.ErrCodeResourceNotFoundException:
-			fmt.Println(aerr.Message())
 			return resourceInitializationErrMsg(secretID)
 		default:
 			return err.Error()

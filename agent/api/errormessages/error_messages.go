@@ -63,7 +63,6 @@ const (
 	MissingECRBatchGetImageError DockerErrorType = iota
 	ECRImageDoesNotExistError
 	NetworkConfigurationError
-	ResourceInitializationError
 )
 
 type DockerError struct {
