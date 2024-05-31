@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	"github.com/stretchr/testify/require"
 )
 
 type testCaseAugmentMessage struct {
