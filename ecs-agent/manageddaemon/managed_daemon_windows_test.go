@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build windows && unit
+// +build windows,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,18 +14,14 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package daemonmanager
-
-import (
-	"io/fs"
-)
+package manageddaemon
 
 const (
-	daemonUID                                   = 0
-	daemonMountPermission           fs.FileMode = 0755
-	daemonLogPermission             fs.FileMode = 0777
-	ecsAgentLogFileENV                          = "ECS_LOGFILE"
-	defaultECSAgentLogPathContainer             = "/log"
-	socketPathHostRoot                          = "/var/run/ecs"
-	logPathHostRoot                             = "/log/daemons"
+	TestImageName                         = "TestDaemon"
+	TestImageTag                          = "testTag"
+	TestImagePath                         = "C:\\ProgramData\\Amazon\\ECS\\data"
+	TestAgentPath                         = "C:\\Program Files\\Amazon\\ECS"
+	TestMountPointVolume                  = "testVolume"
+	ExpectedAgentCommunicationMountFormat = "C:\\ProgramData\\Amazon\\ECS\\%s"
+	ExpectedApplicationLogMountFormat     = "C:\\ProgramData\\Amazon\\ECS\\log\\%s"
 )

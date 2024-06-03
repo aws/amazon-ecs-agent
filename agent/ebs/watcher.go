@@ -38,7 +38,6 @@ import (
 
 const (
 	nodeStageTimeout = 2 * time.Second
-	hostMountDir     = "/mnt/ecs/ebs"
 )
 
 type EBSWatcher struct {
@@ -63,7 +62,7 @@ func NewWatcher(ctx context.Context,
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
 	// TODO pull this socket out into config
-	csiClient := csi.NewCSIClient("/var/run/ecs/ebs-csi-driver/csi-driver.sock")
+	csiClient := csi.NewCSIClient(csiDriverSocketAddress)
 	return &EBSWatcher{
 		ctx:             derivedContext,
 		cancel:          cancel,
