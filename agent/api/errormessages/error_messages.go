@@ -51,7 +51,7 @@ import (
 // with extra information; otherwise, the original error message will be returned.
 //
 // Example:
-//   augmentedMsg := apierrors.AugmentMessage("API error (404): repository not found", "execRole")
+//   augmentedMsg := apierrors.AugmentMessage("API error (404): repository not found")
 //
 
 // DockerErrorType represents the type of error returned by Docker client.
@@ -71,7 +71,7 @@ type DockerError struct {
 // Defines the function signature for generating formatted error messages.
 type ErrorMessageFunc func(errorData DockerError) string
 
-// A map associating DockerErrorType with functions to form error messages.
+// A map associating DockerErrorType with functions to format error messages.
 var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
 	MissingECRBatchGetImageError: formatMissingImageOrPullImageError,
 	ECRImageDoesNotExistError:    formatMissingImageOrPullImageError,
@@ -166,9 +166,8 @@ func AugmentNamedErrMsg(namedErr apierrors.NamedError) apierrors.NamedError {
 // If the error message pattern is unknown, returns the original error message.
 //
 // Possible failure scenarios:
-// 1. Missing parser implementation.
-//
-// This can only occur if a new ErrorType was added incorrectly due to implementation oversight.
+//  1. Missing parser implementation - this can only occur if a new ErrorType was added incorrectly
+//     due to implementation oversight.
 //
 // Currently, the function is set up in a safe manner - all failures are ignored, and
 // the original error message string is returned.

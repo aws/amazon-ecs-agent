@@ -34,17 +34,17 @@ type testCaseAugmentMessage struct {
 func TestAugmentMessage(t *testing.T) {
 	testCases := []testCaseAugmentMessage{
 		{
-			testName:    "Successful augmentation",
+			testName:    "Successful augmentation - missing pull permissions",
 			errMsg:      "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action",
 			expectedMsg: "Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action. Check if image exists or you have permissions to pull from registry.",
 		},
 		{
-			testName:    "Successful augmentation 2",
+			testName:    "Successful augmentation - image does not exist",
 			errMsg:      "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied",
 			expectedMsg: "Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied. Check if image exists or you have permissions to pull from registry.",
 		},
 		{
-			testName:    "Successful augmentation 3",
+			testName:    "Successful augmentation - network issues",
 			errMsg:      "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
 			expectedMsg: "RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers). Check your network configuration.",
 		},
@@ -52,11 +52,6 @@ func TestAugmentMessage(t *testing.T) {
 			testName:    "Does not recognize unknown error",
 			errMsg:      "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
 			expectedMsg: "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password",
-		},
-		{
-			testName:    "empty (with args)",
-			errMsg:      "",
-			expectedMsg: "",
 		},
 		{
 			testName:    "empty",
