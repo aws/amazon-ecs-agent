@@ -217,8 +217,8 @@ func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext)
 	}
 
 	formattedMessage := fmt.Sprintf(
-		"Check if image exists and role %shas permissions to pull images from registry. %s",
-		roleName, rawError)
+		"%s. Check if image exists and role %shas permissions to pull images from registry.",
+		rawError, roleName)
 
 	return formattedMessage
 }
@@ -227,7 +227,7 @@ func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext)
 func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) string {
 	rawError := errorData.RawError
 
-	formattedMessage := fmt.Sprintf("Check your network configuration. %s", rawError)
+	formattedMessage := fmt.Sprintf("%s. Check your network configuration.", rawError)
 
 	return formattedMessage
 }
