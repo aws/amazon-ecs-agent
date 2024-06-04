@@ -33,8 +33,6 @@ import (
 // 2. Parsers: Functions responsible for parsing error messages and identifying known error types.
 //    Each parser is associated with a specific error pattern and error type.
 // 3. Error Message Formatters: Functions to generate rich error messages for each known error type.
-//    These functions take parsed error data and additional context as input and produce augmented
-//    error messages.
 //
 // Adding a New Error Type:
 // To add a new error type, follow these steps:
@@ -70,13 +68,8 @@ type DockerError struct {
 	RawError string
 }
 
-type ErrorContext struct {
-	ExecRole string
-	SecretID string
-}
-
 // Defines the function signature for generating formatted error messages.
-type ErrorMessageFunc func(errorData DockerError, ctx ErrorContext) string
+type ErrorMessageFunc func(errorData DockerError) string
 
 // A map associating DockerErrorType with functions to form error messages.
 var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
@@ -155,14 +148,14 @@ func parseNetworkConfigurationError(err string) (DockerError, error) {
 }
 
 // Extend error with extra useful information. Works with NamedErrors.
-func AugmentNamedErrMsg(namedErr apierrors.NamedError, ctx ErrorContext) apierrors.NamedError {
+func AugmentNamedErrMsg(namedErr apierrors.NamedError) apierrors.NamedError {
 	augmentableErr, ok := namedErr.(AugmentableNamedError)
 	if !ok { // If namedErr is not a AugmentableNamedError, return as-is.
 		return namedErr
 	}
 
 	// Augment the error message.
-	augmentedMsg := AugmentMessage(namedErr.Error(), ctx)
+	augmentedMsg := AugmentMessage(namedErr.Error())
 	// Reconstruct new NamedError.
 	newError := augmentableErr.WithAugmentedErrorMessage()(augmentedMsg)
 	return newError
@@ -179,7 +172,7 @@ func AugmentNamedErrMsg(namedErr apierrors.NamedError, ctx ErrorContext) apierro
 //
 // Currently, the function is set up in a safe manner - all failures are ignored, and
 // the original error message string is returned.
-func AugmentMessage(errMsg string, ctx ErrorContext) string {
+func AugmentMessage(errMsg string) string {
 	var errorData DockerError
 	var err error
 
@@ -204,27 +197,22 @@ func AugmentMessage(errMsg string, ctx ErrorContext) string {
 		return errMsg
 	}
 
-	return formattedErrorMessage(errorData, ctx)
+	return formattedErrorMessage(errorData)
 }
 
 // Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
-func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext) string {
+func formatMissingImageOrPullImageError(errorData DockerError) string {
 	rawError := errorData.RawError
-	roleName := ""
-
-	if ctx.ExecRole != "" {
-		roleName = "'" + ctx.ExecRole + "' "
-	}
 
 	formattedMessage := fmt.Sprintf(
-		"%s. Check if image exists and role %shas permissions to pull images from registry.",
-		rawError, roleName)
+		"%s. Check if image exists or you have permissions to pull from registry.",
+		rawError)
 
 	return formattedMessage
 }
 
 // Generates error message for network misconfiguration errors.
-func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) string {
+func formatNetworkConfigurationError(errorData DockerError) string {
 	rawError := errorData.RawError
 
 	formattedMessage := fmt.Sprintf("%s. Check your network configuration.", rawError)

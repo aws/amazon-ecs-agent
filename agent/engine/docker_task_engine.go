@@ -1399,9 +1399,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	}
 
 	// Set the credentials for pull from ECR if necessary
-	pullWithExecRole := container.ShouldPullWithExecutionRole()
-	var execRoleArn string
-	if pullWithExecRole {
+	if container.ShouldPullWithExecutionRole() {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
 			logger.Error("Unable to acquire ECR credentials to pull image for container", logger.Fields{
@@ -1418,7 +1416,6 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 
 		iamCredentials := executionCredentials.GetIAMRoleCredentials()
 		container.SetRegistryAuthCredentials(iamCredentials)
-		execRoleArn = iamCredentials.RoleArn
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
 	}
@@ -1449,8 +1446,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	findCachedImage := false
 	if !pullSucceeded {
 		// Extend error message
-		errCtx := apierrormsgs.ErrorContext{ExecRole: execRoleArn}
-		metadata.Error = apierrormsgs.AugmentNamedErrMsg(metadata.Error, errCtx)
+		metadata.Error = apierrormsgs.AugmentNamedErrMsg(metadata.Error)
 		// If Agent failed to pull an image when
 		// 1. DependentContainersPullUpfront is enabled
 		// 2. ImagePullBehavior is not set to always
