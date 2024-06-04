@@ -237,7 +237,7 @@ func createSecretValueInput(secretID *string, versionID *string, versionStage *s
 	}
 }
 
-func TestGetSecretFromASMWithInputErrorMessage(t *testing.T) {
+func TestGetSecretFromASMWithInputErrorMessageKnownError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -253,5 +253,24 @@ func TestGetSecretFromASMWithInputErrorMessage(t *testing.T) {
 	aerr, ok := errors.Cause(err).(awserr.Error)
 	require.True(t, ok, "error is not of type awserr.Error")
 	assert.Equal(t, secretsmanager.ErrCodeResourceNotFoundException, aerr.Code())
-	assert.Contains(t, err.Error(), fmt.Sprintf("ResourceInitializationError: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check that the secret ARN is correct: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom))
+	assert.Contains(t, err.Error(), fmt.Sprintf("ResourceNotFound: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check for typos, secret deletion, incorrect ARN format, or region mismatch: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom))
+}
+
+func TestGetSecretFromASMWithInputErrorMessageUnknownError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
+	mockSecretsManager.EXPECT().
+		GetSecretValue(gomock.Any()).
+		Return(nil, awserr.New(secretsmanager.ErrCodeInternalServiceError, "uhoh", nil))
+
+	secretValueInput := createSecretValueInput(toPtr(valueFrom), toPtr(versionID), nil)
+	_, err := GetSecretFromASMWithInput(secretValueInput, mockSecretsManager, jsonKey)
+
+	assert.Error(t, err)
+	aerr, ok := errors.Cause(err).(awserr.Error)
+	require.True(t, ok, "error is not of type awserr.Error")
+	assert.Equal(t, secretsmanager.ErrCodeInternalServiceError, aerr.Code())
+	assert.Contains(t, err.Error(), fmt.Sprintf("secret %s: InternalServiceError: uhoh", valueFrom))
 }

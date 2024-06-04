@@ -71,9 +71,8 @@ type DockerError struct {
 }
 
 type ErrorContext struct {
-	ExecRole    string
-	NetworkMode string
-	SecretID    string
+	ExecRole string
+	SecretID string
 }
 
 // Defines the function signature for generating formatted error messages.
@@ -218,7 +217,7 @@ func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext)
 	}
 
 	formattedMessage := fmt.Sprintf(
-		"Check if image exists and role %shas permissions to pull images from Amazon ECR. %s",
+		"Check if image exists and role %shas permissions to pull images from registry. %s",
 		roleName, rawError)
 
 	return formattedMessage
@@ -227,21 +226,8 @@ func formatMissingImageOrPullImageError(errorData DockerError, ctx ErrorContext)
 // Generates error message for network misconfiguration errors.
 func formatNetworkConfigurationError(errorData DockerError, ctx ErrorContext) string {
 	rawError := errorData.RawError
-	entity := ""
 
-	// Check network mode is avaiable in context and augment appropriately
-	if ctx.NetworkMode != "" {
-		networkMode := ctx.NetworkMode
-		if networkMode == "awsvpc" {
-			entity = "task "
-		} else {
-			entity = "host "
-		}
-	}
-
-	formattedMessage := fmt.Sprintf(
-		"Check your %snetwork configuration. %s",
-		entity, rawError)
+	formattedMessage := fmt.Sprintf("Check your network configuration. %s", rawError)
 
 	return formattedMessage
 }

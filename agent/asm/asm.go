@@ -36,26 +36,26 @@ type AuthDataValue struct {
 
 func resourceInitializationErrMsg(secretID string) string {
 	return fmt.Sprintf(
-		`ResourceInitializationError: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check that the secret ARN is correct`,
+		`ResourceNotFound: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check for typos, secret deletion, incorrect ARN format, or region mismatch`,
 		secretID)
 }
 
 // Augment error message with extra details for most common exceptions:
 func augmentErrMsg(secretID string, err error) string {
-	if secretID != "" {
-		secretID = "'" + secretID + "' "
-	} else {
+	if secretID == "" {
 		logger.Warn("augmentErrMsg: SecretID is empty (which is unexpected)")
 	}
+
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
 		case secretsmanager.ErrCodeResourceNotFoundException:
+			secretID = "'" + secretID + "' "
 			return resourceInitializationErrMsg(secretID)
 		default:
-			return err.Error()
+			return fmt.Sprintf("secret %s: %s", secretID, err.Error())
 		}
 	} else {
-		return err.Error()
+		return fmt.Sprintf("secret %s: %s", secretID, err.Error())
 	}
 }
 

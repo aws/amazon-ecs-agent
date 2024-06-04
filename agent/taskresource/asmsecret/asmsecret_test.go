@@ -143,8 +143,10 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	}
 
 	assert.Error(t, asmRes.Create())
-	expectedError := "error response"
-	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
+	expectedError1 := fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s: secret %s: error response", region1, valueFrom1)
+	expectedError2 := fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s: secret %s: error response", region2, valueFrom1)
+	assert.Contains(t, asmRes.GetTerminalReason(), expectedError1)
+	assert.Contains(t, asmRes.GetTerminalReason(), expectedError2)
 }
 
 func TestCreateReturnError(t *testing.T) {
@@ -181,7 +183,7 @@ func TestCreateReturnError(t *testing.T) {
 	}
 
 	assert.Error(t, asmRes.Create())
-	expectedError := fmt.Sprintf("ResourceInitializationError: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check that the secret ARN is correct: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom1)
+	expectedError := fmt.Sprintf("ResourceNotFound: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check for typos, secret deletion, incorrect ARN format, or region mismatch: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom1)
 	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
 }
 
