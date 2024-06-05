@@ -21,11 +21,10 @@ import (
 )
 
 const (
-	daemonUID                                   = 0
-	daemonMountPermission           fs.FileMode = 0755
-	daemonLogPermission             fs.FileMode = 0777
-	ecsAgentLogFileENV                          = "ECS_LOGFILE"
-	defaultECSAgentLogPathContainer             = "/log"
-	socketPathHostRoot                          = "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver"
-	logPathHostRoot                             = "C:\\ProgramData\\Amazon\\ECS\\log\\daemons"
+	// This is the daemon UID that is used to track the ManagedDaemons
+	daemonUID = 0
+	// This is the permission that is set on the named pipes created for the ManagedDaemon
+	daemonMountPermission fs.FileMode = 0755
+	// This is the permission set that is used for setting the access control on the log file
+	daemonLogPermission fs.FileMode = 0777
 )
