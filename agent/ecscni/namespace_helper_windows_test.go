@@ -27,6 +27,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
@@ -106,7 +107,7 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 						assert.Equal(t, container, containerID)
 						assert.Len(t, execConfig.Cmd, 3)
 						assert.Equal(t, execConfig.Cmd[2], finalCmd)
-						assert.Equal(t, execConfig.User, containerAdminUser)
+						assert.Equal(t, execConfig.User, config.ContainerAdminUser)
 					}).Return(&types.IDResponse{ID: containerExecID}, nil),
 				dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 					func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {

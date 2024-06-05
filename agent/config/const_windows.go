@@ -17,4 +17,12 @@
 package config
 
 // OSType is the type of operating system where agent is running
-const OSType = "windows"
+const (
+	OSType = "windows"
+	// containerAdminUser is the admin username for any container on Windows.
+	ContainerAdminUser = "ContainerAdministrator"
+	// This is the path that will be used to store the local named pipe for CSI Proxy
+	ManagedDaemonSocketPathHostRoot = "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver"
+	// This is the path that will be used to store the log file for the CSI Driver Managed Daemon
+	ManagedDaemonLogPathHostRoot = "C:\\ProgramData\\Amazon\\ECS\\log\\daemons"
+)

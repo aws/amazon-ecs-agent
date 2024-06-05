@@ -22,6 +22,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -179,12 +180,12 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 
 func (dm *daemonManager) initDaemonDirectoryMounts(imageName string) error {
 	// create logging directory
-	logPathHost := filepath.Join(logPathHostRoot, imageName)
+	logPathHost := filepath.Join(config.ManagedDaemonLogPathHostRoot, imageName)
 	if err := mkdirAllAndChown(logPathHost, daemonLogPermission, daemonUID, os.Getegid()); err != nil {
 		return err
 	}
 	// create socket path
-	socketPathHost := filepath.Join(socketPathHostRoot, imageName)
+	socketPathHost := filepath.Join(config.ManagedDaemonSocketPathHostRoot, imageName)
 	if err := mkdirAllAndChown(socketPathHost, daemonMountPermission, daemonUID, os.Getegid()); err != nil {
 		return err
 	}
