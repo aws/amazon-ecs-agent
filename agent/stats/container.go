@@ -119,14 +119,14 @@ func (container *StatsContainer) getApiContainer(dockerID string) (*apicontainer
 	return dockerContainer.Container, nil
 }
 
-func getNonDockerContainerStats(apiContainer *apicontainer.Container) *NonDockerContainerStats {
+func getNonDockerContainerStats(apiContainer *apicontainer.Container) NonDockerContainerStats {
+	nonDockerStats := NonDockerContainerStats{}
 	if apiContainer == nil {
-		return nil
+		return nonDockerStats
 	}
-	var nonDockerStats *NonDockerContainerStats
 	if apiContainer.RestartPolicyEnabled() {
-		nonDockerStats = &NonDockerContainerStats{}
-		nonDockerStats.restartCount = int64(apiContainer.RestartTracker.GetRestartCount())
+		restartCount := int64(apiContainer.RestartTracker.GetRestartCount())
+		nonDockerStats.restartCount = &restartCount
 	}
 	return nonDockerStats
 }
