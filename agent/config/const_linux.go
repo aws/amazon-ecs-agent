@@ -16,5 +16,11 @@
 
 package config
 
-// OSType is the type of operating system where agent is running
-const OSType = "linux"
+const (
+	// OSType is the type of operating system where agent is running
+	OSType = "linux"
+	// This is the path that will be used for the csi-driver socker
+	ManagedDaemonSocketPathHostRoot = "/var/run/ecs"
+	// This is the path that will be used to store the log file for the CSI Driver Managed Daemon
+	ManagedDaemonLogPathHostRoot = "/log/daemons"
+)

@@ -20,21 +20,22 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/containernetworking/cni/libcni"
-
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
 	"github.com/cihub/seelog"
+	"github.com/containernetworking/cni/libcni"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 )
@@ -217,7 +218,7 @@ func (task *Task) addFSxWindowsFileServerResource(
 
 // For Windows task run via the docker DaemonManager, we will run them as ContainerAdministrator
 func (task *Task) getTaskUser(container *container.Container) string {
-	return "ContainerAdministrator"
+	return config.ContainerAdminUser
 }
 
 // BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
