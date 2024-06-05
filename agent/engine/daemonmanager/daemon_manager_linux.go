@@ -26,6 +26,4 @@ const (
 	daemonLogPermission             fs.FileMode = 0777
 	ecsAgentLogFileENV                          = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer             = "/log"
-	socketPathHostRoot                          = "/var/run/ecs"
-	logPathHostRoot                             = "/log/daemons"
 )
