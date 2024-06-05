@@ -27,13 +27,12 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 const (
-	// containerAdminUser is the admin username for any container on Windows.
-	containerAdminUser = "ContainerAdministrator"
 	// windowsDefaultRoute is the default route of any endpoint.
 	windowsDefaultRoute = "0.0.0.0/0"
 	// credentialsEndpointRoute is the route of credentials endpoint for accessing task iam roles/task metadata.
@@ -119,7 +118,7 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 	execCfg := types.ExecConfig{
 		Detach: false,
 		Cmd:    cfgCommand,
-		User:   containerAdminUser,
+		User:   config.ContainerAdminUser,
 	}
 
 	execRes, err := nsHelper.dockerClient.CreateContainerExec(ctx, containerID, execCfg, dockerclient.ContainerExecCreateTimeout)
