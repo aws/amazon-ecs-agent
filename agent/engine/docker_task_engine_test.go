@@ -1770,7 +1770,7 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 						Transition: "pulled",
 					}
 				} else {
-					expectedErr = &dockerapi.CannotPullContainerError{FromError: tc.TagImageErr}
+					expectedErr = dockerapi.CannotPullContainerError{FromError: tc.TagImageErr}
 				}
 			}
 			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: expectedErr},
