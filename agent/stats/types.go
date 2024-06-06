@@ -38,7 +38,7 @@ type ContainerStats struct {
 // These are amended to the docker stats and added to the stats queue if they are
 // available.
 type NonDockerContainerStats struct {
-	restartCount int64
+	restartCount *int64
 }
 
 // NetworkStats contains the network stats information for a container
