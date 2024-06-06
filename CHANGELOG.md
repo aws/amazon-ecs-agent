@@ -1,4 +1,12 @@
 # Changelog
+# 1.83.0
+* Feature - Expedited reporting of container image manifest digests to ECS backend. This change makes Agent resolve container image manifest digests for container images prior to image pulls by either calling image registries or inspecting local images depending on the host state and Agent configuration. Resolved digests will be reported to ECS backend using an additional SubmitTaskStateChange API call [#4177](https://github.com/aws/amazon-ecs-agent/pull/4177)
+* Enhancement - Update ACS model restart policy in ecs-agent [#4175](https://github.com/aws/amazon-ecs-agent/pull/4175)
+* Enhancement - Update TMDS response for container restarts [#4178](https://github.com/aws/amazon-ecs-agent/pull/4178)
+* Enhancement - Enable agent to detect FIPS enabled hosts [#4189](https://github.com/aws/amazon-ecs-agent/pull/4189)
+* Bugfix - Fixed a bug that could prevent ECS agent from starting on SUSE Linux 15 [#4173](https://github.com/aws/amazon-ecs-agent/pull/4173)
+
+
 # 1.82.4
 * Enhancement - Add retries to DockerClient's manifest pull functionality and add utils/reference package [#4150](https://github.com/aws/amazon-ecs-agent/pull/4150)
 * Enhancement - ContainerRestartPolicy ACS and TCS models, TMDS updates [#4158](https://github.com/aws/amazon-ecs-agent/pull/4158)[#4163](https://github.com/aws/amazon-ecs-agent/pull/4163)

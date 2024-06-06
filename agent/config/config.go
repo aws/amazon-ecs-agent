@@ -188,6 +188,9 @@ var (
 
 	// CgroupV2 Specifies whether or not to run in Cgroups V2 mode.
 	CgroupV2 = false
+
+	// isFIPSEnabled indicates whether FIPS mode is enabled on the host
+	isFIPSEnabled = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -226,6 +229,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		errs = append(errs, err)
 	}
 	config := &envConfig
+	isFIPSEnabled = utils.DetectFIPSMode(utils.FIPSModeFilePath)
 
 	if config.External.Enabled() {
 		if config.AWSRegion == "" {
@@ -549,6 +553,7 @@ func environmentConfig() (Config, error) {
 		DeleteNonECSImagesEnabled:           parseBooleanDefaultFalseConfig("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"),
 		TaskCPUMemLimit:                     parseBooleanDefaultTrueConfig("ECS_ENABLE_TASK_CPU_MEM_LIMIT"),
 		DockerStopTimeout:                   parseDockerStopTimeout(),
+		ManifestPullTimeout:                 parseManifestPullTimeout(),
 		ContainerStartTimeout:               parseContainerStartTimeout(),
 		ContainerCreateTimeout:              parseContainerCreateTimeout(),
 		DependentContainersPullUpfront:      parseBooleanDefaultFalseConfig("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT"),
@@ -625,6 +630,7 @@ func (cfg *Config) String() string {
 			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
+			"ManifestPullTimeout: %v, "+
 			"DockerStopTimeout: %v, "+
 			"ContainerStartTimeout: %v, "+
 			"ContainerCreateTimeout: %v, "+
@@ -644,6 +650,7 @@ func (cfg *Config) String() string {
 		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
 		cfg.TaskCleanupWaitDuration,
+		cfg.ManifestPullTimeout,
 		cfg.DockerStopTimeout,
 		cfg.ContainerStartTimeout,
 		cfg.ContainerCreateTimeout,
@@ -653,4 +660,8 @@ func (cfg *Config) String() string {
 		cfg.DynamicHostPortRange,
 		cfg.platformString(),
 	)
+}
+
+func IsFIPSEnabled() bool {
+	return isFIPSEnabled
 }

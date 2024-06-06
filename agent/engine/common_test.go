@@ -38,6 +38,7 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -46,14 +47,19 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	containerID                 = "containerID"
 	waitTaskStateChangeDuration = 2 * time.Minute
+	testDigest                  = digest.Digest("sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee")
 )
 
 var (
@@ -106,6 +112,9 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apita
 		if taskEvent.TaskARN != task.Arn {
 			continue
 		}
+		if taskEvent.Status == apitaskstatus.TaskManifestPulled {
+			continue
+		}
 		if taskEvent.Status == apitaskstatus.TaskRunning {
 			return nil
 		}
@@ -146,6 +155,7 @@ func waitForTaskStoppedByCheckStatus(task *apitask.Task) {
 // removed matches with the generated container name during cleanup operation in the
 // test.
 func validateContainerRunWorkflow(t *testing.T,
+	ctrl *gomock.Controller,
 	container *apicontainer.Container,
 	task *apitask.Task,
 	imageManager *mock_engine.MockImageManager,
@@ -156,8 +166,29 @@ func validateContainerRunWorkflow(t *testing.T,
 	createdContainerName chan<- string,
 	assertions func(),
 ) {
+	// Prepare a test digest
+	testDigest, digestParseError := digest.Parse(
+		"sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b")
+	require.NoError(t, digestParseError)
+
+	// Get expected canonical reference for the container image and test digest
+	canonicalImageRef, canonicalRefErr := referenceutil.GetCanonicalRef(
+		container.Image, testDigest.String())
+	require.NoError(t, canonicalRefErr)
+
+	// Set expectations for transition to MANIFEST_PULLED state
+	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	client.EXPECT().WithVersion(dockerclient.Version_1_35).Return(manifestPullClient, nil)
+	manifestPullClient.EXPECT().
+		PullImageManifest(gomock.Any(), container.Image, container.RegistryAuthentication).
+		Return(registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}}, nil)
+
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		PullImage(gomock.Any(), canonicalImageRef.String(), nil, gomock.Any()).
+		Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().
+		TagImage(gomock.Any(), canonicalImageRef.String(), container.Image).Return(nil)
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
@@ -260,6 +291,7 @@ func addTaskToEngine(t *testing.T,
 	assert.NoError(t, err)
 
 	taskEngine.AddTask(sleepTask)
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Wait for all events to be consumed prior to moving it towards stopped; we
 	// don't want to race the below with these or we'll end up with the "going
@@ -292,6 +324,18 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 		t.Fatal("Should be out of events")
 	default:
 	}
+}
+
+// waitForManifestPulledEvents waits for a task to emit 'MANIFEST_PULLED' events for a container
+// and the task
+func waitForManifestPulledEvents(t *testing.T, stateChangeEvents <-chan statechange.Event) {
+	event := <-stateChangeEvents
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
+		"Expected MANIFEST_PULLED state to be emitted for the container")
+
+	event = <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
+		"Expected MANIFEST_PULLED state to be emitted for the task")
 }
 
 // waitForStopEvents waits for a task to emit 'STOPPED' events for a container

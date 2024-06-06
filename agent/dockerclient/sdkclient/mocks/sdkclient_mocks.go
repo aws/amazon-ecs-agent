@@ -353,6 +353,20 @@ func (mr *MockClientMockRecorder) ImageRemove(arg0, arg1, arg2 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageRemove", reflect.TypeOf((*MockClient)(nil).ImageRemove), arg0, arg1, arg2)
 }
 
+// ImageTag mocks base method.
+func (m *MockClient) ImageTag(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImageTag", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImageTag indicates an expected call of ImageTag.
+func (mr *MockClientMockRecorder) ImageTag(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageTag", reflect.TypeOf((*MockClient)(nil).ImageTag), arg0, arg1, arg2)
+}
+
 // Info mocks base method.
 func (m *MockClient) Info(arg0 context.Context) (types.Info, error) {
 	m.ctrl.T.Helper()

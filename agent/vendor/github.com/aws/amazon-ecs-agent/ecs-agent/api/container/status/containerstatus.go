@@ -102,20 +102,6 @@ func (cs *ContainerStatus) ShouldReportToBackend(steadyStateStatus ContainerStat
 	return *cs == steadyStateStatus || *cs == ContainerStopped
 }
 
-// BackendStatus maps the internal container status in the agent to that in the
-// backend
-func (cs *ContainerStatus) BackendStatus(steadyStateStatus ContainerStatus) ContainerStatus {
-	if *cs == steadyStateStatus {
-		return ContainerRunning
-	}
-
-	if *cs == ContainerStopped {
-		return ContainerStopped
-	}
-
-	return ContainerStatusNone
-}
-
 // BackendStatusString maps the internal container status in Agent to a backend recognized
 // status string.
 func (cs ContainerStatus) BackendStatusString() string {
