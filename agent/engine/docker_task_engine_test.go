@@ -1643,12 +1643,12 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 		{
 			Name:         "MissingECRBatchGetImageError",
 			PullImageErr: dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
-			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action. Check if image exists or you have permissions to pull from registry.")},
+			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("The task can’t pull the image. Check that the role has the permissions to pull images from the registry. Error response from daemon: pull access denied for 123123123123.dkr.ecr.us-east-1.amazonaws.com/my_image, repository does not exist or may require 'docker login': denied: User: arn:aws:sts::123123123123:assumed-role/MyBrokenRole/xyz is not authorized to perform: ecr:BatchGetImage on resource: arn:aws:ecr:us-east-1:123123123123:repository/test_image because no identity-based policy allows the ecr:BatchGetImage action")},
 		},
 		{
 			Name:         "ECRImageDoesNotExistError (no role passed)",
 			PullImageErr: dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
-			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied. Check if image exists or you have permissions to pull from registry.")},
+			ExpectedErr:  dockerapi.CannotPullContainerError{fmt.Errorf("The task can’t pull the image. Check whether the image exists. Error response from daemon: pull access denied for some/nonsense, repository does not exist or may require 'docker login': denied: requested access to the resource is denied")},
 		},
 		{
 			Name:         "UntouchedError",
@@ -1658,7 +1658,7 @@ func TestPullAndUpdateContainerReferenceErrorMessages(t *testing.T) {
 		{
 			Name:         "NetworkError",
 			PullImageErr: dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
-			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers). Check your network configuration.")},
+			ExpectedErr:  dockerapi.CannotPullECRContainerError{fmt.Errorf("The task can’t pull the image. Check your network configuration. RequestError: send request failed\ncaused by: Post \"https://api.ecr.us-east-1.amazonaws.com/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)")},
 		},
 	}
 

@@ -31,6 +31,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -315,7 +316,8 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 
 	secretValue, err := asm.GetSecretFromASMWithInput(input, asmClient, jsonKey)
 	if err != nil {
-		errorEvents <- fmt.Errorf("fetching secret data from AWS Secrets Manager in region %s: %v", apiSecret.Region, err)
+		logger.Debug(fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s", apiSecret.Region))
+		errorEvents <- err
 		return
 	}
 

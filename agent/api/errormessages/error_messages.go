@@ -73,8 +73,8 @@ type ErrorMessageFunc func(errorData DockerError) string
 
 // A map associating DockerErrorType with functions to format error messages.
 var errorMessageFunctions = map[DockerErrorType]ErrorMessageFunc{
-	MissingECRBatchGetImageError: formatMissingImageOrPullImageError,
-	ECRImageDoesNotExistError:    formatMissingImageOrPullImageError,
+	MissingECRBatchGetImageError: formatMissingECRBatchGetImageError,
+	ECRImageDoesNotExistError:    formatImageDoesNotExistError,
 	NetworkConfigurationError:    formatNetworkConfigurationError,
 }
 
@@ -94,7 +94,7 @@ type AugmentableNamedError interface {
 
 const (
 	// error message patterns used by parsers
-	PatternECRBatchGetImageError     = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage`
+	PatternECRBatchGetImageError     = `denied: User: (.+) is not authorized to perform: ecr:BatchGetImage on resource`
 	PatternImageDoesNotExistError    = `denied: requested access to the resource is denied`
 	PatternNetworkConfigurationError = `request canceled while waiting for connection`
 	// internal errors
@@ -199,12 +199,23 @@ func AugmentMessage(errMsg string) string {
 	return formattedErrorMessage(errorData)
 }
 
-// Generates error message for MissingECRBatchGetImage and ECRImageDoesNotExist errors.
-func formatMissingImageOrPullImageError(errorData DockerError) string {
+// Generates error message for MissingECRBatchGetImage error.
+func formatMissingECRBatchGetImageError(errorData DockerError) string {
 	rawError := errorData.RawError
 
 	formattedMessage := fmt.Sprintf(
-		"%s. Check if image exists or you have permissions to pull from registry.",
+		"The task can’t pull the image. Check that the role has the permissions to pull images from the registry. %s",
+		rawError)
+
+	return formattedMessage
+}
+
+// Generates error message for ECRImageDoesNotExist error.
+func formatImageDoesNotExistError(errorData DockerError) string {
+	rawError := errorData.RawError
+
+	formattedMessage := fmt.Sprintf(
+		"The task can’t pull the image. Check whether the image exists. %s",
 		rawError)
 
 	return formattedMessage
@@ -214,7 +225,8 @@ func formatMissingImageOrPullImageError(errorData DockerError) string {
 func formatNetworkConfigurationError(errorData DockerError) string {
 	rawError := errorData.RawError
 
-	formattedMessage := fmt.Sprintf("%s. Check your network configuration.", rawError)
+	formattedMessage := fmt.Sprintf("The task can’t pull the image. Check your network configuration. %s",
+		rawError)
 
 	return formattedMessage
 }

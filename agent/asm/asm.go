@@ -36,7 +36,7 @@ type AuthDataValue struct {
 
 func resourceInitializationErrMsg(secretID string) string {
 	return fmt.Sprintf(
-		`ResourceNotFound: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check for typos, secret deletion, incorrect ARN format, or region mismatch`,
+		`ResourceNotFoundException: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check whether the secret exists in the specified Region`,
 		secretID)
 }
 

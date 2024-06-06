@@ -253,7 +253,7 @@ func TestGetSecretFromASMWithInputErrorMessageKnownError(t *testing.T) {
 	aerr, ok := errors.Cause(err).(awserr.Error)
 	require.True(t, ok, "error is not of type awserr.Error")
 	assert.Equal(t, secretsmanager.ErrCodeResourceNotFoundException, aerr.Code())
-	assert.Contains(t, err.Error(), fmt.Sprintf("ResourceNotFound: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check for typos, secret deletion, incorrect ARN format, or region mismatch: ResourceNotFoundException: Secrets Manager can't find the specified secret.", valueFrom))
+	assert.Contains(t, err.Error(), fmt.Sprintf("ResourceNotFoundException: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check whether the secret exists in the specified Region", valueFrom))
 }
 
 func TestGetSecretFromASMWithInputErrorMessageUnknownError(t *testing.T) {
