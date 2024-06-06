@@ -47,8 +47,8 @@ import (
 //
 // Usage:
 // To augment an error message, call the AugmentNamedErrMsg or AugmentMessage function with the original error
-// and additional arguments. If the error message matches known error pattern, it will be augmented
-// with extra information; otherwise, the original error message will be returned.
+// If the error message matches known error pattern, it will be augmented with extra information; otherwise,
+// the original error message will be returned.
 //
 // Example:
 //   augmentedMsg := apierrors.AugmentMessage("API error (404): repository not found")
