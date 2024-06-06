@@ -153,10 +153,8 @@ func (err CannotPullContainerError) ErrorName() string {
 	return "CannotPullContainerError"
 }
 
-func (err CannotPullContainerError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
-	return func(msg string) apierrors.NamedError {
-		return CannotPullContainerError{errors.New(msg)}
-	}
+func (err CannotPullContainerError) WithAugmentedErrorMessage(msg string) apierrors.NamedError {
+	return CannotPullContainerError{errors.New(msg)}
 }
 
 // CannotPullImageManifestError indicates any error when trying to pull a container image manifest.
@@ -193,10 +191,8 @@ func (err CannotPullECRContainerError) Retry() bool {
 	return false
 }
 
-func (err CannotPullECRContainerError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
-	return func(msg string) apierrors.NamedError {
-		return CannotPullECRContainerError{errors.New(msg)}
-	}
+func (err CannotPullECRContainerError) WithAugmentedErrorMessage(msg string) apierrors.NamedError {
+	return CannotPullECRContainerError{errors.New(msg)}
 }
 
 // CannotPullContainerAuthError indicates any error when trying to pull

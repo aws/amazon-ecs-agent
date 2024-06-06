@@ -86,10 +86,8 @@ func (err KnownError) ErrorName() string {
 	return "KnownError"
 }
 
-func (err KnownError) WithAugmentedErrorMessage() func(string) apierrors.NamedError {
-	return func(msg string) apierrors.NamedError {
-		return KnownError{errors.New(msg)}
-	}
+func (err KnownError) WithAugmentedErrorMessage(msg string) apierrors.NamedError {
+	return KnownError{errors.New(msg)}
 }
 
 // does not implement WithAugmentedErrorMessage()
