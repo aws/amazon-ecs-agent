@@ -61,14 +61,14 @@ func (queue *Queue) Reset() {
 }
 
 // Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats *NonDockerContainerStats) error {
+func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
 		return err
 	}
-	if nonDockerStats != nil {
-		stat.restartCount = &nonDockerStats.restartCount
+	if nonDockerStats.restartCount != nil {
+		stat.restartCount = nonDockerStats.restartCount
 	}
 	queue.add(stat)
 	return nil

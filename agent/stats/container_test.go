@@ -138,6 +138,47 @@ func TestContainerStatsCollection(t *testing.T) {
 	require.Nil(t, restartStatSet, "Expect nil restart stats set for container without a restart policy")
 }
 
+func TestGetNonDockerContainerStats(t *testing.T) {
+	restartPolicy := restart.RestartPolicy{Enabled: true}
+	restartTracker := restart.NewRestartTracker(restartPolicy)
+	container := &apicontainer.Container{
+		RestartPolicy:  &restartPolicy,
+		RestartTracker: restartTracker,
+	}
+	nonDockerStats := getNonDockerContainerStats(container)
+	require.NotNil(t, nonDockerStats.restartCount)
+	require.Equal(t, int64(0), *nonDockerStats.restartCount)
+
+	restartTracker.RecordRestart()
+	nonDockerStats = getNonDockerContainerStats(container)
+	require.NotNil(t, nonDockerStats.restartCount)
+	require.Equal(t, int64(1), *nonDockerStats.restartCount)
+
+	for i := 0; i < 10; i++ {
+		restartTracker.RecordRestart()
+	}
+	nonDockerStats = getNonDockerContainerStats(container)
+	require.NotNil(t, nonDockerStats.restartCount)
+	require.Equal(t, int64(11), *nonDockerStats.restartCount)
+}
+
+func TestGetNonDockerContainerStats_ExpectNil(t *testing.T) {
+	// disabled policy returns nil restart count
+	restartPolicy := restart.RestartPolicy{Enabled: false}
+	restartTracker := restart.NewRestartTracker(restartPolicy)
+	container1 := &apicontainer.Container{
+		RestartPolicy:  &restartPolicy,
+		RestartTracker: restartTracker,
+	}
+	nonDockerStats := getNonDockerContainerStats(container1)
+	require.Nil(t, nonDockerStats.restartCount)
+
+	// no policy returns nil restart count
+	container2 := &apicontainer.Container{}
+	nonDockerStats = getNonDockerContainerStats(container2)
+	require.Nil(t, nonDockerStats.restartCount)
+}
+
 func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 	t.Parallel()
 	ctrl := gomock.NewController(t)
