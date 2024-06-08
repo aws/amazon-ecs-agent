@@ -25,6 +25,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/docker/docker/api/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -1401,6 +1402,51 @@ func TestRestartPolicy(t *testing.T) {
 			require.Equal(t, tc.restartCount, tc.container.RestartTracker.GetRestartCount())
 		}
 	}
+}
+
+func TestGetAndSetStartedAt(t *testing.T) {
+	testTime := time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC)
+	c := &Container{}
+
+	// Test getting started at time when it has never been set is the zero value of time.
+	require.True(t, c.GetStartedAt().IsZero())
+
+	// Test setting started at time sets the started at time.
+	c.SetStartedAt(testTime)
+	require.Equal(t, testTime, c.GetStartedAt())
+
+	// Test setting started at time after it has already been set does not change the originally set started at time.
+	c.SetStartedAt(time.Now())
+	require.Equal(t, testTime, c.GetStartedAt())
+}
+
+func TestGetAndSetRestartAggregationDataForStats(t *testing.T) {
+	testTime := time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC)
+	testStatsJSON := types.StatsJSON{
+		Stats: types.Stats{
+			CPUStats: types.CPUStats{
+				CPUUsage: types.CPUUsage{
+					TotalUsage: 100,
+				},
+			},
+			MemoryStats: types.MemoryStats{
+				MaxUsage: 200,
+			},
+		},
+	}
+	testRestartAggregationDataForStats := ContainerRestartAggregationDataForStats{
+		LastRestartDetectedAt:     testTime,
+		LastStatBeforeLastRestart: testStatsJSON,
+	}
+	c := &Container{}
+
+	// Test getting restart aggregation data for stats when it has never been set is the zero value of the
+	// ContainerRestartAggregationDataForStats struct.
+	require.Equal(t, ContainerRestartAggregationDataForStats{}, c.GetRestartAggregationDataForStats())
+
+	// Test setting restart aggregation data for stats sets the restart aggregation data for stats.
+	c.SetRestartAggregationDataForStats(testRestartAggregationDataForStats)
+	require.Equal(t, testRestartAggregationDataForStats, c.GetRestartAggregationDataForStats())
 }
 
 func getContainer(hostConfig string, credentialSpecs []string) *Container {

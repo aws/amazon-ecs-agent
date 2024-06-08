@@ -14,11 +14,12 @@
 package stats
 
 import (
+	"context"
 	"time"
 
-	"context"
-
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 )
@@ -89,13 +90,15 @@ type TaskMetadata struct {
 
 // StatsContainer abstracts methods to gather and aggregate utilization data for a container.
 type StatsContainer struct {
-	containerMetadata *ContainerMetadata
-	ctx               context.Context
-	cancel            context.CancelFunc
-	client            dockerapi.DockerClient
-	statsQueue        *Queue
-	resolver          resolver.ContainerMetadataResolver
-	config            *config.Config
+	containerMetadata      *ContainerMetadata
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	client                 dockerapi.DockerClient
+	statsQueue             *Queue
+	resolver               resolver.ContainerMetadataResolver
+	config                 *config.Config
+	restartAggregationData apicontainer.ContainerRestartAggregationDataForStats
+	dataClient             data.Client
 }
 
 // taskDefinition encapsulates family and version strings for a task definition
