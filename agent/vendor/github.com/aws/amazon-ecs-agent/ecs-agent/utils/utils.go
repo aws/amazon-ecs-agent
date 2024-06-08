@@ -17,6 +17,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"golang.org/x/exp/constraints"
 )
 
 func ZeroOrNil(obj interface{}) bool {
@@ -58,4 +59,12 @@ func Int64PtrToIntPtr(int64ptr *int64) *int {
 		return nil
 	}
 	return aws.Int(int(aws.Int64Value(int64ptr)))
+}
+
+// MaxNum returns the maximum value between two numbers.
+func MaxNum[T constraints.Integer | constraints.Float](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
 }
