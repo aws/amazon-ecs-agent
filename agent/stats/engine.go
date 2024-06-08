@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
@@ -114,7 +115,8 @@ type DockerStatsEngine struct {
 	metricsChannel chan<- ecstcs.TelemetryMessage
 	healthChannel  chan<- ecstcs.HealthMessage
 
-	csiClient csiclient.CSIClient
+	csiClient  csiclient.CSIClient
+	dataClient data.Client
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -157,8 +159,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 
 // NewDockerStatsEngine creates a new instance of the DockerStatsEngine object.
 // MustInit() must be called to initialize the fields of the new event listener.
-func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream,
-	metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage) *DockerStatsEngine {
+func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream, metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage, dataClient data.Client) *DockerStatsEngine {
 	return &DockerStatsEngine{
 		client:                              client,
 		resolver:                            nil,
@@ -172,6 +173,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		publishServiceConnectTickerInterval: 0,
 		metricsChannel:                      metricsChannel,
 		healthChannel:                       healthChannel,
+		dataClient:                          dataClient,
 	}
 }
 
@@ -365,7 +367,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		return nil, nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
-	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver, engine.config)
+	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver, engine.config, engine.dataClient)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
 	}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type dummyStruct struct {
@@ -106,4 +107,25 @@ func TestInt64PtrToIntPtr(t *testing.T) {
 			assert.Equal(t, tc.expectedOutput, Int64PtrToIntPtr(tc.input))
 		})
 	}
+}
+
+func TestMaxNum(t *testing.T) {
+	testMaxNumInt(t)
+	testMaxNumFloat(t)
+}
+
+func testMaxNumInt(t *testing.T) {
+	smallerVal := 8
+	largerVal := 88
+
+	require.Equal(t, largerVal, MaxNum(smallerVal, largerVal))
+	require.Equal(t, largerVal, MaxNum(largerVal, largerVal))
+}
+
+func testMaxNumFloat(t *testing.T) {
+	smallerVal := 2.718283
+	largerVal := 3.14159
+
+	require.Equal(t, largerVal, MaxNum(largerVal, smallerVal))
+	require.Equal(t, largerVal, MaxNum(largerVal, largerVal))
 }

@@ -27,6 +27,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
@@ -85,8 +86,9 @@ func TestContainerStatsCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *types.StatsJSON)
 	errC := make(chan error)
+	numStats := 8
 	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC)
-	go metricSenderFunc(statChan, 8, nil)()
+	go metricSenderFunc(statChan, numStats, nil)()
 
 	container := &StatsContainer{
 		containerMetadata: &ContainerMetadata{
@@ -190,6 +192,9 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *types.StatsJSON)
 	errC := make(chan error)
+	numStatsPreRestart := 8
+	numStatsPostRestart := 5
+	totalNumStats := numStatsPreRestart + numStatsPostRestart
 
 	container := &StatsContainer{
 		containerMetadata: &ContainerMetadata{
@@ -213,27 +218,30 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 		},
 	}
 	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC).AnyTimes()
+	mockDockerClient.EXPECT().DescribeContainer(ctx, dockerID).Times(totalNumStats)
 	resolver.EXPECT().ResolveTask(dockerID).Return(t1, nil).AnyTimes()
 	resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil).AnyTimes()
 	container.StartStatsCollection()
-	go metricSenderFunc(statChan, 8, restartTracker)()
+	go metricSenderFunc(statChan, numStatsPreRestart, restartTracker)()
 	time.Sleep(checkPointSleep)
 
 	restartStatSet, err := container.statsQueue.GetRestartStatsSet()
 	require.NoError(t, err)
-	require.Equal(t, int64(8), *restartStatSet.RestartCount)
+	require.Equal(t, int64(numStatsPreRestart), *restartStatSet.RestartCount)
 	// Reset sets all of the existing stats to "sent" status in the stats queue
 	container.statsQueue.Reset()
 
-	go metricSenderFunc(statChan, 5, restartTracker)()
+	go metricSenderFunc(statChan, numStatsPostRestart, restartTracker)()
 	time.Sleep(checkPointSleep)
 	restartStatSet, err = container.statsQueue.GetRestartStatsSet()
 	require.NoError(t, err)
-	// at this point the raw restart count will be 13, and the GetRestartStatsSet should
-	// subtract the 8 earlier restarts that were already counted, so that we send 5
+	// at this point the raw restart count will be totalNumStats, and the GetRestartStatsSet should
+	// subtract the numStatsPreRestart earlier restarts that were already counted, so that we send numStatsPostRestart
 	// restarts to TCS.
-	require.Equal(t, 13, restartTracker.GetRestartCount(), "Raw restart count should be 8 + 5 = 13")
-	require.Equal(t, int64(5), *restartStatSet.RestartCount, "Metric sent to TCS should be 13 - 8 = 5")
+	require.Equal(t, totalNumStats, restartTracker.GetRestartCount(), fmt.Sprintf(
+		"Raw restart count should be %d + %d = %d", numStatsPreRestart, numStatsPostRestart, totalNumStats))
+	require.Equal(t, int64(numStatsPostRestart), *restartStatSet.RestartCount, fmt.Sprintf(
+		"Metric sent to TCS should be %d - %d = %d", totalNumStats, numStatsPreRestart, numStatsPostRestart))
 	container.StopStatsCollection()
 }
 
@@ -349,5 +357,91 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	container.StartStatsCollection()
 	select {
 	case <-ctx.Done():
+	}
+}
+
+func TestSyncContainerRestartAggregationData(t *testing.T) {
+	t.Parallel()
+
+	testTime := time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC)
+	require.Greater(t, len(statsData), 0)
+	jsonStat := fmt.Sprintf(`
+				{
+					"memory_stats": {"usage":%d, "privateworkingset":%d},
+					"cpu_stats":{
+						"cpu_usage":{
+							"percpu_usage":[%d],
+							"total_usage":%d
+						}
+					}
+				}`, statsData[0].memBytes, statsData[0].memBytes, statsData[0].cpuTime, statsData[0].cpuTime)
+	dockerStat := &types.StatsJSON{}
+	dockerStat.Read = statsData[0].timestamp
+	json.Unmarshal([]byte(jsonStat), dockerStat)
+
+	testCases := []struct {
+		name                       string
+		lastRestartDetectedAt      time.Time
+		describeContainerStartedAt time.Time
+		expectedDetected           bool
+	}{
+		{
+			name:                       "restart not detected",
+			lastRestartDetectedAt:      testTime,
+			describeContainerStartedAt: testTime,
+			expectedDetected:           false,
+		},
+		{
+			name:                       "restart detected and container has not restarted before",
+			lastRestartDetectedAt:      time.Time{},
+			describeContainerStartedAt: testTime.Add(1 * time.Minute),
+			expectedDetected:           true,
+		},
+		{
+			name:                       "restart detected and container has restarted before",
+			lastRestartDetectedAt:      testTime,
+			describeContainerStartedAt: testTime.Add(1 * time.Minute),
+			expectedDetected:           true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+			dockerID := "containerDockerID"
+			ctx, cancel := context.WithCancel(context.TODO())
+
+			statsContainer := &StatsContainer{
+				cancel: cancel,
+				client: mockDockerClient,
+				containerMetadata: &ContainerMetadata{
+					DockerID:  dockerID,
+					StartedAt: testTime.Add(-1 * time.Minute),
+				},
+				ctx: ctx,
+				restartAggregationData: apicontainer.ContainerRestartAggregationDataForStats{
+					LastRestartDetectedAt:     tc.lastRestartDetectedAt,
+					LastStatBeforeLastRestart: types.StatsJSON{},
+				},
+				statsQueue: &Queue{
+					lastStat: dockerStat,
+				},
+			}
+
+			mockDockerClient.EXPECT().DescribeContainer(ctx, dockerID).Return(apicontainerstatus.ContainerRunning,
+				dockerapi.DockerContainerMetadata{StartedAt: tc.describeContainerStartedAt})
+
+			restartDetected := statsContainer.syncContainerRestartAggregationData()
+			require.Equal(t, tc.expectedDetected, restartDetected)
+			if restartDetected {
+				require.Greater(t, statsContainer.restartAggregationData.LastRestartDetectedAt,
+					tc.lastRestartDetectedAt)
+				require.Equal(t, *dockerStat, statsContainer.restartAggregationData.LastStatBeforeLastRestart)
+			}
+		})
 	}
 }
