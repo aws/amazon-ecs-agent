@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -784,4 +785,98 @@ func TestPerSecNetworkStatSetFailWithOneDatapoint(t *testing.T) {
 	// a valid network stats set, and this function call should fail.
 	stats, err := queue.GetNetworkStatsSet()
 	require.Errorf(t, err, "Received unexpected network stats set %v", stats)
+}
+
+func TestAggregateOSIndependentStats(t *testing.T) {
+	dockerStat := getTestStatsJSONForOSIndependentStats(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	lastStatBeforeLastRestart := getTestStatsJSONForOSIndependentStats(9, 8, 7, 6, 5, 4, 3, 2, 1)
+	expectedAggregatedStat := types.StatsJSON{
+		Stats: types.Stats{
+			CPUStats: types.CPUStats{
+				CPUUsage: types.CPUUsage{
+					TotalUsage: dockerStat.CPUStats.CPUUsage.TotalUsage +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage,
+					UsageInKernelmode: dockerStat.CPUStats.CPUUsage.UsageInKernelmode +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode,
+					UsageInUsermode: dockerStat.CPUStats.CPUUsage.UsageInUsermode +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode,
+				},
+			},
+		},
+		Networks: map[string]types.NetworkStats{
+			testNetworkNameA: {
+				RxBytes: dockerStat.Networks[testNetworkNameA].RxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxBytes,
+				RxPackets: dockerStat.Networks[testNetworkNameA].RxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxPackets,
+				RxDropped: dockerStat.Networks[testNetworkNameA].RxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxDropped,
+				TxBytes: dockerStat.Networks[testNetworkNameA].TxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxBytes,
+				TxPackets: dockerStat.Networks[testNetworkNameA].TxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxPackets,
+				TxDropped: dockerStat.Networks[testNetworkNameA].TxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxDropped,
+			},
+			testNetworkNameB: {
+				RxBytes: dockerStat.Networks[testNetworkNameB].RxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxBytes,
+				RxPackets: dockerStat.Networks[testNetworkNameB].RxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxPackets,
+				RxDropped: dockerStat.Networks[testNetworkNameB].RxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxDropped,
+				TxBytes: dockerStat.Networks[testNetworkNameB].TxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxBytes,
+				TxPackets: dockerStat.Networks[testNetworkNameB].TxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxPackets,
+				TxDropped: dockerStat.Networks[testNetworkNameB].TxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxDropped,
+			},
+		},
+	}
+
+	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
+	require.Equal(t, *dockerStat, expectedAggregatedStat)
+}
+
+func TestGetAggregatedDockerStatAcrossRestarts(t *testing.T) {
+	var dockerStat, lastStatBeforeLastRestart, lastStatInStatsQueue types.StatsJSON
+	lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage = uint64(123)
+
+	dockerStat = *getAggregatedDockerStatAcrossRestarts(&dockerStat, &lastStatBeforeLastRestart, &lastStatInStatsQueue)
+	require.Equal(t, lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage,
+		dockerStat.PreCPUStats.CPUUsage.TotalUsage)
+}
+
+func getTestStatsJSONForOSIndependentStats(totalCPUUsage, usageInKernelMode, usageInUserMode, rxBytes, rxPackets,
+	rxDropped, txBytes, txPackets, txDropped uint64) *types.StatsJSON {
+	return &types.StatsJSON{
+		Stats: types.Stats{
+			CPUStats: types.CPUStats{
+				CPUUsage: types.CPUUsage{
+					TotalUsage:        totalCPUUsage,
+					UsageInKernelmode: usageInKernelMode,
+					UsageInUsermode:   usageInUserMode,
+				},
+			},
+		},
+		Networks: map[string]types.NetworkStats{
+			testNetworkNameA: {
+				RxBytes:   rxBytes,
+				RxPackets: rxPackets,
+				RxDropped: rxDropped,
+				TxBytes:   txBytes,
+				TxPackets: txPackets,
+				TxDropped: txDropped,
+			},
+			testNetworkNameB: {
+				RxBytes:   rxBytes + 1,
+				RxPackets: rxPackets + 1,
+				RxDropped: rxDropped + 1,
+				TxBytes:   txBytes + 1,
+				TxPackets: txPackets + 1,
+				TxDropped: txDropped + 1,
+			},
+		},
+	}
 }

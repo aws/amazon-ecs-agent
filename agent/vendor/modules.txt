@@ -371,6 +371,9 @@ github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.9
 ## explicit; go 1.17
 go.etcd.io/bbolt
+# golang.org/x/exp v0.0.0-20231006140011-7918f672742d
+## explicit; go 1.20
+golang.org/x/exp/constraints
 # golang.org/x/mod v0.14.0
 ## explicit; go 1.18
 golang.org/x/mod/internal/lazyregexp

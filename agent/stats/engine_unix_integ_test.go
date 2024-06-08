@@ -90,7 +90,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			}
 
 			// Create a new docker stats engine
-			engine := NewDockerStatsEngine(&testConfig, dockerClient, eventStream("TestStatsEngineWithServiceConnectMetrics"), nil, nil)
+			engine := NewDockerStatsEngine(&testConfig, dockerClient, eventStream("TestStatsEngineWithServiceConnectMetrics"), nil, nil, nil)
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 

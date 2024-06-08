@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
@@ -60,7 +62,18 @@ func (queue *Queue) Reset() {
 	}
 }
 
-// Add adds a new set of container stats to the queue.
+// AddContainerStat adds a new set of stats for a container to the queue. This method is only intended for use while
+// processing docker stats for a stats container.
+func (queue *Queue) AddContainerStat(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats,
+	lastStatBeforeLastRestart *types.StatsJSON, containerHasRestartedBefore bool) error {
+	if containerHasRestartedBefore {
+		dockerStat = getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart, queue.GetLastStat())
+	}
+
+	return queue.Add(dockerStat, nonDockerStats)
+}
+
+// Add adds a new set of stats to the queue.
 func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
@@ -563,4 +576,48 @@ func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecst
 		SampleCount: &sampleCount,
 		Sum:         &sum,
 	}, nil
+}
+
+// getAggregatedDockerStatAcrossRestarts gets the aggregated docker stat for a container across container restarts.
+func getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart,
+	lastStatInStatsQueue *types.StatsJSON) *types.StatsJSON {
+	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
+	dockerStat = aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart)
+
+	// PreCPU stats.
+	preCPUStats := types.CPUStats{}
+	if lastStatInStatsQueue != nil {
+		preCPUStats = lastStatInStatsQueue.CPUStats
+	}
+	dockerStat.PreCPUStats = preCPUStats
+
+	logger.Debug("Aggregated Docker stat across restart(s)", logger.Fields{
+		loggerfield.DockerId: dockerStat.ID,
+	})
+
+	return dockerStat
+}
+
+// aggregateOSIndependentStats aggregates stats that are measured cumulatively against container start time and
+// populated regardless of what OS is being used.
+func aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart *types.StatsJSON) *types.StatsJSON {
+	// CPU stats.
+	dockerStat.CPUStats.CPUUsage.TotalUsage += lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage
+	dockerStat.CPUStats.CPUUsage.UsageInKernelmode += lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode
+	dockerStat.CPUStats.CPUUsage.UsageInUsermode += lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode
+
+	// Network stats.
+	for key, dockerStatNetwork := range dockerStat.Networks {
+		lastStatBeforeLastRestartNetwork, ok := lastStatBeforeLastRestart.Networks[key]
+		if ok {
+			dockerStatNetwork.RxBytes += lastStatBeforeLastRestartNetwork.RxBytes
+			dockerStatNetwork.RxPackets += lastStatBeforeLastRestartNetwork.RxPackets
+			dockerStatNetwork.RxDropped += lastStatBeforeLastRestartNetwork.RxDropped
+			dockerStatNetwork.TxBytes += lastStatBeforeLastRestartNetwork.TxBytes
+			dockerStatNetwork.TxPackets += lastStatBeforeLastRestartNetwork.TxPackets
+			dockerStatNetwork.TxDropped += lastStatBeforeLastRestartNetwork.TxDropped
+		}
+		dockerStat.Networks[key] = dockerStatNetwork
+	}
+	return dockerStat
 }

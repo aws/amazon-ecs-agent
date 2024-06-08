@@ -60,6 +60,9 @@ const (
 	taskDefinitionVersion       = "1"
 	containerName               = "gremlin-container"
 	serviceConnectContainerName = "service-connect-container"
+
+	testNetworkNameA = "eth0"
+	testNetworkNameB = "eth1"
 )
 
 var (
