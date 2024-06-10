@@ -116,7 +116,7 @@ func TestShouldRestart(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			rt.restartPolicy = tc.rp
+			rt.RestartPolicy = tc.rp
 
 			// Because we cannot instantiate int pointers directly,
 			// check for the exit code and leave this int pointer as nil
@@ -171,6 +171,6 @@ func TestRecordRestartPolicy(t *testing.T) {
 		RestartAttemptPeriod: 60 * time.Second,
 	})
 	assert.Equal(t, 0, rt.RestartCount)
-	assert.Equal(t, 0, len(rt.restartPolicy.IgnoredExitCodes))
-	assert.NotNil(t, rt.restartPolicy)
+	assert.Equal(t, 0, len(rt.RestartPolicy.IgnoredExitCodes))
+	assert.NotNil(t, rt.RestartPolicy)
 }
