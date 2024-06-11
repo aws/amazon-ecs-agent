@@ -145,7 +145,7 @@ func TestAggregateOSDependentStats(t *testing.T) {
 	}
 
 	dockerStat = aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart)
-	require.Equal(t, *dockerStat, expectedAggregatedStat)
+	require.Equal(t, expectedAggregatedStat, *dockerStat)
 }
 
 func getTestStatsJSONForOSDependentStats(usageCoreA, usageCoreB, periods, throttledPeriods, throttledTime, maxUsage,
