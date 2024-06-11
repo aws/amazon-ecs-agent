@@ -130,6 +130,9 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			loggerfield.TaskVersion:   apiTask.Version,
 			loggerfield.DesiredStatus: apiTask.GetDesiredStatus(),
 		})
+		logger.Debug("ECSCRP task payload", logger.Fields{
+			"task": task,
+		})
 
 		if task.RoleCredentials != nil {
 			// The payload from ACS for the task has credentials for the
