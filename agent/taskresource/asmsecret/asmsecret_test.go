@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -142,10 +143,8 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	}
 
 	assert.Error(t, asmRes.Create())
-	expectedError1 := fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s: secret %s: error response", region1, valueFrom1)
-	expectedError2 := fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s: secret %s: error response", region2, valueFrom1)
-	assert.Contains(t, asmRes.GetTerminalReason(), expectedError1)
-	assert.Contains(t, asmRes.GetTerminalReason(), expectedError2)
+	expectedError := "error response"
+	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
 }
 
 func TestCreateReturnError(t *testing.T) {
@@ -172,7 +171,7 @@ func TestCreateReturnError(t *testing.T) {
 		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient),
 		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
 			assert.Equal(t, valueFrom1, aws.StringValue(in.SecretId))
-		}).Return(asmSecretValue, errors.New("error response")),
+		}).Return(asmSecretValue, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secrets Manager can't find the specified secret.", nil)),
 	)
 	asmRes := &ASMSecretResource{
 		executionCredentialsID: executionCredentialsID,
@@ -182,8 +181,8 @@ func TestCreateReturnError(t *testing.T) {
 	}
 
 	assert.Error(t, asmRes.Create())
-	expectedError := fmt.Sprintf("fetching secret data from AWS Secrets Manager in region %s: secret %s: error response", region1, valueFrom1)
-	assert.Equal(t, expectedError, asmRes.GetTerminalReason())
+	expectedError := fmt.Sprintf("ResourceNotFoundException: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check whether the secret exists in the specified Region", valueFrom1)
+	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
