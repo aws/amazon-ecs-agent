@@ -888,6 +888,11 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				field.Error:     err,
 			})
 		} else {
+			logger.Debug("ECSCRP Got restart stat set for container", logger.Fields{
+				field.Container:   dockerID,
+				field.Error:       err,
+				"restartStatsSet": *restartStatsSet,
+			})
 			containerMetric.RestartStatsSet = restartStatsSet
 		}
 
