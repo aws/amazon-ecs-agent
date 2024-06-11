@@ -529,8 +529,17 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 // initRestartTrackers initializes the restart policy tracker for each container
 // that has a restart policy configured and enabled.
 func (task *Task) initRestartTrackers() {
+	logger.Debug("ECSCRP INIT RESTART TRACKERS")
 	for _, c := range task.Containers {
+		logger.Debug("ECSCRP INIT RESTART TRACKERS", logger.Fields{
+				"Runtime ID": c.RuntimeID,
+				field.TaskID: task.GetID(),
+		})
 		if c.RestartPolicyEnabled() {
+			logger.Debug("ECSCRP INIT RESTART TRACKERS. POLICY IS ENABLED", logger.Fields{
+					"Runtime ID": c.RuntimeID,
+					field.TaskID: task.GetID(),
+			})
 			c.RestartTracker = restart.NewRestartTracker(*c.RestartPolicy)
 		}
 	}
