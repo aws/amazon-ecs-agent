@@ -18,6 +18,7 @@ package stats
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -836,7 +837,7 @@ func TestAggregateOSIndependentStats(t *testing.T) {
 	}
 
 	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
-	require.Equal(t, *dockerStat, expectedAggregatedStat)
+	require.Equal(t, expectedAggregatedStat, *dockerStat)
 }
 
 func TestGetAggregatedDockerStatAcrossRestarts(t *testing.T) {
@@ -878,5 +879,93 @@ func getTestStatsJSONForOSIndependentStats(totalCPUUsage, usageInKernelMode, usa
 				TxDropped: txDropped + 1,
 			},
 		},
+	}
+}
+
+func TestQueueAdd(t *testing.T) {
+	testCases := []struct {
+		name                string
+		includeRestartCount bool
+	}{
+		{
+			name:                "restart count not included",
+			includeRestartCount: false,
+		},
+		{
+			name:                "restart count included",
+			includeRestartCount: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			queueMaxSize := 3
+			queue := NewQueue(queueMaxSize)
+
+			for i := 0; i < queueMaxSize; i++ {
+				dockerStat := getTestStatsJSONForOSIndependentStats(rand.Uint64(), rand.Uint64(), rand.Uint64(),
+					rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+				nonDockerContainerStats := NonDockerContainerStats{}
+				if tc.includeRestartCount {
+					restartCount := int64(i)
+					nonDockerContainerStats.restartCount = &restartCount
+				}
+				queue.Add(dockerStat, nonDockerContainerStats)
+				require.Equal(t, dockerStat, queue.GetLastStat())
+			}
+			restartStats, err := queue.GetRestartStatsSet()
+			if tc.includeRestartCount {
+				require.NoError(t, err)
+				require.NotNil(t, restartStats)
+				require.NotNil(t, restartStats.RestartCount)
+				require.Equal(t, int64(queueMaxSize-1), *restartStats.RestartCount)
+			} else {
+				require.Error(t, err)
+				require.Nil(t, restartStats)
+			}
+		})
+	}
+}
+
+func TestQueueAddContainerStat(t *testing.T) {
+	testCases := []struct {
+		name                        string
+		containerHasRestartedBefore bool
+		lastStatBeforeLastRestart   types.StatsJSON
+	}{
+		{
+			name:                        "container has not restarted before",
+			containerHasRestartedBefore: false,
+		},
+		{
+			name:                        "container has restarted before",
+			containerHasRestartedBefore: true,
+			lastStatBeforeLastRestart:   *getTestStatsJSONForOSIndependentStats(9, 8, 7, 6, 5, 4, 3, 2, 1),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up queue.
+			queueMaxSize := 3
+			queue := NewQueue(queueMaxSize)
+			restartCount := int64(1)
+			nonDockerContainerStats := NonDockerContainerStats{restartCount: &restartCount}
+			firstStat := getTestStatsJSONForOSIndependentStats(rand.Uint64(), rand.Uint64(), rand.Uint64(),
+				rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+			queue.Add(firstStat, nonDockerContainerStats)
+			require.Equal(t, firstStat, queue.GetLastStat())
+
+			// Validate queue.AddContainerStat behavior.
+			dockerStat := getTestStatsJSONForOSIndependentStats(1, 2, 3, 4, 5, 6, 7, 8, 9)
+			queue.AddContainerStat(dockerStat, nonDockerContainerStats, &tc.lastStatBeforeLastRestart,
+				tc.containerHasRestartedBefore)
+			if tc.containerHasRestartedBefore {
+				require.Equal(t, getAggregatedDockerStatAcrossRestarts(dockerStat, &tc.lastStatBeforeLastRestart,
+					firstStat), queue.GetLastStat())
+			} else {
+				require.Equal(t, dockerStat, queue.GetLastStat())
+			}
+		})
 	}
 }
