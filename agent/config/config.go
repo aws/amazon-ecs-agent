@@ -665,3 +665,9 @@ func (cfg *Config) String() string {
 func IsFIPSEnabled() bool {
 	return isFIPSEnabled
 }
+
+// SetFIPSEnabled sets the isFIPSEnabled variable for testing purposes
+// that is used in s3/factory/factory_test.go
+func SetFIPSEnabled(enabled bool) {
+	isFIPSEnabled = enabled
+}
