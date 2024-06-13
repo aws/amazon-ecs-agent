@@ -1,4 +1,10 @@
 # Changelog
+# 1.84.0
+* Enhancement - CannotPullContainerError/ASM error message enhancements [#4181](https://github.com/aws/amazon-ecs-agent/pull/4181)
+* Enhancement - update go to 1.22.3 [#4184](https://github.com/aws/amazon-ecs-agent/pull/4184)
+* Enhancement - cap cpu shares to the max allowed value on Linux [#4204](https://github.com/aws/amazon-ecs-agent/pull/4204)
+* Bugfix - S3 config changes to use S3 FIPS endpoints on FIPS hosts [#4202](https://github.com/aws/amazon-ecs-agent/pull/4202)
+
 # 1.83.0
 * Feature - Expedited reporting of container image manifest digests to ECS backend. This change makes Agent resolve container image manifest digests for container images prior to image pulls by either calling image registries or inspecting local images depending on the host state and Agent configuration. Resolved digests will be reported to ECS backend using an additional SubmitTaskStateChange API call [#4177](https://github.com/aws/amazon-ecs-agent/pull/4177)
 * Enhancement - Update ACS model restart policy in ecs-agent [#4175](https://github.com/aws/amazon-ecs-agent/pull/4175)
