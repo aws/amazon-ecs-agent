@@ -18,6 +18,7 @@ package stats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -29,9 +30,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
+	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -819,4 +823,102 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 			assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty")
 		}
 	}
+}
+
+func TestFetchEBSVolumeMetrics(t *testing.T) {
+	tcs := []struct {
+		name                    string
+		setCSIClientExpectation func(*mock_csiclient.MockCSIClient)
+		expectedMetrics         []*ecstcs.VolumeMetric
+		numMetrics              int
+	}{
+		{
+			name: "Success",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", fmt.Sprintf("%staskarn_vol-12345", taskresourcevolume.EBSSourcePrefix)).Return(&csiclient.Metrics{
+					Used:     15 * 1024 * 1024 * 1024,
+					Capacity: 20 * 1024 * 1024 * 1024,
+				}, nil).Times(1)
+			},
+			expectedMetrics: []*ecstcs.VolumeMetric{
+				{
+					VolumeId:   aws.String("vol-12345"),
+					VolumeName: aws.String("test-volume"),
+					Utilized: &ecstcs.UDoubleCWStatsSet{
+						Max:         aws.Float64(15 * 1024 * 1024 * 1024),
+						Min:         aws.Float64(15 * 1024 * 1024 * 1024),
+						SampleCount: aws.Int64(1),
+						Sum:         aws.Float64(15 * 1024 * 1024 * 1024),
+					},
+					Size: &ecstcs.UDoubleCWStatsSet{
+						Max:         aws.Float64(20 * 1024 * 1024 * 1024),
+						Min:         aws.Float64(20 * 1024 * 1024 * 1024),
+						SampleCount: aws.Int64(1),
+						Sum:         aws.Float64(20 * 1024 * 1024 * 1024),
+					},
+				},
+			},
+			numMetrics: 1,
+		},
+		{
+			name: "Failure",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", fmt.Sprintf("%staskarn_vol-12345", taskresourcevolume.EBSSourcePrefix)).Return(nil, errors.New("err")).Times(1)
+			},
+			expectedMetrics: nil,
+			numMetrics:      0,
+		},
+		{
+			name: "TimeoutFailure",
+			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
+				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", fmt.Sprintf("%staskarn_vol-12345", taskresourcevolume.EBSSourcePrefix)).Return(nil, errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded")).Times(1)
+			},
+			expectedMetrics: nil,
+			numMetrics:      0,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+			t1 := &apitask.Task{
+				Arn: "t1",
+				Volumes: []apitask.TaskVolume{
+					{
+						Name: "1",
+						Type: apiresource.EBSTaskAttach,
+						Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+							VolumeId:             "vol-12345",
+							VolumeName:           "test-volume",
+							VolumeSizeGib:        "10",
+							SourceVolumeHostPath: "taskarn_vol-12345",
+							DeviceName:           "/dev/nvme1n1",
+							FileSystem:           "ext4",
+						},
+					},
+				},
+			}
+			engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			engine.ctx = ctx
+			engine.resolver = resolver
+			engine.cluster = defaultCluster
+			engine.containerInstanceArn = defaultContainerInstance
+			engine.client = mockDockerClient
+
+			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
+			tc.setCSIClientExpectation(mockCsiClient)
+			engine.csiClient = mockCsiClient
+
+			actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+
+			assert.Len(t, actualMetrics, tc.numMetrics)
+			assert.Equal(t, actualMetrics, tc.expectedMetrics)
+		})
+	}
+
 }
