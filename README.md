@@ -1,6 +1,8 @@
 # Amazon ECS Container Agent
 
+
 ![Amazon ECS logo](doc/ecs.png "Amazon ECS")
+
 
 The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
 ([Amazon ECS](http://aws.amazon.com/ecs/)) and is responsible for managing containers on behalf of Amazon ECS.
