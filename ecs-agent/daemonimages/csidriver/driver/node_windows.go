@@ -22,7 +22,13 @@ limitations under the License.
 
 package driver
 
-import "errors"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
+)
 
 // findDevicePath finds path of device and verifies its existence
 func (d *nodeService) findDevicePath(devicePath, volumeID, partition string) (string, error) {
@@ -32,6 +38,40 @@ func (d *nodeService) findDevicePath(devicePath, volumeID, partition string) (st
 
 // getBlockSizeBytes gets the size of the disk in bytes
 func (d *nodeService) getBlockSizeBytes(devicePath string) (int64, error) {
-	// TODO
-	return 0, errors.New("not supported")
+	proxyMounter, ok := (d.mounter.(*NodeMounter)).SafeFormatAndMount.Interface.(*mounter.CSIProxyMounter)
+	if !ok {
+		return -1, fmt.Errorf("failed to cast mounter to csi proxy mounter")
+	}
+
+	sizeInBytes, err := proxyMounter.GetDeviceSize(devicePath)
+	if err != nil {
+		return -1, err
+	}
+
+	return sizeInBytes, nil
+}
+
+// findDevicePath finds disk number of device
+// https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-windows-volumes.html#list-nvme-powershell
+func (d *nodeService) findDevicePath(devicePath, volumeID, _ string) (string, error) {
+	diskIDs, err := d.deviceIdentifier.ListDiskIDs()
+	if err != nil {
+		return "", fmt.Errorf("error listing disk ids: %q", err)
+	}
+
+	foundDiskNumber := ""
+	for diskNumber, diskID := range diskIDs {
+		serialNumber := diskID.GetSerialNumber()
+		cleanVolumeID := strings.ReplaceAll(volumeID, "-", "")
+		if strings.Contains(serialNumber, cleanVolumeID) {
+			foundDiskNumber = strconv.Itoa(int(diskNumber))
+			break
+		}
+	}
+
+	if foundDiskNumber == "" {
+		return "", fmt.Errorf("disk number for device path %q volume id %q not found", devicePath, volumeID)
+	}
+
+	return foundDiskNumber, nil
 }

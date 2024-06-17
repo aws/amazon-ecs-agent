@@ -26,6 +26,12 @@ const (
 	VolumeAttributePartition = "partition"
 )
 
+// constants for disk block size
+const (
+	//DefaultBlockSize represents the default block size (4KB)
+	DefaultBlockSize = 4096
+)
+
 // constants for fstypes
 const (
 	// FSTypeExt2 represents the ext2 filesystem type
