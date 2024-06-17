@@ -60,6 +60,8 @@ const (
 	minimumContainerCreateTimeout = 1 * time.Minute
 	// default docker inactivity time is extra time needed on container extraction
 	defaultImagePullInactivityTimeout = 1 * time.Minute
+	// default socket filepath is "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
+	defaultCSIDriverSocketPath = "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -112,6 +114,7 @@ func DefaultConfig() Config {
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
+		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
 	}
 }
 
