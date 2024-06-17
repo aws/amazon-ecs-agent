@@ -59,11 +59,12 @@ type EBSWatcher struct {
 func NewWatcher(ctx context.Context,
 	state dockerstate.TaskEngineState,
 	taskEngine ecsengine.TaskEngine,
-	dockerClient dockerapi.DockerClient) *EBSWatcher {
+	dockerClient dockerapi.DockerClient,
+	csiDriverSocketPath string) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
 	// TODO pull this socket out into config
-	csiClient := csi.NewCSIClient("/var/run/ecs/ebs-csi-driver/csi-driver.sock")
+	csiClient := csi.NewCSIClient(csiDriverSocketPath)
 	return &EBSWatcher{
 		ctx:             derivedContext,
 		cancel:          cancel,

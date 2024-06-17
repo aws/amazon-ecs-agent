@@ -20,8 +20,13 @@ limitations under the License.
 package driver
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+
+	diskapi "github.com/kubernetes-csi/csi-proxy/client/api/disk/v1"
+	diskclient "github.com/kubernetes-csi/csi-proxy/client/groups/disk/v1"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
 	mountutils "k8s.io/mount-utils"
@@ -74,6 +79,7 @@ func newNodeMounter() (Mounter, error) {
 type DeviceIdentifier interface {
 	Lstat(name string) (os.FileInfo, error)
 	EvalSymlinks(path string) (string, error)
+	ListDiskIDs() (map[uint32]*diskapi.DiskIDs, error)
 }
 
 type nodeDeviceIdentifier struct{}
@@ -88,4 +94,18 @@ func (i *nodeDeviceIdentifier) Lstat(name string) (os.FileInfo, error) {
 
 func (i *nodeDeviceIdentifier) EvalSymlinks(path string) (string, error) {
 	return filepath.EvalSymlinks(path)
+}
+
+func (i *nodeDeviceIdentifier) ListDiskIDs() (map[uint32]*diskapi.DiskIDs, error) {
+	diskClient, err := diskclient.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("error creating csi-proxy disk client: %q", err)
+	}
+	defer diskClient.Close()
+
+	response, err := diskClient.ListDiskIDs(context.TODO(), &diskapi.ListDiskIDsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("error listing disk ids: %q", err)
+	}
+	return response.GetDiskIDs(), nil
 }
