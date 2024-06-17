@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build windows && unit
+// +build windows,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -16,17 +16,11 @@
 package csiclient
 
 import (
-	"path/filepath"
+	"testing"
 
-	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+	"github.com/stretchr/testify/assert"
 )
 
-const (
-	DefaultImageName      = md.EbsCsiDriver
-	DefaultSocketName     = "csi-driver.sock"
-	DefaultSocketHostPath = "C:\\Program Files\\Amazon\\ECS"
-)
-
-func DefaultSocketFilePath() string {
-	return filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName)
+func TestDefaultSocketFilePath(t *testing.T) {
+	assert.Equal(t, "C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock", DefaultSocketFilePath())
 }

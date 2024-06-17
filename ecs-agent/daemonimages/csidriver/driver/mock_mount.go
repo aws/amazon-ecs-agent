@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	v1 "github.com/kubernetes-csi/csi-proxy/client/api/disk/v1"
 	mount_utils "k8s.io/mount-utils"
 )
 
@@ -398,6 +399,21 @@ func (m *MockDeviceIdentifier) EvalSymlinks(path string) (string, error) {
 func (mr *MockDeviceIdentifierMockRecorder) EvalSymlinks(path interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvalSymlinks", reflect.TypeOf((*MockDeviceIdentifier)(nil).EvalSymlinks), path)
+}
+
+// ListDiskIDs mocks base method.
+func (m *MockDeviceIdentifier) ListDiskIDs() (map[uint32]*v1.DiskIDs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDiskIDs")
+	ret0, _ := ret[0].(map[uint32]*v1.DiskIDs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDiskIDs indicates an expected call of ListDiskIDs.
+func (mr *MockDeviceIdentifierMockRecorder) ListDiskIDs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDiskIDs", reflect.TypeOf((*MockDeviceIdentifier)(nil).ListDiskIDs))
 }
 
 // Lstat mocks base method.
