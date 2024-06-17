@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build windows && unit
+// +build windows,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -13,20 +13,9 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-package csiclient
 
-import (
-	"path/filepath"
-
-	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-)
+package ebs
 
 const (
-	DefaultImageName      = md.EbsCsiDriver
-	DefaultSocketName     = "csi-driver.sock"
-	DefaultSocketHostPath = "C:\\Program Files\\Amazon\\ECS"
+	CSIDriverSocketPath = "C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock"
 )
-
-func DefaultSocketFilePath() string {
-	return filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName)
-}
