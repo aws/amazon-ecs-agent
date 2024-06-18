@@ -384,4 +384,8 @@ type Config struct {
 	// cgroup setting at the ECS task level.
 	// see https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid
 	TaskPidsLimit int
+
+	// CSIDriverSocketPath specifies the path that the CSI driver socket file is located at.
+	// Defaults to "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
+	CSIDriverSocketPath string
 }
