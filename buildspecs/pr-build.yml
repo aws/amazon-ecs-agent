@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: aws
+    GITHUBUSERNAME: ephylouise
 
 phases:
   install:
@@ -47,6 +47,7 @@ phases:
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
       - CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver.tar"
       - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
+      - AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2int.x86_64.rpm"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
@@ -55,14 +56,15 @@ phases:
       - cd src/github.com
       - |
         if [[ $GITHUBUSERNAME != "aws" ]] ; then
-          mv $GITHUBUSERNAME aws
+          ln -s $CODEBUILD_SRC_DIR /codebuild/output/src/github.com/aws/amazon-ecs-agent
         fi
-      - cd aws/amazon-ecs-agent
 
       # Building agent tars
       - GO111MODULE=auto
       - make release-agent 2>&1 | tee -a $BUILD_LOG
       - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      # Build Amazon Linux 2 RPM
+      - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
       - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
       - ls
       # Rename artifacts for architecture
@@ -73,6 +75,7 @@ phases:
           ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
           ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
           CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
+          AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2int.aarch64.rpm"
         fi
 
   post_build:
@@ -82,6 +85,7 @@ artifacts:
   files:
     - $ECS_AGENT_TAR
     - $ECS_AGENT_RPM
+    - $AMZN_LINUX_2_RPM
     - $BUILD_LOG
     - $CSI_DRIVER_TAR
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
