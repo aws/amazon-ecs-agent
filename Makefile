@@ -110,15 +110,15 @@ docker-release: pause-container-release cni-plugins .out-stamp
 
 # Make a Windows release target
 windows-docker-release: .out-stamp
-    @docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild-windows:make" .
-    @docker run --net=none \
-            --env TARGET_OS="windows" \
-            --env GO111MODULE=auto \
-            --user "$(USERID)" \
-            --volume "$(PWD)/out:/out" \
-            --volume "$(PWD):/src/amazon-ecs-agent" \
-            --rm \
-            "amazon/amazon-ecs-agent-cleanbuild-windows:make"
+	@docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild-windows:make" .
+	@docker run --net=none \
+        --env TARGET_OS="windows" \
+        --env GO111MODULE=auto \
+        --user "$(USERID)" \
+        --volume "$(PWD)/out:/out" \
+        --volume "$(PWD):/src/amazon-ecs-agent" \
+        --rm \
+        "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 
 
 # Legacy target : Release packages our agent into a "scratch" based dockerfile
@@ -241,7 +241,7 @@ build-ecs-cni-plugins:
 		-u "$(USERID)" \
 		-v "$(PWD)/out/amazon-ecs-cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
-		"amazon/amazon-ecs-build-ecs-cni-plugins:make"
+		"amazon/amazon-ecs-build-ecs-cni-plugins:make"		
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 build-vpc-cni-plugins:
@@ -401,7 +401,6 @@ get-deps-init:
 
 amazon-linux-sources.tgz:
 	./scripts/update-version.sh
-	echo "Go version = $(GO_VERSION)"
 	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami-integrated/ecs.service ecs.service

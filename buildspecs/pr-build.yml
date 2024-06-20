@@ -48,7 +48,7 @@ phases:
       - CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver.tar"
       - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
       - AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.x86_64.rpm"
-      - WINDOWS_EXE="amazon-ecs-agent.exe"
+      - WINDOWS_EXE="/out/amazon-ecs-agent.exe"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
 
@@ -68,15 +68,20 @@ phases:
       - GO111MODULE=auto
       - make release-agent 2>&1 | tee -a $BUILD_LOG
       - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
+
       # Build Amazon Linux 2 RPM
       - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+
       # Build Windows executable
       - make windows-docker-release 2>&1 | tee -a $BUILD_LOG
-      - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
+      - echo "The contents of the /out directory:"
+      - ls -l /out
       - ls
+
       # Rename artifacts for architecture
       - |
-        if [[ $architecture == "arm64" ]] ; then
+        if [[ $architecture == "arm64" ]]; then
           mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
           mv $CSI_DRIVER_TAR "./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
           ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
@@ -97,4 +102,3 @@ artifacts:
     - $BUILD_LOG
     - $CSI_DRIVER_TAR
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
-
