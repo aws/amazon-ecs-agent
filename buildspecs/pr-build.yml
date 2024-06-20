@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: ephylouise
+    GITHUBUSERNAME: Ephylouise
 
 phases:
   install:
@@ -56,7 +56,10 @@ phases:
       - cd ../../../..
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
-      - mv $GITHUBUSERNAME aws
+      - |
+        if [[ $GITHUBUSERNAME != "aws" ]]; then
+          mv $GITHUBUSERNAME aws
+        fi
       - echo "GitHub Username = $GITHUBUSERNAME" 2>&1 | tee -a $BUILD_LOG
       - cd aws/amazon-ecs-agent
 
