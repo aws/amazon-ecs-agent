@@ -108,6 +108,19 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--rm \
 		"amazon/amazon-ecs-agent-${BUILD}:make"
 
+# Make a Windows release target
+windows-docker-release: .out-stamp
+    @docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild-windows:make" .
+    @docker run --net=none \
+            --env TARGET_OS="windows" \
+            --env GO111MODULE=auto \
+            --user "$(USERID)" \
+            --volume "$(PWD)/out:/out" \
+            --volume "$(PWD):/src/amazon-ecs-agent" \
+            --rm \
+            "amazon/amazon-ecs-agent-cleanbuild-windows:make"
+
+
 # Legacy target : Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release
 	@./scripts/create-amazon-ecs-scratch
@@ -273,7 +286,7 @@ release-agent: get-cni-sources
 codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
-	$(MAKE) docker-release TARGET_OS="windows"
+	$(MAKE) windows-docker-release
 	TARGET_OS="windows" ./scripts/local-save
 
 netkitten:
