@@ -47,7 +47,7 @@ phases:
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
       - CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver.tar"
       - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
-      - AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2int.x86_64.rpm"
+      - AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.x86_64.rpm"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
 
@@ -79,7 +79,7 @@ phases:
           ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
           ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
           CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
-          AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2int.aarch64.rpm"
+          AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.aarch64.rpm"
         fi
 
   post_build:
@@ -89,7 +89,7 @@ artifacts:
   files:
     - $ECS_AGENT_TAR
     - $ECS_AGENT_RPM
-    - $AMZN_LINUX_2_RPM
+    - $AMZN_LINUX_2023_RPM
     - $BUILD_LOG
     - $CSI_DRIVER_TAR
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
