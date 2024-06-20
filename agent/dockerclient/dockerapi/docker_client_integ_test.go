@@ -131,8 +131,8 @@ func TestImageManifestPullInteg(t *testing.T) {
 				context.Background(), tc.imageRef, tc.authData)
 			if tc.expectedError == "" {
 				require.NoError(t, err)
-				assert.NotEmpty(t, distInspect.Descriptor.Digest.Encoded())
 				assert.Empty(t, distInspect.Descriptor.MediaType)
+				assert.NotEmpty(t, distInspect.Descriptor.Digest.Encoded())
 			} else {
 				assert.ErrorContains(t, err, tc.expectedError)
 			}
