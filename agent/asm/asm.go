@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	"github.com/cihub/seelog"
@@ -30,6 +32,31 @@ import (
 type AuthDataValue struct {
 	Username *string
 	Password *string
+}
+
+func resourceInitializationErrMsg(secretID string) string {
+	return fmt.Sprintf(
+		`ResourceNotFoundException: The task can't retrieve the secret with ARN %sfrom AWS Secrets Manager. Check whether the secret exists in the specified Region`,
+		secretID)
+}
+
+// Augment error message with extra details for most common exceptions:
+func augmentErrMsg(secretID string, err error) string {
+	if secretID == "" {
+		logger.Warn("augmentErrMsg: SecretID is empty (which is unexpected)")
+	}
+
+	if aerr, ok := err.(awserr.Error); ok {
+		switch aerr.Code() {
+		case secretsmanager.ErrCodeResourceNotFoundException:
+			secretID = "'" + secretID + "' "
+			return resourceInitializationErrMsg(secretID)
+		default:
+			return fmt.Sprintf("secret %s: %s", secretID, err.Error())
+		}
+	} else {
+		return fmt.Sprintf("secret %s: %s", secretID, err.Error())
+	}
 }
 
 // GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
@@ -91,9 +118,10 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (types.AuthConfig
 
 func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
 	client secretsmanageriface.SecretsManagerAPI, jsonKey string) (string, error) {
+	secretID := *input.SecretId
 	out, err := client.GetSecretValue(input)
 	if err != nil {
-		return "", errors.Wrapf(err, "secret %s", *input.SecretId)
+		return "", errors.Wrap(err, augmentErrMsg(secretID, err))
 	}
 
 	if jsonKey == "" {

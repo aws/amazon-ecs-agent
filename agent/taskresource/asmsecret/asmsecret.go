@@ -315,7 +315,7 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 
 	secretValue, err := asm.GetSecretFromASMWithInput(input, asmClient, jsonKey)
 	if err != nil {
-		errorEvents <- fmt.Errorf("fetching secret data from AWS Secrets Manager in region %s: %v", apiSecret.Region, err)
+		errorEvents <- err
 		return
 	}
 

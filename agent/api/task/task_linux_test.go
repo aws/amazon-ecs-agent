@@ -425,7 +425,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits(t *testing.T) {
 			},
 		},
 	}
-	expectedCPUShares := uint64(minimumCPUShare)
+	expectedCPUShares := uint64(minimumCPUShares)
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Shares: &expectedCPUShares,
@@ -449,7 +449,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits_WithPidLimits(t *testing.T) 
 			},
 		},
 	}
-	expectedCPUShares := uint64(minimumCPUShare)
+	expectedCPUShares := uint64(minimumCPUShares)
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Shares: &expectedCPUShares,
@@ -490,7 +490,7 @@ func TestBuildLinuxResourceSpecWithoutTaskCPUWithContainerCPULimits(t *testing.T
 }
 
 // TestBuildLinuxResourceSpecWithoutTaskCPUWithLessThanMinimumContainerCPULimits validates behavior of CPU Shares
-// when container CPU share is 1 (less than the current minimumCPUShare which is 2)
+// when container CPU share is 1 (less than the current minimumCPUShares which is 2)
 func TestBuildLinuxResourceSpecWithoutTaskCPUWithLessThanMinimumContainerCPULimits(t *testing.T) {
 	task := &Task{
 		Arn: validTaskArn,
@@ -1575,6 +1575,165 @@ func TestBuildCNIBridgeModeWithServiceConnect(t *testing.T) {
 			}
 			assert.True(t, scConfig.EnableIPv4)
 			assert.False(t, scConfig.EnableIPv6)
+		})
+	}
+}
+
+// TestBuildImplicitLinuxCPUSpec tests the task's CPU spec generation when "task.CPU" is not explicitly set.
+func TestBuildImplicitLinuxCPUSpec(t *testing.T) {
+	testCases := []struct {
+		name                string
+		task                *Task
+		expectedTaskCPUSpec specs.LinuxCPU
+	}{
+		{
+			name: "2 containers: each with CPU within permitted range",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(10),
+					},
+					{
+						CPU: uint(20),
+					},
+				},
+			},
+			expectedTaskCPUSpec: specs.LinuxCPU{
+				Shares: aws.Uint64(30),
+			},
+		},
+		{
+			name: "2 containers: 1 of them with CPU below min",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(1),
+					},
+					{
+						CPU: uint(10),
+					},
+				},
+			},
+			expectedTaskCPUSpec: specs.LinuxCPU{
+				Shares: aws.Uint64(uint64(12)),
+			},
+		},
+		{
+			name: "2 containers: 1 of them with CPU above max",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(1),
+					},
+					{
+						CPU: uint(364544),
+					},
+				},
+			},
+			expectedTaskCPUSpec: specs.LinuxCPU{
+				Shares: aws.Uint64(uint64(maximumCPUShares)),
+			},
+		},
+		{
+			name: "2 containers: each with CPU within permitted range, but the sum of both is beyond the max permitted",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(200000),
+					},
+					{
+						CPU: uint(200000),
+					},
+				},
+			},
+			expectedTaskCPUSpec: specs.LinuxCPU{
+				Shares: aws.Uint64(uint64(maximumCPUShares)),
+			},
+		},
+		{
+			name: "3 containers: 1 with CPU within permitted range, 1 above max, and 1 below min",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(5),
+					},
+					{
+						CPU: uint(1),
+					},
+					{
+						CPU: uint(364544),
+					},
+				},
+			},
+			expectedTaskCPUSpec: specs.LinuxCPU{
+				Shares: aws.Uint64(uint64(maximumCPUShares)),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.task.buildImplicitLinuxCPUSpec()
+			assert.Equal(t, tc.expectedTaskCPUSpec, result)
+		})
+	}
+}
+
+// TestDockerCPUShares tests the dockerCPUShares() conversion method,
+// which is used to send the container shares info to Docker
+func TestDockerCPUShares(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		task                    *Task
+		expectedContainerShares int64
+	}{
+		{
+			name: "container CPU within permitted range",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(10),
+					},
+				},
+			},
+			expectedContainerShares: int64(10),
+		},
+		{
+			name: "container CPU below min",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(1),
+					},
+				},
+			},
+			expectedContainerShares: int64(minimumCPUShares),
+		},
+		{
+			name: "container CPU above max",
+			task: &Task{
+				Arn: validTaskArn,
+				Containers: []*apicontainer.Container{
+					{
+						CPU: uint(364544),
+					},
+				},
+			},
+			expectedContainerShares: int64(maximumCPUShares),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.task.dockerCPUShares(tc.task.Containers[0].CPU)
+			assert.Equal(t, tc.expectedContainerShares, result)
 		})
 	}
 }

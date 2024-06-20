@@ -43,7 +43,11 @@ import (
 
 const (
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
-	minimumCPUShare = 2
+	// These min, max values are defined in the kernel:
+	// https://github.com/torvalds/linux/blob/0bddd227f3dc55975e2b8dfa7fc6f959b062a2c7/kernel/sched/sched.h#L427-L428
+	// We need to make sure task and container cgroups have cpu shares within this range.
+	minimumCPUShares = 2
+	maximumCPUShares = 262144
 
 	minimumCPUPercent = 0
 	bytesPerMegabyte  = 1024 * 1024
@@ -178,11 +182,16 @@ func (task *Task) buildImplicitLinuxCPUSpec() specs.LinuxCPU {
 	// aggregate container CPU shares when present
 	var taskCPUShares uint64
 	for _, container := range task.Containers {
-		if container.CPU < minimumCPUShare {
-			taskCPUShares += minimumCPUShare
+		if container.CPU < minimumCPUShares {
+			taskCPUShares += minimumCPUShares
 		} else {
 			taskCPUShares += uint64(container.CPU)
 		}
+	}
+
+	// If the task CPU shares exceed the maximumCPUShares, we set it to be the maximum permitted by the kernel.
+	if taskCPUShares > maximumCPUShares {
+		taskCPUShares = maximumCPUShares
 	}
 
 	return specs.LinuxCPU{
@@ -236,12 +245,18 @@ func (task *Task) overrideCgroupParent(hostConfig *dockercontainer.HostConfig) e
 // Docker silently converts 0 to 1024 CPU shares, which is probably not what we
 // want.  Instead, we convert 0 to 2 to be closer to expected behavior. The
 // reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
+// Similarly, if the container CPU shares is more than the max permitted value (Linux's choice again),
+// we set it to the maximum.
 func (task *Task) dockerCPUShares(containerCPU uint) int64 {
-	if containerCPU <= 1 {
+	if containerCPU < minimumCPUShares {
 		seelog.Debugf(
-			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
-			task.Arn, containerCPU)
-		return 2
+			"Converting CPU shares to allowed minimum of %d for task arn: [%s] and cpu shares: %d",
+			minimumCPUShares, task.Arn, containerCPU)
+		return minimumCPUShares
+	} else if containerCPU > maximumCPUShares {
+		seelog.Debugf("Converting CPU shares to allowed maximum of %d for task arn [%s] and cpu shares: %d",
+			maximumCPUShares, task.Arn, containerCPU)
+		return maximumCPUShares
 	}
 	return int64(containerCPU)
 }

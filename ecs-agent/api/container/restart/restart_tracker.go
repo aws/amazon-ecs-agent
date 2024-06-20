@@ -22,9 +22,9 @@ import (
 )
 
 type RestartTracker struct {
-	RestartCount  int       `json:"restartCount,omitempty"`
-	LastRestartAt time.Time `json:"lastRestartAt,omitempty"`
-	restartPolicy RestartPolicy
+	RestartCount  int           `json:"restartCount,omitempty"`
+	LastRestartAt time.Time     `json:"lastRestartAt,omitempty"`
+	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
 	lock          sync.RWMutex
 }
 
@@ -38,7 +38,7 @@ type RestartPolicy struct {
 
 func NewRestartTracker(restartPolicy RestartPolicy) *RestartTracker {
 	return &RestartTracker{
-		restartPolicy: restartPolicy,
+		RestartPolicy: restartPolicy,
 	}
 }
 
@@ -73,7 +73,7 @@ func (rt *RestartTracker) ShouldRestart(exitCode *int, startedAt time.Time,
 	rt.lock.RLock()
 	defer rt.lock.RUnlock()
 
-	if !rt.restartPolicy.Enabled {
+	if !rt.RestartPolicy.Enabled {
 		return false, "restart policy is not enabled"
 	}
 	if desiredStatus == apicontainerstatus.ContainerStopped {
@@ -82,7 +82,7 @@ func (rt *RestartTracker) ShouldRestart(exitCode *int, startedAt time.Time,
 	if exitCode == nil {
 		return false, "exit code is nil"
 	}
-	for _, ignoredCode := range rt.restartPolicy.IgnoredExitCodes {
+	for _, ignoredCode := range rt.RestartPolicy.IgnoredExitCodes {
 		if ignoredCode == *exitCode {
 			return false, fmt.Sprintf("exit code %d should be ignored", *exitCode)
 		}
@@ -92,7 +92,7 @@ func (rt *RestartTracker) ShouldRestart(exitCode *int, startedAt time.Time,
 	if !rt.LastRestartAt.IsZero() {
 		startTime = rt.LastRestartAt
 	}
-	if time.Since(startTime) < rt.restartPolicy.RestartAttemptPeriod {
+	if time.Since(startTime) < rt.RestartPolicy.RestartAttemptPeriod {
 		return false, "attempt reset period has not elapsed"
 	}
 	return true, ""

@@ -149,19 +149,19 @@ test-ebs-csi:
 	make -C ./ecs-agent/daemonimages/csidriver test
 
 test: test-ebs-csi
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd ecs-agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 test-init:
-	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
+	GOEXPERIMENT=nocoverageredesign go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent: test-ebs-csi
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd ecs-agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
@@ -375,7 +375,7 @@ install-golang:
 	go install github.com/golang/mock/mockgen@v1.6.0
 	go install golang.org/x/tools/cmd/goimports@v0.2.0
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
-	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.4.0
+	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@2023.1.6
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
