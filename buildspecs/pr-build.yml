@@ -55,9 +55,10 @@ phases:
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
       - |
-        if [[ $GITHUBUSERNAME != "aws" ]] ; then
-          ln -s $CODEBUILD_SRC_DIR /codebuild/output/src/github.com/aws/amazon-ecs-agent
+        if [[ $GITHUBUSERNAME != "aws" ]]; then
+          mv $GITHUBUSERNAME aws
         fi
+      - cd aws/amazon-ecs-agent
 
       # Building agent tars
       - GO111MODULE=auto
