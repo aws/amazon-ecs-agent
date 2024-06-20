@@ -92,6 +92,11 @@ func TestImageManifestPullInteg(t *testing.T) {
 			imageRef:     "127.0.0.1:51670/busybox:latest",
 		},
 		{
+			name:         "public registry schema1",
+			dockerClient: supportedClient,
+			imageRef:     "127.0.0.1:51670/bwa:latest",
+		},
+		{
 			name:         "public registry success, no explicit tag",
 			dockerClient: supportedClient,
 			imageRef:     "127.0.0.1:51670/busybox",
@@ -122,6 +127,7 @@ func TestImageManifestPullInteg(t *testing.T) {
 			if tc.expectedError == "" {
 				require.NoError(t, err)
 				assert.NotEmpty(t, distInspect.Descriptor.Digest.Encoded())
+				assert.Empty(t, distInspect.Descriptor.MediaType.Encoded())
 			} else {
 				assert.ErrorContains(t, err, tc.expectedError)
 			}
