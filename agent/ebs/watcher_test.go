@@ -737,7 +737,7 @@ func TestTick(t *testing.T) {
 				tc.setDiscoveryClientExpectations(discoveryClient)
 			}
 
-			watcher := NewWatcher(context.Background(), taskEngineState, taskEngine, dockerClient)
+			watcher := NewWatcher(context.Background(), taskEngineState, taskEngine, dockerClient, CSIDriverSocketPath)
 			watcher.discoveryClient = discoveryClient
 			watcher.tick()
 

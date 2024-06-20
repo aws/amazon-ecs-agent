@@ -24,10 +24,24 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestIsBlockDevice(t *testing.T) {
+	volumePath := "./test"
+	err := os.MkdirAll(volumePath, 0644)
+	require.NoError(t, err, "fail to create dir")
+	defer os.RemoveAll(volumePath)
+
+	isBlockDevice, err := IsBlockDevice(volumePath)
+
+	assert.Nil(t, err)
+	assert.Equal(t, false, isBlockDevice)
+}
 
 func TestParseEndpoint(t *testing.T) {
 	testCases := []struct {

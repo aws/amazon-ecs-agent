@@ -97,6 +97,7 @@ func DefaultConfig() Config {
 
 	programFiles := utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
 	ecsBinaryDir := filepath.Join(programFiles, "Amazon", "ECS")
+	defaultCSIDriverSocketPath := filepath.Join(ecsBinaryDir, "ebs-csi-driver", "csi-driver.sock")
 
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    BooleanDefaultFalse{Value: ExplicitlyDisabled},
@@ -157,6 +158,7 @@ func DefaultConfig() Config {
 		RuntimeStatsLogFile:                 filepath.Join(ecsRoot, defaultRuntimeStatsLogFile),
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
+		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
 	}
 }
 

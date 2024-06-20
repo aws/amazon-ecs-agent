@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "github.com/kubernetes-csi/csi-proxy/client/api/volume/v1";
+
+service Volume {
+    // ListVolumesOnDisk returns the volume IDs (in \\.\Volume{GUID} format) for all volumes from a
+    // given disk number and partition number (optional)
+    rpc ListVolumesOnDisk(ListVolumesOnDiskRequest) returns (ListVolumesOnDiskResponse) {}
+
+    // MountVolume mounts the volume at the requested global staging path.
+    rpc MountVolume(MountVolumeRequest) returns (MountVolumeResponse) {}
+
+    // UnmountVolume flushes data cache to disk and removes the global staging path.
+    rpc UnmountVolume(UnmountVolumeRequest) returns (UnmountVolumeResponse) {}
+
+    // IsVolumeFormatted checks if a volume is formatted.
+    rpc IsVolumeFormatted(IsVolumeFormattedRequest) returns (IsVolumeFormattedResponse) {}
+
+    // FormatVolume formats a volume with NTFS.
+    rpc FormatVolume(FormatVolumeRequest) returns (FormatVolumeResponse) {}
+
+    // ResizeVolume performs resizing of the partition and file system for a block based volume.
+    rpc ResizeVolume(ResizeVolumeRequest) returns (ResizeVolumeResponse) {}
+
+    // GetVolumeStats gathers total bytes and used bytes for a volume.
+    rpc GetVolumeStats(GetVolumeStatsRequest) returns (GetVolumeStatsResponse) {}
+
+    // GetDiskNumberFromVolumeID gets the disk number of the disk where the volume is located.
+    rpc GetDiskNumberFromVolumeID(GetDiskNumberFromVolumeIDRequest) returns (GetDiskNumberFromVolumeIDResponse ) {}
+
+    // GetVolumeIDFromTargetPath gets the volume id for a given target path.
+    rpc GetVolumeIDFromTargetPath(GetVolumeIDFromTargetPathRequest) returns (GetVolumeIDFromTargetPathResponse) {}
+
+    // WriteVolumeCache write volume cache to disk.
+    rpc WriteVolumeCache(WriteVolumeCacheRequest) returns (WriteVolumeCacheResponse) {}
+}
+
+message ListVolumesOnDiskRequest {
+    // Disk device number of the disk to query for volumes.
+    uint32 disk_number = 1;
+    // The partition number (optional), by default it uses the first partition of the disk.
+    uint32 partition_number = 2;
+}
+
+message ListVolumesOnDiskResponse {
+    // Volume device IDs of volumes on the specified disk.
+    repeated string volume_ids = 1;
+}
+
+message MountVolumeRequest {
+    // Volume device ID of the volume to mount.
+    string volume_id = 1;
+    // Path in the host's file system where the volume needs to be mounted.
+    string target_path = 2;
+}
+
+message MountVolumeResponse {
+    // Intentionally empty.
+}
+
+message UnmountVolumeRequest {
+    // Volume device ID of the volume to dismount.
+    string volume_id = 1;
+    // Path where the volume has been mounted.
+    string target_path = 2;
+}
+
+message UnmountVolumeResponse {
+    // Intentionally empty.
+}
+
+message IsVolumeFormattedRequest {
+    // Volume device ID of the volume to check.
+    string volume_id = 1;
+}
+
+message IsVolumeFormattedResponse {
+    // Is the volume formatted with NTFS.
+    bool formatted = 1;
+}
+
+message FormatVolumeRequest {
+    // Volume device ID of the volume to format.
+    string volume_id = 1;
+}
+
+message FormatVolumeResponse {
+    // Intentionally empty.
+}
+
+message ResizeVolumeRequest {
+    // Volume device ID of the volume to resize.
+    string volume_id = 1;
+    // New size in bytes of the volume.
+    int64 size_bytes = 2;
+}
+
+message ResizeVolumeResponse {
+    // Intentionally empty.
+}
+
+message GetVolumeStatsRequest{
+    // Volume device Id of the volume to get the stats for.
+    string volume_id = 1;
+}
+
+message GetVolumeStatsResponse{
+    // Total bytes
+    int64 total_bytes = 1;
+    // Used bytes
+    int64 used_bytes = 2;
+}
+
+message GetDiskNumberFromVolumeIDRequest {
+    // Volume device ID of the volume to get the disk number for.
+    string volume_id = 1;
+}
+
+message GetDiskNumberFromVolumeIDResponse {
+    // Corresponding disk number.
+    uint32 disk_number = 1;
+}
+
+message GetVolumeIDFromTargetPathRequest {
+    // The target path.
+    string target_path = 1;
+}
+
+message GetVolumeIDFromTargetPathResponse {
+    // The volume device ID.
+    string volume_id = 1;
+}
+
+message WriteVolumeCacheRequest {
+    // Volume device ID of the volume to flush the cache.
+    string volume_id = 1;
+}
+
+message WriteVolumeCacheResponse {
+    // Intentionally empty.
+}

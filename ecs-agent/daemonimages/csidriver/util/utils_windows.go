@@ -22,10 +22,7 @@ limitations under the License.
 
 package util
 
-import "errors"
-
 // IsBlockDevice checks if the given path is a block device
 func IsBlockDevice(fullPath string) (bool, error) {
-	// TODO
-	return false, errors.New("not supported")
+	return false, nil
 }
