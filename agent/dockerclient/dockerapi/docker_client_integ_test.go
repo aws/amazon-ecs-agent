@@ -94,7 +94,12 @@ func TestImageManifestPullInteg(t *testing.T) {
 		{
 			name:         "public registry schema1",
 			dockerClient: supportedClient,
-			imageRef:     "127.0.0.1:51670/bwa:latest",
+			imageRef:     "127.0.0.1:51670/codeclimate-vint:latest",
+		},
+		{
+			name:         "public registry OCI",
+			dockerClient: supportedClient,
+			imageRef:     "127.0.0.1:51670/ubuntu:latest",
 		},
 		{
 			name:         "public registry success, no explicit tag",

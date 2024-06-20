@@ -63,7 +63,7 @@ mirror_local_image() {
 # Pull busybox image for later use
 docker pull public.ecr.aws/docker/library/busybox:1.34.1
 docker pull public.ecr.aws/cordial/codeclimate/codeclimate-vint:latest
-
+docker pull public.ecr.aws/lts/ubuntu:latest
 # --- Start public registry ---
 REGISTRY_CONTAINER_NAME="test-ecs-registry"
 HOST_ADDRESS="127.0.0.1:51670"
@@ -85,7 +85,7 @@ docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image
 # Add a busybox image to the registry
 mirror_local_image public.ecr.aws/docker/library/busybox:1.34.1 "${HOST_ADDRESS}/busybox:latest"
 mirror_local_image public.ecr.aws/cordial/codeclimate/codeclimate-vint:latest "${HOST_ADDRESS}/codeclimate-vint:latest"
-
+mirror_local_image public.ecr.aws/lts/ubuntu:latest "${HOST_ADDRESS}/ubuntu:latest"
 # --- Start private registry ---
 
 # Set up an htpasswd file containing test auth credentials for the registry
