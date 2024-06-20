@@ -23,11 +23,14 @@ limitations under the License.
 package driver
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/resizefs"
+	diskapi "github.com/kubernetes-csi/csi-proxy/client/api/disk/v1"
+	diskclient "github.com/kubernetes-csi/csi-proxy/client/groups/disk/v1"
 	mountutils "k8s.io/mount-utils"
 )
 
@@ -161,4 +164,33 @@ func (m *NodeMounter) NewResizeFs() (Resizefs, error) {
 		return nil, fmt.Errorf("failed to cast mounter to csi proxy mounter")
 	}
 	return resizefs.NewResizeFs(proxyMounter), nil
+}
+
+// DeviceIdentifier is for mocking os io functions used for the driver to
+// identify an EBS volume's corresponding device (in Linux, the path under
+// /dev; in Windows, the volume number) so that it can mount it. For volumes
+// already mounted, see GetDeviceNameFromMount.
+// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html#identify-nvme-ebs-device
+type DeviceIdentifier interface {
+	ListDiskIDs() (map[uint32]*diskapi.DiskIDs, error)
+}
+
+type nodeDeviceIdentifier struct{}
+
+func newNodeDeviceIdentifier() DeviceIdentifier {
+	return &nodeDeviceIdentifier{}
+}
+
+func (i *nodeDeviceIdentifier) ListDiskIDs() (map[uint32]*diskapi.DiskIDs, error) {
+	diskClient, err := diskclient.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("error creating csi-proxy disk client: %q", err)
+	}
+	defer diskClient.Close()
+
+	response, err := diskClient.ListDiskIDs(context.TODO(), &diskapi.ListDiskIDsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("error listing disk ids: %q", err)
+	}
+	return response.GetDiskIDs(), nil
 }
