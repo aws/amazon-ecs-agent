@@ -62,7 +62,7 @@ mirror_local_image() {
 
 # Pull busybox image for later use
 docker pull public.ecr.aws/docker/library/busybox:1.34.1
-docker pull quay.io/biocontainers/bwa:0.7.17--hed695b0_7
+docker pull public.ecr.aws/cordial/codeclimate/codeclimate-vint:latest
 
 # --- Start public registry ---
 REGISTRY_CONTAINER_NAME="test-ecs-registry"
@@ -84,7 +84,7 @@ docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image
 
 # Add a busybox image to the registry
 mirror_local_image public.ecr.aws/docker/library/busybox:1.34.1 "${HOST_ADDRESS}/busybox:latest"
-mirror_local_image quay.io/biocontainers/bwa:0.7.17--hed695b0_7 "${HOST_ADDRESS}/bwa:latest"
+mirror_local_image public.ecr.aws/cordial/codeclimate/codeclimate-vint:latest "${HOST_ADDRESS}/codeclimate-vint:latest"
 
 # --- Start private registry ---
 
