@@ -50,14 +50,15 @@ phases:
       - AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2int.x86_64.rpm"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
+
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
+      - echo "GitHub Username = $GITHUBUSERNAME" 2>&1 | tee -a $BUILD_LOG
       - cd ../../../..
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
-      - |
-        if [[ $GITHUBUSERNAME != "aws" ]] ; then
-          ln -s $CODEBUILD_SRC_DIR /codebuild/output/src/github.com/aws/amazon-ecs-agent
-        fi
+      - mv $GITHUBUSERNAME aws
+      - echo "GitHub Username = $GITHUBUSERNAME" 2>&1 | tee -a $BUILD_LOG
+      - cd aws/amazon-ecs-agent
 
       # Building agent tars
       - GO111MODULE=auto
