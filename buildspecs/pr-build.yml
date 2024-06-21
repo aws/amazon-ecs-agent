@@ -70,13 +70,18 @@ phases:
       - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
       - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
 
+      # Install GO to ensure version is up-to-date on OS for Amazon Linux 2023 RPM build
+      - |
+        if [[ $AMZN_LINUX_2023_RPM ]]; then
+          sudo dnf --releasever=$VERSION update -y
+          sudo yum install golang -y
+        fi
+
       # Build Amazon Linux 2 RPM
       - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
 
       # Build Windows executable
-      - make windows-docker-release 2>&1 | tee -a $BUILD_LOG
-      - echo "The contents of the /out directory:"
-      - ls -l /out
+      - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
       - ls
 
       # Rename artifacts for architecture

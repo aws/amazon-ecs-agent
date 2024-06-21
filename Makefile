@@ -286,7 +286,7 @@ release-agent: get-cni-sources
 codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
-	$(MAKE) windows-docker-release
+	$(MAKE) docker-release TARGET_OS="windows"
 	TARGET_OS="windows" ./scripts/local-save
 
 netkitten:
@@ -399,7 +399,7 @@ get-deps-init:
 	GO111MODULE=on go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.4.0
 
-amazon-linux-sources.tgz:
+amazon-linux-sources.tgz: get-cni-sources
 	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
