@@ -47,13 +47,11 @@ phases:
       - ECS_AGENT_TAR="ecs-agent-v${AGENT_VERSION}.tar"
       - CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver.tar"
       - ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.x86_64.rpm"
-      - AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.x86_64.rpm"
-      - WINDOWS_EXE="/out/amazon-ecs-agent.exe"
+      - WINDOWS_EXE="amazon-ecs-agent.exe"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
-      - echo "GitHub Username = $GITHUBUSERNAME" 2>&1 | tee -a $BUILD_LOG
       - cd ../../../..
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
@@ -61,27 +59,17 @@ phases:
         if [[ $GITHUBUSERNAME != "aws" ]]; then
           mv $GITHUBUSERNAME aws
         fi
-      - echo "GitHub Username = $GITHUBUSERNAME" 2>&1 | tee -a $BUILD_LOG
       - cd aws/amazon-ecs-agent
 
       # Building agent tars
       - GO111MODULE=auto
       - make release-agent 2>&1 | tee -a $BUILD_LOG
-      - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      #- make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
       - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
-
-      # Install GO to ensure version is up-to-date on OS for Amazon Linux 2023 RPM build
-      - |
-        if [[ $AMZN_LINUX_2023_RPM ]]; then
-          sudo dnf --releasever=$VERSION update -y
-          sudo yum install golang -y
-        fi
-
-      # Build Amazon Linux 2 RPM
-      - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
 
       # Build Windows executable
       - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
+      - mv /out/out/amazon-ecs-agent.exe $WINDOWS_EXE
       - ls
 
       # Rename artifacts for architecture
@@ -92,7 +80,6 @@ phases:
           ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
           ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
           CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
-          AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.aarch64.rpm"
         fi
 
   post_build:
@@ -102,7 +89,6 @@ artifacts:
   files:
     - $ECS_AGENT_TAR
     - $ECS_AGENT_RPM
-    - $AMZN_LINUX_2023_RPM
     - $WINDOWS_EXE
     - $BUILD_LOG
     - $CSI_DRIVER_TAR

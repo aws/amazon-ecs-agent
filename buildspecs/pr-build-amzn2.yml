@@ -23,10 +23,10 @@ phases:
       - sudo yum install golang -y
 
       # Set appropriate environment variables
-      - export GOROOT=/usr/local/go
-      - export GOPATH=$HOME/go
-      - export GOBIN=$GOPATH/bin
-      - export PATH=$PATH:$GOROOT/bin:$GOBIN
+      #- export GOROOT=/usr/local/go
+      #- export GOPATH=$HOME/go
+      #- export GOBIN=$GOPATH/bin
+      #- export PATH=$PATH:$GOROOT/bin:$GOBIN
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
       

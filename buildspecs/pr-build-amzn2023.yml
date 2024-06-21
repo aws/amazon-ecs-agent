@@ -5,7 +5,7 @@ env:
     # Github username of the forked repo on which to make builds
     GITHUBUSERNAME: Ephylouise
     # Amazon Linux 2023 version
-    VERSION: 2023.4.20240611
+    AL_VERSION: 2023.4.20240611
 
 phases:
   install:
@@ -21,8 +21,8 @@ phases:
            ;;
         esac
 
-      # Install GO to ensure version is up-to-date on OS
-      - sudo dnf --releasever=$VERSION update -y
+      # Install GO to ensure version is up-to-date on Target OS
+      - sudo dnf --releasever=$AL_VERSION update -y
       - sudo yum install golang -y
 
       # Set appropriate environment variables
