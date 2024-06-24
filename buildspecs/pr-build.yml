@@ -50,7 +50,6 @@ phases:
       - WINDOWS_EXE="amazon-ecs-agent.exe"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
-
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
       - cd ../../../..
       - export GOPATH=$GOPATH:$(pwd)
@@ -63,36 +62,33 @@ phases:
 
       # Building agent tars
       - GO111MODULE=auto
-      #- make release-agent 2>&1 | tee -a $BUILD_LOG
-      #- make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
-      #- make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
+      - make release-agent 2>&1 | tee -a $BUILD_LOG
+      - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
 
       # Build Windows executable
       - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
-      - ls -l ./out
-      - echo $(find . -name amazon-ecs-agent.exe)
-      - echo "The source code directory path is:"
-      - echo $CODEBUILD_SRC_DIR
-      - ls
+      - cp ./out/amazon-ecs-agent.exe .
 
       # Rename artifacts for architecture
-      #- |
-      #  if [[ $architecture == "arm64" ]]; then
-      #    mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
-      #    mv $CSI_DRIVER_TAR "./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
-      #    ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
-      #    ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
-      #    CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
-      #  fi
+      - |
+        if [[ $architecture == "arm64" ]]; then
+          mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          mv $CSI_DRIVER_TAR "./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
+          ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
+          ECS_AGENT_TAR="ecs-agent-arm64-v${AGENT_VERSION}.tar"
+          CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
+        fi
+      - ls
 
   post_build:
     commands:
 
 artifacts:
   files:
-    #- $ECS_AGENT_TAR
-    #- $ECS_AGENT_RPM
+    - $ECS_AGENT_TAR
+    - $ECS_AGENT_RPM
     - $WINDOWS_EXE
-    #- $BUILD_LOG
-    #- $CSI_DRIVER_TAR
+    - $BUILD_LOG
+    - $CSI_DRIVER_TAR
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
