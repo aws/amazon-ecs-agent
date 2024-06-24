@@ -1,0 +1,42 @@
+version: 0.2
+
+env:
+  variables:
+    # Github username of the forked repo on which to make builds
+    GITHUBUSERNAME: Ephylouise
+
+phases:
+  build:
+    commands:
+      - WINDOWS_EXE="amazon-ecs-agent.exe"
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
+      - cd ../../../..
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com
+      - |
+        if [[ $GITHUBUSERNAME != "aws" ]]; then
+          mv $GITHUBUSERNAME aws
+        fi
+      - cd aws/amazon-ecs-agent
+      - GO111MODULE=auto
+
+      # Build Windows executable
+      - echo "Building agent image from a clean snapshot of the git repo using'docker-release'" 2>&1 | tee -a $BUILD_LOG
+      - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
+
+      # Verify the output directory and artifact location
+      - ls -l ./out
+      - echo $(find . -name amazon-ecs-agent.exe)
+      - echo "The source code directory path is:"
+      - echo $CODEBUILD_SRC_DIR
+      - ls
+
+  post_build:
+    commands:
+
+artifacts:
+  files:
+    - $WINDOWS_EXE
+  name: $CODEBUILD_RESOLVED_SOURCE_VERSION

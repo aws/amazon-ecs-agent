@@ -71,6 +71,8 @@ phases:
       - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
       - ls -l ./out
       - echo $(find . -name amazon-ecs-agent.exe)
+      - echo "The source code directory path is:"
+      - echo $CODEBUILD_SRC_DIR
       - ls
 
       # Rename artifacts for architecture
