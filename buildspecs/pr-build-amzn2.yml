@@ -21,15 +21,8 @@ phases:
 
       # Install GO to ensure version is up-to-date on OS
       - sudo yum install golang -y
-
-      # Set appropriate environment variables
-      #- export GOROOT=/usr/local/go
-      #- export GOPATH=$HOME/go
-      #- export GOBIN=$GOPATH/bin
-      #- export PATH=$PATH:$GOROOT/bin:$GOBIN
-
-      # Remove goenv installed version
-      - sudo rm -rf "/root/.goenv"
+      - sudo rm -rf /root/.goenv # removes default goroot for AMD build
+      - sudo rm -rf /usr/local/go/bin/go # removes default goroot for ARM build
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
       
