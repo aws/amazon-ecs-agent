@@ -69,7 +69,7 @@ phases:
 
       # Build Windows executable
       - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
-      - mv /out/out/amazon-ecs-agent.exe $WINDOWS_EXE
+      - mv /out/amazon-ecs-agent.exe $WINDOWS_EXE
       - ls
 
       # Rename artifacts for architecture

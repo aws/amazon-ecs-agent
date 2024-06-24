@@ -27,6 +27,9 @@ phases:
       #- export GOPATH=$HOME/go
       #- export GOBIN=$GOPATH/bin
       #- export PATH=$PATH:$GOROOT/bin:$GOBIN
+
+      # Remove goenv installed version
+      - sudo rm -rf "/root/.goenv"
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
       
@@ -57,7 +60,7 @@ phases:
       # Rename artifacts for architecture
       - |
         if [[ $architecture == "arm64" ]] ; then
-          AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.aarch64.rpm"
+          AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.aarch64.rpm"
         fi
 
   post_build:
