@@ -19,8 +19,26 @@ phases:
            ;;
         esac
 
+      # Set up proper go version
+      - GOVERSION="$(cat GO_VERSION)"
+      - BUILD_LOG="build_${architecture}.log"
+      - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation (goenv utility) and install downloaded binaries
+      - rm -rf /root/.goenv/
+      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} | tee $BUILD_LOG
+      - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} | tee -a $BUILD_LOG
+
+      # Set appropriate environment variables
+      #- export GOROOT=/usr/local/go
+      #- export GOPATH=$HOME/go
+      #- export GOBIN=$GOPATH/bin
+      #- export PATH=$PATH:$GOROOT/bin:$GOBIN
+
+
       # Install GO to ensure version is up-to-date on OS
-      - sudo yum install golang -y
+      #- sudo yum install golang -y
       - sudo rm -rf /root/.goenv # removes default goroot for AMD build
       - sudo rm -rf /usr/local/go/bin/go # removes default goroot for ARM build
       - which go | tee -a $BUILD_LOG
