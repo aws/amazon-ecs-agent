@@ -54,7 +54,7 @@ phases:
       - export GOPATH=$GOPATH:$(pwd)
       - cd src/github.com
       - |
-        if [[ $GITHUBUSERNAME != "aws" ]]; then
+        if [[ $GITHUBUSERNAME != "aws" ]] ; then
           mv $GITHUBUSERNAME aws
         fi
       - cd aws/amazon-ecs-agent
@@ -71,7 +71,7 @@ phases:
 
       # Rename artifacts for architecture
       - |
-        if [[ $architecture == "arm64" ]]; then
+        if [[ $architecture == "arm64" ]] ; then
           mv $ECS_AGENT_TAR "ecs-agent-arm64-v${AGENT_VERSION}.tar"
           mv $CSI_DRIVER_TAR "./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
           ECS_AGENT_RPM="amazon-ecs-init-${AGENT_VERSION}-1.aarch64.rpm"
@@ -79,7 +79,7 @@ phases:
           CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
         fi
 
-       # List directory file to view artifacts in build log 
+      # List directory files to view artifacts in build log 
       - ls
 
   post_build:
@@ -88,8 +88,8 @@ phases:
 artifacts:
   files:
     - $ECS_AGENT_TAR
-    - $ECS_AGENT_RPM
-    - $BUILD_LOG
     - $CSI_DRIVER_TAR
+    - $ECS_AGENT_RPM
     - $WINDOWS_EXE
+    - $BUILD_LOG
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION

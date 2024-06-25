@@ -33,7 +33,7 @@ phases:
       - cd ../../../..
       - cd src/github.com
       - |
-        if [ $GITHUBUSERNAME != "aws" ] ; then
+        if [[ $GITHUBUSERNAME != "aws" ]] ; then
           mv $GITHUBUSERNAME aws
         fi
       - cd aws/amazon-ecs-agent
