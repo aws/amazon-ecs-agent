@@ -67,7 +67,7 @@ phases:
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
       # Define the path for the ecs-init RPM file
-      - AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.${architecture}.rpm"
+      - AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.x86_64.rpm"
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
       - cd ../../../..
@@ -83,6 +83,14 @@ phases:
       - GO111MODULE=auto
       - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Rename artifacts for architecture
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.aarch64.rpm"
+        fi
+
+      # List directory files to view artifacts in build log 
       - ls
 
   post_build:
