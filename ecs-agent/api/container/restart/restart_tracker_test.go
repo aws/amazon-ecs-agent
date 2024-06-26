@@ -17,20 +17,34 @@
 package restart
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// unmarshalStandardRestartPolicy allows us to verify that the restart policy unmarshalled
+// from JSON (as it comes in the task payload) is translated to expected behavior in
+// the restart tracker.
+func unmarshalStandardRestartPolicy(t *testing.T, ignoredCode int) RestartPolicy {
+	rp := RestartPolicy{}
+	jsonBlob := fmt.Sprintf(`{"enabled": true, "restartAttemptPeriod": 60, "ignoredExitCodes": [%d]}`, ignoredCode)
+	err := json.Unmarshal([]byte(jsonBlob), &rp)
+	require.NoError(t, err)
+	return rp
+}
 
 func TestShouldRestart(t *testing.T) {
 	ignoredCode := 0
 	rt := NewRestartTracker(RestartPolicy{
 		Enabled:              false,
 		IgnoredExitCodes:     []int{ignoredCode},
-		RestartAttemptPeriod: 60 * time.Second,
+		RestartAttemptPeriod: 60,
 	})
 	testCases := []struct {
 		name           string
@@ -46,7 +60,7 @@ func TestShouldRestart(t *testing.T) {
 			rp: RestartPolicy{
 				Enabled:              false,
 				IgnoredExitCodes:     []int{ignoredCode},
-				RestartAttemptPeriod: 60 * time.Second,
+				RestartAttemptPeriod: 60,
 			},
 			exitCode:       1,
 			startedAt:      time.Now().Add(2 * time.Minute),
@@ -55,12 +69,8 @@ func TestShouldRestart(t *testing.T) {
 			expectedReason: "restart policy is not enabled",
 		},
 		{
-			name: "ignored exit code",
-			rp: RestartPolicy{
-				Enabled:              true,
-				IgnoredExitCodes:     []int{ignoredCode},
-				RestartAttemptPeriod: 60 * time.Second,
-			},
+			name:           "ignored exit code",
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       0,
 			startedAt:      time.Now().Add(-2 * time.Minute),
 			desiredStatus:  apicontainerstatus.ContainerRunning,
@@ -69,7 +79,7 @@ func TestShouldRestart(t *testing.T) {
 		},
 		{
 			name:           "non ignored exit code",
-			rp:             RestartPolicy{Enabled: true, IgnoredExitCodes: []int{ignoredCode}, RestartAttemptPeriod: 60 * time.Second},
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       1,
 			startedAt:      time.Now().Add(-2 * time.Minute),
 			desiredStatus:  apicontainerstatus.ContainerRunning,
@@ -78,7 +88,7 @@ func TestShouldRestart(t *testing.T) {
 		},
 		{
 			name:           "nil exit code",
-			rp:             RestartPolicy{Enabled: true, IgnoredExitCodes: []int{ignoredCode}, RestartAttemptPeriod: 60 * time.Second},
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       -1,
 			startedAt:      time.Now().Add(-2 * time.Minute),
 			desiredStatus:  apicontainerstatus.ContainerRunning,
@@ -87,7 +97,7 @@ func TestShouldRestart(t *testing.T) {
 		},
 		{
 			name:           "desired status stopped",
-			rp:             RestartPolicy{Enabled: true, IgnoredExitCodes: []int{ignoredCode}, RestartAttemptPeriod: 60 * time.Second},
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       1,
 			startedAt:      time.Now().Add(2 * time.Minute),
 			desiredStatus:  apicontainerstatus.ContainerStopped,
@@ -96,7 +106,7 @@ func TestShouldRestart(t *testing.T) {
 		},
 		{
 			name:           "attempt reset period not elapsed",
-			rp:             RestartPolicy{Enabled: true, IgnoredExitCodes: []int{ignoredCode}, RestartAttemptPeriod: 60 * time.Second},
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       1,
 			startedAt:      time.Now(),
 			desiredStatus:  apicontainerstatus.ContainerRunning,
@@ -105,7 +115,7 @@ func TestShouldRestart(t *testing.T) {
 		},
 		{
 			name:           "attempt reset period not elapsed within one second",
-			rp:             RestartPolicy{Enabled: true, IgnoredExitCodes: []int{ignoredCode}, RestartAttemptPeriod: 60 * time.Second},
+			rp:             unmarshalStandardRestartPolicy(t, ignoredCode),
 			exitCode:       1,
 			startedAt:      time.Now().Add(-time.Second * 59),
 			desiredStatus:  apicontainerstatus.ContainerRunning,
@@ -137,7 +147,7 @@ func TestShouldRestartUsesLastRestart(t *testing.T) {
 	rt := NewRestartTracker(RestartPolicy{
 		Enabled:              true,
 		IgnoredExitCodes:     []int{0},
-		RestartAttemptPeriod: 60 * time.Second,
+		RestartAttemptPeriod: 60,
 	})
 	exitCode := 1
 
@@ -154,7 +164,7 @@ func TestShouldRestartUsesLastRestart(t *testing.T) {
 func TestRecordRestart(t *testing.T) {
 	rt := NewRestartTracker(RestartPolicy{
 		Enabled:              false,
-		RestartAttemptPeriod: 60 * time.Second,
+		RestartAttemptPeriod: 60,
 	})
 	assert.Equal(t, 0, rt.RestartCount)
 	for i := 1; i < 1000; i++ {
@@ -168,7 +178,7 @@ func TestRecordRestart(t *testing.T) {
 func TestRecordRestartPolicy(t *testing.T) {
 	rt := NewRestartTracker(RestartPolicy{
 		Enabled:              false,
-		RestartAttemptPeriod: 60 * time.Second,
+		RestartAttemptPeriod: 60,
 	})
 	assert.Equal(t, 0, rt.RestartCount)
 	assert.Equal(t, 0, len(rt.RestartPolicy.IgnoredExitCodes))

@@ -31,9 +31,9 @@ type RestartTracker struct {
 // RestartPolicy represents a policy that contains key information considered when
 // deciding whether or not a container should be restarted after it has exited.
 type RestartPolicy struct {
-	Enabled              bool          `json:"enabled"`
-	IgnoredExitCodes     []int         `json:"ignoredExitCodes"`
-	RestartAttemptPeriod time.Duration `json:"restartAttemptPeriod"`
+	Enabled              bool  `json:"enabled"`
+	IgnoredExitCodes     []int `json:"ignoredExitCodes"`
+	RestartAttemptPeriod int   `json:"restartAttemptPeriod"`
 }
 
 func NewRestartTracker(restartPolicy RestartPolicy) *RestartTracker {
@@ -92,7 +92,7 @@ func (rt *RestartTracker) ShouldRestart(exitCode *int, startedAt time.Time,
 	if !rt.LastRestartAt.IsZero() {
 		startTime = rt.LastRestartAt
 	}
-	if time.Since(startTime) < rt.RestartPolicy.RestartAttemptPeriod {
+	if time.Since(startTime) < time.Duration(rt.RestartPolicy.RestartAttemptPeriod)*time.Second {
 		return false, "attempt reset period has not elapsed"
 	}
 	return true, ""
