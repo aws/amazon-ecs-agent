@@ -19,34 +19,55 @@ phases:
            ;;
         esac
 
-      - GOVERSION="$(cat GO_VERSION)"
+      # Same buildspec for four separte CodeBuild jobs with different environment images
+      # Set version and CodeBuild image variables
       - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
-      - echo $architecture
-      - echo $AL23_VERSION
+      - AGENT_VERSION=$(cat VERSION)
+      - AL2_ARM="amazonlinux2-aarch64-standard:2.0"
+      - AL2023_ARM="amazonlinux2-aarch64-standard:3.0"
+      - AL2_AMD="amazonlinux2-x86_64-standard:4.0"
+      - AL2023_AMD="amazonlinux2-x86_64-standard:5.0"
 
-      # Use if/then function to install go version depending on Amazon Linux version
-      # AL 2023 uses package manager dnf and AL2 uses package manager yum
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation (goenv utility) and install downloaded binaries
+      - sudo rm -rf /root/.goenv
+      - sudo rm -rf /usr/local/go/bin/go 
+
+      # Install dependencies and define variables based on the build image used
+      # Amazon Linux 2023 uses package manager DNF, while older versions use YUM
+      # Set the appropriate AL23 version echo string to include in build log
       - |
-        if [[ "$CODEBUILD_BUILD_IMAGE" == *"amazonlinux:2023"* ]]; then
-          sudo dnf --releasever="$AL23_VERSION" install -y golang-${GOVERSION}
-        else
+        if [[ "$CODEBUILD_BUILD_IMAGE" == *"$AL2023_ARM"* || "$CODEBUILD_BUILD_IMAGE" == *"$AL2023_AMD"* ]]; then
+          sudo dnf --releasever="$AL23_VERSION" update -y
           sudo yum install -y golang
+          amzn_version="amzn2023"
+          al23_version_echo="Amazon Linux 2023 Version: $AL23_VERSION"
+        elif [[ "$CODEBUILD_BUILD_IMAGE" == *"$AL2_ARM"* || "$CODEBUILD_BUILD_IMAGE" == *"$AL2_AMD"* ]]; then
+          sudo yum install -y golang
+          amzn_version="amzn2"
+          al23_version_echo=""
+        else
+          echo "Unsupported Amazon Linux version in the build image: $CODEBUILD_BUILD_IMAGE"
+          exit 1
         fi
 
-      - sudo rm -rf /root/.goenv # removes default goroot for AMD build
-      - sudo rm -rf /usr/local/go/bin/go # removes default goroot for ARM build
-      - BUILD_LOG="build_${architecture}.log"
+      # Define the log file with AL version (amzn2 or amzn23) and the architecture
+      - BUILD_LOG="build_${amzn_version}_${architecture}.log"
+
+      # Print all environment variables to the log file
+      # Amazon Linux 2023 verion will print only to the AL23 log 
+      - echo "$al23_version_echo" | tee -a $BUILD_LOG
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
       
   build:
     commands:
+      # Print the current working directory to the log file
       - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
-      - echo "Building agent image" 2>&1 | tee -a $BUILD_LOG
-      - AGENT_VERSION=$(cat VERSION)
-      - AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.x86_64.rpm"
-      - AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.x86_64.rpm"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Define the path for the ecs-init RPM file
+      - AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.${architecture}.rpm"
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
       - cd ../../../..
@@ -58,26 +79,18 @@ phases:
         fi
       - cd aws/amazon-ecs-agent
 
-      # Build Amazon Linux 2 RPM
+      # Build Amazon Linux RPM
       - GO111MODULE=auto
       - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
-      - ls
-      
-      # Rename artifacts for architecture
-      - |
-        if [[ $architecture == "arm64" ]] ; then
-          AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.aarch64.rpm"
-          AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.aarch64.rpm"
-        fi
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+      - ls
 
   post_build:
     commands:
 
 artifacts:
   files:
-    - $AMZN_LINUX_2_RPM
-    - $AMZN_LINUX_2023_RPM
+    - $AMZN_LINUX_RPM
     - $BUILD_LOG
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
 
