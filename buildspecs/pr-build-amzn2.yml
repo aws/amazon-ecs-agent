@@ -19,38 +19,33 @@ phases:
            ;;
         esac
 
-      # Set up proper go version
       - GOVERSION="$(cat GO_VERSION)"
-      - BUILD_LOG="build_${architecture}.log"
-      - GOLANG_TAR="go${GOVERSION}.linux-${architecture}.tar.gz"
+      - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
+      - echo $architecture
+      - echo $AL23_VERSION
 
-      # Need to install GOLANG explicitly as required versions do not come preinstalled
-      # Remove existing go installation (goenv utility) and install downloaded binaries
-      - rm -rf /root/.goenv/
-      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} | tee $BUILD_LOG
-      - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} | tee -a $BUILD_LOG
+      # Use if/then function to install go version depending on Amazon Linux version
+      # AL 2023 uses package manager dnf and AL2 uses package manager yum
+      - |
+        if [[ "$CODEBUILD_BUILD_IMAGE" == *"amazonlinux:2023"* ]]; then
+          sudo dnf --releasever="$AL23_VERSION" install -y golang-${GOVERSION}
+        else
+          sudo yum install -y golang
+        fi
 
-      # Set appropriate environment variables
-      #- export GOROOT=/usr/local/go
-      #- export GOPATH=$HOME/go
-      #- export GOBIN=$GOPATH/bin
-      #- export PATH=$PATH:$GOROOT/bin:$GOBIN
-
-
-      # Install GO to ensure version is up-to-date on OS
-      #- sudo yum install golang -y
       - sudo rm -rf /root/.goenv # removes default goroot for AMD build
       - sudo rm -rf /usr/local/go/bin/go # removes default goroot for ARM build
+      - BUILD_LOG="build_${architecture}.log"
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
       
   build:
     commands:
-      - go version
       - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
       - echo "Building agent image" 2>&1 | tee -a $BUILD_LOG
       - AGENT_VERSION=$(cat VERSION)
       - AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.x86_64.rpm"
+      - AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.x86_64.rpm"
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
       # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
@@ -72,7 +67,9 @@ phases:
       - |
         if [[ $architecture == "arm64" ]] ; then
           AMZN_LINUX_2_RPM="ecs-init-${AGENT_VERSION}-1.amzn2.aarch64.rpm"
+          AMZN_LINUX_2023_RPM="ecs-init-${AGENT_VERSION}-1.amzn2023.aarch64.rpm"
         fi
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
   post_build:
     commands:
@@ -80,5 +77,7 @@ phases:
 artifacts:
   files:
     - $AMZN_LINUX_2_RPM
+    - $AMZN_LINUX_2023_RPM
+    - $BUILD_LOG
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
 
