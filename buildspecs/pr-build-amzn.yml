@@ -81,7 +81,7 @@ phases:
 
       # Build Amazon Linux RPM
       - GO111MODULE=auto
-      - make amazon-linux-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      - make amazon-linux-rpm-codebuild 2>&1 | tee -a $BUILD_LOG
       - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
 
       # Rename artifacts for architecture
