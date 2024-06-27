@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: aws
+    GITHUBUSERNAME: Ephylouise
 
 phases:
   install:
