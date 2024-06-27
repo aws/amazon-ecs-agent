@@ -8,8 +8,29 @@ env:
 phases:
   install:
     commands:
-      - architecture=""
+      # Same buildspec used for different Amazon Linuc versions - detect verison to use in Go installation
+      - |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          case $ID:$VERSION_ID in
+            amzn:2)
+              amzn_version="amzn2"
+              ;;
+            amzn:2023)
+              amzn_version="amzn2023"
+              ;;
+            *)
+              echo "Unsupported Linux distribution: $ID:$VERSION_ID"
+              exit 1
+              ;;
+          esac
+        else
+          echo "Unable to detect the Linux distribution"
+          exit 1
+        fi
+
       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - architecture=""
       - case $(uname -m) in
            x86_64)
              architecture="amd64"
@@ -19,14 +40,9 @@ phases:
            ;;
         esac
 
-      # Same buildspec for four separte CodeBuild jobs with different environment images
-      # Set version and CodeBuild image variables
+      # Identify the correct AL2023 version to use in the Go installation
       - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
       - AGENT_VERSION=$(cat VERSION)
-      - AL2_ARM="amazonlinux2-aarch64-standard:2.0"
-      - AL2023_ARM="amazonlinux2-aarch64-standard:3.0"
-      - AL2_AMD="amazonlinux2-x86_64-standard:4.0"
-      - AL2023_AMD="amazonlinux2-x86_64-standard:5.0"
 
       # Need to install GOLANG explicitly as required versions do not come preinstalled
       # Remove existing go installation (goenv utility) and install downloaded binaries
@@ -37,17 +53,17 @@ phases:
       # Amazon Linux 2023 uses package manager DNF, while older versions use YUM
       # Set the appropriate AL23 version echo string to include in build log
       - |
-        if [[ "$CODEBUILD_BUILD_IMAGE" == *"$AL2023_ARM"* || "$CODEBUILD_BUILD_IMAGE" == *"$AL2023_AMD"* ]]; then
+        if [[ "$amzn_version" = "amzn2023" ]]; then
           sudo dnf --releasever="$AL23_VERSION" update -y
           sudo yum install -y golang
           amzn_version="amzn2023"
           al23_version_echo="Amazon Linux 2023 Version: $AL23_VERSION"
-        elif [[ "$CODEBUILD_BUILD_IMAGE" == *"$AL2_ARM"* || "$CODEBUILD_BUILD_IMAGE" == *"$AL2_AMD"* ]]; then
+        elif [[ "$amzn_version" = "amzn2" ]]; then
           sudo yum install -y golang
           amzn_version="amzn2"
           al23_version_echo=""
         else
-          echo "Unsupported Amazon Linux version in the build image: $CODEBUILD_BUILD_IMAGE"
+          echo "Unsupported Amazon Linux version"
           exit 1
         fi
 

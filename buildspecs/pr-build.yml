@@ -62,8 +62,8 @@ phases:
       # Building agent tars
       - GO111MODULE=auto
       - make release-agent 2>&1 | tee -a $BUILD_LOG
-      - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
       - make generic-rpm-integrated 2>&1 | tee -a $BUILD_LOG
+      - make -C ./ecs-agent/daemonimages/csidriver 2>&1 | tee -a $BUILD_LOG
 
       # Build Windows executable
       - make docker-release TARGET_OS="windows" 2>&1 | tee -a $BUILD_LOG
@@ -88,8 +88,8 @@ phases:
 artifacts:
   files:
     - $ECS_AGENT_TAR
-    - $CSI_DRIVER_TAR
     - $ECS_AGENT_RPM
-    - $WINDOWS_EXE
     - $BUILD_LOG
+    - $CSI_DRIVER_TAR
+    - $WINDOWS_EXE
   name: $CODEBUILD_RESOLVED_SOURCE_VERSION
