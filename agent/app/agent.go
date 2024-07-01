@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -377,8 +376,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
-	agent.initMetricsEngine()
-
 	loadPauseErr := agent.loadPauseContainer()
 	if loadPauseErr != nil {
 		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
@@ -628,20 +625,6 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	agent.latestSeqNumberTaskManifest = &savedData.latestTaskManifestSeqNum
 
 	return savedData.taskEngine, currentEC2InstanceID, nil
-}
-
-func (agent *ecsAgent) initMetricsEngine() {
-	// In case of a panic during set-up, we will recover quietly and resume
-	// normal Agent execution.
-	defer func() {
-		if r := recover(); r != nil {
-			seelog.Errorf("MetricsEngine Set-up panicked. Recovering quietly: %s", r)
-		}
-	}()
-
-	// We init the global MetricsEngine before we publish metrics
-	metrics.MustInit(agent.cfg)
-	metrics.PublishMetrics()
 }
 
 // newDoctorWithHealthchecks creates a new doctor and also configures
