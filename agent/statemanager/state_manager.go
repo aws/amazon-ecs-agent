@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
 
 	"github.com/cihub/seelog"
 )
@@ -239,7 +238,6 @@ func AddSaveable(name string, saveable Saveable) Option {
 // Save triggers a save to file, though respects a minimum save interval to wait
 // between saves.
 func (manager *basicStateManager) Save() error {
-	defer metrics.MetricsEngineGlobal.RecordStateManagerMetric("SAVE")()
 	manager.saveTimesLock.Lock()
 	defer manager.saveTimesLock.Unlock()
 	if time.Since(manager.lastSave) >= minSaveInterval {
