@@ -1,0 +1,125 @@
+version: 0.2
+
+env:
+  variables:
+    # Github username of the forked repo on which to make builds
+    GITHUBUSERNAME: aws
+
+phases:
+  install:
+    commands:
+      # Same buildspec used for different Amazon Linux versions - detect verison to use in Go installation
+      - |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          case $ID:$VERSION_ID in
+            amzn:2)
+              amzn_version="amzn2"
+              ;;
+            amzn:2023)
+              amzn_version="amzn2023"
+              ;;
+            *)
+              echo "Unsupported Linux distribution: $ID:$VERSION_ID"
+              exit 1
+              ;;
+          esac
+        else
+          echo "Unable to detect the Linux distribution"
+          exit 1
+        fi
+
+      # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
+      - architecture=""
+      - case $(uname -m) in
+           x86_64)
+             architecture="amd64"
+           ;;
+           aarch64)
+             architecture="arm64"
+           ;;
+        esac
+
+      # Identify the correct AL2023 version to use in the Go installation
+      # Ref: https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html
+      # xmllint is required to find the latest distribution release from releasemd.xml in us-west-2
+      - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
+      - AGENT_VERSION=$(cat VERSION)
+
+      # Need to install GOLANG explicitly as required versions do not come preinstalled
+      # Remove existing go installation (goenv utility)
+      - sudo rm -rf /root/.goenv
+      - sudo rm -rf /usr/local/go/bin/go 
+
+      # Define the Go version to install
+      - GOVERSION="$(cat GO_VERSION)"
+      
+      # Install Go and define variables based on Amazon Linux version (2 or 2023)
+      # Amazon Linux 2023 uses package manager DNF, while older versions use YUM
+      # Set the appropriate AL23 version echo string to include in build log
+      - |
+        if [[ "$amzn_version" = "amzn2023" ]]; then
+          sudo dnf --releasever="$AL23_VERSION" update -y
+          sudo yum install -y golang-$GOVERSION
+          amzn_version="amzn2023"
+          al23_version_echo="Amazon Linux 2023 Version: $AL23_VERSION"
+        elif [[ "$amzn_version" = "amzn2" ]]; then
+          sudo yum install -y golang-$GOVERSION
+          amzn_version="amzn2"
+          al23_version_echo=""
+        else
+          echo "Unsupported Amazon Linux version"
+          exit 1
+        fi
+
+      # Define the log file with AL version (amzn2 or amzn23) and the architecture
+      - BUILD_LOG="build_${amzn_version}_${architecture}.log"
+
+      # Print all environment variables to the log file
+      # Amazon Linux 2023 verion will print only to the AL23 log 
+      - echo "$al23_version_echo" | tee -a $BUILD_LOG
+      - which go | tee -a $BUILD_LOG
+      - go version | tee -a $BUILD_LOG
+      
+  build:
+    commands:
+      # Print the current working directory to the log file
+      - echo "build_id = $CODEBUILD_LOG_PATH" 2>&1 | tee -a $BUILD_LOG
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Define the path for the ecs-init RPM file
+      - AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.x86_64.rpm"
+
+      # Path readjustment for codebuild testing with fork and setting GOPATH appropriately
+      - cd ../../../..
+      - export GOPATH=$GOPATH:$(pwd)
+      - cd src/github.com
+      - |
+        if [[ $GITHUBUSERNAME != "aws" ]]; then
+          mv $GITHUBUSERNAME aws
+        fi
+      - cd aws/amazon-ecs-agent
+
+      # Build Amazon Linux RPM
+      - GO111MODULE=auto
+      - make amazon-linux-rpm-codebuild 2>&1 | tee -a $BUILD_LOG
+      - echo $(pwd) 2>&1 | tee -a $BUILD_LOG
+
+      # Rename artifacts for architecture
+      - |
+        if [[ $architecture == "arm64" ]] ; then
+          AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.aarch64.rpm"
+        fi
+
+      # List directory files to view artifacts in build log 
+      - ls
+
+  post_build:
+    commands:
+
+artifacts:
+  files:
+    - $AMZN_LINUX_RPM
+    - $BUILD_LOG
+  name: $CODEBUILD_RESOLVED_SOURCE_VERSION
+
