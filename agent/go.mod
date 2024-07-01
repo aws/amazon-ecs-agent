@@ -27,7 +27,6 @@ require (
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.8.4
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -39,8 +38,6 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cilium/ebpf v0.9.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -62,7 +59,6 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
-	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rootless-containers/rootlesskit v1.1.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect

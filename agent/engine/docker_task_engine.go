@@ -40,7 +40,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
@@ -836,7 +835,6 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 // checkTaskState inspects the state of all containers within a task and writes
 // their state to the managed task's container channel.
 func (engine *DockerTaskEngine) checkTaskState(task *apitask.Task) {
-	defer metrics.MetricsEngineGlobal.RecordTaskEngineMetric("CHECK_TASK_STATE")()
 	for _, container := range task.Containers {
 		dockerID, err := engine.getDockerID(task, container)
 		if err != nil {
@@ -1142,7 +1140,6 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 
 // AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
-	defer metrics.MetricsEngineGlobal.RecordTaskEngineMetric("ADD_TASK")()
 	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager,
 		engine.resourceFields, engine.client, engine.ctx)
 	if err != nil {
