@@ -92,7 +92,7 @@ func (rt *RestartTracker) ShouldRestart(exitCode *int, startedAt time.Time,
 	if !rt.LastRestartAt.IsZero() {
 		startTime = rt.LastRestartAt
 	}
-	if time.Since(startTime) < time.Duration(rt.RestartPolicy.RestartAttemptPeriod)*time.Second {
+	if time.Since(startTime).Seconds() < float64(rt.RestartPolicy.RestartAttemptPeriod) {
 		return false, "attempt reset period has not elapsed"
 	}
 	return true, ""
