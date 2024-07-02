@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: A Cloudformation template to build Agent artifacts on PR creation and modification. It spawns CodeBuild projects for different architectures which trigger agent artifact builds for PR creation and modification, and store the artifacts in an S3 bucket.
+Description: A Cloudformation template to build Agent artifacts on PR creation, modification, and merges. It spawns CodeBuild projects for different architectures which trigger agent artifact builds for PR creation, modification, and merges, and store the artifacts in an S3 bucket.
 
 Parameters:
   GithubFullRepoName:
@@ -31,7 +31,7 @@ Resources:
         Type: S3
       BadgeEnabled: false
       ConcurrentBuildLimit: 10
-      Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
@@ -54,19 +54,19 @@ Resources:
         # so they have to be listed separately
         FilterGroups:
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '5080306' # prateekchaudhry
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '4751028' # fierlion
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
@@ -85,7 +85,7 @@ Resources:
         Type: S3
       BadgeEnabled: false
       ConcurrentBuildLimit: 10
-      Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
@@ -108,19 +108,19 @@ Resources:
         # so they have to be listed separately
         FilterGroups:
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '5080306' # prateekchaudhry
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '4751028' # fierlion
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
@@ -139,7 +139,7 @@ Resources:
         Type: S3
       BadgeEnabled: false
       ConcurrentBuildLimit: 10
-      Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
@@ -162,19 +162,19 @@ Resources:
         # so they have to be listed separately
         FilterGroups:
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '5080306' # prateekchaudhry
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '4751028' # fierlion
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
@@ -193,7 +193,7 @@ Resources:
         Type: S3
       BadgeEnabled: false
       ConcurrentBuildLimit: 10
-      Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation and updates, and artifacts are saved in S3
+      Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
@@ -216,25 +216,235 @@ Resources:
         # so they have to be listed separately
         FilterGroups:
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '5080306' # prateekchaudhry
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '4751028' # fierlion
           - - Type: EVENT
-              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED'
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
             - Type: BASE_REF
               Pattern: !Sub '^${GithubBranchName}$'
             - Type: ACTOR_ACCOUNT_ID
               Pattern: '3102848' # YashdalfTheGray
         Webhook: true
       Visibility: PRIVATE
+
+  # Creates a CodeBuild project for Amazon Linux 2 ARM    
+  Amzn2ArmProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (ARM) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:2.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: ARM_CONTAINER
+      Name: !Sub '${BuildProjectName}-amzn2-arm'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmzn2Arm
+      Source:
+        BuildSpec: buildspecs/pr-build-amzn.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE
+
+  # Creates a CodeBuild project for Amazon Linux 2 AMD
+  Amzn2AmdProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:4.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      Name: !Sub '${BuildProjectName}-amzn2-amd'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmzn2Amd
+      Source:
+        BuildSpec: buildspecs/pr-build-amzn.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE
+
+  # Creates a CodeBuild project for Amazon Linux 2023 ARM
+  Amzn2023ArmProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (ARM) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: ARM_CONTAINER
+      Name: !Sub '${BuildProjectName}-amzn2023-arm'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmzn2023Arm
+      Source:
+        BuildSpec: buildspecs/pr-build-amzn.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE
+
+  # Creates a CodeBuild project for Amazon Linux 2023 AMD
+  Amzn2023AmdProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Location: !Ref BuildBucketName
+        NamespaceType: NONE
+        OverrideArtifactName: true
+        Packaging: NONE
+        Path: development
+        Type: S3
+      BadgeEnabled: false
+      ConcurrentBuildLimit: 10
+      Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      Name: !Sub '${BuildProjectName}-amzn2023-amd'
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !Ref ServiceRoleAmzn2023Amd
+      Source:
+        BuildSpec: buildspecs/pr-build-amzn.yml
+        Location: !Ref GithubFullRepoName
+        Type: GITHUB
+      TimeoutInMinutes: 60
+      Triggers:
+        BuildType: BUILD
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '5080306' # prateekchaudhry
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '4751028' # fierlion
+          - - Type: EVENT
+              Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED,PULL_REQUEST_MERGED'
+            - Type: BASE_REF
+              Pattern: !Sub '^${GithubBranchName}$'
+            - Type: ACTOR_ACCOUNT_ID
+              Pattern: '3102848' # YashdalfTheGray
+        Webhook: true
+      Visibility: PRIVATE     
+  
+  # Defines the service roles for the CodeBuild projects
   ServiceRoleAmd:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -277,7 +487,7 @@ Resources:
                   - 's3:GetBucketAcl'
                   - 's3:GetBucketLocation'
           PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'   
   ServiceRoleUbuntuAmd:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -406,4 +616,176 @@ Resources:
                   - 's3:GetBucketAcl'
                   - 's3:GetBucketLocation'
           PolicyName: !Sub '${AWS::StackName}-ServicePolicyUbuntuArm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuArm'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuArm'   
+  ServiceRoleAmzn2Arm:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-arm"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-arm:*"
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*'
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2Arm'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2Arm'
+  ServiceRoleAmzn2Amd:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-amd"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-amd:*"
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*'
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2Amd'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2Amd'
+  ServiceRoleAmzn2023Arm:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-arm"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-arm:*"
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*'
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2023Arm'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2023Arm'
+  ServiceRoleAmzn2023Amd:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Description: Service role, allow access to CW and S3
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-amd"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-amd:*"
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+              - Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource:
+                  - !Sub '${BuildBucketArn}/*'
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2023Amd'
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2023Amd'
