@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -354,6 +355,17 @@ func TestEngineSynchronize(t *testing.T) {
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testEngineSynchronize"
 	testTask := createTestTask(taskArn)
 	testTask.Containers[0].Image = testVolumeImage
+	containerRestartPolicy := &restart.RestartPolicy{
+		Enabled:              true,
+		IgnoredExitCodes:     []int{0},
+		RestartAttemptPeriod: 60,
+	}
+	testTask.Containers[0].RestartPolicy = &restart.RestartPolicy{
+		Enabled:              containerRestartPolicy.Enabled,
+		IgnoredExitCodes:     containerRestartPolicy.IgnoredExitCodes,
+		RestartAttemptPeriod: containerRestartPolicy.RestartAttemptPeriod,
+	}
+	testTask.Containers[0].RestartTracker = restart.NewRestartTracker(*testTask.Containers[0].RestartPolicy)
 
 	// Start a task
 	go taskEngine.AddTask(testTask)
@@ -379,6 +391,8 @@ func TestEngineSynchronize(t *testing.T) {
 		Name:                containerBeforeSync.Container.Name,
 		SentStatusUnsafe:    apicontainerstatus.ContainerRunning,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		RestartPolicy:       containerRestartPolicy,
+		RestartTracker:      restart.NewRestartTracker(*containerRestartPolicy),
 	}
 	task := &apitask.Task{
 		Arn: taskArn,
@@ -418,6 +432,12 @@ func TestEngineSynchronize(t *testing.T) {
 	imageStateAfterSync := state.AllImageStates()
 	assert.Len(t, imageStateAfterSync, 1)
 	assert.Equal(t, *imageStateAfterSync[0], *imageStates[0])
+
+	assert.Equal(t, *containerAfterSync.Container.RestartPolicy, *containerBeforeSync.Container.RestartPolicy)
+	assert.Equal(t, containerAfterSync.Container.RestartTracker.GetRestartCount(),
+		containerBeforeSync.Container.RestartTracker.GetRestartCount())
+	assert.Equal(t, containerAfterSync.Container.RestartTracker.GetLastRestartAt(),
+		containerBeforeSync.Container.RestartTracker.GetLastRestartAt())
 
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(testTask)
@@ -954,4 +974,100 @@ func TestImageWithDigestInteg(t *testing.T) {
 	err = taskEngine.(*DockerTaskEngine).removeContainer(task, container)
 	require.NoError(t, err, "failed to remove container during cleanup")
 	removeImage(t, localRegistryBusyboxImage)
+}
+
+// TestContainerDoesNotRestartWhenShouldNotRestart tests that a task's container does not restart upon exit when
+// the container is not eligible for restart.
+func TestContainerDoesNotRestartWhenShouldNotRestart(t *testing.T) {
+	tcs := []struct {
+		name                   string
+		containerExitAfterSecs int
+		restartPolicy          *restart.RestartPolicy
+	}{
+		{
+			name:                   "container restart policy disabled",
+			containerExitAfterSecs: 2,
+			restartPolicy: &restart.RestartPolicy{
+				Enabled:              false,
+				RestartAttemptPeriod: 1,
+			},
+		},
+		{
+			name:                   "container restart policy not configured",
+			containerExitAfterSecs: 2,
+			restartPolicy:          nil,
+		},
+		{
+			name:                   "container restart policy enabled but ignores container exit code",
+			containerExitAfterSecs: 2,
+			restartPolicy: &restart.RestartPolicy{
+				Enabled:              true,
+				IgnoredExitCodes:     []int{0},
+				RestartAttemptPeriod: 1,
+			},
+		},
+		{
+			name:                   "container restart policy enabled but container exits before restart attempt period",
+			containerExitAfterSecs: 2,
+			restartPolicy: &restart.RestartPolicy{
+				Enabled:              true,
+				RestartAttemptPeriod: 3,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Prepare task engine.
+			cfg := defaultTestConfigIntegTest()
+			taskEngine, done, _ := setup(cfg, nil, t)
+			defer done()
+
+			// Prepare task.
+			container := createTestContainerWithRestartPolicy(localRegistryBusyboxImage+":latest", "container",
+				tc.containerExitAfterSecs, tc.restartPolicy)
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{container},
+			}
+
+			// Start task.
+			go taskEngine.AddTask(task)
+
+			// Status of task and container should transition to RUNNING.
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyTaskManifestPulledStateChange(t, taskEngine)
+			verifyContainerRunningStateChange(t, taskEngine)
+			verifyTaskRunningStateChange(t, taskEngine)
+
+			// Wait until container has exited.
+			time.Sleep(time.Duration(tc.containerExitAfterSecs) * time.Second)
+
+			// Status of task and container should transition to STOPPED.
+			verifyContainerStoppedStateChange(t, taskEngine)
+			verifyTaskStoppedStateChange(t, taskEngine)
+
+			// Check restart information/count for the task's container.
+			engineTask, ok := taskEngine.GetTaskByArn(task.Arn)
+			require.True(t, ok, "unable to get task with task ARN %s from task engine", task.Arn)
+			require.NotNil(t, task.Containers, "task's containers slice is nil when should be not nil")
+			require.Greater(t, len(task.Containers), 0,
+				"task's container slice length is 0 when should be greater than 0")
+			if container.RestartPolicyEnabled() {
+				require.Equal(t, 0, engineTask.Containers[0].RestartTracker.GetRestartCount(),
+					"container's restart count is not 0 when it should be 0")
+			} else {
+				require.Nil(t, engineTask.Containers[0].RestartTracker,
+					"container's restart tracker (including restart count info) is set when it should not be set")
+			}
+
+			// Clean up.
+			err := taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+			require.NoError(t, err, "failed to remove container during cleanup")
+			removeImage(t, localRegistryBusyboxImage)
+		})
+	}
 }
