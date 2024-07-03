@@ -113,7 +113,7 @@ PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole -Version $agen
 
 ### Build ECS Agent Image (Linux)
 
-ECS Agent can also be built locally from source on a linux machine. Use the following steps to build ECS Agent
+ECS Agent can also be built locally from source on a Linux machine. Use the following steps to build ECS Agent
 * Get ECS Agent source
 ```
 git clone https://github.com/aws/amazon-ecs-agent.git
