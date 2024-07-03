@@ -38,6 +38,7 @@ import (
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -278,6 +279,20 @@ func createTestContainerWithImageAndName(image string, name string) *apicontaine
 		CPU:                 256,
 		Memory:              128,
 	}
+}
+
+func createTestContainerWithRestartPolicy(image, name string, exitAfterSecs int,
+	restartPolicy *restart.RestartPolicy) *apicontainer.Container {
+	container := createTestContainerWithImageAndName(image, name)
+	container.RestartPolicy = restartPolicy
+	if container.RestartPolicyEnabled() {
+		container.RestartTracker = restart.NewRestartTracker(*container.RestartPolicy)
+	}
+
+	// Container should exit after `exitAfterSecs` seconds have elapsed.
+	container.Command = []string{"sh", "-c", fmt.Sprintf("sleep %d", exitAfterSecs)}
+
+	return container
 }
 
 func waitForTaskCleanup(t *testing.T, taskEngine TaskEngine, taskArn string, seconds int) {
