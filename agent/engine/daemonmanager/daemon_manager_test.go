@@ -19,15 +19,17 @@ package daemonmanager
 import (
 	"encoding/json"
 	"fmt"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
-	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/stretchr/testify/assert"
 	"io/fs"
 	"strings"
 	"testing"
 	"time"
+
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateDaemonTask(t *testing.T) {
