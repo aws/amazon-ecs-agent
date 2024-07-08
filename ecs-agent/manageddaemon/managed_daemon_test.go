@@ -25,14 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	TestImageName        = "TestDaemon"
-	TestImageTag         = "testTag"
-	TestImagePath        = "/test/image/path"
-	TestAgentPath        = "/test/agent/path"
-	TestMountPointVolume = "testVolume"
-)
-
 func TestNewManagedDaemon(t *testing.T) {
 	cases := []struct {
 		testName       string
@@ -113,8 +105,8 @@ func TestSetMountPoints(t *testing.T) {
 			tmd.SetMountPoints(mountPoints)
 			assert.Equal(t, c.ExpectedMountCount, len(tmd.GetFilteredMountPoints()), "Wrong value for Set Managed Daemon Mounts")
 			// validate required mount points
-			expectedAgentCommunicationMount := fmt.Sprintf("/var/run/ecs/%s/", TestImageName)
-			expectedApplicationLogMount := fmt.Sprintf("/var/log/ecs/daemons/%s/", TestImageName)
+			expectedAgentCommunicationMount := fmt.Sprintf(ExpectedAgentCommunicationMountFormat, TestImageName)
+			expectedApplicationLogMount := fmt.Sprintf(ExpectedApplicationLogMountFormat, TestImageName)
 			assert.Equal(t, expectedAgentCommunicationMount, tmd.GetAgentCommunicationMount().SourceVolumeHostPath)
 			assert.Equal(t, expectedApplicationLogMount, tmd.GetApplicationLogMount().SourceVolumeHostPath)
 		})
