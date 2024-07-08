@@ -15,11 +15,16 @@ package manageddaemon
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 
 	dockercontainer "github.com/docker/docker/api/types/container"
+)
+
+const (
+	imageFileName = "ebs-csi-driver.tar"
 )
 
 type ManagedDaemon struct {
@@ -186,10 +191,10 @@ func (md *ManagedDaemon) SetMountPoints(mountPoints []*MountPoint) error {
 	var mountPointMap = make(map[string]*MountPoint)
 	for _, mp := range mountPoints {
 		if mp.SourceVolumeID == defaultAgentCommunicationMount {
-			mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultAgentCommunicationPathHostRoot, md.imageName)
+			mp.SourceVolumeHostPath = filepath.Join(defaultAgentCommunicationPathHostRoot, md.imageName)
 			md.agentCommunicationMount = mp
 		} else if mp.SourceVolumeID == defaultApplicationLogMount {
-			mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultApplicationLogPathHostRoot, md.imageName)
+			mp.SourceVolumeHostPath = filepath.Join(defaultApplicationLogPathHostRoot, md.imageName)
 			md.applicationLogMount = mp
 		} else {
 			mountPointMap[mp.SourceVolumeID] = mp

@@ -16,8 +16,6 @@
 package csiclient
 
 import (
-	"path/filepath"
-
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 )
 
@@ -26,7 +24,3 @@ const (
 	DefaultSocketName     = "csi-driver.sock"
 	DefaultSocketHostPath = "/var/run/ecs/"
 )
-
-func DefaultSocketFilePath() string {
-	return filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName)
-}

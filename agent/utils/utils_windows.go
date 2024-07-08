@@ -18,6 +18,8 @@ package utils
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -79,4 +81,19 @@ func IsAvailableDriveLetter(hostPath string) bool {
 		return true
 	}
 	return false
+}
+
+func MkdirAllAndChown(path string, perm fs.FileMode, uid, gid int) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(path, perm)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to mkdir %s: %+v", path, err)
+	}
+	// ToDo: Fix this. Commenting for now as Chown does not work for Windows
+	//if err = os.Chown(path, uid, gid); err != nil {
+	//	return fmt.Errorf("failed to chown %s: %+v", path, err)
+	//}
+	return nil
 }
