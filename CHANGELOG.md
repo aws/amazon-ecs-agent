@@ -1,4 +1,10 @@
 # Changelog
+# 1.85.0
+* Enhancement - Remove unused "generic metrics" code and processing. [#4225](https://github.com/aws/amazon-ecs-agent/pull/4225)
+* Enhancement - Add new build specs for building Agent artifacts for Amazon Linux and Windows. [#4220](https://github.com/aws/amazon-ecs-agent/pull/4220)
+* Enhancement - Update dev-build CloudFormation stack to add new CodeBuild jobs for building artifacts for Amazon Linux. [#4228](https://github.com/aws/amazon-ecs-agent/pull/4228)
+* Enhancement - Change ECS service's dependency on Docker service from 'requires' to 'wants' and check if docker is running during ECS service PreStart. [#4233](https://github.com/aws/amazon-ecs-agent/pull/4233)
+
 # 1.84.0
 * Enhancement - CannotPullContainerError/ASM error message enhancements [#4181](https://github.com/aws/amazon-ecs-agent/pull/4181)
 * Enhancement - update go to 1.22.3 [#4184](https://github.com/aws/amazon-ecs-agent/pull/4184)
