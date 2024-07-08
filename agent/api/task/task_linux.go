@@ -19,8 +19,11 @@ package task
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
@@ -280,7 +283,7 @@ func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, cre
 	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }
 
-func (task *Task) getTaskUser(container *container.Container) string {
+func (task *Task) getTaskUser(container *apicontainer.Container) string {
 	var user string
 	if (task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer()) ||
 		container.Type == apicontainer.ContainerServiceConnectRelay {
