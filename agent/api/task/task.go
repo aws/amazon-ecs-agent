@@ -530,6 +530,7 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 // that has a restart policy configured and enabled.
 func (task *Task) initRestartTrackers() {
 	for _, c := range task.Containers {
+		c.InitRestartPolicyTODO()
 		if c.RestartPolicyEnabled() {
 			c.RestartTracker = restart.NewRestartTracker(*c.RestartPolicy)
 		}

@@ -653,6 +653,16 @@ func (c *Container) IsEssential() bool {
 	return c.Essential
 }
 
+// TODO: this function will eventually not be necessary as these values should be
+// sent by the ECS backend in the task payload
+func (c *Container) InitRestartPolicyTODO() {
+	c.RestartPolicy = &restart.RestartPolicy{
+		Enabled:              true,
+		RestartAttemptPeriod: 60,
+		IgnoredExitCodes:     []int{},
+	}
+}
+
 // RestartPolicyEnabled returns whether the restart policy is defined and enabled
 func (c *Container) RestartPolicyEnabled() bool {
 	c.lock.RLock()
