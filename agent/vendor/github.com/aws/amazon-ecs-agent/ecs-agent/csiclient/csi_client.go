@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -31,6 +32,10 @@ const (
 	protocol        = "unix"
 	fsTypeBlockName = "block"
 )
+
+func DefaultSocketFilePath() string {
+	return filepath.Join(DefaultSocketHostPath, DefaultImageName, DefaultSocketName)
+}
 
 // CSIClient is an interface that specifies all supported operations in the Container Storage Interface(CSI)
 // driver for Agent uses. The CSI driver provides many volume related operations to manage the lifecycle of
@@ -63,7 +68,8 @@ func NewCSIClient(socketIn string) csiClient {
 }
 
 // Returns a CSI client configured with default settings.
-// The default socket filepath is "/var/run/ecs/ebs-csi-driver/csi-driver.sock".
+// The default socket filepath is defined in the respective DefaultSocketFilePath method
+// for each platform (linux/windows).
 func NewDefaultCSIClient() CSIClient {
 	client := NewCSIClient(DefaultSocketFilePath())
 	return &client

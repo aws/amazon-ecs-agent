@@ -19,6 +19,7 @@ package task
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -212,6 +213,11 @@ func (task *Task) addFSxWindowsFileServerResource(
 	task.updateContainerVolumeDependency(vol.Name)
 
 	return nil
+}
+
+// For Windows task run via the docker DaemonManager, we will run them as ContainerAdministrator
+func (task *Task) getTaskUser(container *container.Container) string {
+	return "ContainerAdministrator"
 }
 
 // BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
