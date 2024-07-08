@@ -38,7 +38,6 @@ import (
 
 const (
 	nodeStageTimeout = 2 * time.Second
-	hostMountDir     = "/mnt/ecs/ebs"
 )
 
 type EBSWatcher struct {
