@@ -280,6 +280,15 @@ func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, cre
 	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }
 
+func (task *Task) getTaskUser(container *container.Container) string {
+	var user string
+	if (task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer()) ||
+		container.Type == apicontainer.ContainerServiceConnectRelay {
+		user = strconv.Itoa(serviceconnect.AppNetUID)
+	}
+	return user
+}
+
 // BuildCNIConfigAwsvpc builds a list of CNI network configurations for the task.
 // If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
 func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
