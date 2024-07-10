@@ -26,5 +26,6 @@ const (
 	// This is the permission that is set on the named pipes created for the ManagedDaemon
 	daemonMountPermission fs.FileMode = 0755
 	// This is the permission set that is used for setting the access control on the log file
-	daemonLogPermission fs.FileMode = 0777
+	daemonLogPermission               fs.FileMode = 0777
+	rawContainerConfigurationTemplate             = "{\"Healthcheck\":%s, \"User\":\"ContainerAdministrator\"}"
 )

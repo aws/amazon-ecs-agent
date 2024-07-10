@@ -19,9 +19,9 @@ package manageddaemon
 const (
 	TestImageName                         = "TestDaemon"
 	TestImageTag                          = "testTag"
-	TestImagePath                         = "C:\\ProgramData\\Amazon\\ECS\\data"
-	TestAgentPath                         = "C:\\Program Files\\Amazon\\ECS"
+	TestImagePath                         = "C:\\ProgramData\\Amazon\\ECS\\data\\"
+	TestAgentPath                         = "C:\\Program Files\\Amazon\\ECS\\"
 	TestMountPointVolume                  = "testVolume"
-	ExpectedAgentCommunicationMountFormat = "C:\\ProgramData\\Amazon\\ECS\\%s"
-	ExpectedApplicationLogMountFormat     = "C:\\ProgramData\\Amazon\\ECS\\log\\%s"
+	ExpectedAgentCommunicationMountFormat = "C:\\ProgramData\\Amazon\\ECS\\%s\\"
+	ExpectedApplicationLogMountFormat     = "C:\\ProgramData\\Amazon\\ECS\\log\\%s\\"
 )

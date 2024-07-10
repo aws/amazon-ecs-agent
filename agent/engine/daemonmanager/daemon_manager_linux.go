@@ -21,9 +21,10 @@ import (
 )
 
 const (
-	daemonUID                                   = 0
-	daemonMountPermission           fs.FileMode = 0755
-	daemonLogPermission             fs.FileMode = 0777
-	ecsAgentLogFileENV                          = "ECS_LOGFILE"
-	defaultECSAgentLogPathContainer             = "/log"
+	daemonUID                                     = 0
+	daemonMountPermission             fs.FileMode = 0755
+	daemonLogPermission               fs.FileMode = 0777
+	ecsAgentLogFileENV                            = "ECS_LOGFILE"
+	defaultECSAgentLogPathContainer               = "/log"
+	rawContainerConfigurationTemplate             = "{\"Healthcheck\":%s, \"User\":\"0\"}"
 )
