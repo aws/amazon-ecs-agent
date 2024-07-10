@@ -17,6 +17,5 @@
 package ebs
 
 const (
-	csiDriverSocketAddress = "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock"
-	hostMountDir           = "C:\\var\\lib\\kubelet"
+	hostMountDir = "C:\\ProgramData\\Amazon\\ECS\\ebs\\"
 )

@@ -147,7 +147,7 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	// in the result string. This will override the configurations that comes with the container image
 	// (CMD for example)
 	// TODO update User in raw config to use either runAs user or runAsRoot from managed daemon config
-	rawConfig = fmt.Sprintf("{\"Healthcheck\":%s, \"User\":\"0\"}", string(rawHealthConfig))
+	rawConfig = fmt.Sprintf(rawContainerConfigurationTemplate, string(rawHealthConfig))
 	daemonTask := &apitask.Task{
 		Arn:                 fmt.Sprintf("arn:::::/%s-%s", dm.managedDaemon.GetImageName(), uuid.NewUUID()),
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
