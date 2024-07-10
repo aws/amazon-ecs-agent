@@ -97,7 +97,7 @@ func DefaultConfig() Config {
 
 	programFiles := utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
 	ecsBinaryDir := filepath.Join(programFiles, "Amazon", "ECS")
-	defaultCSIDriverSocketPath := filepath.Join(ecsBinaryDir, "ebs-csi-driver", "csi-driver.sock")
+	defaultCSIDriverSocketPath := filepath.Join(ecsRoot, "ebs-csi-driver", "csi-driver.sock")
 
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    BooleanDefaultFalse{Value: ExplicitlyDisabled},

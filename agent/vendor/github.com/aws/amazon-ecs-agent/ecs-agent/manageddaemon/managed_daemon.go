@@ -191,10 +191,10 @@ func (md *ManagedDaemon) SetMountPoints(mountPoints []*MountPoint) error {
 	var mountPointMap = make(map[string]*MountPoint)
 	for _, mp := range mountPoints {
 		if mp.SourceVolumeID == defaultAgentCommunicationMount {
-			mp.SourceVolumeHostPath = filepath.Join(defaultAgentCommunicationPathHostRoot, md.imageName)
+			mp.SourceVolumeHostPath = filepath.Join(defaultAgentCommunicationPathHostRoot, md.imageName) + string(filepath.Separator)
 			md.agentCommunicationMount = mp
 		} else if mp.SourceVolumeID == defaultApplicationLogMount {
-			mp.SourceVolumeHostPath = filepath.Join(defaultApplicationLogPathHostRoot, md.imageName)
+			mp.SourceVolumeHostPath = filepath.Join(defaultApplicationLogPathHostRoot, md.imageName) + string(filepath.Separator)
 			md.applicationLogMount = mp
 		} else {
 			mountPointMap[mp.SourceVolumeID] = mp
@@ -211,7 +211,7 @@ func (md *ManagedDaemon) SetMountPoints(mountPoints []*MountPoint) error {
 // Used to set or to update the agentCommunicationMount
 func (md *ManagedDaemon) SetAgentCommunicationMount(mp *MountPoint) error {
 	if mp.SourceVolumeID == defaultAgentCommunicationMount {
-		mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultAgentCommunicationPathHostRoot, md.imageName)
+		mp.SourceVolumeHostPath = filepath.Join(defaultAgentCommunicationPathHostRoot, md.imageName) + string(filepath.Separator)
 		md.agentCommunicationMount = mp
 		return nil
 	} else {
@@ -222,7 +222,7 @@ func (md *ManagedDaemon) SetAgentCommunicationMount(mp *MountPoint) error {
 // Used to set or to update the applicationLogMount
 func (md *ManagedDaemon) SetApplicationLogMount(mp *MountPoint) error {
 	if mp.SourceVolumeID == defaultApplicationLogMount {
-		mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultApplicationLogPathHostRoot, md.imageName)
+		mp.SourceVolumeHostPath = filepath.Join(defaultApplicationLogPathHostRoot, md.imageName) + string(filepath.Separator)
 		md.applicationLogMount = mp
 		return nil
 	} else {

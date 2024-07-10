@@ -17,5 +17,5 @@
 package ebs
 
 const (
-	CSIDriverSocketPath = "C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock"
+	CSIDriverSocketPath = "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock"
 )

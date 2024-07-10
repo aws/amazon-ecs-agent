@@ -1747,13 +1747,16 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Env:          dockerEnv,
 	}
 
+	if (task.IsServiceConnectEnabled() && container == task.GetServiceConnectContainer()) ||
+		container.Type == apicontainer.ContainerServiceConnectRelay {
+		containerConfig.User = strconv.Itoa(serviceconnect.AppNetUID)
+	}
+
 	if container.DockerConfig.Config != nil {
 		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
-
-	containerConfig.User = task.getTaskUser(container)
 
 	if container.HealthCheckType == apicontainer.DockerHealthCheckType && containerConfig.Healthcheck == nil {
 		return nil, &apierrors.DockerClientConfigError{

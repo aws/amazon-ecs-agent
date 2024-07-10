@@ -22,5 +22,5 @@ import (
 )
 
 func TestDefaultSocketFilePath(t *testing.T) {
-	assert.Equal(t, "C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock", DefaultSocketFilePath())
+	assert.Equal(t, "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock", DefaultSocketFilePath())
 }
