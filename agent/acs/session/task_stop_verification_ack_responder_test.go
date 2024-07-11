@@ -18,11 +18,14 @@ package session
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -44,7 +47,7 @@ func setupTaskStopVerificationAckTest(t *testing.T) *taskStopVerificationAckTest
 	manifestMessageIDAccessor := NewManifestMessageIDAccessor()
 	manifestMessageIDAccessor.SetMessageID(testconst.MessageID)
 	taskStopVerificationAckResponder := acssession.NewTaskStopVerificationACKResponder(
-		NewTaskStopper(taskEngine),
+		NewTaskStopper(taskEngine, data.NewNoopClient()),
 		manifestMessageIDAccessor,
 		metrics.NewNopEntryFactory())
 
@@ -58,9 +61,27 @@ func setupTaskStopVerificationAckTest(t *testing.T) *taskStopVerificationAckTest
 // defaultTasksOnInstance returns a baseline map of tasks that simulates/tracks the tasks on an instance.
 func defaultTasksOnInstance() map[string]*task.Task {
 	return map[string]*task.Task{
-		taskARN1: {Arn: taskARN1, DesiredStatusUnsafe: apitaskstatus.TaskRunning},
-		taskARN2: {Arn: taskARN2, DesiredStatusUnsafe: apitaskstatus.TaskRunning},
-		taskARN3: {Arn: taskARN3, DesiredStatusUnsafe: apitaskstatus.TaskRunning},
+		taskARN1: {Arn: taskARN1, DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Containers: []*container.Container{
+				{
+					Name:                containerName1,
+					DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				},
+			}},
+		taskARN2: {Arn: taskARN2, DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Containers: []*container.Container{
+				{
+					Name:                containerName2,
+					DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				},
+			}},
+		taskARN3: {Arn: taskARN3, DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+			Containers: []*container.Container{
+				{
+					Name:                containerName3,
+					DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				},
+			}},
 	}
 }
 
@@ -99,21 +120,24 @@ func TestTaskStopVerificationAckResponderStopsMultipleTasks(t *testing.T) {
 
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
-	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN2]).Do(func(task *task.Task) {
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	})
-	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN3]).Do(func(task *task.Task) {
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	})
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
 	handleTaskStopVerificationAck(taskStopVerificationAck)
 
-	// Only task2 and task3 should be stopped.
+	// Only task2 and task3 and their containers should be stopped.
 	assert.Equal(t, apitaskstatus.TaskRunning, tasksOnInstance[taskARN1].GetDesiredStatus())
+	container1, ok := tasksOnInstance[taskARN1].ContainerByName(containerName1)
+	assert.True(t, ok)
+	assert.Equal(t, apicontainerstatus.ContainerRunning, container1.GetDesiredStatus())
 	assert.Equal(t, apitaskstatus.TaskStopped, tasksOnInstance[taskARN2].GetDesiredStatus())
+	container2, ok := tasksOnInstance[taskARN2].ContainerByName(containerName2)
+	assert.True(t, ok)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, container2.GetDesiredStatus())
 	assert.Equal(t, apitaskstatus.TaskStopped, tasksOnInstance[taskARN3].GetDesiredStatus())
+	container3, ok := tasksOnInstance[taskARN3].ContainerByName(containerName3)
+	assert.True(t, ok)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, container3.GetDesiredStatus())
 
 }
 
@@ -149,22 +173,15 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN1).Return(tasksOnInstance[taskARN1], true)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
-	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN1]).Do(func(task *task.Task) {
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	})
-	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN2]).Do(func(task *task.Task) {
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	})
-	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN3]).Do(func(task *task.Task) {
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-	})
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
 	handleTaskStopVerificationAck(taskStopVerificationAck)
 
-	// All tasks on instance should be stopped.
+	// All tasks and containers on instance should be stopped.
 	for _, task := range tasksOnInstance {
 		assert.Equal(t, apitaskstatus.TaskStopped, task.GetDesiredStatus())
+		assert.Equal(t, 1, len(task.Containers))
+		assert.Equal(t, apicontainerstatus.ContainerStopped, task.Containers[0].GetDesiredStatus())
 	}
 }

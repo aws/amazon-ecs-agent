@@ -14,6 +14,7 @@
 package session
 
 import (
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -23,12 +24,14 @@ import (
 // taskStopper implements the TaskStopper interface defined in ecs-agent module.
 type taskStopper struct {
 	taskEngine engine.TaskEngine
+	dataClient data.Client
 }
 
 // NewTaskStopper creates a new taskStopper.
-func NewTaskStopper(taskEngine engine.TaskEngine) *taskStopper {
+func NewTaskStopper(taskEngine engine.TaskEngine, dataClient data.Client) *taskStopper {
 	return &taskStopper{
 		taskEngine: taskEngine,
+		dataClient: dataClient,
 	}
 }
 
@@ -39,7 +42,13 @@ func (ts *taskStopper) StopTask(taskARN string) {
 			loggerfield.TaskARN: task.Arn,
 		})
 		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-		ts.taskEngine.AddTask(task)
+		task.UpdateDesiredStatus()
+		if err := ts.dataClient.SaveTask(task); err != nil {
+			logger.Error("Failed to save data for task", logger.Fields{
+				loggerfield.TaskARN: task.Arn,
+				loggerfield.Error:   err,
+			})
+		}
 	} else {
 		logger.Debug("Task from task stop verification ACK not found on the instance", logger.Fields{
 			loggerfield.TaskARN: taskARN,
