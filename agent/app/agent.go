@@ -1044,7 +1044,7 @@ func (agent *ecsAgent) startACSSession(
 	manifestMessageIDAccessor := agentacs.NewManifestMessageIDAccessor()
 	sequenceNumberAccessor := agentacs.NewSequenceNumberAccessor(agent.latestSeqNumberTaskManifest, agent.dataClient)
 	taskComparer := agentacs.NewTaskComparer(taskEngine)
-	taskStopper := agentacs.NewTaskStopper(taskEngine)
+	taskStopper := agentacs.NewTaskStopper(taskEngine, agent.dataClient)
 
 	acsSession := session.NewSession(agent.containerInstanceARN,
 		agent.cfg.Cluster,
