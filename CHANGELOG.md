@@ -1,4 +1,7 @@
 # Changelog
+# 1.85.1
+* Bugfix - UpdateDesiredStatus for task stop verification ACK. [#4240](https://github.com/aws/amazon-ecs-agent/pull/4240)
+
 # 1.85.0
 * Enhancement - Remove unused "generic metrics" code and processing. [#4225](https://github.com/aws/amazon-ecs-agent/pull/4225)
 * Enhancement - Add new build specs for building Agent artifacts for Amazon Linux and Windows. [#4220](https://github.com/aws/amazon-ecs-agent/pull/4220)
