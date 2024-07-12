@@ -15,7 +15,7 @@
 [Unit]
 Description=Amazon Elastic Container Service - container agent
 Documentation=https://aws.amazon.com/documentation/ecs/
-Requires=docker.service
+Wants=docker.service
 After=docker.service
 After=cloud-final.service
 
@@ -25,6 +25,7 @@ Restart=on-failure
 RestartPreventExitStatus=5
 RestartSec=10s
 EnvironmentFile=-/etc/ecs/ecs.config
+ExecStartPre=/bin/bash -c 'if [ $(/usr/bin/systemctl is-active docker) != "active" ]; then exit 1; fi'
 ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
 ExecStart=/usr/libexec/amazon-ecs-init start
 ExecStop=/usr/libexec/amazon-ecs-init stop

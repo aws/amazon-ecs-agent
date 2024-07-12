@@ -34,11 +34,14 @@ import (
 )
 
 const (
-	initialSeqNum = 11
-	nextSeqNum    = 12
-	taskARN1      = "arn1"
-	taskARN2      = "arn2"
-	taskARN3      = "arn3"
+	initialSeqNum  = 11
+	nextSeqNum     = 12
+	taskARN1       = "arn1"
+	taskARN2       = "arn2"
+	taskARN3       = "arn3"
+	containerName1 = "name1"
+	containerName2 = "name2"
+	containerName3 = "name3"
 )
 
 var expectedTaskManifestAck = &ecsacs.AckRequest{
