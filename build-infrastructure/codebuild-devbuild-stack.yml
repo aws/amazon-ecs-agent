@@ -46,13 +46,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
   UbuntuArmProject:
     Type: 'AWS::CodeBuild::Project'
@@ -81,13 +74,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
   ArmProject:
     Type: 'AWS::CodeBuild::Project'
@@ -116,13 +102,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
   AmdProject:
     Type: 'AWS::CodeBuild::Project'
@@ -151,13 +130,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
 
   # Creates a CodeBuild project for Amazon Linux 2 ARM    
@@ -188,13 +160,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
 
   # Creates a CodeBuild project for Amazon Linux 2 AMD
@@ -225,13 +190,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
 
   # Creates a CodeBuild project for Amazon Linux 2023 ARM
@@ -262,13 +220,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE
 
   # Creates a CodeBuild project for Amazon Linux 2023 AMD
@@ -299,13 +250,6 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Triggers:
-        BuildType: BUILD
-        # Config list of developers allowlisted to create builds when creating PRs to GithubBranchName
-        # This allow list can be modified using aws-cli or aws-sdk
-        # CodeBuild also supports pattern matches using regex, but this is not useful for listing different Github IDs
-        # so they have to be listed separately
-        Webhook: true
       Visibility: PRIVATE     
   
   # Defines the service roles for the CodeBuild projects
