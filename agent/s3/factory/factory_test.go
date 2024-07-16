@@ -13,7 +13,6 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-
 package factory
 
 import (
@@ -35,7 +34,7 @@ func TestCreateAWSConfig(t *testing.T) {
 	region := "us-west-2"
 	// Test without FIPS enabled
 	config.SetFIPSEnabled(false)
-	cfg := createAWSConfig(region, creds)
+	cfg := createAWSConfig(region, creds, false)
 	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
 	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
 	credsValue, err := cfg.Credentials.Get()
@@ -45,12 +44,23 @@ func TestCreateAWSConfig(t *testing.T) {
 	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
 	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
 	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
-
-	// Test with FIPS enabled
+	// Test with FIPS enabled in a non-FIPS compliant region
 	config.SetFIPSEnabled(true)
-	cfg = createAWSConfig(region, creds)
+	cfg = createAWSConfig(region, creds, false)
 	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
 	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
+	credsValue, err = cfg.Credentials.Get()
+	assert.NoError(t, err)
+	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
+	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
+	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
+	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
+	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
+	// Test with FIPS enabled in a FIPS compliant region
+	fipsRegion := "us-gov-west-1"
+	cfg = createAWSConfig(fipsRegion, creds, true)
+	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
+	assert.Equal(t, fipsRegion, aws.StringValue(cfg.Region), "Region should be set")
 	credsValue, err = cfg.Credentials.Get()
 	assert.NoError(t, err)
 	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
