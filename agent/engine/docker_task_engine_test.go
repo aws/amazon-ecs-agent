@@ -4166,6 +4166,23 @@ func TestPullContainerManifest(t *testing.T) {
 			expectedResult: dockerapi.DockerContainerMetadata{},
 		},
 		{
+			name:              "schema1 image - skip digest resolution",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				versioned := mock_dockerapi.NewMockDockerClient(c)
+				versioned.EXPECT().
+					PullImageManifest(gomock.Any(), "myimage", nil).
+					Return(
+						registry.DistributionInspect{
+							Descriptor: ocispec.Descriptor{MediaType: "application/vnd.docker.distribution.manifest.v1+json"},
+						},
+						nil)
+				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{},
+		},
+		{
 			name:              "image pull not required - image inspect fails",
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
