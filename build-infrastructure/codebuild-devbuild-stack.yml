@@ -23,7 +23,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -52,7 +52,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -81,7 +81,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -110,7 +110,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -141,7 +141,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -172,7 +172,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -203,7 +203,7 @@ Resources:
     Type: 'AWS::CodeBuild::Project'
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
