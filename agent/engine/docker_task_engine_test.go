@@ -4147,6 +4147,24 @@ func TestPullContainerManifest(t *testing.T) {
 			name:  "digest is not resolved if already available in image reference",
 			image: "public.ecr.aws/library/alpine@" + testDigest.String(),
 		},
+		// New test case for isSchema1 function
+		{
+			name:              "schema1 image - skip digest resolution",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				versioned := mock_dockerapi.NewMockDockerClient(c)
+				versioned.EXPECT().
+					PullImageManifest(gomock.Any(), "myimage", nil).
+					Return(
+						registry.DistributionInspect{
+							Descriptor: ocispec.Descriptor{MediaType: "application/vnd.docker.distribution.manifest.v1+json"},
+						},
+						nil)
+				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{},
+		},
 		{
 			name:              "image pull not required - image inspect fails",
 			image:             "myimage",
@@ -4229,7 +4247,12 @@ func TestPullContainerManifest(t *testing.T) {
 				versioned.EXPECT().
 					PullImageManifest(gomock.Any(), "myimage", nil).
 					Return(
-						registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}},
+						registry.DistributionInspect{
+							Descriptor: ocispec.Descriptor{
+								MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+								Digest:    testDigest,
+							},
+						},
 						nil)
 				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
 			},
@@ -4261,8 +4284,10 @@ func TestPullContainerManifest(t *testing.T) {
 						PullImageManifest(gomock.Any(), "myimage", expectedRegistryAuthData).
 						Return(
 							registry.DistributionInspect{
-								Descriptor: ocispec.Descriptor{Digest: digest.Digest(testDigest.String())},
-							},
+								Descriptor: ocispec.Descriptor{
+									MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+									Digest:    testDigest,
+								}},
 							nil)
 					d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
 				},
