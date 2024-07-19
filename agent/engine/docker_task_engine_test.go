@@ -4147,7 +4147,6 @@ func TestPullContainerManifest(t *testing.T) {
 			name:  "digest is not resolved if already available in image reference",
 			image: "public.ecr.aws/library/alpine@" + testDigest.String(),
 		},
-		// New test case for isSchema1 function
 		{
 			name:              "schema1 image - skip digest resolution",
 			image:             "myimage",
