@@ -49,6 +49,7 @@ const (
 	ImageLastUsedAt         = "imageLastUsedAt"
 	ImagePullSucceeded      = "imagePullSucceeded"
 	ImageDigest             = "imageDigest"
+	ImageMediatype          = "imageMediatype"
 	ContainerName           = "containerName"
 	ContainerImage          = "containerImage"
 	ContainerExitCode       = "containerExitCode"

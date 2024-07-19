@@ -1352,6 +1352,22 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 			})
 			return dockerapi.DockerContainerMetadata{Error: manifestPullErr}
 		}
+		imageManifestMediatype := distInspect.Descriptor.MediaType
+		logger.Info("Fetched image manifest Mediatype for container from registry", logger.Fields{
+			field.TaskARN:        task.Arn,
+			field.ContainerName:  container.Name,
+			field.ImageMediatype: imageManifestMediatype,
+			field.Image:          container.Image,
+		})
+		if strings.Contains(imageManifestMediatype, "application/vnd.docker.distribution.manifest.v1") {
+			logger.Info("skipping digest resolution for manifest v2 schema 1,", logger.Fields{
+				field.TaskARN:        task.Arn,
+				field.ContainerName:  container.Name,
+				field.ImageMediatype: imageManifestMediatype,
+				field.Image:          container.Image,
+			})
+			return dockerapi.DockerContainerMetadata{}
+		}
 		imageManifestDigest = distInspect.Descriptor.Digest
 		logger.Info("Fetched image manifest digest for container from registry", logger.Fields{
 			field.TaskARN:       task.Arn,
