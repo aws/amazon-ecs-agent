@@ -114,6 +114,7 @@ const (
 	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
 	containerNetworkMode        = "none"
 	serviceConnectContainerName = "service-connect"
+	mediaTypeManifestV2         = "application/vnd.docker.distribution.manifest.v2+json"
 )
 
 var (
@@ -4196,6 +4197,23 @@ func TestPullContainerManifest(t *testing.T) {
 			expectedDigest: testDigest.String(),
 		},
 		{
+			name:              "image pull required - skip digest resolution for schema1 image",
+			image:             "myimage",
+			imagePullBehavior: config.ImagePullAlwaysBehavior,
+			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
+				versioned := mock_dockerapi.NewMockDockerClient(c)
+				versioned.EXPECT().
+					PullImageManifest(gomock.Any(), "myimage", nil).
+					Return(
+						registry.DistributionInspect{
+							Descriptor: ocispec.Descriptor{MediaType: mediaTypeManifestV1},
+						},
+						nil)
+				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
+			},
+			expectedResult: dockerapi.DockerContainerMetadata{},
+		},
+		{
 			name:              "image pull required - required docker API version unsupported",
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullAlwaysBehavior,
@@ -4229,7 +4247,12 @@ func TestPullContainerManifest(t *testing.T) {
 				versioned.EXPECT().
 					PullImageManifest(gomock.Any(), "myimage", nil).
 					Return(
-						registry.DistributionInspect{Descriptor: ocispec.Descriptor{Digest: testDigest}},
+						registry.DistributionInspect{
+							Descriptor: ocispec.Descriptor{
+								MediaType: mediaTypeManifestV2,
+								Digest:    testDigest,
+							},
+						},
 						nil)
 				d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)
 			},
@@ -4261,7 +4284,10 @@ func TestPullContainerManifest(t *testing.T) {
 						PullImageManifest(gomock.Any(), "myimage", expectedRegistryAuthData).
 						Return(
 							registry.DistributionInspect{
-								Descriptor: ocispec.Descriptor{Digest: digest.Digest(testDigest.String())},
+								Descriptor: ocispec.Descriptor{
+									MediaType: mediaTypeManifestV2,
+									Digest:    digest.Digest(testDigest.String()),
+								},
 							},
 							nil)
 					d.EXPECT().WithVersion(dockerclient.Version_1_35).Return(versioned, nil)

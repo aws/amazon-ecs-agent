@@ -114,6 +114,11 @@ const (
 	stopContainerBackoffJitter     = 0.2
 	stopContainerBackoffMultiplier = 1.3
 	stopContainerMaxRetryCount     = 5
+
+	// mediaTypeManifestV1 specifies the media type for v1 manifest
+	mediaTypeManifestV1 = "application/vnd.docker.distribution.manifest.v1+json"
+	// mediaTypeSignedManifestV1 specifies the media type for signed v1 manifest
+	mediaTypeSignedManifestV1 = "application/vnd.docker.distribution.manifest.v1+prettyjws"
 )
 
 var newExponentialBackoff = retry.NewExponentialBackoff
@@ -1295,6 +1300,7 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 				},
 			}
 		}
+
 		imageManifestDigest = parsedDigest
 		logger.Info("Fetched image manifest digest for container from local image inspect", logger.Fields{
 			field.TaskARN:       task.Arn,
@@ -1351,6 +1357,22 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 				field.Error:         manifestPullErr,
 			})
 			return dockerapi.DockerContainerMetadata{Error: manifestPullErr}
+		}
+		imageManifestMediaType := distInspect.Descriptor.MediaType
+		logger.Info("Fetched image manifest MediaType for container from registry", logger.Fields{
+			field.TaskARN:        task.Arn,
+			field.ContainerName:  container.Name,
+			field.ImageMediaType: imageManifestMediaType,
+			field.Image:          container.Image,
+		})
+		if strings.Contains(imageManifestMediaType, mediaTypeManifestV1) || strings.Contains(imageManifestMediaType, mediaTypeSignedManifestV1) {
+			logger.Info("skipping digest resolution for manifest v2 schema 1", logger.Fields{
+				field.TaskARN:        task.Arn,
+				field.ContainerName:  container.Name,
+				field.ImageMediaType: imageManifestMediaType,
+				field.Image:          container.Image,
+			})
+			return dockerapi.DockerContainerMetadata{}
 		}
 		imageManifestDigest = distInspect.Descriptor.Digest
 		logger.Info("Fetched image manifest digest for container from registry", logger.Fields{
