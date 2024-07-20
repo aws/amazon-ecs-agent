@@ -1365,7 +1365,7 @@ func (engine *DockerTaskEngine) pullContainerManifest(
 			field.ImageMediaType: imageManifestMediaType,
 			field.Image:          container.Image,
 		})
-		if strings.Contains(imageManifestMediaType, mediaTypeManifestV1) || strings.Contains(imageManifestMediaType, mediaTypeSignedManifestV1) {
+		if imageManifestMediaType == mediaTypeManifestV1 || imageManifestMediaType == mediaTypeSignedManifestV1 {
 			logger.Info("skipping digest resolution for manifest v2 schema 1", logger.Fields{
 				field.TaskARN:        task.Arn,
 				field.ContainerName:  container.Name,
