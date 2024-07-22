@@ -1854,31 +1854,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// We're currently relying on AWS SDK Go V1 to obtain/format the correct cloudwatch endpoint.
-	// This is will need to be updated once we upgrade to AWS SDK Go V2.
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
-		region := hostConfig.LogConfig.Config["awslogs-region"]
-		endpoint := ""
-		dnsSuffix := ""
-		partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
-		if !ok {
-			logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
-				"region":           region,
-				"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
-			})
-			dnsSuffix = ep.AwsPartition().DNSSuffix()
-		} else {
-			resolvedEndpoint, err := partition.EndpointFor("logs", region)
-			if err == nil {
-				endpoint = resolvedEndpoint.URL
-			} else {
-				dnsSuffix = partition.DNSSuffix()
-			}
-		}
-		if endpoint == "" {
-			endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
-		}
-		hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
+		hostConfig.LogConfig = getAwslogsLogConfigEndpoint(hostConfig)
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
@@ -2036,6 +2013,51 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	})
 	container.SetRuntimeID(metadata.DockerID)
 	return metadata
+}
+
+// If awslogs-endpoint is already set in logConfig, do a check that "https://" prefix exists in endpoint provided.
+// This is needed because some versions of Docker/awslogs driver using aws-sdk-go-v2 fail to do API calls if the
+// endpoint does not have "https://" prefix
+//
+// If awslogs-endpoint is not set in logConfig, set it in agent explicitly based on awslogs-region  before passing
+// to awslogs driver
+func getAwslogsLogConfigEndpoint(hostConfig *dockercontainer.HostConfig) dockercontainer.LogConfig {
+	logConfig := hostConfig.LogConfig
+	region := logConfig.Config["awslogs-region"]
+	dnsSuffix := ""
+	endpoint, ok := logConfig.Config["awslogs-endpoint"]
+
+	// If awslogs-endpoint has been passed to agent by ACS, check for prefix "https://"
+	// Add if it does not exist, as different versions of Docker behave differently if the prefix exists/does not exist
+	if ok {
+		if !strings.HasPrefix(logConfig.Config["awslogs-endpoint"], "https://") {
+			endpoint = "https://" + logConfig.Config["awslogs-endpoint"]
+		}
+		logConfig.Config["awslogs-endpoint"] = endpoint
+		return logConfig
+	}
+
+	// If awslogs-endpoint has not been passed to agent by ACS, set it using agent's aws-go-sdk using provided region
+	partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
+	if !ok {
+		logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
+			"region":           region,
+			"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+		})
+		dnsSuffix = ep.AwsPartition().DNSSuffix()
+	} else {
+		resolvedEndpoint, err := partition.EndpointFor("logs", region)
+		if err == nil {
+			endpoint = resolvedEndpoint.URL
+		} else {
+			dnsSuffix = partition.DNSSuffix()
+		}
+	}
+	if endpoint == "" {
+		endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
+	}
+	logConfig.Config["awslogs-endpoint"] = endpoint
+	return logConfig
 }
 
 func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {

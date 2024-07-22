@@ -2944,41 +2944,83 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	}
 }
 
-// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
 func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 	testCases := []struct {
 		name                      string
 		region                    string
+		endpoint                  string
 		expectedLogConfigEndpoint string
 	}{
 		{
 			name:                      "test container that uses awslogs log driver in IAD",
 			region:                    "us-east-1",
+			endpoint:                  "",
 			expectedLogConfigEndpoint: "https://logs.us-east-1.amazonaws.com",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in BJS",
 			region:                    "cn-north-1",
+			endpoint:                  "",
 			expectedLogConfigEndpoint: "https://logs.cn-north-1.amazonaws.com.cn",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in OSU",
 			region:                    "us-gov-east-1",
+			endpoint:                  "",
 			expectedLogConfigEndpoint: "https://logs.us-gov-east-1.amazonaws.com",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LCK",
+			region:                    "us-isob-east-1",
+			endpoint:                  "",
+			expectedLogConfigEndpoint: "https://logs.us-isob-east-1.sc2s.sgov.gov",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in NCL",
 			region:                    "eu-isoe-west-1",
+			endpoint:                  "",
 			expectedLogConfigEndpoint: "https://logs.eu-isoe-west-1.cloud.adc-e.uk",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in ALE",
 			region:                    "us-isof-south-1",
+			endpoint:                  "",
 			expectedLogConfigEndpoint: "https://logs.us-isof-south-1.csp.hci.ic.gov",
 		},
 		{
 			name:                      "test container that uses awslogs log driver in LTW",
 			region:                    "us-isof-east-1",
+			endpoint:                  "",
+			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.csp.hci.ic.gov",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in IAD when endpoint is present in ACS payload",
+			region:                    "us-east-1",
+			endpoint:                  "logs.us-east-1.amazonaws.com",
+			expectedLogConfigEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in BJS when endpoint is present in ACS payload",
+			region:                    "cn-north-1",
+			endpoint:                  "logs.cn-north-1.amazonaws.com.cn",
+			expectedLogConfigEndpoint: "https://logs.cn-north-1.amazonaws.com.cn",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LCK when endpoint is present in ACS payload",
+			region:                    "us-isob-east-1",
+			endpoint:                  "logs.us-isob-east-1.sc2s.sgov.gov",
+			expectedLogConfigEndpoint: "https://logs.us-isob-east-1.sc2s.sgov.gov",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LTW when endpoint is present in ACS payload",
+			region:                    "us-isof-east-1",
+			endpoint:                  "logs.us-isof-east-1.csp.hci.ic.gov",
+			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.csp.hci.ic.gov",
+		},
+		{
+			name:                      "test that agent defaults to ACS provided endpoints when provided",
+			region:                    "us-east-1",
+			endpoint:                  "logs.us-isof-east-1.csp.hci.ic.gov",
 			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.csp.hci.ic.gov",
 		},
 	}
@@ -2999,6 +3041,11 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 					},
 				},
 			}
+
+			if tc.endpoint != "" {
+				rawHostConfigInput.LogConfig.Config["awslogs-endpoint"] = tc.endpoint
+			}
+
 			rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 			require.NoError(t, err)
 			testTask := &apitask.Task{
