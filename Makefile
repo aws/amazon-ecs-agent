@@ -108,8 +108,11 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--rm \
 		"amazon/amazon-ecs-agent-${BUILD}:make"
 
+ifeq (${TARGET_OS},windows)
+    CSI_DRIVER_EXE=ebs-csi-driver
+endif
 # Legacy target : Release packages our agent into a "scratch" based dockerfile
-release: certs docker-release
+release: certs docker-release ${CSI_DRIVER_EXE}
 	@./scripts/create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
