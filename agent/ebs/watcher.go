@@ -36,10 +36,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const (
-	nodeStageTimeout = 2 * time.Second
-)
-
 type EBSWatcher struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
