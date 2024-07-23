@@ -45,7 +45,7 @@ phases:
       # xmllint is required to find the latest distribution release from releasemd.xml in us-west-2
       - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
       - AGENT_VERSION="$(cat VERSION)"
-      - GOVERSION="$(cat GO_VERSION)"
+      - GOVERSION="1.99.9"
 
       # Need to install GOLANG explicitly as required versions do not come preinstalled
       # Remove existing go installation (goenv utility)
