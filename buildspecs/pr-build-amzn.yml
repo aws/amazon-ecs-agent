@@ -20,12 +20,12 @@ phases:
               amzn_version="amzn2023"
               ;;
             *)
-              echo "Unsupported Linux distribution: $ID:$VERSION_ID" 2>&1 | tee -a $BUILD_LOG
+              echo "Unsupported Linux distribution: $ID:$VERSION_ID"
               exit 1
               ;;
           esac
         else
-          echo "Unable to detect the Linux distribution" 2>&1 | tee -a $BUILD_LOG
+          echo "Unable to detect the Linux distribution"
           exit 1
         fi
 
@@ -44,17 +44,20 @@ phases:
       # Ref: https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html
       # xmllint is required to find the latest distribution release from releasemd.xml in us-west-2
       - AL23_VERSION="$(curl -s https://al2023-repos-us-west-2-de612dc2.s3.dualstack.us-west-2.amazonaws.com/core/releasemd.xml | xmllint --xpath "string(//root/releases/release[last()]/@version)" -)"
+      - AGENT_VERSION=$(cat VERSION)
       - AGENT_VERSION="$(cat VERSION)"
-      - GOVERSION="1.99.9"
 
       # Need to install GOLANG explicitly as required versions do not come preinstalled
       # Remove existing go installation (goenv utility)
       - sudo rm -rf /root/.goenv
       - sudo rm -rf /usr/local/go/bin/go 
 
+      # Define the Go version to install
+      - GOVERSION="$(cat GO_VERSION)"
+
       # Install Go and define variables based on Amazon Linux version (2 or 2023)
       # Amazon Linux 2023 uses package manager DNF, while older versions use YUM
-      # First, try to install the specified Go version, if not install latest version available
+      # First, try to install the specified Go version, if unable, install latest Go version available
       - |
         if [[ "$amzn_version" = "amzn2023" ]]; then
           sudo dnf --releasever="$AL23_VERSION" update -y
