@@ -23,14 +23,19 @@ IMAGE_REF?="ebs-csi-driver:latest"
 # caution. See `go help test`
 # unit tests include the coverage profile
 GOTEST=${GO_EXECUTABLE} test -count=1
+ifeq (${TARGET_OS},windows)
+	CSI_DRIVER_BIN=bin/ebs-csi-driver.exe
+else
+	CSI_DRIVER_BIN=bin/ebs-csi-driver
+endif
 
 all: tarfiles/ebs-csi-driver.tar
 
 bin/ebs-csi-driver:
-	CGO_ENABLED=0 go build -ldflags "\
+	GOOS=${TARGET_OS} CGO_ENABLED=0 go build -ldflags "\
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.version=$(CSI_DRIVER_VERSION)\" \
 		-X \"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.buildDate=$(BUILD_DATE)\"" \
-		-o bin/ebs-csi-driver .
+		-o $(CSI_DRIVER_BIN) .
 
 image:
 	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_REF) .
