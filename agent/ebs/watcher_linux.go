@@ -16,7 +16,9 @@
 
 package ebs
 
+import "time"
+
 const (
-	csiDriverSocketAddress = "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
-	hostMountDir           = "/mnt/ecs/ebs"
+	nodeStageTimeout = 2 * time.Second
+	hostMountDir     = "/mnt/ecs/ebs"
 )
