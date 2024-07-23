@@ -75,6 +75,38 @@ func TestGetDigestFromRepoDigests(t *testing.T) {
 			expectedDigest: testDigest2,
 		},
 		{
+			name: "docker.io prefix",
+			repoDigests: []string{
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "docker.io/alpine",
+			expectedDigest: testDigest2,
+		},
+		{
+			name: "docker.io with library prefix",
+			repoDigests: []string{
+				"alpine@" + testDigest2,
+			},
+			imageRef:       "docker.io/library/alpine",
+			expectedDigest: testDigest2,
+		},
+		{
+			name: "docker.io with non-standard image",
+			repoDigests: []string{
+				"repo/image@" + testDigest2,
+			},
+			imageRef:       "docker.io/repo/image",
+			expectedDigest: testDigest2,
+		},
+		{
+			name: "registry-1.docker.io prefix",
+			repoDigests: []string{
+				"registry-1.docker.io/library/alpine@" + testDigest2,
+			},
+			imageRef:       "registry-1.docker.io/library/alpine",
+			expectedDigest: testDigest2,
+		},
+		{
 			name: "repo digest matching imageRef is used - ecr",
 			repoDigests: []string{
 				"public.ecr.aws/library/alpine@" + testDigest1,
@@ -109,7 +141,7 @@ func TestGetDigestFromRepoDigests(t *testing.T) {
 		{
 			name:          "image ref not named",
 			imageRef:      "",
-			expectedError: "failed to parse image reference '': repository name must have at least one component",
+			expectedError: "failed to parse image reference '': invalid reference format",
 		},
 		{
 			name:           "invalid repo digests are skipped",
