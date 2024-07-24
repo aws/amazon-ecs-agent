@@ -4160,8 +4160,9 @@ func TestPullContainerManifest(t *testing.T) {
 			containerName:        "my-sc-container",
 		},
 		{
-			name:  "digest is not resolved if already available in image reference",
-			image: "public.ecr.aws/library/alpine@" + testDigest.String(),
+			name:           "digest is copied if already available in image reference",
+			image:          "public.ecr.aws/library/alpine@" + testDigest.String(),
+			expectedDigest: testDigest.String(),
 		},
 		{
 			name:              "image pull not required - image inspect fails",

@@ -213,7 +213,7 @@ func TestGetCanonicalRef(t *testing.T) {
 			name:           "has tag",
 			imageRef:       "alpine:latest",
 			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
-			expected:       "alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
 		},
 		{
 			name:           "image reference's digest is overwritten",
@@ -231,7 +231,13 @@ func TestGetCanonicalRef(t *testing.T) {
 			name:           "has tag ecr",
 			imageRef:       "public.ecr.aws/library/alpine:latest",
 			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
-			expected:       "public.ecr.aws/library/alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "public.ecr.aws/library/alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+		},
+		{
+			name:           "has tag and digest ecr",
+			imageRef:       "public.ecr.aws/library/alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			manifestDigest: "sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected:       "public.ecr.aws/library/alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
 		},
 	}
 	for _, tc := range tcs {
@@ -243,6 +249,46 @@ func TestGetCanonicalRef(t *testing.T) {
 			} else {
 				assert.EqualError(t, err, tc.expectedError)
 			}
+		})
+	}
+}
+
+func TestDigestExists(t *testing.T) {
+	tcs := []struct {
+		name     string
+		imageRef string
+		expected bool
+	}{
+		{
+			name:     "invalid imageRef",
+			imageRef: "invalid imageRef",
+			expected: false,
+		},
+		{
+			name:     "no tag no digest",
+			imageRef: "public.ecr.aws/library/alpine",
+			expected: false,
+		},
+		{
+			name:     "has tag",
+			imageRef: "public.ecr.aws/library/alpine:latest",
+			expected: false,
+		},
+		{
+			name:     "has tag and digest",
+			imageRef: "public.ecr.aws/library/alpine:latest@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected: true,
+		},
+		{
+			name:     "has digest no tag",
+			imageRef: "public.ecr.aws/library/alpine@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			expected: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := DigestExists(tc.imageRef)
+			assert.Equal(t, ok, tc.expected)
 		})
 	}
 }
