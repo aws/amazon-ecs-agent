@@ -1564,16 +1564,9 @@ func (c *Container) GetImageName() string {
 
 // Checks if the container has a resolved image manifest digest.
 // Always returns false for internal containers as those are out-of-scope of digest resolution.
+// Always returns false when container's image reference contains digest as no digest resolution is needed in that case.
 func (c *Container) DigestResolved() bool {
-	return !c.IsInternal() && c.GetImageDigest() != ""
-}
-
-// Checks if the container's image requires manifest digest resolution.
-// Manifest digest resolution is required if the container's image reference does not
-// have a digest.
-// Always returns false for internal containers as those are out-of-scope of digest resolution.
-func (c *Container) DigestResolutionRequired() bool {
-	return !c.IsInternal() && referenceutil.GetDigestFromImageRef(c.Image) == ""
+	return !c.IsInternal() && c.GetImageDigest() != "" && !referenceutil.DigestExists(c.Image)
 }
 
 // GetRestartAggregationDataForStats gets the restart aggregation data for stats of a container.
