@@ -42,20 +42,14 @@ func GetDigestFromImageRef(imageRef string) digest.Digest {
 // and returns the repo digest's digest.
 func GetDigestFromRepoDigests(repoDigests []string, imageRef string) (digest.Digest, error) {
 	// Parse image reference
-	ref, err := reference.Parse(imageRef)
+	namedRef, err := reference.ParseNormalizedNamed(imageRef)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse image reference '%s': %w", imageRef, err)
-	}
-	namedRef, ok := ref.(reference.Named)
-	if !ok {
-		return "", fmt.Errorf(
-			"failed to parse image reference '%s' as a named reference, it was parsed as '%v'",
-			imageRef, ref)
 	}
 
 	// Find a repo digest matching imageRef and return its digest
 	for _, repoDigest := range repoDigests {
-		repoDigestRef, err := reference.Parse(repoDigest)
+		repoDigestRef, err := reference.ParseNormalizedNamed(repoDigest)
 		if err != nil {
 			logger.Error("Error in parsing repo digest. Skipping it.", logger.Fields{
 				"repoDigest": repoDigest,
