@@ -1876,10 +1876,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// This is a short term solution only for specific regions until AWS SDK Go is upgraded to V2
+	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		region := engine.cfg.AWSRegion
-		if region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
+		if region == "us-isob-east-1" || region == "us-iso-east-1" || region == "us-iso-west-1" || region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
 			endpoint := ""
 			dnsSuffix := ""
 			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
