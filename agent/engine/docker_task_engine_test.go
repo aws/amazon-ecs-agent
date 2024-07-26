@@ -2972,6 +2972,21 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 			region:                    "us-isof-east-1",
 			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.csp.hci.ic.gov",
 		},
+		{
+			name:                      "test container that uses awslogs log driver in LCK",
+			region:                    "us-isob-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-isob-east-1.sc2s.sgov.gov",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in DCA",
+			region:                    "us-iso-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-iso-east-1.c2s.ic.gov",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in APA",
+			region:                    "us-iso-west-1",
+			expectedLogConfigEndpoint: "https://logs.us-iso-west-1.c2s.ic.gov",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
