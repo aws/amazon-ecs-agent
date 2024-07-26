@@ -1,4 +1,8 @@
 # Changelog
+# 1.85.3
+* Bugfix - Revert "Resolving Cloudwatch endpoint in all regions" except isolated regions. [4260](https://github.com/aws/amazon-ecs-agent/pull/4260)
+* Bugfix - Add awslogs-endpoint for isolated regions when creating containers. [#4262](https://github.com/aws/amazon-ecs-agent/pull/4262)
+
 # 1.85.2
 * Bugfix - Disable Digest Resolution for Manifest V2 Schema 1 [#4249](https://github.com/aws/amazon-ecs-agent/pull/4249)
 * Bugfix - Fix digest resolution for locally cached images when image reference in the task payload contains docker.io or docker.io/library prefix [#4251](https://github.com/aws/amazon-ecs-agent/pull/4251)
