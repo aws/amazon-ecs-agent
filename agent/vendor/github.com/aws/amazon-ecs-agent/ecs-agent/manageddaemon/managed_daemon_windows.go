@@ -57,7 +57,7 @@ var (
 	CsiDriverContainerWorkingPath    = "C:\\csi-driver\\"
 	CsiDriverSocketCommunicationPath = "C:\\ebs-csi-driver\\"
 	// This is the path to where the CSIDriver ManagedDaemon image tar file is
-	imageTarPath = filepath.Join(AmazonECSProgramData, "data")
+	imageTarPath = filepath.Join(AmazonECSProgramData, "images")
 
 	// The following two paths are used for agent communication and log paths to be shared with the ManagedDaemon
 	defaultAgentCommunicationPathHostRoot = AmazonECSProgramData
