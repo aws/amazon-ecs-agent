@@ -1,5 +1,5 @@
-//go:build windows && unit
-// +build windows,unit
+//go:build windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,14 +14,8 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package manageddaemon
+package volume
 
 const (
-	TestImageName                         = "TestDaemon"
-	TestImageTag                          = "testTag"
-	TestImagePath                         = "C:\\ProgramData\\Amazon\\ECS\\images\\"
-	TestAgentPath                         = "C:\\Program Files\\Amazon\\ECS\\"
-	TestMountPointVolume                  = "testVolume"
-	ExpectedAgentCommunicationMountFormat = "C:\\ProgramData\\Amazon\\ECS\\%s\\"
-	ExpectedApplicationLogMountFormat     = "C:\\ProgramData\\Amazon\\ECS\\log\\%s\\"
+	EBSSourcePrefix = "C:\\ProgramData\\Amazon\\ECS\\ebs\\"
 )
