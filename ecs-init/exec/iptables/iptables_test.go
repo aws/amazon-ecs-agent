@@ -62,9 +62,9 @@ var (
 		"--to-ports", localhostCredentialsProxyPort,
 	}
 
-	testIPV4RouteInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
-ens5	00000000	01201FAC	0003	0	0	0	00000000	0	0	0                                                                               
-ens5	FEA9FEA9	00000000	0005	0	0	0	FFFFFFFF	0	0	0                                                                               
+	testIPV4RouteInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
+ens5	00000000	01201FAC	0003	0	0	0	00000000	0	0	0
+ens5	FEA9FEA9	00000000	0005	0	0	0	FFFFFFFF	0	0	0
 ens5	00201FAC	00000000	0001	0	0	0	00F0FFFF	0	0	0
 `
 )
@@ -80,6 +80,91 @@ func overrideIPRouteInput(ipv4RouteInput string) func() {
 		getDefaultNetworkInterfaceIPv4 = originalv4
 		// in real environment we'll only set it once, for testing we unset it after executing relevant test cases
 		defaultOffhostIntrospectionInterface = ""
+	}
+}
+
+func TestValidIfName(t *testing.T) {
+	testCases := []struct {
+		ifname      string
+		expectValid bool
+	}{
+		{
+			ifname:      "eth0",
+			expectValid: true,
+		},
+		{
+			ifname:      "eth1",
+			expectValid: true,
+		},
+		{
+			ifname:      "eth24",
+			expectValid: true,
+		},
+		{
+			ifname:      "eth255",
+			expectValid: true,
+		},
+		{
+			ifname:      "myinterfacename",
+			expectValid: true,
+		},
+		{
+			ifname:      "12345",
+			expectValid: true,
+		},
+		{
+			ifname:      "e",
+			expectValid: true,
+		},
+		{
+			ifname:      "ens5",
+			expectValid: true,
+		},
+		{
+			ifname:      "invalidchar",
+			expectValid: true,
+		},
+		{
+			ifname:      "invalid char",
+			expectValid: false,
+		},
+		{
+			ifname:      "invalid:char",
+			expectValid: false,
+		},
+		{
+			ifname:      "invalid/char",
+			expectValid: false,
+		},
+		{
+			ifname:      "ethnameistoolong",
+			expectValid: false,
+		},
+		{
+			ifname:      "ethnameiswaywaywaywaytoolong",
+			expectValid: false,
+		},
+		{
+			ifname:      "",
+			expectValid: false,
+		},
+		{
+			ifname:      ".",
+			expectValid: false,
+		},
+		{
+			ifname:      "..",
+			expectValid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		err := checkValidIfname(tc.ifname)
+		if tc.expectValid {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
 	}
 }
 
@@ -565,7 +650,7 @@ func TestScanIPv4RoutesNoDefaultRoute(t *testing.T) {
 }
 
 func TestScanIPv4RoutesNoDefaultRouteExceptLoopback(t *testing.T) {
-	var testInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+	var testInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
 lo	00000000	01201FAC	0003	0	0	0	00000000	0	0	0
 `
 	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(testInput))
@@ -580,6 +665,17 @@ func TestGetOffhostIntrospectionInterfaceWithEnvOverride(t *testing.T) {
 	iface, err := getOffhostIntrospectionInterface()
 	assert.NoError(t, err)
 	assert.Equal(t, "test_iface", iface)
+}
+
+func TestGetOffhostIntrospectionInterfaceWithEnvOverride_InvalidIfname(t *testing.T) {
+	os.Setenv(offhostIntrospectonAccessInterfaceEnv, "invalid ifname")
+	defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
+	defer overrideIPRouteInput(testIPV4RouteInput)()
+
+	iface, err := getOffhostIntrospectionInterface()
+	assert.NoError(t, err)
+	// falls back to default
+	assert.Equal(t, offhostIntrospectionInterface, iface)
 }
 
 func TestGetOffhostIntrospectionInterfaceUseDefaultV4(t *testing.T) {

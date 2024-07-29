@@ -20,6 +20,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
 	log "github.com/cihub/seelog"
@@ -54,6 +55,8 @@ const (
 	ipv4ZeroAddrInHex                     = "00000000"
 	loopbackInterfaceName                 = "lo"
 	fallbackOffhostIntrospectionInterface = "eth0"
+
+	ifNameSize = 16
 )
 
 var (
@@ -213,10 +216,38 @@ func getBlockIntrospectionOffhostAccessInputChainArgs() []string {
 	}
 }
 
+// checkValidIfname checks that the string is a valid eth interface name. Returns
+// an error if the interface name is invalid.
+// see kernel dev_valid_name function for reference.
+// https://github.com/torvalds/linux/blob/d7e78951a8b8b53e4d52c689d927a6887e6cfadf/net/core/dev.c#L1056-L1079
+func checkValidIfname(name string) error {
+	if name == "" {
+		return fmt.Errorf("Invalid ifname [%s]: empty string not allowed", name)
+	}
+	if len(name) >= ifNameSize {
+		return fmt.Errorf("Invalid ifname [%s]: length of name must be less than %d chars", name, ifNameSize)
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("Invalid ifname [%s]: '.' or '..' not allowed", name)
+	}
+
+	for _, char := range name {
+		if char == '/' || char == ':' || unicode.IsSpace(char) {
+			return fmt.Errorf("Invalid ifname [%s]: invalid character found: space, ':', and '/' not allowed", name)
+		}
+	}
+	return nil
+}
+
 func getOffhostIntrospectionInterface() (string, error) {
 	s := os.Getenv(offhostIntrospectonAccessInterfaceEnv)
 	if s != "" {
-		return s, nil
+		err := checkValidIfname(s)
+		if err != nil {
+			log.Errorf("ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME interface name is invalid, falling back to default. %s", err)
+		} else {
+			return s, nil
+		}
 	}
 	return getDefaultNetworkInterfaceIPv4()
 }
