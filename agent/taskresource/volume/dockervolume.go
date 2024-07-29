@@ -44,7 +44,6 @@ const (
 	DockerVolumeType          = "docker"
 	FSHostVolumeType          = "fshost"
 	netNSFormat               = "/proc/%s/ns/net"
-	EBSSourcePrefix           = "/mnt/ecs/ebs/"
 )
 
 // VolumeResource represents volume resource
