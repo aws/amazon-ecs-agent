@@ -41,6 +41,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -466,6 +467,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
+	task.initRestartTrackers()
+
 	for _, opt := range options {
 		if err := opt(task); err != nil {
 			logger.Error("Could not apply task option", logger.Fields{
@@ -520,6 +523,16 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 			field.TaskID:      task.GetID(),
 			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
 		})
+	}
+}
+
+// initRestartTrackers initializes the restart policy tracker for each container
+// that has a restart policy configured and enabled.
+func (task *Task) initRestartTrackers() {
+	for _, c := range task.Containers {
+		if c.RestartPolicyEnabled() {
+			c.RestartTracker = restart.NewRestartTracker(*c.RestartPolicy)
+		}
 	}
 }
 
