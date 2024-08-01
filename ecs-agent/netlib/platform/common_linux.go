@@ -63,6 +63,10 @@ const (
 	// It is assigned 100 because it is an unrealistically high
 	// value for interface index.
 	indexHighValue = 100
+
+	// srcBRResolv is the path of resolv.conf file on a Bottlerocket host
+	// that we copy to the task namespace when using debug mode.
+	srcBRResolv = "/run/netdog/resolv.conf"
 )
 
 // common will be embedded within every implementation of the platform API.
@@ -520,7 +524,13 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 		return errors.Wrap(err, "unable to create hostname file for netns")
 	}
 
-	err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName), "/etc/resolv.conf", taskDNSConfigFileMode)
+	// Check if the /run/netdog/resolv.conf file exists on the host. For Bottlerocket, instead of /etc/resolv.conf,
+	// this is the file we copy to the task network namespace dns config.
+	var srcResolv = "/etc/resolv.conf"
+	if _, err = c.os.Stat(srcBRResolv); err == nil {
+		srcResolv = srcBRResolv
+	}
+	err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName), srcResolv, taskDNSConfigFileMode)
 	if err != nil {
 		return err
 	}
