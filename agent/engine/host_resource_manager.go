@@ -114,7 +114,7 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		return true, nil
 	}
 
-	ok, err := h.consumable(resources)
+	ok, err, failedResourceKey := h.consumable(resources)
 	if err != nil {
 		logger.Error("Resources failing to consume, error in task resources", logger.Fields{
 			"taskArn":   taskArn,
@@ -138,7 +138,10 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		logger.Info("Resources successfully consumed, continue to task creation", logger.Fields{"taskArn": taskArn})
 		return true, nil
 	}
-	logger.Info("Resources not consumed, enough resources not available", logger.Fields{"taskArn": taskArn})
+	logger.Info("Resources not consumed, enough resources not available", logger.Fields{
+		"taskArn": taskArn,
+		"resource": failedResourceKey,
+	})
 	return false, nil
 }
 
@@ -252,29 +255,29 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 // Helper function for consume to check if resources are consumable with the current account
 // we have for the host resources. Should not call host resource manager lock in this func
 // return values
-func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, error) {
+func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, error, string) {
 	err := h.checkResourcesHealth(resources)
 	if err != nil {
-		return false, err
+		return false, err, nil
 	}
 
 	for resourceKey := range resources {
 		if *resources[resourceKey].Type == "INTEGER" {
 			consumable := h.checkConsumableIntType(resourceKey, resources)
 			if !consumable {
-				return false, nil
+				return false, nil, resourceKey
 			}
 		}
 
 		if *resources[resourceKey].Type == "STRINGSET" {
 			consumable := h.checkConsumableStringSetType(resourceKey, resources)
 			if !consumable {
-				return false, nil
+				return false, nil, resourceKey
 			}
 		}
 	}
 
-	return true, nil
+	return true, nil, nil
 }
 
 // Utility function to manage release of ports
