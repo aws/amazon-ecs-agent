@@ -24,21 +24,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/docker/docker/api/types"
-	"github.com/gorilla/mux"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/golang/mock/gomock"
 )
 
 const (
@@ -159,6 +161,43 @@ func taskResponse() *state.TaskResponse {
 			ReservedMiBs: 600,
 		},
 		CredentialsID: credentialsID,
+		TaskNetworkConfig: &state.TaskNetworkConfig{
+			NetworkMode: utils.NetworkModeAWSVPC,
+			NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
+				&tasknetworkconfig.NetworkNamespace{
+					Name:  "8059dc9193014dfeaab22d7a9997afad-064c910879c7",
+					Path:  "/var/run/netns/8059dc9193014dfeaab22d7a9997afad-064c910879c7",
+					Index: 0,
+					NetworkInterfaces: []*networkinterface.NetworkInterface{
+						ec2Id:      "eni-07770e6bacc801589",
+						LinkName:   "",
+						MacAddress: "06:4c:91:08:79:c7",
+						IPV4Addresses: []*networkinterface.IPV4Address{
+							&networkinterface.IPV4Address{
+								"Primary": true,
+								"Address": "10.194.20.154",
+							},
+						},
+						IPV6Addresses:                nil,
+						SubnetGatewayIPV4Address:     "10.194.20.1/24",
+						PrivateDNSName:               "ip-10-194-20-154.us-west-2.compute.internal",
+						InterfaceAssociationProtocol: "default",
+						Index:                        0,
+						UserID:                       0,
+						Name:                         "064c910879c7",
+						DeviceName:                   "eth1",
+						KnownStatus:                  "READY",
+						DesiredStatus:                "READY",
+						DNSMappingList:               nil,
+						Default:                      true,
+					},
+					AppMeshConfig:        nil,
+					ServiceConnectConfig: nil,
+					KnownState:           "READY",
+					DesiredState:         "READY",
+				},
+			},
+		},
 	}
 }
 
@@ -264,6 +303,7 @@ func TestTaskMetadata(t *testing.T) {
 		metadata := taskResponse()
 		expectedTaskResponse := taskResponse()
 		expectedTaskResponse.CredentialsID = "" // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
 			GetTaskMetadata(endpointContainerID).
