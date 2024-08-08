@@ -1,4 +1,7 @@
 # Changelog
+# 1.86.0
+* Feature - Container Restart Policy [#4264](https://github.com/aws/amazon-ecs-agent/pull/4264)
+
 # 1.85.3
 * Bugfix - Revert "Resolving Cloudwatch endpoint in all regions" except isolated regions. [4260](https://github.com/aws/amazon-ecs-agent/pull/4260)
 * Bugfix - Add awslogs-endpoint for isolated regions when creating containers. [#4262](https://github.com/aws/amazon-ecs-agent/pull/4262)

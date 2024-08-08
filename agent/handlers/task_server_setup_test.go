@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
@@ -42,8 +43,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
+	faulttype "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tptypes "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types"
@@ -51,6 +54,7 @@ import (
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/gorilla/mux"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -107,6 +111,7 @@ const (
 	privateDNSName             = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 	taskCredentialsID          = "taskCredentialsId"
+	endpointId                 = "endpointId"
 )
 
 var (
@@ -3560,4 +3565,115 @@ func TestUpdateTaskProtection(t *testing.T) {
 			Protection: &protectedTask,
 		},
 	}))
+}
+
+func TestRegisterHandler(t *testing.T) {
+	tcs := []struct {
+		name               string
+		expectedStatusCode int
+		fault              string
+		method             string
+	}{
+		{
+			name:               "PUT blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.LatencyFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.LatencyFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "DELETE",
+		},
+		{
+			name:               "GET unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "GET",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
+
+			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			router := mux.NewRouter()
+
+			registerFaultHandlers(router, agentState, metricsFactory)
+			var requestBody io.Reader
+			req, err := http.NewRequest(tc.method, fmt.Sprintf("/api/%s/fault/v1/%s", endpointId, tc.fault),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			assert.Equal(t, recorder.Code, tc.expectedStatusCode)
+		})
+	}
 }
