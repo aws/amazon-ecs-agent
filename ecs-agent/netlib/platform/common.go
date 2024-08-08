@@ -15,6 +15,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
@@ -28,6 +29,7 @@ const (
 	FirecrackerDebugPlatform = "ec2-debug-firecracker"
 	WarmpoolPlatform         = "warmpool"
 	FirecrackerPlatform      = "firecracker"
+	ManagedPlatform          = "managed-instance"
 )
 
 // executeCNIPlugin executes CNI plugins with the given network configs and a timeout context.
@@ -83,4 +85,9 @@ func (c *common) interfacesMACToName() (map[string]string, error) {
 	}
 
 	return macToName, nil
+}
+
+// HandleHostMode by default we do not want to support host mode
+func (c *common) HandleHostMode() error {
+	return errors.New("invalid platform for host mode")
 }

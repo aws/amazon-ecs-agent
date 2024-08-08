@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -41,6 +42,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -63,6 +66,8 @@ const (
 	// It is assigned 100 because it is an unrealistically high
 	// value for interface index.
 	indexHighValue = 100
+
+	metadataRetries = 5
 )
 
 // common will be embedded within every implementation of the platform API.
@@ -119,6 +124,14 @@ func NewPlatform(
 			firecraker: firecraker{
 				common: commonPlatform,
 			},
+		}, nil
+	case ManagedPlatform:
+		config := aws.NewConfig().WithMaxRetries(metadataRetries)
+		config.Credentials = instancecreds.GetCredentials(false)
+		ec2Client := ec2metadata.New(session.New(), config)
+		return &managedLinux{
+			common: commonPlatform,
+			client: ec2Client,
 		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformString)
