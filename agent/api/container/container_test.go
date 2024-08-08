@@ -1468,17 +1468,9 @@ func TestDigestResolved(t *testing.T) {
 	t.Run("digest not resolved if it is not populated", func(t *testing.T) {
 		assert.False(t, (&Container{}).DigestResolved())
 	})
-}
-
-func TestDigestResolutionRequired(t *testing.T) {
-	t.Run("never required for internal containers", func(t *testing.T) {
-		assert.False(t, (&Container{Type: ContainerServiceConnectRelay}).DigestResolutionRequired())
-	})
-	t.Run("required if not found in image reference", func(t *testing.T) {
-		assert.True(t, (&Container{Image: "alpine"}).DigestResolutionRequired())
-	})
-	t.Run("not required if found in image reference", func(t *testing.T) {
+	t.Run("never resolved for container if digest found in image reference", func(t *testing.T) {
 		image := "ubuntu@sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee"
-		assert.False(t, (&Container{Image: image}).DigestResolutionRequired())
+		imageDigest := "sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee"
+		assert.False(t, (&Container{Image: image, ImageDigest: imageDigest}).DigestResolved())
 	})
 }

@@ -684,18 +684,16 @@ func TestPullContainerManifestInteg(t *testing.T) {
 		config.ImagePullOnceBehavior, config.ImagePullPreferCachedBehavior,
 	}
 	tcs := []struct {
-		name                      string
-		image                     string
-		setConfig                 func(c *config.Config)
-		imagePullBehaviors        []config.ImagePullBehaviorType
-		digestResolutionNotNeeded bool
-		assertError               func(t *testing.T, err error)
+		name               string
+		image              string
+		setConfig          func(c *config.Config)
+		imagePullBehaviors []config.ImagePullBehaviorType
+		assertError        func(t *testing.T, err error)
 	}{
 		{
-			name:                      "digest available in image reference",
-			image:                     "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
-			digestResolutionNotNeeded: true,
-			imagePullBehaviors:        allPullBehaviors,
+			name:               "digest available in image reference",
+			image:              "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			imagePullBehaviors: allPullBehaviors,
 		},
 		{
 			name:               "digest can be resolved from explicit tag",
@@ -746,11 +744,7 @@ func TestPullContainerManifestInteg(t *testing.T) {
 				res := taskEngine.(*DockerTaskEngine).pullContainerManifest(task, container)
 				if tc.assertError == nil {
 					require.NoError(t, res.Error)
-					if tc.digestResolutionNotNeeded {
-						assert.Empty(t, container.GetImageDigest())
-					} else {
-						assert.NotEmpty(t, container.GetImageDigest())
-					}
+					assert.NotEmpty(t, container.GetImageDigest())
 				} else {
 					tc.assertError(t, res.Error)
 				}
@@ -788,6 +782,11 @@ func TestPullContainerWithAndWithoutDigestInteg(t *testing.T) {
 			name:        "tag with digest",
 			image:       "public.ecr.aws/docker/library/alpine:3.19",
 			imageDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		{
+			name:        "tag and digest with no digest",
+			image:       "public.ecr.aws/docker/library/alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+			imageDigest: "",
 		},
 	}
 	for _, tc := range tcs {
@@ -858,6 +857,48 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 
 	// Image should be the same
 	assert.Equal(t, inspectWithDigest.ID, inspectWithoutDigest.ID)
+}
+
+// Tests that pullContainer pulls the same image when tag is used versus when a tag
+// is not used.
+func TestPullContainerWithAndWithoutTagConsistency(t *testing.T) {
+	imagewithTag := "public.ecr.aws/docker/library/alpine:3.19.1@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+	imagewithoutTag := "public.ecr.aws/docker/library/alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+
+	// Prepare task
+	task := &apitask.Task{Containers: []*apicontainer.Container{{Image: imagewithTag}}}
+	container := task.Containers[0]
+
+	// Prepare task engine
+	cfg := defaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+	dockerClient := taskEngine.(*DockerTaskEngine).client
+
+	// Remove image from the host if it exists to start from a clean slate
+	removeImage(t, container.Image)
+
+	// Pull the image with tag
+	pullRes := taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithTag, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Prepare task
+	task = &apitask.Task{Containers: []*apicontainer.Container{{Image: imagewithoutTag}}}
+	container = task.Containers[0]
+
+	// Pull the image without tag
+	pullRes = taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithoutTag, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Image should be the same
+	assert.Equal(t, inspectWithTag.ID, inspectWithoutTag.ID)
 }
 
 // Tests that a task with invalid image fails as expected.
