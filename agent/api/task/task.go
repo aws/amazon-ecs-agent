@@ -3482,11 +3482,17 @@ func (task *Task) IsEBSTaskAttachEnabled() bool {
 }
 
 func (task *Task) isEBSTaskAttachEnabledUnsafe() bool {
-	logger.Debug("Checking if there are any ebs volume configs")
+	taskFields := task.fieldsUnsafe()
+	logger.Debug("Checking if there are any ebs volume configs", taskFields)
 	for _, tv := range task.Volumes {
 		switch tv.Volume.(type) {
 		case *taskresourcevolume.EBSTaskVolumeConfig:
-			logger.Debug("found ebs volume config")
+			logger.Debug("Found ebs volume config", taskFields, logger.Fields{
+				"volumeName":   tv.Volume.GetVolumeName(),
+				"volumeId":     tv.Volume.GetVolumeId(),
+				"volumeType":   tv.Volume.GetType(),
+				"volumeSource": tv.Volume.Source(),
+			})
 			return true
 		default:
 			continue
