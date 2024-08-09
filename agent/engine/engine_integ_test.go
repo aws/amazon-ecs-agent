@@ -326,7 +326,7 @@ func TestContainerHealthCheck(t *testing.T) {
 	VerifyContainerManifestPulledStateChange(t, taskEngine)
 	VerifyTaskManifestPulledStateChange(t, taskEngine)
 	VerifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 	waitForContainerHealthStatus(t, testTask)
 	healthStatus := testTask.Containers[0].GetHealthStatus()
@@ -337,7 +337,7 @@ func TestContainerHealthCheck(t *testing.T) {
 	go taskEngine.AddTask(taskUpdate)
 
 	VerifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 // TestEngineSynchronize tests the agent synchronize the container status on restart

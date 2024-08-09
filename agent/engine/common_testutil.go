@@ -101,7 +101,7 @@ func discardEvents(from interface{}) func() {
 
 // TODO: Move integ tests away from relying on the statechange channel for
 // determining if a task is running/stopped or not
-func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apitask.Task) error {
+func VerifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apitask.Task) error {
 	for {
 		event := <-stateChangeEvents
 		if event.GetEventType() != statechange.TaskEvent {
@@ -124,7 +124,7 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apita
 	}
 }
 
-func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apitask.Task) {
+func VerifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apitask.Task) {
 	for {
 		event := <-stateChangeEvents
 		if event.GetEventType() != statechange.TaskEvent {

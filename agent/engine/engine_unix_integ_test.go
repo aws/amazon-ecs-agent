@@ -211,8 +211,8 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
 	// Wait for task to be cleaned up
@@ -244,8 +244,8 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.Len(t, testTask.ResourcesMapUnsafe["dockerVolume"], 0, "volume that has been provisioned does not require the agent to create it again")
 	// Wait for task to be cleaned up
@@ -314,7 +314,7 @@ func TestPortForward(t *testing.T) {
 	// Port not forwarded; verify we can't access it
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	require.NoError(t, err)
 
 	time.Sleep(waitForDockerDuration) // wait for Docker
@@ -329,7 +329,7 @@ func TestPortForward(t *testing.T) {
 	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
 	require.NoError(t, err, "Could not kill container", err)
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
@@ -340,7 +340,7 @@ func TestPortForward(t *testing.T) {
 
 	taskEngine.AddTask(testTask)
 
-	err = verifyTaskIsRunning(stateChangeEvents, testTask)
+	err = VerifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestPortForward(t *testing.T) {
 	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 // TestMultiplePortForwards tests that two links containers in the same task can
@@ -400,7 +400,7 @@ func TestMultiplePortForwards(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 // TestDynamicPortForward runs a container serving data on a port chosen by the
@@ -491,7 +491,7 @@ func TestDynamicPortForward(t *testing.T) {
 	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -568,7 +568,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 // TestLinking ensures that container linking does allow networking to go
@@ -593,7 +593,7 @@ func TestLinking(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -627,7 +627,7 @@ func TestLinking(t *testing.T) {
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 func TestVolumesFromRO(t *testing.T) {
@@ -659,10 +659,10 @@ func TestVolumesFromRO(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 	taskEngine.(*DockerTaskEngine).stopContainer(testTask, testTask.Containers[0])
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	if testTask.Containers[1].GetKnownExitCode() == nil || *testTask.Containers[1].GetKnownExitCode() != 42 {
 		t.Error("Didn't exit due to failure to touch ro fs as expected: ", testTask.Containers[1].GetKnownExitCode())
@@ -880,8 +880,8 @@ func TestTaskLevelVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	require.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	require.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
 
@@ -1132,7 +1132,7 @@ func TestDockerExecAPI(t *testing.T) {
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 		dockerID := containerMap[testTask.Containers[0].Name].DockerID
@@ -1155,7 +1155,7 @@ func TestDockerExecAPI(t *testing.T) {
 
 		// Task should stop
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -1209,27 +1209,27 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[0])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[0])
 
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[1])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[1])
 
 		// First task should stop before 3rd task goes RUNNING
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[0])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[0])
 
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[2])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[2])
 
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[1])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[1])
 
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[2])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[2])
 		close(finished)
 	}()
 
@@ -1303,12 +1303,12 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[0])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[0])
 
 		VerifyContainerManifestPulledStateChange(t, taskEngine)
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[1])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[1])
 
 		// At this time, task[0] stopTask is received, and SIGTERM sent to task
 		// but the task[0] is still RUNNING due to trap handler
@@ -1317,11 +1317,11 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 
 		// task[0] stops after SIGTERM trap handler finishes
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[0])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[0])
 
 		// task[1] stops after normal execution
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[1])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[1])
 
 		close(finished)
 	}()
@@ -1396,7 +1396,7 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 
 		// 1st task goes to RUNNING
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, tasks[0])
+		VerifyTaskIsRunning(stateChangeEvents, tasks[0])
 
 		time.Sleep(2500 * time.Millisecond)
 
@@ -1410,11 +1410,11 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 		// task[1] stops while in waitingTasksQueue while task[0] is in progress
 		// This is because it is still waiting to progress, has no containers created
 		// and does not need to wait for stopTimeout, can immediately STSC out
-		verifyTaskIsStopped(stateChangeEvents, tasks[1])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[1])
 
 		// task[0] stops
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, tasks[0])
+		VerifyTaskIsStopped(stateChangeEvents, tasks[0])
 
 		// Verify resources are properly released in host resource manager
 		assert.False(t, taskEngine.(*DockerTaskEngine).hostResourceManager.checkTaskConsumed(tasks[0].Arn), "task 0 resources not released")
@@ -1502,7 +1502,7 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 				VerifyContainerManifestPulledStateChange(t, taskEngine)
 				VerifyTaskManifestPulledStateChange(t, taskEngine)
 				VerifyContainerRunningStateChange(t, taskEngine)
-				verifyTaskIsRunning(stateChangeEvents, testTask)
+				VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 				time.Sleep(2500 * time.Millisecond)
 

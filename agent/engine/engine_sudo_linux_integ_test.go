@@ -101,18 +101,18 @@ var (
 )
 
 func TestStartStopWithCgroup(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	cfg.CgroupPath = "/cgroup"
 
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testCgroup"
-	testTask := createTestTask(taskArn)
+	testTask := CreateTestTask(taskArn)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	for _, container := range testTask.Containers {
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
@@ -129,14 +129,14 @@ func TestStartStopWithCgroup(t *testing.T) {
 	}
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
 
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	// Should be stopped, let's verify it's still listed...
 	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
@@ -160,8 +160,8 @@ func TestStartStopWithCgroup(t *testing.T) {
 }
 
 func TestLocalHostVolumeMount(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
-	taskEngine, done, _ := setup(cfg, nil, t)
+	cfg := DefaultTestConfigIntegTest()
+	taskEngine, done, _ := Setup(cfg, nil, t)
 	defer done()
 
 	// creates a task with local volume
@@ -169,12 +169,12 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 0, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
@@ -184,7 +184,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 }
 
 func createTestLocalVolumeMountTask() *apitask.Task {
-	testTask := createTestTask("testLocalHostVolumeMount")
+	testTask := CreateTestTask("testLocalHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalDockerVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
@@ -199,12 +199,12 @@ func TestFirelensFluentbit(t *testing.T) {
 	if runtime.GOARCH == "arm64" {
 		t.Skip("Skipping test, unsupported image for arm64")
 	}
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.DataDir = testDataDir
 	cfg.DataDirOnHost = testDataDirOnHost
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	cfg.Cluster = testCluster
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 	defer done()
 
 	// Mock task metadata server as the firelens container needs to access it.
@@ -321,7 +321,7 @@ func setV3MetadataURLFormat(fmt string) func() {
 }
 
 func createFirelensTask(t *testing.T) *apitask.Task {
-	testTask := createTestTask(validTaskArnPrefix + uuid.New())
+	testTask := CreateTestTask(validTaskArnPrefix + uuid.New())
 	rawHostConfigInputForLogSender := dockercontainer.HostConfig{
 		LogConfig: dockercontainer.LogConfig{
 			Type: logDriverTypeFirelens,
@@ -438,10 +438,10 @@ func TestExecCommandAgent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -470,7 +470,7 @@ func TestExecCommandAgent(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*20)
 	go func() {
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		cancel()
 	}()
 
@@ -532,10 +532,10 @@ func TestManagedAgentEvent(t *testing.T) {
 
 			go taskEngine.AddTask(testTask)
 
-			verifyContainerManifestPulledStateChange(t, taskEngine)
-			verifyTaskManifestPulledStateChange(t, taskEngine)
-			verifyContainerRunningStateChange(t, taskEngine)
-			verifyTaskRunningStateChange(t, taskEngine)
+			VerifyContainerManifestPulledStateChange(t, taskEngine)
+			VerifyTaskManifestPulledStateChange(t, taskEngine)
+			VerifyContainerRunningStateChange(t, taskEngine)
+			VerifyTaskRunningStateChange(t, taskEngine)
 
 			if tc.ShouldBeRunning {
 				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -563,7 +563,7 @@ func TestManagedAgentEvent(t *testing.T) {
 }
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
-	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
+	testTask := CreateTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
 	testTask.PIDMode = ecs.PidModeHost
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage
@@ -581,7 +581,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 
 	skipIntegTestIfApplicable(t)
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
@@ -807,7 +807,7 @@ func TestGMSATaskFile(t *testing.T) {
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -872,7 +872,7 @@ func TestGMSATaskFile(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -886,7 +886,7 @@ func TestGMSATaskFile(t *testing.T) {
 	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
 	assert.NoError(t, err, "Could not kill container")
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 func TestGMSADomainlessTaskFile(t *testing.T) {
@@ -894,7 +894,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -965,7 +965,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -979,7 +979,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
 	assert.NoError(t, err, "Could not kill container")
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 func TestGMSATaskFileS3Err(t *testing.T) {
@@ -987,7 +987,7 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -1017,7 +1017,7 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	assert.Error(t, err)
 	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
 }
@@ -1027,7 +1027,7 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -1057,7 +1057,7 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	assert.Error(t, err)
 	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
 }
@@ -1067,7 +1067,7 @@ func TestGMSANotRunningErr(t *testing.T) {
 	t.Setenv("ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "True")
 	t.Setenv("ZZZ_SKIP_CREDENTIALS_FETCHER_INVOCATION_CHECK_NOT_SUPPORTED_IN_PRODUCTION", "False")
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.TaskCleanupWaitDuration = 3 * time.Second
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
@@ -1130,7 +1130,7 @@ func TestGMSANotRunningErr(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err = verifyTaskIsRunning(stateChangeEvents, testTask)
+	err = VerifyTaskIsRunning(stateChangeEvents, testTask)
 	assert.Error(t, err)
 	assert.Error(t, err, "Task went straight to STOPPED without running, task: testGMSAFileTaskARN")
 }

@@ -80,12 +80,12 @@ func TestDependencyHealthCheck(t *testing.T) {
 		VerifyTaskManifestPulledStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		// Task should stop all at once
 		VerifyContainerStoppedStateChange(t, taskEngine)
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -145,11 +145,11 @@ func TestDependencyComplete(t *testing.T) {
 
 		// Second container starts after the first stops, task becomes running
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		// Last container stops and then the task stops
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -204,12 +204,12 @@ func TestDependencyStart(t *testing.T) {
 		verifySpecificContainerStateChange(t, taskEngine, "parent", status.ContainerRunning)
 
 		// task becomes running after 'parent' is running
-		err := verifyTaskIsRunning(stateChangeEvents, testTask)
+		err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 		assert.NoError(t, err)
 
 		// 'parent' container stops and then the task stops
 		verifySpecificContainerStateChange(t, taskEngine, "parent", status.ContainerStopped)
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -269,11 +269,11 @@ func TestDependencySuccess(t *testing.T) {
 
 		// Second container starts after the first stops, task becomes running
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		// Last container stops and then the task stops
 		VerifyContainerStoppedStateChange(t, taskEngine)
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -332,7 +332,7 @@ func TestDependencySuccessErrored(t *testing.T) {
 		VerifyContainerStoppedStateChange(t, taskEngine)
 
 		// task should transition to stopped
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -394,7 +394,7 @@ func TestDependencySuccessTimeout(t *testing.T) {
 		VerifyContainerStoppedStateChange(t, taskEngine)
 
 		// task should transition to stopped
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -462,7 +462,7 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 		VerifyContainerStoppedStateChange(t, taskEngine)
 
 		// task should transition to stopped
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -543,7 +543,7 @@ func TestShutdownOrder(t *testing.T) {
 		VerifyContainerRunningStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		// The shutdown order will now proceed. Parent will exit first since it has an explicit exit command.
 		event := <-stateChangeEvents
@@ -564,7 +564,7 @@ func TestShutdownOrder(t *testing.T) {
 		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, status.ContainerStopped)
 		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "C")
 
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 
@@ -643,7 +643,7 @@ func TestMultipleContainerDependency(t *testing.T) {
 		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "exit")
 
 		// The task should be now stopped as dependencies of A and B are not resolved
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 

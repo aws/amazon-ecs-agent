@@ -86,13 +86,13 @@ func TestGranularStopTimeout(t *testing.T) {
 		VerifyContainerRunningStateChange(t, taskEngine)
 		VerifyContainerRunningStateChange(t, taskEngine)
 
-		verifyTaskIsRunning(stateChangeEvents, testTask)
+		VerifyTaskIsRunning(stateChangeEvents, testTask)
 
 		VerifyContainerStoppedStateChange(t, taskEngine)
 		VerifyContainerStoppedStateChange(t, taskEngine)
 		VerifyContainerStoppedStateChange(t, taskEngine)
 
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 		assert.Equal(t, 137, *testTask.Containers[0].GetKnownExitCode(), "Dependency1 should exit with code 137")
 		assert.Equal(t, 0, *testTask.Containers[1].GetKnownExitCode(), "Dependency2 should exit with code 0")
