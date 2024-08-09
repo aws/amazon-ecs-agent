@@ -63,14 +63,14 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 			` Image amazon/image-cleanup-test-image2:make - Error response from daemon: hcsshim::GetComputeSystems:` +
 			` The requested compute system operation is not valid in the current state." module=log.go`)
 	}
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 5 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 1 * time.Second
 	cfg.NumImagesToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -170,7 +170,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 //	b. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
 //	c. Ensure that the image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupThreshold(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
@@ -178,7 +178,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	// Set to delete three images, but in this test we expect only two images to be removed
 	cfg.NumImagesToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -281,7 +281,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 // TestImageWithSameNameAndDifferentID tests image can be correctly removed when tasks
 // are running with the same image name, but different image id.
 func TestImageWithSameNameAndDifferentID(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -289,7 +289,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 	defer done()
 
 	dockerClient := taskEngine.(*DockerTaskEngine).client
@@ -320,9 +320,9 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// The same image name used by all tasks in this test
 	identicalImageName := "testimagewithsamenameanddifferentid:latest"
 	// Create three tasks which use the image with same name but different ID
-	task1 := createTestTask("task1")
-	task2 := createTestTask("task2")
-	task3 := createTestTask("task3")
+	task1 := CreateTestTask("task1")
+	task2 := CreateTestTask("task2")
+	task3 := CreateTestTask("task3")
 	task1.Containers[0].Image = identicalImageName
 	task2.Containers[0].Image = identicalImageName
 	task3.Containers[0].Image = identicalImageName
@@ -421,7 +421,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 // TestImageWithSameIDAndDifferentNames tests images can be correctly removed if
 // tasks are running with the same image id but different image name
 func TestImageWithSameIDAndDifferentNames(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -429,7 +429,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, _ := Setup(cfg, nil, t)
 	defer done()
 
 	dockerClient := taskEngine.(*DockerTaskEngine).client
@@ -444,16 +444,16 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Start three tasks which using the image with same ID and different Name
-	task1 := createTestTask("task1")
-	task2 := createTestTask("task2")
-	task3 := createTestTask("task3")
+	task1 := CreateTestTask("task1")
+	task2 := CreateTestTask("task2")
+	task3 := CreateTestTask("task3")
 	task1.Containers[0].Image = "testimagewithsameidanddifferentnames-1:latest"
 	task2.Containers[0].Image = "testimagewithsameidanddifferentnames-2:latest"
 	task3.Containers[0].Image = "testimagewithsameidanddifferentnames-3:latest"
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test4Image1Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, defaultTestConfigIntegTest().ImagePullTimeout)
+		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, DefaultTestConfigIntegTest().ImagePullTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
 

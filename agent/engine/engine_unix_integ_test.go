@@ -163,7 +163,7 @@ func createVolumeTask(t *testing.T, scope, arn, volume string, autoprovision boo
 		return nil, err
 	}
 
-	testTask := createTestTask(arn)
+	testTask := CreateTestTask(arn)
 
 	volumeConfig := &taskresourcevolume.DockerVolumeConfig{
 		Scope:  scope,
@@ -266,15 +266,15 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	// Ensure this image isn't pulled by deleting it
 	removeImage(t, testRegistryImage)
 
-	testTask := createTestTask("testStartUnpulled")
+	testTask := CreateTestTask("testStartUnpulled")
 
 	go taskEngine.AddTask(testTask)
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
@@ -286,15 +286,15 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	// Ensure this image isn't pulled by deleting it
 	removeImage(t, imageDigest)
 
-	testTask := createTestTask("testStartUnpulledDigest")
+	testTask := CreateTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = imageDigest
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port
@@ -307,7 +307,7 @@ func TestPortForward(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testArn := "testPortForwardFail"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	port1 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent}
 
@@ -333,7 +333,7 @@ func TestPortForward(t *testing.T) {
 
 	// Now forward it and make sure that works
 	testArn = "testPortForwardWorking"
-	testTask = createTestTask(testArn)
+	testTask = CreateTestTask(testArn)
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port2), "-serve", serverContent}
 	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port2, HostPort: port2}}
@@ -371,7 +371,7 @@ func TestPortForward(t *testing.T) {
 	}
 
 	// Stop the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -387,7 +387,7 @@ func TestMultiplePortForwards(t *testing.T) {
 
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	port1 := getUnassignedPort()
 	port2 := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "1"}
@@ -427,7 +427,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	}
 	t.Log("Read second container")
 
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -442,7 +442,7 @@ func TestDynamicPortForward(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testArn := "testDynamicPortForward"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent}
 	// No HostPort = docker should pick
@@ -461,7 +461,7 @@ func TestDynamicPortForward(t *testing.T) {
 	// See comments on the getValidPortBinding() function for why ports need to be filtered.
 	validPortBindings := getValidPortBinding(portBindings)
 
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	if len(validPortBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
@@ -488,7 +488,7 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -501,7 +501,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testArn := "testDynamicPortForward2"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	port := getUnassignedPort()
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
@@ -520,7 +520,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	// See comments on the getValidPortBinding() function for why ports need to be filtered.
 	validPortBindings := getValidPortBinding(portBindings)
 
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	if len(validPortBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
@@ -565,7 +565,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -580,7 +580,7 @@ func TestLinking(t *testing.T) {
 	defer done()
 
 	testArn := "TestLinking"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
 	testTask.Containers[0].Name = "linkee"
@@ -623,7 +623,7 @@ func TestLinking(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")
 	}
 
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
@@ -636,7 +636,7 @@ func TestVolumesFromRO(t *testing.T) {
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("testVolumeROContainer")
+	testTask := CreateTestTask("testVolumeROContainer")
 	testTask.Containers[0].Image = testVolumeImage
 	for i := 0; i < 3; i++ {
 		cont := createTestContainer()
@@ -676,7 +676,7 @@ func TestVolumesFromRO(t *testing.T) {
 }
 
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
-	testTask := createTestTask("testHostVolumeMount")
+	testTask := CreateTestTask("testHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
@@ -701,7 +701,7 @@ func TestInitOOMEvent(t *testing.T) {
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("oomtest")
+	testTask := CreateTestTask("oomtest")
 	testTask.Containers[0].Memory = 20
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Command = []string{"sh", "-c", `x="a"; while true; do x=$x$x$x; done`}
@@ -709,10 +709,10 @@ func TestInitOOMEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	event := <-stateChangeEvents
 	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
@@ -720,7 +720,7 @@ func TestInitOOMEvent(t *testing.T) {
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
 
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 
 	if contEvent.ExitCode == nil {
 		t.Error("Expected exitcode to be set")
@@ -755,7 +755,7 @@ func TestSignalEvent(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testArn := "signaltest"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Command = []string{
 		"sh",
@@ -765,10 +765,10 @@ func TestSignalEvent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -796,12 +796,12 @@ check_events:
 	}
 
 	// Stop the container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 
 	if testTask.Containers[0].GetKnownExitCode() == nil || *testTask.Containers[0].GetKnownExitCode() != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
@@ -812,31 +812,31 @@ check_events:
 func TestDockerStopTimeout(t *testing.T) {
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", testDockerStopTimeout.String())
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _ := setup(cfg, nil, t)
+	taskEngine, _, _ := Setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
 	if dockerTaskEngine.cfg.DockerStopTimeout != testDockerStopTimeout {
 		t.Errorf("Expect the docker stop timeout read from environment variable when ECS_CONTAINER_STOP_TIMEOUT is set, %v", dockerTaskEngine.cfg.DockerStopTimeout)
 	}
-	testTask := createTestTask("TestDockerStopTimeout")
+	testTask := CreateTestTask("TestDockerStopTimeout")
 	testTask.Containers[0].Command = []string{"sh", "-c", "trap 'echo hello' SIGTERM; while true; do echo `date +%T`; sleep 1s; done;"}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-docker-timeout"
 
 	go dockerTaskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	startTime := ttime.Now()
 	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
 
-	verifyContainerStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
 
 	if ttime.Since(startTime) < testDockerStopTimeout {
 		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
@@ -851,23 +851,23 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	defer done()
 
 	testArn := "testSecurityOptionNoNewPrivileges"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestTaskLevelVolume(t *testing.T) {
@@ -897,14 +897,14 @@ func TestSwapConfigurationTask(t *testing.T) {
 	require.NoError(t, err, "Creating go docker client failed")
 
 	testArn := "TestSwapMemory"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
 
 	go taskEngine.AddTask(testTask)
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -919,12 +919,12 @@ func TestSwapConfigurationTask(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := CreateTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestPerContainerStopTimeout(t *testing.T) {
@@ -932,9 +932,9 @@ func TestPerContainerStopTimeout(t *testing.T) {
 	globalStopContainerTimeout := 1000 * time.Second
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", globalStopContainerTimeout.String())
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _ := setup(cfg, nil, t)
+	taskEngine, _, _ := Setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -942,7 +942,7 @@ func TestPerContainerStopTimeout(t *testing.T) {
 		t.Errorf("Expect ECS_CONTAINER_STOP_TIMEOUT to be set to , %v", dockerTaskEngine.cfg.DockerStopTimeout)
 	}
 
-	testTask := createTestTask("TestDockerStopTimeout")
+	testTask := CreateTestTask("TestDockerStopTimeout")
 	testTask.Containers[0].Command = []string{"sh", "-c", "trap 'echo hello' SIGTERM; while true; do echo `date +%T`; sleep 1s; done;"}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-docker-timeout"
@@ -950,15 +950,15 @@ func TestPerContainerStopTimeout(t *testing.T) {
 
 	go dockerTaskEngine.AddTask(testTask)
 
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	startTime := ttime.Now()
 	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
 
-	verifyContainerStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
 
 	if ttime.Since(startTime) < testDockerStopTimeout {
 		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
@@ -977,16 +977,16 @@ func TestMemoryOverCommit(t *testing.T) {
 	require.NoError(t, err, "Creating go docker client failed")
 
 	testArn := "TestMemoryOverCommit"
-	testTask := createTestTask(testArn)
+	testTask := CreateTestTask(testArn)
 
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{
 	"MemoryReservation": 52428800 }`)}
 
 	go taskEngine.AddTask(testTask)
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -998,12 +998,12 @@ func TestMemoryOverCommit(t *testing.T) {
 	require.EqualValues(t, memoryReservation*1024*1024, state.HostConfig.MemoryReservation)
 
 	// Kill the existing container now
-	testUpdate := createTestTask(testArn)
+	testUpdate := CreateTestTask(testArn)
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(testUpdate)
 
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 // TestNetworkModeHost tests the container network can be configured
@@ -1038,23 +1038,23 @@ func TestFluentdTag(t *testing.T) {
 	require.NoError(t, err, "Creating go docker client failed")
 
 	// start Fluentd driver task
-	testTaskFleuntdDriver := createTestTask("testFleuntdDriver")
+	testTaskFleuntdDriver := CreateTestTask("testFleuntdDriver")
 	testTaskFleuntdDriver.Volumes = []apitask.TaskVolume{{Name: "logs", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/tmp"}}}
 	testTaskFleuntdDriver.Containers[0].Image = testFluentdImage
 	testTaskFleuntdDriver.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/fluentd/log",
 		SourceVolume: "logs"}}
 	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
 	go taskEngine.AddTask(testTaskFleuntdDriver)
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	// Sleep before starting the test task so that fluentd driver is setup
 	time.Sleep(30 * time.Second)
 
 	// start fluentd log task
-	testTaskFluentdLogTag := createTestTask("testFleuntdTag")
+	testTaskFluentdLogTag := CreateTestTask("testFleuntdTag")
 	testTaskFluentdLogTag.Containers[0].Command = []string{"/bin/echo", "hello, this is fluentd integration test"}
 	testTaskFluentdLogTag.Containers[0].Image = testBusyboxImage
 	testTaskFluentdLogTag.Containers[0].DockerConfig = apicontainer.DockerConfig{
@@ -1067,10 +1067,10 @@ func TestFluentdTag(t *testing.T) {
 	}}`)}
 
 	go taskEngine.AddTask(testTaskFluentdLogTag)
-	verifyContainerManifestPulledStateChange(t, taskEngine)
-	verifyTaskManifestPulledStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1080,11 +1080,11 @@ func TestFluentdTag(t *testing.T) {
 	state, _ := client.ContainerInspect(ctx, cid)
 
 	// Kill the fluentd driver task
-	testUpdate := createTestTask("testFleuntdDriver")
+	testUpdate := CreateTestTask("testFleuntdDriver")
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(testUpdate)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 
 	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(state.Name,
 		"/", "", 1), cid)
@@ -1105,7 +1105,7 @@ func TestDockerExecAPI(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	taskArn := "testDockerExec"
-	testTask := createTestTask(taskArn)
+	testTask := CreateTestTask(taskArn)
 
 	A := createTestContainerWithImageAndName(baseImageForOS, "A")
 
@@ -1129,9 +1129,9 @@ func TestDockerExecAPI(t *testing.T) {
 	finished := make(chan interface{})
 	go func() {
 		// Both containers should start
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, testTask)
 
 		containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -1154,7 +1154,7 @@ func TestDockerExecAPI(t *testing.T) {
 		require.Equal(t, 0, execContInspectOut.ExitCode)
 
 		// Task should stop
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
@@ -1175,7 +1175,7 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	tasks := []*apitask.Task{}
 	for i := 0; i < 3; i++ {
 		taskArn := fmt.Sprintf("taskArn-%d", i)
-		testTask := createTestTask(taskArn)
+		testTask := CreateTestTask(taskArn)
 
 		// create container
 		A := createTestContainerWithImageAndName(baseImageForOS, "A")
@@ -1206,29 +1206,29 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	// goroutine to verify task running order
 	go func() {
 		// Tasks go RUNNING in order
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
 
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[1])
 
 		// First task should stop before 3rd task goes RUNNING
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[0])
 
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[2])
 
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[1])
 
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[2])
 		close(finished)
 	}()
@@ -1260,7 +1260,7 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 	tasks := []*apitask.Task{}
 	for i := 0; i < 2; i++ {
 		taskArn := fmt.Sprintf("IntegTaskArn-%d", i)
-		testTask := createTestTask(taskArn)
+		testTask := CreateTestTask(taskArn)
 
 		// create container
 		A := createTestContainerWithImageAndName(baseImageForOS, fmt.Sprintf("A-%d", i))
@@ -1276,7 +1276,7 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 	}
 
 	// Stop task payload from ACS for 1st task
-	stopTask := createTestTask("IntegTaskArn-0")
+	stopTask := CreateTestTask("IntegTaskArn-0")
 	stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 	stopTask.Containers = []*apicontainer.Container{}
 
@@ -1300,14 +1300,14 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 	go func() {
 		// Tasks go RUNNING in order, 2nd task doesn't wait for 1st task
 		// to transition to STOPPED as resources are available
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
 
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[1])
 
 		// At this time, task[0] stopTask is received, and SIGTERM sent to task
@@ -1316,11 +1316,11 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 		assert.Equal(t, apitaskstatus.TaskStopped, tasks[0].GetDesiredStatus(), "task 0 status should be STOPPED")
 
 		// task[0] stops after SIGTERM trap handler finishes
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[0])
 
 		// task[1] stops after normal execution
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[1])
 
 		close(finished)
@@ -1342,7 +1342,7 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 	stopTasks := []*apitask.Task{}
 	for i := 0; i < 2; i++ {
 		taskArn := fmt.Sprintf("IntegTaskArn-%d", i)
-		testTask := createTestTask(taskArn)
+		testTask := CreateTestTask(taskArn)
 		testTask.Memory = int64(768)
 
 		// create container
@@ -1358,7 +1358,7 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 		tasks = append(tasks, testTask)
 
 		// Stop task payloads from ACS for the tasks
-		stopTask := createTestTask(fmt.Sprintf("IntegTaskArn-%d", i))
+		stopTask := CreateTestTask(fmt.Sprintf("IntegTaskArn-%d", i))
 		stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		stopTask.Containers = []*apicontainer.Container{}
 		stopTasks = append(stopTasks, stopTask)
@@ -1391,11 +1391,11 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 	// goroutine to verify task running order and verify assertions
 	go func() {
 		// First task goes to MANIFEST_PULLED
-		verifyContainerManifestPulledStateChange(t, taskEngine)
-		verifyTaskManifestPulledStateChange(t, taskEngine)
+		VerifyContainerManifestPulledStateChange(t, taskEngine)
+		VerifyTaskManifestPulledStateChange(t, taskEngine)
 
 		// 1st task goes to RUNNING
-		verifyContainerRunningStateChange(t, taskEngine)
+		VerifyContainerRunningStateChange(t, taskEngine)
 		verifyTaskIsRunning(stateChangeEvents, tasks[0])
 
 		time.Sleep(2500 * time.Millisecond)
@@ -1413,7 +1413,7 @@ func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 		verifyTaskIsStopped(stateChangeEvents, tasks[1])
 
 		// task[0] stops
-		verifyContainerStoppedStateChange(t, taskEngine)
+		VerifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, tasks[0])
 
 		// Verify resources are properly released in host resource manager
@@ -1463,7 +1463,7 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 			stateChangeEvents := taskEngine.StateChangeEvents()
 
 			taskArn := "IntegTaskArn"
-			testTask := createTestTask(taskArn)
+			testTask := CreateTestTask(taskArn)
 			testTask.Memory = int64(768)
 			testTask.LaunchType = tc.LaunchType
 
@@ -1478,7 +1478,7 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 			}
 
 			// Stop task payloads from ACS for the tasks
-			stopTask := createTestTask("IntegTaskArn")
+			stopTask := CreateTestTask("IntegTaskArn")
 			stopTask.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 			stopTask.Containers = []*apicontainer.Container{}
 
@@ -1499,9 +1499,9 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 			// goroutine to verify task running order and verify assertions
 			go func() {
 				// Task goes to RUNNING
-				verifyContainerManifestPulledStateChange(t, taskEngine)
-				verifyTaskManifestPulledStateChange(t, taskEngine)
-				verifyContainerRunningStateChange(t, taskEngine)
+				VerifyContainerManifestPulledStateChange(t, taskEngine)
+				VerifyTaskManifestPulledStateChange(t, taskEngine)
+				VerifyContainerRunningStateChange(t, taskEngine)
 				verifyTaskIsRunning(stateChangeEvents, testTask)
 
 				time.Sleep(2500 * time.Millisecond)
