@@ -591,7 +591,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	verifyTaskIsRunning(stateChangeEvents, sleepTask)
+	VerifyTaskIsRunning(stateChangeEvents, sleepTask)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -632,7 +632,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		},
 	}
 
-	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+	VerifyTaskIsStopped(stateChangeEvents, sleepTask)
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {

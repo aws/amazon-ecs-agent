@@ -95,7 +95,7 @@ func getLongRunningCommand() []string {
 }
 
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
-	testTask := createTestTask("testHostVolumeMount")
+	testTask := CreateTestTask("testHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "C:/host/tmp", SourceVolume: "test-tmp"}}
@@ -106,7 +106,7 @@ func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 }
 
 func createTestLocalVolumeMountTask() *apitask.Task {
-	testTask := createTestTask("testLocalHostVolumeMount")
+	testTask := CreateTestTask("testLocalHostVolumeMount")
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].Command = []string{`Write-Output "empty-data-volume" | Out-File -FilePath C:\host\tmp\hello-from-container -Encoding ascii`}
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "C:\\host\\tmp", SourceVolume: "test-tmp"}}
@@ -135,7 +135,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 }
 
 func createVolumeTaskWindows(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
-	testTask := createTestTask(arn)
+	testTask := CreateTestTask(arn)
 
 	volumeConfig := &taskresourcevolume.DockerVolumeConfig{
 		Scope:  scope,
@@ -178,7 +178,7 @@ func createVolumeTaskWindows(scope, arn, volume string, autoprovision bool) (*ap
 }
 
 func TestSharedAutoprovisionVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, dockerClient, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	// Set the task clean up duration to speed up the test
@@ -190,8 +190,8 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
 	// Wait for task to be cleaned up
@@ -201,11 +201,11 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 
-	cleanVolumes(testTask, taskEngine)
+	cleanVolumes(testTask, dockerClient)
 }
 
 func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, dockerClient, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	client := taskEngine.(*DockerTaskEngine).client
@@ -224,8 +224,8 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.Len(t, testTask.ResourcesMapUnsafe["dockerVolume"], 0, "volume that has been provisioned does not require the agent to create it again")
 	// Wait for task to be cleaned up
@@ -234,7 +234,7 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 
-	cleanVolumes(testTask, taskEngine)
+	cleanVolumes(testTask, dockerClient)
 }
 
 // TODO Modify the container ip to localhost after the AMI has the required feature
@@ -257,8 +257,8 @@ func getContainerIP(client *sdkClient.Client, id string) (string, error) {
 }
 
 func TestLocalHostVolumeMount(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
-	taskEngine, done, _ := setup(cfg, nil, t)
+	cfg := DefaultTestConfigIntegTest()
+	taskEngine, done, _, _ := Setup(cfg, nil, t)
 	defer done()
 
 	// creates a task with local volume
@@ -266,10 +266,10 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 	assert.Equal(t, 0, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code")
@@ -282,13 +282,13 @@ func TestLocalHostVolumeMount(t *testing.T) {
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	baseImg := os.Getenv("BASE_IMAGE_NAME")
 	removeImage(t, baseImg)
 
-	testTask := createTestTask("testStartUnpulled")
+	testTask := CreateTestTask("testStartUnpulled")
 	testTask.Containers[0].Image = baseImg
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -312,12 +312,12 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
 	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(t, baseImgWithDigest)
 
-	testTask := createTestTask("testStartUnpulledDigest")
+	testTask := CreateTestTask("testStartUnpulledDigest")
 	testTask.Containers[0].Image = baseImgWithDigest
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -338,12 +338,12 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 }
 
 func TestVolumesFrom(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("testVolumeContainer")
+	testTask := CreateTestTask("testVolumeContainer")
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
@@ -353,19 +353,19 @@ func TestVolumesFrom(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	require.NoError(t, err)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[1].GetKnownExitCode(), 42)
 }
 
 func TestVolumesFromRO(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("testVolumeROContainer")
+	testTask := CreateTestTask("testVolumeROContainer")
 	testTask.Containers[0].Image = testVolumeImage
 	for i := 0; i < 3; i++ {
 		cont := createTestContainer()
@@ -385,14 +385,14 @@ func TestVolumesFromRO(t *testing.T) {
 	testTask.Containers[3].Essential = false
 
 	go taskEngine.AddTask(testTask)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
 	// Make sure all the three test container stopped first
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
 	// Stop the task by stopping the essential container
 	taskEngine.(*DockerTaskEngine).stopContainer(testTask, testTask.Containers[0])
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	assert.NotEqual(t, *testTask.Containers[1].GetKnownExitCode(), 0, "didn't exit due to failure to touch ro fs as expected: ", *testTask.Containers[1].GetKnownExitCode())
 	assert.Equal(t, *testTask.Containers[2].GetKnownExitCode(), 0, "couldn't touch with default of rw")
@@ -400,7 +400,7 @@ func TestVolumesFromRO(t *testing.T) {
 }
 
 func TestTaskLevelVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -413,8 +413,8 @@ func TestTaskLevelVolume(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyTaskIsRunning(stateChangeEvents, testTask)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsRunning(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
 
 	// Find the volume mount path
@@ -433,7 +433,7 @@ func TestTaskLevelVolume(t *testing.T) {
 }
 
 func TestGMSATaskFile(t *testing.T) {
-	taskEngine, done, _ := setupGMSA(defaultTestConfigIntegTestGMSA(), nil, t)
+	taskEngine, done, _, _ := setupGMSA(defaultTestConfigIntegTestGMSA(), nil, t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -490,7 +490,7 @@ func TestGMSATaskFile(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	err = verifyTaskIsRunning(stateChangeEvents, testTask)
+	err = VerifyTaskIsRunning(stateChangeEvents, testTask)
 	require.NoError(t, err)
 
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -505,7 +505,7 @@ func TestGMSATaskFile(t *testing.T) {
 	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
 	assert.NoError(t, err, "Could not kill container")
 
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 
 	// Cleanup the test file
 	err = os.Remove(testCredSpecFilePath)
@@ -523,7 +523,7 @@ func defaultTestConfigIntegTestGMSA() *config.Config {
 	return cfg
 }
 
-func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -563,7 +563,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-	}, credentialsManager
+	}, dockerClient, credentialsManager
 }
 
 func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecOpt string) error {
@@ -626,8 +626,8 @@ func TestExecCommandAgent(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -656,7 +656,7 @@ func TestExecCommandAgent(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*20)
 	go func() {
-		verifyTaskIsStopped(stateChangeEvents, testTask)
+		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		cancel()
 	}()
 
@@ -722,8 +722,8 @@ func TestManagedAgentEvent(t *testing.T) {
 
 			go taskEngine.AddTask(testTask)
 
-			verifyContainerRunningStateChange(t, taskEngine)
-			verifyTaskRunningStateChange(t, taskEngine)
+			VerifyContainerRunningStateChange(t, taskEngine)
+			VerifyTaskRunningStateChange(t, taskEngine)
 
 			if tc.ShouldBeRunning {
 				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
@@ -750,7 +750,7 @@ func TestManagedAgentEvent(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 				go func() {
-					verifyTaskIsStopped(stateChangeEvents, testTask)
+					VerifyTaskIsStopped(stateChangeEvents, testTask)
 					cancel()
 				}()
 
@@ -768,7 +768,7 @@ func TestManagedAgentEvent(t *testing.T) {
 }
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
-	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
+	testTask := CreateTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
 	testTask.PIDMode = ecs.PidModeHost
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage
@@ -786,7 +786,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 
 	skipIntegTestIfApplicable(t)
 
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
