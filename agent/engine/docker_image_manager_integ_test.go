@@ -70,7 +70,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	cfg.MinimumImageDeletionAge = 1 * time.Second
 	cfg.NumImagesToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -148,17 +148,17 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	}
 
 	// Verify top 2 LRU images are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
+	_, err = dockerClient.InspectImage(imageState1ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
+	_, err = dockerClient.InspectImage(imageState2ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify 3rd LRU image has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
+	_, err = dockerClient.InspectImage(imageState3ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -178,7 +178,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	// Set to delete three images, but in this test we expect only two images to be removed
 	cfg.NumImagesToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -262,17 +262,17 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	}
 
 	// Verify Image1 & Image3 are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
+	_, err = dockerClient.InspectImage(imageState1ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
+	_, err = dockerClient.InspectImage(imageState3ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify Image2 has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
+	_, err = dockerClient.InspectImage(imageState2ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -289,10 +289,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 	defer done()
-
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, create a go docker client
 	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -410,11 +408,11 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify images are removed by docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
+	_, err = dockerClient.InspectImage(imageID1)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID1)
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID2)
+	_, err = dockerClient.InspectImage(imageID2)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID2)
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID3)
+	_, err = dockerClient.InspectImage(imageID3)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID3)
 }
 
@@ -429,10 +427,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 	defer done()
-
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, so create a go docker client
 	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -533,7 +529,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	assert.NoError(t, err, "imageID1")
 
 	// Verify images are removed by docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
+	_, err = dockerClient.InspectImage(imageID1)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully")
 }
 

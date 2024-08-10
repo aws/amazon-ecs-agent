@@ -73,11 +73,11 @@ func init() {
 	_stoppedSentWaitInterval = 1 * time.Second
 }
 
-func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
+func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	return Setup(DefaultTestConfigIntegTest(), nil, t)
 }
 
-func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine, func(), credentials.Manager) {
+func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	return Setup(DefaultTestConfigIntegTest(), state, t)
 }
 
@@ -118,17 +118,16 @@ func removeImage(t *testing.T, img string) {
 	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
 }
 
-func cleanVolumes(testTask *apitask.Task, taskEngine TaskEngine) {
-	client := taskEngine.(*DockerTaskEngine).client
+func cleanVolumes(testTask *apitask.Task, dockerClient dockerapi.DockerClient) {
 	for _, aVolume := range testTask.Volumes {
-		client.RemoveVolume(context.TODO(), aVolume.Name, removeVolumeTimeout)
+		dockerClient.RemoveVolume(context.TODO(), aVolume.Name, removeVolumeTimeout)
 	}
 }
 
 // TestDockerStateToContainerState tests convert the container status from
 // docker inspect to the status defined in agent
 func TestDockerStateToContainerState(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -183,7 +182,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 }
 
 func TestHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, dockerClient, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	tmpPath := t.TempDir()
@@ -207,14 +206,14 @@ func TestHostVolumeMount(t *testing.T) {
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
 
-	cleanVolumes(testTask, taskEngine)
+	cleanVolumes(testTask, dockerClient)
 }
 
 func TestSweepContainer(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
 	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := Setup(cfg, nil, t)
 	defer done()
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testSweepContainer"
@@ -254,7 +253,7 @@ func TestSweepContainer(t *testing.T) {
 // TestStartStopWithCredentials starts and stops a task for which credentials id
 // has been set
 func TestStartStopWithCredentials(t *testing.T) {
-	taskEngine, done, credentialsManager := setupWithDefaultConfig(t)
+	taskEngine, done, _, credentialsManager := setupWithDefaultConfig(t)
 	defer done()
 
 	testTask := CreateTestTask("testStartWithCredentials")
@@ -281,7 +280,7 @@ func TestStartStopWithCredentials(t *testing.T) {
 
 // TestStartStopWithRuntimeID starts and stops a task for which runtimeID has been set.
 func TestStartStopWithRuntimeID(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	testTask := CreateTestTask("testTaskWithContainerID")
@@ -298,7 +297,7 @@ func TestStartStopWithRuntimeID(t *testing.T) {
 func TestTaskStopWhenPullImageFail(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := Setup(cfg, nil, t)
 	defer done()
 
 	testTask := CreateTestTask("testTaskStopWhenPullImageFail")
@@ -313,7 +312,7 @@ func TestTaskStopWhenPullImageFail(t *testing.T) {
 }
 
 func TestContainerHealthCheck(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -342,7 +341,7 @@ func TestContainerHealthCheck(t *testing.T) {
 
 // TestEngineSynchronize tests the agent synchronize the container status on restart
 func TestEngineSynchronize(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testEngineSynchronize"
 	testTask := CreateTestTask(taskArn)
@@ -392,7 +391,7 @@ func TestEngineSynchronize(t *testing.T) {
 	state.AddImageState(imageStates[0])
 
 	// Simulate the agent restart
-	taskEngine, done, _ = setupWithState(t, state)
+	taskEngine, done, _, _ = setupWithState(t, state)
 	defer done()
 
 	taskEngine.MustInit(context.TODO())
@@ -420,7 +419,7 @@ func TestEngineSynchronize(t *testing.T) {
 }
 
 func TestLabels(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -460,7 +459,7 @@ func TestLabels(t *testing.T) {
 }
 
 func TestLogDriverOptions(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
@@ -515,7 +514,7 @@ func TestNetworkModeNone(t *testing.T) {
 }
 
 func testNetworkMode(t *testing.T, networkMode string) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
@@ -563,7 +562,7 @@ func testNetworkMode(t *testing.T, networkMode string) {
 func TestTaskCleanup(t *testing.T) {
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "40s")
 	defer os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(
@@ -616,7 +615,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = behavior
 			cfg.DockerStopTimeout = 100 * time.Millisecond
-			taskEngine, done, _ := Setup(cfg, nil, t)
+			taskEngine, done, _, _ := Setup(cfg, nil, t)
 			defer done()
 
 			first := createTestContainerWithImageAndName(testRegistryImage, "first")
@@ -728,7 +727,7 @@ func TestPullContainerManifestInteg(t *testing.T) {
 					tc.setConfig(cfg)
 				}
 
-				taskEngine, done, _ := Setup(cfg, nil, t)
+				taskEngine, done, _, _ := Setup(cfg, nil, t)
 				defer done()
 
 				container := &apicontainer.Container{Image: tc.image}
@@ -792,9 +791,8 @@ func TestPullContainerWithAndWithoutDigestInteg(t *testing.T) {
 			// Prepare task engine
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-			taskEngine, done, _ := Setup(cfg, nil, t)
+			taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 			defer done()
-			dockerClient := taskEngine.(*DockerTaskEngine).client
 
 			// Remove image from the host if it exists to start from a clean slate
 			removeImage(t, container.Image)
@@ -826,9 +824,8 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 	// Prepare task engine
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 	defer done()
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// Remove image from the host if it exists to start from a clean slate
 	removeImage(t, container.Image)
@@ -923,7 +920,7 @@ func TestInvalidImageInteg(t *testing.T) {
 			// Prepare task engine
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-			taskEngine, done, _ := Setup(cfg, nil, t)
+			taskEngine, done, _, _ := Setup(cfg, nil, t)
 			defer done()
 
 			// Prepare a task
@@ -951,11 +948,11 @@ func TestImageWithDigestInteg(t *testing.T) {
 	// Prepare task engine
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
 	defer done()
 
 	// Find image digest
-	versionedClient, err := taskEngine.(*DockerTaskEngine).client.WithVersion(dockerclient.Version_1_35)
+	versionedClient, err := dockerClient.WithVersion(dockerclient.Version_1_35)
 	manifest, manifestPullError := versionedClient.PullImageManifest(
 		context.Background(), localRegistryBusyboxImage, nil)
 	require.NoError(t, manifestPullError)

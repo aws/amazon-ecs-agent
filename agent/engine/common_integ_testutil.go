@@ -233,7 +233,7 @@ func VerifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected task to be STOPPED")
 }
 
-func Setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+func Setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -261,7 +261,7 @@ func Setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-	}, credentialsManager
+	}, dockerClient, credentialsManager
 }
 
 func skipIntegTestIfApplicable(t *testing.T) {

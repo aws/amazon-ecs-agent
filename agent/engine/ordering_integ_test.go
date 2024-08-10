@@ -39,7 +39,7 @@ func TestDependencyHealthCheck(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -101,7 +101,7 @@ func TestDependencyComplete(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -160,7 +160,7 @@ func TestDependencyComplete(t *testing.T) {
 // Container 'parent' depends on  container 'dependency' to START. We ensure that the 'parent' container starts only
 // after the 'dependency' container has started.
 func TestDependencyStart(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -225,7 +225,7 @@ func TestDependencySuccess(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -289,7 +289,7 @@ func TestDependencySuccessErrored(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -347,7 +347,7 @@ func TestDependencySuccessTimeout(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -409,7 +409,7 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -478,7 +478,7 @@ func TestShutdownOrder(t *testing.T) {
 	}
 
 	shutdownOrderingTimeout := 120 * time.Second
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -578,7 +578,7 @@ func TestMultipleContainerDependency(t *testing.T) {
 		t.Skip()
 	}
 
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()

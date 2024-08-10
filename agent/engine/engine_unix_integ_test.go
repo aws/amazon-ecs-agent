@@ -200,7 +200,7 @@ func createVolumeTask(t *testing.T, scope, arn, volume string, autoprovision boo
 }
 
 func TestSharedAutoprovisionVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, dockerClient, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	// Set the task clean up duration to speed up the test
@@ -222,11 +222,11 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 
-	cleanVolumes(testTask, taskEngine)
+	cleanVolumes(testTask, dockerClient)
 }
 
 func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, dockerClient, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	client := taskEngine.(*DockerTaskEngine).client
@@ -254,13 +254,13 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 
-	cleanVolumes(testTask, taskEngine)
+	cleanVolumes(testTask, dockerClient)
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
 // pulled, run, and stopped via docker.
 func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	// Ensure this image isn't pulled by deleting it
@@ -281,7 +281,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
 	imageDigest := "public.ecr.aws/amazonlinux/amazonlinux@sha256:1b6599b4846a765106350130125e2480f6c1cb7791df0ce3e59410362f311259"
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
 	removeImage(t, imageDigest)
@@ -301,7 +301,7 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 // 24751 and verifies that when you do forward the port you can access it and if
 // you don't forward the port you can't
 func TestPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -380,7 +380,7 @@ func TestPortForward(t *testing.T) {
 // TestMultiplePortForwards tests that two links containers in the same task can
 // both expose ports successfully
 func TestMultiplePortForwards(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -436,7 +436,7 @@ func TestMultiplePortForwards(t *testing.T) {
 // TestDynamicPortForward runs a container serving data on a port chosen by the
 // docker daemon and verifies that the port is reported in the state-change.
 func TestDynamicPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -495,7 +495,7 @@ func TestDynamicPortForward(t *testing.T) {
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -576,7 +576,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // prints "hello linker" and then links a container that proxies that data to
 // a publicly exposed port, where the tests reads it
 func TestLinking(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	testArn := "TestLinking"
@@ -631,7 +631,7 @@ func TestLinking(t *testing.T) {
 }
 
 func TestVolumesFromRO(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -696,7 +696,7 @@ func TestInitOOMEvent(t *testing.T) {
 	if os.Getenv("MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT") != "" {
 		t.Skip("Skipped because MY_KERNEL_DOES_NOT_SUPPORT_SWAP_LIMIT")
 	}
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -749,7 +749,7 @@ func TestInitOOMEvent(t *testing.T) {
 // SIGTERM - sent by Docker "stop" prior to SIGKILL (9)
 // SIGUSR1 - used for the test as an arbitrary signal
 func TestSignalEvent(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -814,7 +814,7 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _ := Setup(cfg, nil, t)
+	taskEngine, _, _, _ := Setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -847,7 +847,7 @@ func TestDockerStopTimeout(t *testing.T) {
 }
 
 func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	testArn := "testSecurityOptionNoNewPrivileges"
@@ -871,7 +871,7 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 }
 
 func TestTaskLevelVolume(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -890,7 +890,7 @@ func TestTaskLevelVolume(t *testing.T) {
 }
 
 func TestSwapConfigurationTask(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -934,7 +934,7 @@ func TestPerContainerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _ := Setup(cfg, nil, t)
+	taskEngine, _, _, _ := Setup(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -969,7 +969,7 @@ func TestPerContainerStopTimeout(t *testing.T) {
 }
 
 func TestMemoryOverCommit(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	memoryReservation := 50
 
@@ -1031,7 +1031,7 @@ func TestFluentdTag(t *testing.T) {
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", `["fluentd"]`)
 	defer os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 
-	taskEngine, _, _ := setupWithDefaultConfig(t)
+	taskEngine, _, _, _ := setupWithDefaultConfig(t)
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
 		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -1099,7 +1099,7 @@ func TestFluentdTag(t *testing.T) {
 
 func TestDockerExecAPI(t *testing.T) {
 	testTimeout := 1 * time.Minute
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -1167,7 +1167,7 @@ func TestDockerExecAPI(t *testing.T) {
 // until resources gets freed up (i.e. any running tasks stops and frees enough resources) before it can start progressing.
 func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	testTimeout := 1 * time.Minute
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -1252,7 +1252,7 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 // from starting if resources for them are available
 func TestHostResourceManagerResourceUtilization(t *testing.T) {
 	testTimeout := 1 * time.Minute
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -1333,7 +1333,7 @@ func TestHostResourceManagerResourceUtilization(t *testing.T) {
 // stopTask is received from ACS for a task which is queued up in waitingTasksQueue
 func TestHostResourceManagerStopTaskNotBlockWaitingTasks(t *testing.T) {
 	testTimeout := 1 * time.Minute
-	taskEngine, done, _ := setupWithDefaultConfig(t)
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -1457,7 +1457,7 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			testTimeout := 1 * time.Minute
-			taskEngine, done, _ := setupWithDefaultConfig(t)
+			taskEngine, done, _, _ := setupWithDefaultConfig(t)
 			defer done()
 
 			stateChangeEvents := taskEngine.StateChangeEvents()
