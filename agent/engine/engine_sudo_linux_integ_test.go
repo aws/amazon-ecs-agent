@@ -106,7 +106,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	cfg.CgroupPath = "/cgroup"
 
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -161,7 +161,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 
 func TestLocalHostVolumeMount(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// creates a task with local volume
@@ -204,7 +204,7 @@ func TestFirelensFluentbit(t *testing.T) {
 	cfg.DataDirOnHost = testDataDirOnHost
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	cfg.Cluster = testCluster
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// Mock task metadata server as the firelens container needs to access it.
@@ -228,7 +228,7 @@ func TestFirelensFluentbit(t *testing.T) {
 		},
 	}
 	go taskEngine.AddTask(testTask)
-	testEvents := InitEventCollection(taskEngine)
+	testEvents := InitTestEventCollection(taskEngine)
 
 	//Verify logsender container is running
 	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)

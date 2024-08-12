@@ -233,7 +233,7 @@ func VerifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected task to be STOPPED")
 }
 
-func Setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
+func SetupIntegTestTaskEngine(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -328,7 +328,7 @@ type TestEvents struct {
 // collecting TaskEngine stateChangeEvents.
 // We must use the Golang assert library and NOT the require library to ensure the Go routine is
 // stopped at the end of our tests
-func InitEventCollection(taskEngine TaskEngine) *TestEvents {
+func InitTestEventCollection(taskEngine TaskEngine) *TestEvents {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	recordedEvents := make(EventSet)
 	testEvents := &TestEvents{
@@ -346,7 +346,7 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 			return nil
 		}
 		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
+		RecordTestEvent(testEvents, event)
 	}
 }
 
@@ -358,12 +358,12 @@ func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontNam
 			return nil
 		}
 		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
+		RecordTestEvent(testEvents, event)
 	}
 }
 
 // Will record the event that was just collected into the TestEvents struct's RecordedEvents map
-func RecordEvent(testEvents *TestEvents, event statechange.Event) {
+func RecordTestEvent(testEvents *TestEvents, event statechange.Event) {
 	switch event.GetEventType() {
 	case statechange.TaskEvent:
 		taskEvent := event.(api.TaskStateChange)

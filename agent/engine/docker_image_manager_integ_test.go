@@ -70,7 +70,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	cfg.MinimumImageDeletionAge = 1 * time.Second
 	cfg.NumImagesToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -178,7 +178,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	// Set to delete three images, but in this test we expect only two images to be removed
 	cfg.NumImagesToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -289,7 +289,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// DockerClient doesn't implement TagImage, create a go docker client
@@ -427,7 +427,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// DockerClient doesn't implement TagImage, so create a go docker client

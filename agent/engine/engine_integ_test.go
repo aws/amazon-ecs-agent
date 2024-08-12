@@ -74,11 +74,11 @@ func init() {
 }
 
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
-	return Setup(DefaultTestConfigIntegTest(), nil, t)
+	return SetupIntegTestTaskEngine(DefaultTestConfigIntegTest(), nil, t)
 }
 
 func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
-	return Setup(DefaultTestConfigIntegTest(), state, t)
+	return SetupIntegTestTaskEngine(DefaultTestConfigIntegTest(), state, t)
 }
 
 func verifyTaskRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
@@ -213,7 +213,7 @@ func TestSweepContainer(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
 	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testSweepContainer"
@@ -297,7 +297,7 @@ func TestStartStopWithRuntimeID(t *testing.T) {
 func TestTaskStopWhenPullImageFail(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	testTask := CreateTestTask("testTaskStopWhenPullImageFail")
@@ -615,7 +615,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = behavior
 			cfg.DockerStopTimeout = 100 * time.Millisecond
-			taskEngine, done, _, _ := Setup(cfg, nil, t)
+			taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 			defer done()
 
 			first := createTestContainerWithImageAndName(testRegistryImage, "first")
@@ -727,7 +727,7 @@ func TestPullContainerManifestInteg(t *testing.T) {
 					tc.setConfig(cfg)
 				}
 
-				taskEngine, done, _, _ := Setup(cfg, nil, t)
+				taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 				defer done()
 
 				container := &apicontainer.Container{Image: tc.image}
@@ -791,7 +791,7 @@ func TestPullContainerWithAndWithoutDigestInteg(t *testing.T) {
 			// Prepare task engine
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-			taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+			taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 			defer done()
 
 			// Remove image from the host if it exists to start from a clean slate
@@ -824,7 +824,7 @@ func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
 	// Prepare task engine
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// Remove image from the host if it exists to start from a clean slate
@@ -920,7 +920,7 @@ func TestInvalidImageInteg(t *testing.T) {
 			// Prepare task engine
 			cfg := DefaultTestConfigIntegTest()
 			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-			taskEngine, done, _, _ := Setup(cfg, nil, t)
+			taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 			defer done()
 
 			// Prepare a task
@@ -948,7 +948,7 @@ func TestImageWithDigestInteg(t *testing.T) {
 	// Prepare task engine
 	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, dockerClient, _ := Setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// Find image digest

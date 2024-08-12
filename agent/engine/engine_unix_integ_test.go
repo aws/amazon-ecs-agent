@@ -814,7 +814,7 @@ func TestDockerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _, _ := Setup(cfg, nil, t)
+	taskEngine, _, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
@@ -934,7 +934,7 @@ func TestPerContainerStopTimeout(t *testing.T) {
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
 	cfg := DefaultTestConfigIntegTest()
 
-	taskEngine, _, _, _ := Setup(cfg, nil, t)
+	taskEngine, _, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 
