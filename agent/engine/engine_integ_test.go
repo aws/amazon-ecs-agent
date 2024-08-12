@@ -860,11 +860,10 @@ func TestPullContainerWithAndWithoutTagConsistency(t *testing.T) {
 	container := task.Containers[0]
 
 	// Prepare task engine
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// Remove image from the host if it exists to start from a clean slate
 	removeImage(t, container.Image)
