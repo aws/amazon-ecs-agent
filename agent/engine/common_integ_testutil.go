@@ -159,7 +159,7 @@ func VerifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
 func VerifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
 		"Expected container to be RUNNING")
 }
 
@@ -173,7 +173,7 @@ func VerifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
 		"Expected container to be RUNNING")
 	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
 		"Expected container runtimeID should not empty")
@@ -196,8 +196,9 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 func VerifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
+	sc := event.(api.ContainerStateChange)
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
-		"Expected container to be STOPPED")
+		"Expected container %s from task %s to be STOPPED", sc.RuntimeID, sc.TaskArn)
 }
 
 func verifyContainerStoppedStateChangeWithReason(t *testing.T, taskEngine TaskEngine, reason string) {
