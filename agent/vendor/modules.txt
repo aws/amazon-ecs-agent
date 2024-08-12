@@ -16,6 +16,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource
 github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart
 github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client
@@ -48,6 +49,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/field
 github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon
 github.com/aws/amazon-ecs-agent/ecs-agent/metrics
+github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface
@@ -57,6 +59,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/handlers
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types
@@ -354,6 +358,9 @@ github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.9
 ## explicit; go 1.17
 go.etcd.io/bbolt
+# golang.org/x/exp v0.0.0-20231006140011-7918f672742d
+## explicit; go 1.20
+golang.org/x/exp/constraints
 # golang.org/x/mod v0.14.0
 ## explicit; go 1.18
 golang.org/x/mod/internal/lazyregexp

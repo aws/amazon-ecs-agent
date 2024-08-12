@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
@@ -42,8 +43,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
+	faulttype "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tptypes "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/types"
@@ -51,6 +54,7 @@ import (
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/gorilla/mux"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -107,6 +111,7 @@ const (
 	privateDNSName             = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 	taskCredentialsID          = "taskCredentialsId"
+	endpointId                 = "endpointId"
 )
 
 var (
@@ -1381,7 +1386,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	// Parse the response body
 	var actualResponseBody R
 	err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
-	require.NoError(t, err)
+	require.NoError(t, err, recorder.Body.String())
 
 	// Assert status code and body
 	assert.Equal(t, tc.expectedStatusCode, recorder.Code)
@@ -1801,8 +1806,9 @@ func TestV4ContainerMetadata(t *testing.T) {
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
-					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().TaskByID(containerID).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1817,7 +1823,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusInternalServerError,
@@ -1832,7 +1838,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode: http.StatusInternalServerError,
@@ -1846,9 +1852,9 @@ func TestV4ContainerMetadata(t *testing.T) {
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
 					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 					state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1939,8 +1945,10 @@ func TestV4TaskMetadata(t *testing.T) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 				)
 			},
@@ -1955,8 +1963,10 @@ func TestV4TaskMetadata(t *testing.T) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 					state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(pulledContainerNameToDockerContainer, true),
 				)
 			},
@@ -1972,8 +1982,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -1988,8 +1999,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2004,8 +2016,9 @@ func TestV4TaskMetadata(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2340,8 +2353,10 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 		gomock.InOrder(
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
@@ -2495,8 +2510,9 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
 			setECSClientExpectations: happyECSClientExpectations,
@@ -2515,8 +2531,9 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
-					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 				)
 			},
 			setECSClientExpectations: happyECSClientExpectations,
@@ -3002,6 +3019,7 @@ func TestGetTaskProtection(t *testing.T) {
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
@@ -3273,6 +3291,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 		)
 	}
@@ -3546,4 +3565,115 @@ func TestUpdateTaskProtection(t *testing.T) {
 			Protection: &protectedTask,
 		},
 	}))
+}
+
+func TestRegisterHandler(t *testing.T) {
+	tcs := []struct {
+		name               string
+		expectedStatusCode int
+		fault              string
+		method             string
+	}{
+		{
+			name:               "PUT blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET blackholeport",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.LatencyFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.LatencyFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET latency",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.BlackHolePortFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "DELETE",
+		},
+		{
+			name:               "GET packet loss",
+			expectedStatusCode: http.StatusOK,
+			fault:              faulttype.PacketLossFaultType,
+			method:             "GET",
+		},
+		{
+			name:               "PUT unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "PUT",
+		},
+		{
+			name:               "DELETE unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "DELETE",
+		},
+		{
+			name:               "GET unknown",
+			expectedStatusCode: http.StatusNotFound,
+			fault:              "unknown",
+			method:             "GET",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
+
+			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			router := mux.NewRouter()
+
+			registerFaultHandlers(router, agentState, metricsFactory)
+			var requestBody io.Reader
+			req, err := http.NewRequest(tc.method, fmt.Sprintf("/api/%s/fault/v1/%s", endpointId, tc.fault),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			assert.Equal(t, recorder.Code, tc.expectedStatusCode)
+		})
+	}
 }

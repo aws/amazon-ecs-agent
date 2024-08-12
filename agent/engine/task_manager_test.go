@@ -46,6 +46,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -1853,6 +1854,222 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 	assert.Equal(t, exitCode, *containerExitCode)
 	containerCreateTime := container.GetCreatedAt()
 	assert.Equal(t, timeNow, containerCreateTime)
+}
+
+func waitForTaskDesiredStatus(mTask *managedTask, status apitaskstatus.TaskStatus) {
+	for i := 0; i < 40; i++ {
+		taskStatus := mTask.GetDesiredStatus()
+		if taskStatus == status {
+			return
+		}
+		time.Sleep(time.Millisecond * 250)
+	}
+}
+
+func waitForRestartCount(container *apicontainer.Container, count int) {
+	for i := 0; i < 40; i++ {
+		restartCount := container.RestartTracker.GetRestartCount()
+		if restartCount == count {
+			return
+		}
+		time.Sleep(time.Millisecond * 250)
+	}
+}
+
+func TestHandleContainerChangeStopped(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(t.Name(), ctx)
+	containerChangeEventStream.StartListening()
+
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	mTask := &managedTask{
+		Task:                       testdata.LoadTask("sleep5"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			dataClient:          data.NewNoopClient(),
+			hostResourceManager: &hostResourceManager,
+		},
+	}
+	// Discard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
+	container := mTask.Containers[0]
+
+	containerChange := dockerContainerChange{
+		container: container,
+		event: dockerapi.DockerContainerChangeEvent{
+			Status: apicontainerstatus.ContainerStopped,
+		},
+	}
+
+	mTask.handleContainerChange(containerChange)
+	waitForTaskDesiredStatus(mTask, apitaskstatus.TaskStopped)
+	assert.Equal(t, apitaskstatus.TaskStopped.String(), mTask.GetDesiredStatus().String(), "Expected task to change to stopped after container exit, since there is no restart policy")
+}
+
+func TestHandleContainerChangeStopped_WithRestartPolicy(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(t.Name(), ctx)
+	containerChangeEventStream.StartListening()
+
+	ctrl := gomock.NewController(t)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	defer ctrl.Finish()
+
+	cfg := getTestConfig()
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	mTask := &managedTask{
+		Task:                       testdata.LoadTask("sleep5RestartPolicy"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			ctx:                 context.TODO(),
+			cfg:                 &cfg,
+			dataClient:          data.NewNoopClient(),
+			hostResourceManager: &hostResourceManager,
+			client:              mockClient,
+		},
+	}
+	// Discard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
+	container := mTask.Containers[0]
+	container.RestartTracker = restart.NewRestartTracker(*container.RestartPolicy)
+
+	exitCode := int(100)
+	containerChange := dockerContainerChange{
+		container: container,
+		event: dockerapi.DockerContainerChangeEvent{
+			Status: apicontainerstatus.ContainerStopped,
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+				ExitCode: &exitCode,
+			},
+		},
+	}
+
+	mockClient.EXPECT().StartContainer(gomock.Any(), container.RuntimeID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
+	assert.Equal(t, 0, container.RestartTracker.GetRestartCount(), "Before stop event, restart count should be 0")
+	mTask.handleContainerChange(containerChange)
+	// wait for restart count to increment
+	waitForRestartCount(container, 1)
+	assert.Equal(t, 1, container.RestartTracker.GetRestartCount(), "After stop event, container should have been restarted")
+	assert.Equal(t, apitaskstatus.TaskRunning.String(), mTask.GetDesiredStatus().String(), "Expected task to be RUNNING since exited container should have restarted and task should be running")
+}
+
+func TestHandleContainerChangeStopped_WithRestartPolicy_RestartFails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(t.Name(), ctx)
+	containerChangeEventStream.StartListening()
+
+	ctrl := gomock.NewController(t)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	defer ctrl.Finish()
+
+	cfg := getTestConfig()
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	mTask := &managedTask{
+		Task:                       testdata.LoadTask("sleep5RestartPolicy"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			ctx:                 context.TODO(),
+			cfg:                 &cfg,
+			dataClient:          data.NewNoopClient(),
+			hostResourceManager: &hostResourceManager,
+			client:              mockClient,
+		},
+	}
+	// Discard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
+	container := mTask.Containers[0]
+	container.RestartTracker = restart.NewRestartTracker(*container.RestartPolicy)
+
+	exitCode := int(100)
+	containerChange := dockerContainerChange{
+		container: container,
+		event: dockerapi.DockerContainerChangeEvent{
+			Status: apicontainerstatus.ContainerStopped,
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+				ExitCode: &exitCode,
+			},
+		},
+	}
+
+	mockClient.EXPECT().StartContainer(gomock.Any(), container.RuntimeID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{
+		Error: dockerapi.CannotStartContainerError{fmt.Errorf("cannot start container")},
+	})
+	assert.Equal(t, 0, container.RestartTracker.GetRestartCount(), "Before stop event, restart count should be 0")
+	mTask.handleContainerChange(containerChange)
+	// wait for restart count to increment
+	waitForRestartCount(container, 1)
+	assert.Equal(t, 1, container.RestartTracker.GetRestartCount(), "After stop event, container should have been restarted")
+	waitForTaskDesiredStatus(mTask, apitaskstatus.TaskStopped)
+	assert.Equal(t, apitaskstatus.TaskStopped.String(), mTask.GetDesiredStatus().String(), "Expected task to be STOPPED since container had a restart policy, did restart, but the restart failed")
+}
+
+func TestHandleContainerChangeStopped_WithRestartPolicy_DesiredStopped(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(t.Name(), ctx)
+	containerChangeEventStream.StartListening()
+
+	cfg := getTestConfig()
+	hostResourceManager := NewHostResourceManager(getTestHostResources())
+	mTask := &managedTask{
+		Task:                       testdata.LoadTask("sleep5RestartPolicy"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			ctx:                 context.TODO(),
+			cfg:                 &cfg,
+			dataClient:          data.NewNoopClient(),
+			hostResourceManager: &hostResourceManager,
+		},
+	}
+	// Discard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
+	container := mTask.Containers[0]
+	container.RestartTracker = restart.NewRestartTracker(*container.RestartPolicy)
+
+	exitCode := int(100)
+	containerChange := dockerContainerChange{
+		container: container,
+		event: dockerapi.DockerContainerChangeEvent{
+			Status: apicontainerstatus.ContainerStopped,
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+				ExitCode: &exitCode,
+			},
+		},
+	}
+
+	// Set desired status of container to stopped, this similates what would happen
+	// if user called the ecs.StopTask API.
+	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+
+	assert.Equal(t, 0, container.RestartTracker.GetRestartCount(), "Before stop event, restart count should be 0")
+	mTask.handleContainerChange(containerChange)
+	// since container is not restarting, expect task status to change to STOPPED
+	waitForTaskDesiredStatus(mTask, apitaskstatus.TaskStopped)
+	assert.Equal(t, apitaskstatus.TaskStopped.String(), mTask.GetDesiredStatus().String(), "Expected task to change to stopped after container exit, since restart policy did not trigger")
+	assert.Equal(t, 0, container.RestartTracker.GetRestartCount(), "After stop event, container should NOT have been restarted")
 }
 
 func TestWaitForResourceTransition(t *testing.T) {

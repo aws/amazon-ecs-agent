@@ -18,10 +18,12 @@ package stats
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,6 +122,13 @@ func getRandomMemoryUtilizationInBytes() []uint64 {
 	}
 }
 
+func getTestRestartCount(i int64, includeRestartCount bool) *int64 {
+	if !includeRestartCount {
+		return nil
+	}
+	return &i
+}
+
 func getPredictableHighMemoryUtilizationInBytes(size int) []uint64 {
 	var memBytes []uint64
 	for i := 0; i < size; i++ {
@@ -136,7 +145,7 @@ func getLargeInt64Stats(size int) []uint64 {
 	return uintStats
 }
 
-func getContainerStats(predictableHighUtilization bool) []*ContainerStats {
+func getContainerStats(predictableHighUtilization bool, includeRestartCount bool) []*ContainerStats {
 	timestamps := getTimestamps()
 	cpuTimes := getUintStats()
 	var memoryUtilizationInBytes []uint64
@@ -165,13 +174,14 @@ func getContainerStats(predictableHighUtilization bool) []*ContainerStats {
 				TxErrors:  0,
 				TxPackets: uintStats[i],
 			},
-			timestamp: time})
+			restartCount: getTestRestartCount(int64(i), includeRestartCount),
+			timestamp:    time})
 	}
 	return stats
 }
 
 func createQueue(size int, predictableHighUtilization bool) *Queue {
-	stats := getContainerStats(predictableHighUtilization)
+	stats := getContainerStats(predictableHighUtilization, false)
 	queue := NewQueue(size)
 	for _, stat := range stats {
 		queue.add(stat)
@@ -190,9 +200,11 @@ func TestQueueReset(t *testing.T) {
 	require.Error(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.Error(t, err)
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
 
 	// add some metrics, and getting stats sets should now succeed:
-	stats := getContainerStats(false)
+	stats := getContainerStats(false, false)
 	for i := 0; i < 4; i++ {
 		queue.add(stats[i])
 	}
@@ -204,6 +216,9 @@ func TestQueueReset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.NoError(t, err)
+	// restart stats still fail if not added
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
 
 	// after resetting the queue, there are no metrics to send and getting stats sets should error again:
 	queue.Reset()
@@ -214,6 +229,8 @@ func TestQueueReset(t *testing.T) {
 	_, err = queue.GetStorageStatsSet()
 	require.Error(t, err)
 	_, err = queue.GetNetworkStatsSet()
+	require.Error(t, err)
+	_, err = queue.GetRestartStatsSet()
 	require.Error(t, err)
 
 	// add single stat to queue and getting stats sets should succeed again:
@@ -226,6 +243,59 @@ func TestQueueReset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = queue.GetNetworkStatsSet()
 	require.NoError(t, err)
+	_, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+}
+
+func TestQueueWithRestartStats(t *testing.T) {
+	queue := NewQueue(10)
+	// empty queue should throw errors getting stats sets:
+	restartStats, err := queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+
+	// add metrics with restart count, and getting should now succeed.
+	stats := getContainerStats(false, true)
+	for i := 0; i < 4; i++ {
+		queue.add(stats[i])
+	}
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	require.Equal(t, int64(3), *restartStats.RestartCount)
+
+	// after resetting the queue, there are no metrics to send and getting stats sets should error again:
+	queue.Reset()
+	restartStats, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+
+	// add single stat to queue and getting stats sets should succeed again:
+	queue.add(stats[4])
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	require.Equal(t, int64(1), *restartStats.RestartCount)
+
+	// add a stat with a lower restart count, and verify that this returns an error
+	queue.add(stats[2])
+	restartStats, err = queue.GetRestartStatsSet()
+	require.Error(t, err)
+	require.Nil(t, restartStats)
+	queue.Reset()
+
+	// add rest of metrics, overflowing queue, and verify values
+	for i := 5; i < len(stats); i++ {
+		queue.add(stats[i])
+	}
+	restartStats, err = queue.GetRestartStatsSet()
+	require.NoError(t, err)
+	require.NotNil(t, restartStats)
+	require.NotNil(t, restartStats.RestartCount)
+	// expect count to be length of queue (10) minus 1
+	require.Equal(t, int64(9), *restartStats.RestartCount)
 }
 
 func TestQueueAddRemove(t *testing.T) {
@@ -716,4 +786,186 @@ func TestPerSecNetworkStatSetFailWithOneDatapoint(t *testing.T) {
 	// a valid network stats set, and this function call should fail.
 	stats, err := queue.GetNetworkStatsSet()
 	require.Errorf(t, err, "Received unexpected network stats set %v", stats)
+}
+
+func TestAggregateOSIndependentStats(t *testing.T) {
+	dockerStat := getTestStatsJSONForOSIndependentStats(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	lastStatBeforeLastRestart := getTestStatsJSONForOSIndependentStats(9, 8, 7, 6, 5, 4, 3, 2, 1)
+	expectedAggregatedStat := types.StatsJSON{
+		Stats: types.Stats{
+			CPUStats: types.CPUStats{
+				CPUUsage: types.CPUUsage{
+					TotalUsage: dockerStat.CPUStats.CPUUsage.TotalUsage +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage,
+					UsageInKernelmode: dockerStat.CPUStats.CPUUsage.UsageInKernelmode +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode,
+					UsageInUsermode: dockerStat.CPUStats.CPUUsage.UsageInUsermode +
+						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode,
+				},
+			},
+		},
+		Networks: map[string]types.NetworkStats{
+			testNetworkNameA: {
+				RxBytes: dockerStat.Networks[testNetworkNameA].RxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxBytes,
+				RxPackets: dockerStat.Networks[testNetworkNameA].RxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxPackets,
+				RxDropped: dockerStat.Networks[testNetworkNameA].RxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxDropped,
+				TxBytes: dockerStat.Networks[testNetworkNameA].TxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxBytes,
+				TxPackets: dockerStat.Networks[testNetworkNameA].TxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxPackets,
+				TxDropped: dockerStat.Networks[testNetworkNameA].TxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameA].TxDropped,
+			},
+			testNetworkNameB: {
+				RxBytes: dockerStat.Networks[testNetworkNameB].RxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxBytes,
+				RxPackets: dockerStat.Networks[testNetworkNameB].RxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxPackets,
+				RxDropped: dockerStat.Networks[testNetworkNameB].RxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].RxDropped,
+				TxBytes: dockerStat.Networks[testNetworkNameB].TxBytes +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxBytes,
+				TxPackets: dockerStat.Networks[testNetworkNameB].TxPackets +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxPackets,
+				TxDropped: dockerStat.Networks[testNetworkNameB].TxDropped +
+					lastStatBeforeLastRestart.Networks[testNetworkNameB].TxDropped,
+			},
+		},
+	}
+
+	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
+	require.Equal(t, expectedAggregatedStat, *dockerStat)
+}
+
+func TestGetAggregatedDockerStatAcrossRestarts(t *testing.T) {
+	var dockerStat, lastStatBeforeLastRestart, lastStatInStatsQueue types.StatsJSON
+	lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage = uint64(123)
+
+	dockerStat = *getAggregatedDockerStatAcrossRestarts(&dockerStat, &lastStatBeforeLastRestart, &lastStatInStatsQueue)
+	require.Equal(t, lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage,
+		dockerStat.PreCPUStats.CPUUsage.TotalUsage)
+}
+
+func getTestStatsJSONForOSIndependentStats(totalCPUUsage, usageInKernelMode, usageInUserMode, rxBytes, rxPackets,
+	rxDropped, txBytes, txPackets, txDropped uint64) *types.StatsJSON {
+	return &types.StatsJSON{
+		Stats: types.Stats{
+			CPUStats: types.CPUStats{
+				CPUUsage: types.CPUUsage{
+					TotalUsage:        totalCPUUsage,
+					UsageInKernelmode: usageInKernelMode,
+					UsageInUsermode:   usageInUserMode,
+				},
+			},
+		},
+		Networks: map[string]types.NetworkStats{
+			testNetworkNameA: {
+				RxBytes:   rxBytes,
+				RxPackets: rxPackets,
+				RxDropped: rxDropped,
+				TxBytes:   txBytes,
+				TxPackets: txPackets,
+				TxDropped: txDropped,
+			},
+			testNetworkNameB: {
+				RxBytes:   rxBytes + 1,
+				RxPackets: rxPackets + 1,
+				RxDropped: rxDropped + 1,
+				TxBytes:   txBytes + 1,
+				TxPackets: txPackets + 1,
+				TxDropped: txDropped + 1,
+			},
+		},
+	}
+}
+
+func TestQueueAdd(t *testing.T) {
+	testCases := []struct {
+		name                string
+		includeRestartCount bool
+	}{
+		{
+			name:                "restart count not included",
+			includeRestartCount: false,
+		},
+		{
+			name:                "restart count included",
+			includeRestartCount: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			queueMaxSize := 3
+			queue := NewQueue(queueMaxSize)
+
+			for i := 0; i < queueMaxSize; i++ {
+				dockerStat := getTestStatsJSONForOSIndependentStats(rand.Uint64(), rand.Uint64(), rand.Uint64(),
+					rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+				nonDockerContainerStats := NonDockerContainerStats{}
+				if tc.includeRestartCount {
+					restartCount := int64(i)
+					nonDockerContainerStats.restartCount = &restartCount
+				}
+				queue.Add(dockerStat, nonDockerContainerStats)
+				require.Equal(t, dockerStat, queue.GetLastStat())
+			}
+			restartStats, err := queue.GetRestartStatsSet()
+			if tc.includeRestartCount {
+				require.NoError(t, err)
+				require.NotNil(t, restartStats)
+				require.NotNil(t, restartStats.RestartCount)
+				require.Equal(t, int64(queueMaxSize-1), *restartStats.RestartCount)
+			} else {
+				require.Error(t, err)
+				require.Nil(t, restartStats)
+			}
+		})
+	}
+}
+
+func TestQueueAddContainerStat(t *testing.T) {
+	testCases := []struct {
+		name                        string
+		containerHasRestartedBefore bool
+		lastStatBeforeLastRestart   types.StatsJSON
+	}{
+		{
+			name:                        "container has not restarted before",
+			containerHasRestartedBefore: false,
+		},
+		{
+			name:                        "container has restarted before",
+			containerHasRestartedBefore: true,
+			lastStatBeforeLastRestart:   *getTestStatsJSONForOSIndependentStats(9, 8, 7, 6, 5, 4, 3, 2, 1),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up queue.
+			queueMaxSize := 3
+			queue := NewQueue(queueMaxSize)
+			restartCount := int64(1)
+			nonDockerContainerStats := NonDockerContainerStats{restartCount: &restartCount}
+			firstStat := getTestStatsJSONForOSIndependentStats(rand.Uint64(), rand.Uint64(), rand.Uint64(),
+				rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+			queue.Add(firstStat, nonDockerContainerStats)
+			require.Equal(t, firstStat, queue.GetLastStat())
+
+			// Validate queue.AddContainerStat behavior.
+			dockerStat := getTestStatsJSONForOSIndependentStats(1, 2, 3, 4, 5, 6, 7, 8, 9)
+			queue.AddContainerStat(dockerStat, nonDockerContainerStats, &tc.lastStatBeforeLastRestart,
+				tc.containerHasRestartedBefore)
+			if tc.containerHasRestartedBefore {
+				require.Equal(t, getAggregatedDockerStatAcrossRestarts(dockerStat, &tc.lastStatBeforeLastRestart,
+					firstStat), queue.GetLastStat())
+			} else {
+				require.Equal(t, dockerStat, queue.GetLastStat())
+			}
+		})
+	}
 }

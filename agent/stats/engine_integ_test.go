@@ -63,7 +63,7 @@ func createRunningTask(networkMode string) *apitask.Task {
 
 func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainersWithoutHealth"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainersWithoutHealth"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -131,7 +131,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 
 func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"), nil, nil, nil)
 	defer engine.removeAll()
 
 	// Assign ContainerStop timeout to addressable variable
@@ -206,7 +206,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainers"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainers"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -280,7 +280,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 
 func TestStatsEngineWithNewContainers(t *testing.T) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"), nil, nil, nil)
 	defer engine.removeAll()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -365,7 +365,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	// Create a new docker client with new config
 	dockerClientForNewContainersWithPolling, _ := dockerapi.NewDockerGoClient(sdkClientFactory, &cfg, ctx)
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClientForNewContainersWithPolling, eventStream("TestStatsEngineWithNewContainers"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClientForNewContainersWithPolling, eventStream("TestStatsEngineWithNewContainers"), nil, nil, nil)
 	defer engine.removeAll()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -475,7 +475,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		testTask)
 
 	// Create a new docker stats engine
-	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream, nil, nil)
+	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream, nil, nil, nil)
 	err = statsEngine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer statsEngine.removeAll()
@@ -561,7 +561,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 		testTask)
 
 	// Create a new docker stats engine
-	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream, nil, nil)
+	statsEngine := NewDockerStatsEngine(&cfg, dockerClient, containerChangeEventStream, nil, nil, nil)
 	err = statsEngine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
 	require.NoError(t, err, "initializing stats engine failed")
 	defer statsEngine.removeAll()
@@ -607,7 +607,7 @@ func TestStatsEngineWithNetworkStatsDefaultMode(t *testing.T) {
 
 func testNetworkModeStatsInteg(t *testing.T, networkMode string, statsEmpty bool) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNetworkStats"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNetworkStats"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -691,7 +691,7 @@ func testNetworkModeStatsInteg(t *testing.T, networkMode string, statsEmpty bool
 
 func TestStorageStats(t *testing.T) {
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithStorageStats"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithStorageStats"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 

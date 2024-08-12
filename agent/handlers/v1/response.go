@@ -48,16 +48,17 @@ type TasksResponse struct {
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string                        `json:"DockerId"`
-	DockerName string                        `json:"DockerName"`
-	Name       string                        `json:"Name"`
-	Image      string                        `json:"Image"`
-	ImageID    string                        `json:"ImageID"`
-	CreatedAt  *time.Time                    `json:"CreatedAt,omitempty"`
-	StartedAt  *time.Time                    `json:"StartedAt,omitempty"`
-	Ports      []tmdsresponse.PortResponse   `json:"Ports,omitempty"`
-	Networks   []tmdsresponse.Network        `json:"Networks,omitempty"`
-	Volumes    []tmdsresponse.VolumeResponse `json:"Volumes,omitempty"`
+	DockerID     string                        `json:"DockerId"`
+	DockerName   string                        `json:"DockerName"`
+	Name         string                        `json:"Name"`
+	Image        string                        `json:"Image"`
+	ImageID      string                        `json:"ImageID"`
+	CreatedAt    *time.Time                    `json:"CreatedAt,omitempty"`
+	StartedAt    *time.Time                    `json:"StartedAt,omitempty"`
+	Ports        []tmdsresponse.PortResponse   `json:"Ports,omitempty"`
+	Networks     []tmdsresponse.Network        `json:"Networks,omitempty"`
+	Volumes      []tmdsresponse.VolumeResponse `json:"Volumes,omitempty"`
+	RestartCount *int                          `json:"RestartCount,omitempty"`
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
@@ -120,6 +121,10 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ni
 	if startedAt := container.GetStartedAt(); !startedAt.IsZero() {
 		startedAt = startedAt.UTC()
 		resp.StartedAt = &startedAt
+	}
+	if container.RestartPolicyEnabled() {
+		restartCount := container.RestartTracker.GetRestartCount()
+		resp.RestartCount = &restartCount
 	}
 	return resp
 }

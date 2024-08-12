@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
@@ -60,12 +62,26 @@ func (queue *Queue) Reset() {
 	}
 }
 
-// Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(dockerStat *types.StatsJSON) error {
+// AddContainerStat adds a new set of stats for a container to the queue. This method is only intended for use while
+// processing docker stats for a stats container.
+func (queue *Queue) AddContainerStat(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats,
+	lastStatBeforeLastRestart *types.StatsJSON, containerHasRestartedBefore bool) error {
+	if containerHasRestartedBefore {
+		dockerStat = getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart, queue.GetLastStat())
+	}
+
+	return queue.Add(dockerStat, nonDockerStats)
+}
+
+// Add adds a new set of stats to the queue.
+func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
 		return err
+	}
+	if nonDockerStats.restartCount != nil {
+		stat.restartCount = nonDockerStats.restartCount
 	}
 	queue.add(stat)
 	return nil
@@ -85,6 +101,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 	queueLength := len(queue.buffer)
 	stat := UsageStats{
 		CPUUsagePerc:      float32(nan32()),
+		RestartCount:      rawStat.restartCount,
 		MemoryUsageInMegs: uint32(rawStat.memoryUsage / BytesInMiB),
 		StorageReadBytes:  rawStat.storageReadBytes,
 		StorageWriteBytes: rawStat.storageWriteBytes,
@@ -184,6 +201,73 @@ func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
 		errOut = fmt.Errorf(errStr)
 	}
 	return storageStatsSet, errOut
+}
+
+// GetRestartStatsSet gets the stats set for container restarts
+func (queue *Queue) GetRestartStatsSet() (*ecstcs.RestartStatsSet, error) {
+	return queue.getRestartStatsSet(getRestartCount)
+}
+
+func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (*ecstcs.RestartStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	var firstStat, lastStat int64
+	firstStat = -1
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate restart stats set")
+	}
+
+	for i, stat := range queue.buffer {
+		if stat.sent {
+			// don't send stats to TACS if already sent
+			continue
+		}
+		thisStat := getInt(&stat)
+		if thisStat == nil {
+			continue
+		}
+		if i == queueLength-1 {
+			// get final unsent stat in the queue
+			lastStat = *thisStat
+		}
+
+		if firstStat == -1 {
+			// firstStat is unset so set it here
+			if i > 0 {
+				// some stats in queue were sent already, so use the stat previous to the
+				// first to diff with the last stat.
+				thisStat = getInt(&queue.buffer[i-1])
+				if thisStat == nil {
+					continue
+				}
+			}
+			firstStat = *thisStat
+		}
+	}
+
+	if firstStat == -1 {
+		// no non-nil stats found, most likely this means that the container
+		// does not have a restart policy set.
+		return nil, fmt.Errorf("No non-nil restart count stats found, not sending RestartStatsSet." +
+			" Most likely the container does not have a restart policy configured")
+	}
+
+	// get the diff in restart count between the first stat and the last stat in the
+	// queue. Examples:
+	//    [ 0 1 3 3 4 5 ] = 5 - 0 = 5 restarts
+	//    [ 0(sent) 1(sent) 3(sent) 4(unsent) 5(unsent) 7(unsent) ] = 7 - 3 = 4 restarts
+	result := lastStat - firstStat
+	if result < 0 {
+		return nil, fmt.Errorf("Negative restart count calculated, firstStat=%d lastStat=%d result=%d", firstStat, lastStat, result)
+	}
+
+	return &ecstcs.RestartStatsSet{
+		RestartCount: &result,
+	}, nil
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.
@@ -324,6 +408,10 @@ func getStorageWriteBytes(s *UsageStats) uint64 {
 	return s.StorageWriteBytes
 }
 
+func getRestartCount(s *UsageStats) *int64 {
+	return s.RestartCount
+}
+
 // getInt64WithOverflow truncates a uint64 to fit an int64
 // it returns overflow as a second int64
 func getInt64WithOverflow(uintStat uint64) (int64, int64) {
@@ -336,6 +424,7 @@ func getInt64WithOverflow(uintStat uint64) (int64, int64) {
 
 type getUsageFloatFunc func(*UsageStats) float64
 type getUsageIntFunc func(*UsageStats) uint64
+type getIntPointerFunc func(*UsageStats) *int64
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.
@@ -487,4 +576,48 @@ func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecst
 		SampleCount: &sampleCount,
 		Sum:         &sum,
 	}, nil
+}
+
+// getAggregatedDockerStatAcrossRestarts gets the aggregated docker stat for a container across container restarts.
+func getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart,
+	lastStatInStatsQueue *types.StatsJSON) *types.StatsJSON {
+	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
+	dockerStat = aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart)
+
+	// PreCPU stats.
+	preCPUStats := types.CPUStats{}
+	if lastStatInStatsQueue != nil {
+		preCPUStats = lastStatInStatsQueue.CPUStats
+	}
+	dockerStat.PreCPUStats = preCPUStats
+
+	logger.Debug("Aggregated Docker stat across restart(s)", logger.Fields{
+		loggerfield.DockerId: dockerStat.ID,
+	})
+
+	return dockerStat
+}
+
+// aggregateOSIndependentStats aggregates stats that are measured cumulatively against container start time and
+// populated regardless of what OS is being used.
+func aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart *types.StatsJSON) *types.StatsJSON {
+	// CPU stats.
+	dockerStat.CPUStats.CPUUsage.TotalUsage += lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage
+	dockerStat.CPUStats.CPUUsage.UsageInKernelmode += lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode
+	dockerStat.CPUStats.CPUUsage.UsageInUsermode += lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode
+
+	// Network stats.
+	for key, dockerStatNetwork := range dockerStat.Networks {
+		lastStatBeforeLastRestartNetwork, ok := lastStatBeforeLastRestart.Networks[key]
+		if ok {
+			dockerStatNetwork.RxBytes += lastStatBeforeLastRestartNetwork.RxBytes
+			dockerStatNetwork.RxPackets += lastStatBeforeLastRestartNetwork.RxPackets
+			dockerStatNetwork.RxDropped += lastStatBeforeLastRestartNetwork.RxDropped
+			dockerStatNetwork.TxBytes += lastStatBeforeLastRestartNetwork.TxBytes
+			dockerStatNetwork.TxPackets += lastStatBeforeLastRestartNetwork.TxPackets
+			dockerStatNetwork.TxDropped += lastStatBeforeLastRestartNetwork.TxDropped
+		}
+		dockerStat.Networks[key] = dockerStatNetwork
+	}
+	return dockerStat
 }

@@ -31,6 +31,8 @@ import (
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
+	fault "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/handlers"
+	faulttype "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	tp "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/taskprotection/v1/handlers"
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -89,6 +91,9 @@ func taskServerSetup(
 
 	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, tmdsAgentState,
 		taskProtectionClientFactory, metricsFactory)
+
+	// TODO: Future PR to pass in TMDS server router once all of the handlers have been implemented.
+	registerFaultHandlers(nil, tmdsAgentState, metricsFactory)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
@@ -182,6 +187,67 @@ func agentAPIV1HandlersSetup(
 			tp.GetTaskProtectionHandler(agentState, credentialsManager,
 				factory, cluster, metricsFactory, ecsCallTimeout)).
 		Methods("GET")
+}
+
+// registerFaultHandlers adds handlers for fault endpoints
+// TODO: Will need to be called in taskServerSetup once all of the handlers have been implemented
+func registerFaultHandlers(
+	muxRouter *mux.Router,
+	agentState *v4.TMDSAgentState,
+	metricsFactory metrics.EntryFactory,
+) {
+	handler := fault.FaultHandler{
+		AgentState:     agentState,
+		MetricsFactory: metricsFactory,
+	}
+
+	if muxRouter == nil {
+		return
+	}
+
+	// Setting up handler endpoints for network blackhole port fault injections
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		handler.StartNetworkBlackholePort(),
+	).Methods("PUT")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		handler.StopBlackHolePort(),
+	).Methods("DELETE")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		handler.CheckBlackHolePortStatus(),
+	).Methods("GET")
+
+	// Setting up handler endpoints for network latency fault injections
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		handler.StartLatency(),
+	).Methods("PUT")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		handler.StopLatency(),
+	).Methods("DELETE")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		handler.CheckLatencyStatus(),
+	).Methods("GET")
+
+	// Setting up handler endpoints for network packet loss fault injections
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		handler.StartPacketLoss(),
+	).Methods("PUT")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		handler.StopPacketLoss(),
+	).Methods("DELETE")
+	muxRouter.HandleFunc(
+		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		handler.CheckPacketLossStatus(),
+	).Methods("GET")
+
+	seelog.Debug("Successfully set up Fault TMDS handlers")
 }
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, IAM Role Credentials, and Agent APIs

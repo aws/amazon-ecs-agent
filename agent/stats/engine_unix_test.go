@@ -29,7 +29,6 @@ import (
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -75,17 +74,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 		},
 	}
 
-	t1 := &apitask.Task{
-		Arn:               "t1",
-		Family:            "f1",
-		ENIs:              []*ni.NetworkInterface{{ID: "ec2Id"}},
-		NetworkMode:       apitask.AWSVPCNetworkMode,
-		KnownStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers: []*apicontainer.Container{
-			{Name: "test"},
-			{Name: "test1"},
-		},
-	}
+	t1 := getTestTask()
 
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
@@ -101,7 +90,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 			State: &types.ContainerState{Pid: 23},
 		},
 	}, nil).AnyTimes()
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -148,21 +137,18 @@ func TestServiceConnectWithDisabledMetrics(t *testing.T) {
 		HealthCheckType: "docker",
 	}
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	resolver.EXPECT().ResolveTask(containerID).Return(&apitask.Task{
-		Arn:               "t1",
-		KnownStatusUnsafe: apitaskstatus.TaskRunning,
-		Family:            "f1",
-		ServiceConnectConfig: &serviceconnect.Config{
-			ContainerName: "service-connect",
-		},
-		Containers: []*apicontainer.Container{&container},
-	}, nil)
+	t1 := getTestTask()
+	t1.ServiceConnectConfig = &serviceconnect.Config{
+		ContainerName: "service-connect",
+	}
+	t1.Containers = []*apicontainer.Container{&container}
+	resolver.EXPECT().ResolveTask(containerID).Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID:  containerID,
 		Container: &container,
 	}, nil).Times(2)
 
-	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestServiceConnectWithDisabledMetrics"), nil, nil)
+	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestServiceConnectWithDisabledMetrics"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -233,24 +219,22 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 			defer mockCtrl.Finish()
 			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-			t1 := &apitask.Task{
-				Arn: "t1",
-				Volumes: []apitask.TaskVolume{
-					{
-						Name: "1",
-						Type: apiresource.EBSTaskAttach,
-						Volume: &taskresourcevolume.EBSTaskVolumeConfig{
-							VolumeId:             "vol-12345",
-							VolumeName:           "test-volume",
-							VolumeSizeGib:        "10",
-							SourceVolumeHostPath: "taskarn_vol-12345",
-							DeviceName:           "/dev/nvme1n1",
-							FileSystem:           "ext4",
-						},
+			t1 := getTestTask()
+			t1.Volumes = []apitask.TaskVolume{
+				{
+					Name: "1",
+					Type: apiresource.EBSTaskAttach,
+					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
+						VolumeId:             "vol-12345",
+						VolumeName:           "test-volume",
+						VolumeSizeGib:        "10",
+						SourceVolumeHostPath: "taskarn_vol-12345",
+						DeviceName:           "/dev/nvme1n1",
+						FileSystem:           "ext4",
 					},
 				},
 			}
-			engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil)
+			engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil, nil)
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			engine.ctx = ctx
