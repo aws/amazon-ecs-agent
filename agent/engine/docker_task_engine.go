@@ -1007,7 +1007,7 @@ func (engine *DockerTaskEngine) EmitTaskEvent(task *apitask.Task, reason string)
 // else and should exit quickly to allow AddTask to do more work.
 func (engine *DockerTaskEngine) startTask(task *apitask.Task) {
 	// Create a channel that may be used to communicate with this task, survey
-	// what tasks need to be waited for for this one to start, and then spin off
+	// what tasks need to be waited for this one to start, and then spin off
 	// a goroutine to oversee this task
 
 	thisTask := engine.newManagedTask(task)
@@ -1781,8 +1781,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Resolve HostConfig
 	// we have to do this in create, not start, because docker no longer handles
-	// merging create config with start hostconfig the same; e.g. memory limits
-	// get lost
+	// merging create config with start host-config the same; e.g. memory limits get lost
 	dockerClientVersion, versionErr := client.APIVersion()
 	if versionErr != nil {
 		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
@@ -2671,13 +2670,13 @@ func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *a
 func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *apitask.Task) {
 	managedTask, ok := engine.managedTasks[task.Arn]
 	if !ok {
-		logger.Critical("ACS message for a task we thought we managed, but don't!  Aborting.", logger.Fields{
+		logger.Critical("ACS message for a task we thought we managed, but don't! Aborting.", logger.Fields{
 			field.TaskARN: task.Arn,
 		})
 		return
 	}
 	// Keep the lock because sequence numbers cannot be correct unless they are
-	// also read in the order addtask was called
+	// also read in the order AddTask was called
 	// This does block the engine's ability to ingest any new events (including
 	// stops for past tasks, ack!), but this is necessary for correctness
 	updateDesiredStatus := update.GetDesiredStatus()
@@ -2756,7 +2755,7 @@ func (engine *DockerTaskEngine) transitionFunctionMap() map[apicontainerstatus.C
 	return engine.containerStatusToTransitionFunction
 }
 
-type transitionApplyFunc (func(*apitask.Task, *apicontainer.Container) dockerapi.DockerContainerMetadata)
+type transitionApplyFunc func(*apitask.Task, *apicontainer.Container) dockerapi.DockerContainerMetadata
 
 // State is a function primarily meant for testing usage; it is explicitly not
 // part of the TaskEngine interface and should not be relied upon.

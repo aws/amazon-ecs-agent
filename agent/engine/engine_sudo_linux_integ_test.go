@@ -33,20 +33,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cihub/seelog"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	sdkClient "github.com/docker/docker/client"
-	"github.com/pborman/uuid"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -69,6 +55,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	sdkClient "github.com/docker/docker/client"
+	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -77,15 +76,13 @@ var (
 
 const (
 	testLogSenderImage           = "public.ecr.aws/amazonlinux/amazonlinux:2.0.20210126.0"
-	testFluentbitImage           = "public.ecr.aws/aws-observability/aws-for-fluent-bit:2.10.1"
+	testFluentBitImage           = "public.ecr.aws/aws-observability/aws-for-fluent-bit:2.10.1"
 	testVolumeImage              = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 	testCluster                  = "testCluster"
 	validTaskArnPrefix           = "arn:aws:ecs:region:account-id:task/"
 	testDataDir                  = "/var/lib/ecs/data/"
 	testDataDirOnHost            = "/var/lib/ecs/"
 	testInstanceID               = "testInstanceID"
-	testTaskDefFamily            = "testFamily"
-	testTaskDefVersion           = "1"
 	testECSRegion                = "us-east-1"
 	testLogGroupName             = "test-fluentbit"
 	testLogGroupPrefix           = "firelens-fluentbit-"
@@ -362,7 +359,7 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 		},
 		{
 			Name:      "firelens",
-			Image:     testFluentbitImage,
+			Image:     testFluentBitImage,
 			Essential: true,
 			FirelensConfig: &apicontainer.FirelensConfig{
 				Type: firelens.FirelensConfigTypeFluentbit,

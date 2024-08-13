@@ -53,8 +53,8 @@ func TestTaskEqual(t *testing.T) {
 	for index, tc := range testCases {
 		t.Run(fmt.Sprintf("index %d expected %t", index, tc.shouldBeEqual), func(t *testing.T) {
 			assert.Equal(t, TasksEqual(&tc.lhs, &tc.rhs), tc.shouldBeEqual, "TasksEqual not working as expected. Check index failure.")
-			// Symetric
-			assert.Equal(t, TasksEqual(&tc.rhs, &tc.lhs), tc.shouldBeEqual, "Symetric equality check failed. Check index failure.")
+			// Symmetric
+			assert.Equal(t, TasksEqual(&tc.rhs, &tc.lhs), tc.shouldBeEqual, "Symmetric equality check failed. Check index failure.")
 		})
 	}
 }

@@ -66,7 +66,7 @@ const (
 	// v4 metadata endpoint
 	MetadataURIEnvVarNameV4 = "ECS_CONTAINER_METADATA_URI_V4"
 
-	// MetadataURIFormat defines the URI format for v4 metadata endpoint
+	// MetadataURIFormatV4 defines the URI format for v4 metadata endpoint
 	MetadataURIFormatV4 = "http://169.254.170.2/v4/%s"
 
 	// AgentURIEnvVarName defines the name of the environment variable
@@ -85,7 +85,7 @@ const (
 	// SecretTypeEnv is to show secret type being ENVIRONMENT_VARIABLE
 	SecretTypeEnv = "ENVIRONMENT_VARIABLE"
 
-	// TargetLogDriver is to show secret target being "LOG_DRIVER", the default will be "CONTAINER"
+	// SecretTargetLogDriver is to show secret target being "LOG_DRIVER", the default will be "CONTAINER"
 	SecretTargetLogDriver = "LOG_DRIVER"
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
@@ -237,7 +237,7 @@ type Container struct {
 	// NOTE: Do not access DesiredStatusUnsafe directly.  Instead, use `GetDesiredStatus`
 	// and `SetDesiredStatus`.
 	// TODO DesiredStatusUnsafe should probably be private with appropriately written
-	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// setter/getter. When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	DesiredStatusUnsafe apicontainerstatus.ContainerStatus `json:"desiredStatus"`
 
@@ -245,7 +245,7 @@ type Container struct {
 	// NOTE: Do not access `KnownStatusUnsafe` directly.  Instead, use `GetKnownStatus`
 	// and `SetKnownStatus`.
 	// TODO KnownStatusUnsafe should probably be private with appropriately written
-	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
+	// setter/getter. When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
 	KnownStatusUnsafe apicontainerstatus.ContainerStatus `json:"KnownStatus"`
 
@@ -291,7 +291,7 @@ type Container struct {
 	MetadataFileUpdated bool `json:"metadataFileUpdated"`
 
 	// KnownExitCodeUnsafe specifies the exit code for the container.
-	// It is exposed outside of the package so that it's marshalled/unmarshalled in
+	// It is exposed outside the package so that it's marshalled/unmarshalled in
 	// the JSON body while saving the state.
 	// NOTE: Do not access KnownExitCodeUnsafe directly. Instead, use `GetKnownExitCode`
 	// and `SetKnownExitCode`.
@@ -312,8 +312,8 @@ type Container struct {
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
 	// it's not only supposed to be set when the container is being created, it's
-	// exposed outside of the package so that it's marshalled/unmarshalled in the
-	// the JSON body while saving the state
+	// exposed outside the package so that it's marshalled/unmarshalled in the
+	// JSON body while saving the state
 	SteadyStateStatusUnsafe *apicontainerstatus.ContainerStatus `json:"SteadyStateStatus,omitempty"`
 
 	// ContainerArn is the Arn of this container.
@@ -420,7 +420,7 @@ func (s *Secret) GetSecretResourceCacheKey() string {
 	return s.ValueFrom + "_" + s.Region
 }
 
-// String returns a human readable string representation of DockerContainer
+// String returns a human-readable string representation of DockerContainer
 func (dc *DockerContainer) String() string {
 	if dc == nil {
 		return "nil"
@@ -533,7 +533,7 @@ func (c *Container) ShouldPullWithExecutionRole() bool {
 		c.RegistryAuthentication.ECRAuthData.UseExecutionRole
 }
 
-// String returns a human readable string representation of this object
+// String returns a human-readable string representation of this object
 func (c *Container) String() string {
 	ret := fmt.Sprintf("%s(%s) (%s->%s)", c.Name, c.Image,
 		c.GetKnownStatus().String(), c.GetDesiredStatus().String())
@@ -561,7 +561,7 @@ func (c *Container) Fields() logger.Fields {
 // Container.steadyState is not initialized, the default steady state status
 // defined by `defaultContainerSteadyStateStatus` is returned. In awsvpc, the 'pause'
 // container's steady state differs from that of other containers, as the
-// 'pause' container can reach its teady state once networking resources
+// 'pause' container can reach its steady state once networking resources
 // have been provisioned for it, which is done in the `ContainerResourcesProvisioned`
 // state. In bridge mode, pause containers are currently used exclusively for
 // supporting service-connect tasks. Those pause containers will have steady state
@@ -1114,7 +1114,7 @@ func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []map[stri
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// create map if does not exist
+	// create map if it does not exist
 	if c.Environment == nil {
 		c.Environment = make(map[string]string)
 	}

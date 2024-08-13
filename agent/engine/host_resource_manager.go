@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+
 	"github.com/aws/aws-sdk-go/aws"
 )
 

@@ -19,10 +19,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
+
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -45,7 +47,7 @@ func NewENIHandler(state dockerstate.TaskEngineState, dataClient data.Client) *e
 
 // HandleENIAttachment handles an ENI attachment via the following:
 // 1. Check whether we already have this attachment in state, if so, start its ack timer and return
-// 2. Otherwise add the attachment to state, start its ack timer, and save the state
+// 2. Otherwise, add the attachment to state, start its ack timer, and save the state
 // These are common tasks for handling a task ENI attachment and an instance ENI attachment, so they are put
 // into this function to be shared by both attachment handlers
 func (eniHandler *eniHandler) HandleENIAttachment(ea *ni.ENIAttachment) error {
