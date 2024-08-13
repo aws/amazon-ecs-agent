@@ -14,9 +14,8 @@
 package engine
 
 import (
-	"encoding/json"
-
 	"context"
+	"encoding/json"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"

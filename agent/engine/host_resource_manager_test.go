@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )

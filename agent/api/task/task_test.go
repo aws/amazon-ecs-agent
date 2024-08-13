@@ -1528,12 +1528,13 @@ func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
 
 		seqNum := int64(42)
 		task, err := TaskFromACS(&testTaskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.NoError(t, err, "Should be able to handle acs task")
 		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
 		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
 		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 		cfg := config.Config{}
-		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		err = task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		assert.NoError(t, err)
 		if aTest.ShouldProvision {
 			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
 		} else {
@@ -1567,7 +1568,8 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
 		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 		cfg := config.Config{}
-		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		err = task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		assert.NoError(t, err)
 		if !aTest.ShouldProvision {
 			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
 			docMaps := dockerMap(task)

@@ -31,9 +31,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -47,9 +44,11 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
-	"github.com/aws/aws-sdk-go/aws"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups/v3"
+	"github.com/docker/docker/api/types"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,7 +71,7 @@ var (
 // To mitigate this issue, Agent introduced an environment variable ECS_EXCLUDE_IPV6_PORTBINDING,
 // which is true by default in the [PR#3025](https://github.com/aws/amazon-ecs-agent/pull/3025).
 // However, the PR does not modify port bindings in the container state change object, it only filters out IPv6 port
-// bindings while building the container state change payload. Thus the invalid IPv6 port bindings still exists
+// bindings while building the container state change payload. Thus, the invalid IPv6 port bindings still exists
 // in ContainerStateChange, and need to be filtered out in this integration test.
 //
 // The getValidPortBinding function and the ECS_EXCLUDE_IPV6_PORTBINDING environment variable should be removed once
@@ -574,7 +573,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 // TestLinking ensures that container linking does allow networking to go
 // through to a linked container.  this test specifically starts a server that
 // prints "hello linker" and then links a container that proxies that data to
-// a publicly exposed port, where the tests reads it
+// a publicly exposed port, where the tests read it
 func TestLinking(t *testing.T) {
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()

@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+
 	log "github.com/cihub/seelog"
 	"github.com/stretchr/testify/assert"
 )

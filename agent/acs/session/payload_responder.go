@@ -30,6 +30,7 @@ import (
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -109,8 +110,8 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			continue
 		}
 
-		// Note: If we receive an EBS-backed task, we'll also received an incomplete volume configuration in the list of Volumes
-		// To accomodate this, we'll first check if the task IS EBS-backed then we'll mark the corresponding Volume object to be
+		// Note: If we receive an EBS-backed task, we'll also receive an incomplete volume configuration in the list of Volumes
+		// To accommodate this, we'll first check if the task IS EBS-backed then we'll mark the corresponding Volume object to be
 		// of type "attachment". This volume object will be replaced by the newly created EBS volume configuration when we parse
 		// through the task attachments.
 		volName, ok := hasEBSAttachment(task)

@@ -58,7 +58,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
@@ -67,14 +66,14 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	cgroupMountPath = "/sys/fs/cgroup"
-
+	cgroupMountPath    = "/sys/fs/cgroup"
 	testTaskDefFamily  = "testFamily"
 	testTaskDefVersion = "1"
 	containerNetNS     = "none"
@@ -1236,7 +1235,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 
 	// if we create a dockercontainer.Config.Healthcheck variable and marshal it, dockercontainer.Config.Env gets set to empty
 	// and will later override the internal env vars that Agent populates for the container.
-	// In real world, the container env vars in task def are marshaled into container.Environment isntead of docker Config.Env.
+	// In real world, the container env vars in task def are marshaled into container.Environment instead of docker Config.Env.
 	// it gets merged with internal env vars, and eventually get assigned to docker Config.Env
 	healthCheckString := "{\"Healthcheck\":{\"Test\":[\"echo\",\"ok\"],\"Interval\":1000000,\"Timeout\":1000000000,\"Retries\":1}}"
 	sleepTask.Containers = append(sleepTask.Containers, &apicontainer.Container{
@@ -1489,15 +1488,15 @@ func TestWatchAppNetImage(t *testing.T) {
 	ctrl, _, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
-	tempServiceConnectAppnetAgenTarballDir := t.TempDir()
+	tempServiceConnectAppnetAgentTarballDir := t.TempDir()
 
-	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().Return(tempServiceConnectAppnetAgenTarballDir).AnyTimes()
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().Return(tempServiceConnectAppnetAgentTarballDir).AnyTimes()
 	serviceConnectManager.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	watcherCtx, watcherCancel := context.WithTimeout(context.Background(), time.Second)
 	defer watcherCancel()
 	go taskEngine.(*DockerTaskEngine).watchAppNetImage(watcherCtx)
-	_, err := os.CreateTemp(tempServiceConnectAppnetAgenTarballDir, "agent.tar")
+	_, err := os.CreateTemp(tempServiceConnectAppnetAgentTarballDir, "agent.tar")
 	assert.NoError(t, err)
 
 	<-watcherCtx.Done()

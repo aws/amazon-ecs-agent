@@ -67,8 +67,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
-	"github.com/opencontainers/go-digest"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -79,6 +77,8 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,7 +92,6 @@ const (
 	ipv6                        = "f0:234:23"
 	dockerContainerName         = "docker-container-name"
 	containerPid                = 123
-	containerPid2               = 456
 	taskIP                      = "169.254.170.3"
 	exitCode                    = 1
 	labelsTaskARN               = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
@@ -920,7 +919,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			// If there's a delay in task engine's processing of the ContainerRunning
 			// event, StopContainer will be invoked again as the engine considers it
 			// as a stopped container coming back. MinTimes() should guarantee that
-			// StopContainer is invoked at least once and in protecting agasint a test
+			// StopContainer is invoked at least once and in protecting against a test
 			// failure when there's a delay in task engine processing the ContainerRunning
 			// event.
 			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{
@@ -2090,7 +2089,7 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
-	assert.True(t, ok, "task wasnot started")
+	assert.True(t, ok, "task was not started")
 }
 
 // TestPullStartedStoppedAtWasSetCorrectly tests the PullStartedAt and PullStoppedAt
@@ -2176,7 +2175,7 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 		mockTime.EXPECT().Now().Return(startTime2),
 		mockTime.EXPECT().Now().Return(startTime3),
 
-		// threre container pull stop timestamp
+		// three container pull stop timestamp
 		mockTime.EXPECT().Now().Return(stopTime1),
 		mockTime.EXPECT().Now().Return(stopTime2),
 		mockTime.EXPECT().Now().Return(stopTime3),
@@ -2634,7 +2633,7 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource.EXPECT().GetName().AnyTimes().Return("cgroup")
 	cgroupResource.EXPECT().StatusString(gomock.Any()).AnyTimes()
 
-	// Set the task to be stopped so that the process can done quickly
+	// Set the task to be stopped so that the process can be done quickly
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()
 }
@@ -2936,7 +2935,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 
 			// test validates that the expectedConfig includes secrets are appended as
-			// environment varibles
+			// environment variables
 			client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
 			ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 			assert.Nil(t, ret.Error)

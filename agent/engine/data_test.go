@@ -19,8 +19,6 @@ package engine
 import (
 	"testing"
 
-	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -29,6 +27,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

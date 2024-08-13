@@ -24,18 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -43,6 +37,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
@@ -56,9 +53,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
-	"github.com/stretchr/testify/assert"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleEventError(t *testing.T) {
@@ -144,7 +142,7 @@ func TestHandleEventError(t *testing.T) {
 			ExpectedOK:                      true,
 		},
 		{
-			Name:                                  "Container vanished betweeen pull and running",
+			Name:                                  "Container vanished between pull and running",
 			EventStatus:                           apicontainerstatus.ContainerRunning,
 			CurrentContainerKnownStatus:           apicontainerstatus.ContainerPulled,
 			Error:                                 &ContainerVanishedError{},
@@ -282,7 +280,7 @@ func TestContainerNextState(t *testing.T) {
 		// The expected next status is MANIFEST_PULLED
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerManifestPulled, true, nil},
 		// NONE -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
-		// is Running. The exptected next status is MANIFEST_PULLED
+		// is Running. The expected next status is MANIFEST_PULLED
 		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerManifestPulled, true, nil},
 		// NONE -> NONE transition is not be allowed and is not actionable,
 		// when desired is Running
@@ -301,10 +299,10 @@ func TestContainerNextState(t *testing.T) {
 		// MANIFEST_PULLED -> STOPPED transition will result in STOPPED and is allowed, but not actionable
 		{apicontainerstatus.ContainerManifestPulled, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
 		// PULLED -> RUNNING transition is allowed and actionable, when desired is Running
-		// The exptected next status is Created
+		// The expected next status is Created
 		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, true, nil},
 		// PULLED -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
-		// is Running. The exptected next status is Created
+		// is Running. The expected next status is Created
 		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerCreated, true, nil},
 		// PULLED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
@@ -319,7 +317,7 @@ func TestContainerNextState(t *testing.T) {
 		// The expected next status is Running
 		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, true, nil},
 		// CREATED -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
-		// is Running. The exptected next status is Running
+		// is Running. The expected next status is Running
 		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerRunning, true, nil},
 		// CREATED -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
@@ -359,7 +357,7 @@ func TestContainerNextState(t *testing.T) {
 		// when desired is Running
 		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> STOPPED transition is allowed and actionable, when desired
-		// is Running. The exptected next status is STOPPED
+		// is Running. The expected next status is STOPPED
 		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, true, nil},
 		// RESOURCES_PROVISIONED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
@@ -848,16 +846,16 @@ func TestStartContainerTransitionsWithTerminalError(t *testing.T) {
 		dockerMessages: dockerMessagesChan,
 	}
 
-	canTransition, _, transitions, errors := task.startContainerTransitions(
+	canTransition, _, transitions, errs := task.startContainerTransitions(
 		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			t.Error("Transition function should not be called when no transitions are possible")
 		})
 	assert.False(t, canTransition)
 	assert.Empty(t, transitions)
-	assert.Equal(t, 3, len(errors)) // first error is just indicating container1 is at desired status, following errors should be terminal
-	assert.False(t, errors[0].(dependencygraph.DependencyError).IsTerminal(), "Error should NOT  be terminal")
-	assert.True(t, errors[1].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
-	assert.True(t, errors[2].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+	assert.Equal(t, 3, len(errs)) // first error is just indicating container1 is at desired status, following errors should be terminal
+	assert.False(t, errs[0].(dependencygraph.DependencyError).IsTerminal(), "Error should NOT  be terminal")
+	assert.True(t, errs[1].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
+	assert.True(t, errs[2].(dependencygraph.DependencyError).IsTerminal(), "Error should be terminal")
 
 	stoppedMessages := make(map[string]dockerContainerChange)
 	// verify we are sending STOPPED message
@@ -886,7 +884,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	eventStreamName := "TESTTASKENGINE"
 
 	// Create a container with the intent to do
-	// CREATERD -> STOPPED transition. This triggers
+	// CREATED -> STOPPED transition. This triggers
 	// `managedTask.handleContainerChange()` and generates the following
 	// events:
 	// 1. container state change event for Submit* API
@@ -2060,7 +2058,7 @@ func TestHandleContainerChangeStopped_WithRestartPolicy_DesiredStopped(t *testin
 		},
 	}
 
-	// Set desired status of container to stopped, this similates what would happen
+	// Set desired status of container to stopped, this simulates what would happen
 	// if user called the ecs.StopTask API.
 	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 
