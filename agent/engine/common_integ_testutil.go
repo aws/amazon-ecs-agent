@@ -69,7 +69,7 @@ func CreateTestTask(arn string) *apitask.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{createTestContainer()},
+		Containers:          []*apicontainer.Container{CreateTestContainer()},
 	}
 }
 
