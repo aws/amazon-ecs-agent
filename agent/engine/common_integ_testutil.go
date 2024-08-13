@@ -119,6 +119,8 @@ func setupGMSALinux(cfg *config.Config, state dockerstate.TaskEngineState, t *te
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
+	taskEngine.taskSteadyStatePollInterval = 1 * time.Second
+	taskEngine.taskSteadyStatePollIntervalJitter = 500 * time.Millisecond
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -260,6 +262,8 @@ func SetupIntegTestTaskEngine(cfg *config.Config, state dockerstate.TaskEngineSt
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		nil, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
+	taskEngine.taskSteadyStatePollInterval = 1 * time.Second
+	taskEngine.taskSteadyStatePollIntervalJitter = 500 * time.Millisecond
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()

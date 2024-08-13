@@ -560,6 +560,8 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
+	taskEngine.taskSteadyStatePollInterval = 1 * time.Second
+	taskEngine.taskSteadyStatePollIntervalJitter = 500 * time.Millisecond
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
