@@ -76,7 +76,7 @@ func ContainersEqual(lhs, rhs *apicontainer.Container) bool {
 	if !ContainerOverridesEqual(lhs.Overrides, rhs.Overrides) {
 		return false
 	}
-	if lhs.DesiredStatusUnsafe != rhs.DesiredStatusUnsafe || lhs.KnownStatusUnsafe != rhs.KnownStatusUnsafe {
+	if lhs.GetDesiredStatus() != rhs.GetDesiredStatus() || lhs.GetKnownStatus() != rhs.GetKnownStatus() {
 		return false
 	}
 	if lhs.AppliedStatus != rhs.AppliedStatus {
