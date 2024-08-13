@@ -63,14 +63,14 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 			` Image amazon/image-cleanup-test-image2:make - Error response from daemon: hcsshim::GetComputeSystems:` +
 			` The requested compute system operation is not valid in the current state." module=log.go`)
 	}
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 5 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 1 * time.Second
 	cfg.NumImagesToDeletePerCycle = 2
 	// start agent
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -90,7 +90,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	// Verify that Task is running
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	imageState3.LastUsedAt = imageState3.LastUsedAt.Add(-99993 * time.Hour)
 
 	// Verify Task is stopped.
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	testTask.SetSentStatus(apitaskstatus.TaskStopped)
 
 	// Allow Task cleanup to occur
@@ -148,17 +148,17 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 	}
 
 	// Verify top 2 LRU images are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
+	_, err = dockerClient.InspectImage(imageState1ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
+	_, err = dockerClient.InspectImage(imageState2ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify 3rd LRU image has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
+	_, err = dockerClient.InspectImage(imageState3ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -170,7 +170,7 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 //	b. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
 //	c. Ensure that the image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupThreshold(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 
 	// Set low values so this test can complete in a sane amout of time
@@ -178,7 +178,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	// Set to delete three images, but in this test we expect only two images to be removed
 	cfg.NumImagesToDeletePerCycle = 3
 	// start agent
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -199,7 +199,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	// Verify that Task is running
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
+	err := VerifyTaskIsRunning(stateChangeEvents, testTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	imageState3.PulledAt = imageState3.PulledAt.Add(-25 * time.Minute)
 
 	// Verify Task is stopped
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	VerifyTaskIsStopped(stateChangeEvents, testTask)
 	testTask.SetSentStatus(apitaskstatus.TaskStopped)
 
 	// Allow Task cleanup to occur
@@ -262,17 +262,17 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 	}
 
 	// Verify Image1 & Image3 are removed from docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState1ImageID)
+	_, err = dockerClient.InspectImage(imageState1ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState3ImageID)
+	_, err = dockerClient.InspectImage(imageState3ImageID)
 	if !client.IsErrNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
 	// Verify Image2 has not been removed from Docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageState2ImageID)
+	_, err = dockerClient.InspectImage(imageState2ImageID)
 	if err != nil {
 		t.Fatalf("Image should not have been removed from Docker")
 	}
@@ -281,7 +281,7 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 // TestImageWithSameNameAndDifferentID tests image can be correctly removed when tasks
 // are running with the same image name, but different image id.
 func TestImageWithSameNameAndDifferentID(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -289,10 +289,8 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
-
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, create a go docker client
 	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -320,9 +318,9 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	// The same image name used by all tasks in this test
 	identicalImageName := "testimagewithsamenameanddifferentid:latest"
 	// Create three tasks which use the image with same name but different ID
-	task1 := createTestTask("task1")
-	task2 := createTestTask("task2")
-	task3 := createTestTask("task3")
+	task1 := CreateTestTask("task1")
+	task2 := CreateTestTask("task2")
+	task3 := CreateTestTask("task3")
 	task1.Containers[0].Image = identicalImageName
 	task2.Containers[0].Image = identicalImageName
 	task3.Containers[0].Image = identicalImageName
@@ -332,7 +330,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
-	err = verifyTaskIsRunning(stateChangeEvents, task1)
+	err = VerifyTaskIsRunning(stateChangeEvents, task1)
 	require.NoError(t, err, "task1")
 
 	// Verify image state is updated correctly
@@ -347,7 +345,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
-	err = verifyTaskIsRunning(stateChangeEvents, task2)
+	err = VerifyTaskIsRunning(stateChangeEvents, task2)
 	require.NoError(t, err, "task2")
 
 	// Verify image state is updated correctly
@@ -363,7 +361,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
-	err = verifyTaskIsRunning(stateChangeEvents, task3)
+	err = VerifyTaskIsRunning(stateChangeEvents, task3)
 	require.NoError(t, err, "task3")
 
 	// Verify image state is updated correctly
@@ -410,18 +408,18 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify images are removed by docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
+	_, err = dockerClient.InspectImage(imageID1)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID1)
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID2)
+	_, err = dockerClient.InspectImage(imageID2)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID2)
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID3)
+	_, err = dockerClient.InspectImage(imageID3)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID3)
 }
 
 // TestImageWithSameIDAndDifferentNames tests images can be correctly removed if
 // tasks are running with the same image id but different image name
 func TestImageWithSameIDAndDifferentNames(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
+	cfg := DefaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -429,10 +427,8 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	// Set low values so this test can complete in a sane amout of time
 	cfg.MinimumImageDeletionAge = 15 * time.Minute
 
-	taskEngine, done, _ := setup(cfg, nil, t)
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
-
-	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, so create a go docker client
 	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
@@ -444,16 +440,16 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Start three tasks which using the image with same ID and different Name
-	task1 := createTestTask("task1")
-	task2 := createTestTask("task2")
-	task3 := createTestTask("task3")
+	task1 := CreateTestTask("task1")
+	task2 := CreateTestTask("task2")
+	task3 := CreateTestTask("task3")
 	task1.Containers[0].Image = "testimagewithsameidanddifferentnames-1:latest"
 	task2.Containers[0].Image = "testimagewithsameidanddifferentnames-2:latest"
 	task3.Containers[0].Image = "testimagewithsameidanddifferentnames-3:latest"
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test4Image1Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, defaultTestConfigIntegTest().ImagePullTimeout)
+		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, DefaultTestConfigIntegTest().ImagePullTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
 
@@ -463,7 +459,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task1 to be running
 	go taskEngine.AddTask(task1)
-	err = verifyTaskIsRunning(stateChangeEvents, task1)
+	err = VerifyTaskIsRunning(stateChangeEvents, task1)
 	require.NoError(t, err)
 
 	imageState1, ok := imageManager.GetImageStateFromImageName(task1.Containers[0].Image)
@@ -477,7 +473,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task2 to be running
 	go taskEngine.AddTask(task2)
-	err = verifyTaskIsRunning(stateChangeEvents, task2)
+	err = VerifyTaskIsRunning(stateChangeEvents, task2)
 	require.NoError(t, err)
 
 	imageState2, ok := imageManager.GetImageStateFromImageName(task2.Containers[0].Image)
@@ -492,7 +488,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Start and wait for task3 to be running
 	go taskEngine.AddTask(task3)
-	err = verifyTaskIsRunning(stateChangeEvents, task3)
+	err = VerifyTaskIsRunning(stateChangeEvents, task3)
 	assert.NoError(t, err)
 
 	imageState3, ok := imageManager.GetImageStateFromImageName(task3.Containers[0].Image)
@@ -533,7 +529,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	assert.NoError(t, err, "imageID1")
 
 	// Verify images are removed by docker
-	_, err = taskEngine.(*DockerTaskEngine).client.InspectImage(imageID1)
+	_, err = dockerClient.InspectImage(imageID1)
 	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully")
 }
 

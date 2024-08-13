@@ -55,14 +55,14 @@ func init() {
 	sdkClientFactory = sdkclientfactory.NewFactory(context.TODO(), dockerEndpoint)
 }
 
-func defaultTestConfigIntegTest() *config.Config {
+func DefaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 	return cfg
 }
 
-func createTestTask(arn string) *apitask.Task {
+func CreateTestTask(arn string) *apitask.Task {
 	return &apitask.Task{
 		Arn:                 arn,
 		Family:              "family",
@@ -141,28 +141,28 @@ func loggerConfigIntegrationTest(logfile string) string {
 	return config
 }
 
-func verifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+func VerifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
 		"Expected container to be at MANIFEST_PULLED state")
 }
 
-func verifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+func VerifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
 		"Expected task to reach MANIFEST_PULLED state")
 }
 
-func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+func VerifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 }
 
-func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+func VerifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, apitaskstatus.TaskRunning, event.(api.TaskStateChange).Status,
@@ -192,7 +192,7 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 	}
 }
 
-func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
+func VerifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
@@ -226,7 +226,14 @@ func verifySpecificContainerStateChange(t *testing.T, taskEngine TaskEngine, con
 	assert.Equal(t, event.(api.ContainerStateChange).Status, containerStatus)
 }
 
-func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+func VerifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped,
+		"Expected task to be STOPPED")
+}
+
+func SetupIntegTestTaskEngine(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), dockerapi.DockerClient, credentials.Manager) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -254,7 +261,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-	}, credentialsManager
+	}, dockerClient, credentialsManager
 }
 
 func skipIntegTestIfApplicable(t *testing.T) {
@@ -321,7 +328,7 @@ type TestEvents struct {
 // collecting TaskEngine stateChangeEvents.
 // We must use the Golang assert library and NOT the require library to ensure the Go routine is
 // stopped at the end of our tests
-func InitEventCollection(taskEngine TaskEngine) *TestEvents {
+func InitTestEventCollection(taskEngine TaskEngine) *TestEvents {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	recordedEvents := make(EventSet)
 	testEvents := &TestEvents{
@@ -339,7 +346,7 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 			return nil
 		}
 		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
+		RecordTestEvent(testEvents, event)
 	}
 }
 
@@ -351,12 +358,12 @@ func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontNam
 			return nil
 		}
 		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
+		RecordTestEvent(testEvents, event)
 	}
 }
 
 // Will record the event that was just collected into the TestEvents struct's RecordedEvents map
-func RecordEvent(testEvents *TestEvents, event statechange.Event) {
+func RecordTestEvent(testEvents *TestEvents, event statechange.Event) {
 	switch event.GetEventType() {
 	case statechange.TaskEvent:
 		taskEvent := event.(api.TaskStateChange)

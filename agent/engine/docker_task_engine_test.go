@@ -4752,7 +4752,7 @@ func TestManifestPullFailuresTaskShouldStop(t *testing.T) {
 			taskEngine.AddTask(task)
 
 			// Verify that the task fails and the error is captured in the container.
-			verifyTaskIsStopped(taskEngine.StateChangeEvents(), task)
+			VerifyTaskIsStopped(taskEngine.StateChangeEvents(), task)
 			assert.Equal(t,
 				apierrors.NewNamedError(tc.expectedApplyingError),
 				tc.container.ApplyingError)

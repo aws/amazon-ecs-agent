@@ -922,7 +922,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	verifyTaskIsRunning(stateChangeEvents, sleepTask)
+	VerifyTaskIsRunning(stateChangeEvents, sleepTask)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -963,7 +963,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		},
 	}
 
-	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+	VerifyTaskIsStopped(stateChangeEvents, sleepTask)
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {
@@ -1164,7 +1164,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	assert.NoError(t, err)
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	verifyTaskIsRunning(stateChangeEvents, sleepTask)
+	VerifyTaskIsRunning(stateChangeEvents, sleepTask)
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
@@ -1175,7 +1175,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 		},
 	}
 
-	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+	VerifyTaskIsStopped(stateChangeEvents, sleepTask)
 
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
@@ -1339,7 +1339,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	assert.NoError(t, err)
 	taskEngine.AddTask(sleepTask)
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	verifyTaskIsRunning(stateChangeEvents, sleepTask)
+	VerifyTaskIsRunning(stateChangeEvents, sleepTask)
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
@@ -1350,7 +1350,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 		},
 	}
 
-	verifyTaskIsStopped(stateChangeEvents, sleepTask)
+	VerifyTaskIsStopped(stateChangeEvents, sleepTask)
 
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
