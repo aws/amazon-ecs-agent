@@ -128,7 +128,7 @@ var (
 	}
 )
 
-// Returns a standard agent task response
+// taskResponse returns a standard agent task response
 func taskResponse() *state.TaskResponse {
 	return &state.TaskResponse{
 		TaskResponse: &v2.TaskResponse{
@@ -173,6 +173,13 @@ func taskResponse() *state.TaskResponse {
 			},
 		},
 	}
+}
+
+// taskResponseWithFISEnabled returns a standard agent task response
+func taskResponseWithFISEnabled() *state.TaskResponse {
+	taskResponse := taskResponse()
+	taskResponse.FISEnabled = true
+	return taskResponse
 }
 
 func TestContainerMetadata(t *testing.T) {
@@ -288,6 +295,25 @@ func TestTaskMetadata(t *testing.T) {
 			expectedResponseBody: *expectedTaskResponse,
 		})
 	})
+
+	t.Run("happy case with FIS enabled", func(t *testing.T) {
+		metadata := taskResponseWithFISEnabled()
+		expectedTaskResponse := taskResponseWithFISEnabled()
+		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally
+		expectedTaskResponse.FISEnabled = false      // FISEnabled is not expected and would be used internally
+
+		handler, _, agentState, _ := setup(t)
+		agentState.EXPECT().
+			GetTaskMetadata(endpointContainerID).
+			Return(*metadata, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[state.TaskResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedTaskResponse,
+		})
+	})
+
 	t.Run("task lookup failure", func(t *testing.T) {
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
