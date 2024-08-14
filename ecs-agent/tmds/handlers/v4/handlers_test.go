@@ -159,13 +159,13 @@ func taskResponse() *state.TaskResponse {
 			ReservedMiBs: 600,
 		},
 		CredentialsID: credentialsID,
-		TaskNetworkConfig: &TaskNetworkConfig{
+		TaskNetworkConfig: &state.TaskNetworkConfig{
 			NetworkMode: utils.NetworkModeAWSVPC,
-			NetworkNamespaces: []*NetworkNamespace{
-				&NetworkNamespace{
+			NetworkNamespaces: []*state.NetworkNamespace{
+				&state.NetworkNamespace{
 					Path: "/var/run/netns/8059dc9193014dfeaab22d7a9997afad-064c910879c7",
-					NetworkInterfaces: []*NetworkInterface{
-						&NetworkInterface{
+					NetworkInterfaces: []*state.NetworkInterface{
+						&state.NetworkInterface{
 							DeviceName: "eth1",
 						},
 					},
