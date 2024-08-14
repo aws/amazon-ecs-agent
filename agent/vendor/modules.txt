@@ -53,9 +53,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface
-github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status
-github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig
 github.com/aws/amazon-ecs-agent/ecs-agent/stats
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler

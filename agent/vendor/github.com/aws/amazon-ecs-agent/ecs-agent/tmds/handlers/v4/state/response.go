@@ -15,7 +15,6 @@ package state
 import (
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -32,13 +31,28 @@ const (
 // with the v2 task response object.
 type TaskResponse struct {
 	*v2.TaskResponse
-	Containers              []ContainerResponse                  `json:"Containers,omitempty"`
-	VPCID                   string                               `json:"VPCID,omitempty"`
-	ServiceName             string                               `json:"ServiceName,omitempty"`
-	ClockDrift              *ClockDrift                          `json:"ClockDrift,omitempty"`
-	EphemeralStorageMetrics *EphemeralStorageMetrics             `json:"EphemeralStorageMetrics,omitempty"`
-	CredentialsID           string                               `json:"-"`
-	TaskNetworkConfig       *tasknetworkconfig.TaskNetworkConfig `json:"-"`
+	Containers              []ContainerResponse      `json:"Containers,omitempty"`
+	VPCID                   string                   `json:"VPCID,omitempty"`
+	ServiceName             string                   `json:"ServiceName,omitempty"`
+	ClockDrift              *ClockDrift              `json:"ClockDrift,omitempty"`
+	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
+	CredentialsID           string                   `json:"-"`
+	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
+}
+
+// TaskNetworkConfig contains required network configurations for network faults injection.
+type TaskNetworkConfig struct {
+	NetworkMode       string
+	NetworkNamespaces []*NetworkNamespace
+}
+
+type NetworkNamespace struct {
+	Path              string
+	NetworkInterfaces []*NetworkInterface
+}
+
+type NetworkInterface struct {
+	DeviceName string
 }
 
 // Instance's clock drift status
