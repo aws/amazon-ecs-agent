@@ -32,13 +32,13 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/golang/mock/gomock"
 )
 
 const (
@@ -159,6 +159,19 @@ func taskResponse() *state.TaskResponse {
 			ReservedMiBs: 600,
 		},
 		CredentialsID: credentialsID,
+		TaskNetworkConfig: &state.TaskNetworkConfig{
+			NetworkMode: utils.NetworkModeAWSVPC,
+			NetworkNamespaces: []*state.NetworkNamespace{
+				&state.NetworkNamespace{
+					Path: "/var/run/netns/8059dc9193014dfeaab22d7a9997afad-064c910879c7",
+					NetworkInterfaces: []*state.NetworkInterface{
+						&state.NetworkInterface{
+							DeviceName: "eth1",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -263,7 +276,8 @@ func TestTaskMetadata(t *testing.T) {
 	t.Run("happy case", func(t *testing.T) {
 		metadata := taskResponse()
 		expectedTaskResponse := taskResponse()
-		expectedTaskResponse.CredentialsID = "" // credentials ID not expected
+		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally.
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
 			GetTaskMetadata(endpointContainerID).

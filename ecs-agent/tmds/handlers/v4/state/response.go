@@ -37,6 +37,22 @@ type TaskResponse struct {
 	ClockDrift              *ClockDrift              `json:"ClockDrift,omitempty"`
 	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
 	CredentialsID           string                   `json:"-"`
+	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
+}
+
+// TaskNetworkConfig contains required network configurations for network faults injection.
+type TaskNetworkConfig struct {
+	NetworkMode       string
+	NetworkNamespaces []*NetworkNamespace
+}
+
+type NetworkNamespace struct {
+	Path              string
+	NetworkInterfaces []*NetworkInterface
+}
+
+type NetworkInterface struct {
+	DeviceName string
 }
 
 // Instance's clock drift status
