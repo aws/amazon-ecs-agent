@@ -40,9 +40,6 @@ const (
 
 	UnixSocketPrefix = "unix://"
 
-	// Used to mount /proc for agent container
-	ProcFS = "/proc"
-
 	// DefaultAgentVersion is the version of the agent that will be
 	// fetched if required. This should look like v1.2.3 or an
 	// 8-character sha, as is downloadable from S3.

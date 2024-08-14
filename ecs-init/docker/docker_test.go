@@ -32,7 +32,7 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	defaultExpectedAgentBinds = 18
+	defaultExpectedAgentBinds = 17
 )
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
@@ -261,7 +261,6 @@ func validateCommonCreateContainerOptions(
 	expectKey(config.AgentDataDirectory()+":/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
-	expectKey(config.ProcFS+":"+hostProcDir+":ro", binds, t)
 	expectKey(iptablesUsrLibDir+":"+iptablesUsrLibDir+":ro", binds, t)
 	expectKey(iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+":ro", binds, t)
 	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)

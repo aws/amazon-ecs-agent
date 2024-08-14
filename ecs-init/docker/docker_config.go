@@ -35,7 +35,6 @@ func getPlatformSpecificEnvVariables() map[string]string {
 // It mounts leases and pid file directories when built for Amazon Linux AMI
 func createHostConfig(binds []string) *godocker.HostConfig {
 	binds = append(binds,
-		config.ProcFS+":"+hostProcDir+readOnly,
 		iptablesUsrLibDir+":"+iptablesUsrLibDir+readOnly,
 		iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+readOnly,
 		iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+readOnly,

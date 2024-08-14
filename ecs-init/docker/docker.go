@@ -40,12 +40,6 @@ const (
 	// readOnly specifies the read-only suffix for mounting host volumes
 	// when creating the Agent container
 	readOnly = ":ro"
-	// hostProcDir binds the host's /proc directory to /host/proc within the
-	// ECS Agent container
-	// The ECS Agent needs access to host's /proc directory when configuring
-	// the network namespace of containers for tasks that are configured
-	// with an ENI
-	hostProcDir = "/host/proc"
 	// defaultDockerEndpoint is set to /var/run instead of /var/run/docker.sock
 	// in case /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint   = "/var/run"
