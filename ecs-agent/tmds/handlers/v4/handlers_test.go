@@ -175,10 +175,10 @@ func taskResponse() *state.TaskResponse {
 	}
 }
 
-// taskResponseWithFISEnabled returns a standard agent task response
-func taskResponseWithFISEnabled() *state.TaskResponse {
+// taskResponseWithFaultInjectionEnabled returns a standard agent task response with FaultInjection enabled
+func taskResponseWithFaultInjectionEnabled() *state.TaskResponse {
 	taskResponse := taskResponse()
-	taskResponse.FISEnabled = true
+	taskResponse.FaultInjectionEnabled = true
 	return taskResponse
 }
 
@@ -296,12 +296,12 @@ func TestTaskMetadata(t *testing.T) {
 		})
 	})
 
-	t.Run("happy case with FIS enabled", func(t *testing.T) {
-		metadata := taskResponseWithFISEnabled()
-		expectedTaskResponse := taskResponseWithFISEnabled()
-		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
-		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally
-		expectedTaskResponse.FISEnabled = false      // FISEnabled is not expected and would be used internally
+	t.Run("happy case with FaultInjection enabled", func(t *testing.T) {
+		metadata := taskResponseWithFaultInjectionEnabled()
+		expectedTaskResponse := taskResponseWithFaultInjectionEnabled()
+		expectedTaskResponse.CredentialsID = ""            // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil       // TaskNetworkConfig is not expected and would be used internally
+		expectedTaskResponse.FaultInjectionEnabled = false // FaultInjectionEnabled is not expected and would be used internally
 
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
