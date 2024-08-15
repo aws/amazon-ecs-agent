@@ -467,7 +467,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 // This test also verifies that
 // any DockerClient calls that interact with an image repository (PullContainerManifest
 // and PullContainer, currently) happen after the pause container has reached
-// ContainerResourcesProvisioned (RUNNING) state.
+// ContainerResourcesProvisioned state.
 //
 // If you are updating this test then make sure that you call assertPauseContainerIsRunning()
 // in any dockerClient expected calls that are supposed to interact with an image repository.
