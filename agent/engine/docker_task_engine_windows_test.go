@@ -518,8 +518,13 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				assert.True(t, ok)
 				assert.Equal(t, apitask.NetworkPauseContainerName, name)
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
-			dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().
+			StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).
+			Do(func(ctx interface{}, id string, timeout time.Duration) {
+				// Simulate some startup time
+				time.Sleep(5 * time.Millisecond)
+			}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			&types.ContainerJSON{
 				ContainerJSONBase: &types.ContainerJSONBase{
@@ -567,7 +572,13 @@ func TestPauseContainerHappyPath(t *testing.T) {
 			assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
 		}).
 		Return(registry.DistributionInspect{}, nil)
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
+	dockerClient.EXPECT().
+		PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).
+		Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) {
+			assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
+		}).
+		Return(dockerapi.DockerContainerMetadata{}).
+		Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
@@ -590,12 +601,8 @@ func TestPauseContainerHappyPath(t *testing.T) {
 			},
 		}, nil)
 	cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil)
-	dockerClient.EXPECT().
-		StartContainer(gomock.Any(), sleepContainerID2, defaultConfig.ContainerStartTimeout).
-		Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData) {
-			assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
-		}).
-		Return(dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
+	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID2, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
 	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&types.ContainerJSON{
 			ContainerJSONBase: &types.ContainerJSONBase{
