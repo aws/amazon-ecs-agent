@@ -58,6 +58,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/aws/aws-sdk-go/aws"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
