@@ -131,6 +131,7 @@ func TestTaskStopVerificationACKResponder_StopsSpecificTasks(t *testing.T) {
 	require.Equal(t, apitaskstatus.TaskRunning, tasks[0].GetKnownStatus())
 }
 
+// Tests simple test cases, such as the happy path for 1 task with 1 container and edge cases where no tasks are stopped.
 func TestTaskStopVerificationACKResponder(t *testing.T) {
 	testCases := []struct {
 		description string
@@ -148,7 +149,7 @@ func TestTaskStopVerificationACKResponder(t *testing.T) {
 		},
 		{
 			description: "task not found",
-			messageID:   "manifeset_message_id",
+			messageID:   "manifest_message_id",
 			taskArn:     "test_task",
 			stopTaskArn: "not_found_task",
 		},
