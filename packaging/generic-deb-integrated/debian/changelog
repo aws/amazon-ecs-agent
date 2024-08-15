@@ -1,3 +1,9 @@
+amazon-ecs-init (1.86.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.86.1
+
+ -- Harish Senthilkumar <harishxr@amazon.com>  Thu, 15 Aug 2024 18:00:00 +0000
+
 amazon-ecs-init (1.86.0-1) stable; urgency=medium
 
   * Cache Agent version 1.86.0
