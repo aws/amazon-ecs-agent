@@ -43,6 +43,7 @@ func (ts *taskStopper) StopTask(taskARN string) {
 		})
 		task.SetDesiredStatus(apitaskstatus.TaskStopped)
 		task.UpdateDesiredStatus()
+		ts.taskEngine.AddTask(task)
 		if err := ts.dataClient.SaveTask(task); err != nil {
 			logger.Error("Failed to save data for task", logger.Fields{
 				loggerfield.TaskARN: task.Arn,
