@@ -1,4 +1,9 @@
 # Changelog
+# 1.86.1
+* Bugfix - Update environment variable details in README.md and PR Template [#4271](https://github.com/aws/amazon-ecs-agent/pull/4271)
+* Bugfix - pull the image with the <image>@<digest> format [#4256](https://github.com/aws/amazon-ecs-agent/pull/4256)
+* Bugfix - Revert ecs.service behavior while maintaining resiliency [#4277](https://github.com/aws/amazon-ecs-agent/pull/4277)
+
 # 1.86.0
 * Feature - Container Restart Policy [#4264](https://github.com/aws/amazon-ecs-agent/pull/4264)
 
