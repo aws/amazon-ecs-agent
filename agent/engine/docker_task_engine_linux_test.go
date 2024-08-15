@@ -821,6 +821,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 }
 
+// Tests a happy case scenario for an AWSVPC task.
+//
+// This test also verifies that
+// any DockerClient calls that interact with an image repository (PullContainerManifest
+// and PullContainer, currently) happen after the pause container has reached
+// ContainerResourcesProvisioned (RUNNING) state.
+//
+// If you are updating this test then make sure that you call assertPauseContainerIsRunning()
+// in any dockerClient expected calls that are supposed to interact with an image repository.
 func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
