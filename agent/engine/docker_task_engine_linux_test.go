@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -58,10 +59,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-
 	"github.com/aws/aws-sdk-go/aws"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
+	dockerapitypes "github.com/docker/docker/api/types"
+	dockerapitypescontainer "github.com/docker/docker/api/types/container"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
@@ -1581,4 +1583,281 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 	assert.Nil(t, ret.Error)
+}
+
+// Tests that any repo-interacting Docker calls are made by the Task Engine after
+// the pause container (for awsvpc tasks) has reached ContainerResourcesProvisioned state.
+//
+// The test adds a simple awsvpc task to the task engine and then verifies that
+// any DockerClient calls that interact with an image repository (PullContainerManifest
+// and PullContainer, currently) happen after the pause container has reached
+// ContainerResourcesProvisioned (RUNNING) state.
+//
+// If you are updating this test then make sure that you call assertPauseContainerIsRunning()
+// in any dockerClient expected calls that are supposed to interact with an image repository.
+func TestRepoInteractionAgainstPauseContainerState(t *testing.T) {
+	// A test task
+	image := "image"
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{
+			{
+				Image:                     image,
+				Name:                      "container",
+				TransitionDependenciesMap: map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet{},
+				Essential:                 true,
+			},
+		},
+		Arn:                 testTaskARN,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		NetworkMode:         apitask.AWSVPCNetworkMode,
+	}
+
+	// Set up task engine and mocks
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cfg := config.DefaultConfig()
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
+	ctrl, _, mockTime, taskEngine, _, imageManager, _, serviceConnectManager := mocks(t, ctx, &cfg)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).client = dockerClient
+	taskEngine.(*DockerTaskEngine).cniClient = cniClient
+
+	// Expectations for ServiceConnectManager - loading of AppNet container image
+	serviceConnectManager.EXPECT().GetAppnetContainerTarballDir().AnyTimes().Return("")
+	serviceConnectManager.EXPECT().
+		LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes()
+
+	// time.Now() is called to record certain timestamps but we don't care about
+	// that for this test
+	mockTime.EXPECT().Now().AnyTimes().Return(time.Now())
+
+	// A function to assert that the network pause container in the task is in
+	// ContainerResourcesProvisioned state. This will be used by dockerClient mock later.
+	assertPauseContainerIsRunning := func() {
+		assert.Len(t, task.Containers, 2, "expected pause container to be populated")
+		pauseContainer := task.Containers[1]
+		assert.Equal(t, apitask.NetworkPauseContainerName, pauseContainer.Name)
+		assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type)
+		assert.Equal(t,
+			apicontainerstatus.ContainerResourcesProvisioned,
+			pauseContainer.GetKnownStatus(),
+			"expected pause container to be running before image repository is called")
+	}
+
+	// Set expectations on mocks for containers transition to CREATED and RUNNING
+	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
+	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
+	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
+
+	// To record container container state transition expectations
+	transitionExpectations := []*gomock.Call{}
+
+	// To track asynchronous sending of Docker events for container create and start
+	var pauseContainerDockerEventsSent sync.WaitGroup
+
+	// State transition expectations for the pause container
+	transitionExpectations = append(transitionExpectations,
+		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+		dockerClient.EXPECT().
+			CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(
+				func(ctx interface{}, config *dockercontainer.Config, y interface{},
+					containerName string, z time.Duration,
+				) {
+					pauseContainerDockerEventsSent.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						pauseContainerDockerEventsSent.Done()
+					}()
+				}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainer"}),
+		dockerClient.EXPECT().
+			StartContainer(gomock.Any(), "pauseContainer", cfg.ContainerStartTimeout).
+			Do(
+				func(ctx interface{}, id string, timeout time.Duration) {
+					// Simulate some startup time
+					time.Sleep(5 * time.Millisecond)
+					pauseContainerDockerEventsSent.Wait()
+					pauseContainerDockerEventsSent.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						pauseContainerDockerEventsSent.Done()
+					}()
+				}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
+		dockerClient.EXPECT().
+			InspectContainer(gomock.Any(), "pauseContainer", gomock.Any()).
+			Return(&dockerapitypes.ContainerJSON{
+				ContainerJSONBase: &dockerapitypes.ContainerJSONBase{
+					State:      &dockerapitypes.ContainerState{Pid: 5},
+					HostConfig: &dockerapitypescontainer.HostConfig{NetworkMode: "none"},
+				},
+			}, nil),
+		cniClient.EXPECT().
+			SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&cniTypesCurrent.Result{
+				IPs: []*cniTypesCurrent.IPConfig{
+					{Address: net.IPNet{IP: net.IPv4(127, 0, 0, 1)}},
+				},
+			}, nil),
+	)
+
+	// To track asynchronous sending of Docker events for container create and start
+	var taskContainerDockerEventsSent sync.WaitGroup
+
+	// State transition expectations for the task container
+	//
+	// Any expected dockerClient method calls that would interact with the image repository
+	// must call assertPauseContainerIsRunning() function to ensure that the pause container
+	// is RUNNING before the method call.
+	transitionExpectations = append(transitionExpectations,
+		// Expectations for transition to MANIFEST_PULLED
+		dockerClient.EXPECT().
+			WithVersion(dockerclient.Version_1_35).
+			Return(dockerClient, nil),
+		dockerClient.EXPECT().PullImageManifest(gomock.Any(), image, nil).
+			Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData) {
+				assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
+			}).
+			Return(registry.DistributionInspect{
+				Descriptor: ocispec.Descriptor{Digest: testDigest},
+			}, nil),
+
+		// Expectations for transition to PULLED
+		dockerClient.EXPECT().
+			PullImage(gomock.Any(), image+"@"+testDigest.String(), nil, gomock.Any()).
+			Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) {
+				assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
+			}).
+			Return(dockerapi.DockerContainerMetadata{}),
+		dockerClient.EXPECT().
+			TagImage(gomock.Any(), image+"@"+testDigest.String(), image).
+			Return(nil),
+		imageManager.EXPECT().RecordContainerReference(task.Containers[0]).Return(nil),
+		imageManager.EXPECT().GetImageStateFromImageName(image).Return(nil, false),
+
+		// Expectations for transition to CREATED
+		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
+		dockerClient.EXPECT().
+			CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(
+				func(ctx interface{}, config *dockercontainer.Config, y interface{},
+					containerName string, z time.Duration,
+				) {
+					taskContainerDockerEventsSent.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
+						taskContainerDockerEventsSent.Done()
+					}()
+				}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
+
+		// Expectations for transition to RUNNING
+		dockerClient.EXPECT().
+			StartContainer(gomock.Any(), containerID, cfg.ContainerStartTimeout).
+			Do(
+				func(ctx interface{}, id string, timeout time.Duration) {
+					taskContainerDockerEventsSent.Wait()
+					taskContainerDockerEventsSent.Add(1)
+					go func() {
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+						taskContainerDockerEventsSent.Done()
+					}()
+				}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
+	)
+
+	gomock.InOrder(transitionExpectations...)
+
+	// Start the task
+	err := taskEngine.Init(context.Background())
+	require.NoError(t, err)
+	taskEngine.AddTask(task)
+
+	// Wait for task to transition to RUNNING
+	waitForManifestPulledEvents(t, taskEngine.StateChangeEvents())
+	waitForRunningEvents(t, taskEngine.StateChangeEvents())
+	pauseContainerDockerEventsSent.Wait()
+	taskContainerDockerEventsSent.Wait()
+
+	// Expectations for cleanup
+	cleanup := make(chan time.Time)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
+	gomock.InOrder(
+		// For pause container cleanup
+		dockerClient.EXPECT().
+			InspectContainer(gomock.Any(), "pauseContainer", gomock.Any()).
+			Return(&dockerapitypes.ContainerJSON{
+				ContainerJSONBase: &dockerapitypes.ContainerJSONBase{
+					State:      &dockerapitypes.ContainerState{Pid: 5},
+					HostConfig: &dockerapitypescontainer.HostConfig{NetworkMode: "none"},
+				},
+			}, nil),
+		cniClient.EXPECT().
+			CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil),
+	)
+
+	// Expect IP resource to be released asyncronously
+	var ipResourceReleased sync.WaitGroup
+	ipResourceReleased.Add(1)
+	cniClient.EXPECT().
+		ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(context.Context, *ecscni.Config, time.Duration) { ipResourceReleased.Done() }).
+		Return(nil)
+
+	// Get dockerContainer for the task container
+	containerMap, ok := taskEngine.(*DockerTaskEngine).State().ContainerMapByArn(task.Arn)
+	require.True(t, ok)
+	taskContainer, ok := containerMap[task.Containers[0].Name]
+	require.True(t, ok)
+	pauseContainer, ok := containerMap[task.Containers[1].Name]
+	require.True(t, ok)
+
+	// Containers can be removed in any order
+	dockerClient.EXPECT().
+		RemoveContainer(
+			gomock.Any(), pauseContainer.DockerID, dockerclient.RemoveContainerTimeout).
+		Return(nil)
+	dockerClient.EXPECT().
+		RemoveContainer(
+			gomock.Any(), taskContainer.DockerID, dockerclient.RemoveContainerTimeout).
+		Return(nil)
+
+	// Image reference is removed for the task container only
+	imageManager.EXPECT().RemoveContainerReferenceFromImageState(taskContainer.Container).Return(nil)
+
+	// Simulate container exit
+	eventStream <- dockerapi.DockerContainerChangeEvent{
+		Status: apicontainerstatus.ContainerStopped,
+		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+			DockerID: containerID,
+			ExitCode: aws.Int(0),
+		},
+	}
+
+	// StopContainer might be invoked if the test execution is slow, during
+	// the cleanup phase. Account for that.
+	dockerClient.EXPECT().StopContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
+
+	// Wait for task to stop
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
+
+	// trigger cleanup, this ensures all the goroutines were finished
+	task.SetSentStatus(apitaskstatus.TaskStopped) // Needed to unblock cleanup
+	cleanup <- time.Now()
+	for {
+		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
+		if len(tasks) == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Wait for IP resource to be released
+	ipResourceReleased.Wait()
 }
