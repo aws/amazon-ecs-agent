@@ -355,10 +355,10 @@ func InitTestEventCollection(taskEngine TaskEngine) *TestEvents {
 
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) error {
+func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) {
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.TaskEvent][status.String()][taskARN]; found {
-			return nil
+			return
 		}
 		event := <-testEvents.StateChangeEvents
 		RecordTestEvent(testEvents, event)
@@ -367,10 +367,10 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
+func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) {
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
-			return nil
+			return
 		}
 		event := <-testEvents.StateChangeEvents
 		RecordTestEvent(testEvents, event)

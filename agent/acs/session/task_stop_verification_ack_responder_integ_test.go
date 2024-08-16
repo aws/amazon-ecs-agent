@@ -82,16 +82,19 @@ func TestTaskStopVerificationACKResponder_StopsSpecificTasks(t *testing.T) {
 	taskEngine, done, dockerClient, _ := engine.SetupIntegTestTaskEngine(engine.DefaultTestConfigIntegTest(), nil, t)
 	defer done()
 
+	testEvents := engine.InitTestEventCollection(taskEngine)
+
 	var tasks []*apitask.Task
 	for i := 0; i < 3; i++ {
 		task := engine.CreateTestTask(fmt.Sprintf("test_task_%d", i))
 		createLongRunningContainers(task, 1)
 		go taskEngine.AddTask(task)
 
-		engine.VerifyContainerManifestPulledStateChange(t, taskEngine)
-		engine.VerifyTaskManifestPulledStateChange(t, taskEngine)
-		engine.VerifyContainerRunningStateChange(t, taskEngine)
-		engine.VerifyTaskRunningStateChange(t, taskEngine)
+		containerName := task.Arn + ":" + task.Containers[0].Name
+		engine.VerifyContainerStatus(apicontainerstatus.ContainerManifestPulled, containerName, testEvents, t)
+		engine.VerifyTaskStatus(apitaskstatus.TaskManifestPulled, task.Arn, testEvents, t)
+		engine.VerifyContainerStatus(apicontainerstatus.ContainerRunning, containerName, testEvents, t)
+		engine.VerifyTaskStatus(apitaskstatus.TaskRunning, task.Arn, testEvents, t)
 		tasks = append(tasks, task)
 	}
 
@@ -113,9 +116,10 @@ func TestTaskStopVerificationACKResponder_StopsSpecificTasks(t *testing.T) {
 	})
 
 	// Wait for all state changes before verifying container and task statuses.
-	for i := 0; i < 2; i++ {
-		engine.VerifyContainerStoppedStateChange(t, taskEngine)
-		engine.VerifyTaskStoppedStateChange(t, taskEngine)
+	for _, task := range tasks[1:] {
+		containerName := task.Arn + ":" + task.Containers[0].Name
+		engine.VerifyContainerStatus(apicontainerstatus.ContainerStopped, containerName, testEvents, t)
+		engine.VerifyTaskStatus(apitaskstatus.TaskStopped, task.Arn, testEvents, t)
 	}
 
 	// Verify that the last 2 tasks and their containers have stopped.

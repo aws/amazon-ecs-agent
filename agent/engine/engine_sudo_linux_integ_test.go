@@ -228,28 +228,22 @@ func TestFirelensFluentbit(t *testing.T) {
 	testEvents := InitTestEventCollection(taskEngine)
 
 	//Verify logsender container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
-	assert.NoError(t, err, "Verify logsender container is running")
+	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
 
 	//Verify firelens container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
-	assert.NoError(t, err, "Verify firelens container is running")
+	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
 
 	//Verify task is in running state
-	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
-	assert.NoError(t, err, "Not verified task running")
+	VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
 
 	//Verify logsender container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
-	assert.NoError(t, err)
+	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
 
 	//Verify firelens container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
-	assert.NoError(t, err)
+	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
 
 	//Verify the task itself has stopped
-	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
-	assert.NoError(t, err)
+	VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
 
 	taskID := testTask.GetID()
 
