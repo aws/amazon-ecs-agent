@@ -28,13 +28,13 @@ const (
 	dockerEndpoint    = "unix:///var/run/docker.sock"
 )
 
-func createTestContainer() *apicontainer.Container {
+func CreateTestContainer() *apicontainer.Container {
 	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
 }
 
-// getLongRunningCommand returns the command that keeps the container running for the container
+// GetLongRunningCommand returns the command that keeps the container running for the container
 // that uses the default integ test image (amazon/amazon-ecs-netkitten for unix)
-func getLongRunningCommand() []string {
+func GetLongRunningCommand() []string {
 	return []string{"-loop=true"}
 }
 
