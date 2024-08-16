@@ -92,7 +92,7 @@ const (
 	// container to be initialized before it is ready to serve requests.
 	// A proper long term solution is for the pause container to have a health check and Agent to
 	// wait for it to become healthy but until then we are relying on this retry strategy.
-	maximumManifestPullRetries        = 10
+	maximumManifestPullRetries        = 8
 	minimumManifestPullRetryDelay     = 10 * time.Millisecond
 	maximumManifestPullRetryDelay     = 5 * time.Second
 	manifestPullRetryDelayMultiplier  = 4
