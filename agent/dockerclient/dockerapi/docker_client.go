@@ -87,7 +87,7 @@ const (
 	// Retry settings for pulling manifests.
 	//
 	// First few retries are quick (starting with 10ms) but the backoff increases
-	// fast (with a multiplier of 4 capping at 5s). This is to help setups that depend on
+	// fast (with a multiplier of 3 capping at 5s). This is to help setups that depend on
 	// network pause container for communicating to image repositories which require the pause
 	// container to be initialized before it is ready to serve requests.
 	// A proper long term solution is for the pause container to have a health check and Agent to
