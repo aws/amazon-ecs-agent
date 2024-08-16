@@ -26,7 +26,7 @@
 %global agent_image ecs-agent-v%{version}.tar
 
 Name:           ecs-init
-Version:        1.86.0
+Version:        1.86.1
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -270,6 +270,9 @@ fi
 %endif
 
 %changelog
+* Thu Aug 15 2024 Harish Senthilkumar <harishxr@amazon.com> - 1.86.1-1
+- Cache Agent version 1.86.1
+
 * Wed Aug 07 2024 Dane Lim <slimdane@amazon.com> - 1.86.0-1
 - Cache Agent version 1.86.0
 

@@ -44,11 +44,6 @@ func main() {
 	for {
 		// If given a target, work with it first
 		var cconn net.Conn
-		defer func() {
-			if cconn != nil {
-				cconn.Close()
-			}
-		}()
 		if target != "" {
 			var err error
 			cconn, err = net.Dial("tcp", target)
@@ -82,6 +77,7 @@ func main() {
 			conn.Close()
 		} else if cconn != nil {
 			io.Copy(os.Stdout, cconn)
+			cconn.Close()
 		}
 
 		if !*loop {
