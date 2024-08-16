@@ -151,6 +151,25 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 	}
 
+	if task.IsFaultInjectionEnabled() {
+		// TODO: The correct values for the task network config will need to be set/initialized
+		taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
+		taskNetworkConfig := tmdsv4.TaskNetworkConfig{
+			NetworkMode: task.GetNetworkMode(),
+			NetworkNamespaces: []*tmdsv4.NetworkNamespace{
+				{
+					Path: task.GetNetworkNamespace(),
+					NetworkInterfaces: []*tmdsv4.NetworkInterface{
+						{
+							DeviceName: "",
+						},
+					},
+				},
+			},
+		}
+		taskResponse.TaskNetworkConfig = &taskNetworkConfig
+	}
+
 	return *taskResponse, nil
 }
 
