@@ -2916,6 +2916,9 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 
 // String returns a human-readable string representation of this object
 func (task *Task) String() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
 	return task.stringUnsafe()
 }
 
