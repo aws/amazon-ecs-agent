@@ -120,7 +120,9 @@ func TestTaskStopVerificationAckResponderStopsMultipleTasks(t *testing.T) {
 	}
 
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
+	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN2])
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
+	tester.taskEngine.EXPECT().AddTask(tasksOnInstance[taskARN3])
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
@@ -171,9 +173,10 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 		},
 	}
 
-	tester.taskEngine.EXPECT().GetTaskByArn(taskARN1).Return(tasksOnInstance[taskARN1], true)
-	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
-	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
+	for taskARN, task := range tasksOnInstance {
+		tester.taskEngine.EXPECT().GetTaskByArn(taskARN).Return(task, true)
+		tester.taskEngine.EXPECT().AddTask(task)
+	}
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
