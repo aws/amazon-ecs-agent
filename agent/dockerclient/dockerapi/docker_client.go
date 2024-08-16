@@ -95,7 +95,7 @@ const (
 	maximumManifestPullRetries        = 9
 	minimumManifestPullRetryDelay     = 10 * time.Millisecond
 	maximumManifestPullRetryDelay     = 5 * time.Second
-	manifestPullRetryDelayMultiplier  = 4
+	manifestPullRetryDelayMultiplier  = 3
 	manifestPullRetryJitterMultiplier = 0.2
 
 	// retry settings for pulling images
