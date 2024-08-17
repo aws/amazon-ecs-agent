@@ -19,8 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
@@ -40,8 +42,43 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 		}`, 100)
 	dockerStat := &types.StatsJSON{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
-	err := validateDockerStats(dockerStat)
+	err := validateDockerStats(dockerStat, false)
 	assert.Error(t, err, "expected error converting container stats with zero cpu cores")
+}
+
+func TestValidateDockerStatsZeroValueReadTime(t *testing.T) {
+	testCases := []struct {
+		name                          string
+		containerEnabledRestartPolicy bool
+	}{
+		{
+			name:                          "container does not have restart policy enabled",
+			containerEnabledRestartPolicy: false,
+		},
+		{
+			name:                          "container has restart policy enabled",
+			containerEnabledRestartPolicy: true,
+		},
+	}
+	inputJsonFile, _ := filepath.Abs("./windows_test_stats.json")
+	jsonBytes, err := os.ReadFile(inputJsonFile)
+	assert.NoError(t, err)
+	dockerStat := &types.StatsJSON{}
+	json.Unmarshal(jsonBytes, dockerStat)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set read time of docker stat to zero value of time.Time.
+			dockerStat.Read = time.Time{}
+			err = validateDockerStats(dockerStat, tc.containerEnabledRestartPolicy)
+			if tc.containerEnabledRestartPolicy {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, invalidStatZeroValueReadTimeMsg)
+			} else {
+				assert.NoError(t, nil)
+			}
+		})
+	}
 }
 
 func TestDockerStatsToContainerStats(t *testing.T) {
