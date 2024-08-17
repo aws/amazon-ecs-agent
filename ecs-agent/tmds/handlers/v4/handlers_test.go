@@ -128,7 +128,7 @@ var (
 	}
 )
 
-// taskResponse returns a standard agent task response
+// Returns a standard agent task response
 func taskResponse() *state.TaskResponse {
 	return &state.TaskResponse{
 		TaskResponse: &v2.TaskResponse{
@@ -173,13 +173,6 @@ func taskResponse() *state.TaskResponse {
 			},
 		},
 	}
-}
-
-// taskResponseWithFaultInjectionEnabled returns a standard agent task response with FaultInjection enabled
-func taskResponseWithFaultInjectionEnabled() *state.TaskResponse {
-	taskResponse := taskResponse()
-	taskResponse.FaultInjectionEnabled = true
-	return taskResponse
 }
 
 func TestContainerMetadata(t *testing.T) {
@@ -295,25 +288,6 @@ func TestTaskMetadata(t *testing.T) {
 			expectedResponseBody: *expectedTaskResponse,
 		})
 	})
-
-	t.Run("happy case with FaultInjection enabled", func(t *testing.T) {
-		metadata := taskResponseWithFaultInjectionEnabled()
-		expectedTaskResponse := taskResponseWithFaultInjectionEnabled()
-		expectedTaskResponse.CredentialsID = ""            // credentials ID not expected
-		expectedTaskResponse.TaskNetworkConfig = nil       // TaskNetworkConfig is not expected and would be used internally
-		expectedTaskResponse.FaultInjectionEnabled = false // FaultInjectionEnabled is not expected and would be used internally
-
-		handler, _, agentState, _ := setup(t)
-		agentState.EXPECT().
-			GetTaskMetadata(endpointContainerID).
-			Return(*metadata, nil)
-		testTMDSRequest(t, handler, TMDSTestCase[state.TaskResponse]{
-			path:                 path,
-			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: *expectedTaskResponse,
-		})
-	})
-
 	t.Run("task lookup failure", func(t *testing.T) {
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
