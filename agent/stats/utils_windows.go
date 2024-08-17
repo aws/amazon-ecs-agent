@@ -39,7 +39,12 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 	}, nil
 }
 
-func validateDockerStats(dockerStats *types.StatsJSON) error {
+func validateDockerStats(dockerStats *types.StatsJSON, containerEnabledRestartPolicy bool) error {
+	if containerEnabledRestartPolicy && dockerStats.Read.IsZero() {
+		return fmt.Errorf("invalid container statistics reported for container with restart policy enabled, %s",
+			invalidStatZeroValueReadTimeMsg)
+	}
+
 	if numCores == uint64(0) {
 		return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
 	}

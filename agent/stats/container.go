@@ -85,7 +85,11 @@ func (container *StatsContainer) collect() {
 		default:
 			if err != nil {
 				d := backoff.Duration()
-				seelog.Debugf("Container [%s]: Error processing stats stream of container, backing off %s before reopening", dockerID, d)
+				logger.Debug(fmt.Sprintf(
+					"Error processing stats stream of container, backing off %s before reopening", d), logger.Fields{
+					loggerfield.DockerId: dockerID,
+					loggerfield.Error:    err,
+				})
 				time.Sleep(d)
 			}
 			// We were disconnected from the stats stream.
@@ -143,8 +147,12 @@ func (container *StatsContainer) processStatsStream() error {
 	dockerStats, errC := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
 
 	apiContainer, err := container.getApiContainer(dockerID)
-	if err != nil {
-		seelog.Errorf("Will not be able to get restart stats set, error: %s", err)
+	if apiContainer == nil && err != nil {
+		logger.Error("apiContainer is nil - will not be able to get restart stats set or determine "+
+			"if container has restart policy enabled", logger.Fields{
+			loggerfield.DockerId: dockerID,
+			loggerfield.Error:    err,
+		})
 	}
 
 	returnError := false
@@ -167,7 +175,11 @@ func (container *StatsContainer) processStatsStream() error {
 				}
 				return nil
 			}
-			err := validateDockerStats(rawStat)
+			containerEnabledRestartPolicy := false // default to false if apiContainer is nil
+			if apiContainer != nil {
+				containerEnabledRestartPolicy = apiContainer.RestartPolicyEnabled()
+			}
+			err := validateDockerStats(rawStat, containerEnabledRestartPolicy)
 			if err != nil {
 				return err
 			}
