@@ -169,7 +169,7 @@ func (d *nodeService) IsBlockDevice(fullPath string) (bool, error) {
 	return (st.Mode & unix.S_IFMT) == unix.S_IFBLK, nil
 }
 
-func (d *nodeService) getBlockSizeBytes(devicePath string) (int64, error) {
+func (d *nodeService) getBlockSizeBytes(devicePath string, _ string) (int64, error) {
 	cmd := d.mounter.(*NodeMounter).Exec.Command("blockdev", "--getsize64", devicePath)
 	output, err := cmd.Output()
 	if err != nil {
