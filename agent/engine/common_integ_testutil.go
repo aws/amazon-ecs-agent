@@ -52,11 +52,6 @@ var (
 	sdkClientFactory sdkclientfactory.Factory
 )
 
-const (
-	taskSteadyStatePollInterval       = 100 * time.Millisecond
-	taskSteadyStatePollIntervalJitter = 10 * time.Millisecond
-)
-
 func init() {
 	sdkClientFactory = sdkclientfactory.NewFactory(context.TODO(), dockerEndpoint)
 }
@@ -74,7 +69,7 @@ func CreateTestTask(arn string) *apitask.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{CreateTestContainer()},
+		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 }
 
@@ -124,10 +119,6 @@ func setupGMSALinux(cfg *config.Config, state dockerstate.TaskEngineState, t *te
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
-	// Set the steady state poll interval to a low value so that tasks transition from their current state to their
-	// desired state faster. This prevents tests from appearing to hang while waiting for state change events.
-	taskEngine.taskSteadyStatePollInterval = taskSteadyStatePollInterval
-	taskEngine.taskSteadyStatePollIntervalJitter = taskSteadyStatePollIntervalJitter
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -168,7 +159,7 @@ func VerifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
 func VerifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 }
 
@@ -182,7 +173,7 @@ func VerifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
 		"Expected container runtimeID should not empty")
@@ -205,9 +196,8 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 func VerifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	sc := event.(api.ContainerStateChange)
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
-		"Expected container %s from task %s to be STOPPED", sc.RuntimeID, sc.TaskArn)
+		"Expected container to be STOPPED")
 }
 
 func verifyContainerStoppedStateChangeWithReason(t *testing.T, taskEngine TaskEngine, reason string) {
@@ -269,10 +259,6 @@ func SetupIntegTestTaskEngine(cfg *config.Config, state dockerstate.TaskEngineSt
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		nil, execcmd.NewManager(), engineserviceconnect.NewManager(), daemonManagers)
-	// Set the steady state poll interval to a low value so that tasks transition from their current state to their
-	// desired state faster. This prevents tests from appearing to hang while waiting for state change events.
-	taskEngine.taskSteadyStatePollInterval = taskSteadyStatePollInterval
-	taskEngine.taskSteadyStatePollIntervalJitter = taskSteadyStatePollIntervalJitter
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
