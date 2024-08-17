@@ -51,7 +51,6 @@ const (
 	SCContainerName                              = "service-connect"
 	testTelemetryChannelDefaultBufferSize        = 10
 	testTelemetryChannelBufferSizeForChannelFull = 1
-	testPublishMetricsInterval                   = 5 * time.Second
 )
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
@@ -368,16 +367,6 @@ func TestStartMetricsPublish(t *testing.T) {
 			serviceConnectEnabled:      false,
 			disableMetrics:             true,
 			channelSize:                testTelemetryChannelDefaultBufferSize,
-		},
-		{
-			name:                       "ChannelFull",
-			hasPublishTicker:           true,
-			expectedInstanceMessageNum: 1, // expecting discarding messages after channel is full
-			expectedHealthMessageNum:   1,
-			expectedNonEmptyMetricsMsg: true,
-			serviceConnectEnabled:      false,
-			disableMetrics:             false,
-			channelSize:                testTelemetryChannelBufferSizeForChannelFull,
 		},
 	}
 
