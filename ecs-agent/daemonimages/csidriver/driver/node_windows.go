@@ -31,13 +31,19 @@ import (
 )
 
 // getBlockSizeBytes gets the size of the disk in bytes
-func (d *nodeService) getBlockSizeBytes(devicePath string) (int64, error) {
+func (d *nodeService) getBlockSizeBytes(devicePath string, volumeId string) (int64, error) {
+	// We need to fetch the device ID based on the devicePath and volumeId. This is needed
+	// for fetching disk metrics.
+	deviceId, err := d.findDevicePath(devicePath, volumeId, "")
+	if err != nil {
+		return -1, fmt.Errorf("error listing disk ids while getting the block size: %q", err)
+	}
 	proxyMounter, ok := (d.mounter.(*NodeMounter)).SafeFormatAndMount.Interface.(*mounter.CSIProxyMounter)
 	if !ok {
 		return -1, fmt.Errorf("failed to cast mounter to csi proxy mounter")
 	}
 
-	sizeInBytes, err := proxyMounter.GetDeviceSize(devicePath)
+	sizeInBytes, err := proxyMounter.GetDeviceSize(deviceId)
 	if err != nil {
 		return -1, err
 	}
