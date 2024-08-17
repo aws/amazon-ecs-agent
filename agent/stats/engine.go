@@ -55,12 +55,6 @@ const (
 	// defaultPublishServiceConnectTicker is every 3rd time service connect metrics will be sent to the backend
 	// Task metrics are published at 20s interval, thus task's service metrics will be published 60s.
 	defaultPublishServiceConnectTicker = 3
-	// publishMetricsTimeout is the duration that we wait for metrics/health info to be
-	// pushed to the TCS channels. In theory, this timeout should never be hit since
-	// the TCS handler should be continually reading from the channels and pushing to
-	// TCS, but when we lose connection to TCS, these channels back up. In case this
-	// happens, we need to have a timeout to prevent statsEngine channels from blocking.
-	publishMetricsTimeout = 1 * time.Second
 )
 
 var (
@@ -576,9 +570,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 			seelog.Debugf("Could not map task to definition, task: %s", taskArn)
 			continue
 		}
-
 		volMetrics := engine.getEBSVolumeMetrics(taskArn)
-
 		metricTaskArn := taskArn
 		taskMetric := &ecstcs.TaskMetric{
 			TaskArn:               &metricTaskArn,
@@ -1143,7 +1135,7 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 }
 
 func (engine *DockerStatsEngine) getVolumeMetricsWithTimeout(volumeId, hostPath string) (*csiclient.Metrics, error) {
-	derivedCtx, cancel := context.WithTimeout(engine.ctx, time.Second*1)
+	derivedCtx, cancel := context.WithTimeout(engine.ctx, getVolumeMetricsTimeout)
 	// releases resources if GetVolumeMetrics finishes before timeout
 	defer cancel()
 	return engine.csiClient.GetVolumeMetrics(derivedCtx, volumeId, hostPath)
