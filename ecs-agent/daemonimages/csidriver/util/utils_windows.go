@@ -25,10 +25,17 @@ package util
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+)
+
+const (
+	// This is the base path where the EBS mount is stored on the CSIDriver container.
+	// Keep this consistent with CsiDriverContainerWorkingPath constant in managed_daemon_windows.go
+	csiDriverContainerWorkingPathForWindows = "C:\\csi-driver\\"
 )
 
 // Define functions from Windows API
@@ -41,18 +48,29 @@ var (
 	// funcGetVolumeNameForVolumeMountPointW is the GetVolumeNameForVolumeMountPointW Win32 API.
 	// Reference: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getvolumenameforvolumemountpointw
 	funcGetVolumeNameForVolumeMountPointW func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error) = procGetVolumeNameForVolumeMountPointW.Call
+
+	// This is exact path where the CSIDriver mounts the various volumes that it stages
+	sharedMountsContainerPath = filepath.Join(csiDriverContainerWorkingPathForWindows, "ebs")
 )
 
 // IsBlockDevice checks if the given path is a block device on Windows.
 func IsBlockDevice(fullPath string) (bool, error) {
-	// Ensure the fullPath ends with a backslash.
+
+	// We will parse only the taskID_VolumeID string. And example is:
+	// 5c7b2008875345b99ea3350456e8dbd3_vol-0ed7a0c4396eef840
+	// We will trim out the base path that belongs to the EC2 host and replace it with the container base path.
+	// This is the only way we can probe for the attached device from the CSIDriver container.
+	uniqueMountId := filepath.Base(fullPath)
+	containerVolumePath := filepath.Join(sharedMountsContainerPath, uniqueMountId)
+
+	// Ensure the containerVolumePath ends with a backslash.
 	// This is as per the API documentation- https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getvolumenameforvolumemountpointw#parameters
-	if !strings.HasSuffix(fullPath, "\\") {
-		fullPath += "\\"
+	if !strings.HasSuffix(containerVolumePath, "\\") {
+		containerVolumePath += "\\"
 	}
 
 	var volumeName [windows.MAX_PATH + 1]uint16
-	mountPointUTF16, err := windows.UTF16PtrFromString(fullPath)
+	mountPointUTF16, err := windows.UTF16PtrFromString(containerVolumePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to convert path <%q> to UTF-16 pointer: %w", fullPath, err)
 	}

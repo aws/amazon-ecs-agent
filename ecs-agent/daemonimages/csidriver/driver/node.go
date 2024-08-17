@@ -335,7 +335,7 @@ func (d *nodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 	}
 
 	if isBlock {
-		bcap, blockErr := d.getBlockSizeBytes(req.VolumePath)
+		bcap, blockErr := d.getBlockSizeBytes(req.VolumePath, req.VolumeId)
 		if blockErr != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get block capacity on path %s: %v", req.VolumePath, err)
 		}
