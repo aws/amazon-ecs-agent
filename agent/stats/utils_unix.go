@@ -56,6 +56,11 @@ func getMemUsage(mem types.MemoryStats) uint64 {
 }
 
 func validateDockerStats(dockerStats *types.StatsJSON) error {
+	// TO-DO: If below is to be done for Windows as well, write a common error message and/or function to be used across platforms.
+	if dockerStats.Read.IsZero() {
+		return fmt.Errorf("invalid container statistics reported, read time of stat is zero value of time.Time")
+	}
+
 	if config.CgroupV2 {
 		// PercpuUsage is not available in cgroupv2
 		if numCores == uint64(0) {

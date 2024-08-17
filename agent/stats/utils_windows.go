@@ -40,6 +40,10 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 }
 
 func validateDockerStats(dockerStats *types.StatsJSON) error {
+	if dockerStats.Read.IsZero() {
+		return fmt.Errorf("invalid container statistics reported, read time of stat is zero value of time.Time")
+	}
+
 	if numCores == uint64(0) {
 		return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
 	}

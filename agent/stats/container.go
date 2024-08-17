@@ -15,6 +15,7 @@ package stats
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -85,7 +86,11 @@ func (container *StatsContainer) collect() {
 		default:
 			if err != nil {
 				d := backoff.Duration()
-				seelog.Debugf("Container [%s]: Error processing stats stream of container, backing off %s before reopening", dockerID, d)
+				logger.Debug(fmt.Sprintf(
+					"Error processing stats stream of container, backing off %s before reopening", d), logger.Fields{
+					loggerfield.DockerId: dockerID,
+					loggerfield.Error:    err,
+				})
 				time.Sleep(d)
 			}
 			// We were disconnected from the stats stream.
@@ -161,19 +166,28 @@ func (container *StatsContainer) processStatsStream() error {
 				returnError = true
 			}
 		case rawStat, ok := <-dockerStats:
+			statJsonStr, err := json.Marshal(rawStat)
+			logger.Debug("Got container stat from Docker", logger.Fields{
+				"stat": string(statJsonStr),
+			})
 			if !ok {
 				if returnError {
 					return fmt.Errorf("error encountered processing metrics stream from docker")
 				}
 				return nil
 			}
-			err := validateDockerStats(rawStat)
+			err = validateDockerStats(rawStat)
 			if err != nil {
 				return err
 			}
 
 			isFirstStatAfterContainerRestart := apiContainer != nil && apiContainer.RestartPolicyEnabled() &&
 				container.syncContainerRestartAggregationData()
+			if err != nil {
+				logger.Error("Failed to JSON marshal valid container stat from Docker", logger.Fields{
+					loggerfield.Error: err,
+				})
+			}
 			err = container.statsQueue.AddContainerStat(rawStat, getNonDockerContainerStats(apiContainer),
 				&container.restartAggregationData.LastStatBeforeLastRestart, container.hasRestartedBefore())
 			if err != nil {
@@ -206,6 +220,9 @@ func (container *StatsContainer) terminal() (bool, error) {
 // detected. This method returns true if a restart was detected and returns false otherwise.
 func (container *StatsContainer) syncContainerRestartAggregationData() bool {
 	_, dockerContainerData := container.client.DescribeContainer(container.ctx, container.containerMetadata.DockerID)
+	logger.Debug("Got current container started at time according to Docker", logger.Fields{
+		"startedAt": dockerContainerData.StartedAt.UTC().Format(time.RFC3339),
+	})
 	restartDetected := dockerContainerData.StartedAt.Sub(container.containerMetadata.StartedAt) > 0
 	if container.hasRestartedBefore() {
 		restartDetected = dockerContainerData.StartedAt.Sub(container.restartAggregationData.LastRestartDetectedAt) > 0
