@@ -212,39 +212,39 @@ func registerFaultHandlers(
 	).Methods("PUT")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
-		handler.StopNetworkBlackHolePort(),
+		handler.StopBlackHolePort(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
-		handler.CheckNetworkBlackHolePort(),
+		handler.CheckBlackHolePortStatus(),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network latency fault injections
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
-		handler.StartNetworkLatency(),
+		handler.StartLatency(),
 	).Methods("PUT")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
-		handler.StopNetworkLatency(),
+		handler.StopLatency(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
-		handler.CheckNetworkLatency(),
+		handler.CheckLatencyStatus(),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network packet loss fault injections
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.StartNetworkPacketLoss(),
+		handler.StartPacketLoss(),
 	).Methods("PUT")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.StopNetworkPacketLoss(),
+		handler.StopPacketLoss(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
 		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.CheckNetworkPacketLoss(),
+		handler.CheckPacketLossStatus(),
 	).Methods("GET")
 
 	seelog.Debug("Successfully set up Fault TMDS handlers")
