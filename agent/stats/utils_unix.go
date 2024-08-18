@@ -55,7 +55,12 @@ func getMemUsage(mem types.MemoryStats) uint64 {
 	return mem.Usage
 }
 
-func validateDockerStats(dockerStats *types.StatsJSON) error {
+func validateDockerStats(dockerStats *types.StatsJSON, containerEnabledRestartPolicy bool) error {
+	if containerEnabledRestartPolicy && dockerStats.Read.IsZero() {
+		return fmt.Errorf("invalid container statistics reported for container with restart policy enabled, %s",
+			invalidStatZeroValueReadTimeMsg)
+	}
+
 	if config.CgroupV2 {
 		// PercpuUsage is not available in cgroupv2
 		if numCores == uint64(0) {

@@ -20,6 +20,10 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
+const (
+	invalidStatZeroValueReadTimeMsg = "read time of stat is 0001-01-01T00:00:00Z"
+)
+
 var numCores = uint64(eautils.GetNumCPU())
 
 // nan32 returns a 32bit NaN.

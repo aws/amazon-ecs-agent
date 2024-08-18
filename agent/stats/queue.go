@@ -584,12 +584,15 @@ func getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart
 	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
 	dockerStat = aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart)
 
-	// PreCPU stats.
+	// Stats relevant to PreCPU.
 	preCPUStats := types.CPUStats{}
+	preRead := time.Time{}
 	if lastStatInStatsQueue != nil {
 		preCPUStats = lastStatInStatsQueue.CPUStats
+		preRead = lastStatInStatsQueue.Read
 	}
 	dockerStat.PreCPUStats = preCPUStats
+	dockerStat.PreRead = preRead
 
 	logger.Debug("Aggregated Docker stat across restart(s)", logger.Fields{
 		loggerfield.DockerId: dockerStat.ID,
