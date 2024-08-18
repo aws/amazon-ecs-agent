@@ -94,7 +94,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{CreateTestContainer()},
+		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-health-check"
@@ -392,7 +392,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "1"}
 	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port1}}
 	testTask.Containers[0].Essential = false
-	testTask.Containers = append(testTask.Containers, CreateTestContainer())
+	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", port1), "-serve", serverContent + "2"}
 	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: port1, HostPort: port2}}
@@ -580,7 +580,7 @@ func TestLinking(t *testing.T) {
 
 	testArn := "TestLinking"
 	testTask := CreateTestTask(testArn)
-	testTask.Containers = append(testTask.Containers, CreateTestContainer())
+	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
 	testTask.Containers[0].Name = "linkee"
 	port := getUnassignedPort()
@@ -638,7 +638,7 @@ func TestVolumesFromRO(t *testing.T) {
 	testTask := CreateTestTask("testVolumeROContainer")
 	testTask.Containers[0].Image = testVolumeImage
 	for i := 0; i < 3; i++ {
-		cont := CreateTestContainer()
+		cont := createTestContainer()
 		cont.Name = "test" + strconv.Itoa(i)
 		cont.Image = testVolumeImage
 		cont.Essential = i > 0

@@ -63,6 +63,4 @@ const (
 	Endpoint                = "endpoint"
 	TelemetryEndpoint       = "telemetryEndpoint"
 	ServiceConnectEndpoint  = "serviceConnectEndpoint"
-	Response                = "response"
-	Request                 = "request"
 )
