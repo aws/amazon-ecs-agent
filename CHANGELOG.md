@@ -1,4 +1,7 @@
 # Changelog
+# 1.86.2
+* Bugfix - Add more validation of stats received from Docker [#4295](https://github.com/aws/amazon-ecs-agent/pull/4295)
+
 # 1.86.1
 * Bugfix - Update environment variable details in README.md and PR Template [#4271](https://github.com/aws/amazon-ecs-agent/pull/4271)
 * Bugfix - pull the image with the <image>@<digest> format [#4256](https://github.com/aws/amazon-ecs-agent/pull/4256)
