@@ -120,7 +120,9 @@ func TestTaskStopVerificationAckResponderStopsMultipleTasks(t *testing.T) {
 	}
 
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
+	mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t, tester, tasksOnInstance, taskARN2, apitaskstatus.TaskStopped)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
+	mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t, tester, tasksOnInstance, taskARN3, apitaskstatus.TaskStopped)
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
@@ -172,8 +174,11 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 	}
 
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN1).Return(tasksOnInstance[taskARN1], true)
+	mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t, tester, tasksOnInstance, taskARN1, apitaskstatus.TaskStopped)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN2).Return(tasksOnInstance[taskARN2], true)
+	mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t, tester, tasksOnInstance, taskARN2, apitaskstatus.TaskStopped)
 	tester.taskEngine.EXPECT().GetTaskByArn(taskARN3).Return(tasksOnInstance[taskARN3], true)
+	mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t, tester, tasksOnInstance, taskARN3, apitaskstatus.TaskStopped)
 
 	handleTaskStopVerificationAck :=
 		tester.taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
@@ -185,4 +190,17 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 		assert.Equal(t, 1, len(task.Containers))
 		assert.Equal(t, apicontainerstatus.ContainerStopped, task.Containers[0].GetDesiredStatus())
 	}
+}
+
+// mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus expects the mock task engine to call UpdateTask and asserts
+// that the task it takes as input has task ARN `taskARN` and desired status `desiredStatus` before setting and
+// updating the desired status of the task and its containers on the instance.
+func mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t *testing.T, tester *taskStopVerificationAckTestHelper,
+	tasksOnInstance map[string]*task.Task, taskARN string, desiredStatus apitaskstatus.TaskStatus) {
+	tester.taskEngine.EXPECT().UpdateTask(gomock.Any()).Do(func(addedTask *task.Task) {
+		assert.Equal(t, taskARN, addedTask.Arn)
+		assert.Equal(t, desiredStatus, addedTask.GetDesiredStatus())
+		tasksOnInstance[taskARN].SetDesiredStatus(desiredStatus)
+		tasksOnInstance[taskARN].UpdateDesiredStatus()
+	})
 }
