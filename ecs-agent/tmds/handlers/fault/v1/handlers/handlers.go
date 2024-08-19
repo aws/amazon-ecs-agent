@@ -45,8 +45,8 @@ type FaultHandler struct {
 	MetricsFactory metrics.EntryFactory
 }
 
-// FaultNetworkFaultPath will take in a fault type and return the TMDS endpoint path
-func FaultNetworkFaultPath(fault string) string {
+// NetworkFaultPath will take in a fault type and return the TMDS endpoint path
+func NetworkFaultPath(fault string) string {
 	return fmt.Sprintf("/api/%s/fault/v1/%s",
 		utils.ConstructMuxVar(v4.EndpointContainerIDMuxName, utils.AnythingButSlashRegEx), fault)
 }
@@ -72,7 +72,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
-		_, err = getTaskMetadataForFault(w, h.AgentState, requestType, r)
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
@@ -117,7 +117,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
-		_, err = getTaskMetadataForFault(w, h.AgentState, requestType, r)
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
@@ -162,7 +162,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
-		_, err = getTaskMetadataForFault(w, h.AgentState, requestType, r)
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
@@ -185,22 +185,126 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 	}
 }
 
-// TODO
 func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkLatencyRequest
+		requestType := fmt.Sprintf(startFaultRequestType, types.LatencyFaultType)
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
 
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// TODO: Check status of current fault injection
+		// TODO: Invoke the start fault injection functionality if not running
+
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
+		logger.Info("Successfully started fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
-// TODO
 func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkLatencyRequest
+		requestType := fmt.Sprintf(stopFaultRequestType, types.LatencyFaultType)
+
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// TODO: Check status of current fault injection
+		// TODO: Invoke the stop fault injection functionality if running
+
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("stopped")
+		logger.Info("Successfully stopped fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
-// TODO
 func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkLatencyRequest
+		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.LatencyFaultType)
+
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// Check status of current fault injection
+
+		// TODO: Return the correct status state
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
+		logger.Info("Successfully checked status for fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
@@ -266,7 +370,9 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 	return nil
 }
 
-func getTaskMetadataForFault(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
+// validateTaskMetadata will check the associated task metadata to make sure the task has enabled fault injection
+// and the corresponding network mode is supported.
+func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
 	var taskMetadata state.TaskResponse
 	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
 	taskMetadata, err := agentState.GetTaskMetadata(endpointContainerID)

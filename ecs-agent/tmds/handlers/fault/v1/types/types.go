@@ -80,6 +80,34 @@ func (response NetworkFaultInjectionResponse) ToString() string {
 	return string(data)
 }
 
+type NetworkLatencyRequest struct {
+	DelayMilliseconds  *uint64   `json:"DelayMilliseconds"`
+	JitterMilliseconds *uint64   `json:"JitterMilliseconds"`
+	Sources            []*string `json:"Sources"`
+}
+
+func (request NetworkLatencyRequest) ValidateRequest() error {
+	if request.DelayMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "DelayMilliseconds")
+	}
+	if request.JitterMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "JitterMilliseconds")
+	}
+	if request.Sources == nil || len(request.Sources) == 0 {
+		return fmt.Errorf(missingRequiredFieldError, "Sources")
+	}
+
+	return nil
+}
+
+func (request NetworkLatencyRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", LatencyFaultType, err)
+	}
+	return string(data)
+}
+
 func NewNetworkFaultInjectionSuccessResponse(status string) NetworkFaultInjectionResponse {
 	return NetworkFaultInjectionResponse{
 		Status: status,
