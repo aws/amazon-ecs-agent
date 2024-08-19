@@ -61,9 +61,9 @@ Invoke-Expression "${PSScriptRoot}\..\misc\exec-command-agent-test\build.ps1"
 # Run the tests
 $cwd = (pwd).Path
 try {
-  $env:ECS_LOGLEVEL = 'debug'; CGO_ENABLED=1 go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
+  $env:GO111MODULE = 'auto'; $env:CGO_ENABLED = 1; $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ./agent/... ./ecs-agent/...
   if (${LastExitCode} -ne 0) {
-    $env:ECS_LOGLEVEL = 'debug'; CGO_ENABLED=1 go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
+    $env:GO111MODULE = 'auto'; $env:CGO_ENABLED = 1; $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ./agent/... ./ecs-agent/...
   }
   $testsExitCode = $LastExitCode
 } finally {
