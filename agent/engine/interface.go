@@ -43,6 +43,9 @@ type TaskEngine interface {
 	// lifecycle. If it returns an error, the task was not added.
 	AddTask(*apitask.Task)
 
+	// UpdateTask updates a task in the task engine.
+	UpdateTask(*apitask.Task)
+
 	// ListTasks lists all the tasks being managed by the TaskEngine.
 	ListTasks() ([]*apitask.Task, error)
 
