@@ -112,6 +112,10 @@ const (
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 	taskCredentialsID          = "taskCredentialsId"
 	endpointId                 = "endpointId"
+
+	port        = 1234
+	protocol    = "tcp"
+	trafficType = "ingress"
 )
 
 var (
@@ -3567,87 +3571,143 @@ func TestUpdateTaskProtection(t *testing.T) {
 	}))
 }
 
-func TestRegisterHandler(t *testing.T) {
-	tcs := []struct {
-		name               string
-		expectedStatusCode int
-		fault              string
-		method             string
-	}{
+type blackholePortFaultTestCase struct {
+	name                  string
+	expectedStatusCode    int
+	requestBody           interface{}
+	expectedFaultResponse faulttype.NetworkFaultInjectionResponse
+	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState)
+}
+
+func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyResponseBody string) []blackholePortFaultTestCase {
+	happyBlackHolePortReqBody := map[string]interface{}{
+		"Port":        port,
+		"Protocol":    protocol,
+		"TrafficType": trafficType,
+	}
+	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
+		task := standardTask()
+		gomock.InOrder(
+			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+		)
+	}
+	tcs := []blackholePortFaultTestCase{
 		{
-			name:               "PUT blackholeport",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.BlackHolePortFaultType,
-			method:             "PUT",
+			name:                  fmt.Sprintf("%s success", name),
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			setStateExpectations:  happyStateExpectations,
 		},
 		{
-			name:               "DELETE blackholeport",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.BlackHolePortFaultType,
-			method:             "DELETE",
+			name:               fmt.Sprintf("%s unknown request body", name),
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			setStateExpectations:  happyStateExpectations,
 		},
 		{
-			name:               "GET blackholeport",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.BlackHolePortFaultType,
-			method:             "GET",
+			name:               fmt.Sprintf("%s malformed request body", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":        "port",
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkBlackholePortRequest.Port of type uint16"),
 		},
 		{
-			name:               "PUT latency",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.LatencyFaultType,
-			method:             "PUT",
+			name:               fmt.Sprintf("%s incomplete request body", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":     port,
+				"Protocol": protocol,
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
 		},
 		{
-			name:               "DELETE latency",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.LatencyFaultType,
-			method:             "DELETE",
+			name:               fmt.Sprintf("%s empty value request body", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": "",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
 		},
 		{
-			name:               "GET latency",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.BlackHolePortFaultType,
-			method:             "GET",
+			name:               fmt.Sprintf("%s invalid protocol value request body", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    "invalid",
+				"TrafficType": trafficType,
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter Protocol"),
 		},
 		{
-			name:               "PUT packet loss",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.PacketLossFaultType,
-			method:             "PUT",
+			name:               fmt.Sprintf("%s invalid traffic type value request body", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": "invalid",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter TrafficType"),
 		},
 		{
-			name:               "DELETE packet loss",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.PacketLossFaultType,
-			method:             "DELETE",
+			name:                  fmt.Sprintf("%s task lookup fail", name),
+			expectedStatusCode:    404,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return("", false),
+				)
+			},
 		},
 		{
-			name:               "GET packet loss",
-			expectedStatusCode: http.StatusOK,
-			fault:              faulttype.PacketLossFaultType,
-			method:             "GET",
-		},
-		{
-			name:               "PUT unknown",
-			expectedStatusCode: http.StatusNotFound,
-			fault:              "unknown",
-			method:             "PUT",
-		},
-		{
-			name:               "DELETE unknown",
-			expectedStatusCode: http.StatusNotFound,
-			fault:              "unknown",
-			method:             "DELETE",
-		},
-		{
-			name:               "GET unknown",
-			expectedStatusCode: http.StatusNotFound,
-			fault:              "unknown",
-			method:             "GET",
+			name:                  fmt.Sprintf("%s task metadata fetch fail", name),
+			expectedStatusCode:    500,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
+				)
+			},
 		},
 	}
+	return tcs
+}
 
+func TestRegisterStartBlackholePortFaultHandler(t *testing.T) {
+	tcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType, "running")
+	testRegisterFaultHandler(t, tcs, "PUT", faulttype.BlackHolePortFaultType)
+}
+
+func TestRegisterStopBlackholePortFaultHandler(t *testing.T) {
+	tcs := getNetworkBlackHolePortHandlerTestCases("stop blackhole port", faulttype.BlackHolePortFaultType, "stopped")
+	testRegisterFaultHandler(t, tcs, "DELETE", faulttype.BlackHolePortFaultType)
+}
+
+func TestRegisterCheckBlackholePortFaultHandler(t *testing.T) {
+	tcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType, "running")
+	testRegisterFaultHandler(t, tcs, "GET", faulttype.BlackHolePortFaultType)
+}
+
+func testRegisterFaultHandler(t *testing.T, tcs []blackholePortFaultTestCase, method, fault string) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Mocks
@@ -3661,11 +3721,20 @@ func TestRegisterHandler(t *testing.T) {
 			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
-			router := mux.NewRouter()
+			if tc.setStateExpectations != nil {
+				tc.setStateExpectations(state)
+			}
 
+			router := mux.NewRouter()
 			registerFaultHandlers(router, agentState, metricsFactory)
 			var requestBody io.Reader
-			req, err := http.NewRequest(tc.method, fmt.Sprintf("/api/%s/fault/v1/%s", endpointId, tc.fault),
+			if tc.requestBody != "" {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/%s", endpointId, fault),
 				requestBody)
 			require.NoError(t, err)
 
@@ -3673,7 +3742,12 @@ func TestRegisterHandler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, req)
 
-			assert.Equal(t, recorder.Code, tc.expectedStatusCode)
+			var actualResponseBody faulttype.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedFaultResponse, actualResponseBody)
 		})
 	}
 }
