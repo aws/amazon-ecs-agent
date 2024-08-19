@@ -560,10 +560,6 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
 		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
-	// Set the steady state poll interval to a low value so that tasks transition from their current state to their
-	// desired state faster. This prevents tests from appearing to hang while waiting for state change events.
-	taskEngine.taskSteadyStatePollInterval = taskSteadyStatePollInterval
-	taskEngine.taskSteadyStatePollIntervalJitter = taskSteadyStatePollIntervalJitter
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
