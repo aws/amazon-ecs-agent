@@ -17,6 +17,8 @@ Param (
   $Platform="windows2016"
 )
 
+$ErrorActionPreference = 'Stop'
+
 if ($Platform -like "windows2016") {
   $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2016"
 } elseif ($Platform -like "windows2019")  {
