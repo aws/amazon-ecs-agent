@@ -462,6 +462,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 }
 
+// Tests a happy case scenario for an AWSVPC task.
+//
+// This test also verifies that
+// any DockerClient calls that interact with an image repository (PullContainerManifest
+// and PullContainer, currently) happen after the pause container has reached
+// ContainerResourcesProvisioned state.
+//
+// If you are updating this test then make sure that you call assertPauseContainerIsRunning()
+// in any dockerClient expected calls that are supposed to interact with an image repository.
 func TestPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -509,8 +518,13 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				assert.True(t, ok)
 				assert.Equal(t, apitask.NetworkPauseContainerName, name)
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
-			dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
+		dockerClient.EXPECT().
+			StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).
+			Do(func(ctx interface{}, id string, timeout time.Duration) {
+				// Simulate some startup time
+				time.Sleep(5 * time.Millisecond)
+			}).
+			Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
 		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			&types.ContainerJSON{
 				ContainerJSONBase: &types.ContainerJSONBase{
@@ -531,6 +545,19 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		}, nil),
 	)
 
+	// A function to assert that the network pause container in the task is in
+	// ContainerResourcesProvisioned state. This will be used by dockerClient mock later.
+	assertPauseContainerIsRunning := func() {
+		assert.Len(t, sleepTask.Containers, 3, "expected pause container to be populated")
+		pauseContainer := sleepTask.Containers[2]
+		assert.Equal(t, apitask.NetworkPauseContainerName, pauseContainer.Name)
+		assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type)
+		assert.Equal(t,
+			apicontainerstatus.ContainerResourcesProvisioned,
+			pauseContainer.GetKnownStatus(),
+			"expected pause container to be running before image repository is called")
+	}
+
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -541,8 +568,17 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	manifestPullClient.EXPECT().
 		PullImageManifest(gomock.Any(), gomock.Any(), gomock.Any()).
 		Times(2).
+		Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData) {
+			assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
+		}).
 		Return(registry.DistributionInspect{}, nil)
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
+	dockerClient.EXPECT().
+		PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).
+		Do(func(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) {
+			assertPauseContainerIsRunning() // Ensure that pause container is already RUNNING
+		}).
+		Return(dockerapi.DockerContainerMetadata{}).
+		Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
