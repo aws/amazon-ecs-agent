@@ -18,9 +18,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -109,20 +106,14 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 		elementStr := aws.StringValue(element)
 		validIp := true
 		if net.ParseIP(elementStr) == nil {
-			logger.Error("Found invalid IP", logger.Fields{
-				field.Error: fmt.Errorf(invalidValueError, elementStr, "Sources"),
-			})
 			validIp = false
 		}
-		validIpCIDRBlcok := true
+		validIpCIDRBlock := true
 		if _, _, err := net.ParseCIDR(elementStr); err != nil {
-			logger.Error("Found invalid IP CIDR block", logger.Fields{
-				field.Error: err,
-			})
-			validIpCIDRBlcok = false
+			validIpCIDRBlock = false
 		}
 
-		if !validIpCIDRBlcok && !validIp {
+		if !validIpCIDRBlock && !validIp {
 			return fmt.Errorf(invalidValueError, elementStr, "Sources")
 		}
 	}
