@@ -46,7 +46,7 @@ const (
 	jitterMilliseconds = 4567
 )
 
-var ipSources = []string{"10.0.0.1", "10.0.0.255"}
+var ipSources = []string{"52.95.154.1", "52.95.154.2"}
 
 // Tests the path for Fault Network Faults API
 func TestFaultBlackholeFaultPath(t *testing.T) {
@@ -478,6 +478,32 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 				"Sources":            ipSources,
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter DelayMilliseconds is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP value in the request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            []string{"10.1.2.3.4"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            []string{"52.95.154.0/33"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
 			},

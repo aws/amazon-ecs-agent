@@ -185,6 +185,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 	}
 }
 
+// StartNetworkLatency starts a network latency fault in the associated ENI if no existing same fault.
 func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkLatencyRequest
@@ -226,6 +227,7 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 	}
 }
 
+// StopNetworkLatency stops a network latency fault in the associated ENI if there is one existing same fault.
 func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkLatencyRequest
@@ -267,6 +269,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 	}
 }
 
+// CheckNetworkLatency checks the status of given network latency fault.
 func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkLatencyRequest
@@ -290,8 +293,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 			return
 		}
 
-		// Check status of current fault injection
-
+		// TODO: Check status of current fault injection
 		// TODO: Return the correct status state
 		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
 		logger.Info("Successfully checked status for fault", logger.Fields{
@@ -370,8 +372,8 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 	return nil
 }
 
-// validateTaskMetadata will check the associated task metadata to make sure the task has enabled fault injection
-// and the corresponding network mode is supported.
+// validateTaskMetadata will first fetch the associated task metadata and then validate it to make sure
+// the task has enabled fault injection and the corresponding network mode is supported.
 func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
 	var taskMetadata state.TaskResponse
 	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
