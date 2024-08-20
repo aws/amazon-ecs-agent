@@ -620,7 +620,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			defer done()
 
 			first := createTestContainerWithImageAndName(testRegistryImage, "first")
-			first.Command = []string{"sh", "-c", "sleep 60"}
+			first.Command = GetLongRunningCommand()
 
 			second := createTestContainerWithImageAndName(testRegistryImage, "second")
 			second.SetDependsOn([]apicontainer.DependsOn{
