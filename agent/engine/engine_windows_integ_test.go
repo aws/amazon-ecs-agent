@@ -61,38 +61,13 @@ import (
 )
 
 const (
-	dockerEndpoint               = "npipe:////./pipe/docker_engine"
 	testVolumeImage              = "amazon/amazon-ecs-volumes-test:make"
-	testRegistryImage            = "amazon/amazon-ecs-netkitten:make"
 	testExecCommandAgentImage    = "amazon/amazon-ecs-exec-command-agent-windows-test:make"
-	testBaseImage                = "amazon-ecs-ftest-windows-base:make"
 	dockerVolumeDirectoryFormat  = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
 	testExecCommandAgentSleepBin = "c:\\sleep.exe"
 )
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
-
-// TODO implement this
-func isDockerRunning() bool { return true }
-
-// Values in host resources from getTestHoustResources() should be looked at and CPU/Memory assigned
-// accordingly
-func createTestContainer() *apicontainer.Container {
-	return &apicontainer.Container{
-		Name:                "windows",
-		Image:               testBaseImage,
-		Essential:           true,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		CPU:                 256,
-		Memory:              256,
-	}
-}
-
-// getLongRunningCommand returns the command that keeps the container running for the container
-// that uses the default integ test image (amazon-ecs-ftest-windows-base:make for windows)
-func getLongRunningCommand() []string {
-	return []string{"ping", "-t", "localhost"}
-}
 
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	testTask := CreateTestTask("testHostVolumeMount")
@@ -122,7 +97,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{createTestContainer()},
+		Containers:          []*apicontainer.Container{CreateTestContainer()},
 	}
 	testTask.Containers[0].Image = testBaseImage
 	testTask.Containers[0].Name = "test-health-check"
@@ -258,7 +233,7 @@ func getContainerIP(client *sdkClient.Client, id string) (string, error) {
 
 func TestLocalHostVolumeMount(t *testing.T) {
 	cfg := DefaultTestConfigIntegTest()
-	taskEngine, done, _, _ := Setup(cfg, nil, t)
+	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
 	defer done()
 
 	// creates a task with local volume
@@ -345,7 +320,7 @@ func TestVolumesFrom(t *testing.T) {
 
 	testTask := CreateTestTask("testVolumeContainer")
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers = append(testTask.Containers, createTestContainer())
+	testTask.Containers = append(testTask.Containers, CreateTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
 	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
@@ -368,7 +343,7 @@ func TestVolumesFromRO(t *testing.T) {
 	testTask := CreateTestTask("testVolumeROContainer")
 	testTask.Containers[0].Image = testVolumeImage
 	for i := 0; i < 3; i++ {
-		cont := createTestContainer()
+		cont := CreateTestContainer()
 		cont.Name = "test" + strconv.Itoa(i)
 		cont.Image = testVolumeImage
 		cont.Essential = i > 0
@@ -471,7 +446,7 @@ func TestGMSATaskFile(t *testing.T) {
 	err := ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
 	require.NoError(t, err)
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSATaskFile"
 
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://test-gmsa.json\"]}"
@@ -486,7 +461,7 @@ func TestGMSATaskFile(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 
@@ -559,7 +534,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager())
+		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager(), getTestDaemonManagers())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -803,8 +778,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		nil, execCmdMgr, engineserviceconnect.NewManager())
-	taskEngine.monitorExecAgentsInterval = time.Second
+		nil, execCmdMgr, engineserviceconnect.NewManager(), getTestDaemonManagers())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
