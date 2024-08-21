@@ -84,6 +84,20 @@ const (
 	// output will be suppressed in debug mode
 	pullStatusSuppressDelay = 2 * time.Second
 
+	// Retry settings for pulling manifests.
+	//
+	// First few retries are quick (starting with 10ms) but the backoff increases
+	// fast (with a multiplier of 3 capping at 5s). This is to help setups that depend on
+	// network pause container for communicating to image repositories which require the pause
+	// container to be initialized before it is ready to serve requests.
+	// A proper long term solution is for the pause container to have a health check and Agent to
+	// wait for it to become healthy but until then we are relying on this retry strategy.
+	maximumManifestPullRetries        = 9
+	minimumManifestPullRetryDelay     = 10 * time.Millisecond
+	maximumManifestPullRetryDelay     = 5 * time.Second
+	manifestPullRetryDelayMultiplier  = 3
+	manifestPullRetryJitterMultiplier = 0.2
+
 	// retry settings for pulling images
 	maximumPullRetries        = 5
 	minimumPullRetryDelay     = 1100 * time.Millisecond
@@ -325,8 +339,8 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 		context:          ctx,
 		imagePullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
 			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
-		manifestPullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
-			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
+		manifestPullBackoff: retry.NewExponentialBackoff(minimumManifestPullRetryDelay,
+			maximumManifestPullRetryDelay, manifestPullRetryJitterMultiplier, manifestPullRetryDelayMultiplier),
 		imageTagBackoff:          retry.NewConstantBackoff(tagImageRetryInterval),
 		inactivityTimeoutHandler: handleInactivityTimeout,
 	}, nil
@@ -372,7 +386,7 @@ func (dg *dockerGoClient) PullImageManifest(
 	// Call DistributionInspect API with retries
 	startTime := time.Now()
 	var distInspectPtr *registry.DistributionInspect
-	err = retry.RetryNWithBackoffCtx(ctx, dg.manifestPullBackoff, maximumPullRetries, func() error {
+	err = retry.RetryNWithBackoffCtx(ctx, dg.manifestPullBackoff, maximumManifestPullRetries, func() error {
 		distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
 		if err != nil {
 			return err
