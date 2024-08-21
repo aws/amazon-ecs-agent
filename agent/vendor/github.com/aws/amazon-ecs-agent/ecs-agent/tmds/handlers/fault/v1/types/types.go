@@ -16,6 +16,9 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -76,6 +79,52 @@ func (response NetworkFaultInjectionResponse) ToString() string {
 	data, err := json.Marshal(response)
 	if err != nil {
 		return fmt.Sprintf("Error: Unable to parse network fault injection response with error %v.", err)
+	}
+	return string(data)
+}
+
+// NetworkLatencyRequest is struct for the network latency fault request.
+type NetworkLatencyRequest struct {
+	DelayMilliseconds  *uint64 `json:"DelayMilliseconds"`
+	JitterMilliseconds *uint64 `json:"JitterMilliseconds"`
+	// Sources is a list including IPv4 addresses or IPv4 CIDR blocks.
+	Sources []*string `json:"Sources"`
+}
+
+// ValidateRequest validates required fields are present and its value.
+func (request NetworkLatencyRequest) ValidateRequest() error {
+	if request.DelayMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "DelayMilliseconds")
+	}
+	if request.JitterMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "JitterMilliseconds")
+	}
+	if request.Sources == nil || len(request.Sources) == 0 {
+		return fmt.Errorf(missingRequiredFieldError, "Sources")
+	}
+	for _, element := range request.Sources {
+		elementStr := aws.StringValue(element)
+		validIp := true
+		if net.ParseIP(elementStr) == nil {
+			validIp = false
+		}
+		validIpCIDRBlock := true
+		if _, _, err := net.ParseCIDR(elementStr); err != nil {
+			validIpCIDRBlock = false
+		}
+
+		if !validIpCIDRBlock && !validIp {
+			return fmt.Errorf(invalidValueError, elementStr, "Sources")
+		}
+	}
+
+	return nil
+}
+
+func (request NetworkLatencyRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", LatencyFaultType, err)
 	}
 	return string(data)
 }

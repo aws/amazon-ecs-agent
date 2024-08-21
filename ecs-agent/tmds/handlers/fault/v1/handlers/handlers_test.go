@@ -38,23 +38,27 @@ import (
 )
 
 const (
-	endpointId  = "endpointId"
-	port        = 1234
-	protocol    = "tcp"
-	trafficType = "ingress"
+	endpointId         = "endpointId"
+	port               = 1234
+	protocol           = "tcp"
+	trafficType        = "ingress"
+	delayMilliseconds  = 123456789
+	jitterMilliseconds = 4567
 )
+
+var ipSources = []string{"52.95.154.1", "52.95.154.2"}
 
 // Tests the path for Fault Network Faults API
 func TestFaultBlackholeFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port", FaultNetworkFaultPath(types.BlackHolePortFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port", NetworkFaultPath(types.BlackHolePortFaultType))
 }
 
 func TestFaultLatencyFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency", FaultNetworkFaultPath(types.LatencyFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency", NetworkFaultPath(types.LatencyFaultType))
 }
 
 func TestFaultPacketLossFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss", FaultNetworkFaultPath(types.PacketLossFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss", NetworkFaultPath(types.PacketLossFaultType))
 }
 
 type networkBlackHolePortTestCase struct {
@@ -215,7 +219,7 @@ func TestStartNetworkBlackHolePort(t *testing.T) {
 			}
 
 			router.HandleFunc(
-				FaultNetworkFaultPath(types.BlackHolePortFaultType),
+				NetworkFaultPath(types.BlackHolePortFaultType),
 				handler.StartNetworkBlackholePort(),
 			).Methods("PUT")
 
@@ -268,7 +272,7 @@ func TestStopNetworkBlackHolePort(t *testing.T) {
 			}
 
 			router.HandleFunc(
-				FaultNetworkFaultPath(types.BlackHolePortFaultType),
+				NetworkFaultPath(types.BlackHolePortFaultType),
 				handler.StopNetworkBlackHolePort(),
 			).Methods("DELETE")
 
@@ -322,8 +326,8 @@ func TestCheckNetworkBlackHolePort(t *testing.T) {
 			}
 
 			router.HandleFunc(
-				FaultNetworkFaultPath(types.BlackHolePortFaultType),
-				handler.StartNetworkBlackholePort(),
+				NetworkFaultPath(types.BlackHolePortFaultType),
+				handler.CheckNetworkBlackHolePort(),
 			).Methods("GET")
 
 			method := "GET"
@@ -334,6 +338,351 @@ func TestCheckNetworkBlackHolePort(t *testing.T) {
 				requestBody = bytes.NewReader(reqBodyBytes)
 			}
 			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-blackhole-port", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+type networkLatencyTestCase struct {
+	name                      string
+	expectedStatusCode        int
+	requestBody               interface{}
+	expectedResponseBody      types.NetworkFaultInjectionResponse
+	setAgentStateExpectations func(agentState *mock_state.MockAgentState)
+}
+
+func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []networkLatencyTestCase {
+	happyNetworkLatencyReqBody := map[string]interface{}{
+		"DelayMilliseconds":  delayMilliseconds,
+		"JitterMilliseconds": jitterMilliseconds,
+		"Sources":            ipSources,
+	}
+	tcs := []networkLatencyTestCase{
+		{
+			name:                 fmt.Sprintf("%s success", name),
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s unknown request body", name),
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            ipSources,
+				"Unknown":            "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  "incorrect-field",
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.DelayMilliseconds of type uint64"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": "incorrect-field",
+				"Sources":            ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.JitterMilliseconds of type uint64"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.Sources of type []*string"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            []string{},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds": delayMilliseconds,
+				"Sources":           ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter JitterMilliseconds is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 4", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter DelayMilliseconds is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP value in the request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            []string{"10.1.2.3.4"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            []string{"52.95.154.0/33"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task lookup fail", name),
+			expectedStatusCode:   404,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
+					"Unable to generate metadata for task"))
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata unknown fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, errors.New("unknown error"))
+			},
+		},
+	}
+	return tcs
+}
+
+func TestStartNetworkLatency(t *testing.T) {
+	tcs := generateNetworkLatencyTestCases("start network latency", "running")
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+
+			router := mux.NewRouter()
+
+			handler := FaultHandler{
+				AgentState:     agentState,
+				MetricsFactory: metricsFactory,
+			}
+
+			router.HandleFunc(
+				NetworkFaultPath(types.LatencyFaultType),
+				handler.StartNetworkLatency(),
+			).Methods("PUT")
+
+			method := "PUT"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-latency", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+func TestStopNetworkLatency(t *testing.T) {
+	tcs := generateNetworkLatencyTestCases("stop network latency", "stopped")
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+
+			router := mux.NewRouter()
+
+			handler := FaultHandler{
+				AgentState:     agentState,
+				MetricsFactory: metricsFactory,
+			}
+
+			router.HandleFunc(
+				NetworkFaultPath(types.LatencyFaultType),
+				handler.StopNetworkLatency(),
+			).Methods("DELETE")
+
+			method := "DELETE"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-latency", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+func TestCheckNetworkLatency(t *testing.T) {
+	tcs := generateNetworkLatencyTestCases("check network latency", "running")
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			router := mux.NewRouter()
+
+			handler := FaultHandler{
+				AgentState:     agentState,
+				MetricsFactory: metricsFactory,
+			}
+
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+
+			router.HandleFunc(
+				NetworkFaultPath(types.LatencyFaultType),
+				handler.CheckNetworkLatency(),
+			).Methods("GET")
+
+			method := "GET"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-latency", endpointId),
 				requestBody)
 			require.NoError(t, err)
 

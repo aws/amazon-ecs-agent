@@ -207,43 +207,43 @@ func registerFaultHandlers(
 
 	// Setting up handler endpoints for network blackhole port fault injections
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
 		handler.StartNetworkBlackholePort(),
 	).Methods("PUT")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
 		handler.StopNetworkBlackHolePort(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
 		handler.CheckNetworkBlackHolePort(),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network latency fault injections
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType),
 		handler.StartNetworkLatency(),
 	).Methods("PUT")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType),
 		handler.StopNetworkLatency(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType),
 		handler.CheckNetworkLatency(),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network packet loss fault injections
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
 		handler.StartNetworkPacketLoss(),
 	).Methods("PUT")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
 		handler.StopNetworkPacketLoss(),
 	).Methods("DELETE")
 	muxRouter.HandleFunc(
-		fault.FaultNetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
 		handler.CheckNetworkPacketLoss(),
 	).Methods("GET")
 
