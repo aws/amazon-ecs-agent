@@ -27,15 +27,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-<<<<<<< HEAD
-	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
-	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
-=======
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
->>>>>>> fd55fbe69 ([Windows] refactor stats package to fetch EBS Volume stats for Windows)
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -166,7 +162,11 @@ func TestServiceConnectWithDisabledMetrics(t *testing.T) {
 	assert.Len(t, engine.taskToServiceConnectStats, 1)
 }
 
-func TestStartMetricsPublish(t *testing.T) {
+// This test has been moved to be run Linux only. For Windows, the publish metrics timeout has been set to be 5 seconds
+// for the reason that Windows takes a bit more time to fetch the volume metrics. This test results in a race condition
+// for Windows. Specifically, the discard message condition cannot be replicated in Windows because of the higher
+// timeout.
+func TestStartMetricsPublishForChannelFull(t *testing.T) {
 	testcases := []struct {
 		name                       string
 		hasPublishTicker           bool
