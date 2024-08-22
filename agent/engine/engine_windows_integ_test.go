@@ -29,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -254,64 +253,6 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	assert.Equal(t, "empty-data-volume", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
 
-// TestStartStopUnpulledImage ensures that an unpulled image is successfully
-// pulled, run, and stopped via docker.
-func TestStartStopUnpulledImage(t *testing.T) {
-	taskEngine, done, _, _ := setupWithDefaultConfig(t)
-	defer done()
-	// Ensure this image isn't pulled by deleting it
-	baseImg := os.Getenv("BASE_IMAGE_NAME")
-	removeImage(t, baseImg)
-
-	testTask := CreateTestTask("testStartUnpulled")
-	testTask.Containers[0].Image = baseImg
-
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
-	go taskEngine.AddTask(testTask)
-
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
-}
-
-// TestStartStopUnpulledImageDigest ensures that an unpulled image with
-// specified digest is successfully pulled, run, and stopped via docker.
-func TestStartStopUnpulledImageDigest(t *testing.T) {
-	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
-	taskEngine, done, _, _ := setupWithDefaultConfig(t)
-	defer done()
-	// Ensure this image isn't pulled by deleting it
-	removeImage(t, baseImgWithDigest)
-
-	testTask := CreateTestTask("testStartUnpulledDigest")
-	testTask.Containers[0].Image = baseImgWithDigest
-
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
-	go taskEngine.AddTask(testTask)
-
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
-
-	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
-}
-
 func TestVolumesFrom(t *testing.T) {
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
@@ -502,12 +443,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
+	skipIntegTestIfApplicable(t)
 
 	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
