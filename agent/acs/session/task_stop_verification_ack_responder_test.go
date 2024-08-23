@@ -192,12 +192,12 @@ func TestTaskStopVerificationAckResponderStopsAllTasks(t *testing.T) {
 	}
 }
 
-// mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus expects the mock task engine to call UpdateTask and asserts
+// mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus expects the mock task engine to call UpsertTask and asserts
 // that the task it takes as input has task ARN `taskARN` and desired status `desiredStatus` before setting and
 // updating the desired status of the task and its containers on the instance.
 func mockTaskEngineExpectUpdateTaskWithArnAndDesiredStatus(t *testing.T, tester *taskStopVerificationAckTestHelper,
 	tasksOnInstance map[string]*task.Task, taskARN string, desiredStatus apitaskstatus.TaskStatus) {
-	tester.taskEngine.EXPECT().UpdateTask(gomock.Any()).Do(func(addedTask *task.Task) {
+	tester.taskEngine.EXPECT().UpsertTask(gomock.Any()).Do(func(addedTask *task.Task) {
 		assert.Equal(t, taskARN, addedTask.Arn)
 		assert.Equal(t, desiredStatus, addedTask.GetDesiredStatus())
 		tasksOnInstance[taskARN].SetDesiredStatus(desiredStatus)
