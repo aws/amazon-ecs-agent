@@ -42,7 +42,7 @@ func (ts *taskStopper) StopTask(taskARN string) {
 		logger.Info("Stopping task from task stop verification ACK: %s", logger.Fields{
 			loggerfield.TaskARN: task.Arn,
 		})
-		// Only task ARN and desired status are required in the deep copy to signal to task engine that the task
+		// Only task ARN and desired status are required to signal to task engine that the task
 		// should be stopped via call to task engine `UpsertTask`.
 		taskWithDesiredStatusStopped := createTaskWithARNAndDesiredStatus(task.Arn, apitaskstatus.TaskStopped)
 		ts.taskEngine.UpsertTask(taskWithDesiredStatusStopped)
