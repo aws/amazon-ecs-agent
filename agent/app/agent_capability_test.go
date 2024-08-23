@@ -1558,3 +1558,36 @@ func TestAppendGMSADomainlessCapabilitiesFalse(t *testing.T) {
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 }
+
+func TestAppendFaultInjectionCapabilities(t *testing.T) {
+	originalIsnetworkToolingAvailable := isNetworkToolingAvailable
+	defer func() { isNetworkToolingAvailable = originalIsnetworkToolingAvailable }()
+
+	// Test case where required tooling is available
+	isNetworkToolingAvailable = func() bool { return true }
+	capabilities := []*ecs.Attribute{}
+	agent := &ecsAgent{}
+	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+	found := false
+	for _, attr := range capabilities {
+		if aws.StringValue(attr.Name) == "ecs.capability.fault-injection" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Expected fault-injection capability is present when network tooling is available")
+
+	// Test case where required tooling is not available
+	isNetworkToolingAvailable = func() bool { return false }
+	capabilities = []*ecs.Attribute{}
+	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+	found = false
+	for _, attr := range capabilities {
+		if aws.StringValue(attr.Name) == "ecs.capability.fault-injection" {
+			found = true
+			break
+		}
+	}
+	assert.False(t, found, "fault-injection capability is present when network tooling is not available")
+
+}

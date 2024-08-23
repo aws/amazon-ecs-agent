@@ -82,6 +82,7 @@ const (
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
+	capabilityFaultInjection                               = "fault-injection"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -148,56 +149,57 @@ var (
 // capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
 //
-//	com.amazonaws.ecs.capability.privileged-container
-//	com.amazonaws.ecs.capability.docker-remote-api.1.17
-//	com.amazonaws.ecs.capability.docker-remote-api.1.18
-//	com.amazonaws.ecs.capability.docker-remote-api.1.19
-//	com.amazonaws.ecs.capability.docker-remote-api.1.20
-//	com.amazonaws.ecs.capability.logging-driver.json-file
-//	com.amazonaws.ecs.capability.logging-driver.syslog
-//	com.amazonaws.ecs.capability.logging-driver.fluentd
-//	com.amazonaws.ecs.capability.logging-driver.journald
-//	com.amazonaws.ecs.capability.logging-driver.gelf
-//	com.amazonaws.ecs.capability.logging-driver.none
-//	com.amazonaws.ecs.capability.selinux
-//	com.amazonaws.ecs.capability.apparmor
-//	com.amazonaws.ecs.capability.ecr-auth
-//	com.amazonaws.ecs.capability.task-iam-role
-//	com.amazonaws.ecs.capability.task-iam-role-network-host
-//	ecs.capability.docker-volume-driver.${driverName}
-//	ecs.capability.task-eni
-//	ecs.capability.task-eni-block-instance-metadata
-//	ecs.capability.execution-role-ecr-pull
-//	ecs.capability.execution-role-awslogs
-//	ecs.capability.container-health-check
-//	ecs.capability.private-registry-authentication.secretsmanager
-//	ecs.capability.secrets.ssm.environment-variables
-//	ecs.capability.secrets.ssm.bootstrap.log-driver
-//	ecs.capability.pid-ipc-namespace-sharing
-//	ecs.capability.ecr-endpoint
-//	ecs.capability.secrets.asm.environment-variables
-//	ecs.capability.secrets.asm.bootstrap.log-driver
-//	ecs.capability.aws-appmesh
-//	ecs.capability.task-eia
-//	ecs.capability.task-eni-trunking
-//	ecs.capability.task-eia.optimized-cpu
-//	ecs.capability.firelens.fluentd
-//	ecs.capability.firelens.fluentbit
-//	ecs.capability.efs
-//	com.amazonaws.ecs.capability.logging-driver.awsfirelens
-//	ecs.capability.logging-driver.awsfirelens.log-driver-buffer-limit
-//	ecs.capability.firelens.options.config.file
-//	ecs.capability.firelens.options.config.s3
-//	ecs.capability.full-sync
-//	ecs.capability.gmsa
-//	ecs.capability.efsAuth
-//	ecs.capability.env-files.s3
-//	ecs.capability.fsxWindowsFileServer
-//	ecs.capability.execute-command
-//	ecs.capability.external
-//	ecs.capability.service-connect-v1
-//	ecs.capability.network.container-port-range
-//	ecs.capability.container-restart-policy
+//		com.amazonaws.ecs.capability.privileged-container
+//		com.amazonaws.ecs.capability.docker-remote-api.1.17
+//		com.amazonaws.ecs.capability.docker-remote-api.1.18
+//		com.amazonaws.ecs.capability.docker-remote-api.1.19
+//		com.amazonaws.ecs.capability.docker-remote-api.1.20
+//		com.amazonaws.ecs.capability.logging-driver.json-file
+//		com.amazonaws.ecs.capability.logging-driver.syslog
+//		com.amazonaws.ecs.capability.logging-driver.fluentd
+//		com.amazonaws.ecs.capability.logging-driver.journald
+//		com.amazonaws.ecs.capability.logging-driver.gelf
+//		com.amazonaws.ecs.capability.logging-driver.none
+//		com.amazonaws.ecs.capability.selinux
+//		com.amazonaws.ecs.capability.apparmor
+//		com.amazonaws.ecs.capability.ecr-auth
+//		com.amazonaws.ecs.capability.task-iam-role
+//		com.amazonaws.ecs.capability.task-iam-role-network-host
+//		ecs.capability.docker-volume-driver.${driverName}
+//		ecs.capability.task-eni
+//		ecs.capability.task-eni-block-instance-metadata
+//		ecs.capability.execution-role-ecr-pull
+//		ecs.capability.execution-role-awslogs
+//		ecs.capability.container-health-check
+//		ecs.capability.private-registry-authentication.secretsmanager
+//		ecs.capability.secrets.ssm.environment-variables
+//		ecs.capability.secrets.ssm.bootstrap.log-driver
+//		ecs.capability.pid-ipc-namespace-sharing
+//		ecs.capability.ecr-endpoint
+//		ecs.capability.secrets.asm.environment-variables
+//		ecs.capability.secrets.asm.bootstrap.log-driver
+//		ecs.capability.aws-appmesh
+//		ecs.capability.task-eia
+//		ecs.capability.task-eni-trunking
+//		ecs.capability.task-eia.optimized-cpu
+//		ecs.capability.firelens.fluentd
+//		ecs.capability.firelens.fluentbit
+//		ecs.capability.efs
+//		com.amazonaws.ecs.capability.logging-driver.awsfirelens
+//		ecs.capability.logging-driver.awsfirelens.log-driver-buffer-limit
+//		ecs.capability.firelens.options.config.file
+//		ecs.capability.firelens.options.config.s3
+//		ecs.capability.full-sync
+//		ecs.capability.gmsa
+//		ecs.capability.efsAuth
+//		ecs.capability.env-files.s3
+//		ecs.capability.fsxWindowsFileServer
+//		ecs.capability.execute-command
+//		ecs.capability.external
+//		ecs.capability.service-connect-v1
+//		ecs.capability.network.container-port-range
+//		ecs.capability.container-restart-policy
+//	 ecs.capability.fault-injection
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -311,6 +313,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		}
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
+
+	// add fault-injection capabilities if applicable
+	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 
 	return capabilities, nil
 }
@@ -535,6 +540,15 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		}
 	}
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTaskAttach)
+	return capabilities
+}
+
+func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if isNetworkToolingAvailable() {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
+	} else {
+		seelog.Warn("Fault injection capability not enabled: Required network tools (iptables, tc) are missing")
+	}
 	return capabilities
 }
 

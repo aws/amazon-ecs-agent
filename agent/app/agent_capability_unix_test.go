@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -971,4 +972,26 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
 	assert.Equal(t, len(inputCapabilities), len(capabilities))
 	assert.EqualValues(t, capabilities, inputCapabilities)
+}
+
+func TestCheckNetworkTooling(t *testing.T) {
+	originalLookPath := exec.LookPath
+	defer func() {
+		lookPathFunc = originalLookPath
+	}()
+
+	// Test case: All tools are available
+	lookPathFunc = func(file string) (string, error) {
+		return "/usr/bin" + file, nil
+	}
+	assert.True(t, checkNetworkTooling(), "Expected checkNetworkTooling to return true when all tools are available")
+
+	// Test case: One tool is missing
+	lookPathFunc = func(file string) (string, error) {
+		if file == "iptables" {
+			return "", exec.ErrNotFound
+		}
+		return "/usr/bin" + file, nil
+	}
+	assert.False(t, checkNetworkTooling(), "Expected checkNetworkTooling to return false when a tool is missing")
 }

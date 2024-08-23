@@ -17,6 +17,7 @@
 package app
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -235,4 +236,20 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 
 func defaultIsPlatformExecSupported() (bool, error) {
 	return true, nil
+}
+
+// var to allow mocking for checkNetworkTooling
+var isNetworkToolingAvailable = checkNetworkTooling
+
+// wrapper around exec.LookPath
+var lookPathFunc = exec.LookPath
+
+func checkNetworkTooling() bool {
+	tools := []string{"iptables", "tc"}
+	for _, tool := range tools {
+		if _, err := lookPathFunc(tool); err != nil {
+			return false
+		}
+	}
+	return true
 }
