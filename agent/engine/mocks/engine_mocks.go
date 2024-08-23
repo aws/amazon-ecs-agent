@@ -257,16 +257,16 @@ func (mr *MockTaskEngineMockRecorder) UnmarshalJSON(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnmarshalJSON", reflect.TypeOf((*MockTaskEngine)(nil).UnmarshalJSON), arg0)
 }
 
-// UpdateTask mocks base method.
-func (m *MockTaskEngine) UpdateTask(arg0 *task.Task) {
+// UpsertTask mocks base method.
+func (m *MockTaskEngine) UpsertTask(arg0 *task.Task) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UpdateTask", arg0)
+	m.ctrl.Call(m, "UpsertTask", arg0)
 }
 
-// UpdateTask indicates an expected call of UpdateTask.
-func (mr *MockTaskEngineMockRecorder) UpdateTask(arg0 interface{}) *gomock.Call {
+// UpsertTask indicates an expected call of UpsertTask.
+func (mr *MockTaskEngineMockRecorder) UpsertTask(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTask", reflect.TypeOf((*MockTaskEngine)(nil).UpdateTask), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertTask", reflect.TypeOf((*MockTaskEngine)(nil).UpsertTask), arg0)
 }
 
 // Version mocks base method.

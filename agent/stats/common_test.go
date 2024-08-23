@@ -362,7 +362,7 @@ func (engine *MockTaskEngine) SetDataClient(data.Client) {
 func (engine *MockTaskEngine) AddTask(*apitask.Task) {
 }
 
-func (engine *MockTaskEngine) UpdateTask(*apitask.Task) {
+func (engine *MockTaskEngine) UpsertTask(*apitask.Task) {
 }
 
 func (engine *MockTaskEngine) ListTasks() ([]*apitask.Task, error) {
