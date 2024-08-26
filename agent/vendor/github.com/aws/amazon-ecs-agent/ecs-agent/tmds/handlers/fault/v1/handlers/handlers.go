@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -42,16 +43,34 @@ const (
 )
 
 type FaultHandler struct {
-	// TODO: Mutex will be used in a future PR
-	// mu             sync.Mutex
+	// mutexMap is used to avoid multiple clients to manipulate same resource at same
+	// time. The 'key' is the ENI ID or the network namespace path and 'value' is the
+	// RWMutex.
+	// Using concurrent map here because the handler is shared by all requests.
+	mutexMap       sync.Map
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
+}
+
+func New(agentState state.AgentState, mf metrics.EntryFactory) *FaultHandler {
+	return &FaultHandler{
+		AgentState:     agentState,
+		MetricsFactory: mf,
+		mutexMap:       sync.Map{},
+	}
 }
 
 // NetworkFaultPath will take in a fault type and return the TMDS endpoint path
 func NetworkFaultPath(fault string) string {
 	return fmt.Sprintf("/api/%s/fault/v1/%s",
 		utils.ConstructMuxVar(v4.EndpointContainerIDMuxName, utils.AnythingButSlashRegEx), fault)
+}
+
+// loadLock returns the lock associated with given key.
+func (h *FaultHandler) loadLock(key string) *sync.RWMutex {
+	mu := new(sync.RWMutex)
+	actualMu, _ := h.mutexMap.LoadOrStore(key, mu)
+	return actualMu.(*sync.RWMutex)
 }
 
 // StartNetworkBlackholePort will return the request handler function for starting a network blackhole port fault
@@ -72,11 +91,17 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		// the network blackhole port fault would be injected to given task network
+		// namespace.
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the start fault injection functionality if not running
@@ -118,11 +143,15 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		})
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the stop fault injection functionality if running
@@ -164,14 +193,17 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		})
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
 
-		// Check status of current fault injection
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
+		rwMu.RLock()
+		defer rwMu.RUnlock()
 
+		// TODO: Check status of current fault injection
 		// TODO: Return the correct status state
 		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
 		logger.Info("Successfully checked status for fault", logger.Fields{
@@ -206,11 +238,20 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		// the network latency fault would be injected to given elastic network
+		// interface/ENI.
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the start fault injection functionality if not running
@@ -248,11 +289,18 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the stop fault injection functionality if running
@@ -290,11 +338,18 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.RLock()
+		defer rwMu.RUnlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Return the correct status state
@@ -331,11 +386,20 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		// the network packet loss fault would be injected to given elastic network
+		// interface/ENI.
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the start fault injection functionality if not running
@@ -373,11 +437,18 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.Lock()
+		defer rwMu.Unlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Invoke the stop fault injection functionality if running
@@ -416,10 +487,18 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
+
+		eniID := taskMetadata.TaskNetworkConfig.
+			NetworkNamespaces[0].
+			NetworkInterfaces[0].
+			ENIID
+		rwMu := h.loadLock(eniID)
+		rwMu.RLock()
+		defer rwMu.RUnlock()
 
 		// TODO: Check status of current fault injection
 		// TODO: Return the correct status state
@@ -613,8 +692,23 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 		return errors.New("empty network namespaces within task network config")
 	}
 
+	// Task network namespace path is required to inject faults in the associated task.
+	if taskNetworkConfig.NetworkNamespaces[0].Path == "" {
+		return errors.New("no path in the network namespace within task network config")
+	}
+
 	if len(taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces) == 0 || taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces == nil {
 		return errors.New("empty network interfaces within task network config")
+	}
+
+	// Device name is required to inject network faults to given ENI in the task.
+	if taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName == "" {
+		return errors.New("no ENI device name in the network namespace within task network config")
+	}
+
+	// ENIID is required to avoid race condition where multiple requests are manunipuating same ENI.
+	if taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].ENIID == "" {
+		return errors.New("no ENI ID in the network namespace within task network config")
 	}
 
 	return nil
