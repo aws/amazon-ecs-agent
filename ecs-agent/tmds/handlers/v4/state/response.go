@@ -52,8 +52,12 @@ type NetworkNamespace struct {
 	NetworkInterfaces []*NetworkInterface
 }
 
+// NetworkInterface contains information of the network interface.
 type NetworkInterface struct {
+	// DeviceName is the device name on the host.
 	DeviceName string
+	// ENIID is the id of eni.
+	ENIID string
 }
 
 // Instance's clock drift status
