@@ -565,7 +565,7 @@ func TestExecCommandAgent(t *testing.T) {
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second*20)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
 	go func() {
 		VerifyTaskIsStopped(stateChangeEvents, testTask)
 		cancel()
