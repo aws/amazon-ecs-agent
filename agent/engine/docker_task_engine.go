@@ -1180,7 +1180,14 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 			logger.Info("docker_task_engine: Added AppNet Relay task to engine")
 		}
 	}
+	engine.UpsertTask(task)
+}
 
+// UpsertTask upserts a task in the task engine. Upserting means:
+//   - if a task with the same ARN already exists in the task engine's state, then the existing task's desired
+//     status is updated to the desired status of the upserted task
+//   - else the upserted task is inserted into the task engine's state
+func (engine *DockerTaskEngine) UpsertTask(task *apitask.Task) {
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
 
@@ -1206,8 +1213,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		}
 		return
 	}
-	// Update task
-	engine.updateTaskUnsafe(existingTask, task)
+	engine.updateTaskDesiredStatusUnsafe(existingTask, task.GetDesiredStatus())
 }
 
 // ListTasks returns the tasks currently managed by the DockerTaskEngine
@@ -2664,10 +2670,11 @@ func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *a
 	return engine.client.RemoveContainer(engine.ctx, dockerID, dockerclient.RemoveContainerTimeout)
 }
 
-// updateTaskUnsafe determines if a new transition needs to be applied to the
+// updateTaskDesiredStatusUnsafe determines if a new transition needs to be applied to the
 // referenced task, and if needed applies it. It should not be called anywhere
-// but from 'AddTask' and is protected by the tasksLock lock there.
-func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *apitask.Task) {
+// but from 'UpsertTask' and is protected by the tasksLock lock there.
+func (engine *DockerTaskEngine) updateTaskDesiredStatusUnsafe(task *apitask.Task,
+	updateDesiredStatus apitaskstatus.TaskStatus) {
 	managedTask, ok := engine.managedTasks[task.Arn]
 	if !ok {
 		logger.Critical("ACS message for a task we thought we managed, but don't! Aborting.", logger.Fields{
@@ -2679,7 +2686,6 @@ func (engine *DockerTaskEngine) updateTaskUnsafe(task *apitask.Task, update *api
 	// also read in the order AddTask was called
 	// This does block the engine's ability to ingest any new events (including
 	// stops for past tasks, ack!), but this is necessary for correctness
-	updateDesiredStatus := update.GetDesiredStatus()
 	logger.Debug("Putting update on the acs channel", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.DesiredStatus: updateDesiredStatus.String(),

@@ -14,6 +14,7 @@
 package session
 
 import (
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -41,8 +42,10 @@ func (ts *taskStopper) StopTask(taskARN string) {
 		logger.Info("Stopping task from task stop verification ACK: %s", logger.Fields{
 			loggerfield.TaskARN: task.Arn,
 		})
-		task.SetDesiredStatus(apitaskstatus.TaskStopped)
-		task.UpdateDesiredStatus()
+		// Only task ARN and desired status are required to signal to task engine that the task
+		// should be stopped via call to task engine `UpsertTask`.
+		taskWithDesiredStatusStopped := createTaskWithARNAndDesiredStatus(task.Arn, apitaskstatus.TaskStopped)
+		ts.taskEngine.UpsertTask(taskWithDesiredStatusStopped)
 		if err := ts.dataClient.SaveTask(task); err != nil {
 			logger.Error("Failed to save data for task", logger.Fields{
 				loggerfield.TaskARN: task.Arn,
@@ -54,4 +57,13 @@ func (ts *taskStopper) StopTask(taskARN string) {
 			loggerfield.TaskARN: taskARN,
 		})
 	}
+}
+
+// createTaskWithARNAndDesiredStatus creates a task with ARN `taskARN` and desired status `desiredStatus`.
+func createTaskWithARNAndDesiredStatus(taskARN string, desiredStatus apitaskstatus.TaskStatus) *apitask.Task {
+	resultTask := apitask.Task{
+		Arn: taskARN,
+	}
+	resultTask.SetDesiredStatus(desiredStatus)
+	return &resultTask
 }

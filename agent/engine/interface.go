@@ -43,6 +43,12 @@ type TaskEngine interface {
 	// lifecycle. If it returns an error, the task was not added.
 	AddTask(*apitask.Task)
 
+	// UpsertTask upserts a task in the task engine. Upserting means:
+	//   - if a task with the same ARN already exists in the task engine's state, then the existing task's desired
+	//     status is updated to the desired status of the upserted task
+	//   - else the upserted task is inserted into the task engine's state
+	UpsertTask(*apitask.Task)
+
 	// ListTasks lists all the tasks being managed by the TaskEngine.
 	ListTasks() ([]*apitask.Task, error)
 
