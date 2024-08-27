@@ -310,21 +310,128 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 	}
 }
 
-// TODO
+// StartNetworkPacketLoss starts a network packet loss fault in the associated ENI if no existing same fault.
 func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkPacketLossRequest
+		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// TODO: Check status of current fault injection
+		// TODO: Invoke the start fault injection functionality if not running
+
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
+		logger.Info("Successfully started fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
-// TODO
+// StopNetworkPacketLoss stops a network packet loss fault in the associated ENI if there is one existing same fault.
 func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkPacketLossRequest
+		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// TODO: Check status of current fault injection
+		// TODO: Invoke the stop fault injection functionality if running
+
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("stopped")
+		logger.Info("Successfully stopped fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
-// TODO
+// CheckNetworkPacketLoss checks the status of given network packet loss fault.
 func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkPacketLossRequest
+		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+
+		// Parse the fault request
+		err := decodeRequest(w, &request, requestType, r)
+		if err != nil {
+			return
+		}
+		// Validate the fault request
+		err = validateRequest(w, request, requestType)
+		if err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID
+		// TODO: Will be using the returned task metadata in a future PR
+		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// TODO: Check status of current fault injection
+		// TODO: Return the correct status state
+		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
+		logger.Info("Successfully checked status for fault", logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusOK,
+			responseBody,
+			requestType,
+		)
 	}
 }
 
