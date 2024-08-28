@@ -39,6 +39,14 @@ if (-Not ($dockerImages -like "*$BaseImageName*")) {
 }
 Invoke-Expression "docker tag $BaseImageName amazon-ecs-ftest-windows-base:make"
 
+$imgDigest = Invoke-Expression "docker image inspect --format `"{{.RepoDigests}}`" $BaseImageName"
+# The template returns an array so its [$BaseImageDigest]. Remove the '[' and ']'
+$imgDigest = $imgDigest.SubString(1, $imgDigest.Length - 2)
+
+$ProgramFiles="C:\Program Files\Amazon\ECS"
+$env:BASE_IMAGE_NAME=$BaseImageName
+$env:BASE_IMAGE_NAME_WITH_DIGEST=$imgDigest
+
 # Ensure that "C:/Program Files/Amazon/ECS" is empty before preparing dependencies.
 $ProgramFiles="C:\Program Files\Amazon\ECS"
 Remove-Item -Path "$ProgramFiles\*" -Recurse -Force -ErrorAction:SilentlyContinue

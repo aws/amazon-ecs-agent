@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -251,6 +252,57 @@ func TestLocalHostVolumeMount(t *testing.T) {
 	data, err := ioutil.ReadFile(filepath.Join("c:\\ProgramData\\docker\\volumes", testTask.Volumes[0].Volume.Source(), "_data", "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "empty-data-volume", strings.TrimSpace(string(data)), "Incorrect file contents")
+}
+
+// TestStartStopUnpulledImage ensures that an unpulled image is successfully
+// pulled, run, and stopped via docker.
+func TestStartStopUnpulledImage(t *testing.T) {
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
+	defer done()
+	// Ensure this image isn't pulled by deleting it
+	baseImg := os.Getenv("BASE_IMAGE_NAME")
+	removeImage(t, baseImg)
+
+	testTask := CreateTestTask("testStartUnpulled")
+	testTask.Containers[0].Image = baseImg
+
+	go taskEngine.AddTask(testTask)
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	// Don't use the VerifyContainerManifestPulledStateChange helper because it skip assertions on Windows.
+	event := <-stateChangeEvents
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
+		"Expected container to be at MANIFEST_PULLED state")
+	// Don't use the VerifyContainerManifestPulledStateChange helper because it skip assertions on Windows.
+	event = <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
+		"Expected task to reach MANIFEST_PULLED state")
+
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
+}
+
+// TestStartStopUnpulledImageDigest ensures that an unpulled image with
+// specified digest is successfully pulled, run, and stopped via docker.
+func TestStartStopUnpulledImageDigest(t *testing.T) {
+	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
+	taskEngine, done, _, _ := setupWithDefaultConfig(t)
+	defer done()
+	// Ensure this image isn't pulled by deleting it
+	removeImage(t, baseImgWithDigest)
+
+	testTask := CreateTestTask("testStartUnpulledDigest")
+	testTask.Containers[0].Image = baseImgWithDigest
+
+	go taskEngine.AddTask(testTask)
+
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestVolumesFrom(t *testing.T) {
