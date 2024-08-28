@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -36,6 +37,8 @@ const (
 	startFaultRequestType       = "start %s"
 	stopFaultRequestType        = "stop %s"
 	checkStatusFaultRequestType = "check status %s"
+	invalidNetworkModeError     = "%s mode is not supported. Please use either host or awsvpc mode."
+	faultInjectionEnabledError  = "fault injection is not enabled for task: %s"
 )
 
 type FaultHandler struct {
@@ -51,6 +54,7 @@ func NetworkFaultPath(fault string) string {
 		utils.ConstructMuxVar(v4.EndpointContainerIDMuxName, utils.AnythingButSlashRegEx), fault)
 }
 
+// StartNetworkBlackholePort will return the request handler function for starting a network blackhole port fault
 func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkBlackholePortRequest
@@ -66,9 +70,6 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		if err != nil {
 			return
 		}
-		logger.Debug("Successfully parsed fault request payload", logger.Fields{
-			field.Request: request.ToString(),
-		})
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
@@ -95,6 +96,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 	}
 }
 
+// StopNetworkBlackHolePort will return the request handler function for stopping a network blackhole port fault
 func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkBlackholePortRequest
@@ -140,6 +142,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 	}
 }
 
+// CheckNetworkBlackHolePort will return the request handler function for checking the status of a network blackhole port fault
 func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkBlackholePortRequest
@@ -435,6 +438,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 	}
 }
 
+// decodeRequest will translate/unmarshal an incoming fault injection request into one of the network fault structs
 func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string, r *http.Request) error {
 	logRequest(requestType, r)
 	jsonDecoder := json.NewDecoder(r.Body)
@@ -458,6 +462,7 @@ func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, req
 	return nil
 }
 
+// validateRequest will validate that the incoming fault injection request will have the required fields.
 func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string) error {
 	if err := request.ValidateRequest(); err != nil {
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", err))
@@ -502,12 +507,67 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 		return nil, errResponse
 	}
 
-	// TODO: Check if task is FIS-enabled
-	// TODO: Check if task is using a valid network mode
+	// Check if task is FIS-enabled
+	if !taskMetadata.FaultInjectionEnabled {
+		errResponse := fmt.Sprintf(faultInjectionEnabledError, taskMetadata.TaskARN)
+		responseBody := types.NewNetworkFaultInjectionErrorResponse(errResponse)
+		logger.Error("Error: Task is not fault injection enabled.", logger.Fields{
+			field.RequestType:             requestType,
+			field.TMDSEndpointContainerID: endpointContainerID,
+			field.Response:                responseBody.ToString(),
+			field.TaskARN:                 taskMetadata.TaskARN,
+			field.Error:                   errResponse,
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusBadRequest,
+			responseBody,
+			requestType,
+		)
+		return nil, errors.New(errResponse)
+	}
+
+	if err := validateTaskNetworkConfig(taskMetadata.TaskNetworkConfig); err != nil {
+		code, errResponse := getTaskMetadataErrorResponse(endpointContainerID, requestType, err)
+		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", errResponse))
+		logger.Error("Error: Unable to resolve task network config within task metadata", logger.Fields{
+			field.Error:                   err,
+			field.RequestType:             requestType,
+			field.Response:                responseBody.ToString(),
+			field.TMDSEndpointContainerID: endpointContainerID,
+		})
+		utils.WriteJSONResponse(
+			w,
+			code,
+			responseBody,
+			requestType,
+		)
+		return nil, errResponse
+	}
+
+	// Check if task is using a valid network mode
+	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	if networkMode != ecs.NetworkModeHost && networkMode != ecs.NetworkModeAwsvpc {
+		errResponse := fmt.Sprintf(invalidNetworkModeError, networkMode)
+		responseBody := types.NewNetworkFaultInjectionErrorResponse(errResponse)
+		logger.Error("Error: Invalid network mode for fault injection", logger.Fields{
+			field.RequestType: requestType,
+			field.NetworkMode: networkMode,
+			field.Response:    responseBody.ToString(),
+		})
+		utils.WriteJSONResponse(
+			w,
+			http.StatusBadRequest,
+			responseBody,
+			requestType,
+		)
+		return nil, errors.New(errResponse)
+	}
 
 	return &taskMetadata, nil
 }
 
+// getTaskMetadataErrorResponse will be used to classify certain errors that was returned from a GetTaskMetadata function call.
 func getTaskMetadataErrorResponse(endpointContainerID, requestType string, err error) (int, error) {
 	var errContainerLookupFailed *state.ErrorLookupFailure
 	if errors.As(err, &errContainerLookupFailed) {
@@ -526,6 +586,7 @@ func getTaskMetadataErrorResponse(endpointContainerID, requestType string, err e
 	return http.StatusInternalServerError, fmt.Errorf("failed to get task metadata due to internal server error for container: %s", endpointContainerID)
 }
 
+// logRequest is used to log incoming fault injection requests.
 func logRequest(requestType string, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -540,4 +601,21 @@ func logRequest(requestType string, r *http.Request) {
 		field.RequestType: requestType,
 	})
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
+}
+
+// validateTaskNetworkConfig validates the passed in task network config for any null/empty values.
+func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error {
+	if taskNetworkConfig == nil {
+		return errors.New("TaskNetworkConfig is empty within task metadata")
+	}
+
+	if len(taskNetworkConfig.NetworkNamespaces) == 0 || taskNetworkConfig.NetworkNamespaces[0] == nil {
+		return errors.New("empty network namespaces within task network config")
+	}
+
+	if len(taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces) == 0 || taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces == nil {
+		return errors.New("empty network interfaces within task network config")
+	}
+
+	return nil
 }
