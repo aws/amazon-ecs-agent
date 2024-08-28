@@ -260,25 +260,15 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	baseImg := os.Getenv("BASE_IMAGE_NAME")
-	removeImage(t, baseImg)
+	removeImage(t, testRegistryImage)
 
 	testTask := CreateTestTask("testStartUnpulled")
-	testTask.Containers[0].Image = baseImg
+	testTask.Containers[0].Image = testRegistryImage
 
 	go taskEngine.AddTask(testTask)
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
-	// Don't use the VerifyContainerManifestPulledStateChange helper because it skip assertions on Windows.
-	event := <-stateChangeEvents
-	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
-		"Expected container to be at MANIFEST_PULLED state")
-	// Don't use the VerifyContainerManifestPulledStateChange helper because it skip assertions on Windows.
-	event = <-stateChangeEvents
-	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
-		"Expected task to reach MANIFEST_PULLED state")
-
+	verifyContainerManifestPulledStateChange(t, taskEngine)
+	verifyTaskManifestPulledStateChange(t, taskEngine)
 	VerifyContainerRunningStateChange(t, taskEngine)
 	VerifyTaskRunningStateChange(t, taskEngine)
 	VerifyContainerStoppedStateChange(t, taskEngine)
@@ -288,14 +278,13 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
-	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(t, baseImgWithDigest)
+	removeImage(t, testRegistryImage)
 
 	testTask := CreateTestTask("testStartUnpulledDigest")
-	testTask.Containers[0].Image = baseImgWithDigest
+	testTask.Containers[0].Image = testRegistryImageWithDigest
 
 	go taskEngine.AddTask(testTask)
 
@@ -303,6 +292,71 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	VerifyTaskRunningStateChange(t, taskEngine)
 	VerifyContainerStoppedStateChange(t, taskEngine)
 	VerifyTaskStoppedStateChange(t, taskEngine)
+}
+
+// Tests that containers with ordering dependencies are able to reach MANIFEST_PULLED state
+// regardless of the dependencies.
+func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
+	imagePullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullPreferCachedBehavior, config.ImagePullOnceBehavior,
+	}
+
+	for _, behavior := range imagePullBehaviors {
+		t.Run(fmt.Sprintf("%v", behavior), func(t *testing.T) {
+			cfg := DefaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = behavior
+			cfg.DockerStopTimeout = 100 * time.Millisecond
+			taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+			defer done()
+
+			first := createTestContainerWithImageAndName(testRegistryImage, "first")
+			first.Command = GetLongRunningCommand()
+
+			second := createTestContainerWithImageAndName(testRegistryImage, "second")
+			second.SetDependsOn([]apicontainer.DependsOn{
+				{ContainerName: first.Name, Condition: "COMPLETE"},
+			})
+
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{first, second},
+			}
+
+			// Start the task and wait for first container to start running
+			go taskEngine.AddTask(task)
+
+			// Both containers and the task should reach MANIFEST_PULLED state and emit events for it
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyContainerManifestPulledStateChange(t, taskEngine)
+			verifyTaskManifestPulledStateChange(t, taskEngine)
+
+			// The first container should start running
+			VerifyContainerRunningStateChange(t, taskEngine)
+
+			// The first container should be in RUNNING state
+			assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
+			// The second container should be waiting in MANIFEST_PULLED state
+			assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+
+			// Assert that both containers have digest populated
+			assert.NotEmpty(t, first.GetImageDigest())
+			assert.NotEmpty(t, second.GetImageDigest())
+
+			// Cleanup
+			first.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+			second.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+			VerifyContainerStoppedStateChange(t, taskEngine)
+			VerifyContainerStoppedStateChange(t, taskEngine)
+			VerifyTaskStoppedStateChange(t, taskEngine)
+			taskEngine.(*DockerTaskEngine).removeContainer(task, first)
+			taskEngine.(*DockerTaskEngine).removeContainer(task, second)
+			removeImage(t, testRegistryImage)
+		})
+	}
 }
 
 func TestVolumesFrom(t *testing.T) {
@@ -920,4 +974,18 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 		Detach: true,
 	})
 	require.NoError(t, err)
+}
+
+func verifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
+		"Expected container to be at MANIFEST_PULLED state")
+}
+
+func verifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
+		"Expected task to reach MANIFEST_PULLED state")
 }

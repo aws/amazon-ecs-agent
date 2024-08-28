@@ -18,13 +18,21 @@
 package engine
 
 import (
+	"os"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 )
 
 const (
-	testBaseImage     = "amazon-ecs-ftest-windows-base:make"
-	testRegistryImage = "amazon/amazon-ecs-netkitten:make"
-	dockerEndpoint    = "npipe:////./pipe/docker_engine"
+	testBaseImage  = "amazon-ecs-ftest-windows-base:make"
+	dockerEndpoint = "npipe:////./pipe/docker_engine"
+)
+
+// REGISTRY_IMAGE_NAME is the Windows Server image from Microsoft Container Registry.
+// https://github.com/aws/amazon-ecs-agent/blob/78a2bf0c7d3ebd3a13de3ac733af46dfb3816b18/scripts/run-integ-tests.ps1#L45
+var (
+	testRegistryImage           = os.Getenv("REGISTRY_IMAGE_NAME")
+	testRegistryImageWithDigest = os.Getenv("REGISTRY_IMAGE_NAME_WITH_DIGEST")
 )
 
 func CreateTestContainer() *apicontainer.Container {
