@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/faults"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -46,6 +47,7 @@ type FaultHandler struct {
 	// mu             sync.Mutex
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
+	FaultInjection faults.FaultInjection
 }
 
 // NetworkFaultPath will take in a fault type and return the TMDS endpoint path
@@ -165,12 +167,20 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 
 		// Obtain the task metadata via the endpoint container ID
 		// TODO: Will be using the returned task metadata in a future PR
-		_, err = validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
 
 		// Check status of current fault injection
+		status, err := h.FaultInjection.CheckFaultStatus(request, taskMetadata)
+		if err != nil {
+			logger.Error("Unable to check stats for fault", logger.Fields{
+				field.Error:       err,
+				field.RequestType: requestType,
+				field.Request:     request.ToString(),
+			})
+		}
 
 		// TODO: Return the correct status state
 		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
@@ -178,6 +188,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 			field.RequestType: requestType,
 			field.Request:     request.ToString(),
 			field.Response:    responseBody.ToString(),
+			"status":          status,
 		})
 		utils.WriteJSONResponse(
 			w,

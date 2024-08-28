@@ -38,6 +38,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/doctor
 github.com/aws/amazon-ecs-agent/ecs-agent/ec2
 github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/eventstream
+github.com/aws/amazon-ecs-agent/ecs-agent/faults
 github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient
 github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
