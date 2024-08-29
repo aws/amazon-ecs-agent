@@ -48,7 +48,6 @@ $env:REGISTRY_IMAGE_NAME=$RegistryImageName
 $env:REGISTRY_IMAGE_NAME_WITH_DIGEST=$imgDigest
 
 # Ensure that "C:/Program Files/Amazon/ECS" is empty before preparing dependencies.
-$ProgramFiles="C:\Program Files\Amazon\ECS"
 Remove-Item -Path "$ProgramFiles\*" -Recurse -Force -ErrorAction:SilentlyContinue
 
 # Prepare dependencies
