@@ -1,5 +1,5 @@
-//go:build !windows && integration
-// +build !windows,integration
+//go:build unix && integration
+// +build unix,integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
