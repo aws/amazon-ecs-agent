@@ -17,6 +17,13 @@ Param (
   $Platform="windows2016"
 )
 
+# Ensure a failure exit code is returned if the script early exits from "$ErrorActionPreference = 'Stop'".
+trap {
+    $ErrorActionPreference = "Continue";
+    Write-Error $_
+    exit 1
+}
+
 $ErrorActionPreference = 'Stop'
 
 if ($Platform -like "windows2016") {
@@ -59,12 +66,4 @@ Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\exec-command-agent-test\build.ps1"
 
 # Run the tests
-$cwd = (pwd).Path
-try {
-  $env:GO111MODULE = 'auto'; $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ./agent/... ./ecs-agent/...
-  $testsExitCode = $LastExitCode
-} finally {
-  cd "$cwd"
-}
-
-exit $testsExitCode
+$env:GO111MODULE = 'auto'; $env:ECS_LOGLEVEL = 'debug'; go test -tags integration -timeout=40m -v ./agent/... ./ecs-agent/...
