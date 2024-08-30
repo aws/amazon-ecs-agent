@@ -45,7 +45,7 @@ func GetLongRunningCommand() []string {
 	return []string{"ping", "-t", "localhost"}
 }
 
-// TODO: implement this
 func isDockerRunning() bool {
-	return true
+	_, err := os.Stat("//./pipe/docker_engine")
+	return err == nil
 }
