@@ -50,28 +50,18 @@ const (
 	awsvpcNetworkMode  = "awsvpc"
 	deviceName         = "eth0"
 	invalidNetworkMode = "invalid"
-	eniID              = "eni-123"
 )
 
 var (
 	noDeviceNameInNetworkInterfaces = []*state.NetworkInterface{
 		{
 			DeviceName: "",
-			ENIID:      eniID,
-		},
-	}
-
-	noENIIDInNetworkInterfaces = []*state.NetworkInterface{
-		{
-			DeviceName: deviceName,
-			ENIID:      "",
 		},
 	}
 
 	happyNetworkInterfaces = []*state.NetworkInterface{
 		{
 			DeviceName: deviceName,
-			ENIID:      eniID,
 		},
 	}
 
@@ -264,7 +254,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
 					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 					FaultInjectionEnabled: false,
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 		{
@@ -280,7 +270,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 						NetworkMode:       invalidNetworkMode,
 						NetworkNamespaces: happyNetworkNamespaces,
 					},
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 		{
@@ -294,7 +284,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 					FaultInjectionEnabled: true,
 					TaskNetworkConfig:     nil,
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 		{
@@ -311,7 +301,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 						NetworkMode:       awsvpcNetworkMode,
 						NetworkNamespaces: nil,
 					},
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 		{
@@ -328,7 +318,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 						NetworkMode:       awsvpcNetworkMode,
 						NetworkNamespaces: noPathInNetworkNamespaces,
 					},
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 		{
@@ -350,29 +340,7 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 							},
 						},
 					},
-				}, nil)
-			},
-		},
-		{
-			name:               fmt.Sprintf("%s no ENI ID in task network config", name),
-			expectedStatusCode: 500,
-			requestBody:        happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(
-				fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
-					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
-					FaultInjectionEnabled: true,
-					TaskNetworkConfig: &state.TaskNetworkConfig{
-						NetworkMode: awsvpcNetworkMode,
-						NetworkNamespaces: []*state.NetworkNamespace{
-							&state.NetworkNamespace{
-								Path:              "/path",
-								NetworkInterfaces: noENIIDInNetworkInterfaces,
-							},
-						},
-					},
-				}, nil)
+				}, nil).Times(1)
 			},
 		},
 	}

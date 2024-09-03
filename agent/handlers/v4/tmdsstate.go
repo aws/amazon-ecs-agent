@@ -161,7 +161,6 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 					Path: task.GetNetworkNamespace(),
 					NetworkInterfaces: []*tmdsv4.NetworkInterface{
 						{
-							ENIID:      "eni-fake-id",
 							DeviceName: "ethx",
 						},
 					},

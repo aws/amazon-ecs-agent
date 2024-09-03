@@ -44,8 +44,7 @@ const (
 
 type FaultHandler struct {
 	// mutexMap is used to avoid multiple clients to manipulate same resource at same
-	// time. The 'key' is the ENI ID or the network namespace path and 'value' is the
-	// RWMutex.
+	// time. The 'key' is the the network namespace path and 'value' is the RWMutex.
 	// Using concurrent map here because the handler is shared by all requests.
 	mutexMap       sync.Map
 	AgentState     state.AgentState
@@ -96,8 +95,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			return
 		}
 
-		// the network blackhole port fault would be injected to given task network
-		// namespace.
+		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
@@ -148,6 +146,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			return
 		}
 
+		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
@@ -198,6 +197,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 			return
 		}
 
+		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
 		rwMu.RLock()
@@ -243,13 +243,9 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 			return
 		}
 
-		// the network latency fault would be injected to given elastic network
-		// interface/ENI.
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
@@ -294,11 +290,9 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 			return
 		}
 
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
@@ -343,11 +337,9 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 			return
 		}
 
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.RLock()
 		defer rwMu.RUnlock()
 
@@ -391,13 +383,9 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 			return
 		}
 
-		// the network packet loss fault would be injected to given elastic network
-		// interface/ENI.
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
@@ -442,11 +430,9 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 			return
 		}
 
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
@@ -492,11 +478,9 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			return
 		}
 
-		eniID := taskMetadata.TaskNetworkConfig.
-			NetworkNamespaces[0].
-			NetworkInterfaces[0].
-			ENIID
-		rwMu := h.loadLock(eniID)
+		// To avoid multiple requests to manipulate same network resource
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
 		rwMu.RLock()
 		defer rwMu.RUnlock()
 
@@ -704,11 +688,6 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	// Device name is required to inject network faults to given ENI in the task.
 	if taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName == "" {
 		return errors.New("no ENI device name in the network namespace within task network config")
-	}
-
-	// ENIID is required to avoid race condition where multiple requests are manunipuating same ENI.
-	if taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].ENIID == "" {
-		return errors.New("no ENI ID in the network namespace within task network config")
 	}
 
 	return nil
