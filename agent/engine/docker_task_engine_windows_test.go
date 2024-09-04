@@ -53,7 +53,8 @@ import (
 )
 
 const (
-	containerNetNS = "container:abcd"
+	containerNetNS           = "container:abcd"
+	ExpectedNetworkNamespace = "none"
 )
 
 func TestDeleteTask(t *testing.T) {

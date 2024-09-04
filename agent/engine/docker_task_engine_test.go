@@ -114,6 +114,7 @@ const (
 	containerNetworkMode        = "none"
 	serviceConnectContainerName = "service-connect"
 	mediaTypeManifestV2         = "application/vnd.docker.distribution.manifest.v2+json"
+	defaultIfname               = "eth0"
 )
 
 var (
@@ -1098,6 +1099,8 @@ func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testin
 	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 	assert.Equal(t, strconv.Itoa(containerPid), volRes.GetPauseContainerPID())
 	assert.Equal(t, taskIP, testTask.GetLocalIPAddress())
+	assert.Equal(t, defaultIfname, testTask.GetDefaultIfname())
+	assert.Equal(t, ExpectedNetworkNamespace, testTask.GetNetworkNamespace())
 	savedTasks, err := dataClient.GetTasks()
 	require.NoError(t, err)
 	assert.Len(t, savedTasks, 1)
