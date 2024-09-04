@@ -297,11 +297,17 @@ type Task struct {
 
 	IsInternal bool `json:"IsInternal,omitempty"`
 
-	// TODO: Will need to initialize/set the value in a follow PR
 	NetworkNamespace string `json:"NetworkNamespace,omitempty"`
 
 	// TODO: Will need to initialize/set the value in a follow PR
 	FaultInjectionEnabled bool `json:"FaultInjectionEnabled,omitempty"`
+
+	// DefaultIfname is used to reference the default network interface name on the task network namespace
+	// For AWSVPC mode, it can be eth0 which corresponds to the interface name on the task ENI
+	// For Host mode, it can vary based on the hardware/network config on the host instance (e.g. eth0, ens5, etc.) and will need to be obtained on the host.
+	// For all other network modes (i.e. bridge, none, etc.), DefaultIfname is currently not being initialized/set. In order to use this task field for these
+	// network modes, changes will need to be made in the corresponding task provisioning workflows.
+	DefaultIfname string `json:"DefaultIfname,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -3772,4 +3778,25 @@ func (task *Task) GetNetworkNamespace() string {
 	defer task.lock.RUnlock()
 
 	return task.NetworkNamespace
+}
+
+func (task *Task) SetNetworkNamespace(netNs string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.NetworkNamespace = netNs
+}
+
+func (task *Task) GetDefaultIfname() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.DefaultIfname
+}
+
+func (task *Task) SetDefaultIfname(ifname string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.DefaultIfname = ifname
 }

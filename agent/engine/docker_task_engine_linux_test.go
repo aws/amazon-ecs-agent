@@ -73,10 +73,11 @@ import (
 )
 
 const (
-	cgroupMountPath    = "/sys/fs/cgroup"
-	testTaskDefFamily  = "testFamily"
-	testTaskDefVersion = "1"
-	containerNetNS     = "none"
+	cgroupMountPath          = "/sys/fs/cgroup"
+	testTaskDefFamily        = "testFamily"
+	testTaskDefVersion       = "1"
+	containerNetNS           = "none"
+	ExpectedNetworkNamespace = "/host/proc/123/ns/net"
 )
 
 func init() {

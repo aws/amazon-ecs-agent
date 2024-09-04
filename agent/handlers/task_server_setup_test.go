@@ -113,6 +113,8 @@ const (
 	taskCredentialsID          = "taskCredentialsId"
 	endpointId                 = "endpointId"
 	networkNamespace           = "/path"
+	hostNetworkNamespace       = "host"
+	defaultIfname              = "eth0"
 
 	port        = 1234
 	protocol    = "tcp"
@@ -270,6 +272,7 @@ var (
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
 		LaunchType:               "EC2",
+		NetworkMode:              bridgeMode,
 	}
 	container1 = &apicontainer.Container{
 		Name:                containerName,
@@ -404,6 +407,30 @@ var (
 			Type: containerType,
 		},
 	}
+	expectedV4HostContainerResponse = v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: labels,
+			Ports: []tmdsresponse.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+				},
+			},
+		},
+	}
 	expectedV4BridgeContainerResponse = v4ContainerResponseFromV2(expectedBridgeContainerResponse, []v4.Network{{
 		Network: tmdsresponse.Network{
 			NetworkMode:   bridgeMode,
@@ -423,6 +450,7 @@ var (
 		task.FaultInjectionEnabled = faultInjectionEnabled
 		task.NetworkMode = networkMode
 		task.NetworkNamespace = networkNamespace
+		task.DefaultIfname = defaultIfname
 		gomock.InOrder(
 			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
@@ -464,6 +492,13 @@ func standardTask() *apitask.Task {
 	}
 	task.SetCredentialsID(taskCredentialsID)
 	return &task
+}
+
+func standardHostTask() *apitask.Task {
+	task := standardTask()
+	task.ENIs = nil
+	task.NetworkMode = apitask.HostNetworkMode
+	return task
 }
 
 // Returns a standard v2 task response. This getter function protects against tests mutating the
@@ -520,6 +555,34 @@ func expectedV4TaskResponse() v4.TaskResponse {
 			LaunchType:         "EC2",
 		},
 		[]v4.ContainerResponse{expectedV4ContainerResponse},
+		vpcID,
+	)
+}
+
+func expectedV4TaskNetworkConfig(faultInjectionEnabled bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
+	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
+}
+
+func expectedV4TaskResponseHostMode() v4.TaskResponse {
+	return v4TaskResponseFromV2(
+		v2.TaskResponse{
+			Cluster:       clusterName,
+			TaskARN:       taskARN,
+			Family:        family,
+			Revision:      version,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			Limits: &v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			PullStartedAt:      aws.Time(now.UTC()),
+			PullStoppedAt:      aws.Time(now.UTC()),
+			ExecutionStoppedAt: aws.Time(now.UTC()),
+			AvailabilityZone:   availabilityzone,
+			LaunchType:         "EC2",
+		},
+		[]v4.ContainerResponse{expectedV4HostContainerResponse},
 		vpcID,
 	)
 }
@@ -1994,6 +2057,51 @@ func TestV4TaskMetadata(t *testing.T) {
 			expectedResponseBody: expectedV4PulledTaskResponse(),
 		})
 	})
+
+	t.Run("happy case with fault injection enabled using awsvpc mode", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task.FaultInjectionEnabled = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedV4TaskResponse(),
+		})
+	})
+
+	t.Run("happy case with fault injection enabled using host mode", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				hostTask := standardHostTask()
+				hostTask.FaultInjectionEnabled = true
+				hostTask.NetworkNamespace = networkNamespace
+				hostTask.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(hostTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedV4TaskResponseHostMode(),
+		})
+	})
+
 	t.Run("bridge mode container not found", func(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path: v4BasePath + v3EndpointID + "/task",
@@ -3801,6 +3909,87 @@ func testRegisterFaultHandler(t *testing.T, tcs []blackholePortFaultTestCase, me
 
 			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
 			assert.Equal(t, tc.expectedFaultResponse, actualResponseBody)
+		})
+	}
+}
+
+func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
+
+	tcs := []struct {
+		name                      string
+		setStateExpectations      func(state *mock_dockerstate.MockTaskEngineState)
+		expectedTaskNetworkConfig *v4.TaskNetworkConfig
+	}{
+		{
+			name: "happy case with awsvpc mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.FaultInjectionEnabled = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname),
+		},
+		{
+			name: "happy case with host mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				hostTask := standardHostTask()
+				hostTask.FaultInjectionEnabled = true
+				hostTask.NetworkNamespace = networkNamespace
+				hostTask.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(hostTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname),
+		},
+		{
+			name: "happy bridge mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, bridgeMode, "", ""),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
+
+			if tc.setStateExpectations != nil {
+				tc.setStateExpectations(state)
+			}
+			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			actualTaskResponse, err := tmdsAgentState.GetTaskMetadata(v3EndpointID)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTaskNetworkConfig, actualTaskResponse.TaskNetworkConfig)
 		})
 	}
 }
