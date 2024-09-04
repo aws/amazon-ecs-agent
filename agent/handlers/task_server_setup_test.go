@@ -112,6 +112,7 @@ const (
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 	taskCredentialsID          = "taskCredentialsId"
 	endpointId                 = "endpointId"
+	networkNamespace           = "/path"
 
 	port        = 1234
 	protocol    = "tcp"
@@ -416,6 +417,21 @@ var (
 			SubnetGatewayIPV4Address: "",
 		}},
 	})
+
+	agentStateExpectations = func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
+		task := standardTask()
+		task.FaultInjectionEnabled = faultInjectionEnabled
+		task.NetworkMode = networkMode
+		task.NetworkNamespace = networkNamespace
+		gomock.InOrder(
+			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+		)
+	}
 )
 
 func standardTask() *apitask.Task {
@@ -3576,7 +3592,9 @@ type blackholePortFaultTestCase struct {
 	expectedStatusCode    int
 	requestBody           interface{}
 	expectedFaultResponse faulttype.NetworkFaultInjectionResponse
-	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState)
+	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string)
+	faultInjectionEnabled bool
+	networkMode           string
 }
 
 func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyResponseBody string) []blackholePortFaultTestCase {
@@ -3585,24 +3603,25 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 		"Protocol":    protocol,
 		"TrafficType": trafficType,
 	}
-	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
-		task := standardTask()
-		gomock.InOrder(
-			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
-			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
-			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-			state.EXPECT().TaskByArn(taskARN).Return(task, true),
-			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
-			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
-		)
-	}
+
 	tcs := []blackholePortFaultTestCase{
 		{
-			name:                  fmt.Sprintf("%s success", name),
+			name:                  fmt.Sprintf("%s success host mode", name),
 			expectedStatusCode:    200,
 			requestBody:           happyBlackHolePortReqBody,
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setStateExpectations:  happyStateExpectations,
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.HostNetworkMode,
+		},
+		{
+			name:                  fmt.Sprintf("%s success awsvpc mode", name),
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s unknown request body", name),
@@ -3614,7 +3633,9 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"Unknown":     "",
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setStateExpectations:  happyStateExpectations,
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s malformed request body", name),
@@ -3625,6 +3646,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": trafficType,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkBlackholePortRequest.Port of type uint16"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s incomplete request body", name),
@@ -3634,6 +3657,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"Protocol": protocol,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s empty value request body", name),
@@ -3644,6 +3669,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": "",
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s invalid protocol value request body", name),
@@ -3654,6 +3681,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": trafficType,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter Protocol"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s invalid traffic type value request body", name),
@@ -3664,29 +3693,53 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": "invalid",
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter TrafficType"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:                  fmt.Sprintf("%s task lookup fail", name),
 			expectedStatusCode:    404,
 			requestBody:           happyBlackHolePortReqBody,
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return("", false),
 				)
 			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:                  fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:    500,
 			requestBody:           happyBlackHolePortReqBody,
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
 				)
 			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:    400,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("fault injection is not enabled for task: %s", taskARN)),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: false,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  fmt.Sprintf("%s invalid network mode", name),
+			expectedStatusCode:    400,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid mode is not supported. Please use either host or awsvpc mode."),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           "invalid",
 		},
 	}
 	return tcs
@@ -3722,7 +3775,7 @@ func testRegisterFaultHandler(t *testing.T, tcs []blackholePortFaultTestCase, me
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 			if tc.setStateExpectations != nil {
-				tc.setStateExpectations(state)
+				tc.setStateExpectations(state, tc.faultInjectionEnabled, tc.networkMode)
 			}
 
 			router := mux.NewRouter()

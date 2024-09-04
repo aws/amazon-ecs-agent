@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -143,6 +144,12 @@ func loggerConfigIntegrationTest(logfile string) string {
 }
 
 func VerifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	// Skip assertions on Windows because we don't run a local registry,
+	// so images are always cached and never pulled.
+	if runtime.GOOS == "windows" {
+		t.Log("Not expecting image manifest pulls on Windows")
+		return
+	}
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, apicontainerstatus.ContainerManifestPulled, event.(api.ContainerStateChange).Status,
@@ -150,6 +157,12 @@ func VerifyContainerManifestPulledStateChange(t *testing.T, taskEngine TaskEngin
 }
 
 func VerifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
+	// Skip assertions on Windows because we don't run a local registry,
+	// so images are always cached and never pulled.
+	if runtime.GOOS == "windows" {
+		t.Log("Not expecting image manifest pulls on Windows")
+		return
+	}
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, apitaskstatus.TaskManifestPulled, event.(api.TaskStateChange).Status,
@@ -222,6 +235,12 @@ func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 // has a specific status (identified by the containerStatus parameter)
 func verifySpecificContainerStateChange(t *testing.T, taskEngine TaskEngine, containerName string,
 	containerStatus apicontainerstatus.ContainerStatus) {
+	// Skip assertions on Windows because we don't run a local registry,
+	// so images are always cached and never pulled.
+	if runtime.GOOS == "windows" && containerStatus == apicontainerstatus.ContainerManifestPulled {
+		t.Log("Not expecting image manifest pulls on Windows")
+		return
+	}
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).ContainerName, containerName)
@@ -343,6 +362,12 @@ func InitTestEventCollection(taskEngine TaskEngine) *TestEvents {
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
 func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) {
+	// Skip assertions on Windows because we don't run a local registry,
+	// so images are always cached and never pulled.
+	if runtime.GOOS == "windows" && status == apitaskstatus.TaskManifestPulled {
+		t.Log("Not expecting image manifest pulls on Windows")
+		return
+	}
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.TaskEvent][status.String()][taskARN]; found {
 			return
@@ -355,6 +380,12 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
 func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) {
+	// Skip assertions on Windows because we don't run a local registry,
+	// so images are always cached and never pulled.
+	if runtime.GOOS == "windows" && status == apicontainerstatus.ContainerManifestPulled {
+		t.Log("Not expecting image manifest pulls on Windows")
+		return
+	}
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
 			return

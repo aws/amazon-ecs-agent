@@ -24,6 +24,12 @@ package driver
 
 import "errors"
 
+// findDevicePath finds path of device and verifies its existence
+func (d *nodeService) findDevicePath(devicePath, volumeID, partition string) (string, error) {
+	// TODO
+	return "", errors.New("not supported")
+}
+
 // getBlockSizeBytes gets the size of the disk in bytes
 func (d *nodeService) getBlockSizeBytes(devicePath string) (int64, error) {
 	// TODO

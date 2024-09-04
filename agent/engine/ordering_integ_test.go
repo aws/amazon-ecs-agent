@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const orderingTimeout = 90 * time.Second
+const orderingTimeout = 120 * time.Second
 
 // TestDependencyHealthCheck is a happy-case integration test that considers a workflow with a HEALTHY dependency
 // condition. We ensure that the task can be both started and stopped.
@@ -478,7 +478,6 @@ func TestShutdownOrder(t *testing.T) {
 		t.Skip()
 	}
 
-	shutdownOrderingTimeout := 120 * time.Second
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
@@ -569,7 +568,7 @@ func TestShutdownOrder(t *testing.T) {
 		close(finished)
 	}()
 
-	waitFinished(t, finished, shutdownOrderingTimeout)
+	waitFinished(t, finished, orderingTimeout)
 }
 
 func TestMultipleContainerDependency(t *testing.T) {

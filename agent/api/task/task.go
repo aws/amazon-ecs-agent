@@ -296,6 +296,12 @@ type Task struct {
 	NetworkMode string `json:"NetworkMode,omitempty"`
 
 	IsInternal bool `json:"IsInternal,omitempty"`
+
+	// TODO: Will need to initialize/set the value in a follow PR
+	NetworkNamespace string `json:"NetworkNamespace,omitempty"`
+
+	// TODO: Will need to initialize/set the value in a follow PR
+	FaultInjectionEnabled bool `json:"FaultInjectionEnabled,omitempty"`
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -2910,6 +2916,9 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 
 // String returns a human-readable string representation of this object
 func (task *Task) String() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
 	return task.stringUnsafe()
 }
 
@@ -3742,4 +3751,25 @@ func (task *Task) HasAContainerWithResolvedDigest() bool {
 		}
 	}
 	return false
+}
+
+func (task *Task) IsFaultInjectionEnabled() bool {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.FaultInjectionEnabled
+}
+
+func (task *Task) GetNetworkMode() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.NetworkMode
+}
+
+func (task *Task) GetNetworkNamespace() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.NetworkNamespace
 }
