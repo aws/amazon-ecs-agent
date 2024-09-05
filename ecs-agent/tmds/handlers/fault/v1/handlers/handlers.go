@@ -15,11 +15,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -29,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 
 	"github.com/gorilla/mux"
 )
@@ -41,11 +45,17 @@ const (
 	faultInjectionEnabledError  = "fault injection is not enabled for task: %s"
 )
 
+var (
+	tcBaseCommand                 = []string{"tc"}
+	tcCheckInjectionCommandString = "-j q"
+)
+
 type FaultHandler struct {
 	// TODO: Mutex will be used in a future PR
 	// mu             sync.Mutex
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
+	OsExecWrapper  execwrapper.Exec
 }
 
 // NetworkFaultPath will take in a fault type and return the TMDS endpoint path
@@ -421,17 +431,32 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			return
 		}
 
-		// TODO: Check status of current fault injection
-		// TODO: Return the correct status state
-		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
-		logger.Info("Successfully checked status for fault", logger.Fields{
+		// Check status of current fault injection
+		faultStatus, err := h.checkPacketLossFault()
+		var responseBody types.NetworkFaultInjectionResponse
+		var stringToBeLogged string
+		var httpStatusCode int
+		if err != nil {
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			stringToBeLogged = "Error: failed to check fault status"
+			httpStatusCode = http.StatusInternalServerError
+		} else {
+			stringToBeLogged = "Successfully checked status for fault"
+			httpStatusCode = http.StatusOK
+			if faultStatus {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
+			} else {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("not-running")
+			}
+		}
+		logger.Info(stringToBeLogged, logger.Fields{
 			field.RequestType: requestType,
 			field.Request:     request.ToString(),
 			field.Response:    responseBody.ToString(),
 		})
 		utils.WriteJSONResponse(
 			w,
-			http.StatusOK,
+			httpStatusCode,
 			responseBody,
 			requestType,
 		)
@@ -618,4 +643,36 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	}
 
 	return nil
+}
+
+// checkPacketLossFault checks if there's existing network-packet-loss fault running.
+func (h *FaultHandler) checkPacketLossFault() (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// We will run the following Linux command to assess if there existing fault.
+	// "tc -j q"
+	// The command above gives the output of "tc q" in json format.
+	// We will then unmarshall the json string and check if '"kind":"netem"' exists.
+	parameterList := strings.Split(tcCheckInjectionCommandString, " ")
+	cmdToExec := append(tcBaseCommand, parameterList...)
+	cmdExec := h.OsExecWrapper.CommandContext(ctx, cmdToExec[0], cmdToExec[1:]...)
+	outputInBytes, err := cmdExec.Output()
+	if err != nil {
+		return false, err
+	}
+
+	var outputUnmarshalled []map[string]interface{}
+	err = json.Unmarshal(outputInBytes, &outputUnmarshalled)
+	if err != nil {
+		return false, errors.New("failed to unmarshal tc command output: " + err.Error())
+	}
+
+	for _, line := range outputUnmarshalled {
+		if line["kind"] == "netem" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
