@@ -15,12 +15,17 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -30,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 
 	"github.com/gorilla/mux"
 )
@@ -42,6 +48,12 @@ const (
 	faultInjectionEnabledError  = "fault injection is not enabled for task: %s"
 )
 
+var (
+	tcCheckInjectionCommandString = "tc -j q show dev %s parent 1:1"
+	tcCheckIPFilterCommandString  = "tc -j filter show dev %s"
+	nsenterCommandString          = "nsenter --net=%s "
+)
+
 type FaultHandler struct {
 	// mutexMap is used to avoid multiple clients to manipulate same resource at same
 	// time. The 'key' is the the network namespace path and 'value' is the RWMutex.
@@ -49,13 +61,16 @@ type FaultHandler struct {
 	mutexMap       sync.Map
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
+	osExecWrapper  execwrapper.Exec
 }
 
-func New(agentState state.AgentState, mf metrics.EntryFactory) *FaultHandler {
+func New(agentState state.AgentState, mf metrics.EntryFactory, execWrapper execwrapper.Exec) *FaultHandler {
 	return &FaultHandler{
 		AgentState:     agentState,
 		MetricsFactory: mf,
 		mutexMap:       sync.Map{},
+		// Note: the syntax for creating this is execwrapper.NewExec().
+		osExecWrapper: execWrapper,
 	}
 }
 
@@ -471,30 +486,45 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			return
 		}
 
-		// Obtain the task metadata via the endpoint container ID
-		// TODO: Will be using the returned task metadata in a future PR
+		// Obtain the task metadata via the endpoint container ID.
 		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
 		if err != nil {
 			return
 		}
 
-		// To avoid multiple requests to manipulate same network resource
+		// To avoid multiple requests to manipulate same network resource.
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
 		rwMu.RLock()
 		defer rwMu.RUnlock()
 
-		// TODO: Check status of current fault injection
-		// TODO: Return the correct status state
-		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
-		logger.Info("Successfully checked status for fault", logger.Fields{
+		// Check status of current fault injection.
+		faultStatus, err := h.checkPacketLossFault(taskMetadata, request)
+		var responseBody types.NetworkFaultInjectionResponse
+		var stringToBeLogged string
+		var httpStatusCode int
+		if err != nil {
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			stringToBeLogged = "Error: failed to check fault status"
+			httpStatusCode = http.StatusInternalServerError
+		} else {
+			stringToBeLogged = "Successfully checked status for fault"
+			httpStatusCode = http.StatusOK
+			if faultStatus {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
+			} else {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("not-running")
+			}
+		}
+
+		logger.Info(stringToBeLogged, logger.Fields{
 			field.RequestType: requestType,
 			field.Request:     request.ToString(),
 			field.Response:    responseBody.ToString(),
 		})
 		utils.WriteJSONResponse(
 			w,
-			http.StatusOK,
+			httpStatusCode,
 			responseBody,
 			requestType,
 		)
@@ -691,4 +721,141 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	}
 
 	return nil
+}
+
+// checkPacketLossFault checks if there's existing network-packet-loss fault running.
+func (h *FaultHandler) checkPacketLossFault(taskMetadata *state.TaskResponse, request types.NetworkPacketLossRequest) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
+	lossPercent := request.LossPercent
+	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	ipSources := request.Sources
+	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
+	nsenterPrefix := ""
+	if networkMode == "awsvpc" {
+		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
+	}
+
+	// We will run the following Linux command to assess if there existing fault.
+	// "tc -j q show dev {INTERFACE} parent 1:1"
+	// The command above gives the output of "tc q show dev {INTERFACE} parent 1:1" in json format.
+	// We will then unmarshall the json string and evaluate the fields of it.
+	tcCheckInjectionCommandComposed := nsenterPrefix + fmt.Sprintf(tcCheckInjectionCommandString, interfaceName)
+	fmt.Println(tcCheckInjectionCommandComposed)
+	cmdOutput, err := h.runExecCommand(ctx, tcCheckInjectionCommandComposed)
+	if err != nil {
+		return false, errors.New("failed to check network-packet-loss-fault: " + string(cmdOutput[:]) + err.Error())
+	}
+	// Log the command output to better help us debug.
+	logger.Info(fmt.Sprintf("%s command result: %s", tcCheckInjectionCommandComposed, string(cmdOutput[:])))
+	var outputUnmarshalled []map[string]interface{}
+	err = json.Unmarshal(cmdOutput, &outputUnmarshalled)
+	if err != nil {
+		return false, errors.New("failed to unmarshal tc command output: " + err.Error())
+	}
+	netemExists := false
+	for _, line := range outputUnmarshalled {
+		// First check field "kind":"netem" exists.
+		if line["kind"] == "netem" {
+			// Now check if field "loss":"<loss percent>" exists, and if the percentage matches with the value in the request.
+			if options := line["options"]; options != nil {
+				if lossRandom := options.(map[string]interface{})["loss-random"]; lossRandom != nil {
+					if loss := lossRandom.(map[string]interface{})["loss"]; loss != nil {
+						if lossValue, ok := loss.(float64); ok {
+							lossPercentInPercentage := float64(*lossPercent) / 100
+							if lossValue == lossPercentInPercentage {
+								netemExists = true
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	// If we didn't find anything from above, there's no fault injected.
+	if !netemExists {
+		return false, nil
+	}
+
+	// Now check if the desired IPs are properly added to the filters.
+	// We run the following command: "tc -j filter show dev <INTERFACE>"
+	// The output of the command above does not format into json properly.
+	// It has a field like this: "options":{something here}
+	// Due to the field above, we won't be able to properly unmarshal this.
+	// Thus, we will use strings.contains directly to parse the output.
+	tcCheckIPCommandComposed := nsenterPrefix + fmt.Sprintf(tcCheckIPFilterCommandString, interfaceName)
+	cmdOutput, err = h.runExecCommand(ctx, tcCheckIPCommandComposed)
+	if err != nil {
+		return false, errors.New("failed to check network-packet-loss-fault: " + string(cmdOutput[:]) + err.Error())
+	}
+	// Log the command output to better help us debug.
+	logger.Info(fmt.Sprintf("%s command result: %s", tcCheckIPCommandComposed, string(cmdOutput[:])))
+	allIPAddressesInRequestExist := true
+	for _, ipAddress := range ipSources {
+		ipAddressInHex, err := convertIPAddressToHex(*ipAddress)
+		if err != nil {
+			return false, errors.New("failed to check network-packet-loss-fault: " + err.Error())
+		}
+		patternString := "match " + ipAddressInHex
+		if !strings.Contains(string(cmdOutput[:]), patternString) {
+			allIPAddressesInRequestExist = false
+			break
+		}
+	}
+	if !allIPAddressesInRequestExist {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// runExecCommand wraps around the execwrapper, providing a convenient way of running any Linux command
+// and getting the result in both stdout and stderr.
+func (h *FaultHandler) runExecCommand(ctx context.Context, linuxCommandString string) ([]byte, error) {
+	commandArray := strings.Split(linuxCommandString, " ")
+	cmdExec := h.osExecWrapper.CommandContext(ctx, commandArray[0], commandArray[1:]...)
+	return cmdExec.CombinedOutput()
+}
+
+// convertIPAddressToHex converts an ipv4 address or ipv4 CIDR block string input into HEX format.
+// If not specified, we will use the full ip namespace (mask will be /32).
+// For example, string "192.168.1.100" will be converted to "c0a80164/ffffffff",
+// and string "192.168.1.100/31" will be converted to "c0a80164/fffffffe".
+func convertIPAddressToHex(ipAddressInString string) (string, error) {
+	var ipAddress, mask string
+	ipAddressAndMaskSeparated := strings.Split(ipAddressInString, "/")
+	if len(ipAddressAndMaskSeparated) > 2 {
+		return "", errors.New("invalid IP address")
+	}
+	ipAddress = ipAddressAndMaskSeparated[0]
+	// If a mask is not specified in the IP address, by default use /32.
+	if len(ipAddressAndMaskSeparated) == 1 {
+		mask = "ffffffff"
+	} else {
+		maskInInt, err := strconv.Atoi(ipAddressAndMaskSeparated[1])
+		if err != nil {
+			return "", err
+		}
+		mask = net.CIDRMask(maskInInt, 32).String()
+	}
+	ipAddressInHexString := ""
+	ipAddressSplited := strings.Split(ipAddress, ".")
+	for _, component := range ipAddressSplited {
+		componentInInt, err := strconv.Atoi(component)
+		if err != nil {
+			return "", err
+		}
+		str := strconv.FormatInt(int64(componentInInt), 16)
+		// Edge case: values less than 0d16 will be converted to single digit hex number/
+		// For example, 0d10 will be converted to 0xa instead of 0x0a.
+		// Thus, if we have a single digit hex string, add a "0" in front of it.
+		if len(str) == 1 {
+			str = "0" + str
+		}
+		ipAddressInHexString += str
+	}
+	return ipAddressInHexString + "/" + mask, nil
 }

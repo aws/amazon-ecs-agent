@@ -81,6 +81,21 @@ func (mr *MockCmdMockRecorder) Args() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Args", reflect.TypeOf((*MockCmd)(nil).Args))
 }
 
+// CombinedOutput mocks base method.
+func (m *MockCmd) CombinedOutput() ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CombinedOutput")
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CombinedOutput indicates an expected call of CombinedOutput.
+func (mr *MockCmdMockRecorder) CombinedOutput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CombinedOutput", reflect.TypeOf((*MockCmd)(nil).CombinedOutput))
+}
+
 // KillProcess mocks base method.
 func (m *MockCmd) KillProcess() error {
 	m.ctrl.T.Helper()
@@ -93,6 +108,21 @@ func (m *MockCmd) KillProcess() error {
 func (mr *MockCmdMockRecorder) KillProcess() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KillProcess", reflect.TypeOf((*MockCmd)(nil).KillProcess))
+}
+
+// Output mocks base method.
+func (m *MockCmd) Output() ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Output")
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Output indicates an expected call of Output.
+func (mr *MockCmdMockRecorder) Output() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Output", reflect.TypeOf((*MockCmd)(nil).Output))
 }
 
 // Run mocks base method.

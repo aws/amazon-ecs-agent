@@ -37,6 +37,7 @@ import (
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
 	"github.com/gorilla/mux"
@@ -196,7 +197,7 @@ func registerFaultHandlers(
 	agentState *v4.TMDSAgentState,
 	metricsFactory metrics.EntryFactory,
 ) {
-	handler := fault.New(agentState, metricsFactory)
+	handler := fault.New(agentState, metricsFactory, execwrapper.NewExec())
 
 	if muxRouter == nil {
 		return
