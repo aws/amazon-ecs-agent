@@ -300,7 +300,7 @@ type Task struct {
 	// TODO: Will need to initialize/set the value in a follow PR
 	NetworkNamespace string `json:"NetworkNamespace,omitempty"`
 
-	// TODO: Will need to initialize/set the value in a follow PR
+	// TODO: Will need to initialize/set the value in a follow P
 	FaultInjectionEnabled bool `json:"FaultInjectionEnabled,omitempty"`
 }
 
