@@ -167,7 +167,6 @@ func taskResponse() *state.TaskResponse {
 					NetworkInterfaces: []*state.NetworkInterface{
 						&state.NetworkInterface{
 							DeviceName: "eth1",
-							ENIID:      "eni-013ff4ad5747a0f6a",
 						},
 					},
 				},
