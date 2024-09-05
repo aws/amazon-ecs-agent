@@ -161,7 +161,12 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 					Path: task.GetNetworkNamespace(),
 					NetworkInterfaces: []*tmdsv4.NetworkInterface{
 						{
-							DeviceName: "ethx",
+							// TODO: fetch the correct device name.
+							// We are exposing this information via AgentState to facilitate the fault injection
+							// handler to start/stop/check network faults.
+							// Use 'eth0'(a fake value) for existing fault injection related unit tests for now and
+							// it will be updated in the future.
+							DeviceName: "eth0",
 						},
 					},
 				},
