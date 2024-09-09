@@ -15,12 +15,16 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -30,6 +34,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
+	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/gorilla/mux"
 )
@@ -40,6 +46,13 @@ const (
 	checkStatusFaultRequestType = "check status %s"
 	invalidNetworkModeError     = "%s mode is not supported. Please use either host or awsvpc mode."
 	faultInjectionEnabledError  = "enableFaultInjection is not enabled for task: %s"
+	requestTimedOutError        = "%s: request timed out"
+	requestTimeoutDuration      = 5 * time.Second
+)
+
+var (
+	iptablesChainExistCmd = "iptables -C %s -p %s --dport %s -j DROP"
+	nsenterCommandString  = "nsenter --net=%s"
 )
 
 type FaultHandler struct {
@@ -49,13 +62,15 @@ type FaultHandler struct {
 	mutexMap       sync.Map
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
+	osExecWrapper  execwrapper.Exec
 }
 
-func New(agentState state.AgentState, mf metrics.EntryFactory) *FaultHandler {
+func New(agentState state.AgentState, mf metrics.EntryFactory, execWrapper execwrapper.Exec) *FaultHandler {
 	return &FaultHandler{
 		AgentState:     agentState,
 		MetricsFactory: mf,
 		mutexMap:       sync.Map{},
+		osExecWrapper:  execWrapper,
 	}
 }
 
@@ -203,21 +218,92 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		rwMu.RLock()
 		defer rwMu.RUnlock()
 
-		// TODO: Check status of current fault injection
-		// TODO: Return the correct status state
-		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
-		logger.Info("Successfully checked status for fault", logger.Fields{
-			field.RequestType: requestType,
-			field.Request:     request.ToString(),
-			field.Response:    responseBody.ToString(),
-		})
+		ctx := context.Background()
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, requestTimeoutDuration)
+		defer cancel()
+
+		var responseBody types.NetworkFaultInjectionResponse
+		var statusCode int
+		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
+		running, cmdOutput, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+			taskMetadata.TaskNetworkConfig.NetworkMode, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
+
+		// We've timed out trying to check if the black hole port fault injection is running
+		if err := ctx.Err(); err == context.DeadlineExceeded {
+			logger.Error("Request timed out", logger.Fields{
+				field.RequestType: requestType,
+				field.Request:     request.ToString(),
+				field.Error:       err,
+			})
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
+		} else if cmdErr != nil {
+			logger.Error("Unknown error encountered for request", logger.Fields{
+				field.RequestType: requestType,
+				field.Request:     request.ToString(),
+				field.Error:       cmdErr,
+			})
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+		} else {
+			statusCode = http.StatusOK
+			if running {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
+			} else {
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("not-running")
+			}
+			logger.Info("[INFO] Successfully checked status for fault", logger.Fields{
+				field.RequestType: requestType,
+				field.Request:     request.ToString(),
+				field.Response:    responseBody.ToString(),
+			})
+		}
 		utils.WriteJSONResponse(
 			w,
-			http.StatusOK,
+			statusCode,
 			responseBody,
 			requestType,
 		)
 	}
+}
+
+// checkNetworkBlackHolePort will check if there's a running black hole port within the task network namespace based on the chain name and the passed in required request fields.
+// It does so by calling iptables linux utility tool.
+func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs string) (bool, string, error) {
+	cmdString := fmt.Sprintf(iptablesChainExistCmd, chain, protocol, port)
+	cmdList := strings.Split(cmdString, " ")
+
+	// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
+	if networkMode != ecs.NetworkModeHost {
+		cmdList = append(strings.Split(fmt.Sprintf(nsenterCommandString, netNs), " "), cmdList...)
+	}
+
+	cmdOutput, err := h.runExecCommand(ctx, cmdList)
+	if err != nil {
+		if exitErr, eok := h.osExecWrapper.ConvertToExitError(err); eok {
+			logger.Info("[INFO] Black hole port fault is not running", logger.Fields{
+				"netns":    netNs,
+				"command":  strings.Join(cmdList, " "),
+				"output":   string(cmdOutput),
+				"exitCode": h.osExecWrapper.GetExitCode(exitErr),
+			})
+			return false, string(cmdOutput), nil
+		}
+		logger.Error("Error: Unable to check status of black hole port fault", logger.Fields{
+			"netns":   netNs,
+			"command": strings.Join(cmdList, " "),
+			"output":  string(cmdOutput),
+			"err":     err,
+		})
+		return false, string(cmdOutput), err
+	}
+	logger.Info("[INFO] Black hole port fault has been found running", logger.Fields{
+		"netns":   netNs,
+		"command": strings.Join(cmdList, " "),
+		"output":  string(cmdOutput),
+	})
+	return true, string(cmdOutput), nil
 }
 
 // StartNetworkLatency starts a network latency fault in the associated ENI if no existing same fault.
@@ -706,4 +792,11 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	}
 
 	return nil
+}
+
+// runExecCommand wraps around the execwrapper, providing a convenient way of running any Linux command
+// and getting the result in both stdout and stderr.
+func (h *FaultHandler) runExecCommand(ctx context.Context, cmdList []string) ([]byte, error) {
+	cmdExec := h.osExecWrapper.CommandContext(ctx, cmdList[0], cmdList[1:]...)
+	return cmdExec.CombinedOutput()
 }
