@@ -74,6 +74,8 @@ github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
 github.com/aws/amazon-ecs-agent/ecs-agent/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock

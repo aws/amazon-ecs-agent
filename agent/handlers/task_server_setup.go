@@ -37,7 +37,9 @@ import (
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+
 	"github.com/cihub/seelog"
 	"github.com/gorilla/mux"
 )
@@ -93,7 +95,8 @@ func taskServerSetup(
 		taskProtectionClientFactory, metricsFactory)
 
 	// TODO: Future PR to pass in TMDS server router once all of the handlers have been implemented.
-	registerFaultHandlers(nil, tmdsAgentState, metricsFactory)
+	execWrapper := execwrapper.NewExec()
+	registerFaultHandlers(nil, tmdsAgentState, metricsFactory, execWrapper)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
@@ -195,8 +198,9 @@ func registerFaultHandlers(
 	muxRouter *mux.Router,
 	agentState *v4.TMDSAgentState,
 	metricsFactory metrics.EntryFactory,
+	execWrapper execwrapper.Exec,
 ) {
-	handler := fault.New(agentState, metricsFactory)
+	handler := fault.New(agentState, metricsFactory, execWrapper)
 
 	if muxRouter == nil {
 		return
