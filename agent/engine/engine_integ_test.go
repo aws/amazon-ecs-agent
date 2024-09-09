@@ -139,7 +139,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 
 	// let the container keep running to prevent the edge case where it's already stopped when we check whether
 	// it's running
-	container.Command = getLongRunningCommand()
+	container.Command = GetLongRunningCommand()
 
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
@@ -620,7 +620,7 @@ func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
 			defer done()
 
 			first := createTestContainerWithImageAndName(testRegistryImage, "first")
-			first.Command = []string{"sh", "-c", "sleep 60"}
+			first.Command = GetLongRunningCommand()
 
 			second := createTestContainerWithImageAndName(testRegistryImage, "second")
 			second.SetDependsOn([]apicontainer.DependsOn{

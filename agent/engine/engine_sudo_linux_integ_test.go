@@ -228,28 +228,22 @@ func TestFirelensFluentbit(t *testing.T) {
 	testEvents := InitTestEventCollection(taskEngine)
 
 	//Verify logsender container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
-	assert.NoError(t, err, "Verify logsender container is running")
+	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
 
 	//Verify firelens container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
-	assert.NoError(t, err, "Verify firelens container is running")
+	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
 
 	//Verify task is in running state
-	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
-	assert.NoError(t, err, "Not verified task running")
+	VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
 
 	//Verify logsender container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
-	assert.NoError(t, err)
+	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
 
 	//Verify firelens container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
-	assert.NoError(t, err)
+	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
 
 	//Verify the task itself has stopped
-	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
-	assert.NoError(t, err)
+	VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
 
 	taskID := testTask.GetID()
 
@@ -850,7 +844,7 @@ func TestGMSATaskFile(t *testing.T) {
 
 	defer os.RemoveAll(testCredSpecFilePath)
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSATaskFile"
 
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file:///tmp/test-gmsa.json\"]}"
@@ -865,7 +859,7 @@ func TestGMSATaskFile(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 
@@ -944,7 +938,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 
 	defer os.RemoveAll(testCredSpecFilePath)
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSADomainlessTaskFile"
 
 	testContainer.CredentialSpecs = []string{"credentialspecdomainless:file:///tmp/test-gmsa.json"}
@@ -958,7 +952,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 
@@ -995,7 +989,7 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSATaskFile"
 
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:arn:aws:::s3:testbucket/test-gmsa.json\"]}"
@@ -1010,7 +1004,7 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 
@@ -1035,7 +1029,7 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSATaskFile"
 
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:aws:arn:ssm:us-west-2:123456789012:document/test-gmsa.json\"]}"
@@ -1050,7 +1044,7 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 
@@ -1108,7 +1102,7 @@ func TestGMSANotRunningErr(t *testing.T) {
 	err = ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
 	require.NoError(t, err)
 
-	testContainer := createTestContainer()
+	testContainer := CreateTestContainer()
 	testContainer.Name = "testGMSATaskFile"
 
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file:///tmp/test-gmsa.json\"]}"
@@ -1123,7 +1117,7 @@ func TestGMSANotRunningErr(t *testing.T) {
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].Command = getLongRunningCommand()
+	testTask.Containers[0].Command = GetLongRunningCommand()
 
 	go taskEngine.AddTask(testTask)
 

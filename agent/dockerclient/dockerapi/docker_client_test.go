@@ -351,7 +351,7 @@ func TestPullImageManifest(t *testing.T) {
 				client.EXPECT().
 					DistributionInspect(
 						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
-					Times(maximumPullRetries).
+					Times(maximumManifestPullRetries).
 					Return(
 						registry.DistributionInspect{},
 						errors.New("Some error for https://prod-us-east-1-starport-layer-bucket.s3.us-east-1.amazonaws.com"))

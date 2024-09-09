@@ -69,7 +69,7 @@ func CreateTestTask(arn string) *apitask.Task {
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{createTestContainer()},
+		Containers:          []*apicontainer.Container{CreateTestContainer()},
 	}
 }
 
@@ -159,7 +159,7 @@ func VerifyTaskManifestPulledStateChange(t *testing.T, taskEngine TaskEngine) {
 func VerifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
 		"Expected container to be RUNNING")
 }
 
@@ -173,7 +173,7 @@ func VerifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
+	assert.Equal(t, apicontainerstatus.ContainerRunning, event.(api.ContainerStateChange).Status,
 		"Expected container to be RUNNING")
 	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
 		"Expected container runtimeID should not empty")
@@ -196,8 +196,9 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 func VerifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
+	sc := event.(api.ContainerStateChange)
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
-		"Expected container to be STOPPED")
+		"Expected container %s from task %s to be STOPPED", sc.RuntimeID, sc.TaskArn)
 }
 
 func verifyContainerStoppedStateChangeWithReason(t *testing.T, taskEngine TaskEngine, reason string) {
@@ -341,10 +342,10 @@ func InitTestEventCollection(taskEngine TaskEngine) *TestEvents {
 
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) error {
+func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) {
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.TaskEvent][status.String()][taskARN]; found {
-			return nil
+			return
 		}
 		event := <-testEvents.StateChangeEvents
 		RecordTestEvent(testEvents, event)
@@ -353,10 +354,10 @@ func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvent
 
 // This method queries the TestEvents struct to check a Task Status.
 // This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
+func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) {
 	for {
 		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
-			return nil
+			return
 		}
 		event := <-testEvents.StateChangeEvents
 		RecordTestEvent(testEvents, event)

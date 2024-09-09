@@ -13,8 +13,130 @@
 
 package types
 
-const (
-	BlackHolePortFaultType = "network-blackhole-port"
-	LatencyFaultType       = "network-latency"
-	PacketLossFaultType    = "network-packet-loss"
+import (
+	"encoding/json"
+	"fmt"
+	"net"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
+
+const (
+	BlackHolePortFaultType    = "network-blackhole-port"
+	LatencyFaultType          = "network-latency"
+	PacketLossFaultType       = "network-packet-loss"
+	missingRequiredFieldError = "required parameter %s is missing"
+	invalidValueError         = "invalid value %s for parameter %s"
+)
+
+type NetworkFaultRequest interface {
+	ValidateRequest() error
+	ToString() string
+}
+
+type NetworkBlackholePortRequest struct {
+	Port        *uint16 `json:"Port"`
+	Protocol    *string `json:"Protocol"`
+	TrafficType *string `json:"TrafficType"`
+}
+
+type NetworkFaultInjectionResponse struct {
+	Status string `json:"Status,omitempty"`
+	Error  string `json:"Error,omitempty"`
+}
+
+func (request NetworkBlackholePortRequest) ValidateRequest() error {
+	if request.Port == nil {
+		return fmt.Errorf(missingRequiredFieldError, "Port")
+	}
+	if request.Protocol == nil || *request.Protocol == "" {
+		return fmt.Errorf(missingRequiredFieldError, "Protocol")
+	}
+	if request.TrafficType == nil || *request.TrafficType == "" {
+		return fmt.Errorf(missingRequiredFieldError, "TrafficType")
+	}
+
+	if *request.Protocol != "tcp" && *request.Protocol != "udp" {
+		return fmt.Errorf(invalidValueError, *request.Protocol, "Protocol")
+	}
+
+	if *request.TrafficType != "ingress" && *request.TrafficType != "egress" {
+		return fmt.Errorf(invalidValueError, *request.TrafficType, "TrafficType")
+	}
+
+	return nil
+}
+
+func (request NetworkBlackholePortRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", BlackHolePortFaultType, err)
+	}
+	return string(data)
+}
+
+func (response NetworkFaultInjectionResponse) ToString() string {
+	data, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse network fault injection response with error %v.", err)
+	}
+	return string(data)
+}
+
+// NetworkLatencyRequest is struct for the network latency fault request.
+type NetworkLatencyRequest struct {
+	DelayMilliseconds  *uint64 `json:"DelayMilliseconds"`
+	JitterMilliseconds *uint64 `json:"JitterMilliseconds"`
+	// Sources is a list including IPv4 addresses or IPv4 CIDR blocks.
+	Sources []*string `json:"Sources"`
+}
+
+// ValidateRequest validates required fields are present and its value.
+func (request NetworkLatencyRequest) ValidateRequest() error {
+	if request.DelayMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "DelayMilliseconds")
+	}
+	if request.JitterMilliseconds == nil {
+		return fmt.Errorf(missingRequiredFieldError, "JitterMilliseconds")
+	}
+	if request.Sources == nil || len(request.Sources) == 0 {
+		return fmt.Errorf(missingRequiredFieldError, "Sources")
+	}
+	for _, element := range request.Sources {
+		elementStr := aws.StringValue(element)
+		validIp := true
+		if net.ParseIP(elementStr) == nil {
+			validIp = false
+		}
+		validIpCIDRBlock := true
+		if _, _, err := net.ParseCIDR(elementStr); err != nil {
+			validIpCIDRBlock = false
+		}
+
+		if !validIpCIDRBlock && !validIp {
+			return fmt.Errorf(invalidValueError, elementStr, "Sources")
+		}
+	}
+
+	return nil
+}
+
+func (request NetworkLatencyRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", LatencyFaultType, err)
+	}
+	return string(data)
+}
+
+func NewNetworkFaultInjectionSuccessResponse(status string) NetworkFaultInjectionResponse {
+	return NetworkFaultInjectionResponse{
+		Status: status,
+	}
+}
+
+func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResponse {
+	return NetworkFaultInjectionResponse{
+		Error: err,
+	}
+}

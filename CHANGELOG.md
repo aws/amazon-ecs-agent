@@ -1,4 +1,9 @@
 # Changelog
+# 1.86.3
+* Bugfix: AWSVPC task containers' transition to MANIFEST_PULLED state should depend on the network pause container reaching RESOURCES_PROVISIONED state. [#4286](https://github.com/aws/amazon-ecs-agent/pull/4286)
+* Enhancement: Update manifest pull retry strategy so that first few retries are quicker to help setups on which image repository calls depend on network pause container being initialized [#4289](https://github.com/aws/amazon-ecs-agent/pull/4289)
+* Bugfix: Streamline how tasks stopped per ECS Control Plane [#4301](https://github.com/aws/amazon-ecs-agent/pull/4301)
+
 # 1.86.2
 * Bugfix - Add more validation of stats received from Docker [#4295](https://github.com/aws/amazon-ecs-agent/pull/4295)
 

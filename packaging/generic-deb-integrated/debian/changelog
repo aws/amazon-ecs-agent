@@ -1,3 +1,9 @@
+amazon-ecs-init (1.86.3-1) stable; urgency=medium
+
+  * Cache Agent version 1.86.3
+
+ -- Dane Lim <slimdane@amazon.com>  Mon, 26 Aug 2024 18:00:00 +0000
+
 amazon-ecs-init (1.86.2-1) stable; urgency=medium
 
   * Cache Agent version 1.86.2
