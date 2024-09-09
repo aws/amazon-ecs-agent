@@ -984,7 +984,7 @@ func TestCheckNetworkTooling(t *testing.T) {
 	lookPathFunc = func(file string) (string, error) {
 		return "/usr/bin" + file, nil
 	}
-	assert.True(t, checkNetworkTooling(), "Expected checkNetworkTooling to return true when all tools are available")
+	assert.True(t, checkFaultInjectionTooling(), "Expected checkNetworkTooling to return true when all tools are available")
 
 	// Test case: One tool is missing
 	lookPathFunc = func(file string) (string, error) {
@@ -993,5 +993,5 @@ func TestCheckNetworkTooling(t *testing.T) {
 		}
 		return "/usr/bin" + file, nil
 	}
-	assert.False(t, checkNetworkTooling(), "Expected checkNetworkTooling to return false when a tool is missing")
+	assert.False(t, checkFaultInjectionTooling(), "Expected checkNetworkTooling to return false when a tool is missing")
 }

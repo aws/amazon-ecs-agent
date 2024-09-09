@@ -142,3 +142,13 @@ func defaultIsPlatformExecSupported() (bool, error) {
 	}
 	return true, nil
 }
+
+// var to allow mocking for checkNetworkTooling
+var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
+
+// checkFaultInjectionTooling checks for the required network packages like iptables, tc
+// to be available on the host before ecs.capability.fault-injection can be advertised
+func checkFaultInjectionTooling() bool {
+	seelog.Warnf("Fault injection tooling is not supported on windows")
+	return false
+}

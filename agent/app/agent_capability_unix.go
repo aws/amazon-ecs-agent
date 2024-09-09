@@ -239,15 +239,18 @@ func defaultIsPlatformExecSupported() (bool, error) {
 }
 
 // var to allow mocking for checkNetworkTooling
-var isNetworkToolingAvailable = checkNetworkTooling
+var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
 
 // wrapper around exec.LookPath
 var lookPathFunc = exec.LookPath
 
-func checkNetworkTooling() bool {
+// checkFaultInjectionTooling checks for the required network packages like iptables, tc
+// to be available on the host before ecs.capability.fault-injection can be advertised
+func checkFaultInjectionTooling() bool {
 	tools := []string{"iptables", "tc"}
 	for _, tool := range tools {
 		if _, err := lookPathFunc(tool); err != nil {
+			seelog.Warnf("Failed to find network tool %s: %v", tool, err)
 			return false
 		}
 	}

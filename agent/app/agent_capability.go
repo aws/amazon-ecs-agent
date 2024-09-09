@@ -544,7 +544,7 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 }
 
 func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if isNetworkToolingAvailable() {
+	if isFaultInjectionToolingAvailable() {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
 	} else {
 		seelog.Warn("Fault injection capability not enabled: Required network tools (iptables, tc) are missing")
