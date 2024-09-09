@@ -196,10 +196,7 @@ func registerFaultHandlers(
 	agentState *v4.TMDSAgentState,
 	metricsFactory metrics.EntryFactory,
 ) {
-	handler := fault.FaultHandler{
-		AgentState:     agentState,
-		MetricsFactory: metricsFactory,
-	}
+	handler := fault.New(agentState, metricsFactory)
 
 	if muxRouter == nil {
 		return

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 )
@@ -102,29 +103,43 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.Sources == nil || len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
-	for _, element := range request.Sources {
-		elementStr := aws.StringValue(element)
-		validIp := true
-		if net.ParseIP(elementStr) == nil {
-			validIp = false
-		}
-		validIpCIDRBlock := true
-		if _, _, err := net.ParseCIDR(elementStr); err != nil {
-			validIpCIDRBlock = false
-		}
-
-		if !validIpCIDRBlock && !validIp {
-			return fmt.Errorf(invalidValueError, elementStr, "Sources")
-		}
-	}
-
-	return nil
+	return validateNetworkFaultRequestSources(request.Sources)
 }
 
 func (request NetworkLatencyRequest) ToString() string {
 	data, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", LatencyFaultType, err)
+	}
+	return string(data)
+}
+
+// NetworkPacketLossRequest is struct for the network packet loss fault request.
+type NetworkPacketLossRequest struct {
+	LossPercent *uint64 `json:"LossPercent"`
+	// Sources is a list including IPv4 addresses or IPv4 CIDR blocks.
+	Sources []*string `json:"Sources"`
+}
+
+// ValidateRequest validates required fields are present and its value.
+func (request NetworkPacketLossRequest) ValidateRequest() error {
+	if request.LossPercent == nil {
+		return fmt.Errorf(missingRequiredFieldError, "LossPercent")
+	}
+	// request.LossPercent should be an integer between 1 and 100 (inclusive).
+	if *request.LossPercent < 1 || *request.LossPercent > 100 {
+		return fmt.Errorf(invalidValueError, strconv.Itoa(int(*request.LossPercent)), "LossPercent")
+	}
+	if request.Sources == nil || len(request.Sources) == 0 {
+		return fmt.Errorf(missingRequiredFieldError, "Sources")
+	}
+	return validateNetworkFaultRequestSources(request.Sources)
+}
+
+func (request NetworkPacketLossRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse %s request with error %v.", PacketLossFaultType, err)
 	}
 	return string(data)
 }
@@ -139,4 +154,23 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 	return NetworkFaultInjectionResponse{
 		Error: err,
 	}
+}
+
+func validateNetworkFaultRequestSources(sources []*string) error {
+	for _, element := range sources {
+		elementStr := aws.StringValue(element)
+		validIp := true
+		if net.ParseIP(elementStr) == nil {
+			validIp = false
+		}
+		validIpCIDRBlock := true
+		if _, _, err := net.ParseCIDR(elementStr); err != nil {
+			validIpCIDRBlock = false
+		}
+
+		if !validIpCIDRBlock && !validIp {
+			return fmt.Errorf(invalidValueError, elementStr, "Sources")
+		}
+	}
+	return nil
 }

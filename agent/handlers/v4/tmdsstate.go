@@ -151,6 +151,30 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 	}
 
+	if task.IsFaultInjectionEnabled() {
+		// TODO: The correct values for the task network config will need to be set/initialized
+		taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
+		taskNetworkConfig := tmdsv4.TaskNetworkConfig{
+			NetworkMode: task.GetNetworkMode(),
+			NetworkNamespaces: []*tmdsv4.NetworkNamespace{
+				{
+					Path: task.GetNetworkNamespace(),
+					NetworkInterfaces: []*tmdsv4.NetworkInterface{
+						{
+							// TODO: fetch the correct device name.
+							// We are exposing this information via AgentState to facilitate the fault injection
+							// handler to start/stop/check network faults.
+							// Use 'eth0'(a fake value) for existing fault injection related unit tests for now and
+							// it will be updated in the future.
+							DeviceName: "eth0",
+						},
+					},
+				},
+			},
+		}
+		taskResponse.TaskNetworkConfig = &taskNetworkConfig
+	}
+
 	return *taskResponse, nil
 }
 

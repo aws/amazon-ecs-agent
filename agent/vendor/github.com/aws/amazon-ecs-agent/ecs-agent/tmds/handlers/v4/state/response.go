@@ -52,7 +52,9 @@ type NetworkNamespace struct {
 	NetworkInterfaces []*NetworkInterface
 }
 
+// NetworkInterface contains information of the network interface.
 type NetworkInterface struct {
+	// DeviceName is the device name on the host.
 	DeviceName string
 }
 
