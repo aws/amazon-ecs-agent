@@ -263,6 +263,10 @@ func (w *EBSWatcher) stageVolumeEBS(volID, deviceName string) error {
 	// call CSI NodeStage
 	timeoutCtx, cancelFunc := context.WithTimeout(w.ctx, nodeStageTimeout)
 	defer cancelFunc()
+	now := time.Now()
+	defer func() {
+		log.Infof("NodeStageVolume took %v", time.Since(now))
+	}()
 	err := w.csiClient.NodeStageVolume(timeoutCtx,
 		volID,
 		publishContext,
