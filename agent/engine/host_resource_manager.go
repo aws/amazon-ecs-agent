@@ -115,7 +115,7 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		return true, nil
 	}
 
-	ok, failedResourceKey, err := h.consumable(resources)
+	ok, failedResourceKeys, err := h.consumable(resources)
 	if err != nil {
 		logger.Error("Resources failing to consume, error in task resources", logger.Fields{
 			"taskArn":   taskArn,
@@ -140,8 +140,8 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		return true, nil
 	}
 	logger.Info("Resources not consumed, enough resources not available", logger.Fields{
-		"taskArn":  taskArn,
-		"resource": failedResourceKey,
+		"taskArn":   taskArn,
+		"resources": failedResourceKeys,
 	})
 	return false, nil
 }
@@ -254,31 +254,37 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 }
 
 // Helper function for consume to check if resources are consumable with the current account
-// we have for the host resources. Should not call host resource manager lock in this func
-// return values
-func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, string, error) {
+// we have for the host resources. Should not call host resource manager lock in this func return values
+// This function returns a bool (indicating whether ALL requested resources are consumable), a list of non-consumable
+// resource keys, and error, if any.
+func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, []string, error) {
 	err := h.checkResourcesHealth(resources)
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 
+	var resourcesNotConsumable []string
 	for resourceKey := range resources {
 		if *resources[resourceKey].Type == "INTEGER" {
 			consumable := h.checkConsumableIntType(resourceKey, resources)
 			if !consumable {
-				return false, resourceKey, nil
+				resourcesNotConsumable = append(resourcesNotConsumable, resourceKey)
 			}
 		}
 
 		if *resources[resourceKey].Type == "STRINGSET" {
 			consumable := h.checkConsumableStringSetType(resourceKey, resources)
 			if !consumable {
-				return false, resourceKey, nil
+				resourcesNotConsumable = append(resourcesNotConsumable, resourceKey)
 			}
 		}
 	}
 
-	return true, "", nil
+	if resourcesNotConsumable != nil {
+		return false, resourcesNotConsumable, nil
+	} else {
+		return true, nil, nil
+	}
 }
 
 // Utility function to manage release of ports
