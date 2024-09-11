@@ -17,6 +17,7 @@
 package app
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -235,4 +236,23 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 
 func defaultIsPlatformExecSupported() (bool, error) {
 	return true, nil
+}
+
+// var to allow mocking for checkNetworkTooling
+var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
+
+// wrapper around exec.LookPath
+var lookPathFunc = exec.LookPath
+
+// checkFaultInjectionTooling checks for the required network packages like iptables, tc
+// to be available on the host before ecs.capability.fault-injection can be advertised
+func checkFaultInjectionTooling() bool {
+	tools := []string{"iptables", "tc"}
+	for _, tool := range tools {
+		if _, err := lookPathFunc(tool); err != nil {
+			seelog.Warnf("Failed to find network tool %s: %v", tool, err)
+			return false
+		}
+	}
+	return true
 }
