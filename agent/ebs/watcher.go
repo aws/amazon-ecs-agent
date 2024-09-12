@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	log "github.com/cihub/seelog"
-
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -265,7 +264,7 @@ func (w *EBSWatcher) stageVolumeEBS(volID, deviceName string) error {
 	defer cancelFunc()
 	now := time.Now()
 	defer func() {
-		log.Infof("NodeStageVolume took %v", time.Since(now))
+		log.Debugf(" NodeStageVolume took %v seconds ", time.Since(now).Seconds())
 	}()
 	err := w.csiClient.NodeStageVolume(timeoutCtx,
 		volID,

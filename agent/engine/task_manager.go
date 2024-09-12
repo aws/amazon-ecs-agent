@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -32,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -1620,7 +1619,7 @@ func (mtask *managedTask) unstageVolumeWithRetriesAndTimeout(csiClient csiclient
 	backoff := retry.NewExponentialBackoff(unstageBackoffMin, unstageBackoffMax, unstageBackoffJitter, unstageBackoffMultiple)
 	now := time.Now()
 	defer func() {
-		logger.Info("NodeUnstageVolume took " + time.Since(now).String())
+		logger.Debug(" NodeUnstageVolume took " + strconv.FormatFloat(time.Since(now).Seconds(), 'f', -1, 64) + " seconds ")
 	}()
 	err := retry.RetryNWithBackoff(backoff, unstageRetryAttempts, func() error {
 		logger.Debug("attempting CSI unstage with retries", logger.Fields{
