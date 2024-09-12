@@ -164,19 +164,19 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		}
 	}
 
-	klog.Infof("NodeStageVolume: configs initialized for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(t).String())
+	klog.Infof("NodeStageVolume: configs initialized for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(t).Seconds())
 
 	findevicepathTime := time.Now()
 	source, err := d.findDevicePath(devicePath, volumeID, partition)
 	if err != nil {
-		klog.Infof("NodeStageVolume: findDevicePath failed for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(findevicepathTime).String())
+		klog.Infof(" NodeStageVolume: findDevicePath failed for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(findevicepathTime).Seconds())
 		return nil, status.Errorf(codes.Internal, "Failed to find device path %s. %v", devicePath, err)
 	}
-	klog.Infof("NodeStageVolume: findDevicePath succeeded for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(findevicepathTime).String())
+	klog.Infof(" NodeStageVolume: findDevicePath succeeded for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(findevicepathTime).Seconds())
 
 	pathexiststime := time.Now()
 	exists, err := d.mounter.PathExists(target)
-	klog.Infof("NodeStageVolume: PathExists for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(pathexiststime).String())
+	klog.Infof("NodeStageVolume: PathExists for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(pathexiststime).Seconds())
 	klog.InfoS("NodeStageVolume: path exists:", "exists", exists)
 	if err != nil {
 		klog.InfoS("NodeStageVolume: path exists:", "err", err)
@@ -191,17 +191,17 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		makedirtime := time.Now()
 		klog.InfoS("NodeStageVolume: creating target dir", "target", target)
 		if err = d.mounter.MakeDir(target); err != nil {
-			klog.Infof("NodeStageVolume: MakeDir failed for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(makedirtime).String())
+			klog.Infof("NodeStageVolume: MakeDir failed for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(makedirtime).Seconds())
 			msg := fmt.Sprintf("could not create target dir %q: %v", target, err)
 			return nil, status.Error(codes.Internal, msg)
 		}
-		klog.InfoS("NodeStageVolume: MakeDir succeeded for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(makedirtime).String())
+		klog.Infof("NodeStageVolume: MakeDir succeeded for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(makedirtime).Seconds())
 	}
 
 	// Check if a device is mounted in target directory
 	gedevicenametime := time.Now()
 	device, _, err := d.mounter.GetDeviceNameFromMount(target)
-	klog.Infof("NodeStageVolume: GetDeviceNameFromMount for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(gedevicenametime).String())
+	klog.Infof("NodeStageVolume: GetDeviceNameFromMount for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(gedevicenametime).Seconds())
 	klog.InfoS("NodeStageVolume: find device path", "device", device)
 	if err != nil {
 		msg := fmt.Sprintf("failed to check if volume is already mounted: %v", err)
@@ -241,7 +241,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		formatOptions = append(formatOptions, "-N", numInodes)
 	}
 	err = d.mounter.FormatAndMountSensitiveWithFormatOptions(source, target, fsType, mountOptions, nil, formatOptions)
-	klog.Infof("NodeStageVolume: FormatAndMountSensitiveWithFormatOptions for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(formatandmountime).String())
+	klog.Infof("NodeStageVolume: FormatAndMountSensitiveWithFormatOptions for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(formatandmountime).Seconds())
 	if err != nil {
 		klog.InfoS("NodeStageVolume: format mount fail", "error", err)
 		msg := fmt.Sprintf("could not format %q and mount it at %q: %v", source, target, err)
@@ -250,7 +250,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 
 	needresizetime := time.Now()
 	needResize, err := d.mounter.NeedResize(source, target)
-	klog.Infof("NodeStageVolume: NeedResize for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(needresizetime).String())
+	klog.Infof("NodeStageVolume: NeedResize for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(needresizetime).Seconds())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not determine if volume %q (%q) need to be resized:  %v", req.GetVolumeId(), source, err)
 	}
@@ -258,7 +258,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if needResize {
 		newresizetime := time.Now()
 		r, err := d.mounter.NewResizeFs()
-		klog.InfoS("NodeStageVolume: NewResizeFs for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(newresizetime).String())
+		klog.Infof("NodeStageVolume: NewResizeFs for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(newresizetime).Seconds())
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Error attempting to create new ResizeFs:  %v", err)
 		}
@@ -266,13 +266,13 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		resizetime := time.Now()
 
 		if _, err := r.Resize(source, target); err != nil {
-			klog.Infof("NodeStageVolume: Resize failed for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(resizetime).String())
+			klog.Infof("NodeStageVolume: Resize failed for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(resizetime).Seconds())
 			return nil, status.Errorf(codes.Internal, "Could not resize volume %q (%q):  %v", volumeID, source, err)
 		}
-		klog.Infof("NodeStageVolume: Resize succeded for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(resizetime).String())
+		klog.Infof("NodeStageVolume: Resize succeded for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(resizetime).Seconds())
 	}
 	klog.InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
-	klog.Infof("NodeStageVolume: for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(t).String())
+	klog.Infof("NodeStageVolume: for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(t).Seconds())
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -321,7 +321,7 @@ func (d *nodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	// returns the device name, reference count, and error code
 	devnametime := time.Now()
 	dev, refCount, err := d.mounter.GetDeviceNameFromMount(target)
-	klog.Infof("NodeUnStageVolume: GetDeviceNameFromMount for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(devnametime).String())
+	klog.Infof("NodeUnStageVolume: GetDeviceNameFromMount for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(devnametime).Seconds())
 	if err != nil {
 		msg := fmt.Sprintf("failed to check if target %q is a mount point: %v", target, err)
 		return nil, status.Error(codes.Internal, msg)
@@ -342,12 +342,12 @@ func (d *nodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	klog.InfoS("NodeUnstageVolume: unmounting", "target", target)
 	unstagetime := time.Now()
 	err = d.mounter.Unstage(target)
-	klog.Infof("NodeUnStageVolume: Unstage for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(unstagetime).String())
+	klog.Infof("NodeUnStageVolume: Unstage for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(unstagetime).Seconds())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not unmount target %q: %v", target, err)
 	}
 	klog.InfoS("NodeUnStageVolume: successfully unstaged volume", "volumeID", volumeID, "target", target)
-	klog.Infof("NodeUnStageVolume: for task %s and volume %s, time taken: %s", taskId, volumeID, time.Since(t).String())
+	klog.Infof("NodeUnStageVolume: for task %s and volume %s, time taken: %f seconds", taskId, volumeID, time.Since(t).Seconds())
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
