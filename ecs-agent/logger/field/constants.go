@@ -65,4 +65,6 @@ const (
 	ServiceConnectEndpoint  = "serviceConnectEndpoint"
 	Response                = "response"
 	Request                 = "request"
+	RoleType                = "roleType"
+	RoleARN                 = "roleARN"
 )

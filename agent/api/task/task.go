@@ -1891,6 +1891,13 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 	if hostConfig.LogConfig.Config == nil {
 		hostConfig.LogConfig.Config = map[string]string{}
 	}
+	logger.Info("Applying execution role credentials to container log auth", logger.Fields{
+		field.TaskARN:           executionRoleCredentials.ARN,
+		field.RoleType:          executionRoleCredentials.IAMRoleCredentials.RoleType,
+		field.RoleARN:           executionRoleCredentials.IAMRoleCredentials.RoleArn,
+		field.CredentialsID:     executionRoleCredentials.IAMRoleCredentials.CredentialsID,
+		awslogsCredsEndpointOpt: credentialsEndpointRelativeURI,
+	})
 	hostConfig.LogConfig.Config[awslogsCredsEndpointOpt] = credentialsEndpointRelativeURI
 	return nil
 }
