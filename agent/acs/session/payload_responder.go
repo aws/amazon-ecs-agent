@@ -148,6 +148,13 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				allTasksOK = false
 				continue
 			}
+			logger.Info("Found application credentials for task", logger.Fields{
+				loggerfield.TaskARN:       apiTask.Arn,
+				loggerfield.TaskVersion:   apiTask.Version,
+				loggerfield.RoleARN:       taskIAMRoleCredentials.RoleArn,
+				loggerfield.RoleType:      taskIAMRoleCredentials.RoleType,
+				loggerfield.CredentialsID: taskIAMRoleCredentials.CredentialsID,
+			})
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
 
@@ -189,6 +196,13 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				allTasksOK = false
 				continue
 			}
+			logger.Info("Found execution credentials for task", logger.Fields{
+				loggerfield.TaskARN:       apiTask.Arn,
+				loggerfield.TaskVersion:   apiTask.Version,
+				loggerfield.RoleARN:       taskExecutionIAMRoleCredentials.RoleArn,
+				loggerfield.RoleType:      taskExecutionIAMRoleCredentials.RoleType,
+				loggerfield.CredentialsID: taskExecutionIAMRoleCredentials.CredentialsID,
+			})
 			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
 		}
 
