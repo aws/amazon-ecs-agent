@@ -984,7 +984,9 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		lookPathFunc = func(file string) (string, error) {
 			return "/usr/bin" + file, nil
 		}
-		assert.True(t, checkFaultInjectionTooling(), "Expected checkNetworkTooling to return true when all tools are available")
+		assert.True(t,
+			checkFaultInjectionTooling(),
+			"Expected checkFaultInjectionTooling to return true when all tools are available")
 	})
 
 	tools := []string{"iptables", "tc", "nsenter"}
@@ -996,7 +998,9 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 				}
 				return "/usr/bin" + file, nil
 			}
-			assert.False(t, checkFaultInjectionTooling(), "Expected checkNetworkTooling to return false when a tool is missing")
+			assert.False(t,
+				checkFaultInjectionTooling(),
+				"Expected checkFaultInjectionTooling to return false when a tool is missing")
 		})
 	}
 }
