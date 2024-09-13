@@ -974,7 +974,7 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 	assert.EqualValues(t, capabilities, inputCapabilities)
 }
 
-func TestCheckNetworkTooling(t *testing.T) {
+func TestCheckFaultInjectionTooling(t *testing.T) {
 	originalLookPath := exec.LookPath
 	defer func() {
 		lookPathFunc = originalLookPath
