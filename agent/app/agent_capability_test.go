@@ -1558,3 +1558,27 @@ func TestAppendGMSADomainlessCapabilitiesFalse(t *testing.T) {
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 }
+
+func TestAppendFaultInjectionCapabilities(t *testing.T) {
+	originalIsFaultInjectionToolingAvailable := isFaultInjectionToolingAvailable
+	defer func() { isFaultInjectionToolingAvailable = originalIsFaultInjectionToolingAvailable }()
+	t.Run("Fault Injection Capability Available", func(t *testing.T) {
+		// Test case where required tooling is available
+		isFaultInjectionToolingAvailable = func() bool { return true }
+		capabilities := []*ecs.Attribute{}
+		agent := &ecsAgent{}
+		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+		// Check that the only capability is "ecs.capability.fault-injection"
+		require.Len(t, capabilities, 1)
+		assert.Equal(t, "ecs.capability.fault-injection", aws.StringValue(capabilities[0].Name))
+	})
+	t.Run("Fault Injection Capability Not Available", func(t *testing.T) {
+		// Test case where required tooling is not available
+		isFaultInjectionToolingAvailable = func() bool { return false }
+		capabilities := []*ecs.Attribute{}
+		agent := &ecsAgent{}
+		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+		// Check that no capability is added
+		assert.Empty(t, capabilities)
+	})
+}

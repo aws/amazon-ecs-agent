@@ -82,6 +82,7 @@ const (
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
+	capabilityFaultInjection                               = "fault-injection"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -198,6 +199,7 @@ var (
 //	ecs.capability.service-connect-v1
 //	ecs.capability.network.container-port-range
 //	ecs.capability.container-restart-policy
+//	ecs.capability.fault-injection
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -311,6 +313,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		}
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
+
+	// add fault-injection capabilities if applicable
+	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 
 	return capabilities, nil
 }
@@ -535,6 +540,15 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		}
 	}
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTaskAttach)
+	return capabilities
+}
+
+func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if isFaultInjectionToolingAvailable() {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
+	} else {
+		seelog.Warn("Fault injection capability not enabled: Required network tools (iptables, tc) are missing")
+	}
 	return capabilities
 }
 

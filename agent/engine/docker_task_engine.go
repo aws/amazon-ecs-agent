@@ -2358,6 +2358,12 @@ func (engine *DockerTaskEngine) provisionContainerResourcesAwsvpc(task *apitask.
 		field.TaskID: task.GetID(),
 		"ip":         taskIP,
 	})
+	task.SetNetworkNamespace(cniConfig.ContainerNetNS)
+	// Note: By default, the interface name is set to eth0 within the CNI configs. We can also always assume that the first entry of the CNI network config to be
+	// the task ENI. Otherwise this means that there weren't any task ENIs passed down to agent from the task payload.
+	if len(cniConfig.NetworkConfigs) > 0 {
+		task.SetDefaultIfname(cniConfig.NetworkConfigs[0].IfName)
+	}
 	engine.state.AddTaskIPAddress(taskIP, task.Arn)
 	task.SetLocalIPAddress(taskIP)
 	engine.saveTaskData(task)

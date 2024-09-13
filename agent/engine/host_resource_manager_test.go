@@ -54,7 +54,7 @@ func getTestHostResourceManager(cpu int64, mem int64, ports []*string, portsUdp 
 	}
 
 	hostResources["GPU"] = &ecs.Resource{
-		Name:           utils.Strptr("PORTS_UDP"),
+		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpuIDs,
 	}
@@ -177,66 +177,95 @@ func TestHostResourceRelease(t *testing.T) {
 }
 
 func TestConsumable(t *testing.T) {
-	hostResourcePort1 := "22"
-	hostResourcePort2 := "1000"
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
-
 	testCases := []struct {
-		cpu           int64
-		mem           int64
-		ports         []uint16
-		portsUdp      []uint16
-		gpus          []string
-		canBeConsumed bool
+		name                       string
+		cpu                        int64
+		mem                        int64
+		ports                      []uint16
+		portsUdp                   []uint16
+		gpus                       []string
+		canBeConsumed              bool
+		expectedFailedResourceKeys []string
 	}{
 		{
-			cpu:           int64(1024),
-			mem:           int64(1024),
-			ports:         []uint16{25},
-			portsUdp:      []uint16{1003},
-			gpus:          []string{"gpu1", "gpu2"},
-			canBeConsumed: true,
+			name:                       "consumable",
+			cpu:                        int64(1024),
+			mem:                        int64(1024),
+			ports:                      []uint16{25},
+			portsUdp:                   []uint16{1003},
+			gpus:                       []string{"gpu1", "gpu2"},
+			canBeConsumed:              true,
+			expectedFailedResourceKeys: nil,
 		},
 		{
-			cpu:           int64(2500),
-			mem:           int64(1024),
-			ports:         []uint16{},
-			portsUdp:      []uint16{},
-			gpus:          []string{},
-			canBeConsumed: false,
+			name:                       "cpu not consumable",
+			cpu:                        int64(2500),
+			mem:                        int64(1024),
+			ports:                      []uint16{},
+			portsUdp:                   []uint16{},
+			gpus:                       []string{},
+			canBeConsumed:              false,
+			expectedFailedResourceKeys: []string{"CPU"},
 		},
 		{
-			cpu:           int64(1024),
-			mem:           int64(2500),
-			ports:         []uint16{},
-			portsUdp:      []uint16{},
-			gpus:          []string{},
-			canBeConsumed: false,
+			name:                       "memory not consumable",
+			cpu:                        int64(1024),
+			mem:                        int64(2500),
+			ports:                      []uint16{},
+			portsUdp:                   []uint16{},
+			gpus:                       []string{},
+			canBeConsumed:              false,
+			expectedFailedResourceKeys: []string{"MEMORY"},
 		},
 		{
-			cpu:           int64(1024),
-			mem:           int64(1024),
-			ports:         []uint16{22},
-			portsUdp:      []uint16{},
-			gpus:          []string{},
-			canBeConsumed: false,
+			name:                       "tcp ports not consumable",
+			cpu:                        int64(1024),
+			mem:                        int64(1024),
+			ports:                      []uint16{22},
+			portsUdp:                   []uint16{},
+			gpus:                       []string{},
+			canBeConsumed:              false,
+			expectedFailedResourceKeys: []string{"PORTS_TCP"},
 		},
 		{
-			cpu:           int64(1024),
-			mem:           int64(1024),
-			ports:         []uint16{},
-			portsUdp:      []uint16{1000},
-			gpus:          []string{},
-			canBeConsumed: false,
+			name:                       "udp ports not consumable",
+			cpu:                        int64(1024),
+			mem:                        int64(1024),
+			ports:                      []uint16{},
+			portsUdp:                   []uint16{1000},
+			gpus:                       []string{},
+			canBeConsumed:              false,
+			expectedFailedResourceKeys: []string{"PORTS_UDP"},
+		},
+		{
+			name:                       "multiple resources not consumable - cpu and udp ports",
+			cpu:                        int64(2500),
+			mem:                        int64(1024),
+			ports:                      []uint16{},
+			portsUdp:                   []uint16{1000},
+			gpus:                       []string{},
+			canBeConsumed:              false,
+			expectedFailedResourceKeys: []string{"CPU", "PORTS_UDP"},
 		},
 	}
 
 	for _, tc := range testCases {
-		resources := getTestTaskResourceMap(tc.cpu, tc.mem, commonutils.Uint16SliceToStringSlice(tc.ports), commonutils.Uint16SliceToStringSlice(tc.portsUdp), aws.StringSlice(tc.gpus))
-		canBeConsumed, err := h.consumable(resources)
-		assert.Equal(t, canBeConsumed, tc.canBeConsumed, "Error in checking if resources can be successfully consumed")
-		assert.Equal(t, err, nil, "Error in checking if resources can be successfully consumed, error returned from consumable")
+		t.Run(tc.name, func(t *testing.T) {
+			hostResourcePort1 := "22"
+			hostResourcePort2 := "1000"
+			gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
+			h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1},
+				[]*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+
+			resources := getTestTaskResourceMap(tc.cpu, tc.mem, commonutils.Uint16SliceToStringSlice(tc.ports),
+				commonutils.Uint16SliceToStringSlice(tc.portsUdp), aws.StringSlice(tc.gpus))
+			canBeConsumed, failedResourceKeys, err := h.consumable(resources)
+			assert.Equal(t, tc.canBeConsumed, canBeConsumed,
+				"Error in checking if resources can be successfully consumed")
+			assert.Equal(t, nil, err,
+				"Error in checking if resources can be successfully consumed, error returned from consumable")
+			assert.ElementsMatch(t, tc.expectedFailedResourceKeys, failedResourceKeys)
+		})
 	}
 }
 

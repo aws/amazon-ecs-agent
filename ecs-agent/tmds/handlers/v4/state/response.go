@@ -47,6 +47,22 @@ type TaskNetworkConfig struct {
 	NetworkNamespaces []*NetworkNamespace
 }
 
+func NewTaskNetworkConfig(networkMode, path, deviceName string) *TaskNetworkConfig {
+	return &TaskNetworkConfig{
+		NetworkMode: networkMode,
+		NetworkNamespaces: []*NetworkNamespace{
+			{
+				Path: path,
+				NetworkInterfaces: []*NetworkInterface{
+					{
+						DeviceName: deviceName,
+					},
+				},
+			},
+		},
+	}
+}
+
 type NetworkNamespace struct {
 	Path              string
 	NetworkInterfaces []*NetworkInterface
@@ -56,8 +72,6 @@ type NetworkNamespace struct {
 type NetworkInterface struct {
 	// DeviceName is the device name on the host.
 	DeviceName string
-	// ENIID is the id of eni.
-	ENIID string
 }
 
 // Instance's clock drift status
