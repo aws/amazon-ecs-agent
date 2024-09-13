@@ -1582,7 +1582,8 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// Remove TaskExecutionCredentials from credentialsManager
 	if taskExecutionCredentialsID != "" {
 		logger.Info("Cleaning up task's execution credentials", logger.Fields{
-			field.TaskID: mtask.GetID(),
+			field.TaskID:        mtask.GetID(),
+			field.CredentialsID: taskExecutionCredentialsID,
 		})
 		mtask.credentialsManager.RemoveCredentials(taskExecutionCredentialsID)
 	}

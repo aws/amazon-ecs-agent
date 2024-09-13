@@ -1692,9 +1692,11 @@ func (engine *DockerTaskEngine) setRegistryCredentials(
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
 			logger.Error("Unable to acquire ECR credentials to pull image for container", logger.Fields{
-				field.TaskID:    task.GetID(),
-				field.Container: container.Name,
-				field.Image:     container.Image,
+				field.TaskID:        task.GetID(),
+				field.Container:     container.Name,
+				field.Image:         container.Image,
+				field.CredentialsID: task.GetExecutionCredentialsID(),
+				field.RoleType:      credentials.ExecutionRoleType,
 			})
 			return nil, dockerapi.CannotPullECRContainerError{
 				FromError: errors.New("engine ecr credentials: not found"),
@@ -1702,6 +1704,14 @@ func (engine *DockerTaskEngine) setRegistryCredentials(
 		}
 
 		iamCredentials := executionCredentials.GetIAMRoleCredentials()
+		logger.Info("Setting task execution credentials for image pull registry auth", logger.Fields{
+			field.TaskID:        task.GetID(),
+			field.Container:     container.Name,
+			field.Image:         container.Image,
+			field.RoleType:      iamCredentials.RoleType,
+			field.RoleARN:       iamCredentials.RoleArn,
+			field.CredentialsID: iamCredentials.CredentialsID,
+		})
 		container.SetRegistryAuthCredentials(iamCredentials)
 		cleanup = func() { container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{}) }
 	}
