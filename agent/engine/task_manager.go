@@ -59,8 +59,6 @@ const (
 	stoppedSentWaitInterval                  = 30 * time.Second
 	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
-	// unstage retries are ultimately limited by successful unstage or by the unstageVolumeTimeout
-	unstageVolumeTimeout = 600 * time.Second
 	// substantial min/max accommodate a csi-driver outage
 	unstageBackoffMin      = 5 * time.Second
 	unstageBackoffMax      = 10 * time.Second
@@ -1619,7 +1617,9 @@ func (mtask *managedTask) unstageVolumeWithRetriesAndTimeout(csiClient csiclient
 	backoff := retry.NewExponentialBackoff(unstageBackoffMin, unstageBackoffMax, unstageBackoffJitter, unstageBackoffMultiple)
 	now := time.Now()
 	defer func() {
-		logger.Debug(" NodeUnstageVolume took " + strconv.FormatFloat(time.Since(now).Seconds(), 'f', -1, 64) + " seconds ")
+		logger.Debug("NodeUnstageVolume duration stats:", logger.Fields{
+			"duration": strconv.FormatFloat(time.Since(now).Seconds(), 'f', -1, 64),
+		})
 	}()
 	err := retry.RetryNWithBackoff(backoff, unstageRetryAttempts, func() error {
 		logger.Debug("attempting CSI unstage with retries", logger.Fields{
