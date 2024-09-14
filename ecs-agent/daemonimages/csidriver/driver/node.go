@@ -82,6 +82,9 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if len(target) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Staging target not provided")
 	}
+
+	// The following code parses the taskID from the given mount path. The target mount path is always in the
+	// format of C:\\ProgramData\\Amazon\\ECS\\ebs\\taskId-volId
 	targetSplice := strings.Split(target, "\\")
 	taskidSplice := targetSplice[len(targetSplice)-1]
 	taskidfinalSplice := strings.Split(taskidSplice, "_")
