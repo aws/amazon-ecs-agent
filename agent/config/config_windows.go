@@ -76,6 +76,11 @@ const (
 	adminSid = "S-1-5-32-544"
 	// default directory name of CNI Plugins
 	defaultCNIPluginDirName = "cni"
+	// Setting the node stage and unstage timeout to 600 seconds as Windows takes longer to stage and unstage volumes
+	// nodeStageTimeout is the deafult timeout for staging an EBS TA volume
+	nodeStageTimeout = 600 * time.Second
+	// nodeUnstageTimeout is the deafult timeout for unstaging an EBS TA volume
+	nodeUnstageTimeout = 600 * time.Second
 )
 
 var (
@@ -159,6 +164,8 @@ func DefaultConfig() Config {
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
 		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
+		NodeStageTimeout:                    nodeStageTimeout,
+		NodeUnstageTimeout:                  nodeUnstageTimeout,
 	}
 }
 

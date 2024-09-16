@@ -74,6 +74,8 @@ func TestConfigDefault(t *testing.T) {
 	assert.True(t, cfg.ShouldExcludeIPv6PortBinding.Enabled(), "Default ShouldExcludeIPv6PortBinding set incorrectly")
 	assert.True(t, cfg.FSxWindowsFileServerCapable.Enabled(), "Default FSxWindowsFileServerCapable set incorrectly")
 	assert.Equal(t, "C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\csi-driver.sock", cfg.CSIDriverSocketPath, "Default CSIDriverSocketPath set incorrectly")
+	assert.Equal(t, 600*time.Second, cfg.NodeStageTimeout, "Default NodeStage timeout set incorrectly")
+	assert.Equal(t, 600*time.Second, cfg.NodeUnstageTimeout, "Default NodeUntage timeout set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
