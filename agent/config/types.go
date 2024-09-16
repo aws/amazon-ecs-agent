@@ -388,4 +388,10 @@ type Config struct {
 	// CSIDriverSocketPath specifies the path that the CSI driver socket file is located at.
 	// Defaults to "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
 	CSIDriverSocketPath string
+
+	// NodeStageTimeout is the amount of time to wait for staging an EBS TA volume
+	NodeStageTimeout time.Duration
+
+	// NodeUnstageTimeout is the amount of time to wait for unstaging an EBS TA volume
+	NodeUnstageTimeout time.Duration
 }

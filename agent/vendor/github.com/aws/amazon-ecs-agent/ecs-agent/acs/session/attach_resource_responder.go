@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	awsARN "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/pkg/errors"
@@ -84,16 +85,10 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 	if waitTimeoutMs == 0 {
 		waitTimeoutMs = DefaultAttachmentWaitTimeoutInMs
 	}
-
-	if aws.StringValue(message.Attachment.AttachmentType) == resource.EBSTaskAttach {
-		waitTimeoutMs += AdditionalEBSVolumeTimeoutDurationInMs
-	}
-
 	logger.Debug("Waiting for the resource attachment to be ready",
 		logger.Fields{
 			"WaitTimeoutMs": waitTimeoutMs,
 		})
-
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	go r.resourceHandler.HandleResourceAttachment(&resource.ResourceAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{

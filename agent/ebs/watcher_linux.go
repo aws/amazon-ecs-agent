@@ -16,9 +16,6 @@
 
 package ebs
 
-import "time"
-
 const (
-	nodeStageTimeout = 2 * time.Second
-	hostMountDir     = "/mnt/ecs/ebs"
+	hostMountDir = "/mnt/ecs/ebs"
 )

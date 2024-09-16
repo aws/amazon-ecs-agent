@@ -62,6 +62,10 @@ const (
 	defaultImagePullInactivityTimeout = 1 * time.Minute
 	// default socket filepath is "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
 	defaultCSIDriverSocketPath = "/var/run/ecs/ebs-csi-driver/csi-driver.sock"
+	// nodeStageTimeout is the deafult timeout for staging an EBS TA volume
+	nodeStageTimeout = 2 * time.Second
+	// nodeUnstageTimeout is the deafult timeout for unstaging an EBS TA volume
+	nodeUnstageTimeout = 30 * time.Second
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -115,6 +119,8 @@ func DefaultConfig() Config {
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
 		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
+		NodeStageTimeout:                    nodeStageTimeout,
+		NodeUnstageTimeout:                  nodeUnstageTimeout,
 	}
 }
 

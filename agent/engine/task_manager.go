@@ -1660,15 +1660,9 @@ func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) []error 
 }
 
 func (mtask *managedTask) unstageVolumeWithRetriesAndTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {
-	derivedCtx, cancel := context.WithTimeout(mtask.ctx, unstageVolumeTimeout)
+	derivedCtx, cancel := context.WithTimeout(mtask.ctx, mtask.cfg.NodeUnstageTimeout)
 	defer cancel()
 	backoff := retry.NewExponentialBackoff(unstageBackoffMin, unstageBackoffMax, unstageBackoffJitter, unstageBackoffMultiple)
-	now := time.Now()
-	defer func() {
-		logger.Debug("NodeUnstageVolume duration stats:", logger.Fields{
-			"duration": strconv.FormatFloat(time.Since(now).Seconds(), 'f', -1, 64),
-		})
-	}()
 	err := retry.RetryNWithBackoff(backoff, unstageRetryAttempts, func() error {
 		logger.Debug("attempting CSI unstage with retries", logger.Fields{
 			field.TaskID: mtask.GetID(),
