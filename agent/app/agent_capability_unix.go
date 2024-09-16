@@ -247,10 +247,12 @@ var lookPathFunc = exec.LookPath
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
 func checkFaultInjectionTooling() bool {
-	tools := []string{"iptables", "tc"}
+	tools := []string{"iptables", "tc", "nsenter"}
 	for _, tool := range tools {
 		if _, err := lookPathFunc(tool); err != nil {
-			seelog.Warnf("Failed to find network tool %s: %v", tool, err)
+			seelog.Warnf(
+				"Failed to find network tool %s that is needed for fault-injection feature: %v",
+				tool, err)
 			return false
 		}
 	}
