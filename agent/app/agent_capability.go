@@ -314,8 +314,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
 
-	// add fault-injection capabilities if applicable
-	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+	// TODO add fault-injection capabilities if applicable
+	// capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 
 	return capabilities, nil
 }
