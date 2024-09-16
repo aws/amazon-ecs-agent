@@ -16,11 +16,7 @@
 
 package ebs
 
-import "time"
-
 const (
-	// Setting the node stage timeout to 600 seconds as Windows takes longer to stage
-	nodeStageTimeout = 600 * time.Second
 	// Host mount root path where the EBS volumes will be mounted
 	hostMountDir = "C:\\ProgramData\\Amazon\\ECS\\ebs\\"
 )

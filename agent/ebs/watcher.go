@@ -22,6 +22,7 @@ import (
 	"time"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -32,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	log "github.com/cihub/seelog"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -41,6 +43,7 @@ type EBSWatcher struct {
 	agentState dockerstate.TaskEngineState
 	// TODO: The dataClient will be used to save to agent's data client as well as start the ACK timer. This will be added once the data client functionality have been added
 	// dataClient     data.Client
+	cfg             *config.Config
 	discoveryClient apiebs.EBSDiscovery
 	csiClient       csi.CSIClient
 	scanTicker      *time.Ticker
@@ -51,15 +54,16 @@ type EBSWatcher struct {
 
 // NewWatcher is used to return a new instance of the EBSWatcher struct
 func NewWatcher(ctx context.Context,
+	cfg *config.Config,
 	state dockerstate.TaskEngineState,
 	taskEngine ecsengine.TaskEngine,
-	dockerClient dockerapi.DockerClient,
-	csiDriverSocketPath string) *EBSWatcher {
+	dockerClient dockerapi.DockerClient) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
 	discoveryClient := apiebs.NewDiscoveryClient(derivedContext)
-	csiClient := csi.NewCSIClient(csiDriverSocketPath)
+	csiClient := csi.NewCSIClient(cfg.CSIDriverSocketPath)
 	return &EBSWatcher{
 		ctx:             derivedContext,
+		cfg:             cfg,
 		cancel:          cancel,
 		agentState:      state,
 		discoveryClient: discoveryClient,
@@ -260,12 +264,8 @@ func (w *EBSWatcher) stageVolumeEBS(volID, deviceName string) error {
 	stubFsGroup, _ := strconv.ParseInt("123456", 10, 8)
 	publishContext := map[string]string{"devicePath": deviceName}
 	// call CSI NodeStage
-	timeoutCtx, cancelFunc := context.WithTimeout(w.ctx, nodeStageTimeout)
+	timeoutCtx, cancelFunc := context.WithTimeout(w.ctx, w.cfg.NodeStageTimeout)
 	defer cancelFunc()
-	now := time.Now()
-	defer func() {
-		log.Debugf(" NodeStageVolume took %v seconds ", time.Since(now).Seconds())
-	}()
 	err := w.csiClient.NodeStageVolume(timeoutCtx,
 		volID,
 		publishContext,
