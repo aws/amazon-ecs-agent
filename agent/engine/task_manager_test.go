@@ -2329,6 +2329,7 @@ func TestUnstageVolumes(t *testing.T) {
 			defer mockCtrl.Finish()
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
+			defaultConfig := config.DefaultConfig()
 			mtask := &managedTask{
 				Task: &apitask.Task{
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
@@ -2349,6 +2350,7 @@ func TestUnstageVolumes(t *testing.T) {
 					},
 				},
 				ctx:                      ctx,
+				cfg:                      &defaultConfig,
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)

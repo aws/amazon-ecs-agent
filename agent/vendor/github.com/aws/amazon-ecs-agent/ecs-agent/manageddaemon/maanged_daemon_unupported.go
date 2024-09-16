@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build !linux && !windows
+// +build !linux,!windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,11 +14,21 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package session
+package manageddaemon
+
+import (
+	"errors"
+)
 
 const (
-	// AdditionalEBSVolumeTimeoutDurationInMs sets the duration that Windows will additionally
-	// wait for the EBS volume to be staged. We are allowing another 5 minutes for Windows to
-	// complete the staging for the EBS volume.
-	AdditionalEBSVolumeTimeoutDurationInMs = 300000
+	imageTarPath                          = ""
+	imageTagDefault                       = ""
+	defaultAgentCommunicationPathHostRoot = ""
+	defaultApplicationLogPathHostRoot     = ""
+	defaultAgentCommunicationMount        = ""
+	defaultApplicationLogMount            = ""
 )
+
+func defaultImportAll() ([]*ManagedDaemon, error) {
+	return nil, errors.New("unsupported platform")
+}

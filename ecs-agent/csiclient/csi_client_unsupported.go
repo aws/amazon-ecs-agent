@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build !linux && !windows
+// +build !linux,!windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -13,13 +13,10 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-
-package session
+package csiclient
 
 const (
-	// AdditionalEBSVolumeTimeoutDurationInMs sets the duration that Linux will additionally
-	// wait for the EBS volume to be staged. This value is set to zero for Linux since it
-	// does not need any additional time to stage the volume and can work within the defined
-	// timeout that the ControlPlane sets. This is a Windows specific value
-	AdditionalEBSVolumeTimeoutDurationInMs = 0
+	DefaultImageName      = ""
+	DefaultSocketName     = ""
+	DefaultSocketHostPath = ""
 )
