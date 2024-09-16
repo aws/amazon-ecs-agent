@@ -543,11 +543,14 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 	return capabilities
 }
 
+// TODO Remove linter directive below when the function becomes used
+//
+//lint:ignore U1000 as this method will be used in the future.
 func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if isFaultInjectionToolingAvailable() {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
 	} else {
-		seelog.Warn("Fault injection capability not enabled: Required network tools (iptables, tc) are missing")
+		seelog.Warn("Fault injection capability not enabled: Required network tools are missing")
 	}
 	return capabilities
 }
