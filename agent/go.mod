@@ -14,6 +14,7 @@ require (
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.4.1
 	github.com/deniswernert/udev v0.0.0-20170418162847-a12666f7b5a1
+	github.com/didip/tollbooth v4.0.2+incompatible
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -41,7 +42,6 @@ require (
 	github.com/cilium/ebpf v0.9.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/didip/tollbooth v4.0.2+incompatible // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
