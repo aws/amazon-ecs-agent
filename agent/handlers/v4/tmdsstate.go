@@ -23,6 +23,10 @@ import (
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 )
 
+const (
+	defaultHostNetworkNamespace = "host"
+)
+
 // Implements AgentState interface for TMDS v4.
 type TMDSAgentState struct {
 	state                dockerstate.TaskEngineState
@@ -151,29 +155,18 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 	}
 
-	if task.IsFaultInjectionEnabled() {
-		// TODO: The correct values for the task network config will need to be set/initialized
-		taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
-		taskNetworkConfig := tmdsv4.TaskNetworkConfig{
-			NetworkMode: task.GetNetworkMode(),
-			NetworkNamespaces: []*tmdsv4.NetworkNamespace{
-				{
-					Path: task.GetNetworkNamespace(),
-					NetworkInterfaces: []*tmdsv4.NetworkInterface{
-						{
-							// TODO: fetch the correct device name.
-							// We are exposing this information via AgentState to facilitate the fault injection
-							// handler to start/stop/check network faults.
-							// Use 'eth0'(a fake value) for existing fault injection related unit tests for now and
-							// it will be updated in the future.
-							DeviceName: "eth0",
-						},
-					},
-				},
-			},
-		}
-		taskResponse.TaskNetworkConfig = &taskNetworkConfig
+	taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
+	var taskNetworkConfig *tmdsv4.TaskNetworkConfig
+	if task.IsNetworkModeHost() {
+		// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
+		// and so we will set this to an arbitrary value such as "host".
+		// TODO: Will need to find/obtain the interface name of the default network interface on the host instance
+		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
+	} else {
+		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
 	}
+
+	taskResponse.TaskNetworkConfig = taskNetworkConfig
 
 	return *taskResponse, nil
 }
