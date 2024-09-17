@@ -79,12 +79,12 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		requestType := fmt.Sprintf(startFaultRequestType, types.BlackHolePortFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -126,12 +126,12 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		requestType := fmt.Sprintf(stopFaultRequestType, types.BlackHolePortFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -177,12 +177,12 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.BlackHolePortFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -226,13 +226,13 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 		var request types.NetworkLatencyRequest
 		requestType := fmt.Sprintf(startFaultRequestType, types.LatencyFaultType)
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -274,12 +274,12 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 		requestType := fmt.Sprintf(stopFaultRequestType, types.LatencyFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -321,12 +321,12 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.LatencyFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -366,13 +366,13 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		var request types.NetworkPacketLossRequest
 		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -414,12 +414,12 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -461,12 +461,12 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
 
 		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r, true)
+		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
 			return
 		}
 		// Validate the fault request
-		err = validateRequest(w, request, requestType, true)
+		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
 		}
@@ -502,15 +502,14 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 }
 
 // decodeRequest will log the request and then translate/unmarshal an incoming fault injection request into
-// one of the network fault structs if the request body is required.
-func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string,
-	r *http.Request, requiredRequestBody bool) error {
+// one of the network fault structs which requires the reqeust body to non-empty.
+func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string, r *http.Request) error {
 	logRequest(requestType, r)
 
 	jsonDecoder := json.NewDecoder(r.Body)
 	if err := jsonDecoder.Decode(request); err != nil {
-		// The request has empty body. Respond an explicit message if that's required.
-		if err == io.EOF && requiredRequestBody {
+		// The request has empty body and then respond an explicit message.
+		if err == io.EOF {
 			err = errors.New(types.MissingRequestBodyError)
 		}
 
@@ -533,13 +532,9 @@ func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, req
 	return nil
 }
 
-// validateRequest will validate that the incoming fault injection request will have the required fields.
-func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string,
-	requiredRequestBody bool) error {
-	if !requiredRequestBody {
-		return nil
-	}
-
+// validateRequest will validate that the incoming fault injection request will have the required fields
+// in the request body.
+func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string) error {
 	if err := request.ValidateRequest(); err != nil {
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", err))
 		logger.Error("Error: missing required payload fields", logger.Fields{
