@@ -180,3 +180,17 @@ func (mr *MockAPIMockRecorder) GetNetNSPath(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetNSPath", reflect.TypeOf((*MockAPI)(nil).GetNetNSPath), arg0)
 }
+
+// HandleHostMode mocks base method.
+func (m *MockAPI) HandleHostMode() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleHostMode")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleHostMode indicates an expected call of HandleHostMode.
+func (mr *MockAPIMockRecorder) HandleHostMode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleHostMode", reflect.TypeOf((*MockAPI)(nil).HandleHostMode))
+}

@@ -373,6 +373,7 @@ func (c *client) LoadEnvVars() map[string]string {
 	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
 		if envKey == config.GPUSupportEnvVar && envValue == "true" {
 			if !nvidiaGPUDevicesPresent() {
+				log.Warn("No GPU devices found, ignoring the GPU support config")
 				continue
 			}
 		}
