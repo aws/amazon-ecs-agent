@@ -49,7 +49,7 @@ func TestNodeStageVolume(t *testing.T) {
 	devicePath := "/dev/fake"
 
 	// Get metrics for the root volume from EBS CSI Driver.
-	csiClient := NewCSIClient("C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\socket\\csi.sock")
+	csiClient := NewCSIClient("C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\socket\\csi-driver.sock")
 	//getVolumeCtx, getVolumeCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
 	//defer getVolumeCtxCancel()
 	var err = csiClient.NodeStageVolume(context.TODO(), volumeID, map[string]string{"devicePath": devicePath},
@@ -64,7 +64,7 @@ func TestNodeUnstageVolume(t *testing.T) {
 
 	targetPath := "C:\\csi_proxy\\mount"
 	// Get metrics for the root volume from EBS CSI Driver.
-	csiClient := NewCSIClient("C:\\Program Files\\Amazon\\ECS\\ebs-csi-driver\\socket\\csi.sock")
+	csiClient := NewCSIClient("C:\\ProgramData\\Amazon\\ECS\\ebs-csi-driver\\socket\\csi-driver.sock")
 	//getVolumeCtx, getVolumeCtxCancel := context.WithTimeout(context.Background(), timeoutDuration)
 	//defer getVolumeCtxCancel()
 	err := csiClient.NodeUnstageVolume(context.TODO(), volumeID, targetPath)
