@@ -237,7 +237,7 @@ func TestStartMetricsPublishForChannelFull(t *testing.T) {
 			telemetryMessages := make(chan ecstcs.TelemetryMessage, tc.channelSize)
 			healthMessages := make(chan ecstcs.HealthMessage, tc.channelSize)
 
-			engine := NewDockerStatsEngine(&publishMetricsCfg, nil, eventStream("TestStartMetricsPublish"), telemetryMessages, healthMessages)
+			engine := NewDockerStatsEngine(&publishMetricsCfg, nil, eventStream("TestStartMetricsPublish"), telemetryMessages, healthMessages, nil)
 			ctx, cancel := context.WithCancel(context.TODO())
 			engine.ctx = ctx
 			engine.resolver = resolver
