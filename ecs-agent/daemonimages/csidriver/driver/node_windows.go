@@ -30,12 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
 )
 
-// findDevicePath finds path of device and verifies its existence
-func (d *nodeService) findDevicePath(devicePath, volumeID, partition string) (string, error) {
-	// TODO
-	return "", errors.New("not supported")
-}
-
 // getBlockSizeBytes gets the size of the disk in bytes
 func (d *nodeService) getBlockSizeBytes(devicePath string, volumeId string) (int64, error) {
 	// We need to fetch the device ID based on the devicePath and volumeId. This is needed

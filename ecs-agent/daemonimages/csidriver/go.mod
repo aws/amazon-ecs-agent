@@ -6,7 +6,6 @@ require (
 	github.com/container-storage-interface/spec v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/kubernetes-csi/csi-proxy/client v1.1.3
-	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.31.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.20.0
 	google.golang.org/grpc v1.64.0
@@ -23,7 +22,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/kubernetes-csi/csi-proxy/v2 v2.0.0-alpha.1 // indirect
 	github.com/moby/sys/mountinfo v0.7.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
