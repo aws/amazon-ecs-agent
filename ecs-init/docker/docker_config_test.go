@@ -22,17 +22,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBindNsenterIfAvailable(t *testing.T) {
+func TestGetNsenterBinds(t *testing.T) {
 	t.Run("nsenter not found", func(t *testing.T) {
-		binds := bindNsenterIfAvailable(
-			[]string{},
+		binds := getNsenterBinds(
 			func(s string) (os.FileInfo, error) { return nil, errors.New("not found") })
 		assert.Empty(t, binds)
 	})
 
 	t.Run("nsenter is found", func(t *testing.T) {
-		binds := bindNsenterIfAvailable(
-			[]string{},
+		binds := getNsenterBinds(
 			func(s string) (os.FileInfo, error) { return nil, nil })
 		require.Len(t, binds, 1)
 		assert.Equal(t, "/usr/bin/nsenter:/usr/bin/nsenter", binds[0])
