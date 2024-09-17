@@ -47,13 +47,7 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
 		"/usr/bin/lsblk:/usr/bin/lsblk",
 	)
-
-	const nsenterPath = "/usr/bin/nsenter"
-	if _, err := os.Stat(nsenterPath); err == nil {
-		binds = append(binds, nsenterPath+":"+nsenterPath)
-	} else {
-		seelog.Warnf("nsenter not found at %s, skip binding it to Agent container", nsenterPath)
-	}
+	binds = bindNsenterIfAvailable(binds, os.Stat)
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
@@ -88,4 +82,17 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 	}
 
 	return hostConfig
+}
+
+// Appends nsenter to provided binds slice if it is found on the host and returns it.
+// Returns the input slice otherwise.
+func bindNsenterIfAvailable(binds []string, statFn func(string) (os.FileInfo, error)) []string {
+	const nsenterPath = "/usr/bin/nsenter"
+	if _, err := statFn(nsenterPath); err == nil {
+		binds = append(binds, nsenterPath+":"+nsenterPath)
+	} else {
+		seelog.Warnf("nsenter not found at %s, skip binding it to Agent container: %v",
+			nsenterPath, err)
+	}
+	return binds
 }
