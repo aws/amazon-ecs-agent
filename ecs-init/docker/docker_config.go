@@ -15,8 +15,10 @@ package docker
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+	"github.com/cihub/seelog"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 	godocker "github.com/fsouza/go-dockerclient"
 )
@@ -45,6 +47,13 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
 		"/usr/bin/lsblk:/usr/bin/lsblk",
 	)
+
+	const nsenterPath = "/usr/bin/nsenter"
+	if _, err := os.Stat(nsenterPath); err == nil {
+		binds = append(binds, nsenterPath+":"+nsenterPath)
+	} else {
+		seelog.Warnf("nsenter not found at %s, skip binding it to Agent container", nsenterPath)
+	}
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
