@@ -39,7 +39,7 @@ const (
 	stopFaultRequestType        = "stop %s"
 	checkStatusFaultRequestType = "check status %s"
 	invalidNetworkModeError     = "%s mode is not supported. Please use either host or awsvpc mode."
-	faultInjectionEnabledError  = "fault injection is not enabled for task: %s"
+	faultInjectionEnabledError  = "enableFaultInjection is not enabled for task: %s"
 )
 
 type FaultHandler struct {
@@ -501,11 +501,18 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 	}
 }
 
-// decodeRequest will translate/unmarshal an incoming fault injection request into one of the network fault structs
+// decodeRequest will log the request and then translate/unmarshal an incoming fault injection request into
+// one of the network fault structs which requires the reqeust body to non-empty.
 func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string, r *http.Request) error {
 	logRequest(requestType, r)
+
 	jsonDecoder := json.NewDecoder(r.Body)
 	if err := jsonDecoder.Decode(request); err != nil {
+		// The request has empty body and then respond an explicit message.
+		if err == io.EOF {
+			err = errors.New(types.MissingRequestBodyError)
+		}
+
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", err))
 		logger.Error("Error: failed to decode request", logger.Fields{
 			field.Error:       err,
@@ -525,7 +532,8 @@ func decodeRequest(w http.ResponseWriter, request types.NetworkFaultRequest, req
 	return nil
 }
 
-// validateRequest will validate that the incoming fault injection request will have the required fields.
+// validateRequest will validate that the incoming fault injection request will have the required fields
+// in the request body.
 func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, requestType string) error {
 	if err := request.ValidateRequest(); err != nil {
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", err))
@@ -541,7 +549,6 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 			responseBody,
 			requestType,
 		)
-
 		return err
 	}
 	return nil
@@ -651,17 +658,25 @@ func getTaskMetadataErrorResponse(endpointContainerID, requestType string, err e
 
 // logRequest is used to log incoming fault injection requests.
 func logRequest(requestType string, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Error("Error: Unable to decode request body", logger.Fields{
-			field.RequestType: requestType,
-			field.Error:       err,
-		})
-		return
+	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
+	var body []byte
+	var err error
+	if r.Body != nil {
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			logger.Error("Error: Unable to read request body", logger.Fields{
+				field.RequestType:             requestType,
+				field.Error:                   err,
+				field.TMDSEndpointContainerID: endpointContainerID,
+			})
+			return
+		}
 	}
+
 	logger.Info(fmt.Sprintf("Received new request for request type: %s", requestType), logger.Fields{
-		field.Request:     string(body),
-		field.RequestType: requestType,
+		field.Request:                 string(body),
+		field.RequestType:             requestType,
+		field.TMDSEndpointContainerID: endpointContainerID,
 	})
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
 }

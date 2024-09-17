@@ -149,6 +149,15 @@ func generateNetworkBlackHolePortTestCases(name string, expectedHappyResponseBod
 			},
 		},
 		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
 			name:               fmt.Sprintf("%s malformed request body", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
@@ -526,6 +535,15 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 				agentState.EXPECT().GetTaskMetadata(endpointId).
 					Return(happyTaskResponse, nil).
 					Times(1)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
 			},
 		},
 		{
@@ -911,6 +929,15 @@ func generateNetworkPacketLossTestCases(name, expectedHappyResponseBody string) 
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
 			},
 		},
 		{

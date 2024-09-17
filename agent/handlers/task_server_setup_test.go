@@ -3835,7 +3835,7 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 			name:                  fmt.Sprintf("%s fault injection disabled", name),
 			expectedStatusCode:    400,
 			requestBody:           happyBlackHolePortReqBody,
-			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("fault injection is not enabled for task: %s", taskARN)),
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("enableFaultInjection is not enabled for task: %s", taskARN)),
 			setStateExpectations:  agentStateExpectations,
 			faultInjectionEnabled: false,
 			networkMode:           apitask.AWSVPCNetworkMode,
