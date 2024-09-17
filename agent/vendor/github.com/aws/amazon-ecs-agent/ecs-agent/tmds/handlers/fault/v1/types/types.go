@@ -27,6 +27,7 @@ const (
 	LatencyFaultType          = "network-latency"
 	PacketLossFaultType       = "network-packet-loss"
 	missingRequiredFieldError = "required parameter %s is missing"
+	MissingRequestBodyError   = "required request body is missing"
 	invalidValueError         = "invalid value %s for parameter %s"
 )
 
