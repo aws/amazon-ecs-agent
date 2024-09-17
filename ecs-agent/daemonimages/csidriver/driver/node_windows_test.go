@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build windows && unit
+// +build windows,unit
 
 // this file has been modified from its original found in:
 // https://github.com/kubernetes-sigs/aws-ebs-csi-driver

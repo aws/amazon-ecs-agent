@@ -98,36 +98,6 @@ func (m *NodeMounter) MakeDir(path string) error {
 	return proxyMounter.MakeDir(path)
 }
 
-func (m NodeMounter) GetDeviceNameFromMount(mountPath string) (string, int, error) {
-	// TODO
-	return "", 0, errors.New("not supported")
-}
-
-func (m NodeMounter) IsCorruptedMnt(err error) bool {
-	// TODO
-	return false
-}
-
-func (m *NodeMounter) MakeDir(path string) error {
-	// TODO
-	return errors.New("not supported")
-}
-
-func (m *NodeMounter) MakeFile(path string) error {
-	// TODO
-	return errors.New("not supported")
-}
-
-func (m *NodeMounter) NeedResize(devicePath string, deviceMountPath string) (bool, error) {
-	// TODO
-	return false, errors.New("not supported")
-}
-
-func (m *NodeMounter) NewResizeFs() (Resizefs, error) {
-	// TODO
-	return nil, errors.New("not supported")
-}
-
 func (m *NodeMounter) PathExists(path string) (bool, error) {
 	proxyMounter, ok := m.SafeFormatAndMount.Interface.(*mounter.CSIProxyMounter)
 	if !ok {
@@ -223,14 +193,4 @@ func (i *nodeDeviceIdentifier) ListDiskIDs() (map[uint32]*diskapi.DiskIDs, error
 		return nil, fmt.Errorf("error listing disk ids: %q", err)
 	}
 	return response.GetDiskIDs(), nil
-}
-
-func (m *NodeMounter) Unpublish(path string) error {
-	// TODO
-	return errors.New("not supported")
-}
-
-func (m *NodeMounter) Unstage(path string) error {
-	// TODO
-	return errors.New("not supported")
 }
