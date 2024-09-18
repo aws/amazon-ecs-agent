@@ -207,48 +207,46 @@ func registerFaultHandlers(
 		return
 	}
 
-	rateLimiter := createRateLimiter()
-
 	// Setting up handler endpoints for network blackhole port fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StartNetworkBlackholePort()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkBlackholePort()),
 	).Methods("PUT")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StopNetworkBlackHolePort()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkBlackHolePort()),
 	).Methods("DELETE")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.CheckNetworkBlackHolePort()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkBlackHolePort()),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network latency fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StartNetworkLatency()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkLatency()),
 	).Methods("PUT")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StopNetworkLatency()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkLatency()),
 	).Methods("DELETE")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.CheckNetworkLatency()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkLatency()),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network packet loss fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StartNetworkPacketLoss()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkPacketLoss()),
 	).Methods("PUT")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.StopNetworkPacketLoss()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkPacketLoss()),
 	).Methods("DELETE")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		tollbooth.LimitFuncHandler(rateLimiter, handler.CheckNetworkPacketLoss()),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkPacketLoss()),
 	).Methods("GET")
 
 	seelog.Debug("Successfully set up Fault TMDS handlers")
@@ -257,7 +255,6 @@ func registerFaultHandlers(
 // Creates a tollbooth ratelimiter for the Fault Handler APIs
 func createRateLimiter() *limiter.Limiter {
 	lmt := tollbooth.NewLimiter(0.2, nil)
-	lmt.SetBurst(1)
 	lmt.SetMessage("You have reached maximum request limit")
 	return lmt
 }
