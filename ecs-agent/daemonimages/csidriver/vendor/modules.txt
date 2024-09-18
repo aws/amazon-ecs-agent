@@ -38,19 +38,6 @@ github.com/kubernetes-csi/csi-proxy/client/apiversion
 github.com/kubernetes-csi/csi-proxy/client/groups/disk/v1
 github.com/kubernetes-csi/csi-proxy/client/groups/filesystem/v1
 github.com/kubernetes-csi/csi-proxy/client/groups/volume/v1
-# github.com/kubernetes-csi/csi-proxy/v2 v2.0.0-alpha.1
-## explicit; go 1.16
-github.com/kubernetes-csi/csi-proxy/v2/pkg/disk
-github.com/kubernetes-csi/csi-proxy/v2/pkg/disk/hostapi
-github.com/kubernetes-csi/csi-proxy/v2/pkg/filesystem
-github.com/kubernetes-csi/csi-proxy/v2/pkg/filesystem/hostapi
-github.com/kubernetes-csi/csi-proxy/v2/pkg/utils
-github.com/kubernetes-csi/csi-proxy/v2/pkg/volume
-github.com/kubernetes-csi/csi-proxy/v2/pkg/volume/hostapi
-# github.com/kubernetes-sigs/aws-ebs-csi-driver v1.31.0
-## explicit; go 1.22.3
-github.com/kubernetes-sigs/aws-ebs-csi-driver/pkg/mounter
-github.com/kubernetes-sigs/aws-ebs-csi-driver/pkg/util
 # github.com/moby/sys/mountinfo v0.7.1
 ## explicit; go 1.16
 github.com/moby/sys/mountinfo
