@@ -18,106 +18,143 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
+	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	clusterName          = "default"
+	availabilityzone     = "us-west-2b"
+	vpcID                = "test-vpc-id"
+	containerInstanceArn = "containerInstanceArn-test"
+)
+
 // This function starts the server and listens on a specified port
-func startServer() *http.Server {
+func startServer(t *testing.T) *http.Server {
 	router := mux.NewRouter()
-	registerFaultHandlers(router, nil, nil)
+
+	// Mocks
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_ecs.NewMockECSClient(ctrl)
+
+	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+	registerFaultHandlers(router, agentState, metricsFactory)
 	server := &http.Server{
 		Addr:    ":5932",
 		Handler: router,
 	}
-
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("ListenAndServe(): %s\n", err)
+			t.Logf("ListenAndServe(): %s\n", err)
 		}
 	}()
 	return server
 }
 
 // This function shuts down the server after the test
-func stopServer(server *http.Server) {
+func stopServer(t *testing.T, server *http.Server) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		fmt.Printf("Server Shutdown Failed:%+v", err)
+		t.Logf("Server Shutdown Failed:%+v", err)
 	} else {
-		fmt.Println("Server Exited Properly")
+		t.Logf("Server Exited Properly")
 	}
 }
 
+// Table-driven tests for rate limiter
 func TestRateLimiterIntegration(t *testing.T) {
 
-	server := startServer()
-	// Case 1: Test same network fault A1 with same method B1
-	t.Run("Case 1: Same network faults A1 + same methods B1", func(t *testing.T) {
-		resp, err := http.Get("http://localhost:5932/api/container123/fault/v1/network-blackhole-port")
-		require.NoError(t, err)
-		// Second request should be rate-limited
-		resp, err = http.Get("http://localhost:5932/api/container123/fault/v1/network-blackhole-port")
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
-		stopServer(server)
-	})
-
-	// Case 2: Test same network faults A1 but with different method B1 (GET) & B2 (PUT)
-	t.Run("Case 2: Same network fault A1 + different methods B1, B2", func(t *testing.T) {
-		server = startServer()
-		resp, err := http.Get("http://localhost:5932/api/container123/fault/v1/network-blackhole-port")
-		require.NoError(t, err)
-		// Second request using PUT should not be rate-limited
-		req, err := http.NewRequest(http.MethodPut, "http://localhost:5932/api/container123/fault/v1/network-blackhole-port", nil)
-		require.NoError(t, err)
-		client := &http.Client{}
-		resp, err = client.Do(req)
-		require.NoError(t, err)
-		assert.NotEqual(t, http.StatusTooManyRequests, resp.StatusCode)
-		stopServer(server)
-	})
-
-	// Case 3: Test different network faults A1, A2 with same methods B1
-	t.Run("Case 3: Different network faults A1, A2 + same method B1", func(t *testing.T) {
-		server = startServer()
-		resp, err := http.Get("http://localhost:5932/api/container123/fault/v1/network-blackhole-port")
-		require.NoError(t, err)
-		// Second request for fault A2 with same method should not be rate-limited
-		resp, err = http.Get("http://localhost:5932/api/testEndpoint/fault/v1/network-latency")
-		require.NoError(t, err)
-		assert.NotEqual(t, http.StatusTooManyRequests, resp.StatusCode)
-		stopServer(server)
-	})
-
-	// Case 4: Test different network faults A1, A3 with same methods B1
-	t.Run("Case 4: Different network faults A1, A3 + same method B1", func(t *testing.T) {
-		server = startServer()
-		resp, err := http.Get("http://localhost:5932/api/testEndpoint/fault/v1/network-blackhole-port")
-		require.NoError(t, err)
-		// Second request for fault A3 with same method should not be rate-limited
-		resp, err = http.Get("http://localhost:5932/api/testEndpoint/fault/v1/network-packet-loss")
-		require.NoError(t, err)
-		assert.NotEqual(t, http.StatusTooManyRequests, resp.StatusCode)
-		stopServer(server)
-	})
-
-	// Case 5: Test different network faults A2, A3 with same methods B1
-	t.Run("Case 5: Different network faults A2, A3 + same method B1", func(t *testing.T) {
-		server = startServer()
-		resp, err := http.Get("http://localhost:5932/api/testEndpoint/fault/v1/network-latency")
-		require.NoError(t, err)
-		// Second request for fault A3 with same method should notbe rate-limited
-		resp, err = http.Get("http://localhost:5932/api/testEndpoint/fault/v1/network-packet-loss")
-		require.NoError(t, err)
-		assert.NotEqual(t, http.StatusTooManyRequests, resp.StatusCode)
-		stopServer(server)
-	})
+	testCases := []struct {
+		name            string
+		method1         string
+		method2         string
+		url1            string
+		url2            string
+		expectedStatus2 int
+		assertNotEqual  bool
+	}{
+		{
+			name:            "Same network faults A1 + same methods B1",
+			method1:         "GET",
+			method2:         "GET",
+			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url2:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			expectedStatus2: http.StatusTooManyRequests,
+			assertNotEqual:  false,
+		},
+		{
+			name:            "Same network fault A1 + different methods B1, B2",
+			method1:         "GET",
+			method2:         "PUT",
+			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url2:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			expectedStatus2: http.StatusTooManyRequests,
+			assertNotEqual:  true,
+		},
+		{
+			name:            "Different network faults A1, A2 + same method B1",
+			method1:         "GET",
+			method2:         "GET",
+			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url2:            "http://localhost:5932/api/container123/fault/v1/network-latency",
+			expectedStatus2: http.StatusTooManyRequests,
+			assertNotEqual:  true,
+		},
+		{
+			name:            "Different network faults A1, A3 + same method B1",
+			method1:         "GET",
+			method2:         "GET",
+			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url2:            "http://localhost:5932/api/container123/fault/v1/network-packet-loss",
+			expectedStatus2: http.StatusTooManyRequests,
+			assertNotEqual:  true,
+		},
+		{
+			name:            "Different network faults A2, A3 + same methods B1",
+			method1:         "GET",
+			method2:         "GET",
+			url1:            "http://localhost:5932/api/container123/fault/v1/network-latency",
+			url2:            "http://localhost:5932/api/container123/fault/v1/network-packet-loss",
+			expectedStatus2: http.StatusTooManyRequests,
+			assertNotEqual:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := startServer(t)
+			client := &http.Client{}
+			req1, err := http.NewRequest(tc.method1, tc.url1, nil)
+			require.NoError(t, err)
+			_, err = client.Do(req1)
+			require.NoError(t, err)
+			req2, err := http.NewRequest(tc.method2, tc.url2, nil)
+			require.NoError(t, err)
+			resp2, err := client.Do(req2)
+			require.NoError(t, err)
+			if tc.assertNotEqual {
+				assert.NotEqual(t, tc.expectedStatus2, resp2.StatusCode)
+			} else {
+				assert.Equal(t, tc.expectedStatus2, resp2.StatusCode)
+			}
+			stopServer(t, server)
+		})
+	}
 }
