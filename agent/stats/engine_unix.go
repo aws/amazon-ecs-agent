@@ -44,6 +44,9 @@ func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.V
 		})
 		return nil
 	}
+	logger.Debug("Task is EBS-backed, gathering EBS volume metrics.", logger.Fields{
+		"taskArn": taskArn,
+	})
 
 	// TODO: Remove the CSI client from the stats engine and just always have the CSI client created
 	// since a new connection is created regardless and it'll make the stats engine less stateful
@@ -67,9 +70,28 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 					"VolumeId":             volumeId,
 					"SourceVolumeHostPath": hostPath,
 					"Error":                err,
+					"taskArn":              taskArn,
 				})
 				continue
 			}
+			if metric.Capacity <= 0 {
+				logger.Error("Failed to gather metrics for EBS volume. Received invalid EBS volume size.", logger.Fields{
+					"VolumeId":             volumeId,
+					"SourceVolumeHostPath": hostPath,
+					"Error":                err,
+					"taskArn":              taskArn,
+					"Utilized":             metric.Used,
+					"Size":                 metric.Capacity,
+				})
+				continue
+			}
+			logger.Debug("Gathered metrics for EBS volume", logger.Fields{
+				"VolumeId":             volumeId,
+				"SourceVolumeHostPath": hostPath,
+				"taskArn":              taskArn,
+				"Utilized":             metric.Used,
+				"Size":                 metric.Capacity,
+			})
 			usedBytes := aws.Float64((float64)(metric.Used))
 			totalBytes := aws.Float64((float64)(metric.Capacity))
 			metrics = append(metrics, &ecstcs.VolumeMetric{
