@@ -41,6 +41,8 @@ func (nl *netLink) LinkSetUp(link netlink.Link) error {
 	return netlink.LinkSetUp(link)
 }
 
+// RouteList gets a list of routes in the system. Equivalent to: `ip route show`.
+// The list can be filtered by link and ip family.
 func (nl *netLink) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return netlink.RouteList(link, family)
 }

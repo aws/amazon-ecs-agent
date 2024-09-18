@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -10,9 +13,6 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-
-//go:build !windows
-// +build !windows
 
 package netconfig
 
@@ -34,6 +34,7 @@ func DefaultNetInterfaceName(netlinkClient netlinkwrapper.NetLink) (string, erro
 
 	// Iterate over all routes
 	for _, route := range routes {
+		logger.Debug("Found route", logger.Fields{"Route": route})
 		if route.Gw == nil {
 			// A default route has a gateway. If it doesn't, skip it.
 			continue
@@ -48,6 +49,10 @@ func DefaultNetInterfaceName(netlinkClient netlinkwrapper.NetLink) (string, erro
 					"LinkIndex": route.LinkIndex,
 				})
 			} else {
+				logger.Debug("Found the associated network interface by the index", logger.Fields{
+					"LinkName":  link.Attrs().Name,
+					"LinkIndex": route.LinkIndex,
+				})
 				return link.Attrs().Name, nil
 			}
 		}
