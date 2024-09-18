@@ -38,7 +38,7 @@ type TaskResponse struct {
 	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
 	CredentialsID           string                   `json:"-"`
 	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
-	FaultInjectionEnabled   bool                     `json:"-"`
+	FaultInjectionEnabled   bool                     `json:"FaultInjectionEnabled,omitempty"`
 }
 
 // TaskNetworkConfig contains required network configurations for network faults injection.
