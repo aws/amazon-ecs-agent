@@ -40,18 +40,22 @@ import (
 )
 
 const (
-	endpointId                 = "endpointId"
-	port                       = 1234
-	protocol                   = "tcp"
-	trafficType                = "ingress"
-	delayMilliseconds          = 123456789
-	jitterMilliseconds         = 4567
-	lossPercent                = 6
-	taskARN                    = "taskArn"
-	awsvpcNetworkMode          = "awsvpc"
-	deviceName                 = "eth0"
-	invalidNetworkMode         = "invalid"
-	iptablesChainNotFoundError = "iptables: Bad rule (does a matching rule exist in that chain?)."
+	endpointId                           = "endpointId"
+	port                                 = 1234
+	protocol                             = "tcp"
+	trafficType                          = "ingress"
+	delayMilliseconds                    = 123456789
+	jitterMilliseconds                   = 4567
+	lossPercent                          = 6
+	taskARN                              = "taskArn"
+	awsvpcNetworkMode                    = "awsvpc"
+	deviceName                           = "eth0"
+	invalidNetworkMode                   = "invalid"
+	iptablesChainNotFoundError           = "iptables: Bad rule (does a matching rule exist in that chain?)."
+	tcLatencyFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":0.1,"jitter":0,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLossFaultExistsCommandOutput       = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLossFaultDoesNotExistCommandOutput = `[{"kind":"dummyname"}]`
+	tcCommandEmptyOutput                 = `[]`
 )
 
 var (
@@ -1054,43 +1058,12 @@ func TestCheckNetworkLatency(t *testing.T) {
 	}
 }
 
-func generateNetworkPacketLossTestCases(name, expectedHappyResponseBody string) []networkFaultInjectionTestCase {
+func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjectionTestCase {
 	happyNetworkPacketLossReqBody := map[string]interface{}{
 		"LossPercent": lossPercent,
 		"Sources":     ipSources,
 	}
 	tcs := []networkFaultInjectionTestCase{
-		{
-			name:                 fmt.Sprintf("%s success", name),
-			expectedStatusCode:   200,
-			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
-			},
-		},
-		{
-			name:               fmt.Sprintf("%s unknown request body", name),
-			expectedStatusCode: 200,
-			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     ipSources,
-				"Unknown":     "",
-			},
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
-			},
-		},
-		{
-			name:                 fmt.Sprintf("%s no request body", name),
-			expectedStatusCode:   400,
-			requestBody:          nil,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
-			},
-		},
 		{
 			name:               fmt.Sprintf("%s malformed request body 1", name),
 			expectedStatusCode: 400,
@@ -1281,9 +1254,131 @@ func generateNetworkPacketLossTestCases(name, expectedHappyResponseBody string) 
 	}
 	return tcs
 }
+func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	happyNetworkPacketLossReqBody := map[string]interface{}{
+		"LossPercent": lossPercent,
+		"Sources":     ipSources,
+	}
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "no-existing-fault",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:                 "existing-network-latency-fault",
+			expectedStatusCode:   409,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("There is already one network latency fault running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:                 "existing-network-packet-loss-fault",
+			expectedStatusCode:   409,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("There is already one network packet loss fault running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:               "unknown-request-body-no-existing-fault",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:               "failed-to-unmarshal-json",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: failed to unmarshal tc command output: unexpected end of JSON input"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("["), nil)
+			},
+		},
+		{
+			name:               "os/exec-times-out",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: 'nsenter --net=/some/path tc -j q show dev eth0 parent 1:1' command failed with the following error: 'signal: killed'. std output: ''"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed"))
+			},
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
+func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{}
+	return append(tcs, commonTcs...)
+}
+
+func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{}
+	return append(tcs, commonTcs...)
+}
 
 func TestStartNetworkPacketLoss(t *testing.T) {
-	tcs := generateNetworkPacketLossTestCases("start network packet loss", "running")
+	tcs := generateStartNetworkPacketLossTestCases()
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1293,18 +1388,22 @@ func TestStartNetworkPacketLoss(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-			handler := New(agentState, metricsFactory, execWrapper)
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
 			router.HandleFunc(
 				NetworkFaultPath(types.PacketLossFaultType),
 				handler.StartNetworkPacketLoss(),
 			).Methods("PUT")
+
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(mockExec, ctrl)
+			}
 
 			method := "PUT"
 			var requestBody io.Reader
@@ -1333,7 +1432,7 @@ func TestStartNetworkPacketLoss(t *testing.T) {
 }
 
 func TestStopNetworkPacketLoss(t *testing.T) {
-	tcs := generateNetworkPacketLossTestCases("stop network packet loss", "stopped")
+	tcs := generateStopNetworkPacketLossTestCases()
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Mocks
@@ -1342,14 +1441,14 @@ func TestStopNetworkPacketLoss(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-			handler := New(agentState, metricsFactory, execWrapper)
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
 			router.HandleFunc(
 				NetworkFaultPath(types.PacketLossFaultType),
 				handler.StopNetworkPacketLoss(),
@@ -1382,7 +1481,7 @@ func TestStopNetworkPacketLoss(t *testing.T) {
 }
 
 func TestCheckNetworkPacketLoss(t *testing.T) {
-	tcs := generateNetworkPacketLossTestCases("check network packet loss", "running")
+	tcs := generateCheckNetworkPacketLossTestCases()
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1392,14 +1491,17 @@ func TestCheckNetworkPacketLoss(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
+			router := mux.NewRouter()
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(mockExec, ctrl)
+			}
 
-			router := mux.NewRouter()
-			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.PacketLossFaultType),
 				handler.CheckNetworkPacketLoss(),
