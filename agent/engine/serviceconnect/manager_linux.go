@@ -207,6 +207,7 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
+	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping("/etc/pki", "/etc/pki"))
 
 	// create logging directory and bind mount, if customer has not configured a logging driver
 	if container.GetLogDriver() == "" {
