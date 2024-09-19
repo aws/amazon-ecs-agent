@@ -100,6 +100,8 @@ func (nb *networkBuilder) Start(
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
 		err = nb.startAWSVPC(ctx, taskID, netNS)
+	case ecs.NetworkModeHost:
+		err = nb.platformAPI.HandleHostMode()
 	default:
 		err = errors.New("invalid network mode: " + mode)
 	}
@@ -128,6 +130,8 @@ func (nb *networkBuilder) Stop(ctx context.Context, mode string, taskID string, 
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
 		err = nb.stopAWSVPC(ctx, netNS)
+	case ecs.NetworkModeHost:
+		err = nb.platformAPI.HandleHostMode()
 	default:
 		err = errors.New("invalid network mode: " + mode)
 	}

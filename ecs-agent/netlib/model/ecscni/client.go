@@ -24,6 +24,8 @@ import (
 	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 const (
@@ -51,6 +53,15 @@ func (c *cniClient) Add(ctx context.Context, config PluginConfig) (types.Result,
 	if err != nil {
 		return nil, err
 	}
+	if net == nil {
+		err = errors.New("Failed to build network config, net is nil.")
+		return nil, err
+	}
+	if net.Network == nil {
+		err = errors.New("Failed to build network config, net.Network is nil.")
+		return nil, err
+	}
+	logger.Debug("Built network config.", logger.Fields{"Type": net.Network.Type})
 
 	return c.cni.AddNetwork(ctx, net, rt)
 }

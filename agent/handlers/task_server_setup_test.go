@@ -54,6 +54,7 @@ import (
 	tmdsv1 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 	"github.com/gorilla/mux"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -112,10 +113,14 @@ const (
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 	taskCredentialsID          = "taskCredentialsId"
 	endpointId                 = "endpointId"
+	networkNamespace           = "/path"
+	hostNetworkNamespace       = "host"
+	defaultIfname              = "eth0"
 
-	port        = 1234
-	protocol    = "tcp"
-	trafficType = "ingress"
+	port                       = 1234
+	protocol                   = "tcp"
+	trafficType                = "ingress"
+	iptablesChainNotFoundError = "iptables: Bad rule (does a matching rule exist in that chain?)."
 )
 
 var (
@@ -269,6 +274,7 @@ var (
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
 		LaunchType:               "EC2",
+		NetworkMode:              bridgeMode,
 	}
 	container1 = &apicontainer.Container{
 		Name:                containerName,
@@ -403,6 +409,30 @@ var (
 			Type: containerType,
 		},
 	}
+	expectedV4HostContainerResponse = v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: labels,
+			Ports: []tmdsresponse.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+				},
+			},
+		},
+	}
 	expectedV4BridgeContainerResponse = v4ContainerResponseFromV2(expectedBridgeContainerResponse, []v4.Network{{
 		Network: tmdsresponse.Network{
 			NetworkMode:   bridgeMode,
@@ -416,6 +446,28 @@ var (
 			SubnetGatewayIPV4Address: "",
 		}},
 	})
+
+	agentStateExpectations = func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
+		task := standardTask()
+		task.FaultInjectionEnabled = faultInjectionEnabled
+		task.NetworkMode = networkMode
+		task.NetworkNamespace = networkNamespace
+		task.DefaultIfname = defaultIfname
+		gomock.InOrder(
+			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().TaskByArn(taskARN).Return(task, true),
+			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+		)
+	}
+
+	happyBlackHolePortReqBody = map[string]interface{}{
+		"Port":        port,
+		"Protocol":    protocol,
+		"TrafficType": trafficType,
+	}
 )
 
 func standardTask() *apitask.Task {
@@ -448,6 +500,13 @@ func standardTask() *apitask.Task {
 	}
 	task.SetCredentialsID(taskCredentialsID)
 	return &task
+}
+
+func standardHostTask() *apitask.Task {
+	task := standardTask()
+	task.ENIs = nil
+	task.NetworkMode = apitask.HostNetworkMode
+	return task
 }
 
 // Returns a standard v2 task response. This getter function protects against tests mutating the
@@ -504,6 +563,34 @@ func expectedV4TaskResponse() v4.TaskResponse {
 			LaunchType:         "EC2",
 		},
 		[]v4.ContainerResponse{expectedV4ContainerResponse},
+		vpcID,
+	)
+}
+
+func expectedV4TaskNetworkConfig(faultInjectionEnabled bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
+	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
+}
+
+func expectedV4TaskResponseHostMode() v4.TaskResponse {
+	return v4TaskResponseFromV2(
+		v2.TaskResponse{
+			Cluster:       clusterName,
+			TaskARN:       taskARN,
+			Family:        family,
+			Revision:      version,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			Limits: &v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			PullStartedAt:      aws.Time(now.UTC()),
+			PullStoppedAt:      aws.Time(now.UTC()),
+			ExecutionStoppedAt: aws.Time(now.UTC()),
+			AvailabilityZone:   availabilityzone,
+			LaunchType:         "EC2",
+		},
+		[]v4.ContainerResponse{expectedV4HostContainerResponse},
 		vpcID,
 	)
 }
@@ -1978,6 +2065,51 @@ func TestV4TaskMetadata(t *testing.T) {
 			expectedResponseBody: expectedV4PulledTaskResponse(),
 		})
 	})
+
+	t.Run("happy case with fault injection enabled using awsvpc mode", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task.FaultInjectionEnabled = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedV4TaskResponse(),
+		})
+	})
+
+	t.Run("happy case with fault injection enabled using host mode", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				hostTask := standardHostTask()
+				hostTask.FaultInjectionEnabled = true
+				hostTask.NetworkNamespace = networkNamespace
+				hostTask.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(hostTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+				)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: expectedV4TaskResponseHostMode(),
+		})
+	})
+
 	t.Run("bridge mode container not found", func(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path: v4BasePath + v3EndpointID + "/task",
@@ -3576,46 +3708,14 @@ type blackholePortFaultTestCase struct {
 	expectedStatusCode    int
 	requestBody           interface{}
 	expectedFaultResponse faulttype.NetworkFaultInjectionResponse
-	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState)
+	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string)
+	setExecExpectations   func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller)
+	faultInjectionEnabled bool
+	networkMode           string
 }
 
-func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyResponseBody string) []blackholePortFaultTestCase {
-	happyBlackHolePortReqBody := map[string]interface{}{
-		"Port":        port,
-		"Protocol":    protocol,
-		"TrafficType": trafficType,
-	}
-	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
-		task := standardTask()
-		gomock.InOrder(
-			state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
-			state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
-			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-			state.EXPECT().TaskByArn(taskARN).Return(task, true),
-			state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
-			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
-		)
-	}
+func getNetworkBlackHolePortHandlerTestCases(name, fault string) []blackholePortFaultTestCase {
 	tcs := []blackholePortFaultTestCase{
-		{
-			name:                  fmt.Sprintf("%s success", name),
-			expectedStatusCode:    200,
-			requestBody:           happyBlackHolePortReqBody,
-			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setStateExpectations:  happyStateExpectations,
-		},
-		{
-			name:               fmt.Sprintf("%s unknown request body", name),
-			expectedStatusCode: 200,
-			requestBody: map[string]interface{}{
-				"Port":        port,
-				"Protocol":    protocol,
-				"TrafficType": trafficType,
-				"Unknown":     "",
-			},
-			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setStateExpectations:  happyStateExpectations,
-		},
 		{
 			name:               fmt.Sprintf("%s malformed request body", name),
 			expectedStatusCode: 400,
@@ -3625,6 +3725,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": trafficType,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkBlackholePortRequest.Port of type uint16"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s incomplete request body", name),
@@ -3634,6 +3736,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"Protocol": protocol,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s empty value request body", name),
@@ -3644,6 +3748,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": "",
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("required parameter TrafficType is missing"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s invalid protocol value request body", name),
@@ -3654,6 +3760,8 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": trafficType,
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter Protocol"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:               fmt.Sprintf("%s invalid traffic type value request body", name),
@@ -3664,46 +3772,261 @@ func getNetworkBlackHolePortHandlerTestCases(name, fault string, expectedHappyRe
 				"TrafficType": "invalid",
 			},
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid value invalid for parameter TrafficType"),
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:                  fmt.Sprintf("%s task lookup fail", name),
 			expectedStatusCode:    404,
 			requestBody:           happyBlackHolePortReqBody,
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return("", false),
 				)
 			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 		{
 			name:                  fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:    500,
 			requestBody:           happyBlackHolePortReqBody,
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
-			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
 				gomock.InOrder(
 					state.EXPECT().TaskARNByV3EndpointID(endpointId).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
 				)
 			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:    400,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("enableFaultInjection is not enabled for task: %s", taskARN)),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: false,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  fmt.Sprintf("%s invalid network mode", name),
+			expectedStatusCode:    400,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("invalid mode is not supported. Please use either host or awsvpc mode."),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           "invalid",
 		},
 	}
 	return tcs
 }
 
+func getStartNetworkBlackHolePortHandlerTestCases() []blackholePortFaultTestCase {
+	commonTcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType)
+	tcs := []blackholePortFaultTestCase{
+		{
+			name:                  "start blackhole port success host mode",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.HostNetworkMode,
+		},
+		{
+			name:                  "start blackhole port success awsvpc mode",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:               "start blackhole port unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
+func getStopNetworkBlackHolePortHandlerTestCases() []blackholePortFaultTestCase {
+	commonTcs := getNetworkBlackHolePortHandlerTestCases("stop blackhole port", faulttype.BlackHolePortFaultType)
+	tcs := []blackholePortFaultTestCase{
+		{
+			name:                  "stop blackhole port success host mode",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.HostNetworkMode,
+		},
+		{
+			name:                  "stop blackhole port success awsvpc mode",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:               "stop blackhole port unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setStateExpectations:  agentStateExpectations,
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
+func getCheckStatusNetworkBlackHolePortHandlerTestCases() []blackholePortFaultTestCase {
+	commonTcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType)
+	tcs := []blackholePortFaultTestCase{
+		{
+			name:                  "check blackhole port success host mode running",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.HostNetworkMode,
+		},
+		{
+			name:                  "check blackhole port success awsvpc mode running",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:               "check blackhole port unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("running"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  "check blackhole port success host mode not running",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("not-running"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.HostNetworkMode,
+		},
+		{
+			name:                  "check blackhole port success awsvpc mode not running",
+			expectedStatusCode:    200,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse("not-running"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+		{
+			name:                  "check blackhole port fail",
+			expectedStatusCode:    500,
+			requestBody:           happyBlackHolePortReqBody,
+			expectedFaultResponse: faulttype.NewNetworkFaultInjectionErrorResponse("internal error"),
+			setStateExpectations:  agentStateExpectations,
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte("internal error"), errors.New("exit 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, false),
+				)
+			},
+			faultInjectionEnabled: true,
+			networkMode:           apitask.AWSVPCNetworkMode,
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
 func TestRegisterStartBlackholePortFaultHandler(t *testing.T) {
-	tcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType, "running")
+	tcs := getStartNetworkBlackHolePortHandlerTestCases()
 	testRegisterFaultHandler(t, tcs, "PUT", faulttype.BlackHolePortFaultType)
 }
 
 func TestRegisterStopBlackholePortFaultHandler(t *testing.T) {
-	tcs := getNetworkBlackHolePortHandlerTestCases("stop blackhole port", faulttype.BlackHolePortFaultType, "stopped")
+	tcs := getStopNetworkBlackHolePortHandlerTestCases()
 	testRegisterFaultHandler(t, tcs, "DELETE", faulttype.BlackHolePortFaultType)
 }
 
 func TestRegisterCheckBlackholePortFaultHandler(t *testing.T) {
-	tcs := getNetworkBlackHolePortHandlerTestCases("start blackhole port", faulttype.BlackHolePortFaultType, "running")
+	tcs := getCheckStatusNetworkBlackHolePortHandlerTestCases()
 	testRegisterFaultHandler(t, tcs, "GET", faulttype.BlackHolePortFaultType)
 }
 
@@ -3720,13 +4043,18 @@ func testRegisterFaultHandler(t *testing.T, tcs []blackholePortFaultTestCase, me
 
 			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setStateExpectations != nil {
-				tc.setStateExpectations(state)
+				tc.setStateExpectations(state, tc.faultInjectionEnabled, tc.networkMode)
+			}
+
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(execWrapper, ctrl)
 			}
 
 			router := mux.NewRouter()
-			registerFaultHandlers(router, agentState, metricsFactory)
+			registerFaultHandlers(router, agentState, metricsFactory, execWrapper)
 			var requestBody io.Reader
 			if tc.requestBody != "" {
 				reqBodyBytes, err := json.Marshal(tc.requestBody)
@@ -3748,6 +4076,87 @@ func testRegisterFaultHandler(t *testing.T, tcs []blackholePortFaultTestCase, me
 
 			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
 			assert.Equal(t, tc.expectedFaultResponse, actualResponseBody)
+		})
+	}
+}
+
+func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
+
+	tcs := []struct {
+		name                      string
+		setStateExpectations      func(state *mock_dockerstate.MockTaskEngineState)
+		expectedTaskNetworkConfig *v4.TaskNetworkConfig
+	}{
+		{
+			name: "happy case with awsvpc mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.FaultInjectionEnabled = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname),
+		},
+		{
+			name: "happy case with host mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				hostTask := standardHostTask()
+				hostTask.FaultInjectionEnabled = true
+				hostTask.NetworkNamespace = networkNamespace
+				hostTask.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(hostTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname),
+		},
+		{
+			name: "happy bridge mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, bridgeMode, "", ""),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
+
+			if tc.setStateExpectations != nil {
+				tc.setStateExpectations(state)
+			}
+			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			actualTaskResponse, err := tmdsAgentState.GetTaskMetadata(v3EndpointID)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTaskNetworkConfig, actualTaskResponse.TaskNetworkConfig)
 		})
 	}
 }

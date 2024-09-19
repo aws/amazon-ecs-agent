@@ -28,8 +28,10 @@ import (
 
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
+	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
+	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -38,15 +40,79 @@ import (
 )
 
 const (
-	endpointId         = "endpointId"
-	port               = 1234
-	protocol           = "tcp"
-	trafficType        = "ingress"
-	delayMilliseconds  = 123456789
-	jitterMilliseconds = 4567
+	endpointId                           = "endpointId"
+	port                                 = 1234
+	protocol                             = "tcp"
+	trafficType                          = "ingress"
+	delayMilliseconds                    = 123456789
+	jitterMilliseconds                   = 4567
+	lossPercent                          = 6
+	taskARN                              = "taskArn"
+	awsvpcNetworkMode                    = "awsvpc"
+	deviceName                           = "eth0"
+	invalidNetworkMode                   = "invalid"
+	iptablesChainNotFoundError           = "iptables: Bad rule (does a matching rule exist in that chain?)."
+	tcLatencyFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":0.1,"jitter":0,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLossFaultExistsCommandOutput       = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLossFaultDoesNotExistCommandOutput = `[{"kind":"dummyname"}]`
+	tcCommandEmptyOutput                 = `[]`
 )
 
-var ipSources = []string{"52.95.154.1", "52.95.154.2"}
+var (
+	noDeviceNameInNetworkInterfaces = []*state.NetworkInterface{
+		{
+			DeviceName: "",
+		},
+	}
+
+	happyNetworkInterfaces = []*state.NetworkInterface{
+		{
+			DeviceName: deviceName,
+		},
+	}
+
+	happyNetworkNamespaces = []*state.NetworkNamespace{
+		{
+			Path:              "/some/path",
+			NetworkInterfaces: happyNetworkInterfaces,
+		},
+	}
+
+	noPathInNetworkNamespaces = []*state.NetworkNamespace{
+		{
+			Path:              "",
+			NetworkInterfaces: happyNetworkInterfaces,
+		},
+	}
+
+	happyTaskNetworkConfig = state.TaskNetworkConfig{
+		NetworkMode:       awsvpcNetworkMode,
+		NetworkNamespaces: happyNetworkNamespaces,
+	}
+
+	happyTaskResponse = state.TaskResponse{
+		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+		TaskNetworkConfig:     &happyTaskNetworkConfig,
+		FaultInjectionEnabled: true,
+	}
+
+	happyBlackHolePortReqBody = map[string]interface{}{
+		"Port":        port,
+		"Protocol":    protocol,
+		"TrafficType": trafficType,
+	}
+
+	ipSources = []string{"52.95.154.1", "52.95.154.2"}
+)
+
+type networkFaultInjectionTestCase struct {
+	name                      string
+	expectedStatusCode        int
+	requestBody               interface{}
+	expectedResponseBody      types.NetworkFaultInjectionResponse
+	setAgentStateExpectations func(agentState *mock_state.MockAgentState)
+	setExecExpectations       func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller)
+}
 
 // Tests the path for Fault Network Faults API
 func TestFaultBlackholeFaultPath(t *testing.T) {
@@ -61,42 +127,15 @@ func TestFaultPacketLossFaultPath(t *testing.T) {
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss", NetworkFaultPath(types.PacketLossFaultType))
 }
 
-type networkBlackHolePortTestCase struct {
-	name                      string
-	expectedStatusCode        int
-	requestBody               interface{}
-	expectedResponseBody      types.NetworkFaultInjectionResponse
-	setAgentStateExpectations func(agentState *mock_state.MockAgentState)
-}
-
-func getNetworkBlackHolePortTestCases(name string, expectedHappyResponseBody string) []networkBlackHolePortTestCase {
-	happyBlackHolePortReqBody := map[string]interface{}{
-		"Port":        port,
-		"Protocol":    protocol,
-		"TrafficType": trafficType,
-	}
-	tcs := []networkBlackHolePortTestCase{
+func generateNetworkBlackHolePortTestCases(name string) []networkFaultInjectionTestCase {
+	tcs := []networkFaultInjectionTestCase{
 		{
-			name:                 fmt.Sprintf("%s success", name),
-			expectedStatusCode:   200,
-			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
-			},
-		},
-		{
-			name:               fmt.Sprintf("%s unknown request body", name),
-			expectedStatusCode: 200,
-			requestBody: map[string]interface{}{
-				"Port":        port,
-				"Protocol":    protocol,
-				"TrafficType": trafficType,
-				"Unknown":     "",
-			},
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
 			},
 		},
 		{
@@ -169,7 +208,9 @@ func getNetworkBlackHolePortTestCases(name string, expectedHappyResponseBody str
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed")).
+					Times(1)
 			},
 		},
 		{
@@ -179,7 +220,8 @@ func getNetworkBlackHolePortTestCases(name string, expectedHappyResponseBody str
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+					"Unable to generate metadata for task")).
+					Times(1)
 			},
 		},
 		{
@@ -188,15 +230,280 @@ func getNetworkBlackHolePortTestCases(name string, expectedHappyResponseBody str
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, errors.New("unknown error"))
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, errors.New("unknown error")).
+					Times(1)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:   400,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(faultInjectionEnabledError, taskARN)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: false,
+				}, nil).Times(1)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s invalid network mode", name),
+			expectedStatusCode:   400,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(invalidNetworkModeError, invalidNetworkMode)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode:       invalidNetworkMode,
+						NetworkNamespaces: happyNetworkNamespaces,
+					},
+				}, nil).Times(1)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s empty task network config", name),
+			expectedStatusCode: 500,
+			requestBody:        happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(
+				fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig:     nil,
+				}, nil).Times(1)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s no task network namespace", name),
+			expectedStatusCode: 500,
+			requestBody:        happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(
+				fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode:       awsvpcNetworkMode,
+						NetworkNamespaces: nil,
+					},
+				}, nil).Times(1)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s no path in task network config", name),
+			expectedStatusCode: 500,
+			requestBody:        happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(
+				fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode:       awsvpcNetworkMode,
+						NetworkNamespaces: noPathInNetworkNamespaces,
+					},
+				}, nil).Times(1)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s no device name in task network config", name),
+			expectedStatusCode: 500,
+			requestBody:        happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(
+				fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode: awsvpcNetworkMode,
+						NetworkNamespaces: []*state.NetworkNamespace{
+							{
+								Path:              "/path",
+								NetworkInterfaces: noDeviceNameInNetworkInterfaces,
+							},
+						},
+					},
+				}, nil).Times(1)
 			},
 		},
 	}
 	return tcs
 }
 
+func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateNetworkBlackHolePortTestCases("start blackhole port")
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "start blackhole port success running",
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+			},
+		},
+		{
+			name:               "start blackhole unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+			},
+		},
+	}
+
+	return append(tcs, commonTcs...)
+}
+
+func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateNetworkBlackHolePortTestCases("stop blackhole port")
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "stop blackhole port success running",
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+			},
+		},
+		{
+			name:               "stop blackhole unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+			},
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
+func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateNetworkBlackHolePortTestCases("check blackhole port")
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "check blackhole port success running",
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:               "check blackhole unknown request body",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Port":        port,
+				"Protocol":    protocol,
+				"TrafficType": trafficType,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:                 "check blackhole port success not running",
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("not-running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+				)
+			},
+		},
+		{
+			name:                 "check blackhole port failure",
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("internal error"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte("internal error"), errors.New("exit 2")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, false),
+				)
+			},
+		},
+	}
+
+	return append(tcs, commonTcs...)
+}
+
 func TestStartNetworkBlackHolePort(t *testing.T) {
-	tcs := getNetworkBlackHolePortTestCases("start blackhole port", "running")
+	tcs := generateStartBlackHolePortFaultTestCases()
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -206,18 +513,14 @@ func TestStartNetworkBlackHolePort(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
-
+			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.BlackHolePortFaultType),
 				handler.StartNetworkBlackholePort(),
@@ -250,7 +553,7 @@ func TestStartNetworkBlackHolePort(t *testing.T) {
 }
 
 func TestStopNetworkBlackHolePort(t *testing.T) {
-	tcs := getNetworkBlackHolePortTestCases("stop blackhole port", "stopped")
+	tcs := generateStopBlackHolePortFaultTestCases()
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Mocks
@@ -259,18 +562,14 @@ func TestStopNetworkBlackHolePort(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
-
+			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.BlackHolePortFaultType),
 				handler.StopNetworkBlackHolePort(),
@@ -303,7 +602,7 @@ func TestStopNetworkBlackHolePort(t *testing.T) {
 }
 
 func TestCheckNetworkBlackHolePort(t *testing.T) {
-	tcs := getNetworkBlackHolePortTestCases("check blackhole port", "running")
+	tcs := generateCheckBlackHolePortFaultStatusTestCases()
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -313,18 +612,18 @@ func TestCheckNetworkBlackHolePort(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-
-			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(execWrapper, ctrl)
+			}
+
+			router := mux.NewRouter()
+			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.BlackHolePortFaultType),
 				handler.CheckNetworkBlackHolePort(),
@@ -356,28 +655,22 @@ func TestCheckNetworkBlackHolePort(t *testing.T) {
 	}
 }
 
-type networkLatencyTestCase struct {
-	name                      string
-	expectedStatusCode        int
-	requestBody               interface{}
-	expectedResponseBody      types.NetworkFaultInjectionResponse
-	setAgentStateExpectations func(agentState *mock_state.MockAgentState)
-}
-
-func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []networkLatencyTestCase {
+func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []networkFaultInjectionTestCase {
 	happyNetworkLatencyReqBody := map[string]interface{}{
 		"DelayMilliseconds":  delayMilliseconds,
 		"JitterMilliseconds": jitterMilliseconds,
 		"Sources":            ipSources,
 	}
-	tcs := []networkLatencyTestCase{
+	tcs := []networkFaultInjectionTestCase{
 		{
 			name:                 fmt.Sprintf("%s success", name),
 			expectedStatusCode:   200,
 			requestBody:          happyNetworkLatencyReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
 			},
 		},
 		{
@@ -391,7 +684,18 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse(expectedHappyResponseBody),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
 			},
 		},
 		{
@@ -404,7 +708,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.DelayMilliseconds of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -417,7 +723,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.JitterMilliseconds of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -430,7 +738,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.Sources of type []*string"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -443,7 +753,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -455,7 +767,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -467,7 +781,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter JitterMilliseconds is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -479,7 +795,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter DelayMilliseconds is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -492,7 +810,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -505,7 +825,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, nil).
+					Times(0)
 			},
 		},
 		{
@@ -514,7 +836,9 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			requestBody:          happyNetworkLatencyReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed")).
+					Times(1)
 			},
 		},
 		{
@@ -523,8 +847,10 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			requestBody:          happyNetworkLatencyReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
+						"Unable to generate metadata for task")).
+					Times(1)
 			},
 		},
 		{
@@ -533,7 +859,50 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 			requestBody:          happyNetworkLatencyReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
-				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, errors.New("unknown error"))
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(state.TaskResponse{}, errors.New("unknown error")).
+					Times(1)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:   400,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(faultInjectionEnabledError, taskARN)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: false,
+				}, nil)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s invalid network mode", name),
+			expectedStatusCode:   400,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(invalidNetworkModeError, invalidNetworkMode)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode:       invalidNetworkMode,
+						NetworkNamespaces: happyNetworkNamespaces,
+					},
+				}, nil)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s empty task network config", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig:     nil,
+				}, nil)
 			},
 		},
 	}
@@ -551,18 +920,14 @@ func TestStartNetworkLatency(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
-
+			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.LatencyFaultType),
 				handler.StartNetworkLatency(),
@@ -604,18 +969,14 @@ func TestStopNetworkLatency(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
 
 			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
-
+			handler := New(agentState, metricsFactory, execWrapper)
 			router.HandleFunc(
 				NetworkFaultPath(types.LatencyFaultType),
 				handler.StopNetworkLatency(),
@@ -658,14 +1019,10 @@ func TestCheckNetworkLatency(t *testing.T) {
 
 			agentState := mock_state.NewMockAgentState(ctrl)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			router := mux.NewRouter()
-
-			handler := FaultHandler{
-				AgentState:     agentState,
-				MetricsFactory: metricsFactory,
-			}
-
+			handler := New(agentState, metricsFactory, execWrapper)
 			if tc.setAgentStateExpectations != nil {
 				tc.setAgentStateExpectations(agentState)
 			}
@@ -683,6 +1040,481 @@ func TestCheckNetworkLatency(t *testing.T) {
 				requestBody = bytes.NewReader(reqBodyBytes)
 			}
 			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-latency", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjectionTestCase {
+	happyNetworkPacketLossReqBody := map[string]interface{}{
+		"LossPercent": lossPercent,
+		"Sources":     ipSources,
+	}
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:               fmt.Sprintf("%s malformed request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": "incorrect-field",
+				"Sources":     ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkPacketLossRequest.LossPercent of type uint64"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkPacketLossRequest.Sources of type []*string"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     []string{},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s incomplete request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Sources": ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter LossPercent is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid LossPercent in the request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": -1,
+				"Sources":     ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal number -1 into Go struct field NetworkPacketLossRequest.LossPercent of type uint64"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid LossPercent in the request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": 101,
+				"Sources":     ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 101 for parameter LossPercent"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid LossPercent in the request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": 0,
+				"Sources":     ipSources,
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 0 for parameter LossPercent"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP value in the request body 1", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     []string{"10.1.2.3.4"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     []string{"52.95.154.0/33"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task lookup fail", name),
+			expectedStatusCode:   404,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
+					"Unable to generate metadata for task"))
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata unknown fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{}, errors.New("unknown error"))
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:   400,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(faultInjectionEnabledError, taskARN)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: false,
+				}, nil)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s invalid network mode", name),
+			expectedStatusCode:   400,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(invalidNetworkModeError, invalidNetworkMode)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig: &state.TaskNetworkConfig{
+						NetworkMode:       invalidNetworkMode,
+						NetworkNamespaces: happyNetworkNamespaces,
+					},
+				}, nil)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s empty task network config", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: true,
+					TaskNetworkConfig:     nil,
+				}, nil)
+			},
+		},
+	}
+	return tcs
+}
+func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	happyNetworkPacketLossReqBody := map[string]interface{}{
+		"LossPercent": lossPercent,
+		"Sources":     ipSources,
+	}
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "no-existing-fault",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:                 "existing-network-latency-fault",
+			expectedStatusCode:   409,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("There is already one network latency fault running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:                 "existing-network-packet-loss-fault",
+			expectedStatusCode:   409,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("There is already one network packet loss fault running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:               "unknown-request-body-no-existing-fault",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:               "failed-to-unmarshal-json",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: failed to unmarshal tc command output: unexpected end of JSON input"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("["), nil)
+			},
+		},
+		{
+			name:               "os/exec-times-out",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"LossPercent": lossPercent,
+				"Sources":     ipSources,
+				"Unknown":     "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: 'nsenter --net=/some/path tc -j q show dev eth0 parent 1:1' command failed with the following error: 'signal: killed'. std output: ''"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed"))
+			},
+		},
+	}
+	return append(tcs, commonTcs...)
+}
+
+func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{}
+	return append(tcs, commonTcs...)
+}
+
+func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	tcs := []networkFaultInjectionTestCase{}
+	return append(tcs, commonTcs...)
+}
+
+func TestStartNetworkPacketLoss(t *testing.T) {
+	tcs := generateStartNetworkPacketLossTestCases()
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+
+			router := mux.NewRouter()
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
+			router.HandleFunc(
+				NetworkFaultPath(types.PacketLossFaultType),
+				handler.StartNetworkPacketLoss(),
+			).Methods("PUT")
+
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(mockExec, ctrl)
+			}
+
+			method := "PUT"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-packet-loss", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+func TestStopNetworkPacketLoss(t *testing.T) {
+	tcs := generateStopNetworkPacketLossTestCases()
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+
+			router := mux.NewRouter()
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
+			router.HandleFunc(
+				NetworkFaultPath(types.PacketLossFaultType),
+				handler.StopNetworkPacketLoss(),
+			).Methods("DELETE")
+
+			method := "DELETE"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-packet-loss", endpointId),
+				requestBody)
+			require.NoError(t, err)
+
+			// Send the request and record the response
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			var actualResponseBody types.NetworkFaultInjectionResponse
+			err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+
+		})
+	}
+}
+
+func TestCheckNetworkPacketLoss(t *testing.T) {
+	tcs := generateCheckNetworkPacketLossTestCases()
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			router := mux.NewRouter()
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
+			if tc.setAgentStateExpectations != nil {
+				tc.setAgentStateExpectations(agentState)
+			}
+			if tc.setExecExpectations != nil {
+				tc.setExecExpectations(mockExec, ctrl)
+			}
+
+			router.HandleFunc(
+				NetworkFaultPath(types.PacketLossFaultType),
+				handler.CheckNetworkPacketLoss(),
+			).Methods("GET")
+
+			method := "GET"
+			var requestBody io.Reader
+			if tc.requestBody != nil {
+				reqBodyBytes, err := json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+				requestBody = bytes.NewReader(reqBodyBytes)
+			}
+			req, err := http.NewRequest(method, fmt.Sprintf("/api/%s/fault/v1/network-packet-loss", endpointId),
 				requestBody)
 			require.NoError(t, err)
 

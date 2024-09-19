@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
@@ -294,6 +295,390 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	VerifyTaskRunningStateChange(t, taskEngine)
 	VerifyContainerStoppedStateChange(t, taskEngine)
 	VerifyTaskStoppedStateChange(t, taskEngine)
+}
+
+// Tests that containers with ordering dependencies are able to reach MANIFEST_PULLED state
+// regardless of the dependencies.
+func TestManifestPulledDoesNotDependOnContainerOrdering(t *testing.T) {
+	imagePullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullPreferCachedBehavior, config.ImagePullOnceBehavior,
+	}
+
+	for _, behavior := range imagePullBehaviors {
+		t.Run(fmt.Sprintf("%v", behavior), func(t *testing.T) {
+			cfg := DefaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = behavior
+			cfg.DockerStopTimeout = 100 * time.Millisecond
+			taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+			defer done()
+
+			first := createTestContainerWithImageAndName(testRegistryImage, "first")
+			first.Command = GetLongRunningCommand()
+
+			second := createTestContainerWithImageAndName(testRegistryImage, "second")
+			second.SetDependsOn([]apicontainer.DependsOn{
+				{ContainerName: first.Name, Condition: "COMPLETE"},
+			})
+
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{first, second},
+			}
+
+			// Start the task and wait for first container to start running
+			go taskEngine.AddTask(task)
+
+			// Both containers and the task should reach MANIFEST_PULLED state and emit events for it
+			VerifyContainerManifestPulledStateChange(t, taskEngine)
+			VerifyContainerManifestPulledStateChange(t, taskEngine)
+			VerifyTaskManifestPulledStateChange(t, taskEngine)
+
+			// The first container should start running
+			VerifyContainerRunningStateChange(t, taskEngine)
+
+			// The first container should be in RUNNING state
+			assert.Equal(t, apicontainerstatus.ContainerRunning, first.GetKnownStatus())
+			// The second container should be waiting in MANIFEST_PULLED state
+			assert.Equal(t, apicontainerstatus.ContainerManifestPulled, second.GetKnownStatus())
+
+			// Assert that both containers have digest populated
+			assert.NotEmpty(t, first.GetImageDigest())
+			assert.NotEmpty(t, second.GetImageDigest())
+
+			// Cleanup
+			first.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+			second.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+			VerifyContainerStoppedStateChange(t, taskEngine)
+			VerifyContainerStoppedStateChange(t, taskEngine)
+			VerifyTaskStoppedStateChange(t, taskEngine)
+			taskEngine.(*DockerTaskEngine).removeContainer(task, first)
+			taskEngine.(*DockerTaskEngine).removeContainer(task, second)
+			removeImage(t, testRegistryImage)
+		})
+	}
+}
+
+// Integration test for pullContainerManifest.
+// The test depends on 127.0.0.1:51670/busybox image that is prepared by `make test-registry`
+// command.
+func TestPullContainerManifestInteg(t *testing.T) {
+	allPullBehaviors := []config.ImagePullBehaviorType{
+		config.ImagePullDefaultBehavior, config.ImagePullAlwaysBehavior,
+		config.ImagePullOnceBehavior, config.ImagePullPreferCachedBehavior,
+	}
+	tcs := []struct {
+		name               string
+		image              string
+		setConfig          func(c *config.Config)
+		imagePullBehaviors []config.ImagePullBehaviorType
+		assertError        func(t *testing.T, err error)
+	}{
+		{
+			name:               "digest available in image reference",
+			image:              "ubuntu@sha256:c3839dd800b9eb7603340509769c43e146a74c63dca3045a8e7dc8ee07e53966",
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved from explicit tag",
+			image:              localRegistryBusyboxImage,
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "digest can be resolved without an explicit tag",
+			image:              localRegistryBusyboxImage,
+			imagePullBehaviors: allPullBehaviors,
+		},
+		{
+			name:               "manifest pull can timeout",
+			image:              localRegistryBusyboxImage,
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 0 },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+		{
+			name:               "manifest pull can timeout - non-zero timeout",
+			image:              localRegistryBusyboxImage,
+			setConfig:          func(c *config.Config) { c.ManifestPullTimeout = 100 * time.Microsecond },
+			imagePullBehaviors: []config.ImagePullBehaviorType{config.ImagePullAlwaysBehavior},
+			assertError: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "Could not transition to MANIFEST_PULLED; timed out")
+			},
+		},
+	}
+	for _, tc := range tcs {
+		for _, imagePullBehavior := range tc.imagePullBehaviors {
+			t.Run(fmt.Sprintf("%s - %v", tc.name, imagePullBehavior), func(t *testing.T) {
+				cfg := DefaultTestConfigIntegTest()
+				cfg.ImagePullBehavior = imagePullBehavior
+
+				if tc.setConfig != nil {
+					tc.setConfig(cfg)
+				}
+
+				taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+				defer done()
+
+				container := &apicontainer.Container{Image: tc.image}
+				task := &apitask.Task{Containers: []*apicontainer.Container{container}}
+
+				res := taskEngine.(*DockerTaskEngine).pullContainerManifest(task, container)
+				if tc.assertError == nil {
+					require.NoError(t, res.Error)
+					assert.NotEmpty(t, container.GetImageDigest())
+				} else {
+					tc.assertError(t, res.Error)
+				}
+			})
+		}
+	}
+}
+
+// Tests pullContainer method pulls container image as expected with and without an image
+// digest populated on the container. If an image digest is populated then pullContainer
+// uses the digest to prepare a canonical reference for the image to pull the image version
+// referenced by the digest.
+func TestPullContainerWithAndWithoutDigestInteg(t *testing.T) {
+	tcs := []struct {
+		name        string
+		image       string
+		imageDigest string
+	}{
+		{
+			name:        "no tag no digest",
+			image:       "public.ecr.aws/docker/library/alpine",
+			imageDigest: "",
+		},
+		{
+			name:        "tag but no digest",
+			image:       "public.ecr.aws/docker/library/alpine:latest",
+			imageDigest: "",
+		},
+		{
+			name:        "no tag with digest",
+			image:       "public.ecr.aws/docker/library/alpine",
+			imageDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		{
+			name:        "tag with digest",
+			image:       "public.ecr.aws/docker/library/alpine:3.19",
+			imageDigest: "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+		},
+		{
+			name:        "tag and digest with no digest",
+			image:       "public.ecr.aws/docker/library/alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b",
+			imageDigest: "",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Prepare task
+			task := &apitask.Task{Containers: []*apicontainer.Container{{Image: tc.image}}}
+			container := task.Containers[0]
+			container.SetImageDigest(tc.imageDigest)
+
+			// Prepare task engine
+			cfg := DefaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+			taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+			defer done()
+
+			// Remove image from the host if it exists to start from a clean slate
+			removeImage(t, container.Image)
+
+			// Pull the image
+			pullRes := taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+			require.NoError(t, pullRes.Error)
+
+			// Check that the image was pulled
+			_, err := dockerClient.InspectImage(container.Image)
+			require.NoError(t, err)
+
+			// Cleanup
+			removeImage(t, container.Image)
+		})
+	}
+}
+
+// Tests that pullContainer pulls the same image when a digest is used versus when a digest
+// is not used.
+func TestPullContainerWithAndWithoutDigestConsistency(t *testing.T) {
+	image := "public.ecr.aws/docker/library/alpine:3.19.1"
+	imageDigest := "sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+
+	// Prepare task
+	task := &apitask.Task{Containers: []*apicontainer.Container{{Image: image}}}
+	container := task.Containers[0]
+
+	// Prepare task engine
+	cfg := DefaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+	defer done()
+
+	// Remove image from the host if it exists to start from a clean slate
+	removeImage(t, container.Image)
+
+	// Pull the image without digest
+	pullRes := taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithoutDigest, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Pull the image with digest
+	container.SetImageDigest(imageDigest)
+	pullRes = taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithDigest, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Image should be the same
+	assert.Equal(t, inspectWithDigest.ID, inspectWithoutDigest.ID)
+}
+
+// Tests that pullContainer pulls the same image when tag is used versus when a tag
+// is not used.
+func TestPullContainerWithAndWithoutTagConsistency(t *testing.T) {
+	imagewithTag := "public.ecr.aws/docker/library/alpine:3.19.1@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+	imagewithoutTag := "public.ecr.aws/docker/library/alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b"
+
+	// Prepare task
+	task := &apitask.Task{Containers: []*apicontainer.Container{{Image: imagewithTag}}}
+	container := task.Containers[0]
+
+	// Prepare task engine
+	cfg := DefaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+	defer done()
+
+	// Remove image from the host if it exists to start from a clean slate
+	removeImage(t, container.Image)
+
+	// Pull the image with tag
+	pullRes := taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithTag, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Prepare task
+	task = &apitask.Task{Containers: []*apicontainer.Container{{Image: imagewithoutTag}}}
+	container = task.Containers[0]
+
+	// Pull the image without tag
+	pullRes = taskEngine.(*DockerTaskEngine).pullContainer(task, container)
+	require.NoError(t, pullRes.Error)
+	inspectWithoutTag, err := dockerClient.InspectImage(container.Image)
+	require.NoError(t, err)
+	removeImage(t, container.Image)
+
+	// Image should be the same
+	assert.Equal(t, inspectWithTag.ID, inspectWithoutTag.ID)
+}
+
+// Tests that a task with invalid image fails as expected.
+func TestInvalidImageInteg(t *testing.T) {
+	tcs := []struct {
+		name          string
+		image         string
+		expectedError string
+	}{
+		{
+			name:  "repo not found - fails during digest resolution",
+			image: "127.0.0.1:51670/invalid-image",
+			expectedError: "CannotPullImageManifestError: Error response from daemon: manifest" +
+				" unknown: manifest unknown",
+		},
+		{
+			name: "invalid digest provided - fails during pull",
+			image: "127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+			expectedError: "CannotPullContainerError: Error response from daemon: manifest for" +
+				" 127.0.0.1:51670/busybox" +
+				"@sha256:0000000000000000000000000000000000000000000000000000000000000000" +
+				" not found: manifest unknown: manifest unknown",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Prepare task engine
+			cfg := DefaultTestConfigIntegTest()
+			cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+			taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+			defer done()
+
+			// Prepare a task
+			container := createTestContainerWithImageAndName(tc.image, "container")
+			task := &apitask.Task{
+				Arn:                 "test-arn",
+				Family:              "family",
+				Version:             "1",
+				DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers:          []*apicontainer.Container{container},
+			}
+
+			// Start the task
+			go taskEngine.AddTask(task)
+
+			// The container and the task both should stop
+			verifyContainerStoppedStateChangeWithReason(t, taskEngine, tc.expectedError)
+			VerifyTaskStoppedStateChange(t, taskEngine)
+		})
+	}
+}
+
+// Tests that a task with an image that has a digest specified works normally.
+func TestImageWithDigestInteg(t *testing.T) {
+	// Prepare task engine
+	cfg := DefaultTestConfigIntegTest()
+	cfg.ImagePullBehavior = config.ImagePullAlwaysBehavior
+	taskEngine, done, dockerClient, _ := SetupIntegTestTaskEngine(cfg, nil, t)
+	defer done()
+
+	// Find image digest
+	versionedClient, err := dockerClient.WithVersion(dockerclient.Version_1_35)
+	manifest, manifestPullError := versionedClient.PullImageManifest(
+		context.Background(), localRegistryBusyboxImage, nil)
+	require.NoError(t, manifestPullError)
+	imageDigest := manifest.Descriptor.Digest.String()
+
+	// Prepare a task with image digest
+	container := createTestContainerWithImageAndName(
+		localRegistryBusyboxImage+"@"+imageDigest, "container")
+	container.Command = []string{"sh", "-c", "sleep 1"}
+	task := &apitask.Task{
+		Arn:                 "test-arn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{container},
+	}
+
+	// Start the task
+	go taskEngine.AddTask(task)
+
+	// The task should run. No MANIFEST_PULLED events expected.
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+	assert.Equal(t, imageDigest, container.GetImageDigest())
+
+	// Cleanup
+	container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
+	err = taskEngine.(*DockerTaskEngine).removeContainer(task, container)
+	require.NoError(t, err, "failed to remove container during cleanup")
+	removeImage(t, localRegistryBusyboxImage)
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port

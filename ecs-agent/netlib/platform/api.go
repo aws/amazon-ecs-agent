@@ -33,6 +33,9 @@ type API interface {
 		taskID string,
 		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
+	// HandleHostMode returns error if host mode is not enabled for the platform.
+	HandleHostMode() error
+
 	// CreateNetNS creates a network namespace with the specified path.
 	CreateNetNS(netNSPath string) error
 

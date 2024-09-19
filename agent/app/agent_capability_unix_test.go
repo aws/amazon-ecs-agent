@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -971,4 +972,35 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
 	assert.Equal(t, len(inputCapabilities), len(capabilities))
 	assert.EqualValues(t, capabilities, inputCapabilities)
+}
+
+func TestCheckFaultInjectionTooling(t *testing.T) {
+	originalLookPath := exec.LookPath
+	defer func() {
+		lookPathFunc = originalLookPath
+	}()
+
+	t.Run("all tools available", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			return "/usr/bin" + file, nil
+		}
+		assert.True(t,
+			checkFaultInjectionTooling(),
+			"Expected checkFaultInjectionTooling to return true when all tools are available")
+	})
+
+	tools := []string{"iptables", "tc", "nsenter"}
+	for _, tool := range tools {
+		t.Run(tool+" missing", func(t *testing.T) {
+			lookPathFunc = func(file string) (string, error) {
+				if file == tool {
+					return "", exec.ErrNotFound
+				}
+				return "/usr/bin" + file, nil
+			}
+			assert.False(t,
+				checkFaultInjectionTooling(),
+				"Expected checkFaultInjectionTooling to return false when a tool is missing")
+		})
+	}
 }

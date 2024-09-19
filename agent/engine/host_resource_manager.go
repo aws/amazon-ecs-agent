@@ -115,7 +115,7 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		return true, nil
 	}
 
-	ok, err := h.consumable(resources)
+	ok, failedResourceKeys, err := h.consumable(resources)
 	if err != nil {
 		logger.Error("Resources failing to consume, error in task resources", logger.Fields{
 			"taskArn":   taskArn,
@@ -139,7 +139,10 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]*ecs.
 		logger.Info("Resources successfully consumed, continue to task creation", logger.Fields{"taskArn": taskArn})
 		return true, nil
 	}
-	logger.Info("Resources not consumed, enough resources not available", logger.Fields{"taskArn": taskArn})
+	logger.Info("Resources not consumed, enough resources not available", logger.Fields{
+		"taskArn":   taskArn,
+		"resources": failedResourceKeys,
+	})
 	return false, nil
 }
 
@@ -251,31 +254,37 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]*ecs.Res
 }
 
 // Helper function for consume to check if resources are consumable with the current account
-// we have for the host resources. Should not call host resource manager lock in this func
-// return values
-func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, error) {
+// we have for the host resources. Should not call host resource manager lock in this func return values
+// This function returns a bool (indicating whether ALL requested resources are consumable), a list of non-consumable
+// resource keys, and error, if any.
+func (h *HostResourceManager) consumable(resources map[string]*ecs.Resource) (bool, []string, error) {
 	err := h.checkResourcesHealth(resources)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
+	var resourcesNotConsumable []string
 	for resourceKey := range resources {
 		if *resources[resourceKey].Type == "INTEGER" {
 			consumable := h.checkConsumableIntType(resourceKey, resources)
 			if !consumable {
-				return false, nil
+				resourcesNotConsumable = append(resourcesNotConsumable, resourceKey)
 			}
 		}
 
 		if *resources[resourceKey].Type == "STRINGSET" {
 			consumable := h.checkConsumableStringSetType(resourceKey, resources)
 			if !consumable {
-				return false, nil
+				resourcesNotConsumable = append(resourcesNotConsumable, resourceKey)
 			}
 		}
 	}
 
-	return true, nil
+	if resourcesNotConsumable != nil {
+		return false, resourcesNotConsumable, nil
+	} else {
+		return true, nil, nil
+	}
 }
 
 // Utility function to manage release of ports
@@ -348,22 +357,22 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 	consumedResourceMap := make(map[string]*ecs.Resource)
 	taskConsumed := make(map[string]bool)
 	// assigns CPU, MEMORY, PORTS_TCP, PORTS_UDP from host
-	//CPU
+	// CPU
 	CPUs := int64(0)
 	consumedResourceMap[CPU] = &ecs.Resource{
 		Name:         utils.Strptr(CPU),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &CPUs,
 	}
-	//MEMORY
+	// MEMORY
 	memory := int64(0)
 	consumedResourceMap[MEMORY] = &ecs.Resource{
 		Name:         utils.Strptr(MEMORY),
 		Type:         utils.Strptr("INTEGER"),
 		IntegerValue: &memory,
 	}
-	//PORTS_TCP
-	//Copying ports from host resources as consumed ports for initializing
+	// PORTS_TCP
+	// Copying ports from host resources as consumed ports for initializing
 	portsTcp := []*string{}
 	if resourceMap != nil && resourceMap[PORTSTCP] != nil {
 		portsTcp = resourceMap[PORTSTCP].StringSetValue
@@ -374,7 +383,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		StringSetValue: portsTcp,
 	}
 
-	//PORTS_UDP
+	// PORTS_UDP
 	portsUdp := []*string{}
 	if resourceMap != nil && resourceMap[PORTSUDP] != nil {
 		portsUdp = resourceMap[PORTSUDP].StringSetValue
@@ -385,7 +394,7 @@ func NewHostResourceManager(resourceMap map[string]*ecs.Resource) HostResourceMa
 		StringSetValue: portsUdp,
 	}
 
-	//GPUs
+	// GPUs
 	gpuIDs := []*string{}
 	consumedResourceMap[GPU] = &ecs.Resource{
 		Name:           utils.Strptr(GPU),

@@ -82,6 +82,7 @@ const (
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
+	capabilityFaultInjection                               = "fault-injection"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -198,6 +199,7 @@ var (
 //	ecs.capability.service-connect-v1
 //	ecs.capability.network.container-port-range
 //	ecs.capability.container-restart-policy
+//	ecs.capability.fault-injection
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -311,6 +313,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		}
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
+
+	// TODO add fault-injection capabilities if applicable
+	// capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 
 	return capabilities, nil
 }
@@ -535,6 +540,18 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 		}
 	}
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTaskAttach)
+	return capabilities
+}
+
+// TODO Remove linter directive below when the function becomes used
+//
+//lint:ignore U1000 as this method will be used in the future.
+func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if isFaultInjectionToolingAvailable() {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
+	} else {
+		seelog.Warn("Fault injection capability not enabled: Required network tools are missing")
+	}
 	return capabilities
 }
 

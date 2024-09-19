@@ -23,6 +23,10 @@ import (
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 )
 
+const (
+	defaultHostNetworkNamespace = "host"
+)
+
 // Implements AgentState interface for TMDS v4.
 type TMDSAgentState struct {
 	state                dockerstate.TaskEngineState
@@ -150,6 +154,19 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 		taskResponse.Containers = append(taskResponse.Containers,
 			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 	}
+
+	taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
+	var taskNetworkConfig *tmdsv4.TaskNetworkConfig
+	if task.IsNetworkModeHost() {
+		// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
+		// and so we will set this to an arbitrary value such as "host".
+		// TODO: Will need to find/obtain the interface name of the default network interface on the host instance
+		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
+	} else {
+		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
+	}
+
+	taskResponse.TaskNetworkConfig = taskNetworkConfig
 
 	return *taskResponse, nil
 }
