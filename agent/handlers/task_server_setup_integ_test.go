@@ -18,6 +18,8 @@ package handlers
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -42,7 +44,7 @@ const (
 )
 
 // This function starts the server and listens on a specified port
-func startServer(t *testing.T) *http.Server {
+func startServer(t *testing.T) (*http.Server, int) {
 	router := mux.NewRouter()
 
 	// Mocks
@@ -58,16 +60,24 @@ func startServer(t *testing.T) *http.Server {
 	execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 	registerFaultHandlers(router, agentState, metricsFactory, execWrapper)
+
 	server := &http.Server{
-		Addr:    ":5932",
+		Addr:    ":0", // Lets the system allocate an available port
 		Handler: router,
 	}
+
+	listener, err := net.Listen("tcp", server.Addr)
+	require.NoError(t, err)
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	t.Logf("Server started on port: %d", port)
+
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			t.Logf("ListenAndServe(): %s\n", err)
 		}
 	}()
-	return server
+	return server, port
 }
 
 // This function shuts down the server after the test
@@ -97,8 +107,8 @@ func TestRateLimiterIntegration(t *testing.T) {
 			name:            "Same network faults A1 + same methods B1",
 			method1:         "GET",
 			method2:         "GET",
-			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
-			url2:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url1:            "/api/container123/fault/v1/network-blackhole-port",
+			url2:            "/api/container123/fault/v1/network-blackhole-port",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  false,
 		},
@@ -106,8 +116,8 @@ func TestRateLimiterIntegration(t *testing.T) {
 			name:            "Same network fault A1 + different methods B1, B2",
 			method1:         "GET",
 			method2:         "PUT",
-			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
-			url2:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
+			url1:            "/api/container123/fault/v1/network-blackhole-port",
+			url2:            "/api/container123/fault/v1/network-blackhole-port",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
@@ -115,8 +125,8 @@ func TestRateLimiterIntegration(t *testing.T) {
 			name:            "Different network faults A1, A2 + same method B1",
 			method1:         "GET",
 			method2:         "GET",
-			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
-			url2:            "http://localhost:5932/api/container123/fault/v1/network-latency",
+			url1:            "/api/container123/fault/v1/network-blackhole-port",
+			url2:            "/api/container123/fault/v1/network-latency",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
@@ -124,8 +134,8 @@ func TestRateLimiterIntegration(t *testing.T) {
 			name:            "Different network faults A1, A3 + same method B1",
 			method1:         "GET",
 			method2:         "GET",
-			url1:            "http://localhost:5932/api/container123/fault/v1/network-blackhole-port",
-			url2:            "http://localhost:5932/api/container123/fault/v1/network-packet-loss",
+			url1:            "/api/container123/fault/v1/network-blackhole-port",
+			url2:            "/api/container123/fault/v1/network-packet-loss",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
@@ -133,21 +143,24 @@ func TestRateLimiterIntegration(t *testing.T) {
 			name:            "Different network faults A2, A3 + same methods B1",
 			method1:         "GET",
 			method2:         "GET",
-			url1:            "http://localhost:5932/api/container123/fault/v1/network-latency",
-			url2:            "http://localhost:5932/api/container123/fault/v1/network-packet-loss",
+			url1:            "/api/container123/fault/v1/network-latency",
+			url2:            "/api/container123/fault/v1/network-packet-loss",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			server := startServer(t)
+			server, port := startServer(t)
 			client := &http.Client{}
-			req1, err := http.NewRequest(tc.method1, tc.url1, nil)
+			// First request
+			req1, err := http.NewRequest(tc.method1, getURL(port, tc.url1), nil)
 			require.NoError(t, err)
 			_, err = client.Do(req1)
 			require.NoError(t, err)
-			req2, err := http.NewRequest(tc.method2, tc.url2, nil)
+
+			// Second request
+			req2, err := http.NewRequest(tc.method2, getURL(port, tc.url2), nil)
 			require.NoError(t, err)
 			resp2, err := client.Do(req2)
 			require.NoError(t, err)
@@ -159,4 +172,9 @@ func TestRateLimiterIntegration(t *testing.T) {
 			stopServer(t, server)
 		})
 	}
+}
+
+// Utility function to generate a URL with a dynamic port
+func getURL(port int, path string) string {
+	return "http://localhost:" + fmt.Sprintf("%d", port) + path
 }
