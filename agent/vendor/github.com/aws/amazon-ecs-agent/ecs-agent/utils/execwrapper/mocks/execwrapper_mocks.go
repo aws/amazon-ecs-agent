@@ -24,6 +24,7 @@ import (
 	os "os"
 	exec "os/exec"
 	reflect "reflect"
+	time "time"
 
 	execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	gomock "github.com/golang/mock/gomock"
@@ -249,4 +250,19 @@ func (m *MockExec) GetExitCode(arg0 *exec.ExitError) int {
 func (mr *MockExecMockRecorder) GetExitCode(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExitCode", reflect.TypeOf((*MockExec)(nil).GetExitCode), arg0)
+}
+
+// NewExecContextWithTimeout mocks base method.
+func (m *MockExec) NewExecContextWithTimeout(arg0 context.Context, arg1 time.Duration) (context.Context, context.CancelFunc) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewExecContextWithTimeout", arg0, arg1)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(context.CancelFunc)
+	return ret0, ret1
+}
+
+// NewExecContextWithTimeout indicates an expected call of NewExecContextWithTimeout.
+func (mr *MockExecMockRecorder) NewExecContextWithTimeout(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewExecContextWithTimeout", reflect.TypeOf((*MockExec)(nil).NewExecContextWithTimeout), arg0, arg1)
 }

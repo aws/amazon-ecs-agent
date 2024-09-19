@@ -49,7 +49,13 @@ const (
 	requestTimedOutError        = "%s: request timed out"
 	requestTimeoutDuration      = 5 * time.Second
 	// Commands that will be used to start/stop/check fault.
+	iptablesNewChainCmd              = "iptables -N %s"
+	iptablesAppendChainRuleCmd       = "iptables -A %s -p %s --dport %s -j DROP"
+	iptablesInsertChainCmd           = "iptables -I %s -j %s"
 	iptablesChainExistCmd            = "iptables -C %s -p %s --dport %s -j DROP"
+	iptablesClearChainCmd            = "iptables -F %s"
+	iptablesDeleteFromTableCmd       = "iptables -D %s -j %s"
+	iptablesDeleteChainCmd           = "iptables -X %s"
 	nsenterCommandString             = "nsenter --net=%s "
 	tcCheckInjectionCommandString    = "tc -j q show dev %s parent 1:1"
 	tcAddQdiscRootCommandString      = "tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
@@ -121,22 +127,117 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
-		// TODO: Check status of current fault injection
-		// TODO: Invoke the start fault injection functionality if not running
+		ctx := context.Background()
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
+		defer cancel()
 
-		responseBody := types.NewNetworkFaultInjectionSuccessResponse("running")
-		logger.Info("Successfully started fault", logger.Fields{
+		var responseBody types.NetworkFaultInjectionResponse
+		var statusCode int
+		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		taskArn := taskMetadata.TaskARN
+		stringToBeLogged := "Failed to start fault"
+		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
+		insertTable := "INPUT"
+		if aws.StringValue(request.TrafficType) == "egress" {
+			insertTable = "OUTPUT"
+		}
+
+		cmdOutput, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+			networkMode, networkNSPath, insertTable, taskArn)
+		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
+		} else if cmdErr != nil {
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+		} else {
+			statusCode = http.StatusOK
+			responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
+			stringToBeLogged = "Successfully started fault"
+		}
+		logger.Info(stringToBeLogged, logger.Fields{
 			field.RequestType: requestType,
 			field.Request:     request.ToString(),
 			field.Response:    responseBody.ToString(),
 		})
 		utils.WriteJSONResponse(
 			w,
-			http.StatusOK,
+			statusCode,
 			responseBody,
 			requestType,
 		)
 	}
+}
+
+// startNetworkBlackholePort will start/inject a new black hole port fault if there isn't one with the specific traffic type, protocol, and port number that's running already.
+// The general workflow is as followed:
+// 1. Checks if there's not a already running chain with the specified protocol and port number already via checkNetworkBlackHolePort()
+// 2. Creates a new chain via `iptables -N <chain>` (the chain name is in the form of "<trafficType>-<protocol>-<port>")
+// 3. Appends a new rule to the newly created chain via `iptables -A <chain> -p <protocol> --dport <port> -j DROP`
+// 4. Inserts the newly created chain into the built-in INPUT/OUTPUT table
+func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, port, chain, networkMode, netNs, insertTable, taskArn string) (string, error) {
+	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
+	if err != nil {
+		return cmdOutput, err
+	}
+	if !running {
+		logger.Info("[INFO] Attempting to start network black hole port fault", logger.Fields{
+			"netns":   netNs,
+			"chain":   chain,
+			"taskArn": taskArn,
+		})
+
+		// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
+		nsenterPrefix := ""
+		if networkMode == ecs.NetworkModeAwsvpc {
+			nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
+		}
+
+		// Creating a new chain
+		newChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesNewChainCmd, chain)
+		cmdOutput, err := h.runExecCommand(ctx, strings.Split(newChainCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to create new chain", logger.Fields{
+				"netns":   netNs,
+				"command": newChainCmdString,
+				"output":  string(cmdOutput),
+				"taskArn": taskArn,
+				"error":   err,
+			})
+			return string(cmdOutput), err
+		}
+
+		// Appending a new rule based on the protocol and port number from the request body
+		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, chain, protocol, port)
+		cmdOutput, err = h.runExecCommand(ctx, strings.Split(appendRuleCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to append rule to chain", logger.Fields{
+				"netns":   netNs,
+				"command": appendRuleCmdString,
+				"output":  string(cmdOutput),
+				"taskArn": taskArn,
+				"error":   err,
+			})
+			return string(cmdOutput), err
+		}
+
+		// Inserting the chain into the built-in INPUT/OUTPUT table
+		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, insertTable, chain)
+		cmdOutput, err = h.runExecCommand(ctx, strings.Split(insertChainCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to insert chain to table", logger.Fields{
+				"netns":       netNs,
+				"command":     insertChainCmdString,
+				"output":      string(cmdOutput),
+				"insertTable": insertTable,
+				"taskArn":     taskArn,
+				"error":       err,
+			})
+			return string(cmdOutput), err
+		}
+	}
+	return "", nil
 }
 
 // StopNetworkBlackHolePort will return the request handler function for stopping a network blackhole port fault
@@ -172,22 +273,119 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		rwMu.Lock()
 		defer rwMu.Unlock()
 
-		// TODO: Check status of current fault injection
-		// TODO: Invoke the stop fault injection functionality if running
+		ctx := context.Background()
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
+		defer cancel()
 
-		responseBody := types.NewNetworkFaultInjectionSuccessResponse("stopped")
-		logger.Info("Successfully stopped fault", logger.Fields{
+		var responseBody types.NetworkFaultInjectionResponse
+		var statusCode int
+		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		taskArn := taskMetadata.TaskARN
+		stringToBeLogged := "Failed to stop fault"
+		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
+		insertTable := "INPUT"
+		if aws.StringValue(request.TrafficType) == "egress" {
+			insertTable = "OUTPUT"
+		}
+
+		cmdOutput, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+			networkMode, networkNSPath, insertTable, taskArn)
+
+		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
+		} else if cmdErr != nil {
+			statusCode = http.StatusInternalServerError
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+		} else {
+			statusCode = http.StatusOK
+			responseBody = types.NewNetworkFaultInjectionSuccessResponse("stopped")
+			stringToBeLogged = "Successfully stopped fault"
+		}
+		logger.Info(stringToBeLogged, logger.Fields{
 			field.RequestType: requestType,
 			field.Request:     request.ToString(),
 			field.Response:    responseBody.ToString(),
 		})
 		utils.WriteJSONResponse(
 			w,
-			http.StatusOK,
+			statusCode,
 			responseBody,
 			requestType,
 		)
 	}
+}
+
+// stopNetworkBlackHolePort will stop a black hole port fault based on the chain name which is generated via "<trafficType>-<protocol>-<port>".
+// The general workflow is as followed:
+// 1. Checks if there's a running chain with the specified protocol and port number via checkNetworkBlackHolePort()
+// 2. Clears all rules within the specific chain via `iptables -F <chain>`
+// 3. Removes the specific chain from the built-in INPUT/OUTPUT table via `iptables -D <INPUT/OUTPUT> -j <chain>`
+// 4. Deletes the specific chain via `iptables -X <chain>`
+func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs, insertTable, taskArn string) (string, error) {
+	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
+	if err != nil {
+		return cmdOutput, err
+	}
+	if running {
+		logger.Info("[INFO] Attempting to stop network black hole port fault", logger.Fields{
+			"netns":   netNs,
+			"chain":   chain,
+			"taskArn": taskArn,
+		})
+
+		// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
+		nsenterPrefix := ""
+		if networkMode == ecs.NetworkModeAwsvpc {
+			nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
+		}
+
+		// Clearing the appended rules that's associated to the chain
+		clearChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesClearChainCmd, chain)
+		cmdOutput, err := h.runExecCommand(ctx, strings.Split(clearChainCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to clear chain", logger.Fields{
+				"netns":   netNs,
+				"command": clearChainCmdString,
+				"output":  string(cmdOutput),
+				"taskArn": taskArn,
+				"error":   err,
+			})
+			return string(cmdOutput), err
+		}
+
+		// Removing the chain from either the built-in INPUT/OUTPUT table
+		deleteFromTableCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteFromTableCmd, insertTable, chain)
+		cmdOutput, err = h.runExecCommand(ctx, strings.Split(deleteFromTableCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to delete chain from table", logger.Fields{
+				"netns":       netNs,
+				"command":     deleteFromTableCmdString,
+				"output":      string(cmdOutput),
+				"insertTable": insertTable,
+				"taskArn":     taskArn,
+				"error":       err,
+			})
+			return string(cmdOutput), err
+		}
+
+		// Deleting the chain
+		deleteChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteChainCmd, chain)
+		cmdOutput, err = h.runExecCommand(ctx, strings.Split(deleteChainCmdString, " "))
+		if err != nil {
+			logger.Error("Unable to delete chain", logger.Fields{
+				"netns":       netNs,
+				"command":     deleteChainCmdString,
+				"output":      string(cmdOutput),
+				"insertTable": insertTable,
+				"taskArn":     taskArn,
+				"error":       err,
+			})
+			return string(cmdOutput), err
+		}
+	}
+	return "", nil
 }
 
 // CheckNetworkBlackHolePort will return the request handler function for checking the status of a network blackhole port fault
@@ -224,31 +422,24 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		defer rwMu.RUnlock()
 
 		ctx := context.Background()
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, requestTimeoutDuration)
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
 		defer cancel()
 
 		var responseBody types.NetworkFaultInjectionResponse
 		var statusCode int
+		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		taskArn := taskMetadata.TaskARN
+		stringToBeLogged := "Failed to check fault"
 		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
 		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
 		running, cmdOutput, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
-			taskMetadata.TaskNetworkConfig.NetworkMode, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
+			networkMode, networkNSPath, taskArn)
 
 		// We've timed out trying to check if the black hole port fault injection is running
-		if err := ctx.Err(); err == context.DeadlineExceeded {
-			logger.Error("Request timed out", logger.Fields{
-				field.RequestType: requestType,
-				field.Request:     request.ToString(),
-				field.Error:       err,
-			})
+		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 		} else if cmdErr != nil {
-			logger.Error("Unknown error encountered for request", logger.Fields{
-				field.RequestType: requestType,
-				field.Request:     request.ToString(),
-				field.Error:       cmdErr,
-			})
 			statusCode = http.StatusInternalServerError
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
 		} else {
@@ -258,12 +449,13 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 			} else {
 				responseBody = types.NewNetworkFaultInjectionSuccessResponse("not-running")
 			}
-			logger.Info("[INFO] Successfully checked status for fault", logger.Fields{
-				field.RequestType: requestType,
-				field.Request:     request.ToString(),
-				field.Response:    responseBody.ToString(),
-			})
+			stringToBeLogged = "Successfully check status fault"
 		}
+		logger.Info(stringToBeLogged, logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
 		utils.WriteJSONResponse(
 			w,
 			statusCode,
@@ -274,15 +466,16 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 }
 
 // checkNetworkBlackHolePort will check if there's a running black hole port within the task network namespace based on the chain name and the passed in required request fields.
-// It does so by calling iptables linux utility tool.
-func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs string) (bool, string, error) {
-	cmdString := fmt.Sprintf(iptablesChainExistCmd, chain, protocol, port)
-	cmdList := strings.Split(cmdString, " ")
-
+// It does so by calling `iptables -C <chain> -p <protocol> --dport <port> -j DROP`.
+func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs, taskArn string) (bool, string, error) {
 	// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
-	if networkMode != ecs.NetworkModeHost {
-		cmdList = append(strings.Split(fmt.Sprintf(nsenterCommandString, netNs), " "), cmdList...)
+	nsenterPrefix := ""
+	if networkMode == ecs.NetworkModeAwsvpc {
+		nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
 	}
+
+	cmdString := nsenterPrefix + fmt.Sprintf(iptablesChainExistCmd, chain, protocol, port)
+	cmdList := strings.Split(cmdString, " ")
 
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
@@ -291,6 +484,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 				"netns":    netNs,
 				"command":  strings.Join(cmdList, " "),
 				"output":   string(cmdOutput),
+				"taskArn":  taskArn,
 				"exitCode": h.osExecWrapper.GetExitCode(exitErr),
 			})
 			return false, string(cmdOutput), nil
@@ -299,6 +493,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 			"netns":   netNs,
 			"command": strings.Join(cmdList, " "),
 			"output":  string(cmdOutput),
+			"taskArn": taskArn,
 			"err":     err,
 		})
 		return false, string(cmdOutput), err
@@ -307,6 +502,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 		"netns":   netNs,
 		"command": strings.Join(cmdList, " "),
 		"output":  string(cmdOutput),
+		"taskArn": taskArn,
 	})
 	return true, string(cmdOutput), nil
 }
@@ -485,7 +681,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		stringToBeLogged := "Failed to start fault"
 		// All command executions for the start network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
 		defer cancel()
 		// Check the status of current fault injection.
 		latencyFaultExists, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)
@@ -534,7 +730,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkPacketLossRequest
-		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+		requestType := fmt.Sprintf(stopFaultRequestType, types.PacketLossFaultType)
 
 		// Parse the fault request
 		err := decodeRequest(w, &request, requestType, r)
@@ -564,7 +760,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 		stringToBeLogged := "Failed to stop fault"
 		// All command executions for the stop network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
 		defer cancel()
 		// Check the status of current fault injection.
 		_, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)
@@ -581,7 +777,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 				responseBody = types.NewNetworkFaultInjectionSuccessResponse("stopped")
 				httpStatusCode = http.StatusOK
 			} else {
-				// Invoke the stop fault injection functionality if not running.
+				// Invoke the stop fault injection functionality if running.
 				err := h.stopNetworkPacketLossFault(ctx, taskMetadata)
 				if errors.Is(err, context.DeadlineExceeded) {
 					responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
@@ -614,7 +810,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkPacketLossRequest
-		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.PacketLossFaultType)
 
 		// Parse the fault request.
 		err := decodeRequest(w, &request, requestType, r)
@@ -645,7 +841,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 		stringToBeLogged := "Failed to check status for fault"
 		// All command executions for the start network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
 		defer cancel()
 		// Check the status of current fault injection.
 		_, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)

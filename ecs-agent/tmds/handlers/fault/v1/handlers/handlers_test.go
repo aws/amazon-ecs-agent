@@ -18,6 +18,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
@@ -51,6 +53,8 @@ const (
 	awsvpcNetworkMode                 = "awsvpc"
 	deviceName                        = "eth0"
 	invalidNetworkMode                = "invalid"
+	internalError                     = "internal error"
+	iptablesChainAlreadyExistError    = "iptables: Chain already exists."
 	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":0.1,"jitter":0,"correlation":0},"ecn":false,"gap":0}}]`
 	tcLossFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
@@ -107,6 +111,13 @@ var (
 	}
 
 	ipSources = []string{"52.95.154.1", "52.95.154.2"}
+
+	startNetworkBlackHolePortTestPrefix = fmt.Sprintf(startFaultRequestType, types.BlackHolePortFaultType)
+	stopNetworkBlackHolePortTestPrefix  = fmt.Sprintf(stopFaultRequestType, types.BlackHolePortFaultType)
+	checkNetworkBlackHolePortTestPrefix = fmt.Sprintf(checkStatusFaultRequestType, types.BlackHolePortFaultType)
+	startNetworkPacketLossTestPrefix    = fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+	stopNetworkPacketLossTestPrefix     = fmt.Sprintf(stopFaultRequestType, types.PacketLossFaultType)
+	checkNetworkPacketLossTestPrefix    = fmt.Sprintf(checkStatusFaultRequestType, types.PacketLossFaultType)
 )
 
 type networkFaultInjectionTestCase struct {
@@ -227,7 +238,7 @@ func testNetworkFaultInjectionCommon(t *testing.T,
 	}
 }
 
-func generateNetworkBlackHolePortTestCases(name string) []networkFaultInjectionTestCase {
+func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInjectionTestCase {
 	tcs := []networkFaultInjectionTestCase{
 		{
 			name:                 fmt.Sprintf("%s no request body", name),
@@ -433,15 +444,36 @@ func generateNetworkBlackHolePortTestCases(name string) []networkFaultInjectionT
 				}, nil).Times(1)
 			},
 		},
+		{
+			name:                 fmt.Sprintf("%s request timed out", name),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, name)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, false),
+				)
+			},
+		},
 	}
 	return tcs
 }
 
 func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateNetworkBlackHolePortTestCases("start blackhole port")
+	commonTcs := generateCommonNetworkBlackHolePortTestCases(startNetworkBlackHolePortTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
-			name:                 "start blackhole port success running",
+			name:                 fmt.Sprintf("%s success running", startNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   200,
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
@@ -451,10 +483,25 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
 			},
 		},
 		{
-			name:               "start blackhole unknown request body",
+			name:               fmt.Sprintf("%s unknown request body", startNetworkBlackHolePortTestPrefix),
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
 				"Port":        port,
@@ -469,6 +516,119 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s success already running", startNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail duplicate chain", startNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(iptablesChainAlreadyExistError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainAlreadyExistError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail append rule to chain", startNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail insert chain to table", startNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
 			},
 		},
 	}
@@ -477,10 +637,10 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 }
 
 func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateNetworkBlackHolePortTestCases("stop blackhole port")
+	commonTcs := generateCommonNetworkBlackHolePortTestCases(stopNetworkBlackHolePortTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
-			name:                 "stop blackhole port success running",
+			name:                 fmt.Sprintf("%s success running", stopNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   200,
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
@@ -490,10 +650,23 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
 			},
 		},
 		{
-			name:               "stop blackhole unknown request body",
+			name:               fmt.Sprintf("%s unknown request body", stopNetworkBlackHolePortTestPrefix),
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
 				"Port":        port,
@@ -508,6 +681,113 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s success already stopped", stopNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   200,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail clear chain", stopNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail delete chain from table", stopNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail delete chain", stopNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
 			},
 		},
 	}
@@ -515,10 +795,10 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 }
 
 func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateNetworkBlackHolePortTestCases("check blackhole port")
+	commonTcs := generateCommonNetworkBlackHolePortTestCases(checkNetworkBlackHolePortTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
-			name:                 "check blackhole port success running",
+			name:                 fmt.Sprintf("%s success running", checkNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   200,
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
@@ -528,15 +808,17 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 		},
 		{
-			name:               "check blackhole unknown request body",
+			name:               fmt.Sprintf("%s unknown request body", checkNetworkBlackHolePortTestPrefix),
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
 				"Port":        port,
@@ -551,15 +833,17 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 		},
 		{
-			name:                 "check blackhole port success not running",
+			name:                 fmt.Sprintf("%s success not running", checkNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   200,
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("not-running"),
@@ -569,8 +853,10 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
@@ -579,20 +865,22 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 			},
 		},
 		{
-			name:                 "check blackhole port failure",
+			name:                 fmt.Sprintf("%s failure", checkNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("internal error"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
 				agentState.EXPECT().GetTaskMetadata(endpointId).
 					Return(happyTaskResponse, nil).
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte("internal error"), errors.New("exit 2")),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit 2")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, false),
 				)
 			},
@@ -1088,7 +1376,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("["), nil)
 			},
@@ -1106,9 +1396,29 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed"))
+			},
+		},
+		{
+			name:                 "request timed out",
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, name)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState) {
+				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 			},
 		},
 	}
@@ -1116,7 +1426,7 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 }
 
 func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateCommonNetworkPacketLossTestCases("start network-packet-loss")
+	commonTcs := generateCommonNetworkPacketLossTestCases(startNetworkPacketLossTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
 			name:                 "no-existing-fault",
@@ -1127,9 +1437,13 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
 			},
@@ -1143,7 +1457,9 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
 			},
@@ -1157,7 +1473,9 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil)
 			},
@@ -1175,9 +1493,13 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
 			},
@@ -1187,7 +1509,7 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 }
 
 func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateCommonNetworkPacketLossTestCases("stop network-packet-loss")
+	commonTcs := generateCommonNetworkPacketLossTestCases(stopNetworkPacketLossTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
 			name:                 "no-existing-fault",
@@ -1198,9 +1520,13 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 			},
 		},
 		{
@@ -1212,7 +1538,9 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
 			},
@@ -1226,9 +1554,13 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+				)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(3).Return([]byte(""), nil)
 			},
@@ -1246,9 +1578,13 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 			},
 		},
 	}
@@ -1256,7 +1592,7 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 }
 
 func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
-	commonTcs := generateCommonNetworkPacketLossTestCases("check network-packet-loss")
+	commonTcs := generateCommonNetworkPacketLossTestCases(checkNetworkPacketLossTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
 		{
 			name:                 "no-existing-fault",
@@ -1267,9 +1603,13 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 			},
 		},
 		{
@@ -1281,9 +1621,13 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+				)
 			},
 		},
 		{
@@ -1295,9 +1639,13 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+				)
 			},
 		},
 		{
@@ -1313,9 +1661,13 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadata(endpointId).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil))
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
 			},
 		},
 	}
