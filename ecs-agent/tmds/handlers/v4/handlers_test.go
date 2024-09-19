@@ -299,9 +299,8 @@ func TestTaskMetadata(t *testing.T) {
 	t.Run("happy case with FaultInjection enabled", func(t *testing.T) {
 		metadata := taskResponseWithFaultInjectionEnabled()
 		expectedTaskResponse := taskResponseWithFaultInjectionEnabled()
-		expectedTaskResponse.CredentialsID = ""            // credentials ID not expected
-		expectedTaskResponse.TaskNetworkConfig = nil       // TaskNetworkConfig is not expected and would be used internally
-		expectedTaskResponse.FaultInjectionEnabled = false // FaultInjectionEnabled is not expected and would be used internally
+		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally
 
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
