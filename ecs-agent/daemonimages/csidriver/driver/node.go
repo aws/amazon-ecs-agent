@@ -154,7 +154,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		if part != "0" {
 			partition = part
 		} else {
-			klog.InfoS("NodeStageVolume: invalid partition config, will ignore.", "partition", part)
+			klog.V(4).InfoS("NodeStageVolume: invalid partition config, will ignore.", "partition", part)
 		}
 	}
 
@@ -164,9 +164,9 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 
 	exists, err := d.mounter.PathExists(target)
-	klog.InfoS("NodeStageVolume: path exists:", "exists", exists)
+	klog.V(4).InfoS("NodeStageVolume: path exists:", "exists", exists)
 	if err != nil {
-		klog.InfoS("NodeStageVolume: path exists:", "err", err)
+		klog.V(4).InfoS("NodeStageVolume: path does not exist:", "err", err)
 		msg := fmt.Sprintf("failed to check if target %q exists: %v", target, err)
 		return nil, status.Error(codes.Internal, msg)
 	}
@@ -175,7 +175,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	// Otherwise we need to create the target directory.
 	if !exists {
 		// If target path does not exist we need to create the directory where volume will be staged
-		klog.InfoS("NodeStageVolume: creating target dir", "target", target)
+		klog.V(4).InfoS("NodeStageVolume: creating target dir", "target", target)
 		if err = d.mounter.MakeDir(target); err != nil {
 			msg := fmt.Sprintf("could not create target dir %q: %v", target, err)
 			return nil, status.Error(codes.Internal, msg)
@@ -184,7 +184,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 
 	// Check if a device is mounted in target directory
 	device, _, err := d.mounter.GetDeviceNameFromMount(target)
-	klog.InfoS("NodeStageVolume: find device path", "device", device)
+	klog.V(4).InfoS("NodeStageVolume: find device path", "device", device)
 	if err != nil {
 		msg := fmt.Sprintf("failed to check if volume is already mounted: %v", err)
 		return nil, status.Error(codes.Internal, msg)
@@ -193,14 +193,14 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	// This operation (NodeStageVolume) MUST be idempotent.
 	// If the volume corresponding to the volume_id is already staged to the staging_target_path,
 	// and is identical to the specified volume_capability the Plugin MUST reply 0 OK.
-	klog.InfoS("NodeStageVolume: checking if volume is already staged", "device", device, "source", source, "target", target)
+	klog.V(4).InfoS("NodeStageVolume: checking if volume is already staged", "device", device, "source", source, "target", target)
 	if device == source {
-		klog.InfoS("NodeStageVolume: volume already staged", "volumeID", volumeID)
+		klog.V(4).InfoS("NodeStageVolume: volume already staged", "volumeID", volumeID)
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
 	// FormatAndMount will format only if needed
-	klog.InfoS("NodeStageVolume: staging volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
+	klog.V(4).InfoS("NodeStageVolume: staging volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
 	formatOptions := []string{}
 	if len(blockSize) > 0 {
 		if fsType == FSTypeXfs {
@@ -223,7 +223,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 	err = d.mounter.FormatAndMountSensitiveWithFormatOptions(source, target, fsType, mountOptions, nil, formatOptions)
 	if err != nil {
-		klog.InfoS("NodeStageVolume: format mount fail", "error", err)
+		klog.V(4).InfoS("NodeStageVolume: format mount fail", "error", err)
 		msg := fmt.Sprintf("could not format %q and mount it at %q: %v", source, target, err)
 		return nil, status.Error(codes.Internal, msg)
 	}
@@ -239,11 +239,12 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 			return nil, status.Errorf(codes.Internal, "Error attempting to create new ResizeFs:  %v", err)
 		}
 		klog.V(2).InfoS("Volume needs resizing", "source", source)
+
 		if _, err := r.Resize(source, target); err != nil {
 			return nil, status.Errorf(codes.Internal, "Could not resize volume %q (%q):  %v", volumeID, source, err)
 		}
 	}
-	klog.InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
+	klog.V(4).InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -299,7 +300,7 @@ func (d *nodeService) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	}
 
 	if refCount > 1 {
-		klog.InfoS("NodeUnstageVolume: found references to device mounted at target path", "refCount", refCount, "device", dev, "target", target)
+		klog.V(4).InfoS("NodeUnstageVolume: found references to device mounted at target path", "refCount", refCount, "device", dev, "target", target)
 	}
 
 	klog.V(4).InfoS("NodeUnstageVolume: unmounting", "target", target)
@@ -335,7 +336,7 @@ func (d *nodeService) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 	}
 
 	if isBlock {
-		bcap, blockErr := d.getBlockSizeBytes(req.VolumePath)
+		bcap, blockErr := d.getBlockSizeBytes(req.VolumePath, req.VolumeId)
 		if blockErr != nil {
 			return nil, status.Errorf(codes.Internal, "failed to get block capacity on path %s: %v", req.VolumePath, err)
 		}

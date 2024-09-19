@@ -17,27 +17,15 @@
 package daemonmanager
 
 import (
-	"context"
-	"errors"
-
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/docker/docker/api/types"
+	"io/fs"
 )
 
-func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
-	return nil, errors.New("daemonmanager.CreateDaemonTask not implemented for Windows")
-}
-
-func (dm *daemonManager) LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, errors.New("dameonmanager.LoadImage not implemented for Windows")
-}
-
-// isImageLoaded uses the image ref with its tag
-func (dm *daemonManager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return false, errors.New("daemonmanager.IsLoaded not implemented for Windows")
-}
-
-func (dm *daemonManager) ImageExists() (bool, error) {
-	return false, errors.New("daemonmanager.ImageExists not implemented for Windows")
-}
+const (
+	// This is the daemon UID that is used to track the ManagedDaemons
+	daemonUID = 0
+	// This is the permission that is set on the named pipes created for the ManagedDaemon
+	daemonMountPermission fs.FileMode = 0755
+	// This is the permission set that is used for setting the access control on the log file
+	daemonLogPermission               fs.FileMode = 0777
+	rawContainerConfigurationTemplate             = "{\"Healthcheck\":%s, \"User\":\"ContainerAdministrator\"}"
+)

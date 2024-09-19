@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -32,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -60,8 +59,6 @@ const (
 	stoppedSentWaitInterval                  = 30 * time.Second
 	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
-	// unstage retries are ultimately limited by successful unstage or by the unstageVolumeTimeout
-	unstageVolumeTimeout = 30 * time.Second
 	// substantial min/max accommodate a csi-driver outage
 	unstageBackoffMin      = 5 * time.Second
 	unstageBackoffMax      = 10 * time.Second
@@ -1663,7 +1660,7 @@ func (mtask *managedTask) UnstageVolumes(csiClient csiclient.CSIClient) []error 
 }
 
 func (mtask *managedTask) unstageVolumeWithRetriesAndTimeout(csiClient csiclient.CSIClient, volumeId, hostPath string) error {
-	derivedCtx, cancel := context.WithTimeout(mtask.ctx, unstageVolumeTimeout)
+	derivedCtx, cancel := context.WithTimeout(mtask.ctx, mtask.cfg.NodeUnstageTimeout)
 	defer cancel()
 	backoff := retry.NewExponentialBackoff(unstageBackoffMin, unstageBackoffMax, unstageBackoffJitter, unstageBackoffMultiple)
 	err := retry.RetryNWithBackoff(backoff, unstageRetryAttempts, func() error {

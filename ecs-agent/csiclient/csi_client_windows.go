@@ -15,12 +15,10 @@
 // permissions and limitations under the License.
 package csiclient
 
-const (
-	DefaultImageName      = ""
-	DefaultSocketName     = ""
-	DefaultSocketHostPath = ""
-)
+import md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
-func DefaultSocketFilePath() string {
-	return "unimplemented" // TODO: Windows implementation
-}
+const (
+	DefaultImageName      = md.EbsCsiDriver
+	DefaultSocketName     = "csi-driver.sock"
+	DefaultSocketHostPath = "C:\\ProgramData\\Amazon\\ECS\\"
+)

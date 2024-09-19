@@ -18,8 +18,8 @@ package stats
 
 import (
 	"context"
-	"errors"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -27,16 +27,18 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
-	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	testPublishMetricsInterval = 5 * time.Second
 )
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
@@ -160,98 +162,167 @@ func TestServiceConnectWithDisabledMetrics(t *testing.T) {
 	assert.Len(t, engine.taskToServiceConnectStats, 1)
 }
 
-func TestFetchEBSVolumeMetrics(t *testing.T) {
-	tcs := []struct {
-		name                    string
-		setCSIClientExpectation func(*mock_csiclient.MockCSIClient)
-		expectedMetrics         []*ecstcs.VolumeMetric
-		numMetrics              int
+// This test has been moved to be run Linux only. For Windows, the publish metrics timeout has been set to be 5 seconds
+// for the reason that Windows takes a bit more time to fetch the volume metrics. This test results in a race condition
+// for Windows. Specifically, the discard message condition cannot be replicated in Windows because of the higher
+// timeout.
+func TestStartMetricsPublishForChannelFull(t *testing.T) {
+	testcases := []struct {
+		name                       string
+		hasPublishTicker           bool
+		expectedInstanceMessageNum int
+		expectedHealthMessageNum   int
+		expectedNonEmptyMetricsMsg bool
+		serviceConnectEnabled      bool
+		disableMetrics             bool
+		channelSize                int
 	}{
 		{
-			name: "Success",
-			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
-				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(&csiclient.Metrics{
-					Used:     15 * 1024 * 1024 * 1024,
-					Capacity: 20 * 1024 * 1024 * 1024,
-				}, nil).Times(1)
-			},
-			expectedMetrics: []*ecstcs.VolumeMetric{
-				{
-					VolumeId:   aws.String("vol-12345"),
-					VolumeName: aws.String("test-volume"),
-					Utilized: &ecstcs.UDoubleCWStatsSet{
-						Max:         aws.Float64(15 * 1024 * 1024 * 1024),
-						Min:         aws.Float64(15 * 1024 * 1024 * 1024),
-						SampleCount: aws.Int64(1),
-						Sum:         aws.Float64(15 * 1024 * 1024 * 1024),
-					},
-					Size: &ecstcs.UDoubleCWStatsSet{
-						Max:         aws.Float64(20 * 1024 * 1024 * 1024),
-						Min:         aws.Float64(20 * 1024 * 1024 * 1024),
-						SampleCount: aws.Int64(1),
-						Sum:         aws.Float64(20 * 1024 * 1024 * 1024),
-					},
-				},
-			},
-			numMetrics: 1,
-		},
-		{
-			name: "Failure",
-			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
-				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil, errors.New("err")).Times(1)
-			},
-			expectedMetrics: nil,
-			numMetrics:      0,
-		},
-		{
-			name: "TimeoutFailure",
-			setCSIClientExpectation: func(csi *mock_csiclient.MockCSIClient) {
-				csi.EXPECT().GetVolumeMetrics(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(nil, errors.New("rpc error: code = DeadlineExceeded desc = context deadline exceeded")).Times(1)
-			},
-			expectedMetrics: nil,
-			numMetrics:      0,
+			name:                       "ChannelFull",
+			hasPublishTicker:           true,
+			expectedInstanceMessageNum: 1, // expecting discarding messages after channel is full
+			expectedHealthMessageNum:   1,
+			expectedNonEmptyMetricsMsg: true,
+			serviceConnectEnabled:      false,
+			disableMetrics:             false,
+			channelSize:                testTelemetryChannelBufferSizeForChannelFull,
 		},
 	}
 
-	for _, tc := range tcs {
+	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
-			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-			t1 := getTestTask()
-			t1.Volumes = []apitask.TaskVolume{
-				{
-					Name: "1",
-					Type: apiresource.EBSTaskAttach,
-					Volume: &taskresourcevolume.EBSTaskVolumeConfig{
-						VolumeId:             "vol-12345",
-						VolumeName:           "test-volume",
-						VolumeSizeGib:        "10",
-						SourceVolumeHostPath: "taskarn_vol-12345",
-						DeviceName:           "/dev/nvme1n1",
-						FileSystem:           "ext4",
-					},
+
+			publishMetricsCfg := cfg
+			if tc.disableMetrics {
+				publishMetricsCfg.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			}
+
+			containerID := "c1"
+			t1 := &apitask.Task{
+				Arn:               "t1",
+				Family:            "f1",
+				KnownStatusUnsafe: apitaskstatus.TaskRunning,
+				Containers: []*apicontainer.Container{
+					{Name: containerID},
 				},
 			}
-			engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestFetchEBSVolumeMetrics"), nil, nil, nil)
+
+			mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+
+			mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: 23},
+				},
+			}, nil).AnyTimes()
+
+			resolver.EXPECT().ResolveTask(containerID).AnyTimes().Return(t1, nil)
+			resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
+			resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
+				DockerID: containerID,
+				Container: &apicontainer.Container{
+					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+					HealthCheckType:   "docker",
+					Health: apicontainer.HealthStatus{
+						Status: apicontainerstatus.ContainerHealthy,
+						Since:  aws.Time(time.Now()),
+					},
+				},
+			}, nil).AnyTimes()
+
+			telemetryMessages := make(chan ecstcs.TelemetryMessage, tc.channelSize)
+			healthMessages := make(chan ecstcs.HealthMessage, tc.channelSize)
+
+			engine := NewDockerStatsEngine(&publishMetricsCfg, nil, eventStream("TestStartMetricsPublish"), telemetryMessages, healthMessages, nil)
 			ctx, cancel := context.WithCancel(context.TODO())
-			defer cancel()
 			engine.ctx = ctx
 			engine.resolver = resolver
 			engine.cluster = defaultCluster
 			engine.containerInstanceArn = defaultContainerInstance
 			engine.client = mockDockerClient
+			ticker := time.NewTicker(testPublishMetricsInterval)
+			if !tc.hasPublishTicker {
+				ticker = nil
+			}
+			engine.publishMetricsTicker = ticker
 
-			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
-			tc.setCSIClientExpectation(mockCsiClient)
-			engine.csiClient = mockCsiClient
+			engine.addAndStartStatsContainer(containerID)
+			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
-			actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
+			containerStats := createFakeContainerStats()
+			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats[0].Read = ts1
+			containers, _ := engine.tasksToContainers["t1"]
 
-			assert.Len(t, actualMetrics, tc.numMetrics)
-			assert.Equal(t, actualMetrics, tc.expectedMetrics)
+			// Two docker stats sample can be one CW stats.
+			for _, statsContainer := range containers {
+				for i := 0; i < 2; i++ {
+					statsContainer.statsQueue.add(containerStats[i])
+					statsContainer.statsQueue.setLastStat(dockerStats[i])
+				}
+			}
+
+			go engine.StartMetricsPublish()
+
+			// wait 1s for first set of metrics sent (immediately), and then add a second set of stats
+			time.Sleep(time.Second)
+			for _, statsContainer := range containers {
+				for i := 0; i < 2; i++ {
+					statsContainer.statsQueue.add(containerStats[i])
+					statsContainer.statsQueue.setLastStat(dockerStats[i])
+				}
+			}
+
+			time.Sleep(testPublishMetricsInterval + time.Second)
+
+			assert.Len(t, telemetryMessages, tc.expectedInstanceMessageNum)
+			assert.Len(t, healthMessages, tc.expectedHealthMessageNum)
+
+			if tc.expectedInstanceMessageNum > 0 {
+				telemetryMessage := <-telemetryMessages
+				if tc.expectedNonEmptyMetricsMsg {
+					assert.NotEmpty(t, telemetryMessage.TaskMetrics)
+					assert.NotZero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+				} else {
+					assert.Empty(t, telemetryMessage.TaskMetrics)
+				}
+			}
+			if tc.expectedHealthMessageNum > 0 {
+				healthMessage := <-healthMessages
+				assert.NotEmpty(t, healthMessage.HealthMetrics)
+			}
+
+			// verify full channel behavior: the message is dropped
+			if tc.channelSize == testTelemetryChannelBufferSizeForChannelFull {
+
+				// add a third set of metrics. This time, change storageReadBytes to 0 to verify that the 2nd set of metrics
+				// are dropped as expected.
+				containerStats[0].storageReadBytes = uint64(0)
+				containerStats[1].storageReadBytes = uint64(0)
+				for _, statsContainer := range containers {
+					for i := 0; i < 2; i++ {
+						statsContainer.statsQueue.add(containerStats[i])
+						statsContainer.statsQueue.setLastStat(dockerStats[i])
+					}
+				}
+
+				telemetryMessage := <-telemetryMessages
+				healthMessage := <-healthMessages
+				assert.NotEmpty(t, telemetryMessage.TaskMetrics)
+				assert.NotEmpty(t, healthMessage.HealthMetrics)
+				assert.Zero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+			}
+
+			cancel()
+			if ticker != nil {
+				ticker.Stop()
+			}
+			close(telemetryMessages)
+			close(healthMessages)
 		})
 	}
-
 }

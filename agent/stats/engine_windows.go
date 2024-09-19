@@ -16,10 +16,20 @@
 
 package stats
 
-import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-)
+import "time"
 
-func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.VolumeMetric {
-	return nil
-}
+const (
+	// publishMetricsTimeout is the duration that we wait for metrics/health info to be
+	// pushed to the TCS channels. In theory, this timeout should never be hit since
+	// the TCS handler should be continually reading from the channels and pushing to
+	// TCS, but when we lose connection to TCS, these channels back up. In case this
+	// happens, we need to have a timeout to prevent statsEngine channels from blocking.
+	// The times on Linux and Windows vary from one another and that is why we have
+	// them separated out in their respective modules.
+	publishMetricsTimeout = 6 * time.Second
+
+	// getVolumeMetricsTimeout is the time that we want for the metrics to be fetched from
+	// the local disk. The times on Linux and Windows vary from one another and that is
+	// why we have them separated out in their respective modules.
+	getVolumeMetricsTimeout = 5 * time.Second
+)

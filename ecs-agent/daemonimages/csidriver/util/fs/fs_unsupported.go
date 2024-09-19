@@ -1,5 +1,5 @@
-//go:build !linux && !darwin
-// +build !linux,!darwin
+//go:build !linux && !darwin && !windows
+// +build !linux,!darwin,!windows
 
 // this file has been modified from its original found in:
 // https://github.com/kubernetes-sigs/aws-ebs-csi-driver

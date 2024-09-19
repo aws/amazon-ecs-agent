@@ -159,7 +159,7 @@ func (agent *ecsAgent) startEBSWatcher(
 ) {
 	if agent.ebsWatcher == nil {
 		seelog.Debug("Creating new EBS watcher...")
-		agent.ebsWatcher = ebs.NewWatcher(agent.ctx, state, taskEngine, dockerClient)
+		agent.ebsWatcher = ebs.NewWatcher(agent.ctx, agent.cfg, state, taskEngine, dockerClient)
 		go agent.ebsWatcher.Start()
 	}
 }

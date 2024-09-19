@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -2543,6 +2544,7 @@ func TestUnstageVolumes(t *testing.T) {
 			defer mockCtrl.Finish()
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
+			defaultConfig := config.DefaultConfig()
 			mtask := &managedTask{
 				Task: &apitask.Task{
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
@@ -2563,10 +2565,11 @@ func TestUnstageVolumes(t *testing.T) {
 					},
 				},
 				ctx:                      ctx,
+				cfg:                      &defaultConfig,
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mockCsiClient := mock_csiclient.NewMockCSIClient(mockCtrl)
-			mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", "/mnt/ecs/ebs/taskarn_vol-12345").Return(tc.err).MinTimes(1).MaxTimes(5)
+			mockCsiClient.EXPECT().NodeUnstageVolume(gomock.Any(), "vol-12345", filepath.Join(taskresourcevolume.EBSSourcePrefix, "taskarn_vol-12345")).Return(tc.err).MinTimes(1).MaxTimes(5)
 
 			errors := mtask.UnstageVolumes(mockCsiClient)
 			assert.Len(t, errors, tc.numErrors)
