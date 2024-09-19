@@ -41,6 +41,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/cihub/seelog"
+	"github.com/didip/tollbooth"
+	"github.com/didip/tollbooth/limiter"
 	"github.com/gorilla/mux"
 )
 
@@ -207,48 +209,55 @@ func registerFaultHandlers(
 	}
 
 	// Setting up handler endpoints for network blackhole port fault injections
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		handler.StartNetworkBlackholePort(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkBlackholePort()),
 	).Methods("PUT")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		handler.StopNetworkBlackHolePort(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkBlackHolePort()),
 	).Methods("DELETE")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
-		handler.CheckNetworkBlackHolePort(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkBlackHolePort()),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network latency fault injections
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		handler.StartNetworkLatency(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkLatency()),
 	).Methods("PUT")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		handler.StopNetworkLatency(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkLatency()),
 	).Methods("DELETE")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType),
-		handler.CheckNetworkLatency(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkLatency()),
 	).Methods("GET")
 
 	// Setting up handler endpoints for network packet loss fault injections
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.StartNetworkPacketLoss(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkPacketLoss()),
 	).Methods("PUT")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.StopNetworkPacketLoss(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkPacketLoss()),
 	).Methods("DELETE")
-	muxRouter.HandleFunc(
+	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
-		handler.CheckNetworkPacketLoss(),
+		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkPacketLoss()),
 	).Methods("GET")
 
 	seelog.Debug("Successfully set up Fault TMDS handlers")
+}
+
+// Creates a tollbooth ratelimiter for the Fault Handler APIs
+func createRateLimiter() *limiter.Limiter {
+	lmt := tollbooth.NewLimiter(0.2, nil)
+	lmt.SetMessage("You have reached maximum request limit")
+	return lmt
 }
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, IAM Role Credentials, and Agent APIs
