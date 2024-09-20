@@ -1,4 +1,4 @@
-# Amazon ECS Container Agent
+# Amazon ECS Container Agent (dummy)
 
 ![Amazon ECS logo](doc/ecs.png "Amazon ECS")
 
