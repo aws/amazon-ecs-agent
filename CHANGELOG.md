@@ -1,4 +1,12 @@
 # Changelog
+
+# 1.87.0
+* Feature - Add support for EBS Task Attach on Windows. [#4353](https://github.com/aws/amazon-ecs-agent/pull/4353)
+* Enhancement - Validate ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME is a valid interface name. [#4275](https://github.com/aws/amazon-ecs-agent/pull/4275)
+* Enhancement - add a warning to ecs-init when it doesnt detect GPU devices and moves on. [#4338](https://github.com/aws/amazon-ecs-agent/pull/4338)
+* Enhancement - Add resources to the log message "Resources not consumed, enough resources not available". [#4328](https://github.com/aws/amazon-ecs-agent/pull/4328)
+* Bugfix - Add read lock to task object String method. [#4288](https://github.com/aws/amazon-ecs-agent/pull/4288)
+
 # 1.86.3
 * Bugfix: AWSVPC task containers' transition to MANIFEST_PULLED state should depend on the network pause container reaching RESOURCES_PROVISIONED state. [#4286](https://github.com/aws/amazon-ecs-agent/pull/4286)
 * Enhancement: Update manifest pull retry strategy so that first few retries are quicker to help setups on which image repository calls depend on network pause container being initialized [#4289](https://github.com/aws/amazon-ecs-agent/pull/4289)
