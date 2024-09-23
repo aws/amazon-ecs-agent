@@ -23,6 +23,8 @@ import (
 type NetLink interface {
 	LinkByName(name string) (netlink.Link, error)
 	LinkSetUp(link netlink.Link) error
+	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
+	LinkByIndex(index int) (netlink.Link, error)
 }
 
 type netLink struct{}
@@ -37,4 +39,14 @@ func (nl *netLink) LinkByName(name string) (netlink.Link, error) {
 
 func (nl *netLink) LinkSetUp(link netlink.Link) error {
 	return netlink.LinkSetUp(link)
+}
+
+// RouteList gets a list of routes in the system. Equivalent to: `ip route show`.
+// The list can be filtered by link and ip family.
+func (nl *netLink) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
+	return netlink.RouteList(link, family)
+}
+
+func (nl *netLink) LinkByIndex(index int) (netlink.Link, error) {
+	return netlink.LinkByIndex(index)
 }
