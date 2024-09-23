@@ -109,6 +109,8 @@ type AgentState interface {
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
 	GetTaskMetadataWithTags(endpointContainerID string) (TaskResponse, error)
 
+	GetTaskMetadataWithTaskNetworkConfig(endpointContainerID string) (TaskResponse, error)
+
 	// Returns container stats in v4 format for the container identified by the provided
 	// endpointContainerID.
 	// Returns ErrorStatsLookupFailure if container lookup fails.

@@ -933,7 +933,7 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
 	var taskMetadata state.TaskResponse
 	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
-	taskMetadata, err := agentState.GetTaskMetadata(endpointContainerID)
+	taskMetadata, err := agentState.GetTaskMetadataWithTaskNetworkConfig(endpointContainerID)
 	if err != nil {
 		code, errResponse := getTaskMetadataErrorResponse(endpointContainerID, requestType, err)
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", errResponse))

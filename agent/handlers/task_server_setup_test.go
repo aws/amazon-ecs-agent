@@ -4016,7 +4016,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 				tc.setStateExpectations(state)
 			}
 			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
-			actualTaskResponse, err := tmdsAgentState.GetTaskMetadata(v3EndpointID)
+			actualTaskResponse, err := tmdsAgentState.GetTaskMetadataWithTaskNetworkConfig(v3EndpointID)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedTaskNetworkConfig, actualTaskResponse.TaskNetworkConfig)
