@@ -67,4 +67,6 @@ const (
 	Request                 = "request"
 	RoleType                = "roleType"
 	RoleARN                 = "roleARN"
+	CommandString           = "commandString"
+	CommandOutput           = "commandOutput"
 )
