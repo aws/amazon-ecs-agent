@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -56,6 +57,7 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 	"github.com/gorilla/mux"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -65,6 +67,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -3948,6 +3951,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 	tcs := []struct {
 		name                      string
 		setStateExpectations      func(state *mock_dockerstate.MockTaskEngineState)
+		setNetlinkExpectations    func(netlinkClient *mock_netlinkwrapper.MockNetLink)
 		expectedTaskNetworkConfig *v4.TaskNetworkConfig
 	}{
 		{
@@ -3985,6 +3989,26 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
+			setNetlinkExpectations: func(netlinkClient *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{
+					netlink.Route{
+						Gw:        net.ParseIP("10.194.20.1"),
+						Dst:       nil,
+						LinkIndex: 0,
+					},
+				}
+
+				link := &netlink.Device{
+					LinkAttrs: netlink.LinkAttrs{
+						Index: 0,
+						Name:  "eth0",
+					},
+				}
+				gomock.InOrder(
+					netlinkClient.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, nil).AnyTimes(),
+					netlinkClient.EXPECT().LinkByIndex(link.Attrs().Index).Return(link, nil).AnyTimes(),
+				)
+			},
 			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname),
 		},
 		{
@@ -4012,11 +4036,17 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
+			mock_netlinkClient := mock_netlinkwrapper.NewMockNetLink(ctrl)
+
 			if tc.setStateExpectations != nil {
 				tc.setStateExpectations(state)
 			}
+
+			if tc.setNetlinkExpectations != nil {
+				tc.setNetlinkExpectations(mock_netlinkClient)
+			}
 			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
-			actualTaskResponse, err := tmdsAgentState.GetTaskMetadataWithTaskNetworkConfig(v3EndpointID)
+			actualTaskResponse, err := tmdsAgentState.GetTaskMetadataWithTaskNetworkConfig(v3EndpointID, mock_netlinkClient)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedTaskNetworkConfig, actualTaskResponse.TaskNetworkConfig)

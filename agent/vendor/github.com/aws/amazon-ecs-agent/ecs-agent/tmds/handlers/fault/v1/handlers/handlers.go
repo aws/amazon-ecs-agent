@@ -35,6 +35,7 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/gorilla/mux"
@@ -74,6 +75,7 @@ type FaultHandler struct {
 	AgentState     state.AgentState
 	MetricsFactory metrics.EntryFactory
 	osExecWrapper  execwrapper.Exec
+	netlinkClient  netlinkwrapper.NetLink
 }
 
 func New(agentState state.AgentState, mf metrics.EntryFactory, execWrapper execwrapper.Exec) *FaultHandler {
@@ -82,6 +84,7 @@ func New(agentState state.AgentState, mf metrics.EntryFactory, execWrapper execw
 		MetricsFactory: mf,
 		mutexMap:       sync.Map{},
 		osExecWrapper:  execWrapper,
+		netlinkClient:  netlinkwrapper.New(),
 	}
 }
 
@@ -116,7 +119,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -262,7 +265,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		})
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -410,7 +413,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		})
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -525,7 +528,7 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -572,7 +575,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -619,7 +622,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -665,7 +668,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -744,7 +747,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 		}
 
 		// Obtain the task metadata via the endpoint container ID
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -824,7 +827,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 		}
 
 		// Obtain the task metadata via the endpoint container ID.
-		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r, h.netlinkClient)
 		if err != nil {
 			return
 		}
@@ -930,10 +933,10 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 
 // validateTaskMetadata will first fetch the associated task metadata and then validate it to make sure
 // the task has enabled fault injection and the corresponding network mode is supported.
-func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
+func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request, netlinkClient netlinkwrapper.NetLink) (*state.TaskResponse, error) {
 	var taskMetadata state.TaskResponse
 	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
-	taskMetadata, err := agentState.GetTaskMetadataWithTaskNetworkConfig(endpointContainerID)
+	taskMetadata, err := agentState.GetTaskMetadataWithTaskNetworkConfig(endpointContainerID, netlinkClient)
 	if err != nil {
 		code, errResponse := getTaskMetadataErrorResponse(endpointContainerID, requestType, err)
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", errResponse))

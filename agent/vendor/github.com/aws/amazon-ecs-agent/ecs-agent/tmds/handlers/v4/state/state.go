@@ -13,7 +13,11 @@
 
 package state
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
+)
 
 // Error to be returned when container or task lookup failed
 type ErrorLookupFailure struct {
@@ -109,7 +113,7 @@ type AgentState interface {
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
 	GetTaskMetadataWithTags(endpointContainerID string) (TaskResponse, error)
 
-	GetTaskMetadataWithTaskNetworkConfig(endpointContainerID string) (TaskResponse, error)
+	GetTaskMetadataWithTaskNetworkConfig(endpointContainerID string, netlinkClient netlinkwrapper.NetLink) (TaskResponse, error)
 
 	// Returns container stats in v4 format for the container identified by the provided
 	// endpointContainerID.

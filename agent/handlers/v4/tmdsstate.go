@@ -21,6 +21,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 )
 
 const (
@@ -100,8 +102,27 @@ func (s *TMDSAgentState) GetTaskMetadataWithTags(v3EndpointID string) (tmdsv4.Ta
 	return s.getTaskMetadata(v3EndpointID, true, false)
 }
 
-func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID string) (tmdsv4.TaskResponse, error) {
-	return s.getTaskMetadata(v3EndpointID, false, true)
+func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID string, netlinkClient netlinkwrapper.NetLink) (tmdsv4.TaskResponse, error) {
+	taskResponse, err := s.getTaskMetadata(v3EndpointID, false, true)
+	if err == nil {
+		if taskResponse.TaskNetworkConfig.NetworkMode == "host" && taskResponse.TaskNetworkConfig != nil {
+			taskARN := taskResponse.TaskARN
+			deviceName, err := netconfig.DefaultNetInterfaceName(netlinkClient)
+			if err != nil {
+				logger.Warn("Unable to obtain default network interface name on host for task.", logger.Fields{
+					field.TaskARN: taskARN,
+					field.Error:   err,
+				})
+			} else {
+				logger.Info("Obtained default network interface name on host for task", logger.Fields{
+					field.TaskARN:          taskARN,
+					"defaultInterfaceName": deviceName,
+				})
+				taskResponse.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName = deviceName
+			}
+		}
+	}
+	return taskResponse, err
 }
 
 // Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
@@ -159,18 +180,16 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags, inclu
 			NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 	}
 
+	taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
 	if includeTaskNetworkConfig {
-		taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
 		var taskNetworkConfig *tmdsv4.TaskNetworkConfig
 		if task.IsNetworkModeHost() {
 			// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
 			// and so we will set this to an arbitrary value such as "host".
-			// TODO: Will need to find/obtain the interface name of the default network interface on the host instance
 			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
 		} else {
 			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
 		}
-
 		taskResponse.TaskNetworkConfig = taskNetworkConfig
 	}
 
