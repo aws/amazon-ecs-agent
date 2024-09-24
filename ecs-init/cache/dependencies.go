@@ -21,10 +21,12 @@ package cache
 //go:generate mockgen.sh cache $GOFILE
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -137,14 +139,14 @@ type fileSizeInfo interface {
 }
 
 type instanceMetadata interface {
-	Region() (string, error)
+	GetRegion(ctx context.Context, input *imds.GetRegionInput, opts ...func(*imds.Options)) (*imds.GetRegionOutput, error)
 }
 
 type blackholeInstanceMetadata struct {
 }
 
-func (b *blackholeInstanceMetadata) Region() (string, error) {
-	return "", errors.New("blackholed")
+func (b *blackholeInstanceMetadata) GetRegion(ctx context.Context, input *imds.GetRegionInput, opts ...func(*imds.Options)) (*imds.GetRegionOutput, error) {
+	return nil, errors.New("blackholed")
 }
 
 // standardFS delegates to the package-level functions
