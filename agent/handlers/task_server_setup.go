@@ -210,45 +210,45 @@ func registerFaultHandlers(
 
 	// Setting up handler endpoints for network blackhole port fault injections
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StartNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkBlackholePort()),
-	).Methods("PUT")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StopNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkBlackHolePort()),
-	).Methods("DELETE")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType),
+		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.CheckNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkBlackHolePort()),
-	).Methods("GET")
+	).Methods("POST")
 
 	// Setting up handler endpoints for network latency fault injections
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkLatency()),
-	).Methods("PUT")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StopNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkLatency()),
-	).Methods("DELETE")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.LatencyFaultType),
+		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.CheckNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkLatency()),
-	).Methods("GET")
+	).Methods("POST")
 
 	// Setting up handler endpoints for network packet loss fault injections
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StartNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkPacketLoss()),
-	).Methods("PUT")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StopNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkPacketLoss()),
-	).Methods("DELETE")
+	).Methods("POST")
 	muxRouter.Handle(
-		fault.NetworkFaultPath(faulttype.PacketLossFaultType),
+		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix),
 		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkPacketLoss()),
-	).Methods("GET")
+	).Methods("POST")
 
 	seelog.Debug("Successfully set up Fault TMDS handlers")
 }
