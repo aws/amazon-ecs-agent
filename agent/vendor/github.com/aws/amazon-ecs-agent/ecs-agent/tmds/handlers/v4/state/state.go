@@ -13,7 +13,11 @@
 
 package state
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
+)
 
 // Error to be returned when container or task lookup failed
 type ErrorLookupFailure struct {
@@ -108,6 +112,12 @@ type AgentState interface {
 	// Returns ErrorTaskLookupFailed if task lookup fails.
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
 	GetTaskMetadataWithTags(endpointContainerID string) (TaskResponse, error)
+
+	// Returns task metadata including the task network configuration (if applicable) in v4 format
+	// for the task identified by the provided endpointContainerID.
+	// Returns ErrorTaskLookupFailed if task lookup fails.
+	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	GetTaskMetadataWithTaskNetworkConfig(endpointContainerID string, networkConfigClient *netconfig.NetworkConfigClient) (TaskResponse, error)
 
 	// Returns container stats in v4 format for the container identified by the provided
 	// endpointContainerID.

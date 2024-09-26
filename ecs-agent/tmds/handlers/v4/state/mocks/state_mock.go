@@ -22,6 +22,7 @@ import (
 	reflect "reflect"
 
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	netconfig "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -106,6 +107,21 @@ func (m *MockAgentState) GetTaskMetadataWithTags(arg0 string) (state.TaskRespons
 func (mr *MockAgentStateMockRecorder) GetTaskMetadataWithTags(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskMetadataWithTags", reflect.TypeOf((*MockAgentState)(nil).GetTaskMetadataWithTags), arg0)
+}
+
+// GetTaskMetadataWithTaskNetworkConfig mocks base method.
+func (m *MockAgentState) GetTaskMetadataWithTaskNetworkConfig(arg0 string, arg1 *netconfig.NetworkConfigClient) (state.TaskResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTaskMetadataWithTaskNetworkConfig", arg0, arg1)
+	ret0, _ := ret[0].(state.TaskResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTaskMetadataWithTaskNetworkConfig indicates an expected call of GetTaskMetadataWithTaskNetworkConfig.
+func (mr *MockAgentStateMockRecorder) GetTaskMetadataWithTaskNetworkConfig(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskMetadataWithTaskNetworkConfig", reflect.TypeOf((*MockAgentState)(nil).GetTaskMetadataWithTaskNetworkConfig), arg0, arg1)
 }
 
 // GetTaskStats mocks base method.
