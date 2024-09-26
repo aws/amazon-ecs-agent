@@ -34,9 +34,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
-	"github.com/aws/aws-sdk-go/aws"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 )
 
@@ -1030,7 +1031,7 @@ func validateRequest(w http.ResponseWriter, request types.NetworkFaultRequest, r
 func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, requestType string, r *http.Request) (*state.TaskResponse, error) {
 	var taskMetadata state.TaskResponse
 	endpointContainerID := mux.Vars(r)[v4.EndpointContainerIDMuxName]
-	taskMetadata, err := agentState.GetTaskMetadata(endpointContainerID)
+	taskMetadata, err := agentState.GetTaskMetadataWithTaskNetworkConfig(endpointContainerID, netconfig.NewNetworkConfigClient())
 	if err != nil {
 		code, errResponse := getTaskMetadataErrorResponse(endpointContainerID, requestType, err)
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("%v", errResponse))
