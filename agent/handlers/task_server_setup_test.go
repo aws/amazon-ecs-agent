@@ -458,9 +458,9 @@ var (
 		}},
 	})
 
-	agentStateExpectations = func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string) {
+	agentStateExpectations = func(state *mock_dockerstate.MockTaskEngineState, enableFaultInjection bool, networkMode string) {
 		task := standardTask()
-		task.FaultInjectionEnabled = faultInjectionEnabled
+		task.EnableFaultInjection = enableFaultInjection
 		task.NetworkMode = networkMode
 		task.NetworkNamespace = networkNamespace
 		task.DefaultIfname = defaultIfname
@@ -591,7 +591,7 @@ func expectedV4TaskResponse() v4.TaskResponse {
 	)
 }
 
-func expectedV4TaskNetworkConfig(faultInjectionEnabled bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
+func expectedV4TaskNetworkConfig(enableFaultInjection bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
 	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
 }
 
@@ -2094,7 +2094,7 @@ func TestV4TaskMetadata(t *testing.T) {
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path: v4BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
-				task.FaultInjectionEnabled = true
+				task.EnableFaultInjection = true
 				task.NetworkNamespace = networkNamespace
 				task.DefaultIfname = defaultIfname
 				gomock.InOrder(
@@ -2117,7 +2117,7 @@ func TestV4TaskMetadata(t *testing.T) {
 			path: v4BasePath + v3EndpointID + "/task",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				hostTask := standardHostTask()
-				hostTask.FaultInjectionEnabled = true
+				hostTask.EnableFaultInjection = true
 				hostTask.NetworkNamespace = networkNamespace
 				hostTask.DefaultIfname = defaultIfname
 				gomock.InOrder(
@@ -3734,9 +3734,9 @@ type networkFaultTestCase struct {
 	expectedStatusCode    int
 	requestBody           interface{}
 	expectedFaultResponse faulttype.NetworkFaultInjectionResponse
-	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState, faultInjectionEnabled bool, networkMode string)
+	setStateExpectations  func(state *mock_dockerstate.MockTaskEngineState, enableFaultInjection bool, networkMode string)
 	setExecExpectations   execExpectations
-	faultInjectionEnabled bool
+	enableFaultInjection  bool
 	networkMode           string
 }
 
@@ -3751,7 +3751,7 @@ func generateCommonNetworkFaultInjectionTestCases(requestType, successResponse s
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(successResponse),
 			setStateExpectations:  agentStateExpectations,
 			setExecExpectations:   exec,
-			faultInjectionEnabled: true,
+			enableFaultInjection:  true,
 			networkMode:           apitask.HostNetworkMode,
 		},
 		{
@@ -3761,7 +3761,7 @@ func generateCommonNetworkFaultInjectionTestCases(requestType, successResponse s
 			expectedFaultResponse: faulttype.NewNetworkFaultInjectionSuccessResponse(successResponse),
 			setStateExpectations:  agentStateExpectations,
 			setExecExpectations:   exec,
-			faultInjectionEnabled: true,
+			enableFaultInjection:  true,
 			networkMode:           apitask.AWSVPCNetworkMode,
 		},
 	}
@@ -3928,7 +3928,7 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setStateExpectations != nil {
-				tc.setStateExpectations(state, tc.faultInjectionEnabled, tc.networkMode)
+				tc.setStateExpectations(state, tc.enableFaultInjection, tc.networkMode)
 			}
 
 			if tc.setExecExpectations != nil {
@@ -3997,7 +3997,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			name: "happy case with awsvpc mode",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				task := standardTask()
-				task.FaultInjectionEnabled = true
+				task.EnableFaultInjection = true
 				task.NetworkNamespace = networkNamespace
 				task.DefaultIfname = defaultIfname
 				gomock.InOrder(
@@ -4016,7 +4016,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			name: "happy case with host mode",
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				hostTask := standardHostTask()
-				hostTask.FaultInjectionEnabled = true
+				hostTask.EnableFaultInjection = true
 				hostTask.NetworkNamespace = networkNamespace
 				hostTask.DefaultIfname = defaultIfname
 				gomock.InOrder(
