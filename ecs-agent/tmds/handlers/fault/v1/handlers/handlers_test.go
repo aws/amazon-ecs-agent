@@ -131,22 +131,28 @@ type networkFaultInjectionTestCase struct {
 
 // Tests the path for Fault Network Faults API
 func TestFaultBlackholeFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port", NetworkFaultPath(types.BlackHolePortFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port/start", NetworkFaultPath(types.BlackHolePortFaultType, types.StartNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port/stop", NetworkFaultPath(types.BlackHolePortFaultType, types.StopNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-blackhole-port/status", NetworkFaultPath(types.BlackHolePortFaultType, types.CheckNetworkFaultPostfix))
 }
 
 func TestFaultLatencyFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency", NetworkFaultPath(types.LatencyFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/start", NetworkFaultPath(types.LatencyFaultType, types.StartNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/stop", NetworkFaultPath(types.LatencyFaultType, types.StopNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/status", NetworkFaultPath(types.LatencyFaultType, types.CheckNetworkFaultPostfix))
 }
 
 func TestFaultPacketLossFaultPath(t *testing.T) {
-	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss", NetworkFaultPath(types.PacketLossFaultType))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/start", NetworkFaultPath(types.PacketLossFaultType, types.StartNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/stop", NetworkFaultPath(types.PacketLossFaultType, types.StopNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/status", NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
 }
 
 // testNetworkFaultInjectionCommon will be used by unit tests for all 9 fault injection Network Fault APIs.
 // Unit tests for all 9 APIs interact with the TMDS server and share similar logic.
 // Thus, use a shared base method to reduce duplicated code.
 func testNetworkFaultInjectionCommon(t *testing.T,
-	tcs []networkFaultInjectionTestCase, faultType string, httpMethod string) {
+	tcs []networkFaultInjectionTestCase, tmdsEndpoint string) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Mocks
@@ -168,51 +174,42 @@ func testNetworkFaultInjectionCommon(t *testing.T,
 
 			var handleMethod func(http.ResponseWriter, *http.Request)
 			var tmdsAPI string
-			switch faultType {
-			case types.BlackHolePortFaultType:
-				tmdsAPI = "/api/%s/fault/v1/network-blackhole-port"
-				switch httpMethod {
-				case http.MethodPut:
-					handleMethod = handler.StartNetworkBlackholePort()
-				case http.MethodDelete:
-					handleMethod = handler.StopNetworkBlackHolePort()
-				case http.MethodGet:
-					handleMethod = handler.CheckNetworkBlackHolePort()
-				default:
-					t.Error("Unrecognized HTTP method")
-				}
-			case types.LatencyFaultType:
-				tmdsAPI = "/api/%s/fault/v1/network-latency"
-				switch httpMethod {
-				case http.MethodPut:
-					handleMethod = handler.StartNetworkLatency()
-				case http.MethodDelete:
-					handleMethod = handler.StopNetworkLatency()
-				case http.MethodGet:
-					handleMethod = handler.CheckNetworkLatency()
-				default:
-					t.Error("Unrecognized HTTP method")
-				}
-			case types.PacketLossFaultType:
-				tmdsAPI = "/api/%s/fault/v1/network-packet-loss"
-				switch httpMethod {
-				case http.MethodPut:
-					handleMethod = handler.StartNetworkPacketLoss()
-				case http.MethodDelete:
-					handleMethod = handler.StopNetworkPacketLoss()
-				case http.MethodGet:
-					handleMethod = handler.CheckNetworkPacketLoss()
-				default:
-					t.Error("Unrecognized HTTP method")
-				}
+			switch tmdsEndpoint {
+			case NetworkFaultPath(types.BlackHolePortFaultType, types.StartNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-blackhole-port/start"
+				handleMethod = handler.StartNetworkBlackholePort()
+			case NetworkFaultPath(types.BlackHolePortFaultType, types.StopNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-blackhole-port/stop"
+				handleMethod = handler.StopNetworkBlackHolePort()
+			case NetworkFaultPath(types.BlackHolePortFaultType, types.CheckNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-blackhole-port/status"
+				handleMethod = handler.CheckNetworkBlackHolePort()
+			case NetworkFaultPath(types.LatencyFaultType, types.StartNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-latency/start"
+				handleMethod = handler.StartNetworkLatency()
+			case NetworkFaultPath(types.LatencyFaultType, types.StopNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-latency/stop"
+				handleMethod = handler.StopNetworkLatency()
+			case NetworkFaultPath(types.LatencyFaultType, types.CheckNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-latency/status"
+				handleMethod = handler.CheckNetworkLatency()
+			case NetworkFaultPath(types.PacketLossFaultType, types.StartNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/start"
+				handleMethod = handler.StartNetworkPacketLoss()
+			case NetworkFaultPath(types.PacketLossFaultType, types.StopNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/stop"
+				handleMethod = handler.StopNetworkPacketLoss()
+			case NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/status"
+				handleMethod = handler.CheckNetworkPacketLoss()
 			default:
-				t.Error("Unrecognized fault type")
+				t.Error("Unrecognized TMDS Endpoint")
 			}
 
 			router.HandleFunc(
-				NetworkFaultPath(faultType),
+				tmdsEndpoint,
 				handleMethod,
-			).Methods(httpMethod)
+			).Methods(http.MethodPost)
 
 			var requestBody io.Reader
 			if tc.requestBody != nil {
@@ -220,7 +217,7 @@ func testNetworkFaultInjectionCommon(t *testing.T,
 				require.NoError(t, err)
 				requestBody = bytes.NewReader(reqBodyBytes)
 			}
-			req, err := http.NewRequest(httpMethod, fmt.Sprintf(tmdsAPI, endpointId), requestBody)
+			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(tmdsAPI, endpointId), requestBody)
 			require.NoError(t, err)
 
 			// Send the request and record the response
@@ -892,17 +889,17 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 
 func TestStartNetworkBlackHolePort(t *testing.T) {
 	tcs := generateStartBlackHolePortFaultTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.BlackHolePortFaultType, http.MethodPut)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.BlackHolePortFaultType, types.StartNetworkFaultPostfix))
 }
 
 func TestStopNetworkBlackHolePort(t *testing.T) {
 	tcs := generateStopBlackHolePortFaultTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.BlackHolePortFaultType, http.MethodDelete)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.BlackHolePortFaultType, types.StopNetworkFaultPostfix))
 }
 
 func TestCheckNetworkBlackHolePort(t *testing.T) {
 	tcs := generateCheckBlackHolePortFaultStatusTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.BlackHolePortFaultType, http.MethodGet)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.BlackHolePortFaultType, types.CheckNetworkFaultPostfix))
 }
 
 func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []networkFaultInjectionTestCase {
@@ -1161,17 +1158,17 @@ func generateNetworkLatencyTestCases(name, expectedHappyResponseBody string) []n
 
 func TestStartNetworkLatency(t *testing.T) {
 	tcs := generateNetworkLatencyTestCases("start network latency", "running")
-	testNetworkFaultInjectionCommon(t, tcs, types.LatencyFaultType, http.MethodPut)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.LatencyFaultType, types.StartNetworkFaultPostfix))
 }
 
 func TestStopNetworkLatency(t *testing.T) {
 	tcs := generateNetworkLatencyTestCases("stop network latency", "stopped")
-	testNetworkFaultInjectionCommon(t, tcs, types.LatencyFaultType, http.MethodDelete)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.LatencyFaultType, types.StopNetworkFaultPostfix))
 }
 
 func TestCheckNetworkLatency(t *testing.T) {
 	tcs := generateNetworkLatencyTestCases("check network latency", "running")
-	testNetworkFaultInjectionCommon(t, tcs, types.LatencyFaultType, http.MethodGet)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.LatencyFaultType, types.CheckNetworkFaultPostfix))
 }
 
 func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjectionTestCase {
@@ -1676,15 +1673,15 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 
 func TestStartNetworkPacketLoss(t *testing.T) {
 	tcs := generateStartNetworkPacketLossTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.PacketLossFaultType, http.MethodPut)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.StartNetworkFaultPostfix))
 }
 
 func TestStopNetworkPacketLoss(t *testing.T) {
 	tcs := generateStopNetworkPacketLossTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.PacketLossFaultType, http.MethodDelete)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.StopNetworkFaultPostfix))
 }
 
 func TestCheckNetworkPacketLoss(t *testing.T) {
 	tcs := generateCheckNetworkPacketLossTestCases()
-	testNetworkFaultInjectionCommon(t, tcs, types.PacketLossFaultType, http.MethodGet)
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
 }

@@ -86,9 +86,9 @@ func New(agentState state.AgentState, mf metrics.EntryFactory, execWrapper execw
 }
 
 // NetworkFaultPath will take in a fault type and return the TMDS endpoint path
-func NetworkFaultPath(fault string) string {
-	return fmt.Sprintf("/api/%s/fault/v1/%s",
-		utils.ConstructMuxVar(v4.EndpointContainerIDMuxName, utils.AnythingButSlashRegEx), fault)
+func NetworkFaultPath(fault string, operationType string) string {
+	return fmt.Sprintf("/api/%s/fault/v1/%s/%s",
+		utils.ConstructMuxVar(v4.EndpointContainerIDMuxName, utils.AnythingButSlashRegEx), fault, operationType)
 }
 
 // loadLock returns the lock associated with given key.
