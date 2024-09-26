@@ -132,6 +132,12 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			loggerfield.DesiredStatus: apiTask.GetDesiredStatus(),
 		})
 
+		if apiTask.IsFaultInjectionEnabled() {
+			logger.Info("Fault Injection Enabled for task", logger.Fields{
+				loggerfield.TaskARN: apiTask.Arn,
+			})
+		}
+
 		if task.RoleCredentials != nil {
 			// The payload from ACS for the task has credentials for the
 			// task. Add those to the credentials manager and set the
