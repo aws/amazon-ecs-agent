@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build !linux
+// +build !linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -14,19 +14,15 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package netconfig
+package v4
 
-import "errors"
+import (
+	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
+)
 
-type NetworkConfigClient struct {
-}
-
-func NewNetworkConfigClient() *NetworkConfigClient {
-	return &NetworkConfigClient{}
-}
-
-// DefaultNetInterfaceName returns the device name of the first default network interface
-// available on the instance. This is only supported on linux as of now.
-func DefaultNetInterfaceName() (string, error) {
-	return "", errors.New("Not supported on windows")
+// Returns task metadata including the task network configuration in v4 format for the
+// task identified by the provided endpointContainerID.
+func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID string, networkConfigClient *netconfig.NetworkConfigClient) (tmdsv4.TaskResponse, error) {
+	return s.getTaskMetadata(v3EndpointID, false, true)
 }

@@ -71,12 +71,15 @@ github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging
 github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/mux
+github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig
 github.com/aws/amazon-ecs-agent/ecs-agent/utils
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
