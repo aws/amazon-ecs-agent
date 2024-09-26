@@ -299,8 +299,7 @@ type Task struct {
 
 	NetworkNamespace string `json:"NetworkNamespace,omitempty"`
 
-	// TODO: Will need to initialize/set the value in a follow PR
-	FaultInjectionEnabled bool `json:"FaultInjectionEnabled,omitempty"`
+	EnableFaultInjection bool `json:"enableFaultInjection,omitempty"`
 
 	// DefaultIfname is used to reference the default network interface name on the task network namespace
 	// For AWSVPC mode, it can be eth0 which corresponds to the interface name on the task ENI
@@ -321,6 +320,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
+
+	// Set the EnableFaultInjection field if present
+	task.EnableFaultInjection = aws.BoolValue(acsTask.EnableFaultInjection)
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
@@ -3771,7 +3773,7 @@ func (task *Task) IsFaultInjectionEnabled() bool {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.FaultInjectionEnabled
+	return task.EnableFaultInjection
 }
 
 func (task *Task) GetNetworkMode() string {
