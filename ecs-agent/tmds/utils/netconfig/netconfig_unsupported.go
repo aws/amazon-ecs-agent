@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build !linux && !windows
+// +build !linux,!windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -28,5 +28,5 @@ func NewNetworkConfigClient() *NetworkConfigClient {
 // DefaultNetInterfaceName returns the device name of the first default network interface
 // available on the instance. This is only supported on linux as of now.
 func DefaultNetInterfaceName() (string, error) {
-	return "", errors.New("Not supported on windows")
+	return "", errors.New("Not supported on unknown platform")
 }

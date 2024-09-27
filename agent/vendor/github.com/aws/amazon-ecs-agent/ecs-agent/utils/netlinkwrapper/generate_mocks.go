@@ -1,6 +1,3 @@
-//go:build windows
-// +build windows
-
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -14,19 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package netconfig
+package netlinkwrapper
 
-import "errors"
-
-type NetworkConfigClient struct {
-}
-
-func NewNetworkConfigClient() *NetworkConfigClient {
-	return &NetworkConfigClient{}
-}
-
-// DefaultNetInterfaceName returns the device name of the first default network interface
-// available on the instance. This is only supported on linux as of now.
-func DefaultNetInterfaceName() (string, error) {
-	return "", errors.New("Not supported on windows")
-}
+//go:generate mockgen -destination=mocks/netlinkwrapper_mocks_linux.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper NetLink
