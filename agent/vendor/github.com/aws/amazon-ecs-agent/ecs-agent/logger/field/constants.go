@@ -69,4 +69,5 @@ const (
 	RoleARN                 = "roleARN"
 	CommandString           = "commandString"
 	CommandOutput           = "commandOutput"
+	RegistryID              = "registryID"
 )

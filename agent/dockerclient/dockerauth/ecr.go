@@ -24,6 +24,8 @@ import (
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
@@ -35,6 +37,7 @@ type cacheKey struct {
 	roleARN          string
 	registryID       string
 	endpointOverride string
+	credentialsID    string
 }
 
 type ecrAuthProvider struct {
@@ -52,7 +55,8 @@ const (
 
 // String formats the cachKey as a string
 func (key *cacheKey) String() string {
-	return fmt.Sprintf("%s-%s-%s-%s", key.roleARN, key.region, key.registryID, key.endpointOverride)
+	return fmt.Sprintf("%s%s-%s-%s-%s",
+		key.credentialsID, key.roleARN, key.region, key.registryID, key.endpointOverride)
 }
 
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
@@ -91,6 +95,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	// containers pull with the same role can be cached
 	if authData.GetPullCredentials() != (credentials.IAMRoleCredentials{}) {
 		key.roleARN = authData.GetPullCredentials().RoleArn
+		key.credentialsID = authData.GetPullCredentials().CredentialsID
 	}
 
 	// Try to get the auth config from cache
@@ -140,7 +145,14 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		return types.AuthConfig{}, err
 	}
 
-	log.Debugf("Calling ECR.GetAuthorizationToken for %s", image)
+	logger.Debug("Calling ECR.GetAuthorizationToken", logger.Fields{
+		field.Image:         image,
+		field.CredentialsID: key.credentialsID,
+		field.RegistryID:    key.registryID,
+		field.RoleARN:       key.roleARN,
+		"endpointOverride":  key.endpointOverride,
+		"region":            key.region,
+	})
 	ecrAuthData, err := client.GetAuthorizationToken(authData.RegistryID)
 	if err != nil {
 		return types.AuthConfig{}, err
