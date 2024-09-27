@@ -119,18 +119,19 @@ const (
 	hostNetworkNamespace       = "host"
 	defaultIfname              = "eth0"
 
-	port                           = 1234
-	protocol                       = "tcp"
-	trafficType                    = "ingress"
-	delayMilliseconds              = 123456789
-	jitterMilliseconds             = 4567
-	lossPercent                    = 6
-	invalidNetworkMode             = "invalid"
-	iptablesChainNotFoundError     = "iptables: Bad rule (does a matching rule exist in that chain?)."
-	iptablesChainAlreadyExistError = "iptables: Chain already exists."
-	tcLossFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
-	tcCommandEmptyOutput           = `[]`
-	requestTimeoutDuration         = 5 * time.Second
+	port                              = 1234
+	protocol                          = "tcp"
+	trafficType                       = "ingress"
+	delayMilliseconds                 = 123456789
+	jitterMilliseconds                = 4567
+	lossPercent                       = 6
+	invalidNetworkMode                = "invalid"
+	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
+	iptablesChainAlreadyExistError    = "iptables: Chain already exists."
+	tcLossFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
+	tcCommandEmptyOutput              = `[]`
+	requestTimeoutDuration            = 5 * time.Second
 )
 
 var (
@@ -3841,27 +3842,44 @@ func TestRegisterCheckBlackholePortFaultHandler(t *testing.T) {
 }
 
 func TestRegisterStartLatencyFaultHandler(t *testing.T) {
-	// TODO: Will need to set the correct os/exec exectation calls once this is implemented
 	setExecExpectations := func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+		gomock.InOrder(
+			exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+		)
+		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
+		mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start latency", "running", setExecExpectations, happyNetworkLatencyReqBody)
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix))
 }
 
 func TestRegisterStopLatencyFaultHandler(t *testing.T) {
-	// TODO: Will need to set the correct os/exec exectation calls once this is implemented
 	setExecExpectations := func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+		gomock.InOrder(
+			exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("stop latency", "stopped", setExecExpectations, happyNetworkLatencyReqBody)
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StopNetworkFaultPostfix))
 }
 
 func TestRegisterCheckLatencyFaultHandler(t *testing.T) {
-	// TODO: Will need to set the correct os/exec exectation calls once this is implemented
 	setExecExpectations := func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+		gomock.InOrder(
+			exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("check latency", "running", setExecExpectations, happyNetworkLatencyReqBody)
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.CheckNetworkFaultPostfix))
