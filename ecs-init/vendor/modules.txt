@@ -12,10 +12,6 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20180829222009-86f2a9fac6c5
 ## explicit
 github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml
-# github.com/aws/aws-sdk-go v1.51.3
-## explicit; go 1.19
-github.com/aws/aws-sdk-go/aws/awserr
-github.com/aws/aws-sdk-go/aws/endpoints
 # github.com/aws/aws-sdk-go-v2 v1.31.0
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/aws
