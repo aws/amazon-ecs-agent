@@ -1115,12 +1115,29 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 func getTaskMetadataErrorResponse(endpointContainerID, requestType string, err error) (int, error) {
 	var errContainerLookupFailed *state.ErrorLookupFailure
 	if errors.As(err, &errContainerLookupFailed) {
-		return http.StatusNotFound, fmt.Errorf("unable to lookup container: %s", endpointContainerID)
+		logger.Error("Unable to lookup container", logger.Fields{
+			field.Error:                   errContainerLookupFailed.ExternalReason(),
+			field.TMDSEndpointContainerID: endpointContainerID,
+		})
+		return http.StatusNotFound, errors.New(errContainerLookupFailed.ExternalReason())
 	}
 
 	var errFailedToGetContainerMetadata *state.ErrorMetadataFetchFailure
 	if errors.As(err, &errFailedToGetContainerMetadata) {
-		return http.StatusInternalServerError, fmt.Errorf("unable to obtain container metadata for container: %s", endpointContainerID)
+		logger.Error("Unable to obtain container metadata for container", logger.Fields{
+			field.Error:                   errFailedToGetContainerMetadata.ExternalReason(),
+			field.TMDSEndpointContainerID: endpointContainerID,
+		})
+		return http.StatusInternalServerError, errors.New(errFailedToGetContainerMetadata.ExternalReason())
+	}
+
+	var errDefaultNetworkInterfaceName *state.ErrorDefaultNetworkInterfaceName
+	if errors.As(err, &errDefaultNetworkInterfaceName) {
+		logger.Error("Unable to obtain default network interface on host", logger.Fields{
+			field.Error:                   errDefaultNetworkInterfaceName.ExternalReason(),
+			field.TMDSEndpointContainerID: endpointContainerID,
+		})
+		return http.StatusInternalServerError, errors.New(errDefaultNetworkInterfaceName.ExternalReason())
 	}
 
 	logger.Error("Unknown error encountered when handling task metadata fetch failure", logger.Fields{
