@@ -565,6 +565,14 @@ func v4ContainerResponseFromV2(
 	}
 }
 
+// expectedV4TaskResponseWithFaultInjectionEnabled returns a standard v4 task response with
+// FaultInjection enabled.
+func expectedV4TaskResponseWithFaultInjectionEnabled() v4.TaskResponse {
+	taskResp := expectedV4TaskResponse()
+	taskResp.FaultInjectionEnabled = true
+	return taskResp
+}
+
 // Returns a standard v4 task response. This getter function protects against tests mutating
 // the response.
 func expectedV4TaskResponse() v4.TaskResponse {
@@ -593,6 +601,14 @@ func expectedV4TaskResponse() v4.TaskResponse {
 
 func expectedV4TaskNetworkConfig(enableFaultInjection bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
 	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
+}
+
+// expectedV4TaskResponseHostModeWithFaultInjectionEnabled returns a standard v4 task response with
+// FaultInjection enabled.
+func expectedV4TaskResponseHostModeWithFaultInjectionEnabled() v4.TaskResponse {
+	taskResp := expectedV4TaskResponseHostMode()
+	taskResp.FaultInjectionEnabled = true
+	return taskResp
 }
 
 func expectedV4TaskResponseHostMode() v4.TaskResponse {
@@ -709,9 +725,10 @@ func v4TaskResponseFromV2(
 ) v4.TaskResponse {
 	v2TaskResponse.Containers = nil
 	return v4.TaskResponse{
-		TaskResponse: &v2TaskResponse,
-		Containers:   containers,
-		VPCID:        vpcID,
+		TaskResponse:          &v2TaskResponse,
+		Containers:            containers,
+		VPCID:                 vpcID,
+		FaultInjectionEnabled: false,
 	}
 }
 
@@ -2108,7 +2125,7 @@ func TestV4TaskMetadata(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: expectedV4TaskResponse(),
+			expectedResponseBody: expectedV4TaskResponseWithFaultInjectionEnabled(),
 		})
 	})
 
@@ -2130,7 +2147,7 @@ func TestV4TaskMetadata(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: expectedV4TaskResponseHostMode(),
+			expectedResponseBody: expectedV4TaskResponseHostModeWithFaultInjectionEnabled(),
 		})
 	})
 
