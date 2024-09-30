@@ -543,6 +543,13 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 }
 
 func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+
+	// Check if the agent is running in EXTERNAL launch type
+	if agent.cfg.External.Enabled() {
+		seelog.Warn("Fault injection capability not enabled: EXTERNAL launch type detected")
+		return capabilities
+	}
+
 	if isFaultInjectionToolingAvailable() {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
 	} else {
