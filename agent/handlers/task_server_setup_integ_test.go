@@ -28,7 +28,7 @@ import (
 	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -56,7 +56,7 @@ func startServer(t *testing.T) (*http.Server, int) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
-	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	metricsFactory := metrics.NewNopEntryFactory()
 	execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 	registerFaultHandlers(router, agentState, metricsFactory, execWrapper)

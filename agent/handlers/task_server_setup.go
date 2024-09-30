@@ -211,43 +211,115 @@ func registerFaultHandlers(
 	// Setting up handler endpoints for network blackhole port fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StartNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkBlackholePort()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StartNetworkBlackholePort(),
+			),
+			metricsFactory,
+			faulttype.StartNetworkFaultPostfix,
+			faulttype.BlackHolePortFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StopNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkBlackHolePort()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StopNetworkBlackHolePort(),
+			),
+			metricsFactory,
+			faulttype.StopNetworkFaultPostfix,
+			faulttype.BlackHolePortFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.CheckNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkBlackHolePort()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.CheckNetworkBlackHolePort(),
+			),
+			metricsFactory,
+			faulttype.CheckNetworkFaultPostfix,
+			faulttype.BlackHolePortFaultType,
+		),
 	).Methods("POST")
 
 	// Setting up handler endpoints for network latency fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkLatency()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StartNetworkLatency(),
+			),
+			metricsFactory,
+			faulttype.StartNetworkFaultPostfix,
+			faulttype.LatencyFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StopNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkLatency()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StopNetworkLatency(),
+			),
+			metricsFactory,
+			faulttype.StopNetworkFaultPostfix,
+			faulttype.LatencyFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.CheckNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkLatency()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.CheckNetworkLatency(),
+			),
+			metricsFactory,
+			faulttype.CheckNetworkFaultPostfix,
+			faulttype.LatencyFaultType,
+		),
 	).Methods("POST")
 
 	// Setting up handler endpoints for network packet loss fault injections
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StartNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StartNetworkPacketLoss()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StartNetworkPacketLoss(),
+			),
+			metricsFactory,
+			faulttype.StartNetworkFaultPostfix,
+			faulttype.PacketLossFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StopNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.StopNetworkPacketLoss()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.StopNetworkPacketLoss(),
+			),
+			metricsFactory,
+			faulttype.StopNetworkFaultPostfix,
+			faulttype.PacketLossFaultType,
+		),
 	).Methods("POST")
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix),
-		tollbooth.LimitFuncHandler(createRateLimiter(), handler.CheckNetworkPacketLoss()),
+		fault.TelemetryMiddleware(
+			tollbooth.LimitFuncHandler(
+				createRateLimiter(),
+				handler.CheckNetworkPacketLoss(),
+			),
+			metricsFactory,
+			faulttype.CheckNetworkFaultPostfix,
+			faulttype.PacketLossFaultType,
+		),
 	).Methods("POST")
 
 	seelog.Debug("Successfully set up Fault TMDS handlers")
