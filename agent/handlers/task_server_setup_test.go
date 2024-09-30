@@ -132,6 +132,7 @@ const (
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
 	tcCommandEmptyOutput              = `[]`
 	requestTimeoutDuration            = 5 * time.Second
+	durationMetricPrefix              = "MetadataServer.%s%sDuration"
 )
 
 var (
@@ -3808,7 +3809,7 @@ func TestRegisterStartBlackholePortFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start blackhole port", "running", setExecExpectations, happyBlackHolePortReqBody)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StartNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StartNetworkFaultPostfix), faulttype.StartNetworkFaultPostfix, faulttype.BlackHolePortFaultType)
 }
 
 func TestRegisterStopBlackholePortFaultHandler(t *testing.T) {
@@ -3828,7 +3829,7 @@ func TestRegisterStopBlackholePortFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("stop blackhole port", "stopped", setExecExpectations, happyBlackHolePortReqBody)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StopNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.StopNetworkFaultPostfix), faulttype.StopNetworkFaultPostfix, faulttype.BlackHolePortFaultType)
 }
 
 func TestRegisterCheckBlackholePortFaultHandler(t *testing.T) {
@@ -3842,7 +3843,7 @@ func TestRegisterCheckBlackholePortFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("check blackhole port", "running", setExecExpectations, happyBlackHolePortReqBody)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.CheckNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.BlackHolePortFaultType, faulttype.CheckNetworkFaultPostfix), faulttype.CheckNetworkFaultPostfix, faulttype.BlackHolePortFaultType)
 }
 
 func TestRegisterStartLatencyFaultHandler(t *testing.T) {
@@ -3858,7 +3859,7 @@ func TestRegisterStartLatencyFaultHandler(t *testing.T) {
 		mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start latency", "running", setExecExpectations, happyNetworkLatencyReqBody)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix), faulttype.StartNetworkFaultPostfix, faulttype.LatencyFaultType)
 }
 
 func TestRegisterStopLatencyFaultHandler(t *testing.T) {
@@ -3872,7 +3873,7 @@ func TestRegisterStopLatencyFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("stop latency", "stopped", setExecExpectations, nil)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StopNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StopNetworkFaultPostfix), faulttype.StopNetworkFaultPostfix, faulttype.LatencyFaultType)
 }
 
 func TestRegisterCheckLatencyFaultHandler(t *testing.T) {
@@ -3886,7 +3887,7 @@ func TestRegisterCheckLatencyFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("check latency", "running", setExecExpectations, nil)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.CheckNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.CheckNetworkFaultPostfix), faulttype.CheckNetworkFaultPostfix, faulttype.LatencyFaultType)
 }
 
 func TestRegisterStartPacketLossFaultHandler(t *testing.T) {
@@ -3902,7 +3903,7 @@ func TestRegisterStartPacketLossFaultHandler(t *testing.T) {
 		mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start packet loss", "running", setExecExpectations, happyNetworkPacketLossReqBody)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StartNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StartNetworkFaultPostfix), faulttype.StartNetworkFaultPostfix, faulttype.PacketLossFaultType)
 }
 
 func TestRegisterStopPacketLossFaultHandler(t *testing.T) {
@@ -3916,7 +3917,7 @@ func TestRegisterStopPacketLossFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("stop packet loss", "stopped", setExecExpectations, nil)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StopNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StopNetworkFaultPostfix), faulttype.StopNetworkFaultPostfix, faulttype.PacketLossFaultType)
 }
 
 func TestRegisterCheckPacketLossFaultHandler(t *testing.T) {
@@ -3930,10 +3931,10 @@ func TestRegisterCheckPacketLossFaultHandler(t *testing.T) {
 		)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("check packet loss", "running", setExecExpectations, nil)
-	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix))
+	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix), faulttype.CheckNetworkFaultPostfix, faulttype.PacketLossFaultType)
 }
 
-func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndpoint string) {
+func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndpoint, faultOperation, faultType string) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Mocks
@@ -3946,6 +3947,13 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 
 			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+			durationMetricEntry := mock_metrics.NewMockEntry(ctrl)
+			gomock.InOrder(
+				metricsFactory.EXPECT().New(fmt.Sprintf(durationMetricPrefix, faultOperation, faultType)).Return(durationMetricEntry).Times(1),
+				durationMetricEntry.EXPECT().WithFields(gomock.Any()).Return(durationMetricEntry).Times(1),
+				durationMetricEntry.EXPECT().WithGauge(gomock.Any()).Return(durationMetricEntry).Times(1),
+				durationMetricEntry.EXPECT().Done(nil).Times(1),
+			)
 			execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 			if tc.setStateExpectations != nil {
