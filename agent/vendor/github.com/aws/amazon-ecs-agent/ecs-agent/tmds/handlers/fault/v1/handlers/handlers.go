@@ -719,6 +719,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
 			httpStatusCode = http.StatusInternalServerError
 		} else {
+			stringToBeLogged = "Successfully checked fault status"
 			// If there already exists a fault in the task network namespace.
 			if latencyFaultExists {
 				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
@@ -950,6 +951,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
 			httpStatusCode = http.StatusInternalServerError
 		} else {
+			stringToBeLogged = "Successfully checked fault status"
 			// If there already exists a fault in the task network namespace.
 			if packetLossFaultExists {
 				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
