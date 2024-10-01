@@ -110,14 +110,18 @@ var (
 		"DelayMilliseconds":  delayMilliseconds,
 		"JitterMilliseconds": jitterMilliseconds,
 		"Sources":            ipSources,
+		"SourcesToFilter":    ipSourcesToFilter,
 	}
 
 	happyNetworkPacketLossReqBody = map[string]interface{}{
-		"LossPercent": lossPercent,
-		"Sources":     ipSources,
+		"LossPercent":     lossPercent,
+		"Sources":         ipSources,
+		"SourcesToFilter": ipSourcesToFilter,
 	}
 
 	ipSources = []string{"52.95.154.1", "52.95.154.2"}
+
+	ipSourcesToFilter = []string{"8.8.8.8"}
 
 	startNetworkBlackHolePortTestPrefix = fmt.Sprintf(startFaultRequestType, types.BlackHolePortFaultType)
 	stopNetworkBlackHolePortTestPrefix  = fmt.Sprintf(stopFaultRequestType, types.BlackHolePortFaultType)
@@ -917,12 +921,22 @@ func TestCheckNetworkBlackHolePort(t *testing.T) {
 func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionTestCase {
 	tcs := []networkFaultInjectionTestCase{
 		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
 			name:               fmt.Sprintf("%s malformed request body 1", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
 				"DelayMilliseconds":  "incorrect-field",
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            ipSources,
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.DelayMilliseconds of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -936,8 +950,23 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            "",
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.Sources of type []*string"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            ipSources,
+				"SourcesToFilter":    "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkLatencyRequest.SourcesToFilter of type []*string"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
 			},
@@ -949,6 +978,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            []string{},
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -961,6 +991,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			requestBody: map[string]interface{}{
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -973,6 +1004,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			requestBody: map[string]interface{}{
 				"DelayMilliseconds": delayMilliseconds,
 				"Sources":           []string{},
+				"SourcesToFilter":   []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter JitterMilliseconds is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -986,6 +1018,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  -1,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            ipSources,
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal number -1 into Go struct field NetworkLatencyRequest.DelayMilliseconds of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -999,6 +1032,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": -1,
 				"Sources":            ipSources,
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal number -1 into Go struct field NetworkLatencyRequest.JitterMilliseconds of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1012,6 +1046,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            []string{"10.1.2.3.4"},
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1025,8 +1060,23 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            []string{"52.95.154.0/33"},
+				"SourcesToFilter":    []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 2", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"DelayMilliseconds":  delayMilliseconds,
+				"JitterMilliseconds": jitterMilliseconds,
+				"Sources":            ipSources,
+				"SourcesToFilter":    []string{"52.95.154.0/33"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter SourcesToFilter"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
 			},
@@ -1130,10 +1180,14 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
+						// Sleep for requestTimeoutDuration plus 1 second, to make sure the
+						// ctx that we passed to the os/exec execution times out.
+						time.Sleep(requestTimeoutDuration + 1*time.Second)
+					}).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
@@ -1413,11 +1467,21 @@ func TestCheckNetworkLatency(t *testing.T) {
 func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjectionTestCase {
 	tcs := []networkFaultInjectionTestCase{
 		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required request body is missing"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
 			name:               fmt.Sprintf("%s malformed request body 1", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": "incorrect-field",
-				"Sources":     ipSources,
+				"LossPercent":     "incorrect-field",
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkPacketLossRequest.LossPercent of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1428,10 +1492,24 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s malformed request body 2", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     "",
+				"LossPercent":     lossPercent,
+				"Sources":         "",
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkPacketLossRequest.Sources of type []*string"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s malformed request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent":     lossPercent,
+				"Sources":         ipSources,
+				"SourcesToFilter": "",
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal string into Go struct field NetworkPacketLossRequest.SourcesToFilter of type []*string"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
 			},
@@ -1440,8 +1518,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s incomplete request body 1", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     []string{},
+				"LossPercent":     lossPercent,
+				"Sources":         []string{},
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1452,7 +1531,8 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s incomplete request body 2", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
+				"LossPercent":     lossPercent,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter Sources is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1463,7 +1543,8 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s incomplete request body 3", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"Sources": ipSources,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("required parameter LossPercent is missing"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1474,8 +1555,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s invalid LossPercent in the request body 1", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": -1,
-				"Sources":     ipSources,
+				"LossPercent":     -1,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("json: cannot unmarshal number -1 into Go struct field NetworkPacketLossRequest.LossPercent of type uint64"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1486,8 +1568,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s invalid LossPercent in the request body 2", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": 101,
-				"Sources":     ipSources,
+				"LossPercent":     101,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 101 for parameter LossPercent"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1498,8 +1581,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s invalid LossPercent in the request body 3", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": 0,
-				"Sources":     ipSources,
+				"LossPercent":     0,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 0 for parameter LossPercent"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1510,8 +1594,9 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s invalid IP value in the request body 1", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     []string{"10.1.2.3.4"},
+				"LossPercent":     lossPercent,
+				"Sources":         []string{"10.1.2.3.4"},
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 10.1.2.3.4 for parameter Sources"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1522,10 +1607,24 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 2", name),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     []string{"52.95.154.0/33"},
+				"LossPercent":     lossPercent,
+				"Sources":         []string{"52.95.154.0/33"},
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter Sources"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
+			},
+		},
+		{
+			name:               fmt.Sprintf("%s invalid IP CIDR block value in the request body 3", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"LossPercent":     lossPercent,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{"52.95.154.0/33"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value 52.95.154.0/33 for parameter SourcesToFilter"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
 			},
@@ -1603,9 +1702,10 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:               "failed-to-unmarshal-json",
 			expectedStatusCode: 500,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     ipSources,
-				"Unknown":     "",
+				"LossPercent":     lossPercent,
+				"Sources":         ipSources,
+				"Unknown":         "",
+				"SourcesToFilter": []string{},
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: failed to unmarshal tc command output: unexpected end of JSON input. TaskArn: taskArn"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1628,10 +1728,14 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
+						// Sleep for requestTimeoutDuration plus 1 second, to make sure the
+						// ctx that we passed to the os/exec execution times out.
+						time.Sleep(requestTimeoutDuration + 1*time.Second)
+					}).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)

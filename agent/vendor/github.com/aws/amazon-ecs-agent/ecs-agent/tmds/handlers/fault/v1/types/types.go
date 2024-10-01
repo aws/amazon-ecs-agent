@@ -94,6 +94,9 @@ type NetworkLatencyRequest struct {
 	JitterMilliseconds *uint64 `json:"JitterMilliseconds"`
 	// Sources is a list including IPv4 addresses or IPv4 CIDR blocks.
 	Sources []*string `json:"Sources"`
+	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded from the
+	// network latency fault.
+	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
 }
 
 // ValidateRequest validates required fields are present and its value.
@@ -107,7 +110,15 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.Sources == nil || len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
-	return validateNetworkFaultRequestSources(request.Sources)
+	err := validateNetworkFaultRequestSources(request.Sources, "Sources")
+	if err != nil {
+		return err
+	}
+	err = validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (request NetworkLatencyRequest) ToString() string {
@@ -123,6 +134,9 @@ type NetworkPacketLossRequest struct {
 	LossPercent *uint64 `json:"LossPercent"`
 	// Sources is a list including IPv4 addresses or IPv4 CIDR blocks.
 	Sources []*string `json:"Sources"`
+	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded from the
+	// network packet loss fault.
+	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
 }
 
 // ValidateRequest validates required fields are present and its value.
@@ -137,7 +151,15 @@ func (request NetworkPacketLossRequest) ValidateRequest() error {
 	if request.Sources == nil || len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
-	return validateNetworkFaultRequestSources(request.Sources)
+	err := validateNetworkFaultRequestSources(request.Sources, "Sources")
+	if err != nil {
+		return err
+	}
+	err = validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (request NetworkPacketLossRequest) ToString() string {
@@ -160,7 +182,7 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 	}
 }
 
-func validateNetworkFaultRequestSources(sources []*string) error {
+func validateNetworkFaultRequestSources(sources []*string, sourcesType string) error {
 	for _, element := range sources {
 		elementStr := aws.StringValue(element)
 		validIp := true
@@ -173,7 +195,7 @@ func validateNetworkFaultRequestSources(sources []*string) error {
 		}
 
 		if !validIpCIDRBlock && !validIp {
-			return fmt.Errorf(invalidValueError, elementStr, "Sources")
+			return fmt.Errorf(invalidValueError, elementStr, sourcesType)
 		}
 	}
 	return nil

@@ -476,6 +476,8 @@ var (
 
 	ipSources = []string{"52.95.154.1", "52.95.154.2"}
 
+	ipSourcesToFilter = []string{"8.8.8.8"}
+
 	happyBlackHolePortReqBody = map[string]interface{}{
 		"Port":        port,
 		"Protocol":    protocol,
@@ -486,11 +488,13 @@ var (
 		"DelayMilliseconds":  delayMilliseconds,
 		"JitterMilliseconds": jitterMilliseconds,
 		"Sources":            ipSources,
+		"SourcesToFilter":    ipSourcesToFilter,
 	}
 
 	happyNetworkPacketLossReqBody = map[string]interface{}{
-		"LossPercent": lossPercent,
-		"Sources":     ipSources,
+		"LossPercent":     lossPercent,
+		"Sources":         ipSources,
+		"SourcesToFilter": ipSourcesToFilter,
 	}
 )
 
