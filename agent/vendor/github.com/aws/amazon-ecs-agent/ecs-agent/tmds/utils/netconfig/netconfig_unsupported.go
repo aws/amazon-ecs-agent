@@ -27,6 +27,6 @@ func NewNetworkConfigClient() *NetworkConfigClient {
 
 // DefaultNetInterfaceName returns the device name of the first default network interface
 // available on the instance. This is only supported on linux as of now.
-func DefaultNetInterfaceName() (string, error) {
+func DefaultNetInterfaceName(unknown interface{}) (string, error) {
 	return "", errors.New("Not supported on unknown platform")
 }
