@@ -1216,8 +1216,8 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 		},
 		{
@@ -1259,6 +1259,7 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				"DelayMilliseconds":  delayMilliseconds,
 				"JitterMilliseconds": jitterMilliseconds,
 				"Sources":            ipSources,
+				"SourcesToFilter":    []string{},
 				"Unknown":            "",
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
@@ -1318,8 +1319,8 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(3).Return([]byte(""), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(2).Return([]byte(""), nil)
 			},
 		},
 		{
@@ -1423,7 +1424,7 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			},
 		},
 		{
-			name:               "unknown-request-body-no-existing-fault",
+			name:               "unknown-request-body-no-existing-fault-no-allowlist-filter",
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
 				"DelayMilliseconds":  delayMilliseconds,
@@ -1764,8 +1765,8 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 		},
 		{
@@ -1801,12 +1802,13 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 			},
 		},
 		{
-			name:               "unknown-request-body-no-existing-fault",
+			name:               "unknown-request-body-no-existing-fault-no-allowlist-filter",
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
-				"LossPercent": lossPercent,
-				"Sources":     ipSources,
-				"Unknown":     "",
+				"LossPercent":     lossPercent,
+				"Sources":         ipSources,
+				"SourcesToFilter": []string{},
+				"Unknown":         "",
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
@@ -1881,8 +1883,8 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(3).Return([]byte(""), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(2).Return([]byte(""), nil)
 			},
 		},
 		{

@@ -110,12 +110,10 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.Sources == nil || len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
-	err := validateNetworkFaultRequestSources(request.Sources, "Sources")
-	if err != nil {
+	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
 		return err
 	}
-	err = validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter")
-	if err != nil {
+	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
 	return nil
@@ -151,12 +149,10 @@ func (request NetworkPacketLossRequest) ValidateRequest() error {
 	if request.Sources == nil || len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
-	err := validateNetworkFaultRequestSources(request.Sources, "Sources")
-	if err != nil {
+	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
 		return err
 	}
-	err = validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter")
-	if err != nil {
+	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
 	return nil
