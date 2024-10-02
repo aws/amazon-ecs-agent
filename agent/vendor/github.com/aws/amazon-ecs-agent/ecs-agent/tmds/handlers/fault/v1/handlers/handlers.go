@@ -64,9 +64,9 @@ const (
 	tcAddQdiscRootCommandString      = "tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
 	tcAddQdiscLatencyCommandString   = "tc qdisc add dev %s parent 1:1 handle 10: netem delay %dms %dms"
 	tcAddQdiscLossCommandString      = "tc qdisc add dev %s parent 1:1 handle 10: netem loss %d%%"
-	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol ip parent 1:0 prio 1 u32 match ip dst %s flowid 1:1"
+	tcAllowlistIPCommandString       = "tc filter add dev %s protocol ip parent 1:0 prio 1 u32 match ip dst %s flowid 1:3"
+	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol ip parent 1:0 prio 2 u32 match ip dst %s flowid 1:1"
 	tcDeleteQdiscParentCommandString = "tc qdisc del dev %s parent 1:1 handle 10:"
-	tcDeleteFilterCommandString      = "tc filter del dev %s prio 1"
 	tcDeleteQdiscRootCommandString   = "tc qdisc del dev %s root handle 1: prio"
 )
 
@@ -1231,19 +1231,13 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 		field.CommandOutput: string(cmdOutput[:]),
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
-	for _, ip := range request.Sources {
-		tcAddFilterForIPCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddFilterForIPCommandString, interfaceName, *ip)
-		cmdList = strings.Split(tcAddFilterForIPCommandComposed, " ")
-		_, err = h.runExecCommand(ctx, cmdList)
-		if err != nil {
-			logger.Error("Command execution failed", logger.Fields{
-				field.CommandString: tcAddFilterForIPCommandComposed,
-				field.Error:         err,
-				field.CommandOutput: string(cmdOutput[:]),
-				field.TaskARN:       taskMetadata.TaskARN,
-			})
-			return err
-		}
+	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
+	if err := h.addIPAddressesToFilter(ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix, tcAllowlistIPCommandString, interfaceName); err != nil {
+		return err
+	}
+	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc.
+	if err := h.addIPAddressesToFilter(ctx, request.Sources, taskMetadata, nsenterPrefix, tcAddFilterForIPCommandString, interfaceName); err != nil {
+		return err
 	}
 
 	return nil
@@ -1296,19 +1290,13 @@ func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMeta
 		field.CommandOutput: string(cmdOutput[:]),
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
-	for _, ip := range request.Sources {
-		tcAddFilterForIPCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddFilterForIPCommandString, interfaceName, *ip)
-		cmdList = strings.Split(tcAddFilterForIPCommandComposed, " ")
-		_, err = h.runExecCommand(ctx, cmdList)
-		if err != nil {
-			logger.Error("Command execution failed", logger.Fields{
-				field.CommandString: tcAddFilterForIPCommandComposed,
-				field.Error:         err,
-				field.CommandOutput: string(cmdOutput[:]),
-				field.TaskARN:       taskMetadata.TaskARN,
-			})
-			return err
-		}
+	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
+	if err := h.addIPAddressesToFilter(ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix, tcAllowlistIPCommandString, interfaceName); err != nil {
+		return err
+	}
+	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc.
+	if err := h.addIPAddressesToFilter(ctx, request.Sources, taskMetadata, nsenterPrefix, tcAddFilterForIPCommandString, interfaceName); err != nil {
+		return err
 	}
 
 	return nil
@@ -1343,22 +1331,6 @@ func (h *FaultHandler) stopTCFault(ctx context.Context, taskMetadata *state.Task
 	}
 	logger.Info("Command execution completed", logger.Fields{
 		field.CommandString: tcDeleteQdiscParentCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
-	})
-	tcDeleteFilterCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteFilterCommandString, interfaceName)
-	cmdList = strings.Split(tcDeleteFilterCommandComposed, " ")
-	cmdOutput, err = h.runExecCommand(ctx, cmdList)
-	if err != nil {
-		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcDeleteFilterCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
-		})
-		return err
-	}
-	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcDeleteFilterCommandComposed,
 		field.CommandOutput: string(cmdOutput[:]),
 	})
 	tcDeleteQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteQdiscRootCommandString, interfaceName)
@@ -1461,6 +1433,26 @@ func checkPacketLossFault(outputUnmarshalled []map[string]interface{}) (bool, er
 		}
 	}
 	return false, nil
+}
+
+func (h *FaultHandler) addIPAddressesToFilter(
+	ctx context.Context, ipAddressList []*string, taskMetadata *state.TaskResponse,
+	nsenterPrefix, commandString, interfaceName string) error {
+	for _, ip := range ipAddressList {
+		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, aws.StringValue(ip))
+		cmdList := strings.Split(commandComposed, " ")
+		cmdOutput, err := h.runExecCommand(ctx, cmdList)
+		if err != nil {
+			logger.Error("Command execution failed", logger.Fields{
+				field.CommandString: commandComposed,
+				field.Error:         err,
+				field.CommandOutput: string(cmdOutput[:]),
+				field.TaskARN:       taskMetadata.TaskARN,
+			})
+			return err
+		}
+	}
+	return nil
 }
 
 // runExecCommand wraps around the execwrapper, providing a convenient way of running any Linux command
