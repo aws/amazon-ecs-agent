@@ -16,9 +16,12 @@
 
 package netconfig
 
-import "errors"
+import (
+	"errors"
+)
 
 type NetworkConfigClient struct {
+	NetlinkClient interface{}
 }
 
 func NewNetworkConfigClient() *NetworkConfigClient {
@@ -27,6 +30,6 @@ func NewNetworkConfigClient() *NetworkConfigClient {
 
 // DefaultNetInterfaceName returns the device name of the first default network interface
 // available on the instance. This is only supported on linux as of now.
-func DefaultNetInterfaceName() (string, error) {
-	return "", errors.New("Not supported on windows")
+func DefaultNetInterfaceName(unknown interface{}) (string, error) {
+	return "", errors.New("not supported on windows")
 }
