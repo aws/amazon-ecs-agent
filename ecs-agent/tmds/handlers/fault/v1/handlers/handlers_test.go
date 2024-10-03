@@ -341,10 +341,10 @@ func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInje
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("Unable to generate metadata for task"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task")).
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN))).
 					Times(1)
 			},
 		},
@@ -944,10 +944,10 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("Unable to generate metadata for task"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)))
 			},
 		},
 		{
@@ -1499,10 +1499,10 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("Unable to generate metadata for task"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)))
 			},
 		},
 		{

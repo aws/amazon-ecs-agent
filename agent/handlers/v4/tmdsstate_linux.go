@@ -39,8 +39,9 @@ func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID strin
 			if netErr != nil {
 				err = tmdsv4.NewErrorDefaultNetworkInterfaceName(fmt.Sprintf(defaultNetworkInterfaceNameNotFoundError, v3EndpointID))
 				logger.Error("Unable to obtain default network interface on host", logger.Fields{
-					field.TaskARN: taskResponse.TaskARN,
-					field.Error:   err,
+					field.TaskARN:  taskResponse.TaskARN,
+					field.Error:    err,
+					"netlinkError": netErr,
 				})
 			} else {
 				logger.Info("Obtained default network interface name on host", logger.Fields{
