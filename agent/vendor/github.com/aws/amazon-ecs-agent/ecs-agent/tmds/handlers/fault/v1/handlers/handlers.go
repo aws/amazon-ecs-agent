@@ -598,17 +598,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkLatencyRequest
 		requestType := fmt.Sprintf(stopFaultRequestType, types.LatencyFaultType)
-
-		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r)
-		if err != nil {
-			return
-		}
-		// Validate the fault request
-		err = validateRequest(w, request, requestType)
-		if err != nil {
-			return
-		}
+		logRequest(requestType, r)
 
 		// Obtain the task metadata via the endpoint container ID
 		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
@@ -678,17 +668,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkLatencyRequest
 		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.LatencyFaultType)
-
-		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r)
-		if err != nil {
-			return
-		}
-		// Validate the fault request
-		err = validateRequest(w, request, requestType)
-		if err != nil {
-			return
-		}
+		logRequest(requestType, r)
 
 		// Obtain the task metadata via the endpoint container ID
 		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
@@ -748,6 +728,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkPacketLossRequest
 		requestType := fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
+
 		// Parse the fault request
 		err := decodeRequest(w, &request, requestType, r)
 		if err != nil {
@@ -830,17 +811,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkPacketLossRequest
 		requestType := fmt.Sprintf(stopFaultRequestType, types.PacketLossFaultType)
-
-		// Parse the fault request
-		err := decodeRequest(w, &request, requestType, r)
-		if err != nil {
-			return
-		}
-		// Validate the fault request
-		err = validateRequest(w, request, requestType)
-		if err != nil {
-			return
-		}
+		logRequest(requestType, r)
 
 		// Obtain the task metadata via the endpoint container ID
 		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
@@ -910,17 +881,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request types.NetworkPacketLossRequest
 		requestType := fmt.Sprintf(checkStatusFaultRequestType, types.PacketLossFaultType)
-
-		// Parse the fault request.
-		err := decodeRequest(w, &request, requestType, r)
-		if err != nil {
-			return
-		}
-		// Validate the fault request.
-		err = validateRequest(w, request, requestType)
-		if err != nil {
-			return
-		}
+		logRequest(requestType, r)
 
 		// Obtain the task metadata via the endpoint container ID.
 		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
