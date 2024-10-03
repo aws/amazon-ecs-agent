@@ -18,6 +18,8 @@ package ecscni
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	cnins "github.com/containernetworking/plugins/pkg/ns"
@@ -98,4 +100,33 @@ func TestBuildResolvConfig(t *testing.T) {
 	nsUtil := NewNetNSUtil()
 	rst := nsUtil.BuildResolvConfig([]string{testNameServer}, []string{testSearchDomain})
 	require.Equal(t, fmt.Sprintf("nameserver %s\nsearch %s", testNameServer, testSearchDomain), rst)
+}
+
+// TestNewNSDuplicate verifies that creating two net ns will not fail.
+// It should ignore errors related to the default netns directory already existing.
+func TestNewNSDuplicate(t *testing.T) {
+	// Create a new instance of netnsutil.
+	ns := NewNetNSUtil()
+
+	// Create a temporary directory for testing.
+	tempDir, err := os.MkdirTemp("", tempNSPathPattern)
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Default directory should not exist and check we can create with no issues.
+	defaultPath := filepath.Join(tempDir, "defaultns")
+	err = ns.NewNetNS(defaultPath)
+	assert.NoError(t, err)
+
+	// Newly created defaultNS should now exist.
+	_, err = os.Stat(defaultPath)
+	assert.NoError(t, err)
+
+	// Default directory already exists.
+	err = ns.NewNetNS(defaultPath)
+	assert.NoError(t, err)
+
+	// Newly created defaultNS should now exist.
+	_, err = os.Stat(defaultPath)
+	assert.NoError(t, err)
 }

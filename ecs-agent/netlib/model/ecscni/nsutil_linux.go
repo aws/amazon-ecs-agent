@@ -74,7 +74,7 @@ func (*netnsutil) NewNetNS(nspath string) error {
 	if err != nil {
 		// Create the default network namespace directory path if not exists
 		if os.IsNotExist(err) {
-			err = os.Mkdir(NETNS_PATH_DEFAULT, NsFileMode)
+			err = os.MkdirAll(NETNS_PATH_DEFAULT, NsFileMode)
 		}
 		if err != nil {
 			return errors.Wrap(err, "unable to get status of default ns directory")
