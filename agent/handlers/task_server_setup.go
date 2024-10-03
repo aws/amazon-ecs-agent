@@ -93,7 +93,7 @@ func taskServerSetup(
 		taskProtectionClientFactory, metricsFactory)
 
 	// TODO: Future PR to pass in TMDS server router once all of the handlers have been implemented.
-	registerFaultHandlers(nil, tmdsAgentState, metricsFactory)
+	registerFaultHandlers(muxRouter, tmdsAgentState, metricsFactory)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
