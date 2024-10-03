@@ -54,7 +54,6 @@ const (
 	awsvpcNetworkMode                 = "awsvpc"
 	deviceName                        = "eth0"
 	invalidNetworkMode                = "invalid"
-	internalError                     = "internal error"
 	iptablesChainAlreadyExistError    = "iptables: Chain already exists."
 	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
@@ -581,7 +580,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 			name:                 fmt.Sprintf("%s fail duplicate chain", startNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(iptablesChainAlreadyExistError),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
 					Return(happyTaskResponse, nil).
@@ -1009,7 +1008,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				"Sources":            ipSources,
 				"Unknown":            "",
 			},
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: failed to unmarshal tc command output: unexpected end of JSON input. TaskArn: taskArn"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
@@ -1564,7 +1563,7 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				"Unknown":         "",
 				"SourcesToFilter": []string{},
 			},
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("failed to check existing network fault: failed to unmarshal tc command output: unexpected end of JSON input. TaskArn: taskArn"),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
