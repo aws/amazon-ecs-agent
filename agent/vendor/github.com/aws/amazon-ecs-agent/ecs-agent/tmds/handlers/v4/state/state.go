@@ -94,6 +94,23 @@ func (e *ErrorStatsFetchFailure) Unwrap() error {
 	return e.cause
 }
 
+// Error to be returned when we're unable to obtain the default network interface name on the host namespace for a task
+type ErrorDefaultNetworkInterfaceName struct {
+	externalReason string // Reason to be returned in TMDS response
+}
+
+func NewErrorDefaultNetworkInterfaceName(externalReason string) *ErrorDefaultNetworkInterfaceName {
+	return &ErrorDefaultNetworkInterfaceName{externalReason: externalReason}
+}
+
+func (e *ErrorDefaultNetworkInterfaceName) ExternalReason() string {
+	return e.externalReason
+}
+
+func (e *ErrorDefaultNetworkInterfaceName) Error() string {
+	return fmt.Sprintf("failed to obtain default network interface name: %s", e.externalReason)
+}
+
 // Interface for interacting with Agent State relevant to TMDS
 type AgentState interface {
 	// Returns container metadata in v4 format for the container identified by the

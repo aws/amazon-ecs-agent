@@ -17,10 +17,16 @@
 package v4
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
+)
+
+const (
+	defaultNetworkInterfaceNameNotFoundError = "unable to obtain default network interface name on host from v3 endpoint ID: %s"
 )
 
 // Returns task metadata including the task network configuration in v4 format for the
@@ -29,11 +35,13 @@ func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID strin
 	taskResponse, err := s.getTaskMetadata(v3EndpointID, false, true)
 	if err == nil {
 		if taskResponse.TaskNetworkConfig != nil && taskResponse.TaskNetworkConfig.NetworkMode == "host" {
-			hostDeviceName, err := netconfig.DefaultNetInterfaceName(networkConfigClient.NetlinkClient)
-			if err != nil {
-				logger.Warn("Unable to obtain default network interface on host", logger.Fields{
-					field.TaskARN: taskResponse.TaskARN,
-					field.Error:   err,
+			hostDeviceName, netErr := netconfig.DefaultNetInterfaceName(networkConfigClient.NetlinkClient)
+			if netErr != nil {
+				err = tmdsv4.NewErrorDefaultNetworkInterfaceName(fmt.Sprintf(defaultNetworkInterfaceNameNotFoundError, v3EndpointID))
+				logger.Error("Unable to obtain default network interface on host", logger.Fields{
+					field.TaskARN:  taskResponse.TaskARN,
+					field.Error:    err,
+					"netlinkError": netErr,
 				})
 			} else {
 				logger.Info("Obtained default network interface name on host", logger.Fields{

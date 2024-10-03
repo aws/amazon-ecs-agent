@@ -330,7 +330,7 @@ func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInje
 			name:                 fmt.Sprintf("%s task lookup fail", name),
 			expectedStatusCode:   404,
 			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("task lookup failed"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
 					Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed")).
@@ -341,10 +341,10 @@ func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInje
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task")).
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN))).
 					Times(1)
 			},
 		},
@@ -476,6 +476,17 @@ func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInje
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, false),
 				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata obtain default network interface name fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("unable to obtain default network interface name on host"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterfaceName(
+					"unable to obtain default network interface name on host")).
+					Times(1)
 			},
 		},
 	}
@@ -924,7 +935,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			name:                 fmt.Sprintf("%s task lookup fail", name),
 			expectedStatusCode:   404,
 			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("task lookup failed"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
 			},
@@ -933,10 +944,10 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)))
 			},
 		},
 		{
@@ -1030,6 +1041,16 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata obtain default network interface name fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("unable to obtain default network interface name on host"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterfaceName(
+					"unable to obtain default network interface name on host"))
 			},
 		},
 	}
@@ -1469,7 +1490,7 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:                 fmt.Sprintf("%s task lookup fail", name),
 			expectedStatusCode:   404,
 			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to lookup container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("task lookup failed"),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorLookupFailure("task lookup failed"))
 			},
@@ -1478,10 +1499,10 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 			name:                 fmt.Sprintf("%s task metadata fetch fail", name),
 			expectedStatusCode:   500,
 			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("unable to obtain container metadata for container: %s", endpointId)),
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)),
 			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorMetadataFetchFailure(
-					"Unable to generate metadata for task"))
+					fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)))
 			},
 		},
 		{
@@ -1575,6 +1596,16 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s task metadata obtain default network interface name fail", name),
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("unable to obtain default network interface name on host"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterfaceName(
+					"unable to obtain default network interface name on host"))
 			},
 		},
 	}

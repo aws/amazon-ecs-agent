@@ -17,6 +17,8 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"testing"
 
@@ -34,6 +36,11 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+const (
+	internalError                           = "internal error"
+	defaultNetworkInterfaceNameErrorMessage = "failed to obtain default network interface name: unable to obtain default network interface name on host from v3 endpoint ID: %s"
+)
+
 func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 
 	tcs := []struct {
@@ -41,6 +48,8 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 		setStateExpectations      func(state *mock_dockerstate.MockTaskEngineState)
 		setNetLinkExpectations    func(netLink *mock_netlinkwrapper.MockNetLink)
 		expectedTaskNetworkConfig *v4.TaskNetworkConfig
+		shouldError               bool
+		errorMessage              string
 	}{
 		{
 			name: "happy case with awsvpc mode",
@@ -112,6 +121,38 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			},
 			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, bridgeMode, "", ""),
 		},
+		{
+			name: "unhappy case with host mode",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				hostTask := standardHostTask()
+				hostTask.EnableFaultInjection = true
+				hostTask.NetworkNamespace = networkNamespace
+				hostTask.DefaultIfname = defaultIfname
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(hostTask, true).Times(2),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
+				)
+			},
+			setNetLinkExpectations: func(netLink *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{
+					netlink.Route{
+						Gw:        net.ParseIP("10.194.20.1"),
+						Dst:       nil,
+						LinkIndex: 0,
+					},
+				}
+				gomock.InOrder(
+					netLink.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, errors.New(internalError)).Times(1),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, ""),
+			shouldError:               true,
+			errorMessage:              fmt.Sprintf(defaultNetworkInterfaceNameErrorMessage, v3EndpointID),
+		},
 	}
 
 	for _, tc := range tcs {
@@ -138,7 +179,14 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 
 			actualTaskResponse, err := tmdsAgentState.GetTaskMetadataWithTaskNetworkConfig(v3EndpointID, netConfigClient)
 
-			assert.NoError(t, err)
+			if tc.shouldError {
+				var errDefaultNetworkInterfaceName *v4.ErrorDefaultNetworkInterfaceName
+				assert.Error(t, err)
+				assert.ErrorAs(t, err, &errDefaultNetworkInterfaceName)
+				assert.Equal(t, tc.errorMessage, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
 			assert.Equal(t, tc.expectedTaskNetworkConfig, actualTaskResponse.TaskNetworkConfig)
 		})
 	}
