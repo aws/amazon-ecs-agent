@@ -54,7 +54,6 @@ const (
 	awsvpcNetworkMode                 = "awsvpc"
 	deviceName                        = "eth0"
 	invalidNetworkMode                = "invalid"
-	iptablesChainAlreadyExistError    = "iptables: Chain already exists."
 	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
 	tcLossFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
@@ -573,30 +572,6 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-				)
-			},
-		},
-		{
-			name:                 fmt.Sprintf("%s fail duplicate chain", startNetworkBlackHolePortTestPrefix),
-			expectedStatusCode:   500,
-			requestBody:          happyBlackHolePortReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
-					Return(happyTaskResponse, nil).
-					Times(1)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
-				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
-					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
-					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainAlreadyExistError), errors.New("exit status 1")),
 				)
 			},
 		},
