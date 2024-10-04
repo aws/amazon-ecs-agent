@@ -42,12 +42,15 @@ import (
 )
 
 const (
+	// Request types
 	startFaultRequestType       = "start %s"
 	stopFaultRequestType        = "stop %s"
 	checkStatusFaultRequestType = "check status %s"
-	invalidNetworkModeError     = "%s mode is not supported. Please use either host or awsvpc mode."
-	faultInjectionEnabledError  = "enableFaultInjection is not enabled for task: %s"
-	requestTimedOutError        = "%s: request timed out"
+	// Error messages
+	internalError              = "internal error"
+	invalidNetworkModeError    = "%s mode is not supported. Please use either host or awsvpc mode."
+	faultInjectionEnabledError = "enableFaultInjection is not enabled for task: %s"
+	requestTimedOutError       = "%s: request timed out"
 	// This is our initial assumption of how much time it would take for the Linux commands used to inject faults
 	// to finish. This will be confirmed/updated after more testing.
 	requestTimeoutDuration = 5 * time.Second
@@ -147,14 +150,14 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			insertTable = "OUTPUT"
 		}
 
-		cmdOutput, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
 			networkMode, networkNSPath, insertTable, taskArn)
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 		} else if cmdErr != nil {
 			statusCode = http.StatusInternalServerError
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 		} else {
 			statusCode = http.StatusOK
 			responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
@@ -293,7 +296,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			insertTable = "OUTPUT"
 		}
 
-		cmdOutput, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		_, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
 			networkMode, networkNSPath, insertTable, taskArn)
 
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
@@ -301,7 +304,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 		} else if cmdErr != nil {
 			statusCode = http.StatusInternalServerError
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 		} else {
 			statusCode = http.StatusOK
 			responseBody = types.NewNetworkFaultInjectionSuccessResponse("stopped")
@@ -436,7 +439,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		stringToBeLogged := "Failed to check fault"
 		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
 		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
-		running, cmdOutput, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		running, _, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
 			networkMode, networkNSPath, taskArn)
 
 		// We've timed out trying to check if the black hole port fault injection is running
@@ -445,7 +448,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 		} else if cmdErr != nil {
 			statusCode = http.StatusInternalServerError
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(cmdOutput)
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 		} else {
 			statusCode = http.StatusOK
 			if running {
@@ -553,7 +556,7 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			// If there already exists a fault in the task network namespace.
@@ -570,7 +573,7 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 					responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 					httpStatusCode = http.StatusInternalServerError
 				} else if err != nil {
-					responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+					responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 					httpStatusCode = http.StatusInternalServerError
 				} else {
 					stringToBeLogged = "Successfully started fault"
@@ -625,7 +628,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			// If there doesn't already exist a network-latency fault
@@ -640,7 +643,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 					responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 					httpStatusCode = http.StatusInternalServerError
 				} else if err != nil {
-					responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+					responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 					httpStatusCode = http.StatusInternalServerError
 				} else {
 					stringToBeLogged = "Successfully stopped fault"
@@ -696,7 +699,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			stringToBeLogged = "Successfully checked fault status"
@@ -766,7 +769,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			// If there already exists a fault in the task network namespace.
@@ -783,7 +786,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 					responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 					httpStatusCode = http.StatusInternalServerError
 				} else if err != nil {
-					responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+					responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 					httpStatusCode = http.StatusInternalServerError
 				} else {
 					stringToBeLogged = "Successfully started fault"
@@ -838,7 +841,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			// If there doesn't already exist a network-packet-loss fault
@@ -853,7 +856,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 					responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 					httpStatusCode = http.StatusInternalServerError
 				} else if err != nil {
-					responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+					responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 					httpStatusCode = http.StatusInternalServerError
 				} else {
 					stringToBeLogged = "Successfully stopped fault"
@@ -909,7 +912,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
 			httpStatusCode = http.StatusInternalServerError
 		} else if err != nil {
-			responseBody = types.NewNetworkFaultInjectionErrorResponse(err.Error())
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else {
 			stringToBeLogged = "Successfully checked fault status"
