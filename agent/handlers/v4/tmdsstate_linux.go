@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	defaultNetworkInterfaceNameNotFoundError = "unable to obtain default network interface name on host from v3 endpoint ID: %s"
+	defaultNetworkInterfaceNameNotFoundError = "unable to obtain default network interface name on host from endpoint ID: %s"
 )
 
 // Returns task metadata including the task network configuration in v4 format for the

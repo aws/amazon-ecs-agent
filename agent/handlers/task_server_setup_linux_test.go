@@ -38,7 +38,7 @@ import (
 
 const (
 	internalError                           = "internal error"
-	defaultNetworkInterfaceNameErrorMessage = "failed to obtain default network interface name: unable to obtain default network interface name on host from v3 endpoint ID: %s"
+	defaultNetworkInterfaceNameErrorMessage = "failed to obtain default network interface name: unable to obtain default network interface name on host from endpoint ID: %s"
 )
 
 func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
