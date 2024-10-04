@@ -131,7 +131,7 @@ var (
 	stopNetworkPacketLossTestPrefix     = fmt.Sprintf(stopFaultRequestType, types.PacketLossFaultType)
 	checkNetworkPacketLossTestPrefix    = fmt.Sprintf(checkStatusFaultRequestType, types.PacketLossFaultType)
 
-	ctxTimeoutDuration = requestTimeoutDuration * time.Second
+	ctxTimeoutDuration = requestTimeoutSeconds * time.Second
 )
 
 type networkFaultInjectionTestCase struct {
