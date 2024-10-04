@@ -53,15 +53,15 @@ const (
 	requestTimedOutError       = "%s: request timed out"
 	// This is our initial assumption of how much time it would take for the Linux commands used to inject faults
 	// to finish. This will be confirmed/updated after more testing.
-	requestTimeoutDuration = 5 * time.Second
+	requestTimeoutDuration = 5
 	// Commands that will be used to start/stop/check fault.
-	iptablesNewChainCmd              = "iptables -N %s"
-	iptablesAppendChainRuleCmd       = "iptables -A %s -p %s --dport %s -j DROP"
-	iptablesInsertChainCmd           = "iptables -I %s -j %s"
-	iptablesChainExistCmd            = "iptables -C %s -p %s --dport %s -j DROP"
-	iptablesClearChainCmd            = "iptables -F %s"
-	iptablesDeleteFromTableCmd       = "iptables -D %s -j %s"
-	iptablesDeleteChainCmd           = "iptables -X %s"
+	iptablesNewChainCmd              = "iptables -w %d -N %s"
+	iptablesAppendChainRuleCmd       = "iptables -w %d -A %s -p %s --dport %s -j DROP"
+	iptablesInsertChainCmd           = "iptables -w %d -I %s -j %s"
+	iptablesChainExistCmd            = "iptables -w %d -C %s -p %s --dport %s -j DROP"
+	iptablesClearChainCmd            = "iptables -w %d -F %s"
+	iptablesDeleteFromTableCmd       = "iptables -w %d -D %s -j %s"
+	iptablesDeleteChainCmd           = "iptables -w %d -X %s"
 	nsenterCommandString             = "nsenter --net=%s "
 	tcCheckInjectionCommandString    = "tc -j q show dev %s parent 1:1"
 	tcAddQdiscRootCommandString      = "tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
@@ -135,7 +135,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		defer rwMu.Unlock()
 
 		ctx := context.Background()
-		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration*time.Second)
 		defer cancel()
 
 		var responseBody types.NetworkFaultInjectionResponse
@@ -202,7 +202,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 		}
 
 		// Creating a new chain
-		newChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesNewChainCmd, chain)
+		newChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesNewChainCmd, requestTimeoutDuration, chain)
 		cmdOutput, err := h.runExecCommand(ctx, strings.Split(newChainCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to create new chain", logger.Fields{
@@ -216,7 +216,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 		}
 
 		// Appending a new rule based on the protocol and port number from the request body
-		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, chain, protocol, port)
+		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, requestTimeoutDuration, chain, protocol, port)
 		cmdOutput, err = h.runExecCommand(ctx, strings.Split(appendRuleCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to append rule to chain", logger.Fields{
@@ -230,7 +230,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 		}
 
 		// Inserting the chain into the built-in INPUT/OUTPUT table
-		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, insertTable, chain)
+		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, requestTimeoutDuration, insertTable, chain)
 		cmdOutput, err = h.runExecCommand(ctx, strings.Split(insertChainCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to insert chain to table", logger.Fields{
@@ -281,7 +281,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		defer rwMu.Unlock()
 
 		ctx := context.Background()
-		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration*time.Second)
 		defer cancel()
 
 		var responseBody types.NetworkFaultInjectionResponse
@@ -349,7 +349,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 		}
 
 		// Clearing the appended rules that's associated to the chain
-		clearChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesClearChainCmd, chain)
+		clearChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesClearChainCmd, requestTimeoutDuration, chain)
 		cmdOutput, err := h.runExecCommand(ctx, strings.Split(clearChainCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to clear chain", logger.Fields{
@@ -363,7 +363,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 		}
 
 		// Removing the chain from either the built-in INPUT/OUTPUT table
-		deleteFromTableCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteFromTableCmd, insertTable, chain)
+		deleteFromTableCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteFromTableCmd, requestTimeoutDuration, insertTable, chain)
 		cmdOutput, err = h.runExecCommand(ctx, strings.Split(deleteFromTableCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to delete chain from table", logger.Fields{
@@ -378,7 +378,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 		}
 
 		// Deleting the chain
-		deleteChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteChainCmd, chain)
+		deleteChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteChainCmd, requestTimeoutDuration, chain)
 		cmdOutput, err = h.runExecCommand(ctx, strings.Split(deleteChainCmdString, " "))
 		if err != nil {
 			logger.Error("Unable to delete chain", logger.Fields{
@@ -429,7 +429,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		defer rwMu.RUnlock()
 
 		ctx := context.Background()
-		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration)
+		ctxWithTimeout, cancel := h.osExecWrapper.NewExecContextWithTimeout(ctx, requestTimeoutDuration*time.Second)
 		defer cancel()
 
 		var responseBody types.NetworkFaultInjectionResponse
@@ -481,7 +481,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
 	}
 
-	cmdString := nsenterPrefix + fmt.Sprintf(iptablesChainExistCmd, chain, protocol, port)
+	cmdString := nsenterPrefix + fmt.Sprintf(iptablesChainExistCmd, requestTimeoutDuration, chain, protocol, port)
 	cmdList := strings.Split(cmdString, " ")
 
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
@@ -548,7 +548,7 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 		stringToBeLogged := "Failed to start fault"
 		// All command executions for the start network latency workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		latencyFaultExists, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)
@@ -620,7 +620,7 @@ func (h *FaultHandler) StopNetworkLatency() func(http.ResponseWriter, *http.Requ
 		stringToBeLogged := "Failed to stop fault"
 		// All command executions for the stop network latency workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		latencyFaultExists, _, err := h.checkTCFault(ctx, taskMetadata)
@@ -691,7 +691,7 @@ func (h *FaultHandler) CheckNetworkLatency() func(http.ResponseWriter, *http.Req
 		stringToBeLogged := "Failed to check status for fault"
 		// All command executions for the check network latency workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		latencyFaultExists, _, err := h.checkTCFault(ctx, taskMetadata)
@@ -761,7 +761,7 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		stringToBeLogged := "Failed to start fault"
 		// All command executions for the start network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		latencyFaultExists, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)
@@ -833,7 +833,7 @@ func (h *FaultHandler) StopNetworkPacketLoss() func(http.ResponseWriter, *http.R
 		stringToBeLogged := "Failed to stop fault"
 		// All command executions for the stop network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		_, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)
@@ -904,7 +904,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 		stringToBeLogged := "Failed to check status for fault"
 		// All command executions for the check network packet loss workflow all together should finish within 5 seconds.
 		// Thus, create the context here so that it can be shared by all os/exec calls.
-		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration)
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(context.Background(), requestTimeoutDuration*time.Second)
 		defer cancel()
 		// Check the status of current fault injection.
 		_, packetLossFaultExists, err := h.checkTCFault(ctx, taskMetadata)

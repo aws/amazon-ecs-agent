@@ -130,6 +130,8 @@ var (
 	startNetworkPacketLossTestPrefix    = fmt.Sprintf(startFaultRequestType, types.PacketLossFaultType)
 	stopNetworkPacketLossTestPrefix     = fmt.Sprintf(stopFaultRequestType, types.PacketLossFaultType)
 	checkNetworkPacketLossTestPrefix    = fmt.Sprintf(checkStatusFaultRequestType, types.PacketLossFaultType)
+
+	ctxTimeoutDuration = requestTimeoutDuration * time.Second
 )
 
 type networkFaultInjectionTestCase struct {
@@ -505,7 +507,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -538,7 +540,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -566,7 +568,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -586,7 +588,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -612,7 +614,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -648,7 +650,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -679,7 +681,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -705,7 +707,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -727,7 +729,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -749,7 +751,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -773,7 +775,7 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -806,7 +808,7 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -831,7 +833,7 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -851,7 +853,7 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -873,7 +875,7 @@ func generateCheckBlackHolePortFaultStatusTestCases() []networkFaultInjectionTes
 					Times(1)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -988,7 +990,7 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1004,13 +1006,13 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
-						// Sleep for requestTimeoutDuration plus 1 second, to make sure the
+						// Sleep for ctxTimeoutDuration plus 1 second, to make sure the
 						// ctx that we passed to the os/exec execution times out.
-						time.Sleep(requestTimeoutDuration + 1*time.Second)
+						time.Sleep(ctxTimeoutDuration + 1*time.Second)
 					}).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
@@ -1043,7 +1045,7 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1063,7 +1065,7 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1079,7 +1081,7 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1101,7 +1103,7 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1289,7 +1291,7 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1307,7 +1309,7 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1327,7 +1329,7 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1347,7 +1349,7 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1372,7 +1374,7 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1390,7 +1392,7 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1408,7 +1410,7 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1430,7 +1432,7 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1543,7 +1545,7 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1559,13 +1561,13 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
-						// Sleep for requestTimeoutDuration plus 1 second, to make sure the
+						// Sleep for ctxTimeoutDuration plus 1 second, to make sure the
 						// ctx that we passed to the os/exec execution times out.
-						time.Sleep(requestTimeoutDuration + 1*time.Second)
+						time.Sleep(ctxTimeoutDuration + 1*time.Second)
 					}).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
@@ -1598,7 +1600,7 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1618,7 +1620,7 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1634,7 +1636,7 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1655,7 +1657,7 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1845,7 +1847,7 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1863,7 +1865,7 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
@@ -1879,7 +1881,7 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1903,7 +1905,7 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1928,7 +1930,7 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1946,7 +1948,7 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1964,7 +1966,7 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
@@ -1986,7 +1988,7 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
 			},
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
