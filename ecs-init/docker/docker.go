@@ -54,21 +54,21 @@ const (
 	networkMode = "host"
 	// usernsMode specifies the userns mode to create the agent container
 	usernsMode = "host"
-	// minBackoffDuration specifies the minimum backoff duration for ping to
+	// pingDockerSocketMinBackoffDuration specifies the minimum backoff duration for ping to
 	// return a success response from the docker socket
-	minBackoffDuration = time.Second
-	// maxBackoffDuration specifies the maximum backoff duration for ping to
+	pingDockerSocketMinBackoffDuration = time.Second
+	// pingDockerSocketMaxBackoffDuration specifies the maximum backoff duration for ping to
 	// return a success response from docker socket
-	maxBackoffDuration = 3 * time.Second
-	// backoffJitterMultiple specifies the backoff jitter multiplier
+	pingDockerSocketMaxBackoffDuration = 3 * time.Second
+	// pingDockerSocketBackoffJitterMultiple specifies the backoff jitter multiplier
 	// coefficient when pinging the docker socket
-	backoffJitterMultiple = 0.2
-	// backoffMultiple specifies the backoff multiplier coefficient when
+	pingDockerSocketBackoffJitterMultiple = 0.2
+	// pingDockerSocketBackoffMultiple specifies the backoff multiplier coefficient when
 	// pinging the docker socket
-	backoffMultiple = 2
-	// maxRetries specifies the maximum number of retries for ping to return
+	pingDockerSocketBackoffMultiple = 2
+	// pingDockerSocketMaxRetries specifies the maximum number of retries for ping to return
 	// a successful response from the docker socket
-	maxRetries = 5
+	pingDockerSocketMaxRetries = 5
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
 	DefaultCgroupMountpoint = "/sys/fs/cgroup"
 	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
@@ -110,6 +110,13 @@ const (
 	execConfigRelativePath = "config"
 
 	execAgentLogRelativePath = "/exec"
+
+	// nvidiaGPUDevicesPresentRetryTime specifies the duration of time to wait before retrying to check if NVIDIA
+	// GPU devices are present.
+	nvidiaGPUDevicesPresentRetryTime = 3 * time.Second
+	// nvidiaGPUDevicesPresentMaxRetries specifies the maximum number of retries to attempt for checking if NVIDIA
+	// GPU devices are present.
+	nvidiaGPUDevicesPresentMaxRetries = 10
 )
 
 // Do NOT include "CAP_" in capability string
@@ -133,12 +140,13 @@ var pluginDirs = []string{
 }
 
 var (
-	dockerOnce      sync.Once
-	dockerClient    *client
-	dockerClientErr error
-	isPathValid     = defaultIsPathValid
-	execCommand     = exec.Command
-	execLookPath    = exec.LookPath
+	dockerOnce                    sync.Once
+	dockerClient                  *client
+	dockerClientErr               error
+	isPathValid                   = defaultIsPathValid
+	execCommand                   = exec.Command
+	execLookPath                  = exec.LookPath
+	checkNvidiaGPUDevicesPresence = nvidiaGPUDevicesPresent
 )
 
 // client enables business logic for running the Agent inside Docker
@@ -153,8 +161,8 @@ func Client() (*client, error) {
 		// Create a backoff for pinging the docker socket. This should result in 17-19
 		// seconds of delay in the worst-case between different actions that depend on
 		// docker
-		pingBackoff := backoff.NewBackoff(minBackoffDuration, maxBackoffDuration, backoffJitterMultiple,
-			backoffMultiple, maxRetries)
+		pingBackoff := backoff.NewBackoff(pingDockerSocketMinBackoffDuration, pingDockerSocketMaxBackoffDuration, pingDockerSocketBackoffJitterMultiple,
+			pingDockerSocketBackoffMultiple, pingDockerSocketMaxRetries)
 		cl, err := newDockerClient(godockerClientFactory{}, pingBackoff)
 		if err != nil {
 			dockerClientErr = err
@@ -372,7 +380,12 @@ func (c *client) LoadEnvVars() map[string]string {
 	// merge in instance-specific environment variables
 	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
 		if envKey == config.GPUSupportEnvVar && envValue == "true" {
-			if !nvidiaGPUDevicesPresent() {
+			// If environment variable with key `config.GPUSupportEnvVar` has value `true`, it is expected that
+			// NVIDIA GPU devices should eventually be present on the instance. Thus, do NOT give up and continue right
+			// away in the event that NVIDIA GPU devices are not yet present. Call
+			// `nvidiaGPUDevicesPresentWithRetries()` (instead of `nvidiaGPUDevicesPresent`) to retry and wait for a
+			// reasonable amount of time for NVIDIA GPU devices to be present before continuing.
+			if !nvidiaGPUDevicesPresentWithRetries() {
 				log.Warn("No GPU devices found, ignoring the GPU support config")
 				continue
 			}
@@ -569,6 +582,23 @@ func nvidiaGPUDevicesPresent() bool {
 		return false
 	}
 	return true
+}
+
+// nvidiaGPUDevicesPresentWithRetries checks if NVIDIA GPU devices are present in the instance. It retries if NVIDIA
+// GPU devices are not yet present every `nvidiaGPUDevicesPresentRetryTime` interval of time up to a maximum of
+// `nvidiaGPUDevicesPresentMaxRetries` retries.
+func nvidiaGPUDevicesPresentWithRetries() bool {
+	devicesPresent := checkNvidiaGPUDevicesPresence()
+	for i := 0; i < nvidiaGPUDevicesPresentMaxRetries; i++ {
+		if devicesPresent {
+			break
+		}
+		log.Warnf("NVIDIA GPU devices are not yet present, retrying (attempt %d/%d) in %d nanoseconds",
+			i+1, nvidiaGPUDevicesPresentMaxRetries, nvidiaGPUDevicesPresentRetryTime)
+		time.Sleep(nvidiaGPUDevicesPresentRetryTime)
+		devicesPresent = checkNvidiaGPUDevicesPresence()
+	}
+	return devicesPresent
 }
 
 var MatchFilePatternForGPU = FilePatternMatchForGPU
