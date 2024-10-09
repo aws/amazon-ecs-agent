@@ -247,6 +247,21 @@ func (mr *MockECSClientMockRecorder) DiscoverServiceConnectEndpoint(arg0 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverServiceConnectEndpoint", reflect.TypeOf((*MockECSClient)(nil).DiscoverServiceConnectEndpoint), arg0)
 }
 
+// DiscoverSystemLogsEndpoint mocks base method.
+func (m *MockECSClient) DiscoverSystemLogsEndpoint(arg0, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DiscoverSystemLogsEndpoint", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DiscoverSystemLogsEndpoint indicates an expected call of DiscoverSystemLogsEndpoint.
+func (mr *MockECSClientMockRecorder) DiscoverSystemLogsEndpoint(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverSystemLogsEndpoint", reflect.TypeOf((*MockECSClient)(nil).DiscoverSystemLogsEndpoint), arg0, arg1)
+}
+
 // DiscoverTelemetryEndpoint mocks base method.
 func (m *MockECSClient) DiscoverTelemetryEndpoint(arg0 string) (string, error) {
 	m.ctrl.T.Helper()

@@ -14,9 +14,10 @@
 package ecs
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 )
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
@@ -51,6 +52,9 @@ type ECSClient interface {
 	// DiscoverServiceConnectEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact ServiceConnect
 	DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error)
+	// DiscoverSystemLogsEndpoint takes a ContainerInstanceARN and its availability zone
+	// and returns the endpoint at which this Agent should send system logs.
+	DiscoverSystemLogsEndpoint(containerInstanceArn string, availabilityZone string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
 	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 	// UpdateContainerInstancesState updates the given container Instance ID with
