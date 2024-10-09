@@ -96,9 +96,8 @@ func taskServerSetup(
 	agentAPIV1HandlersSetup(muxRouter, state, credentialsManager, cluster, tmdsAgentState,
 		taskProtectionClientFactory, metricsFactory)
 
-	// TODO: Future PR to pass in TMDS server router once all of the handlers have been implemented.
 	execWrapper := execwrapper.NewExec()
-	registerFaultHandlers(nil, tmdsAgentState, metricsFactory, execWrapper)
+	registerFaultHandlers(muxRouter, tmdsAgentState, metricsFactory, execWrapper)
 
 	return tmds.NewServer(auditLogger,
 		tmds.WithHandler(muxRouter),
