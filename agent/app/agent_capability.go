@@ -134,6 +134,7 @@ var (
 		attributePrefix + taskEIAWithOptimizedCPU,
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityEBSTaskAttach,
+		attributePrefix + capabilityFaultInjection,
 	}
 	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
 	// for future proof and also align with externalUnsupportedCapabilities.
