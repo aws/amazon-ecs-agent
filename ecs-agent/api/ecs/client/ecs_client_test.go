@@ -23,6 +23,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
@@ -36,13 +44,6 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -53,6 +54,7 @@ const (
 	endpoint             = "https://some-endpoint.com"
 	region               = "us-east-1"
 	availabilityZone     = "us-west-2b"
+	zoneId               = "use1-az1"
 	defaultClusterName   = "default"
 	taskARN              = "taskArn"
 	containerName        = "cont"
@@ -798,6 +800,44 @@ func TestDiscoverNilServiceConnectEndpoint(t *testing.T) {
 		"Expected error getting service connect endpoint with old response")
 }
 
+func TestDiscoverSystemLogsEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	expectedEndpoint := "http://127.0.0.1"
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+		Return(&ecsmodel.DiscoverPollEndpointOutput{SystemLogsEndpoint: &expectedEndpoint}, nil)
+	endpoint, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
+	assert.NoError(t, err, "Error getting system logs endpoint")
+	assert.Equal(t, expectedEndpoint, endpoint, "Expected system logs endpoint != endpoint")
+}
+
+func TestDiscoverSystemLogsEndpointError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+		fmt.Errorf("Error getting endpoint"))
+	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
+	assert.ErrorContains(t, err, "Error getting endpoint",
+		"Expected error getting system logs endpoint, didn't get any")
+}
+
+func TestDiscoverNilSystemLogsEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	pollEndpoint := "http://127.0.0.1"
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
+	assert.ErrorContains(t, err, "no system logs endpoint returned",
+		"Expected error getting system logs endpoint with old response")
+}
+
 func TestUpdateContainerInstancesState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -873,7 +913,7 @@ func TestDiscoverPollEndpointCacheHit(t *testing.T) {
 		&ecsmodel.DiscoverPollEndpointOutput{
 			Endpoint: aws.String(pollEndpoint),
 		}, false, true)
-	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN)
+	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
 	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint), "Mismatch in poll endpoint")
 }
@@ -896,7 +936,7 @@ func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
 		pollEndpointCache.EXPECT().Set(containerInstanceARN, pollEndpointOutput),
 	)
 
-	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN)
+	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
 	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint), "Mismatch in poll endpoint")
 }
@@ -918,7 +958,7 @@ func TestDiscoverPollEndpointExpiredButDPEFailed(t *testing.T) {
 		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("error!")),
 	)
 
-	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN)
+	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
 	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint),
 		"Mismatch in poll endpoint")
@@ -944,6 +984,59 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	telemetryEndpoint, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error in discoverTelemetryEndpoint")
 	assert.Equal(t, pollEndpoint, telemetryEndpoint, "Mismatch in telemetry endpoint")
+}
+
+// TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_HappyPath refers to the scenario
+// where the system logs endpoint is present in the cache, therefore *not* requiring another
+// DiscoverPollEndpoint invocation.
+func TestDiscoverSystemLogsEndpointAfterCacheHit_HappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	pollEndpointCache := async.NewTTLCache(&async.TTL{Duration: 10 * time.Minute})
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
+		WithDiscoverPollEndpointCache(pollEndpointCache))
+	pollEndpoint := "http://127.0.0.1"
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+		&ecsmodel.DiscoverPollEndpointOutput{
+			Endpoint:           &pollEndpoint,
+			SystemLogsEndpoint: &pollEndpoint,
+		}, nil).Times(1)
+	systemLogsEndpoint, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, availabilityZone)
+	assert.NoError(t, err, "Error in DiscoverSystemLogsEndpoint")
+	assert.Equal(t, pollEndpoint, systemLogsEndpoint, "Mismatch in system logs endpoint")
+
+	systemLogsEndpoint, err = tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, availabilityZone)
+	assert.NoError(t, err, "Error in DiscoverSystemLogsEndpoint")
+	assert.Equal(t, pollEndpoint, systemLogsEndpoint, "Mismatch in system logs endpoint")
+}
+
+// TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_UnhappyPath refers to the scenario
+// where the system logs endpoint is missing from the cache, requiring a DiscoverPollEndpoint invocation.
+func TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_UnhappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	pollEndpointCache := async.NewTTLCache(&async.TTL{Duration: 10 * time.Minute})
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
+		WithDiscoverPollEndpointCache(pollEndpointCache))
+	pollEndpoint := "http://127.0.0.1"
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+		&ecsmodel.DiscoverPollEndpointOutput{
+			Endpoint: &pollEndpoint,
+		}, nil).Times(1)
+	endpoint, err := tester.client.DiscoverPollEndpoint(containerInstanceARN)
+	assert.NoError(t, err, "Error in DiscoverPollEndpoint")
+	assert.Equal(t, pollEndpoint, endpoint, "Mismatch in poll endpoint")
+
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+		&ecsmodel.DiscoverPollEndpointOutput{
+			Endpoint:           &pollEndpoint,
+			SystemLogsEndpoint: &pollEndpoint,
+		}, nil).Times(1)
+	systemLogsEndpoint, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, availabilityZone)
+	assert.NoError(t, err, "Error in DiscoverSystemLogsEndpoint")
+	assert.Equal(t, pollEndpoint, systemLogsEndpoint, "Mismatch in system logs endpoint")
 }
 
 // TestSubmitTaskStateChangeWithAttachments tests the SubmitTaskStateChange API
