@@ -1,5 +1,11 @@
 # Changelog
 
+# 1.87.1
+* Enhancement - Update Go version to 1.22.7
+* Enhancement - Update SSM Agent version to 3.3.859.0
+* Bugfix - Always re-generate an ECR auth token when task execution credentials ID change.
+* Bugfix - Do no err on duplicate netns creation.
+
 # 1.87.0
 * Feature - Add support for EBS Task Attach on Windows. [#4353](https://github.com/aws/amazon-ecs-agent/pull/4353)
 * Enhancement - Validate ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME is a valid interface name. [#4275](https://github.com/aws/amazon-ecs-agent/pull/4275)
