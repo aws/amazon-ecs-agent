@@ -214,6 +214,12 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully created new chain", logger.Fields{
+			"command": newChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+			"error":   err,
+		})
 
 		// Appending a new rule based on the protocol and port number from the request body
 		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, requestTimeoutSeconds, chain, protocol, port)
@@ -228,6 +234,12 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully appended new rule to iptable chain", logger.Fields{
+			"command": appendRuleCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+			"error":   err,
+		})
 
 		// Inserting the chain into the built-in INPUT/OUTPUT table
 		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, requestTimeoutSeconds, insertTable, chain)
@@ -243,6 +255,13 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully inserted chain into built-in iptable", logger.Fields{
+			"insertTable": insertTable,
+			"taskArn":     taskArn,
+			"error":       err,
+			"command":     insertChainCmdString,
+			"output":      string(cmdOutput),
+		})
 	}
 	return "", nil
 }
@@ -361,6 +380,11 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully cleared iptable chain", logger.Fields{
+			"command": clearChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 
 		// Removing the chain from either the built-in INPUT/OUTPUT table
 		deleteFromTableCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteFromTableCmd, requestTimeoutSeconds, insertTable, chain)
@@ -376,6 +400,12 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully deleted chain from table", logger.Fields{
+			"command":     deleteFromTableCmdString,
+			"output":      string(cmdOutput),
+			"insertTable": insertTable,
+			"taskArn":     taskArn,
+		})
 
 		// Deleting the chain
 		deleteChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteChainCmd, requestTimeoutSeconds, chain)
@@ -391,6 +421,11 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("[INFO] Successfully deleted chain", logger.Fields{
+			"command": deleteChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 	}
 	return "", nil
 }
