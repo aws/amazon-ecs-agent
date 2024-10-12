@@ -189,7 +189,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 		return cmdOutput, err
 	}
 	if !running {
-		logger.Info("[INFO] Attempting to start network black hole port fault", logger.Fields{
+		logger.Info("Attempting to start network black hole port fault", logger.Fields{
 			"netns":   netNs,
 			"chain":   chain,
 			"taskArn": taskArn,
@@ -214,6 +214,11 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully created new chain", logger.Fields{
+			"command": newChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 
 		// Appending a new rule based on the protocol and port number from the request body
 		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, requestTimeoutSeconds, chain, protocol, port)
@@ -228,6 +233,11 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully appended new rule to iptable chain", logger.Fields{
+			"command": appendRuleCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 
 		// Inserting the chain into the built-in INPUT/OUTPUT table
 		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, requestTimeoutSeconds, insertTable, chain)
@@ -243,6 +253,12 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully inserted chain into built-in iptable", logger.Fields{
+			"insertTable": insertTable,
+			"taskArn":     taskArn,
+			"command":     insertChainCmdString,
+			"output":      string(cmdOutput),
+		})
 	}
 	return "", nil
 }
@@ -336,7 +352,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 		return cmdOutput, err
 	}
 	if running {
-		logger.Info("[INFO] Attempting to stop network black hole port fault", logger.Fields{
+		logger.Info("Attempting to stop network black hole port fault", logger.Fields{
 			"netns":   netNs,
 			"chain":   chain,
 			"taskArn": taskArn,
@@ -361,6 +377,11 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully cleared iptable chain", logger.Fields{
+			"command": clearChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 
 		// Removing the chain from either the built-in INPUT/OUTPUT table
 		deleteFromTableCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteFromTableCmd, requestTimeoutSeconds, insertTable, chain)
@@ -376,6 +397,12 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully deleted chain from table", logger.Fields{
+			"command":     deleteFromTableCmdString,
+			"output":      string(cmdOutput),
+			"insertTable": insertTable,
+			"taskArn":     taskArn,
+		})
 
 		// Deleting the chain
 		deleteChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesDeleteChainCmd, requestTimeoutSeconds, chain)
@@ -391,6 +418,11 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 			})
 			return string(cmdOutput), err
 		}
+		logger.Info("Successfully deleted chain", logger.Fields{
+			"command": deleteChainCmdString,
+			"output":  string(cmdOutput),
+			"taskArn": taskArn,
+		})
 	}
 	return "", nil
 }
@@ -487,7 +519,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		if exitErr, eok := h.osExecWrapper.ConvertToExitError(err); eok {
-			logger.Info("[INFO] Black hole port fault is not running", logger.Fields{
+			logger.Info("Black hole port fault is not running", logger.Fields{
 				"netns":    netNs,
 				"command":  strings.Join(cmdList, " "),
 				"output":   string(cmdOutput),
@@ -505,7 +537,7 @@ func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, 
 		})
 		return false, string(cmdOutput), err
 	}
-	logger.Info("[INFO] Black hole port fault has been found running", logger.Fields{
+	logger.Info("Black hole port fault has been found running", logger.Fields{
 		"netns":   netNs,
 		"command": strings.Join(cmdList, " "),
 		"output":  string(cmdOutput),
