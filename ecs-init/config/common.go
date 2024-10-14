@@ -139,16 +139,14 @@ var validDrivers = map[string]struct{}{
 
 // GetAgentPartitionBucketRegion returns the s3 bucket region where ECS Agent artifact is located
 func GetAgentPartitionBucketRegion(region string) (string, error) {
-	// If the AWS SDK cannot match the region to a partition, it returns the default partition (aws).
-	// It only returns nil if the default partition is undefined.
-	partition := awsrulesfn.GetPartition(region)
+	partition := awsrulesfn.GetPartitionForRegion(region)
 	if partition == nil {
 		return "", errors.Errorf("could not resolve partition for region %q", region)
 	}
 
-	bucketRegion, ok := partitionBucketRegion[partition.Name]
+	bucketRegion, ok := partitionBucketRegion[partition.ID]
 	if !ok {
-		return "", errors.Errorf("no bucket available for partition %q", partition.Name)
+		return "", errors.Errorf("no bucket available for partition %q", partition.ID)
 	}
 
 	return bucketRegion, nil

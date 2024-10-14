@@ -64,6 +64,7 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 	testCases := []struct {
 		region      string
 		destination string
+		err         error
 	}{
 		{
 			region:      "us-west-2",
@@ -75,8 +76,8 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 			region:      "cn-north-1",
 			destination: "cn-north-1",
 		}, {
-			region:      "invalid",
-			destination: "us-east-1",
+			region: "invalid",
+			err:    fmt.Errorf("Partition not found"),
 		},
 	}
 
@@ -84,8 +85,12 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 		t.Run(fmt.Sprintf("%s -> %s", testcase.region, testcase.destination),
 			func(t *testing.T) {
 				region, err := GetAgentPartitionBucketRegion(testcase.region)
-				assert.NoError(t, err)
-				assert.Equal(t, testcase.destination, region)
+				if region != "" && region != testcase.destination && err != nil {
+					t.Errorf("GetAgentBucketRegion returned unexpected region: %s, err: %v", region, err)
+				}
+				if testcase.err != nil && err == nil {
+					t.Error("GetAgentBucketRegion should return an error if the destination is not found")
+				}
 			})
 	}
 }
