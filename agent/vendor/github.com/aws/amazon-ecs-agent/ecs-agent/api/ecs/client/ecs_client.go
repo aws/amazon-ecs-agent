@@ -21,6 +21,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/docker/docker/pkg/meminfo"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
@@ -34,12 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/docker/docker/pkg/meminfo"
 )
 
 const (
@@ -675,7 +676,7 @@ func submitStateCustomRetriableError(err error) error {
 }
 
 func (client *ecsClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.discoverPollEndpoint(containerInstanceArn)
+	resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
 	if err != nil {
 		return "", err
 	}
@@ -687,7 +688,7 @@ func (client *ecsClient) DiscoverPollEndpoint(containerInstanceArn string) (stri
 }
 
 func (client *ecsClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.discoverPollEndpoint(containerInstanceArn)
+	resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
 	if err != nil {
 		return "", err
 	}
@@ -699,7 +700,7 @@ func (client *ecsClient) DiscoverTelemetryEndpoint(containerInstanceArn string) 
 }
 
 func (client *ecsClient) DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.discoverPollEndpoint(containerInstanceArn)
+	resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
 	if err != nil {
 		return "", err
 	}
@@ -710,30 +711,52 @@ func (client *ecsClient) DiscoverServiceConnectEndpoint(containerInstanceArn str
 	return aws.StringValue(resp.ServiceConnectEndpoint), nil
 }
 
-func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string) (*ecsmodel.DiscoverPollEndpointOutput,
+func (client *ecsClient) DiscoverSystemLogsEndpoint(containerInstanceArn string, availabilityZone string) (string,
 	error) {
+	resp, err := client.discoverPollEndpoint(containerInstanceArn, availabilityZone)
+	if err != nil {
+		return "", err
+	}
+	if resp.SystemLogsEndpoint == nil {
+		return "", errors.New("no system logs endpoint returned; nil")
+	}
+
+	return aws.StringValue(resp.SystemLogsEndpoint), nil
+}
+
+func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
+	availabilityZone string) (*ecsmodel.DiscoverPollEndpointOutput, error) {
 	// Try getting an entry from the cache.
 	cachedEndpoint, expired, found := client.pollEndpointCache.Get(containerInstanceArn)
 	if !expired && found {
 		// Cache hit and not expired. Return the output.
-		if output, ok := cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput); ok {
-			logger.Info("Using cached DiscoverPollEndpoint", logger.Fields{
-				field.Endpoint:               aws.StringValue(output.Endpoint),
-				field.TelemetryEndpoint:      aws.StringValue(output.TelemetryEndpoint),
-				field.ServiceConnectEndpoint: aws.StringValue(output.ServiceConnectEndpoint),
-				field.ContainerInstanceARN:   containerInstanceArn,
-			})
-			return output, nil
+		output, ok := cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput)
+		systemLogsEndpoint := aws.StringValue(output.SystemLogsEndpoint)
+		if ok {
+			// Presence of the system logs endpoint can be disregarded if the AZ was not provided,
+			// but the cache hit must include a non-empty system logs endpoint if the AZ was provided.
+			if availabilityZone == "" || (availabilityZone != "" && systemLogsEndpoint != "") {
+				logger.Info("Using cached DiscoverPollEndpoint", logger.Fields{
+					field.Endpoint:               aws.StringValue(output.Endpoint),
+					field.TelemetryEndpoint:      aws.StringValue(output.TelemetryEndpoint),
+					field.ServiceConnectEndpoint: aws.StringValue(output.ServiceConnectEndpoint),
+					field.SystemLogsEndpoint:     systemLogsEndpoint,
+					field.ContainerInstanceARN:   containerInstanceArn,
+				})
+				return output, nil
+			}
 		}
 	}
 
 	// Cache miss or expired, invoke the ECS DiscoverPollEndpoint API.
 	logger.Debug("Invoking DiscoverPollEndpoint", logger.Fields{
 		field.ContainerInstanceARN: containerInstanceArn,
+		field.AvailabilityZone:     availabilityZone,
 	})
 	output, err := client.standardClient.DiscoverPollEndpoint(&ecsmodel.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
+		ZoneId:            aws.String(availabilityZone),
 	})
 	if err != nil {
 		// If we got an error calling the API, fallback to an expired cached endpoint if
@@ -745,6 +768,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string) (*ecs
 						field.Endpoint:               aws.StringValue(output.Endpoint),
 						field.TelemetryEndpoint:      aws.StringValue(output.TelemetryEndpoint),
 						field.ServiceConnectEndpoint: aws.StringValue(output.ServiceConnectEndpoint),
+						field.SystemLogsEndpoint:     aws.StringValue(output.SystemLogsEndpoint),
 						field.ContainerInstanceARN:   containerInstanceArn,
 					})
 				return output, nil

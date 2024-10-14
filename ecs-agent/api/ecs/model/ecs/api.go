@@ -13159,6 +13159,9 @@ type DiscoverPollEndpointInput struct {
 	// information about the ARN format, see Amazon Resource Name (ARN) (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#ecs-resource-ids)
 	// in the Amazon ECS Developer Guide.
 	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	// The availability zone of the container instance. This field is optional.
+	ZoneId *string `locationName:"zoneId" type:"string"`
 }
 
 // String returns the string representation.
@@ -13191,6 +13194,12 @@ func (s *DiscoverPollEndpointInput) SetContainerInstance(v string) *DiscoverPoll
 	return s
 }
 
+// SetZoneId sets the ZoneId field's value.
+func (s *DiscoverPollEndpointInput) SetZoneId(v string) *DiscoverPollEndpointInput {
+	s.ZoneId = &v
+	return s
+}
+
 type DiscoverPollEndpointOutput struct {
 	_ struct{} `type:"structure"`
 
@@ -13201,6 +13210,9 @@ type DiscoverPollEndpointOutput struct {
 	// For more information, see Service Connect (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html)
 	// in the Amazon Elastic Container Service Developer Guide.
 	ServiceConnectEndpoint *string `locationName:"serviceConnectEndpoint" type:"string"`
+
+	// The system logs endpoint for the Amazon ECS agent.
+	SystemLogsEndpoint *string `locationName:"systemLogsEndpoint" type:"string"`
 
 	// The telemetry endpoint for the Amazon ECS agent.
 	TelemetryEndpoint *string `locationName:"telemetryEndpoint" type:"string"`
@@ -13233,6 +13245,12 @@ func (s *DiscoverPollEndpointOutput) SetEndpoint(v string) *DiscoverPollEndpoint
 // SetServiceConnectEndpoint sets the ServiceConnectEndpoint field's value.
 func (s *DiscoverPollEndpointOutput) SetServiceConnectEndpoint(v string) *DiscoverPollEndpointOutput {
 	s.ServiceConnectEndpoint = &v
+	return s
+}
+
+// SetSystemLogsEndpoint sets the SystemLogsEndpoint field's value.
+func (s *DiscoverPollEndpointOutput) SetSystemLogsEndpoint(v string) *DiscoverPollEndpointOutput {
+	s.SystemLogsEndpoint = &v
 	return s
 }
 
