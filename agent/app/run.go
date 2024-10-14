@@ -62,8 +62,11 @@ func Run(arguments []string) int {
 	if *parsedArgs.LogLevel != "" {
 		logger.SetDriverLogLevel(*parsedArgs.LogLevel)
 		logger.SetInstanceLogLevel(*parsedArgs.LogLevel)
-	} else {
+	}
+	if *parsedArgs.DriverLogLevel != "" {
 		logger.SetDriverLogLevel(*parsedArgs.DriverLogLevel)
+	}
+	if *parsedArgs.InstanceLogLevel != "" {
 		logger.SetInstanceLogLevel(*parsedArgs.InstanceLogLevel)
 	}
 
