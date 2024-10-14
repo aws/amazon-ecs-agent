@@ -62,12 +62,13 @@ func Run(arguments []string) int {
 	if *parsedArgs.LogLevel != "" {
 		logger.SetDriverLogLevel(*parsedArgs.LogLevel)
 		logger.SetInstanceLogLevel(*parsedArgs.LogLevel)
-	}
-	if *parsedArgs.DriverLogLevel != "" {
-		logger.SetDriverLogLevel(*parsedArgs.DriverLogLevel)
-	}
-	if *parsedArgs.InstanceLogLevel != "" {
-		logger.SetInstanceLogLevel(*parsedArgs.InstanceLogLevel)
+	} else {
+		if *parsedArgs.DriverLogLevel != "" {
+			logger.SetDriverLogLevel(*parsedArgs.DriverLogLevel)
+		}
+		if *parsedArgs.InstanceLogLevel != "" {
+			logger.SetInstanceLogLevel(*parsedArgs.InstanceLogLevel)
+		}
 	}
 
 	// Create an Agent object
