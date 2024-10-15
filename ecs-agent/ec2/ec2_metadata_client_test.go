@@ -26,11 +26,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 )
 
 const (
@@ -40,6 +41,7 @@ const (
 	vpcID        = "vpc-1234"
 	subnetID     = "subnet-1234"
 	iidRegion    = "us-east-1"
+	zoneID       = "use1-az1"
 	privateIP    = "127.0.0.1"
 	publicIP     = "127.0.0.1"
 )
@@ -196,6 +198,20 @@ func TestSubnetID(t *testing.T) {
 	subnetIDResponse, err := testClient.SubnetID(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, subnetID, subnetIDResponse)
+}
+
+func TestAvailabilityZoneID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		ec2.AvailabilityZoneID).Return(zoneID, nil)
+	zoneIDResponse, err := testClient.AvailabilityZoneID()
+	assert.NoError(t, err)
+	assert.Equal(t, zoneID, zoneIDResponse)
 }
 
 func TestPrivateIPv4Address(t *testing.T) {
