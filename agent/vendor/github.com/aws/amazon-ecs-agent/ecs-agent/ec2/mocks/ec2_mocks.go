@@ -66,6 +66,21 @@ func (mr *MockEC2MetadataClientMockRecorder) AllENIMacs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllENIMacs", reflect.TypeOf((*MockEC2MetadataClient)(nil).AllENIMacs))
 }
 
+// AvailabilityZoneID mocks base method.
+func (m *MockEC2MetadataClient) AvailabilityZoneID() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailabilityZoneID")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AvailabilityZoneID indicates an expected call of AvailabilityZoneID.
+func (mr *MockEC2MetadataClientMockRecorder) AvailabilityZoneID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZoneID", reflect.TypeOf((*MockEC2MetadataClient)(nil).AvailabilityZoneID))
+}
+
 // DefaultCredentials mocks base method.
 func (m *MockEC2MetadataClient) DefaultCredentials() (*ec2.RoleCredentials, error) {
 	m.ctrl.T.Helper()

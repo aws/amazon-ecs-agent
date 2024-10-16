@@ -20,10 +20,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 )
 
 const (
@@ -36,6 +37,7 @@ const (
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 	SpotInstanceActionResource                = "spot/instance-action"
 	InstanceIDResource                        = "instance-id"
+	AvailabilityZoneID                        = "placement/availability-zone-id"
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
 	OutpostARN                                = "outpost-arn"
@@ -79,6 +81,7 @@ type EC2MetadataClient interface {
 	InstanceID() (string, error)
 	GetUserData() (string, error)
 	Region() (string, error)
+	AvailabilityZoneID() (string, error)
 	PrivateIPv4Address() (string, error)
 	PublicIPv4Address() (string, error)
 	SpotInstanceAction() (string, error)
@@ -181,6 +184,11 @@ func (c *ec2MetadataClientImpl) GetUserData() (string, error) {
 // Region returns the region the instance is running in.
 func (c *ec2MetadataClientImpl) Region() (string, error) {
 	return c.client.Region()
+}
+
+// AvailabilityZoneID returns the availability zone ID that the instance is running in.
+func (c *ec2MetadataClientImpl) AvailabilityZoneID() (string, error) {
+	return c.client.GetMetadata(AvailabilityZoneID)
 }
 
 // PublicIPv4Address returns the public IPv4 of this instance
