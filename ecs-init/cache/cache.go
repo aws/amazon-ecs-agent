@@ -17,6 +17,7 @@ package cache
 
 import (
 	"bufio"
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -25,8 +26,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -76,7 +77,7 @@ func NewDownloader() (*Downloader, error) {
 	if config.RunningInExternal() {
 		downloader.metadata = &blackholeInstanceMetadata{}
 	} else {
-		sessionInstance, err := session.NewSession()
+		cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
 		if err != nil {
 			// metadata client is only used for retrieving the user's region.
 			// If it cannot be initialized, the region field is populated with the default value to prevent future
@@ -85,7 +86,7 @@ func NewDownloader() (*Downloader, error) {
 				err, config.DefaultRegionName)
 			downloader.region = config.DefaultRegionName
 		} else {
-			downloader.metadata = ec2metadata.New(sessionInstance)
+			downloader.metadata = imds.NewFromConfig(cfg)
 		}
 	}
 
@@ -181,13 +182,14 @@ func (d *Downloader) getRegion() string {
 		return d.region
 	}
 
-	region, err := d.metadata.Region()
+	output, err := d.metadata.GetRegion(context.TODO(), &imds.GetRegionInput{})
 	if err != nil {
 		log.Warnf("Could not retrieve the region from EC2 Instance Metadata. Error: %s", err.Error())
-		region = defaultRegion
+		d.region = defaultRegion
+		return d.region
 	}
-	d.region = region
 
+	d.region = output.Region
 	return d.region
 }
 
