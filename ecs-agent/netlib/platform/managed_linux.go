@@ -65,7 +65,7 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 
 func (m *managedLinux) CreateDNSConfig(taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
-	return m.common.createDNSConfig(taskID, false, netNS)
+	return m.common.createDNSConfig(taskID, true, netNS)
 }
 
 func (m *managedLinux) ConfigureInterface(
