@@ -21,9 +21,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/config/awsrulesfn"
 	"github.com/cihub/seelog"
-
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
@@ -53,7 +52,7 @@ const (
 
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
-	DefaultRegionName = endpoints.UsEast1RegionID
+	DefaultRegionName = "us-east-1"
 
 	// dockerJSONLogMaxSize is the maximum allowed size of the
 	// individual backing json log files for the managed container.
@@ -114,11 +113,11 @@ const (
 // partitionBucketRegion provides the "partitional" bucket region
 // suitable for downloading agent from.
 var partitionBucketRegion = map[string]string{
-	endpoints.AwsPartitionID:      endpoints.UsEast1RegionID,
-	endpoints.AwsCnPartitionID:    endpoints.CnNorth1RegionID,
-	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
-	endpoints.AwsIsoPartitionID:   endpoints.UsIsoEast1RegionID,
-	endpoints.AwsIsoBPartitionID:  endpoints.UsIsobEast1RegionID,
+	"aws":        DefaultRegionName,
+	"aws-cn":     "cn-north-1",
+	"aws-us-gov": "us-gov-west-1",
+	"aws-iso":    "us-iso-east-1",
+	"aws-iso-b":  "us-isob-east-1",
 }
 
 // goarch is an injectable GOARCH runtime string. This controls the
@@ -140,14 +139,14 @@ var validDrivers = map[string]struct{}{
 
 // GetAgentPartitionBucketRegion returns the s3 bucket region where ECS Agent artifact is located
 func GetAgentPartitionBucketRegion(region string) (string, error) {
-	regionPartition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
-	if !ok {
-		return "", errors.Errorf("could not resolve partition ID for region %q", region)
+	partition := awsrulesfn.GetPartitionForRegion(region)
+	if partition == nil {
+		return "", errors.Errorf("could not resolve partition for region %q", region)
 	}
 
-	bucketRegion, ok := partitionBucketRegion[regionPartition.ID()]
+	bucketRegion, ok := partitionBucketRegion[partition.ID]
 	if !ok {
-		return "", errors.Errorf("no bucket available for partition ID %q", regionPartition.ID())
+		return "", errors.Errorf("no bucket available for partition %q", partition.ID)
 	}
 
 	return bucketRegion, nil
