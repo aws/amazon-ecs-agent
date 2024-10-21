@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
@@ -248,7 +248,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 
 		// Add a rule to accept all traffic to TMDS
 		protectTMDSRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd,
-			requestTimeoutSeconds, chain, protocol, platform.AgentEndpoint, platform.AgentEndpointPort,
+			requestTimeoutSeconds, chain, protocol, tmds.IPForTasks, tmds.PortForTasks,
 			acceptTarget)
 		if out, err := execRuleChangeCommand(protectTMDSRuleCmdString); err != nil {
 			return out, err
