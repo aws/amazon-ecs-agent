@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
@@ -56,7 +57,7 @@ const (
 	requestTimeoutSeconds = 5
 	// Commands that will be used to start/stop/check fault.
 	iptablesNewChainCmd              = "iptables -w %d -N %s"
-	iptablesAppendChainRuleCmd       = "iptables -w %d -A %s -p %s --dport %s -j DROP"
+	iptablesAppendChainRuleCmd       = "iptables -w %d -A %s -p %s -d %s --dport %s -j %s"
 	iptablesInsertChainCmd           = "iptables -w %d -I %s -j %s"
 	iptablesChainExistCmd            = "iptables -w %d -C %s -p %s --dport %s -j DROP"
 	iptablesClearChainCmd            = "iptables -w %d -F %s"
@@ -71,6 +72,9 @@ const (
 	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol ip parent 1:0 prio 2 u32 match ip dst %s flowid 1:1"
 	tcDeleteQdiscParentCommandString = "tc qdisc del dev %s parent 1:1 handle 10:"
 	tcDeleteQdiscRootCommandString   = "tc qdisc del dev %s root handle 1: prio"
+	allIPv4CIDR                      = "0.0.0.0/0"
+	dropTarget                       = "DROP"
+	acceptTarget                     = "ACCEPT"
 )
 
 type FaultHandler struct {
@@ -220,24 +224,42 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			"taskArn": taskArn,
 		})
 
-		// Appending a new rule based on the protocol and port number from the request body
-		appendRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd, requestTimeoutSeconds, chain, protocol, port)
-		cmdOutput, err = h.runExecCommand(ctx, strings.Split(appendRuleCmdString, " "))
-		if err != nil {
-			logger.Error("Unable to append rule to chain", logger.Fields{
-				"netns":   netNs,
-				"command": appendRuleCmdString,
+		// Helper function to run iptables rule change commands
+		var execRuleChangeCommand = func(cmdString string) (string, error) {
+			// Appending a new rule based on the protocol and port number from the request body
+			cmdOutput, err = h.runExecCommand(ctx, strings.Split(cmdString, " "))
+			if err != nil {
+				logger.Error("Unable to add rule to chain", logger.Fields{
+					"netns":   netNs,
+					"command": cmdString,
+					"output":  string(cmdOutput),
+					"taskArn": taskArn,
+					"error":   err,
+				})
+				return string(cmdOutput), err
+			}
+			logger.Info("Successfully added new rule to iptable chain", logger.Fields{
+				"command": cmdString,
 				"output":  string(cmdOutput),
 				"taskArn": taskArn,
-				"error":   err,
 			})
-			return string(cmdOutput), err
+			return "", nil
 		}
-		logger.Info("Successfully appended new rule to iptable chain", logger.Fields{
-			"command": appendRuleCmdString,
-			"output":  string(cmdOutput),
-			"taskArn": taskArn,
-		})
+
+		// Add a rule to accept all traffic to TMDS
+		protectTMDSRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd,
+			requestTimeoutSeconds, chain, protocol, platform.AgentEndpoint, platform.AgentEndpointPort,
+			acceptTarget)
+		if out, err := execRuleChangeCommand(protectTMDSRuleCmdString); err != nil {
+			return out, err
+		}
+
+		// Add a rule to drop all traffic to the port that the fault targets
+		faultRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd,
+			requestTimeoutSeconds, chain, protocol, allIPv4CIDR, port, dropTarget)
+		if out, err := execRuleChangeCommand(faultRuleCmdString); err != nil {
+			return out, err
+		}
 
 		// Inserting the chain into the built-in INPUT/OUTPUT table
 		insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, requestTimeoutSeconds, insertTable, chain)
