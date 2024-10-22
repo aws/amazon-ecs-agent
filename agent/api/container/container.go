@@ -1272,6 +1272,25 @@ func (c *Container) GetNetworkModeFromHostConfig() string {
 	return hostConfig.NetworkMode.NetworkName()
 }
 
+// GetMemoryReservationFromHostConfig returns the container memory reservation
+func (c *Container) GetMemoryReservationFromHostConfig() int64 {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.DockerConfig.HostConfig == nil {
+		return 0
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+	if err != nil {
+		seelog.Warnf("Encountered error when trying to get memory reservation for container %s: %v", c.RuntimeID, err)
+		return 0
+	}
+
+	return int64(hostConfig.MemoryReservation)
+}
+
 // GetHostConfig returns the container's host config.
 func (c *Container) GetHostConfig() *string {
 	c.lock.RLock()

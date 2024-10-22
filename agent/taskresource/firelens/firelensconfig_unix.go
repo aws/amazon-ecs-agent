@@ -113,28 +113,36 @@ const (
 
 	// specifies awsvpc type mode for a task
 	awsvpcNetworkMode = "awsvpc"
+
+	memBufLimitOptionFluentBit = "Mem_Buf_Limit"
+
+	// the default mem buf limit (in MB) in case we cannot infer from the container memory reservation
+	defaultMemBufLimit = 25
 )
 
 // generateConfig generates a FluentConfig object that contains all necessary information to construct
 // a fluentd or fluentbit config file for a firelens container.
 func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, error) {
 	config := generator.New()
-
+	var defaultInputMap map[string]string
 	// Specify log stream input, which is a unix socket that will be used for communication between the Firelens
 	// container and other containers.
 	var inputName, inputPathOption, matchAnyWildcard string
 	if firelens.firelensConfigType == FirelensConfigTypeFluentd {
 		inputName = socketInputNameFluentd
-		inputPathOption = socketInputPathOptionFluentd
 		matchAnyWildcard = matchAnyWildcardFluentd
+		defaultInputMap = map[string]string{
+			socketInputPathOptionFluentd: socketPath,
+		}
 	} else {
 		inputName = inputNameForward
-		inputPathOption = socketInputPathOptionFluentbit
 		matchAnyWildcard = matchAnyWildcardFluentbit
+		defaultInputMap = map[string]string{
+			socketInputPathOptionFluentbit: socketPath,
+			memBufLimitOptionFluentBit:     firelens.resolveDefaultMemBufLimit(),
+		}
 	}
-	config.AddInput(inputName, "", map[string]string{
-		inputPathOption: socketPath,
-	})
+	config.AddInput(inputName, "", defaultInputMap)
 	// Specify log stream input of tcp socket kind that can be used for communication between the Firelens
 	// container and other containers if the network is bridge or awsvpc mode. Also add health check sections to support
 	// doing container health check on firlens container for these two modes.
@@ -200,6 +208,16 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	seelog.Infof("Included external firelens config file at: %s", firelens.externalConfigValue)
 
 	return config, nil
+}
+
+func (firelens *FirelensResource) resolveDefaultMemBufLimit() string {
+	memBufLimit := firelens.containerMemoryReservation / 2
+	if memBufLimit <= 0 {
+		memBufLimit = defaultMemBufLimit
+	}
+	memBufLimitString := fmt.Sprintf("%dMB", memBufLimit)
+	seelog.Infof("Resolved Firelens default mem buf limit for task %s: %s", firelens.taskARN, memBufLimitString)
+	return memBufLimitString
 }
 
 // addHealthcheckSections adds a health check input section and a health check output section to the config.

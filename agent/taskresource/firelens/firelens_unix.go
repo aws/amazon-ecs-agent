@@ -67,22 +67,23 @@ const (
 // FirelensResource models fluentd/fluentbit firelens container related resources as a task resource.
 type FirelensResource struct {
 	// Fields that are specific to firelens resource. They are only set at initialization so are not protected by lock.
-	cluster                string
-	taskARN                string
-	taskDefinition         string
-	ec2InstanceID          string
-	resourceDir            string
-	firelensConfigType     string
-	region                 string
-	ecsMetadataEnabled     bool
-	containerToLogOptions  map[string]map[string]string
-	credentialsManager     credentials.Manager
-	executionCredentialsID string
-	externalConfigType     string
-	externalConfigValue    string
-	networkMode            string
-	ioutil                 ioutilwrapper.IOUtil
-	s3ClientCreator        factory.S3ClientCreator
+	cluster                    string
+	taskARN                    string
+	taskDefinition             string
+	ec2InstanceID              string
+	resourceDir                string
+	firelensConfigType         string
+	region                     string
+	ecsMetadataEnabled         bool
+	containerToLogOptions      map[string]map[string]string
+	credentialsManager         credentials.Manager
+	executionCredentialsID     string
+	externalConfigType         string
+	externalConfigValue        string
+	networkMode                string
+	ioutil                     ioutilwrapper.IOUtil
+	s3ClientCreator            factory.S3ClientCreator
+	containerMemoryReservation int64
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe     time.Time
@@ -98,20 +99,21 @@ type FirelensResource struct {
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
 	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string) (*FirelensResource, error) {
+	executionCredentialsID string, containerMemoryReservation int64) (*FirelensResource, error) {
 	firelensResource := &FirelensResource{
-		cluster:                cluster,
-		taskARN:                taskARN,
-		taskDefinition:         taskDefinition,
-		ec2InstanceID:          ec2InstanceID,
-		firelensConfigType:     firelensConfigType,
-		region:                 region,
-		networkMode:            networkMode,
-		containerToLogOptions:  containerToLogOptions,
-		ioutil:                 ioutilwrapper.NewIOUtil(),
-		s3ClientCreator:        factory.NewS3ClientCreator(),
-		executionCredentialsID: executionCredentialsID,
-		credentialsManager:     credentialsManager,
+		cluster:                    cluster,
+		taskARN:                    taskARN,
+		taskDefinition:             taskDefinition,
+		ec2InstanceID:              ec2InstanceID,
+		firelensConfigType:         firelensConfigType,
+		region:                     region,
+		networkMode:                networkMode,
+		containerToLogOptions:      containerToLogOptions,
+		ioutil:                     ioutilwrapper.NewIOUtil(),
+		s3ClientCreator:            factory.NewS3ClientCreator(),
+		executionCredentialsID:     executionCredentialsID,
+		credentialsManager:         credentialsManager,
+		containerMemoryReservation: containerMemoryReservation,
 	}
 
 	fields := strings.Split(taskARN, "/")
