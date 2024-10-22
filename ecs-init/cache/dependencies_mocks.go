@@ -18,12 +18,14 @@
 package cache
 
 import (
+	context "context"
 	io "io"
 	os "os"
 	reflect "reflect"
 
-	s3 "github.com/aws/aws-sdk-go/service/s3"
-	s3manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
+	imds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -51,9 +53,9 @@ func (m *Mocks3API) EXPECT() *Mocks3APIMockRecorder {
 }
 
 // Download mocks base method.
-func (m *Mocks3API) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
+func (m *Mocks3API) Download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*manager.Downloader)) (int64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{w, input}
+	varargs := []interface{}{ctx, w, input}
 	for _, a := range options {
 		varargs = append(varargs, a)
 	}
@@ -64,9 +66,9 @@ func (m *Mocks3API) Download(w io.WriterAt, input *s3.GetObjectInput, options ..
 }
 
 // Download indicates an expected call of Download.
-func (mr *Mocks3APIMockRecorder) Download(w, input interface{}, options ...interface{}) *gomock.Call {
+func (mr *Mocks3APIMockRecorder) Download(ctx, w, input interface{}, options ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{w, input}, options...)
+	varargs := append([]interface{}{ctx, w, input}, options...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*Mocks3API)(nil).Download), varargs...)
 }
 
@@ -360,17 +362,22 @@ func (m *MockinstanceMetadata) EXPECT() *MockinstanceMetadataMockRecorder {
 	return m.recorder
 }
 
-// Region mocks base method.
-func (m *MockinstanceMetadata) Region() (string, error) {
+// GetRegion mocks base method.
+func (m *MockinstanceMetadata) GetRegion(ctx context.Context, input *imds.GetRegionInput, opts ...func(*imds.Options)) (*imds.GetRegionOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Region")
-	ret0, _ := ret[0].(string)
+	varargs := []interface{}{ctx, input}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRegion", varargs...)
+	ret0, _ := ret[0].(*imds.GetRegionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Region indicates an expected call of Region.
-func (mr *MockinstanceMetadataMockRecorder) Region() *gomock.Call {
+// GetRegion indicates an expected call of GetRegion.
+func (mr *MockinstanceMetadataMockRecorder) GetRegion(ctx, input interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockinstanceMetadata)(nil).Region))
+	varargs := append([]interface{}{ctx, input}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegion", reflect.TypeOf((*MockinstanceMetadata)(nil).GetRegion), varargs...)
 }

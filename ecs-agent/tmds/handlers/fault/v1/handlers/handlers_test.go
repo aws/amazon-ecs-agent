@@ -521,6 +521,8 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 		},
@@ -554,6 +556,8 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 		},
@@ -578,7 +582,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 			},
 		},
 		{
-			name:                 fmt.Sprintf("%s fail append rule to chain", startNetworkBlackHolePortTestPrefix),
+			name:                 fmt.Sprintf("%s fail append ACCEPT rule to chain", startNetworkBlackHolePortTestPrefix),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
@@ -596,6 +600,34 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:                 fmt.Sprintf("%s fail append DROP rule to chain", startNetworkBlackHolePortTestPrefix),
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
