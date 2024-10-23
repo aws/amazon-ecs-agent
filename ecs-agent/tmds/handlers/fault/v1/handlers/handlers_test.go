@@ -35,6 +35,7 @@ import (
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
+	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -521,8 +522,6 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 		},
@@ -550,8 +549,6 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
@@ -659,6 +656,137 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
+		{
+			name:               "SourcesToFilter validation failure",
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":            port,
+				"Protocol":        protocol,
+				"TrafficType":     trafficType,
+				"SourcesToFilter": aws.StringSlice([]string{"1.2.3.4", "bad"}),
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse("invalid value bad for parameter SourcesToFilter"),
+		},
+		{
+			name: "TMDS IP is added to SourcesToFilter if needed",
+			requestBody: map[string]interface{}{
+				"Port":        80,
+				"Protocol":    protocol,
+				"TrafficType": "egress",
+			},
+			expectedStatusCode:   200,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "egress-tcp-80",
+						"-p", "tcp", "-d", "169.254.170.2", "--dport", "80", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "egress-tcp-80",
+						"-p", "tcp", "-d", "0.0.0.0/0", "--dport", "80", "-j", "DROP",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name: "Sources to filter are filtered",
+			requestBody: map[string]interface{}{
+				"Port":            443,
+				"Protocol":        "udp",
+				"TrafficType":     "ingress",
+				"SourcesToFilter": []string{"1.2.3.4/20", "8.8.8.8"},
+			},
+			expectedStatusCode:   200,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "1.2.3.4/20", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "8.8.8.8", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "0.0.0.0/0", "--dport", "443", "-j", "DROP",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:               "Error when filtering a source",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"Port":            443,
+				"Protocol":        "udp",
+				"TrafficType":     "ingress",
+				"SourcesToFilter": []string{"1.2.3.4/20"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "1.2.3.4/20", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
 				)
 			},

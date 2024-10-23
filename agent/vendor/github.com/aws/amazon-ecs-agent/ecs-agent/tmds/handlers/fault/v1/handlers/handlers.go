@@ -120,10 +120,17 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		if err != nil {
 			return
 		}
+
 		// Validate the fault request
 		err = validateRequest(w, request, requestType)
 		if err != nil {
 			return
+		}
+
+		if aws.StringValue(request.TrafficType) == types.TrafficTypeEgress &&
+			aws.Uint16Value(request.Port) == tmds.PortForTasks {
+			// Add TMDS IP to SouresToFilter so that access to TMDS is not blocked for the task
+			request.AddSourceToFilterIfNotAlready(tmds.IPForTasks)
 		}
 
 		// Obtain the task metadata via the endpoint container ID
@@ -154,7 +161,8 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			insertTable = "OUTPUT"
 		}
 
-		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol),
+			port, aws.StringValueSlice(request.SourcesToFilter), chainName,
 			networkMode, networkNSPath, insertTable, taskArn)
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
@@ -187,7 +195,10 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 // 2. Creates a new chain via `iptables -N <chain>` (the chain name is in the form of "<trafficType>-<protocol>-<port>")
 // 3. Appends a new rule to the newly created chain via `iptables -A <chain> -p <protocol> --dport <port> -j DROP`
 // 4. Inserts the newly created chain into the built-in INPUT/OUTPUT table
-func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, port, chain, networkMode, netNs, insertTable, taskArn string) (string, error) {
+func (h *FaultHandler) startNetworkBlackholePort(
+	ctx context.Context, protocol, port string, sourcesToFilter []string,
+	chain, networkMode, netNs, insertTable, taskArn string,
+) (string, error) {
 	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
 	if err != nil {
 		return cmdOutput, err
@@ -246,12 +257,13 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context, protocol, 
 			return "", nil
 		}
 
-		// Add a rule to accept all traffic to TMDS
-		protectTMDSRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd,
-			requestTimeoutSeconds, chain, protocol, tmds.IPForTasks, tmds.PortForTasks,
-			acceptTarget)
-		if out, err := execRuleChangeCommand(protectTMDSRuleCmdString); err != nil {
-			return out, err
+		for _, sourceToFilter := range sourcesToFilter {
+			filterRuleCmdString := nsenterPrefix + fmt.Sprintf(iptablesAppendChainRuleCmd,
+				requestTimeoutSeconds, chain, protocol, sourceToFilter, port,
+				acceptTarget)
+			if out, err := execRuleChangeCommand(filterRuleCmdString); err != nil {
+				return out, err
+			}
 		}
 
 		// Add a rule to drop all traffic to the port that the fault targets
