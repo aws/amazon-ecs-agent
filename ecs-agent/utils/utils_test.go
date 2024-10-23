@@ -80,14 +80,22 @@ func TestUint16SliceToStringSlice(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := Uint16SliceToStringSlice(tc.param)
-			assert.Equal(t, tc.expected, len(output), tc.name)
+			stringSlice := Uint16SliceToStringSlice(tc.param)
+			assert.Equal(t, tc.expected, len(stringSlice), tc.name)
+
+			stringPtrSlice := Uint16SliceToStringPtrSlice(tc.param)
+			assert.Equal(t, tc.expected, len(stringPtrSlice), tc.name)
+
 			for idx, num := range tc.param {
-				reconverted, err := strconv.Atoi(*output[idx])
+				reconverted, err := strconv.Atoi(stringSlice[idx])
+				assert.NoError(t, err)
+				assert.Equal(t, num, uint16(reconverted))
+
+				assert.NotNil(t, stringPtrSlice[idx])
+				reconverted, err = strconv.Atoi(*stringPtrSlice[idx])
 				assert.NoError(t, err)
 				assert.Equal(t, num, uint16(reconverted))
 			}
-
 		})
 	}
 }
