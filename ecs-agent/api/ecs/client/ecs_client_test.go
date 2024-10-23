@@ -17,16 +17,14 @@
 package ecsclient
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +33,6 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	mock_async "github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks"
@@ -44,6 +41,8 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 const (
@@ -67,7 +66,7 @@ const (
 )
 
 var (
-	containerInstanceTags = []*ecsmodel.Tag{
+	containerInstanceTags = []types.Tag{
 		{
 			Key:   aws.String("my_key1"),
 			Value: aws.String("my_val1"),
@@ -81,9 +80,9 @@ var (
 		"my_key1": "my_val1",
 		"my_key2": "my_val2",
 	}
-	testManagedAgents = []*ecsmodel.ManagedAgentStateChange{
+	testManagedAgents = []types.ManagedAgentStateChange{
 		{
-			ManagedAgentName: aws.String("test_managed_agent"),
+			ManagedAgentName: "test_managed_agent",
 			ContainerName:    aws.String(containerName),
 			Status:           aws.String("RUNNING"),
 			Reason:           aws.String("test_reason"),
@@ -110,7 +109,7 @@ func setup(t *testing.T,
 	mockSubmitStateClient := mock_ecs.NewMockECSSubmitStateSDK(ctrl)
 	options = append(options, WithStandardClient(mockStandardClient),
 		WithSubmitStateChangeClient(mockSubmitStateClient))
-	client, err := NewECSClient(credentials.AnonymousCredentials, mockCfgAccessor, ec2MetadataClient, agentVer, options...)
+	client, err := NewECSClient(aws.AnonymousCredentials{}, mockCfgAccessor, ec2MetadataClient, agentVer, options...)
 	assert.NoError(t, err)
 
 	return &testHelper{
@@ -153,30 +152,30 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	defer ctrl.Finish()
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:       aws.String(configuredCluster),
 		Task:          aws.String(taskARN),
 		ContainerName: aws.String(containerName),
 		RuntimeId:     aws.String(runtimeID),
 		Status:        aws.String("RUNNING"),
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			{
 				BindIP:        aws.String("1.2.3.4"),
-				ContainerPort: aws.Int64(1),
-				HostPort:      aws.Int64(2),
-				Protocol:      aws.String("tcp"),
+				ContainerPort: aws.Int32(1),
+				HostPort:      aws.Int32(2),
+				Protocol:      "tcp",
 			},
 			{
 				BindIP:        aws.String("2.2.3.4"),
-				ContainerPort: aws.Int64(3),
-				HostPort:      aws.Int64(4),
-				Protocol:      aws.String("udp"),
+				ContainerPort: aws.Int32(3),
+				HostPort:      aws.Int32(4),
+				Protocol:      "udp",
 			},
 			{
 				BindIP:             aws.String("5.6.7.8"),
 				ContainerPortRange: aws.String("11-12"),
 				HostPortRange:      aws.String("11-12"),
-				Protocol:           aws.String("udp"),
+				Protocol:           "udp",
 			},
 		},
 	})
@@ -185,24 +184,24 @@ func TestSubmitContainerStateChange(t *testing.T) {
 		ContainerName: containerName,
 		RuntimeID:     runtimeID,
 		Status:        apicontainerstatus.ContainerRunning,
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			{
 				BindIP:        aws.String("1.2.3.4"),
-				ContainerPort: aws.Int64(1),
-				HostPort:      aws.Int64(2),
-				Protocol:      aws.String("tcp"),
+				ContainerPort: aws.Int32(1),
+				HostPort:      aws.Int32(2),
+				Protocol:      "tcp",
 			},
 			{
 				BindIP:        aws.String("2.2.3.4"),
-				ContainerPort: aws.Int64(3),
-				HostPort:      aws.Int64(4),
-				Protocol:      aws.String("udp"),
+				ContainerPort: aws.Int32(3),
+				HostPort:      aws.Int32(4),
+				Protocol:      "udp",
 			},
 			{
 				BindIP:             aws.String("5.6.7.8"),
 				ContainerPortRange: aws.String("11-12"),
 				HostPortRange:      aws.String("11-12"),
-				Protocol:           aws.String("udp"),
+				Protocol:           "udp",
 			},
 		},
 	})
@@ -218,15 +217,15 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	exitCode := 20
 	reason := "I exited"
 
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:         aws.String(configuredCluster),
 		Task:            aws.String(taskARN),
 		ContainerName:   aws.String(containerName),
 		RuntimeId:       aws.String(runtimeID),
 		Status:          aws.String("STOPPED"),
-		ExitCode:        aws.Int64(int64(exitCode)),
+		ExitCode:        aws.Int32(int32(exitCode)),
 		Reason:          aws.String(reason),
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 	err := tester.client.SubmitContainerStateChange(ecs.ContainerStateChange{
 		TaskArn:         taskARN,
@@ -235,7 +234,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		Status:          apicontainerstatus.ContainerStopped,
 		ExitCode:        &exitCode,
 		Reason:          reason,
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 
 	assert.NoError(t, err, "Unable to submit container state change")
@@ -249,14 +248,14 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	exitCode := 20
 	reason := strings.Repeat("a", ecsMaxContainerReasonLength)
 
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:         aws.String(configuredCluster),
 		Task:            aws.String(taskARN),
 		ContainerName:   aws.String(containerName),
 		Status:          aws.String("STOPPED"),
-		ExitCode:        aws.Int64(int64(exitCode)),
+		ExitCode:        aws.Int32(int32(exitCode)),
 		Reason:          aws.String(reason),
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 	err := tester.client.SubmitContainerStateChange(ecs.ContainerStateChange{
 		TaskArn:         taskARN,
@@ -264,7 +263,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 		Status:          apicontainerstatus.ContainerStopped,
 		ExitCode:        &exitCode,
 		Reason:          reason,
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 
 	assert.NoError(t, err)
@@ -279,14 +278,14 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	trimmedReason := strings.Repeat("a", ecsMaxContainerReasonLength)
 	reason := strings.Repeat("a", ecsMaxContainerReasonLength+1)
 
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:         aws.String(configuredCluster),
 		Task:            aws.String(taskARN),
 		ContainerName:   aws.String(containerName),
 		Status:          aws.String("STOPPED"),
-		ExitCode:        aws.Int64(int64(exitCode)),
+		ExitCode:        aws.Int32(int32(exitCode)),
 		Reason:          aws.String(trimmedReason),
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 	err := tester.client.SubmitContainerStateChange(ecs.ContainerStateChange{
 		TaskArn:         taskARN,
@@ -294,19 +293,19 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 		Status:          apicontainerstatus.ContainerStopped,
 		ExitCode:        &exitCode,
 		Reason:          reason,
-		NetworkBindings: []*ecsmodel.NetworkBinding{},
+		NetworkBindings: []types.NetworkBinding{},
 	})
 
 	assert.NoError(t, err, "Unable to submit container state change")
 }
 
-func buildAttributeList(capabilities []string, attributes map[string]string) []*ecsmodel.Attribute {
-	var rv []*ecsmodel.Attribute
+func buildAttributeList(capabilities []string, attributes map[string]string) []types.Attribute {
+	var rv []types.Attribute
 	for _, capability := range capabilities {
-		rv = append(rv, &ecsmodel.Attribute{Name: aws.String(capability)})
+		rv = append(rv, types.Attribute{Name: aws.String(capability)})
 	}
 	for key, value := range attributes {
-		rv = append(rv, &ecsmodel.Attribute{Name: aws.String(key), Value: aws.String(value)})
+		rv = append(rv, types.Attribute{Name: aws.String(key), Value: aws.String(value)})
 	}
 	return rv
 }
@@ -366,18 +365,18 @@ func TestRegisterContainerInstance(t *testing.T) {
 				cpuArchAttrName:             getCPUArch(),
 			}
 			capabilities := buildAttributeList(fakeCapabilities, nil)
-			platformDevices := []*ecsmodel.PlatformDevice{
+			platformDevices := []types.PlatformDevice{
 				{
 					Id:   aws.String("id1"),
-					Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+					Type: types.PlatformDeviceTypeGpu,
 				},
 				{
 					Id:   aws.String("id2"),
-					Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+					Type: types.PlatformDeviceTypeGpu,
 				},
 				{
 					Id:   aws.String("id3"),
-					Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+					Type: types.PlatformDeviceTypeGpu,
 				},
 			}
 
@@ -419,8 +418,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 			}
 
 			gomock.InOrder(
-				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-					Do(func(req *ecsmodel.RegisterContainerInstanceInput) {
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+					Do(func(_ context.Context, req *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) {
 						assert.Nil(t, req.ContainerInstanceArn)
 						assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
 						assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
@@ -446,8 +445,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 							assert.Contains(t, containerInstanceTagsMap, k)
 							assert.Equal(t, containerInstanceTagsMap[k], v)
 						}
-					}).Return(&ecsmodel.RegisterContainerInstanceOutput{
-					ContainerInstance: &ecsmodel.ContainerInstance{
+					}).Return(&ecsservice.RegisterContainerInstanceOutput{
+					ContainerInstance: &types.ContainerInstance{
 						ContainerInstanceArn: aws.String(containerInstanceARN),
 						Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
 					nil),
@@ -492,8 +491,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Do(func(req *ecsmodel.RegisterContainerInstanceInput) {
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, req *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) {
 				assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
 				assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
 				assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
@@ -508,7 +507,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 				reqAttributes := func() map[string]string {
 					rv := make(map[string]string, len(req.Attributes))
 					for i := range req.Attributes {
-						rv[aws.StringValue(req.Attributes[i].Name)] = aws.StringValue(req.Attributes[i].Value)
+						rv[aws.ToString(req.Attributes[i].Name)] = aws.ToString(req.Attributes[i].Value)
 					}
 					return rv
 				}()
@@ -522,8 +521,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 					assert.Contains(t, containerInstanceTagsMap, k)
 					assert.Equal(t, containerInstanceTagsMap[k], v)
 				}
-			}).Return(&ecsmodel.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecsmodel.ContainerInstance{
+			}).Return(&ecsservice.RegisterContainerInstanceOutput{
+			ContainerInstance: &types.ContainerInstance{
 				ContainerInstanceArn: aws.String(containerInstanceARN),
 				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes),
 			}},
@@ -582,28 +581,28 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Do(func(req *ecsmodel.RegisterContainerInstanceInput) {
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, req *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) {
 				assert.Nil(t, req.Tags)
-			}).Return(&ecsmodel.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecsmodel.ContainerInstance{
+			}).Return(&ecsservice.RegisterContainerInstanceOutput{
+			ContainerInstance: &types.ContainerInstance{
 				ContainerInstanceArn: aws.String(containerInstanceARN),
 				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
 			nil),
 	)
 
-	_, _, err := tester.client.RegisterContainerInstance("", nil, make([]*ecsmodel.Tag, 0),
+	_, _, err := tester.client.RegisterContainerInstance("", nil, make([]types.Tag, 0),
 		"", nil, "")
 	assert.NoError(t, err)
 }
 
 func TestValidateRegisteredAttributes(t *testing.T) {
-	origAttributes := []*ecsmodel.Attribute{
+	origAttributes := []types.Attribute{
 		{Name: aws.String("foo"), Value: aws.String("bar")},
 		{Name: aws.String("baz"), Value: aws.String("quux")},
 		{Name: aws.String("no_value"), Value: aws.String("")},
 	}
-	actualAttributes := []*ecsmodel.Attribute{
+	actualAttributes := []types.Attribute{
 		{Name: aws.String("baz"), Value: aws.String("quux")},
 		{Name: aws.String("foo"), Value: aws.String("bar")},
 		{Name: aws.String("no_value"), Value: aws.String("")},
@@ -611,28 +610,22 @@ func TestValidateRegisteredAttributes(t *testing.T) {
 	}
 	assert.NoError(t, validateRegisteredAttributes(origAttributes, actualAttributes))
 
-	origAttributes = append(origAttributes, &ecsmodel.Attribute{Name: aws.String("abc"), Value: aws.String("xyz")})
+	origAttributes = append(origAttributes, types.Attribute{Name: aws.String("abc"), Value: aws.String("xyz")})
 	assert.ErrorContains(t, validateRegisteredAttributes(origAttributes, actualAttributes),
 		"Attribute validation failed")
 }
 
-func findResource(resources []*ecsmodel.Resource, name string) (*ecsmodel.Resource, bool) {
+func findResource(resources []types.Resource, name string) (types.Resource, bool) {
 	for _, resource := range resources {
 		if name == *resource.Name {
 			return resource, true
 		}
 	}
-	return nil, false
+	return types.Resource{}, false
 }
 
-func TestRegisterBlankCluster(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	// Test the special 'empty cluster' behavior of creating 'default'.
-	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
-		cfgAccessor.EXPECT().Cluster().Return("").AnyTimes()
+/* TODO (@tiffwang): uncomment this test after migrating instancecreds to SDK v2.
+func TestRegisterBlankCluster(t *testing.T) { ctrl := gomock.NewController(t) defer ctrl.Finish() mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl) // Test the special 'empty cluster' behavior of creating 'default'.  cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) { cfgAccessor.EXPECT().Cluster().Return("").AnyTimes()
 	}
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
@@ -646,22 +639,21 @@ func TestRegisterBlankCluster(t *testing.T) {
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Return(nil, awserr.New("ClientException", "Cluster not found.",
-				errors.New("Cluster not found."))),
-		tester.mockStandardClient.EXPECT().CreateCluster(&ecsmodel.CreateClusterInput{ClusterName: &defaultCluster}).
-			Return(&ecsmodel.CreateClusterOutput{Cluster: &ecsmodel.Cluster{ClusterName: &defaultCluster}}, nil),
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Return(nil, &types.ClusterNotFoundException{Message: aws.String("Cluster not found.")}),
+		tester.mockStandardClient.EXPECT().CreateCluster(gomock.Any(), &ecsservice.CreateClusterInput{ClusterName: &defaultCluster}).
+			Return(&ecsservice.CreateClusterOutput{Cluster: &types.Cluster{ClusterName: &defaultCluster}}, nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Do(func(req *ecsmodel.RegisterContainerInstanceInput) {
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, req *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) {
 				assert.Equal(t, defaultCluster, *req.Cluster, "Wrong cluster")
 				assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
 				assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-			}).Return(&ecsmodel.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecsmodel.ContainerInstance{
+			}).Return(&ecsservice.RegisterContainerInstanceOutput{
+			ContainerInstance: &types.ContainerInstance{
 				ContainerInstanceArn: aws.String(containerInstanceARN),
 				Attributes:           buildAttributeList(nil, expectedAttributes)}},
 			nil),
@@ -674,6 +666,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	assert.Equal(t, containerInstanceARN, arn, "Wrong arn")
 	assert.Empty(t, availabilityzone, "wrong availability zone")
 }
+*/
 
 func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -697,20 +690,19 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Return(nil, awserr.New("ClientException", "Invalid request.",
-				errors.New("Invalid request."))),
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Return(nil, &types.InvalidParameterException{Message: aws.String("Invalid request.")}),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
 			Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 			Return("signature", nil),
-		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-			Do(func(req *ecsmodel.RegisterContainerInstanceInput) {
+		tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, req *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) {
 				assert.Equal(t, defaultCluster, *req.Cluster, "Wrong cluster")
 				assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
 				assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-			}).Return(&ecsmodel.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecsmodel.ContainerInstance{
+			}).Return(&ecsservice.RegisterContainerInstanceOutput{
+			ContainerInstance: &types.ContainerInstance{
 				ContainerInstanceArn: aws.String(containerInstanceARN),
 				Attributes:           buildAttributeList(nil, expectedAttributes)}},
 			nil),
@@ -729,8 +721,8 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error getting telemetry endpoint")
 	assert.Equal(t, expectedEndpoint, endpoint, "Expected telemetry endpoint != endpoint")
@@ -742,7 +734,7 @@ func TestDiscoverTelemetryEndpointError(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -755,8 +747,8 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "no telemetry endpoint returned",
 		"Expected error getting telemetry endpoint with old response")
@@ -768,8 +760,8 @@ func TestDiscoverServiceConnectEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{ServiceConnectEndpoint: &expectedEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{ServiceConnectEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error getting service connect endpoint")
 	assert.Equal(t, expectedEndpoint, endpoint, "Expected telemetry endpoint != endpoint")
@@ -780,7 +772,7 @@ func TestDiscoverServiceConnectEndpointError(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -793,8 +785,8 @@ func TestDiscoverNilServiceConnectEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "no ServiceConnect endpoint returned",
 		"Expected error getting service connect endpoint with old response")
@@ -806,8 +798,8 @@ func TestDiscoverSystemLogsEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{SystemLogsEndpoint: &expectedEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{SystemLogsEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.NoError(t, err, "Error getting system logs endpoint")
 	assert.Equal(t, expectedEndpoint, endpoint, "Expected system logs endpoint != endpoint")
@@ -818,7 +810,7 @@ func TestDiscoverSystemLogsEndpointError(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -831,8 +823,8 @@ func TestDiscoverNilSystemLogsEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
-		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).
+		Return(&ecsservice.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.ErrorContains(t, err, "no system logs endpoint returned",
 		"Expected error getting system logs endpoint with old response")
@@ -843,12 +835,12 @@ func TestUpdateContainerInstancesState(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	status := "DRAINING"
-	tester.mockStandardClient.EXPECT().UpdateContainerInstancesState(&ecsmodel.UpdateContainerInstancesStateInput{
-		ContainerInstances: []*string{aws.String(containerInstanceARN)},
-		Status:             aws.String(status),
+	status := types.ContainerInstanceStatusDraining
+	tester.mockStandardClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), &ecsservice.UpdateContainerInstancesStateInput{
+		ContainerInstances: []string{containerInstanceARN},
+		Status:             status,
 		Cluster:            aws.String(configuredCluster),
-	}).Return(&ecsmodel.UpdateContainerInstancesStateOutput{}, nil)
+	}).Return(&ecsservice.UpdateContainerInstancesStateOutput{}, nil)
 
 	err := tester.client.UpdateContainerInstancesState(containerInstanceARN, status)
 	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling UpdateContainerInstancesState: %s", err))
@@ -860,10 +852,10 @@ func TestUpdateContainerInstancesStateError(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	status := "DRAINING"
-	tester.mockStandardClient.EXPECT().UpdateContainerInstancesState(&ecsmodel.UpdateContainerInstancesStateInput{
-		ContainerInstances: []*string{aws.String(containerInstanceARN)},
-		Status:             aws.String(status),
+	status := types.ContainerInstanceStatusDraining
+	tester.mockStandardClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), &ecsservice.UpdateContainerInstancesStateInput{
+		ContainerInstances: []string{containerInstanceARN},
+		Status:             status,
 		Cluster:            aws.String(configuredCluster),
 	}).Return(nil, fmt.Errorf("ERROR"))
 
@@ -877,9 +869,9 @@ func TestGetResourceTags(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().ListTagsForResource(&ecsmodel.ListTagsForResourceInput{
+	tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
 		ResourceArn: aws.String(containerInstanceARN),
-	}).Return(&ecsmodel.ListTagsForResourceOutput{
+	}).Return(&ecsservice.ListTagsForResourceOutput{
 		Tags: containerInstanceTags,
 	}, nil)
 
@@ -892,7 +884,7 @@ func TestGetResourceTagsError(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().ListTagsForResource(&ecsmodel.ListTagsForResourceInput{
+	tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
 		ResourceArn: aws.String(containerInstanceARN),
 	}).Return(nil, fmt.Errorf("ERROR"))
 
@@ -910,12 +902,12 @@ func TestDiscoverPollEndpointCacheHit(t *testing.T) {
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
 	pollEndpointCache.EXPECT().Get(containerInstanceARN).Return(
-		&ecsmodel.DiscoverPollEndpointOutput{
+		&ecsservice.DiscoverPollEndpointOutput{
 			Endpoint: aws.String(pollEndpoint),
 		}, false, true)
 	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
-	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint), "Mismatch in poll endpoint")
+	assert.Equal(t, pollEndpoint, aws.ToString(output.Endpoint), "Mismatch in poll endpoint")
 }
 
 func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
@@ -926,19 +918,19 @@ func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	pollEndpointOutput := &ecsmodel.DiscoverPollEndpointOutput{
+	pollEndpointOutput := &ecsservice.DiscoverPollEndpointOutput{
 		Endpoint: &pollEndpoint,
 	}
 
 	gomock.InOrder(
 		pollEndpointCache.EXPECT().Get(containerInstanceARN).Return(nil, false, false),
-		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(pollEndpointOutput, nil),
+		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(pollEndpointOutput, nil),
 		pollEndpointCache.EXPECT().Set(containerInstanceARN, pollEndpointOutput),
 	)
 
 	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
-	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint), "Mismatch in poll endpoint")
+	assert.Equal(t, pollEndpoint, aws.ToString(output.Endpoint), "Mismatch in poll endpoint")
 }
 
 func TestDiscoverPollEndpointExpiredButDPEFailed(t *testing.T) {
@@ -949,18 +941,18 @@ func TestDiscoverPollEndpointExpiredButDPEFailed(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	pollEndpointOutput := &ecsmodel.DiscoverPollEndpointOutput{
+	pollEndpointOutput := &ecsservice.DiscoverPollEndpointOutput{
 		Endpoint: &pollEndpoint,
 	}
 
 	gomock.InOrder(
 		pollEndpointCache.EXPECT().Get(containerInstanceARN).Return(pollEndpointOutput, true, false),
-		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("error!")),
+		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error!")),
 	)
 
 	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
 	assert.NoError(t, err, "Error in discoverPollEndpoint")
-	assert.Equal(t, pollEndpoint, aws.StringValue(output.Endpoint),
+	assert.Equal(t, pollEndpoint, aws.ToString(output.Endpoint),
 		"Mismatch in poll endpoint")
 }
 
@@ -972,8 +964,8 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
-		&ecsmodel.DiscoverPollEndpointOutput{
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(
+		&ecsservice.DiscoverPollEndpointOutput{
 			Endpoint:          &pollEndpoint,
 			TelemetryEndpoint: &pollEndpoint,
 		}, nil)
@@ -997,8 +989,8 @@ func TestDiscoverSystemLogsEndpointAfterCacheHit_HappyPath(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
-		&ecsmodel.DiscoverPollEndpointOutput{
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(
+		&ecsservice.DiscoverPollEndpointOutput{
 			Endpoint:           &pollEndpoint,
 			SystemLogsEndpoint: &pollEndpoint,
 		}, nil).Times(1)
@@ -1021,16 +1013,16 @@ func TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_UnhappyPath(t *test
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
-		&ecsmodel.DiscoverPollEndpointOutput{
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(
+		&ecsservice.DiscoverPollEndpointOutput{
 			Endpoint: &pollEndpoint,
 		}, nil).Times(1)
 	endpoint, err := tester.client.DiscoverPollEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error in DiscoverPollEndpoint")
 	assert.Equal(t, pollEndpoint, endpoint, "Mismatch in poll endpoint")
 
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
-		&ecsmodel.DiscoverPollEndpointOutput{
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any(), gomock.Any()).Return(
+		&ecsservice.DiscoverPollEndpointOutput{
 			Endpoint:           &pollEndpoint,
 			SystemLogsEndpoint: &pollEndpoint,
 		}, nil).Times(1)
@@ -1046,10 +1038,10 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(gomock.Any(), &ecsservice.SubmitTaskStateChangeInput{
 		Cluster: aws.String(configuredCluster),
 		Task:    aws.String(taskARN),
-		Attachments: []*ecsmodel.AttachmentStateChange{
+		Attachments: []types.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(attachmentARN),
 				Status:        aws.String("ATTACHED"),
@@ -1074,7 +1066,7 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(gomock.Any(), &ecsservice.SubmitTaskStateChangeInput{
 		Cluster: aws.String(configuredCluster),
 		Task:    aws.String(taskARN),
 		Reason:  aws.String(""),
@@ -1093,7 +1085,7 @@ func TestSubmitTaskStateChangeWithManagedAgents(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(gomock.Any(), &ecsservice.SubmitTaskStateChangeInput{
 		Cluster:       aws.String(configuredCluster),
 		Task:          aws.String(taskARN),
 		Reason:        aws.String(""),
@@ -1132,12 +1124,12 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 	taskStateChangePending := ecs.TaskStateChange{
 		Status:  apitaskstatus.TaskCreated,
 		TaskARN: taskARN,
-		Containers: []*ecsmodel.ContainerStateChange{
+		Containers: []types.ContainerStateChange{
 			{
 				ContainerName:   aws.String(containerName),
 				RuntimeId:       aws.String(runtimeID),
 				Status:          aws.String(apicontainerstatus.ContainerRunning.String()),
-				NetworkBindings: []*ecsmodel.NetworkBinding{},
+				NetworkBindings: []types.NetworkBinding{},
 			},
 		},
 	}
@@ -1146,17 +1138,17 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 		t.Run(fmt.Sprintf("TaskStatus: %s", tc.taskStatus.String()), func(t *testing.T) {
 			taskStateChangePending.Status = tc.taskStatus
 			tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-			tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
+			tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(gomock.Any(), &ecsservice.SubmitTaskStateChangeInput{
 				Cluster: aws.String(configuredCluster),
 				Task:    aws.String(taskARN),
 				Status:  aws.String("PENDING"),
 				Reason:  aws.String(""),
-				Containers: []*ecsmodel.ContainerStateChange{
+				Containers: []types.ContainerStateChange{
 					{
 						ContainerName:   aws.String(containerName),
 						RuntimeId:       aws.String(runtimeID),
 						Status:          aws.String("RUNNING"),
-						NetworkBindings: []*ecsmodel.NetworkBinding{},
+						NetworkBindings: []types.NetworkBinding{},
 					},
 				},
 			})
@@ -1171,9 +1163,9 @@ func TestSubmitAttachmentStateChange(t *testing.T) {
 	defer ctrl.Finish()
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(&ecsmodel.SubmitAttachmentStateChangesInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(gomock.Any(), &ecsservice.SubmitAttachmentStateChangesInput{
 		Cluster: aws.String(configuredCluster),
-		Attachments: []*ecsmodel.AttachmentStateChange{
+		Attachments: []types.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(attachmentARN),
 				Status:        aws.String("ATTACHED"),
@@ -1205,9 +1197,9 @@ func TestSubmitAttachmentStateChangeWithRetriableError(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithSASCCustomRetryBackoff(sascCustomRetryBackoff))
 
-	input := &ecsmodel.SubmitAttachmentStateChangesInput{
+	input := &ecsservice.SubmitAttachmentStateChangesInput{
 		Cluster: aws.String(configuredCluster),
-		Attachments: []*ecsmodel.AttachmentStateChange{
+		Attachments: []types.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(attachmentARN),
 				Status:        aws.String("ATTACHED"),
@@ -1217,9 +1209,9 @@ func TestSubmitAttachmentStateChangeWithRetriableError(t *testing.T) {
 
 	// Ensure that we try to submit attachment state change twice (i.e., retried on retriable error).
 	retriableError := errors.New("retriable error")
-	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(input).Return(
-		&ecsmodel.SubmitAttachmentStateChangesOutput{}, retriableError)
-	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(input)
+	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(gomock.Any(), input).Return(
+		nil, retriableError)
+	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(gomock.Any(), input)
 
 	err := tester.client.SubmitAttachmentStateChange(ecs.AttachmentStateChange{
 		Attachment: &ni.ENIAttachment{
@@ -1247,9 +1239,9 @@ func TestSubmitAttachmentStateChangeWithNonRetriableError(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithSASCCustomRetryBackoff(sascCustomRetryBackoff))
 
-	input := &ecsmodel.SubmitAttachmentStateChangesInput{
+	input := &ecsservice.SubmitAttachmentStateChangesInput{
 		Cluster: aws.String(configuredCluster),
-		Attachments: []*ecsmodel.AttachmentStateChange{
+		Attachments: []types.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(attachmentARN),
 				Status:        aws.String("ATTACHED"),
@@ -1258,9 +1250,9 @@ func TestSubmitAttachmentStateChangeWithNonRetriableError(t *testing.T) {
 	}
 
 	// Ensure that we try to submit attachment state change only once (i.e., not retried).
-	nonRetriableError := &ecsmodel.InvalidParameterException{}
-	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(input).Return(
-		&ecsmodel.SubmitAttachmentStateChangesOutput{}, nonRetriableError)
+	nonRetriableError := &types.InvalidParameterException{}
+	tester.mockSubmitStateClient.EXPECT().SubmitAttachmentStateChanges(gomock.Any(), input).Return(
+		nil, nonRetriableError)
 
 	err := tester.client.SubmitAttachmentStateChange(ecs.AttachmentStateChange{
 		Attachment: &ni.ENIAttachment{
@@ -1284,11 +1276,11 @@ func TestFIPSEndpointStateWhenEndpointGiven(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, nil)
 	assert.NotEmpty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(credentials.AnonymousCredentials, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
 		agentVer)
 	assert.NoError(t, err)
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset,
-		client.(*ecsClient).standardClient.(*ecsmodel.ECS).Config.UseFIPSEndpoint)
+	assert.Equal(t, aws.FIPSEndpointStateUnset,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
 }
 
 func TestFIPSEndpointStateOnFIPSEnabledHosts(t *testing.T) {
@@ -1301,10 +1293,10 @@ func TestFIPSEndpointStateOnFIPSEnabledHosts(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
 	assert.Empty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(credentials.AnonymousCredentials, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(), agentVer, WithFIPSDetected(true))
+	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(), agentVer, WithFIPSDetected(true))
 	assert.NoError(t, err)
-	assert.Equal(t, endpoints.FIPSEndpointStateEnabled,
-		client.(*ecsClient).standardClient.(*ecsmodel.ECS).Config.UseFIPSEndpoint)
+	assert.Equal(t, aws.FIPSEndpointStateEnabled,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
 }
 
 func TestFIPSEndpointStateOnFIPSDisabledHosts(t *testing.T) {
@@ -1317,11 +1309,11 @@ func TestFIPSEndpointStateOnFIPSDisabledHosts(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
 	assert.Empty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(credentials.AnonymousCredentials, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
 		agentVer)
 	assert.NoError(t, err)
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset,
-		client.(*ecsClient).standardClient.(*ecsmodel.ECS).Config.UseFIPSEndpoint)
+	assert.Equal(t, aws.FIPSEndpointStateUnset,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
 }
 
 func TestDiscoverPollEndpointCacheTTLSet(t *testing.T) {
@@ -1329,7 +1321,7 @@ func TestDiscoverPollEndpointCacheTTLSet(t *testing.T) {
 	defer ctrl.Finish()
 
 	ttlDuration := time.Minute
-	client, err := NewECSClient(credentials.AnonymousCredentials, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
+	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
 	assert.NoError(t, err)
 	assert.Equal(t, ttlDuration, client.(*ecsClient).pollEndpointCache.GetTTL().Duration)
 }
@@ -1339,10 +1331,10 @@ func TestDiscoverPollEndpointCacheTTLSetAndExpired(t *testing.T) {
 	defer ctrl.Finish()
 
 	ttlDuration := time.Nanosecond
-	client, err := NewECSClient(credentials.AnonymousCredentials, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
+	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
 	assert.NoError(t, err)
 
-	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsmodel.DiscoverPollEndpointOutput{
+	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsservice.DiscoverPollEndpointOutput{
 		Endpoint: aws.String(endpoint),
 	})
 	time.Sleep(2 * ttlDuration)
@@ -1351,17 +1343,17 @@ func TestDiscoverPollEndpointCacheTTLSetAndExpired(t *testing.T) {
 	assert.Equal(t, ttlDuration, client.(*ecsClient).pollEndpointCache.GetTTL().Duration)
 	assert.True(t, found)
 	assert.True(t, expired)
-	assert.Equal(t, endpoint, aws.StringValue(cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput).Endpoint))
+	assert.Equal(t, endpoint, aws.ToString(cachedEndpoint.(*ecsservice.DiscoverPollEndpointOutput).Endpoint))
 }
 
 func TestDiscoverPollEndpointCacheTTLNotSet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client, err := NewECSClient(credentials.AnonymousCredentials, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(nil))
+	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(nil))
 	assert.NoError(t, err)
 
-	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsmodel.DiscoverPollEndpointOutput{
+	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsservice.DiscoverPollEndpointOutput{
 		Endpoint: aws.String(endpoint),
 	})
 	cachedEndpoint, expired, found := client.(*ecsClient).pollEndpointCache.Get(containerInstanceARN)
@@ -1369,7 +1361,7 @@ func TestDiscoverPollEndpointCacheTTLNotSet(t *testing.T) {
 	assert.Nil(t, client.(*ecsClient).pollEndpointCache.GetTTL())
 	assert.True(t, found)
 	assert.False(t, expired)
-	assert.Equal(t, endpoint, aws.StringValue(cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput).Endpoint))
+	assert.Equal(t, endpoint, aws.ToString(cachedEndpoint.(*ecsservice.DiscoverPollEndpointOutput).Endpoint))
 }
 
 func TestWithIPv6PortBindingExcludedSetTrue(t *testing.T) {
@@ -1378,27 +1370,27 @@ func TestWithIPv6PortBindingExcludedSetTrue(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithIPv6PortBindingExcluded(true))
 
-	ipv4PortBinding := &ecsmodel.NetworkBinding{
+	ipv4PortBinding := types.NetworkBinding{
 		BindIP:        aws.String("0.0.0.0"),
-		ContainerPort: aws.Int64(1),
-		HostPort:      aws.Int64(2),
-		Protocol:      aws.String("tcp"),
+		ContainerPort: aws.Int32(1),
+		HostPort:      aws.Int32(2),
+		Protocol:      "tcp",
 	}
-	ipv6PortBinding := &ecsmodel.NetworkBinding{
+	ipv6PortBinding := types.NetworkBinding{
 		BindIP:        aws.String("::"),
-		ContainerPort: aws.Int64(3),
-		HostPort:      aws.Int64(4),
-		Protocol:      aws.String("tcp"),
+		ContainerPort: aws.Int32(3),
+		HostPort:      aws.Int32(4),
+		Protocol:      "tcp",
 	}
 
 	// IPv6 port binding should be excluded from container state change submitted.
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:       aws.String(configuredCluster),
 		Task:          aws.String(taskARN),
 		ContainerName: aws.String(containerName),
 		RuntimeId:     aws.String(runtimeID),
 		Status:        aws.String("RUNNING"),
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			ipv4PortBinding,
 		},
 	})
@@ -1407,7 +1399,7 @@ func TestWithIPv6PortBindingExcludedSetTrue(t *testing.T) {
 		ContainerName: containerName,
 		RuntimeID:     runtimeID,
 		Status:        apicontainerstatus.ContainerRunning,
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			ipv4PortBinding,
 			ipv6PortBinding,
 		},
@@ -1421,27 +1413,27 @@ func TestWithIPv6PortBindingExcludedSetFalse(t *testing.T) {
 	defer ctrl.Finish()
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	ipv4PortBinding := &ecsmodel.NetworkBinding{
+	ipv4PortBinding := types.NetworkBinding{
 		BindIP:        aws.String("0.0.0.0"),
-		ContainerPort: aws.Int64(1),
-		HostPort:      aws.Int64(2),
-		Protocol:      aws.String("tcp"),
+		ContainerPort: aws.Int32(1),
+		HostPort:      aws.Int32(2),
+		Protocol:      "tcp",
 	}
-	ipv6PortBinding := &ecsmodel.NetworkBinding{
+	ipv6PortBinding := types.NetworkBinding{
 		BindIP:        aws.String("::"),
-		ContainerPort: aws.Int64(3),
-		HostPort:      aws.Int64(4),
-		Protocol:      aws.String("tcp"),
+		ContainerPort: aws.Int32(3),
+		HostPort:      aws.Int32(4),
+		Protocol:      "tcp",
 	}
 
 	// IPv6 port binding should NOT be excluded from container state change submitted.
-	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(&ecsmodel.SubmitContainerStateChangeInput{
+	tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(), &ecsservice.SubmitContainerStateChangeInput{
 		Cluster:       aws.String(configuredCluster),
 		Task:          aws.String(taskARN),
 		ContainerName: aws.String(containerName),
 		RuntimeId:     aws.String(runtimeID),
 		Status:        aws.String("RUNNING"),
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			ipv4PortBinding,
 			ipv6PortBinding,
 		},
@@ -1451,7 +1443,7 @@ func TestWithIPv6PortBindingExcludedSetFalse(t *testing.T) {
 		ContainerName: containerName,
 		RuntimeID:     runtimeID,
 		Status:        apicontainerstatus.ContainerRunning,
-		NetworkBindings: []*ecsmodel.NetworkBinding{
+		NetworkBindings: []types.NetworkBinding{
 			ipv4PortBinding,
 			ipv6PortBinding,
 		},
@@ -1479,10 +1471,10 @@ func TestTrimStringPtr(t *testing.T) {
 	}
 }
 
-func extractTagsMapFromRegisterContainerInstanceInput(req *ecsmodel.RegisterContainerInstanceInput) map[string]string {
+func extractTagsMapFromRegisterContainerInstanceInput(req *ecsservice.RegisterContainerInstanceInput) map[string]string {
 	tagsMap := make(map[string]string, len(req.Tags))
 	for i := range req.Tags {
-		tagsMap[aws.StringValue(req.Tags[i].Key)] = aws.StringValue(req.Tags[i].Value)
+		tagsMap[aws.ToString(req.Tags[i].Key)] = aws.ToString(req.Tags[i].Value)
 	}
 	return tagsMap
 }
