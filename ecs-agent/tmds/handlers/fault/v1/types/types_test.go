@@ -22,19 +22,19 @@ import (
 
 func TestNetworkBlackholePortAddSourceToFilterIfNotAlready(t *testing.T) {
 	t.Run("nil SourcesToFilter is initialized", func(t *testing.T) {
-		var req *NetworkBlackholePortRequest = &NetworkBlackholePortRequest{}
+		var req NetworkBlackholePortRequest = NetworkBlackholePortRequest{}
 		req.AddSourceToFilterIfNotAlready("1.2.3.4")
 		require.Equal(t, aws.StringValueSlice(req.SourcesToFilter), []string{"1.2.3.4"})
 	})
 	t.Run("Source can be added", func(t *testing.T) {
-		var req *NetworkBlackholePortRequest = &NetworkBlackholePortRequest{
+		var req NetworkBlackholePortRequest = NetworkBlackholePortRequest{
 			SourcesToFilter: aws.StringSlice([]string{"8.8.8.8"}),
 		}
 		req.AddSourceToFilterIfNotAlready("1.2.3.4")
 		require.Equal(t, aws.StringValueSlice(req.SourcesToFilter), []string{"8.8.8.8", "1.2.3.4"})
 	})
 	t.Run("Duplicate source is not added", func(t *testing.T) {
-		var req *NetworkBlackholePortRequest = &NetworkBlackholePortRequest{
+		var req NetworkBlackholePortRequest = NetworkBlackholePortRequest{
 			SourcesToFilter: aws.StringSlice([]string{"8.8.8.8", "1.2.3.4"}),
 		}
 		req.AddSourceToFilterIfNotAlready("1.2.3.4")
