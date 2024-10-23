@@ -757,6 +757,40 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 				)
 			},
 		},
+		{
+			name:               "Error when filtering a source",
+			expectedStatusCode: 500,
+			requestBody: map[string]interface{}{
+				"Port":            443,
+				"Protocol":        "udp",
+				"TrafficType":     "ingress",
+				"SourcesToFilter": []string{"1.2.3.4/20"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(1)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "1.2.3.4/20", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("exit status 1")),
+				)
+			},
+		},
 	}
 
 	return append(tcs, commonTcs...)
