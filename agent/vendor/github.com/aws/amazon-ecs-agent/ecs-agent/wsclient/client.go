@@ -290,7 +290,10 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 			}
 		}
 		logger.Warn(fmt.Sprintf(
-			"Error creating a websocket client: %v", err))
+			"Error creating a websocket client: %v", err),
+			logger.Fields{
+				"URL": cs.URL,
+			})
 		return nil, errors.Wrapf(err, "websocket client: unable to dial %s response: %s",
 			parsedURL.Host, string(resp))
 	}
@@ -486,20 +489,29 @@ func (cs *ClientServerImpl) ConsumeMessages(ctx context.Context) error {
 			case err == nil:
 				if messageType != websocket.TextMessage {
 					// maybe not fatal though, we'll try to process it anyways
-					logger.Error(fmt.Sprintf("Unexpected messageType: %v", messageType))
+					logger.Error(fmt.Sprintf("Unexpected messageType: %v", messageType),
+						logger.Fields{
+							"URL": cs.URL,
+						})
 				}
 
 				cs.handleMessage(message)
 
 			case permissibleCloseCode(err):
-				logger.Debug(fmt.Sprintf("Connection closed for a valid reason: %s", err))
+				logger.Debug(fmt.Sprintf("Connection closed for a valid reason: %s", err),
+					logger.Fields{
+						"URL": cs.URL,
+					})
 				errChan <- io.EOF
 				return
 
 			default:
 				// Unexpected error occurred
 				logger.Debug(fmt.Sprintf("Error getting message from ws backend: error: [%v], messageType: [%v] ",
-					err, messageType))
+					err, messageType),
+					logger.Fields{
+						"URL": cs.URL,
+					})
 				errChan <- err
 				return
 			}
@@ -553,11 +565,17 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 func (cs *ClientServerImpl) handleMessage(data []byte) {
 	typedMessage, typeStr, err := DecodeData(data, cs.TypeDecoder)
 	if err != nil {
-		logger.Warn(fmt.Sprintf("Unable to handle message from backend: %v", err))
+		logger.Warn(fmt.Sprintf("Unable to handle message from backend: %v", err),
+			logger.Fields{
+				"URL": cs.URL,
+			})
 		return
 	}
 
-	logger.Debug(fmt.Sprintf("Received message of type: %s", typeStr))
+	logger.Debug(fmt.Sprintf("Received message of type: %s", typeStr),
+		logger.Fields{
+			"URL": cs.URL,
+		})
 
 	if cs.AnyRequestHandler != nil {
 		reflect.ValueOf(cs.AnyRequestHandler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
@@ -566,7 +584,9 @@ func (cs *ClientServerImpl) handleMessage(data []byte) {
 	if handler, ok := cs.RequestHandlers[typeStr]; ok {
 		reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(typedMessage)})
 	} else {
-		logger.Info(fmt.Sprintf("No handler for message type: %s %s", typeStr, typedMessage))
+		logger.Info(fmt.Sprintf("No handler for message type: %s %s", typeStr, typedMessage), logger.Fields{
+			"URL": cs.URL,
+		})
 	}
 }
 
@@ -604,6 +624,7 @@ func (cs *ClientServerImpl) newDisconnectTimeoutHandler(startTime time.Time,
 	logger.Info(("Websocket connection established."), logger.Fields{
 		"URL":                    cs.URL,
 		"ConnectTime":            startTime.Format(dateTimeFormat),
+		"maxConnectionDuration":  maxConnectionDuration,
 		"ExpectedDisconnectTime": startTime.Add(disconnectTimeout).Format(dateTimeFormat),
 	})
 
