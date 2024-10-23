@@ -32,7 +32,7 @@ const (
 	IPv4         = "127.0.0.1"
 	Port         = 51679
 	IPForTasks   = "169.254.170.2"
-	PortForTasks = "80"
+	PortForTasks = 80
 )
 
 // IPv4 address for TMDS
