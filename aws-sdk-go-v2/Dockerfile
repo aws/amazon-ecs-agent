@@ -18,8 +18,15 @@ ENV XDG_CACHE_HOME /tmp
 
 RUN go env -w GOPROXY=direct
 
+# Install Amazon Coretto for OpenJDK 23.
+# https://docs.aws.amazon.com/corretto/latest/corretto-23-ug/generic-linux-install.html
+RUN wget -O - https://apt.corretto.aws/corretto.key | \
+    gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" | \
+    tee /etc/apt/sources.list.d/corretto.list
+
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends openjdk-17-jdk
+    apt-get install -y --no-install-recommends java-23-amazon-corretto-jdk
 
 RUN mkdir -p /go/src/github.com/aws/
 
