@@ -751,6 +751,48 @@ func TestGetNetworkModeFromHostConfig(t *testing.T) {
 	}
 }
 
+func TestGetMemoryReservationFromHostConfig(t *testing.T) {
+	getContainer := func(hostConfig *string) *Container {
+		c := &Container{
+			Name: "c",
+		}
+		c.DockerConfig.HostConfig = hostConfig
+		return c
+	}
+
+	getStrPtr := func(s string) *string {
+		return &s
+	}
+
+	testCases := []struct {
+		name           string
+		container      *Container
+		expectedOutput int64
+	}{
+		{
+			name:           "happy case",
+			container:      getContainer(getStrPtr("{\"MemoryReservation\":268435456}")),
+			expectedOutput: 256,
+		},
+		{
+			name:           "invalid case",
+			container:      getContainer(getStrPtr("invalid")),
+			expectedOutput: 0,
+		},
+		{
+			name:           "nil case",
+			container:      getContainer(nil),
+			expectedOutput: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.container.GetMemoryReservationFromHostConfig())
+		})
+	}
+}
+
 func TestShouldCreateWithEnvfiles(t *testing.T) {
 	cases := []struct {
 		in  Container

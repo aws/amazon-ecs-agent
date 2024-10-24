@@ -53,7 +53,7 @@ type FirelensResource struct{}
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
 	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string) (*FirelensResource, error) {
+	executionCredentialsID string, containerMemoryLimit int64) (*FirelensResource, error) {
 	return nil, errors.New("not implemented")
 }
 
