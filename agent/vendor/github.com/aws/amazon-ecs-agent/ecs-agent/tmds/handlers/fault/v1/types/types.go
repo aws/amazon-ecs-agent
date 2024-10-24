@@ -45,8 +45,8 @@ type NetworkBlackholePortRequest struct {
 	Port        *uint16 `json:"Port"`
 	Protocol    *string `json:"Protocol"`
 	TrafficType *string `json:"TrafficType"`
-	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded from the
-	// network latency fault.
+	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded
+	// from the fault.
 	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
 }
 
@@ -86,7 +86,7 @@ func (request *NetworkBlackholePortRequest) AddSourceToFilterIfNotAlready(source
 		request.SourcesToFilter = []*string{}
 	}
 	for _, src := range request.SourcesToFilter {
-		if src != nil && *src == source {
+		if aws.StringValue(src) == source {
 			return
 		}
 	}
