@@ -201,19 +201,23 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 
 func validateNetworkFaultRequestSources(sources []*string, sourcesType string) error {
 	for _, element := range sources {
-		elementStr := aws.StringValue(element)
-		validIp := true
-		if net.ParseIP(elementStr) == nil {
-			validIp = false
-		}
-		validIpCIDRBlock := true
-		if _, _, err := net.ParseCIDR(elementStr); err != nil {
-			validIpCIDRBlock = false
-		}
-
-		if !validIpCIDRBlock && !validIp {
-			return fmt.Errorf(invalidValueError, elementStr, sourcesType)
+		if err := validateNetworkFaultRequestSource(aws.StringValue(element), sourcesType); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func validateNetworkFaultRequestSource(source string, sourceType string) error {
+	ip := net.ParseIP(source)
+	if ip != nil && ip.To4() != nil {
+		return nil // IPv4 successful
+	}
+
+	_, ipnet, err := net.ParseCIDR(source)
+	if err == nil && ipnet.IP.To4() != nil {
+		return nil // IPv4 CIDR successful
+	}
+
+	return fmt.Errorf(invalidValueError, source, sourceType)
 }
