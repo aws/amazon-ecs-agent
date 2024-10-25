@@ -220,10 +220,12 @@ func validateNetworkFaultRequestSource(source string, sourceType string) error {
 	if err == nil && ipnet.IP.To4() != nil {
 		return nil // IPv4 CIDR successful
 	}
-	logger.Info("Failed to parse fault source as IPv4 CIDR block", logger.Fields{
-		"source":    source,
-		field.Error: err,
-	})
+	if err != nil {
+		logger.Info("Failed to parse fault source as IPv4 CIDR block", logger.Fields{
+			"source":    source,
+			field.Error: err,
+		})
+	}
 
 	return fmt.Errorf(invalidValueError, source, sourceType)
 }
