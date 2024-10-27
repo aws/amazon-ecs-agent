@@ -202,6 +202,11 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/internal/ini
+# github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3 => ../aws-sdk-go-v2/service/ecs
+## explicit; go 1.21
+github.com/aws/aws-sdk-go-v2/service/ecs
+github.com/aws/aws-sdk-go-v2/service/ecs/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/ecs/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.0
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
@@ -247,6 +252,7 @@ github.com/aws/smithy-go/time
 github.com/aws/smithy-go/tracing
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
+github.com/aws/smithy-go/waiter
 # github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 ## explicit; go 1.15
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit
@@ -672,3 +678,4 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+# github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
