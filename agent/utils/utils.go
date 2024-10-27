@@ -28,8 +28,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -154,14 +154,14 @@ func GetRequestFailureStatusCode(err error) int {
 }
 
 // MapToTags converts a map to a slice of tags.
-func MapToTags(tagsMap map[string]string) []*ecs.Tag {
-	tags := make([]*ecs.Tag, 0)
+func MapToTags(tagsMap map[string]string) []types.Tag {
+	tags := make([]types.Tag, 0)
 	if tagsMap == nil {
 		return tags
 	}
 
 	for key, value := range tagsMap {
-		tags = append(tags, &ecs.Tag{
+		tags = append(tags, types.Tag{
 			Key:   aws.String(key),
 			Value: aws.String(value),
 		})

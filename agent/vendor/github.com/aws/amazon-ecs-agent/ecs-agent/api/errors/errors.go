@@ -20,11 +20,21 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
-// InstanceTypeChangedErrorMessage is the error message to print for the
-// instance type changed error when registering a container instance
-const InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
+const (
+	// InstanceTypeChangedErrorMessage is the error message to print for the
+	// instance type changed error when registering a container instance
+	InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
 
-const ClusterNotFoundErrorMessage = "Cluster not found."
+	ClusterNotFoundErrorMessage = "Cluster not found."
+
+	ErrCodeInvalidParameterException = "InvalidParameterException"
+
+	ErrCodeAccessDeniedException = "AccessDeniedException"
+
+	ErrCodeServerException = "ServerException"
+
+	ErrCodeResourceNotFoundException = "ResourceNotFoundException"
+)
 
 // IsInstanceTypeChangedError returns true if the error when
 // registering the container instance is because of instance type being
