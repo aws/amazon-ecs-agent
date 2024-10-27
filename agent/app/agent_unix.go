@@ -30,8 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -205,7 +205,7 @@ func (agent *ecsAgent) initializeGPUManager() error {
 	return nil
 }
 
-func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
+func (agent *ecsAgent) getPlatformDevices() []types.PlatformDevice {
 	if agent.cfg.GPUSupportEnabled {
 		if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
 			return agent.resourceFields.NvidiaGPUManager.GetDevices()

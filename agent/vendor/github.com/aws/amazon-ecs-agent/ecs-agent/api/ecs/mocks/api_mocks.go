@@ -23,8 +23,8 @@ import (
 	reflect "reflect"
 
 	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
-	ecs0 "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	request "github.com/aws/aws-sdk-go/aws/request"
+	ecs0 "github.com/aws/aws-sdk-go-v2/service/ecs"
+	types "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -52,33 +52,43 @@ func (m *MockECSStandardSDK) EXPECT() *MockECSStandardSDKMockRecorder {
 }
 
 // CreateCluster mocks base method.
-func (m *MockECSStandardSDK) CreateCluster(arg0 *ecs0.CreateClusterInput) (*ecs0.CreateClusterOutput, error) {
+func (m *MockECSStandardSDK) CreateCluster(arg0 context.Context, arg1 *ecs0.CreateClusterInput, arg2 ...func(*ecs0.Options)) (*ecs0.CreateClusterOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCluster", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateCluster", varargs...)
 	ret0, _ := ret[0].(*ecs0.CreateClusterOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateCluster indicates an expected call of CreateCluster.
-func (mr *MockECSStandardSDKMockRecorder) CreateCluster(arg0 interface{}) *gomock.Call {
+func (mr *MockECSStandardSDKMockRecorder) CreateCluster(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCluster", reflect.TypeOf((*MockECSStandardSDK)(nil).CreateCluster), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCluster", reflect.TypeOf((*MockECSStandardSDK)(nil).CreateCluster), varargs...)
 }
 
 // DiscoverPollEndpoint mocks base method.
-func (m *MockECSStandardSDK) DiscoverPollEndpoint(arg0 *ecs0.DiscoverPollEndpointInput) (*ecs0.DiscoverPollEndpointOutput, error) {
+func (m *MockECSStandardSDK) DiscoverPollEndpoint(arg0 context.Context, arg1 *ecs0.DiscoverPollEndpointInput, arg2 ...func(*ecs0.Options)) (*ecs0.DiscoverPollEndpointOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DiscoverPollEndpoint", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DiscoverPollEndpoint", varargs...)
 	ret0, _ := ret[0].(*ecs0.DiscoverPollEndpointOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DiscoverPollEndpoint indicates an expected call of DiscoverPollEndpoint.
-func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpoint(arg0 interface{}) *gomock.Call {
+func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpoint(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverPollEndpoint", reflect.TypeOf((*MockECSStandardSDK)(nil).DiscoverPollEndpoint), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverPollEndpoint", reflect.TypeOf((*MockECSStandardSDK)(nil).DiscoverPollEndpoint), varargs...)
 }
 
 // DiscoverPollEndpointWithContext mocks base method.
@@ -102,48 +112,63 @@ func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpointWithContext(arg0, 
 }
 
 // ListTagsForResource mocks base method.
-func (m *MockECSStandardSDK) ListTagsForResource(arg0 *ecs0.ListTagsForResourceInput) (*ecs0.ListTagsForResourceOutput, error) {
+func (m *MockECSStandardSDK) ListTagsForResource(arg0 context.Context, arg1 *ecs0.ListTagsForResourceInput, arg2 ...func(*ecs0.Options)) (*ecs0.ListTagsForResourceOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTagsForResource", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListTagsForResource", varargs...)
 	ret0, _ := ret[0].(*ecs0.ListTagsForResourceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListTagsForResource indicates an expected call of ListTagsForResource.
-func (mr *MockECSStandardSDKMockRecorder) ListTagsForResource(arg0 interface{}) *gomock.Call {
+func (mr *MockECSStandardSDKMockRecorder) ListTagsForResource(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResource", reflect.TypeOf((*MockECSStandardSDK)(nil).ListTagsForResource), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResource", reflect.TypeOf((*MockECSStandardSDK)(nil).ListTagsForResource), varargs...)
 }
 
 // RegisterContainerInstance mocks base method.
-func (m *MockECSStandardSDK) RegisterContainerInstance(arg0 *ecs0.RegisterContainerInstanceInput) (*ecs0.RegisterContainerInstanceOutput, error) {
+func (m *MockECSStandardSDK) RegisterContainerInstance(arg0 context.Context, arg1 *ecs0.RegisterContainerInstanceInput, arg2 ...func(*ecs0.Options)) (*ecs0.RegisterContainerInstanceOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "RegisterContainerInstance", varargs...)
 	ret0, _ := ret[0].(*ecs0.RegisterContainerInstanceOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterContainerInstance indicates an expected call of RegisterContainerInstance.
-func (mr *MockECSStandardSDKMockRecorder) RegisterContainerInstance(arg0 interface{}) *gomock.Call {
+func (mr *MockECSStandardSDKMockRecorder) RegisterContainerInstance(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSStandardSDK)(nil).RegisterContainerInstance), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSStandardSDK)(nil).RegisterContainerInstance), varargs...)
 }
 
 // UpdateContainerInstancesState mocks base method.
-func (m *MockECSStandardSDK) UpdateContainerInstancesState(arg0 *ecs0.UpdateContainerInstancesStateInput) (*ecs0.UpdateContainerInstancesStateOutput, error) {
+func (m *MockECSStandardSDK) UpdateContainerInstancesState(arg0 context.Context, arg1 *ecs0.UpdateContainerInstancesStateInput, arg2 ...func(*ecs0.Options)) (*ecs0.UpdateContainerInstancesStateOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", varargs...)
 	ret0, _ := ret[0].(*ecs0.UpdateContainerInstancesStateOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateContainerInstancesState indicates an expected call of UpdateContainerInstancesState.
-func (mr *MockECSStandardSDKMockRecorder) UpdateContainerInstancesState(arg0 interface{}) *gomock.Call {
+func (mr *MockECSStandardSDKMockRecorder) UpdateContainerInstancesState(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerInstancesState", reflect.TypeOf((*MockECSStandardSDK)(nil).UpdateContainerInstancesState), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerInstancesState", reflect.TypeOf((*MockECSStandardSDK)(nil).UpdateContainerInstancesState), varargs...)
 }
 
 // MockECSSubmitStateSDK is a mock of ECSSubmitStateSDK interface.
@@ -170,48 +195,63 @@ func (m *MockECSSubmitStateSDK) EXPECT() *MockECSSubmitStateSDKMockRecorder {
 }
 
 // SubmitAttachmentStateChanges mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitAttachmentStateChanges(arg0 *ecs0.SubmitAttachmentStateChangesInput) (*ecs0.SubmitAttachmentStateChangesOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitAttachmentStateChanges(arg0 context.Context, arg1 *ecs0.SubmitAttachmentStateChangesInput, arg2 ...func(*ecs0.Options)) (*ecs0.SubmitAttachmentStateChangesOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubmitAttachmentStateChanges", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SubmitAttachmentStateChanges", varargs...)
 	ret0, _ := ret[0].(*ecs0.SubmitAttachmentStateChangesOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SubmitAttachmentStateChanges indicates an expected call of SubmitAttachmentStateChanges.
-func (mr *MockECSSubmitStateSDKMockRecorder) SubmitAttachmentStateChanges(arg0 interface{}) *gomock.Call {
+func (mr *MockECSSubmitStateSDKMockRecorder) SubmitAttachmentStateChanges(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitAttachmentStateChanges", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitAttachmentStateChanges), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitAttachmentStateChanges", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitAttachmentStateChanges), varargs...)
 }
 
 // SubmitContainerStateChange mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitContainerStateChange(arg0 *ecs0.SubmitContainerStateChangeInput) (*ecs0.SubmitContainerStateChangeOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitContainerStateChange(arg0 context.Context, arg1 *ecs0.SubmitContainerStateChangeInput, arg2 ...func(*ecs0.Options)) (*ecs0.SubmitContainerStateChangeOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubmitContainerStateChange", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SubmitContainerStateChange", varargs...)
 	ret0, _ := ret[0].(*ecs0.SubmitContainerStateChangeOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SubmitContainerStateChange indicates an expected call of SubmitContainerStateChange.
-func (mr *MockECSSubmitStateSDKMockRecorder) SubmitContainerStateChange(arg0 interface{}) *gomock.Call {
+func (mr *MockECSSubmitStateSDKMockRecorder) SubmitContainerStateChange(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitContainerStateChange", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitContainerStateChange), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitContainerStateChange", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitContainerStateChange), varargs...)
 }
 
 // SubmitTaskStateChange mocks base method.
-func (m *MockECSSubmitStateSDK) SubmitTaskStateChange(arg0 *ecs0.SubmitTaskStateChangeInput) (*ecs0.SubmitTaskStateChangeOutput, error) {
+func (m *MockECSSubmitStateSDK) SubmitTaskStateChange(arg0 context.Context, arg1 *ecs0.SubmitTaskStateChangeInput, arg2 ...func(*ecs0.Options)) (*ecs0.SubmitTaskStateChangeOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubmitTaskStateChange", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SubmitTaskStateChange", varargs...)
 	ret0, _ := ret[0].(*ecs0.SubmitTaskStateChangeOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SubmitTaskStateChange indicates an expected call of SubmitTaskStateChange.
-func (mr *MockECSSubmitStateSDKMockRecorder) SubmitTaskStateChange(arg0 interface{}) *gomock.Call {
+func (mr *MockECSSubmitStateSDKMockRecorder) SubmitTaskStateChange(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitTaskStateChange", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitTaskStateChange), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitTaskStateChange", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitTaskStateChange), varargs...)
 }
 
 // MockECSClient is a mock of ECSClient interface.
@@ -298,10 +338,10 @@ func (mr *MockECSClientMockRecorder) DiscoverTelemetryEndpoint(arg0 interface{})
 }
 
 // GetHostResources mocks base method.
-func (m *MockECSClient) GetHostResources() (map[string]*ecs0.Resource, error) {
+func (m *MockECSClient) GetHostResources() (map[string]types.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHostResources")
-	ret0, _ := ret[0].(map[string]*ecs0.Resource)
+	ret0, _ := ret[0].(map[string]types.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -313,10 +353,10 @@ func (mr *MockECSClientMockRecorder) GetHostResources() *gomock.Call {
 }
 
 // GetResourceTags mocks base method.
-func (m *MockECSClient) GetResourceTags(arg0 string) ([]*ecs0.Tag, error) {
+func (m *MockECSClient) GetResourceTags(arg0 string) ([]types.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceTags", arg0)
-	ret0, _ := ret[0].([]*ecs0.Tag)
+	ret0, _ := ret[0].([]types.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -328,7 +368,7 @@ func (mr *MockECSClientMockRecorder) GetResourceTags(arg0 interface{}) *gomock.C
 }
 
 // RegisterContainerInstance mocks base method.
-func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs0.Attribute, arg2 []*ecs0.Tag, arg3 string, arg4 []*ecs0.PlatformDevice, arg5 string) (string, string, error) {
+func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []types.Attribute, arg2 []types.Tag, arg3 string, arg4 []types.PlatformDevice, arg5 string) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(string)
@@ -386,7 +426,7 @@ func (mr *MockECSClientMockRecorder) SubmitTaskStateChange(arg0 interface{}) *go
 }
 
 // UpdateContainerInstancesState mocks base method.
-func (m *MockECSClient) UpdateContainerInstancesState(arg0, arg1 string) error {
+func (m *MockECSClient) UpdateContainerInstancesState(arg0 string, arg1 types.ContainerInstanceStatus) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -423,71 +463,41 @@ func (m *MockECSTaskProtectionSDK) EXPECT() *MockECSTaskProtectionSDKMockRecorde
 }
 
 // GetTaskProtection mocks base method.
-func (m *MockECSTaskProtectionSDK) GetTaskProtection(arg0 *ecs0.GetTaskProtectionInput) (*ecs0.GetTaskProtectionOutput, error) {
+func (m *MockECSTaskProtectionSDK) GetTaskProtection(arg0 context.Context, arg1 *ecs0.GetTaskProtectionInput, arg2 ...func(*ecs0.Options)) (*ecs0.GetTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTaskProtection", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetTaskProtection", varargs...)
 	ret0, _ := ret[0].(*ecs0.GetTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTaskProtection indicates an expected call of GetTaskProtection.
-func (mr *MockECSTaskProtectionSDKMockRecorder) GetTaskProtection(arg0 interface{}) *gomock.Call {
+func (mr *MockECSTaskProtectionSDKMockRecorder) GetTaskProtection(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskProtection", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).GetTaskProtection), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskProtection", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).GetTaskProtection), varargs...)
 }
 
-// GetTaskProtectionWithContext mocks base method.
-func (m *MockECSTaskProtectionSDK) GetTaskProtectionWithContext(arg0 context.Context, arg1 *ecs0.GetTaskProtectionInput, arg2 ...request.Option) (*ecs0.GetTaskProtectionOutput, error) {
+// UpdateTaskProtection mocks base method.
+func (m *MockECSTaskProtectionSDK) UpdateTaskProtection(arg0 context.Context, arg1 *ecs0.UpdateTaskProtectionInput, arg2 ...func(*ecs0.Options)) (*ecs0.UpdateTaskProtectionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetTaskProtectionWithContext", varargs...)
-	ret0, _ := ret[0].(*ecs0.GetTaskProtectionOutput)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTaskProtectionWithContext indicates an expected call of GetTaskProtectionWithContext.
-func (mr *MockECSTaskProtectionSDKMockRecorder) GetTaskProtectionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskProtectionWithContext", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).GetTaskProtectionWithContext), varargs...)
-}
-
-// UpdateTaskProtection mocks base method.
-func (m *MockECSTaskProtectionSDK) UpdateTaskProtection(arg0 *ecs0.UpdateTaskProtectionInput) (*ecs0.UpdateTaskProtectionOutput, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateTaskProtection", arg0)
+	ret := m.ctrl.Call(m, "UpdateTaskProtection", varargs...)
 	ret0, _ := ret[0].(*ecs0.UpdateTaskProtectionOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateTaskProtection indicates an expected call of UpdateTaskProtection.
-func (mr *MockECSTaskProtectionSDKMockRecorder) UpdateTaskProtection(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTaskProtection", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).UpdateTaskProtection), arg0)
-}
-
-// UpdateTaskProtectionWithContext mocks base method.
-func (m *MockECSTaskProtectionSDK) UpdateTaskProtectionWithContext(arg0 context.Context, arg1 *ecs0.UpdateTaskProtectionInput, arg2 ...request.Option) (*ecs0.UpdateTaskProtectionOutput, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "UpdateTaskProtectionWithContext", varargs...)
-	ret0, _ := ret[0].(*ecs0.UpdateTaskProtectionOutput)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateTaskProtectionWithContext indicates an expected call of UpdateTaskProtectionWithContext.
-func (mr *MockECSTaskProtectionSDKMockRecorder) UpdateTaskProtectionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockECSTaskProtectionSDKMockRecorder) UpdateTaskProtection(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTaskProtectionWithContext", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).UpdateTaskProtectionWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTaskProtection", reflect.TypeOf((*MockECSTaskProtectionSDK)(nil).UpdateTaskProtection), varargs...)
 }

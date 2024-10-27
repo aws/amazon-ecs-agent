@@ -23,9 +23,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/pkg/errors"
 )
@@ -67,7 +67,7 @@ func (agent *ecsAgent) loadData(containerChangeEventStream *eventstream.EventStr
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	hostResources map[string]*ecs.Resource,
+	hostResources map[string]types.Resource,
 	execCmdMgr execcmd.Manager,
 	serviceConnectManager serviceconnect.Manager,
 	daemonManagers map[string]dm.DaemonManager) (*savedData, error) {
