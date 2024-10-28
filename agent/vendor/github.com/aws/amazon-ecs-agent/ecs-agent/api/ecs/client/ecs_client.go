@@ -83,7 +83,7 @@ var nonRetriableErrors = []smithy.APIError{
 
 // ecsClient implements ECSClient interface.
 type ecsClient struct {
-	credentialsProvider              aws.CredentialsProvider
+	credentialsCache                 *aws.CredentialsCache
 	configAccessor                   config.AgentConfigAccessor
 	standardClient                   ecs.ECSStandardSDK
 	submitStateChangeClient          ecs.ECSSubmitStateSDK
@@ -101,18 +101,17 @@ type ecsClient struct {
 
 // NewECSClient creates a new ECSClient interface object.
 func NewECSClient(
-	credentialsProvider aws.CredentialsProvider,
+	credentialsCache *aws.CredentialsCache,
 	configAccessor config.AgentConfigAccessor,
 	ec2MetadataClient ec2.EC2MetadataClient,
 	agentVer string,
 	options ...ECSClientOption) (ecs.ECSClient, error) {
-
 	client := &ecsClient{
-		credentialsProvider: credentialsProvider,
-		configAccessor:      configAccessor,
-		ec2metadata:         ec2MetadataClient,
-		httpClient:          httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType()),
-		pollEndpointCache:   async.NewTTLCache(&async.TTL{Duration: defaultPollEndpointCacheTTL}),
+		credentialsCache:  credentialsCache,
+		configAccessor:    configAccessor,
+		ec2metadata:       ec2MetadataClient,
+		httpClient:        httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType()),
+		pollEndpointCache: async.NewTTLCache(&async.TTL{Duration: defaultPollEndpointCacheTTL}),
 	}
 
 	// Apply options to configure/override ECS client values.
@@ -120,7 +119,7 @@ func NewECSClient(
 		opt(client)
 	}
 
-	ecsConfig, err := newECSConfig(credentialsProvider, configAccessor, client.httpClient, client.isFIPSDetected)
+	ecsConfig, err := newECSConfig(client.credentialsCache, configAccessor, client.httpClient, client.isFIPSDetected)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +141,7 @@ func NewECSClient(
 }
 
 func newECSConfig(
-	credentialsProvider aws.CredentialsProvider,
+	credentialsCache *aws.CredentialsCache,
 	configAccessor config.AgentConfigAccessor,
 	httpClient *http.Client,
 	isFIPSEnabled bool,
@@ -163,7 +162,7 @@ func newECSConfig(
 		context.TODO(),
 		awsconfig.WithHTTPClient(httpClient),
 		awsconfig.WithRegion(configAccessor.AWSRegion()),
-		awsconfig.WithCredentialsProvider(credentialsProvider),
+		awsconfig.WithCredentialsProvider(credentialsCache),
 		endpointFn,
 	)
 	if err != nil {
@@ -394,11 +393,7 @@ func (client *ecsClient) setInstanceIdentity(
 				field.Error: attemptErr,
 			})
 			// Force credentials to expire in case they are stale but not expired.
-			// TODO (@tiffwang): migrate instancecreds to SDK v2 credential provider.
-			/*
-				client.credentialsProvider.Expire()
-				client.credentialsProvider = instancecreds.GetCredentials(client.configAccessor.External())
-			*/
+			client.credentialsCache.Invalidate()
 			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 		}
 		logger.Debug("Successfully retrieved Instance Identity Document")

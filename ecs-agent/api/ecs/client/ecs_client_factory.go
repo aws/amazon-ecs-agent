@@ -30,32 +30,32 @@ type ECSClientFactory interface {
 }
 
 type ecsClientFactory struct {
-	credentialsProvider aws.CredentialsProvider
-	configAccessor      config.AgentConfigAccessor
-	ec2MetadataClient   ec2.EC2MetadataClient
-	agentVersion        string
-	options             []ECSClientOption
+	credentialsCache  *aws.CredentialsCache
+	configAccessor    config.AgentConfigAccessor
+	ec2MetadataClient ec2.EC2MetadataClient
+	agentVersion      string
+	options           []ECSClientOption
 }
 
 func NewECSClientFactory(
-	credentialsProvider aws.CredentialsProvider,
+	credentialsCache *aws.CredentialsCache,
 	configAccessor config.AgentConfigAccessor,
 	ec2MetadataClient ec2.EC2MetadataClient,
 	agentVersion string,
 	options ...ECSClientOption) ECSClientFactory {
 	return &ecsClientFactory{
-		credentialsProvider: credentialsProvider,
-		configAccessor:      configAccessor,
-		ec2MetadataClient:   ec2MetadataClient,
-		agentVersion:        agentVersion,
-		options:             options,
+		credentialsCache:  credentialsCache,
+		configAccessor:    configAccessor,
+		ec2MetadataClient: ec2MetadataClient,
+		agentVersion:      agentVersion,
+		options:           options,
 	}
 }
 
 func (f *ecsClientFactory) NewClient() (ecs.ECSClient, error) {
-	return NewECSClient(f.credentialsProvider, f.configAccessor, f.ec2MetadataClient, f.agentVersion, f.options...)
+	return NewECSClient(f.credentialsCache, f.configAccessor, f.ec2MetadataClient, f.agentVersion, f.options...)
 }
 
 func (f *ecsClientFactory) GetCredentials() aws.CredentialsProvider {
-	return f.credentialsProvider
+	return f.credentialsCache
 }

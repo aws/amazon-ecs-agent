@@ -115,7 +115,7 @@ func setup(t *testing.T,
 	options = append(options, WithStandardClient(mockStandardClient),
 		WithSubmitStateChangeClient(mockSubmitStateClient),
 		WithRCICustomRetryBackoff(customRCIRetryBackoff))
-	client, err := NewECSClient(aws.AnonymousCredentials{}, mockCfgAccessor, ec2MetadataClient, agentVer, options...)
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), mockCfgAccessor, ec2MetadataClient, agentVer, options...)
 	assert.NoError(t, err)
 
 	return &testHelper{
@@ -1421,7 +1421,7 @@ func TestFIPSEndpointStateWhenEndpointGiven(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, nil)
 	assert.NotEmpty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
 		agentVer)
 	assert.NoError(t, err)
 	assert.Equal(t, aws.FIPSEndpointStateUnset,
@@ -1438,7 +1438,7 @@ func TestFIPSEndpointStateOnFIPSEnabledHosts(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
 	assert.Empty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(), agentVer, WithFIPSDetected(true))
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(), agentVer, WithFIPSDetected(true))
 	assert.NoError(t, err)
 	assert.Equal(t, aws.FIPSEndpointStateEnabled,
 		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
@@ -1454,7 +1454,7 @@ func TestFIPSEndpointStateOnFIPSDisabledHosts(t *testing.T) {
 	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
 	assert.Empty(t, cfgAccessor.APIEndpoint())
 
-	client, err := NewECSClient(aws.AnonymousCredentials{}, cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
 		agentVer)
 	assert.NoError(t, err)
 	assert.Equal(t, aws.FIPSEndpointStateUnset,
@@ -1466,7 +1466,7 @@ func TestDiscoverPollEndpointCacheTTLSet(t *testing.T) {
 	defer ctrl.Finish()
 
 	ttlDuration := time.Minute
-	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
 	assert.NoError(t, err)
 	assert.Equal(t, ttlDuration, client.(*ecsClient).pollEndpointCache.GetTTL().Duration)
 }
@@ -1476,7 +1476,7 @@ func TestDiscoverPollEndpointCacheTTLSetAndExpired(t *testing.T) {
 	defer ctrl.Finish()
 
 	ttlDuration := time.Nanosecond
-	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(&async.TTL{Duration: ttlDuration}))
 	assert.NoError(t, err)
 
 	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsservice.DiscoverPollEndpointOutput{
@@ -1495,7 +1495,7 @@ func TestDiscoverPollEndpointCacheTTLNotSet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	client, err := NewECSClient(aws.AnonymousCredentials{}, newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(nil))
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), newMockConfigAccessor(ctrl, nil), ec2.NewBlackholeEC2MetadataClient(), agentVer, WithDiscoverPollEndpointCacheTTL(nil))
 	assert.NoError(t, err)
 
 	client.(*ecsClient).pollEndpointCache.Set(containerInstanceARN, &ecsservice.DiscoverPollEndpointOutput{
