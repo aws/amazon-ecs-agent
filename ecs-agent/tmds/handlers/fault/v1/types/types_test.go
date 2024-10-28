@@ -14,6 +14,7 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,4 +41,30 @@ func TestNetworkBlackholePortAddSourceToFilterIfNotAlready(t *testing.T) {
 		req.AddSourceToFilterIfNotAlready("1.2.3.4")
 		require.Equal(t, aws.StringValueSlice(req.SourcesToFilter), []string{"8.8.8.8", "1.2.3.4"})
 	})
+}
+
+// Tests for validateNetworkFaultRequestSource function that parses IPv4 and IPv4 CIDR blocks.
+func TestValidateNetworkFaultRequestSources(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		Input         string
+		ShouldSucceed bool
+	}{
+		{"IPv4", "1.2.3.4", true},
+		{"IPv4 CIDR", "1.2.3.4/10", true},
+		{"IPv6", "2001:db8::68", false},
+		{"IPv6 CIDR", "::1/128", false},
+		{"invalid input", "invalid", false},
+		{"empty input", "", false},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			err := validateNetworkFaultRequestSource(tc.Input, "input")
+			if tc.ShouldSucceed {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, fmt.Sprintf("invalid value %s for parameter input", tc.Input))
+			}
+		})
+	}
 }
