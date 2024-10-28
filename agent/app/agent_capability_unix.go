@@ -17,9 +17,11 @@
 package app
 
 import (
+	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -28,17 +30,21 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
 
 const (
-	AVX                   = "avx"
-	AVX2                  = "avx2"
-	SSE41                 = "sse4_1"
-	SSE42                 = "sse4_2"
-	CpuInfoPath           = "/proc/cpuinfo"
-	capabilityDepsRootDir = "/managed-agents"
+	AVX                         = "avx"
+	AVX2                        = "avx2"
+	SSE41                       = "sse4_1"
+	SSE42                       = "sse4_2"
+	CpuInfoPath                 = "/proc/cpuinfo"
+	capabilityDepsRootDir       = "/managed-agents"
+	modInfoCmd                  = "modinfo"
+	faultInjectionKernelModules = "sch_netem"
+	ctxTimeoutDuration          = 60 * time.Second
 )
 
 var (
@@ -243,6 +249,7 @@ var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
 
 // wrapper around exec.LookPath
 var lookPathFunc = exec.LookPath
+var osExecWrapper = execwrapper.NewExec()
 
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
@@ -255,6 +262,19 @@ func checkFaultInjectionTooling() bool {
 				tool, err)
 			return false
 		}
+	}
+	return checkFaultInjectionModules()
+}
+
+// checkFaultInjectionModules checks for the required kernel modules such as sch_netem to be installed
+// and avaialble on the host before ecs.capability.fault-injection can be advertised
+func checkFaultInjectionModules() bool {
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	defer cancel()
+	_, err := osExecWrapper.CommandContext(ctxWithTimeout, modInfoCmd, faultInjectionKernelModules).CombinedOutput()
+	if err != nil {
+		seelog.Warnf("Failed to find kernel module %s that is needed for fault-injection feature: %v", faultInjectionKernelModules, err)
+		return false
 	}
 	return true
 }

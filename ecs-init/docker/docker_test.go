@@ -32,7 +32,7 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	defaultExpectedAgentBinds = 21
+	defaultExpectedAgentBinds = 22
 )
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
