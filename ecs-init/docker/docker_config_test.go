@@ -36,3 +36,17 @@ func TestGetNsenterBinds(t *testing.T) {
 		assert.Equal(t, "/usr/bin/nsenter:/usr/bin/nsenter", binds[0])
 	})
 }
+
+func TestGetModinfoBinds(t *testing.T) {
+	t.Run("modinfo not found", func(t *testing.T) {
+		binds := getModInfoBinds(
+			func(s string) (os.FileInfo, error) { return nil, errors.New("not found") })
+		assert.Empty(t, binds)
+	})
+	t.Run("modinfo is found", func(t *testing.T) {
+		binds := getModInfoBinds(
+			func(s string) (os.FileInfo, error) { return nil, nil })
+		require.Len(t, binds, 1)
+		assert.Equal(t, "/sbin/modinfo:/sbin/modinfo", binds[0])
+	})
+}
