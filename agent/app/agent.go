@@ -324,8 +324,7 @@ func (agent *ecsAgent) start() int {
 		})
 		return exitcodes.ExitError
 	}
-	// TODO (@tiffwang): ecsAgent constructor needs to set non-nil credentialProviderV2
-	clientFactory := ecsclient.NewECSClientFactory(agent.credentialProviderV2, cfgAccessor, agent.ec2MetadataClient,
+	clientFactory := ecsclient.NewECSClientFactory(agent.credentialsCache, cfgAccessor, agent.ec2MetadataClient,
 		version.String(), ecsclient.WithIPv6PortBindingExcluded(true))
 	client, err := clientFactory.NewClient()
 	if err != nil {
