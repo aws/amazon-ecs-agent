@@ -4,6 +4,7 @@ import (
 	"context"
 	goErr "errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
@@ -16,7 +17,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
@@ -65,7 +65,44 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 
 func (m *managedLinux) CreateDNSConfig(taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
-	return m.common.createDNSConfig(taskID, true, netNS)
+	return m.createDNSConfig(taskID, netNS)
+}
+
+func (m *managedLinux) createDNSConfig(taskID string,
+	netNS *tasknetworkconfig.NetworkNamespace) error {
+	netNSName := netNS.Name
+	primaryIF := netNS.GetPrimaryInterface()
+
+	// Hard-code names servers (Temp fix)
+	data := m.common.nsUtil.BuildResolvConfig([]string{"8.8.8.8"},
+		[]string{"us-west-2.compute.internal"})
+
+	m.common.ioutil.WriteFile(
+		filepath.Join(networkConfigFileDirectory, netNSName, ResolveConfFileName),
+		[]byte(data),
+		networkConfigFileMode)
+
+	err := m.common.createHostnameFileForNetNS(netNSName, primaryIF)
+	if err != nil {
+		return errors.Wrap(err, "unable to create hostname file for netns")
+	}
+
+	err = m.common.createHostnameFileForDefaultNetNS()
+	if err != nil {
+		return errors.Wrap(err, "unable to verify the existence of /etc/hostname on the host")
+	}
+
+	err = m.common.createHostsFile(netNSName, primaryIF)
+	if err != nil {
+		return errors.Wrap(err, "unable to create hosts file for netns")
+	}
+
+	// Next, copy these files into a task volume, which can be used by containers as well, to
+	// configure their network.
+	if err := m.common.copyNetworkConfigFilesToTask(taskID, netNSName); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *managedLinux) ConfigureInterface(
