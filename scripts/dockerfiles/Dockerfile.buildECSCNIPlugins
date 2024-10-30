@@ -12,7 +12,7 @@
 # permissions and limitations under the License.
 
 ARG GO_VERSION
-FROM golang:${GO_VERSION}
+FROM public.ecr.aws/docker/library/golang:${GO_VERSION}
 MAINTAINER Amazon Web Services, Inc.
 
 ENV XDG_CACHE_HOME /tmp
