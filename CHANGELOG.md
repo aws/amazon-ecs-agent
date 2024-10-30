@@ -1,5 +1,17 @@
 # Changelog
 
+# 1.88.0
+* Feature - Fault Injection Service Integration [#4414](https://github.com/aws/amazon-ecs-agent/pull/4414)
+* Bugfix - Retry GPU devices check during env vars load if instance supports GPU [#4387](https://github.com/aws/amazon-ecs-agent/pull/4387)
+* Enhancement - Add additional logging for BHP fault [#4394](https://github.com/aws/amazon-ecs-agent/pull/4394)
+* Bugfix - Remove unnecessary set driver and instance log level calls [#4396](https://github.com/aws/amazon-ecs-agent/pull/4396)
+* Enhancement - Migrate ecs-init to aws-sdk-go-v2. [#4372](https://github.com/aws/amazon-ecs-agent/pull/4372)
+* Bugfix - Prevent TMDS access from being impacted by network-blackhole-port fault. [#4403](https://github.com/aws/amazon-ecs-agent/pull/4403)
+* Enhancement - Adding fault injection integration tests [#4399](https://github.com/aws/amazon-ecs-agent/pull/4399)
+* Enhancement - log acs/tacs endpoint [#4401](https://github.com/aws/amazon-ecs-agent/pull/4401)
+* Enhancement - Add SourcesToFilter support for network-blackhole-port fault [#4408](https://github.com/aws/amazon-ecs-agent/pull/4408)
+* Bugfix-  Add validation to prevent Fault Injection APIs from accepting IPv6 addresses. [#4411](https://github.com/aws/amazon-ecs-agent/pull/4411)
+
 # 1.87.1
 * Enhancement - Update Go version to 1.22.7
 * Enhancement - Update SSM Agent version to 3.3.859.0
