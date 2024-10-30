@@ -71,7 +71,6 @@ func (m *managedLinux) CreateDNSConfig(taskID string,
 func (m *managedLinux) createDNSConfig(taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
 	netNSName := netNS.Name
-	primaryIF := netNS.GetPrimaryInterface()
 
 	// Hard-code names servers (Temp fix)
 	data := m.common.nsUtil.BuildResolvConfig([]string{"8.8.8.8"},
@@ -82,26 +81,17 @@ func (m *managedLinux) createDNSConfig(taskID string,
 		[]byte(data),
 		networkConfigFileMode)
 
-	err := m.common.createHostnameFileForNetNS(netNSName, primaryIF)
+	err := m.common.copyFile(filepath.Join(networkConfigFileDirectory, netNSName, HostsFileName), "/etc/hosts", taskDNSConfigFileMode)
 	if err != nil {
-		return errors.Wrap(err, "unable to create hostname file for netns")
-	}
-
-	err = m.common.createHostnameFileForDefaultNetNS()
-	if err != nil {
-		return errors.Wrap(err, "unable to verify the existence of /etc/hostname on the host")
-	}
-
-	err = m.common.createHostsFile(netNSName, primaryIF)
-	if err != nil {
-		return errors.Wrap(err, "unable to create hosts file for netns")
+		return err
 	}
 
 	// Next, copy these files into a task volume, which can be used by containers as well, to
 	// configure their network.
-	if err := m.common.copyNetworkConfigFilesToTask(taskID, netNSName); err != nil {
+	if err := m.common.copyNetworkConfigFilesToTask(taskID, netNS.Name); err != nil {
 		return err
 	}
+
 	return nil
 }
 

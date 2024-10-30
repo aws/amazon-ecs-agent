@@ -19,7 +19,6 @@ package platform
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"testing"
 
 	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
@@ -49,7 +48,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 	ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
 	osWrapper := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
+	//mockFile := mock_oswrapper.NewMockFile(ctrl)
 	volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
 	commonPlatform := &common{
 		ioutil:            ioutil,
@@ -66,27 +65,23 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		"8.8.8.8",
 		"us-west-2.compute.internal",
 	)
-	hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
+	//hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
 
 	// Test creation of hosts file.
-	hostsData := fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
+	/*hostsData := fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
 		HostsLocalhostEntry,
 		ipv4Addr, dnsName,
 		addr, hostName,
 		addr2, hostName2,
-	)
+	)*/
 
 	taskID := "taskID"
 
 	// Creation of resolv.conf file.
 	nsUtil.EXPECT().BuildResolvConfig([]string{"8.8.8.8"}, []string{"us-west-2.compute.internal"}).Return(resolvData).Times(1)
 	ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0644))
-
-	// Creation of hostname file.
-	ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644))
-	osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1)
-	mockFile.EXPECT().Close().Times(1)
-	ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644))
+	ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any())
+	ioutil.EXPECT().ReadFile("/etc/hosts")
 
 	// CopyToVolume created files into task volume.
 	volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1)
