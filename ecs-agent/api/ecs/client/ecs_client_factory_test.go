@@ -46,7 +46,7 @@ func TestECSClientFactory(t *testing.T) {
 	assert.NoError(t, err)
 	c, ok := client.(*ecsClient)
 	assert.True(t, ok)
-	assert.Equal(t, credentialsProvider, c.credentialsProvider)
+	assert.True(t, c.credentialsCache.IsCredentialsProvider(credentialsProvider))
 	assert.Equal(t, cfgAccessor, c.configAccessor)
 	assert.Equal(t, ec2MetadataClient, c.ec2metadata)
 

@@ -624,8 +624,14 @@ func findResource(resources []types.Resource, name string) (types.Resource, bool
 	return types.Resource{}, false
 }
 
-/* TODO (@tiffwang): uncomment this test after migrating instancecreds to SDK v2.
-func TestRegisterBlankCluster(t *testing.T) { ctrl := gomock.NewController(t) defer ctrl.Finish() mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl) // Test the special 'empty cluster' behavior of creating 'default'.  cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) { cfgAccessor.EXPECT().Cluster().Return("").AnyTimes()
+func TestRegisterBlankCluster(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	// Test the special 'empty cluster' behavior of creating 'default'.
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().Cluster().Return("").AnyTimes()
 	}
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
@@ -666,7 +672,6 @@ func TestRegisterBlankCluster(t *testing.T) { ctrl := gomock.NewController(t) de
 	assert.Equal(t, containerInstanceARN, arn, "Wrong arn")
 	assert.Empty(t, availabilityzone, "wrong availability zone")
 }
-*/
 
 func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
