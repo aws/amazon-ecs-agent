@@ -13,7 +13,7 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-FROM busybox
+FROM public.ecr.aws/docker/library/busybox
 
 COPY scripts/mock-ecs-agent.sh /mock-ecs-agent.sh
 
