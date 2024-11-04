@@ -724,20 +724,22 @@ func TestSynchronizeOnRestart(t *testing.T) {
 
 func TestTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENIs                  []*ni.NetworkInterface
-		NetworkMode           string
-		ServiceConnectEnabled bool
-		StatsEmpty            bool
+		ENIs                   []*ni.NetworkInterface
+		NetworkMode            string
+		ServiceConnectEnabled  bool
+		NetworkMetricsDisabled bool
+		StatsEmpty             bool
 	}{
-		{nil, DefaultNetworkMode, false, false},
-		{nil, DefaultNetworkMode, true, true},
+		{nil, DefaultNetworkMode, false, false, false},
+		{nil, DefaultNetworkMode, true, false, true},
+		{nil, DefaultNetworkMode, false, true, true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.ServiceConnectEnabled, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.ServiceConnectEnabled, tc.NetworkMetricsDisabled, tc.StatsEmpty)
 	}
 }
 
-func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterface, serviceConnectEnabled, emptyStats bool) {
+func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterface, serviceConnectEnabled, networkMetricsDisabled, emptyStats bool) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
@@ -782,7 +784,18 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 			State: &types.ContainerState{Pid: 23},
 		},
 	}, nil).AnyTimes()
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
+
+	var c *config.Config
+	if networkMetricsDisabled {
+		c = &config.Config{
+			DisableNetworkMetrics: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		}
+		c = c.Merge(cfg)
+	} else {
+		c = &cfg
+	}
+
+	engine := NewDockerStatsEngine(c, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx

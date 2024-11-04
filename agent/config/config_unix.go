@@ -77,6 +77,8 @@ func DefaultConfig() Config {
 		DataDir:                             "/data/",
 		DataDirOnHost:                       "/var/lib/ecs",
 		DisableMetrics:                      BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		DisableNetworkMetrics:               BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		DisableStorageMetrics:               BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		ReservedMemory:                      0,
 		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
