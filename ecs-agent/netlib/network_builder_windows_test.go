@@ -49,7 +49,8 @@ func getTestFunc(
 
 		// Create a networkBuilder for the warmpool platform.
 		mockNet := mock_netwrapper.NewMockNet(ctrl)
-		platformAPI, err := platform.NewPlatform(plt, nil, "", mockNet)
+		config := platform.Config{Name: plt}
+		platformAPI, err := platform.NewPlatform(config, nil, "", mockNet)
 		require.NoError(t, err)
 		netBuilder := &networkBuilder{
 			platformAPI: platformAPI,

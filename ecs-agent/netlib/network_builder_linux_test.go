@@ -32,7 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
+	platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	mock_platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform/mocks"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
@@ -42,12 +42,12 @@ import (
 )
 
 func TestNewNetworkBuilder(t *testing.T) {
-	nbi, err := NewNetworkBuilder(platform.WarmpoolPlatform, nil, nil, nil, "")
+	nbi, err := NewNetworkBuilder(platform.Config{Name: platform.WarmpoolPlatform}, nil, nil, nil, "")
 	nb := nbi.(*networkBuilder)
 	require.NoError(t, err)
 	require.NotNil(t, nb.platformAPI)
 
-	nbi, err = NewNetworkBuilder("invalid-platform", nil, nil, nil, "")
+	nbi, err = NewNetworkBuilder(platform.Config{Name: "invalid-platform"}, nil, nil, nil, "")
 	require.Error(t, err)
 	require.Nil(t, nbi)
 }
@@ -88,7 +88,8 @@ func getTestFunc(
 
 		// Create a networkBuilder for the warmpool platform.
 		mockNet := mock_netwrapper.NewMockNet(ctrl)
-		platformAPI, err := platform.NewPlatform(plt, nil, "", mockNet)
+		platformConfig := platform.Config{Name: plt}
+		platformAPI, err := platform.NewPlatform(platformConfig, nil, "", mockNet)
 		require.NoError(t, err)
 		netBuilder := &networkBuilder{
 			platformAPI: platformAPI,

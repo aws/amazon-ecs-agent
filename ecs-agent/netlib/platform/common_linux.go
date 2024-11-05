@@ -82,12 +82,13 @@ type common struct {
 	stateDBDir        string
 	cniClient         ecscni.CNI
 	net               netwrapper.Net
+	resolvConfPath    string
 }
 
 // NewPlatform creates an implementation of the platform API depending on the
 // platform type where the agent is executing.
 func NewPlatform(
-	platformString string,
+	platformConfig Config,
 	volumeAccessor volume.TaskVolumeAccessor,
 	stateDBDirectory string,
 	netWrapper netwrapper.Net,
@@ -101,10 +102,10 @@ func NewPlatform(
 		stateDBDir:        stateDBDirectory,
 		cniClient:         ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
 		net:               netWrapper,
+		resolvConfPath:    platformConfig.ResolvConfPath,
 	}
 
-	// TODO: implement remaining platforms - windows.
-	switch platformString {
+	switch platformConfig.Name {
 	case WarmpoolPlatform:
 		return &containerd{
 			common: commonPlatform,
@@ -134,7 +135,7 @@ func NewPlatform(
 			client: ec2Client,
 		}, nil
 	}
-	return nil, errors.New("invalid platform: " + platformString)
+	return nil, errors.New("invalid platform: " + platformConfig.Name)
 }
 
 // BuildTaskNetworkConfiguration translates network data in task payload sent by ACS
@@ -533,10 +534,14 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 		return errors.Wrap(err, "unable to create hostname file for netns")
 	}
 
-	err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName), "/etc/resolv.conf", taskDNSConfigFileMode)
+	// Copy Host's resolv.conf file.
+	err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
+		filepath.Join(c.resolvConfPath, ResolveConfFileName),
+		taskDNSConfigFileMode)
 	if err != nil {
 		return err
 	}
+
 	err = c.copyFile(filepath.Join(netNSDir, HostsFileName), "/etc/hosts", taskDNSConfigFileMode)
 	if err != nil {
 		return err
