@@ -175,6 +175,23 @@ func TestInstanceCredentialsCache_NoValidProviders(t *testing.T) {
 	}
 }
 
+func TestGetCredentials_NoValidProviders(t *testing.T) {
+	// unset any env var credentials
+	resetEnvVars := setEnvVars(t, "", "")
+	defer resetEnvVars()
+
+	// unset any shared credentials
+	sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+
+	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
+	creds, err := p.Retrieve(context.TODO())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no valid providers in chain")
+	require.False(t, creds.HasKeys())
+}
+
 func setEnvVars(t *testing.T, key string, secret string) func() {
 	t.Helper()
 
