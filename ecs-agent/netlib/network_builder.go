@@ -48,13 +48,13 @@ type networkBuilder struct {
 }
 
 func NewNetworkBuilder(
-	platformString string,
+	platformConfig platform.Config,
 	metricsFactory metrics.EntryFactory,
 	volumeAccessor volume.TaskVolumeAccessor,
 	networkDao data.NetworkDataClient,
 	stateDBDir string) (NetworkBuilder, error) {
 	pAPI, err := platform.NewPlatform(
-		platformString,
+		platformConfig,
 		volumeAccessor,
 		stateDBDir,
 		netwrapper.NewNet(),

@@ -47,10 +47,10 @@ import (
 )
 
 func TestNewPlatform(t *testing.T) {
-	_, err := NewPlatform(WarmpoolPlatform, nil, "", nil)
+	_, err := NewPlatform(Config{Name: WarmpoolPlatform}, nil, "", nil)
 	assert.NoError(t, err)
 
-	_, err = NewPlatform("invalid-platform", nil, "", nil)
+	_, err = NewPlatform(Config{Name: "invalid-platform"}, nil, "", nil)
 	assert.Error(t, err)
 }
 
@@ -168,6 +168,77 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 	)
 	err := commonPlatform.createDNSConfig(taskID, false, netns)
 	require.NoError(t, err)
+}
+
+func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	for _, testCase := range []struct {
+		name           string
+		resolvConfPath string
+	}{
+		{name: "al", resolvConfPath: "/etc"},
+		{name: "br", resolvConfPath: "/run/netdog"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			netNSName := "netns-name"
+			netNSPath := "/etc/netns/" + netNSName
+			iface := getTestInterface()
+
+			netns := &tasknetworkconfig.NetworkNamespace{
+				Name:              netNSName,
+				Path:              netNSPath,
+				NetworkInterfaces: []*networkinterface.NetworkInterface{iface},
+			}
+
+			ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+			nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+			osWrapper := mock_oswrapper.NewMockOS(ctrl)
+			mockFile := mock_oswrapper.NewMockFile(ctrl)
+			volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
+			commonPlatform := &common{
+				ioutil:            ioutil,
+				nsUtil:            nsUtil,
+				os:                osWrapper,
+				dnsVolumeAccessor: volumeAccessor,
+				resolvConfPath:    testCase.resolvConfPath,
+			}
+
+			hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
+
+			taskID := "taskID"
+			gomock.InOrder(
+				// Read hostname file.
+				osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
+				mockFile.EXPECT().Close().Times(1),
+
+				// Creation of netns path.
+				osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
+				osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
+				osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
+
+				// Write hostname file.
+				ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+
+				// Copy resolv.conf file.
+				ioutil.EXPECT().ReadFile(testCase.resolvConfPath+"/resolv.conf"),
+				ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
+
+				// Creation of hosts file.
+				ioutil.EXPECT().ReadFile("/etc/hosts"),
+				ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any()),
+
+				// CopyToVolume created files into task volume.
+				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+			)
+			err := commonPlatform.createDNSConfig(taskID, true, netns)
+			require.NoError(t, err)
+		})
+	}
+
 }
 
 func TestCommon_ConfigureInterface(t *testing.T) {

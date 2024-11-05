@@ -79,3 +79,12 @@ type API interface {
 		scConfig *serviceconnect.ServiceConnectConfig,
 	) error
 }
+
+// Config contains platform-specific data.
+type Config struct {
+	// Name specifies which platform to use (Linux, Windows, ec2-debug, etc).
+	Name string
+	// ResolvConfPath specifies path to resolv.conf file for DNS config.
+	// Different platforms may have different paths for this file.
+	ResolvConfPath string
+}
