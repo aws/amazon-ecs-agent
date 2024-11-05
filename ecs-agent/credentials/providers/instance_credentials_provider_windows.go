@@ -1,4 +1,5 @@
 //go:build windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,32 +18,11 @@ package providers
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
-
-type InstanceCredentialsProvider struct {
-	rotatingSharedCredentials aws.CredentialsProvider
-	isExternal                bool
-	options                   config.LoadOptionsFunc
-}
-
-func NewInstanceCredentialsProvider(isExternal bool, imdsClient ec2rolecreds.GetMetadataAPIClient) *InstanceCredentialsProvider {
-	return &InstanceCredentialsProvider{
-		rotatingSharedCredentials: NewRotatingSharedCredentialsProviderV2(),
-		isExternal:                isExternal,
-		options: config.WithEC2RoleCredentialOptions(func(o *ec2rolecreds.Options) {
-			// If nil, the SDK will default to the EC2 IMDS client.
-			// Pass a non-nil client to stub it out in tests.
-			o.Client = imdsClient
-		}),
-	}
-}
 
 // The instance credentials chain is the default credentials chain plus the "rotating shared credentials provider",
 // so credentials will be checked in this order:
@@ -65,22 +45,44 @@ func NewInstanceCredentialsProvider(isExternal bool, imdsClient ec2rolecreds.Get
 //     in the credentials not being refreshed. To mitigate this issue, we will
 //     reorder the credential chain and ensure that `RotatingSharedCredentialsProvider`
 //     takes precedence over the `SharedCredentialsProvider` for ECS-A.
-func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (creds aws.Credentials, err error) {
-	defer func() {
-		if err != nil {
-			logger.Error(fmt.Sprintf("Error getting ECS instance credentials from credentials chain: %s", err))
-		} else {
-			logger.Info(fmt.Sprintf("Successfully got ECS instance credentials from provider: %s", creds.Source))
-		}
-	}()
+func NewInstanceCredentialsProvider(
+	isExternal bool,
+	rotatingSharedCreds aws.CredentialsProvider,
+	imdsClient ec2rolecreds.GetMetadataAPIClient,
+) *InstanceCredentialsProvider {
+	var providers []aws.CredentialsProvider
 
-	if !p.isExternal {
-		if cfg, err := config.LoadDefaultConfig(ctx, p.options); err == nil {
-			if creds, err := cfg.Credentials.Retrieve(ctx); err == nil {
-				return creds, nil
-			}
-		}
+	// If imdsClient is nil, the SDK will default to the EC2 IMDS client.
+	// Pass a non-nil imdsClient to stub it out in tests.
+	options := func(o *ec2rolecreds.Options) {
+		o.Client = imdsClient
+	}
 
-		return p.rotatingSharedCredentials.Retrieve(ctx)
+	if isExternal {
+		providers = []aws.CredentialsProvider{
+			envCreds,
+			rotatingSharedCreds,
+			sharedCreds,
+			ec2rolecreds.New(options),
+		}
+	} else {
+		providers = []aws.CredentialsProvider{
+			defaultCreds(options),
+			rotatingSharedCreds,
+		}
+	}
+
+	return &InstanceCredentialsProvider{
+		providers: providers,
 	}
 }
+
+var envCreds = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+	cfg, err := config.NewEnvConfig()
+	return cfg.Credentials, err
+})
+
+var sharedCreds = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+	cfg, err := config.LoadSharedConfigProfile(ctx, config.DefaultSharedConfigProfile)
+	return cfg.Credentials, err
+})

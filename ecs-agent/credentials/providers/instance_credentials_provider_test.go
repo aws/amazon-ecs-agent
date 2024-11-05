@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -19,7 +20,7 @@ func TestGetCredentials_EnvVars(t *testing.T) {
 	reset := setEnvVars(t, "TESTKEYID", "TESTSECRET")
 	defer reset()
 
-	p := NewInstanceCredentialsProvider(false, nil)
+	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
 	creds, err := p.Retrieve(context.TODO())
 	require.NotNil(t, creds)
 	require.NoError(t, err)
@@ -38,7 +39,7 @@ func TestGetCredentials_SharedCredentialsFile(t *testing.T) {
 	resetSharedCreds := setSharedCredentials(t, "TESTFILEKEYID", "TESTFILESECRET")
 	defer resetSharedCreds()
 
-	p := NewInstanceCredentialsProvider(false, nil)
+	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
 	creds, err := p.Retrieve(context.TODO())
 	require.NotNil(t, creds)
 	require.NoError(t, err)
@@ -59,7 +60,7 @@ func TestGetCredentials_EC2RoleCredentials(t *testing.T) {
 	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
 	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
 
-	p := NewInstanceCredentialsProvider(false, &testIMDSClient{})
+	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &testIMDSClient{})
 	creds, err := p.Retrieve(context.TODO())
 	require.NotNil(t, creds)
 	require.NoError(t, err)
@@ -80,14 +81,29 @@ func TestGetCredentials_RotatingSharedCredentials(t *testing.T) {
 	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
 	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
 
-	p := NewInstanceCredentialsProvider(false, nil)
-	p.rotatingSharedCredentials = &testRotatingSharedCredsProvider{}
-
+	p := NewInstanceCredentialsProvider(false, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
 	creds, err := p.Retrieve(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
 	require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
 	require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+}
+
+func TestGetCredentials_NoValidProviders(t *testing.T) {
+	// unset any env var credentials
+	resetEnvVars := setEnvVars(t, "", "")
+	defer resetEnvVars()
+
+	// unset any shared credentials
+	sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+
+	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
+	creds, err := p.Retrieve(context.TODO())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no valid providers in chain")
+	require.False(t, creds.HasKeys())
 }
 
 func setEnvVars(t *testing.T, key string, secret string) func() {
@@ -130,6 +146,12 @@ func setSharedCredentials(t *testing.T, key string, secret string) func() {
 	}
 }
 
+type nopIMDSClient struct{}
+
+func (c *nopIMDSClient) GetMetadata(_ context.Context, input *imds.GetMetadataInput, _ ...func(*imds.Options)) (*imds.GetMetadataOutput, error) {
+	return nil, errors.New("no metadata")
+}
+
 type testIMDSClient struct{}
 
 func (c *testIMDSClient) GetMetadata(_ context.Context, input *imds.GetMetadataInput, _ ...func(*imds.Options)) (*imds.GetMetadataOutput, error) {
@@ -147,6 +169,12 @@ func (c *testIMDSClient) GetMetadata(_ context.Context, input *imds.GetMetadataI
 }`,
 		)),
 	}, nil
+}
+
+type nopCredsProvider struct{}
+
+func (p *nopCredsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
+	return aws.Credentials{}, errors.New("no credentials")
 }
 
 type testRotatingSharedCredsProvider struct{}
