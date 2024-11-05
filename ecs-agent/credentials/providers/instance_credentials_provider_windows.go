@@ -23,17 +23,24 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
 
 type InstanceCredentialsProvider struct {
 	rotatingSharedCredentials aws.CredentialsProvider
 	isExternal                bool
+	options                   config.LoadOptionsFunc
 }
 
-func NewInstanceCredentialsProvider(isExternal bool) aws.CredentialsProvider {
+func NewInstanceCredentialsProvider(isExternal bool, imdsClient ec2rolecreds.GetMetadataAPIClient) *InstanceCredentialsProvider {
 	return &InstanceCredentialsProvider{
 		rotatingSharedCredentials: NewRotatingSharedCredentialsProviderV2(),
 		isExternal:                isExternal,
+		options: config.WithEC2RoleCredentialOptions(func(o *ec2rolecreds.Options) {
+			// If nil, the SDK will default to the EC2 IMDS client.
+			// Pass a non-nil client to stub it out in tests.
+			o.Client = imdsClient
+		}),
 	}
 }
 
@@ -68,7 +75,7 @@ func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (creds aws.C
 	}()
 
 	if !p.isExternal {
-		if cfg, err := config.LoadDefaultConfig(ctx); err == nil {
+		if cfg, err := config.LoadDefaultConfig(ctx, p.options); err == nil {
 			if creds, err := cfg.Credentials.Retrieve(ctx); err == nil {
 				return creds, nil
 			}
