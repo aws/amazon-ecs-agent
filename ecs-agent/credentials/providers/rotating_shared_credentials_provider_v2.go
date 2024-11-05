@@ -38,7 +38,7 @@ type RotatingSharedCredentialsProviderV2 struct {
 
 // NewRotatingSharedCredentials returns a rotating shared credentials provider
 // with default values set.
-func NewRotatingSharedCredentialsProviderV2() aws.CredentialsProvider {
+func NewRotatingSharedCredentialsProviderV2() *RotatingSharedCredentialsProviderV2 {
 	var credentialProfile = DEFAULT_CREDENTIAL_PROFILE
 	if alternateCredentialProfile := os.Getenv(ALTERNATE_CREDENTIAL_PROFILE_ENV_VAR); alternateCredentialProfile != "" {
 		logger.Info(fmt.Sprintf("Overriding %s credential profile; using: %s.", DEFAULT_CREDENTIAL_PROFILE, alternateCredentialProfile))
@@ -67,7 +67,7 @@ func (p *RotatingSharedCredentialsProviderV2) Retrieve(ctx context.Context) (aws
 	credentials.Expires = time.Now().Add(p.RotationInterval)
 	logger.Info(fmt.Sprintf("Successfully got instance credentials from file %s. %s",
 		p.file, credentialsToString(credentials)))
-	return credentials, err
+	return credentials, nil
 }
 
 func credentialsToString(credentials aws.Credentials) string {
