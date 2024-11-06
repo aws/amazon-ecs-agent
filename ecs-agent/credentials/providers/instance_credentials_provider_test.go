@@ -3,8 +3,10 @@ package providers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,94 +18,145 @@ import (
 )
 
 // Test that env vars are used when set.
-func TestGetCredentials_EnvVars(t *testing.T) {
-	reset := setEnvVars(t, "TESTKEYID", "TESTSECRET")
-	defer reset()
+func TestInstanceCredentialsProvider_EnvVars(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			reset := setEnvVars(t, "TESTKEYID", "TESTSECRET")
+			defer reset()
 
-	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
-	creds, err := p.Retrieve(context.TODO())
-	require.NotNil(t, creds)
-	require.NoError(t, err)
-	require.Equal(t, config.CredentialsSourceName, creds.Source)
-	require.Equal(t, "TESTKEYID", creds.AccessKeyID)
-	require.Equal(t, "TESTSECRET", creds.SecretAccessKey)
+			p := NewInstanceCredentialsProvider(isExternal, &nopCredsProvider{}, &nopIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NotNil(t, creds)
+			require.NoError(t, err)
+			require.Equal(t, config.CredentialsSourceName, creds.Source)
+			require.Equal(t, "TESTKEYID", creds.AccessKeyID)
+			require.Equal(t, "TESTSECRET", creds.SecretAccessKey)
+		})
+	}
 }
 
 // Test that the shared credentials file is used when env vars are unset but
 // shared credentials are set.
-func TestGetCredentials_SharedCredentialsFile(t *testing.T) {
-	// unset any env var credentials
-	resetEnvVars := setEnvVars(t, "", "")
-	defer resetEnvVars()
+func TestInstanceCredentialsProvider_SharedCredentialsFile(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
 
-	resetSharedCreds := setSharedCredentials(t, "TESTFILEKEYID", "TESTFILESECRET")
-	defer resetSharedCreds()
+			resetSharedCreds := setSharedCredentials(t, "TESTFILEKEYID", "TESTFILESECRET")
+			defer resetSharedCreds()
 
-	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
-	creds, err := p.Retrieve(context.TODO())
-	require.NotNil(t, creds)
-	require.NoError(t, err)
-	require.Contains(t, creds.Source, "SharedConfigCredentials")
-	require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
-	require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
+			p := NewInstanceCredentialsProvider(isExternal, &nopCredsProvider{}, &nopIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NotNil(t, creds)
+			require.NoError(t, err)
+			require.Contains(t, creds.Source, "SharedConfigCredentials")
+			require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
+			require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
+		})
+	}
 }
 
 // Test that EC2 role credentials are used when env vars and
 // shared credentials are unset, but the instance has an IAM role.
-func TestGetCredentials_EC2RoleCredentials(t *testing.T) {
-	// unset any env var credentials
-	resetEnvVars := setEnvVars(t, "", "")
-	defer resetEnvVars()
+func TestInstanceCredentialsProvider_EC2RoleCredentials(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
 
-	// unset any shared credentials
-	sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// unset any shared credentials
+			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
 
-	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &testIMDSClient{})
-	creds, err := p.Retrieve(context.TODO())
-	require.NotNil(t, creds)
-	require.NoError(t, err)
-	require.Equal(t, ec2rolecreds.ProviderName, creds.Source)
-	require.Equal(t, "TESTEC2ROLEKEYID", creds.AccessKeyID)
-	require.Equal(t, "TESTEC2ROLESECRET", creds.SecretAccessKey)
+			p := NewInstanceCredentialsProvider(isExternal, &nopCredsProvider{}, &testIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NotNil(t, creds)
+			require.NoError(t, err)
+			require.Equal(t, ec2rolecreds.ProviderName, creds.Source)
+			require.Equal(t, "TESTEC2ROLEKEYID", creds.AccessKeyID)
+			require.Equal(t, "TESTEC2ROLESECRET", creds.SecretAccessKey)
+		})
+	}
 }
 
 // Test that the rotating shared credentials file is used when the
 // default credentials chain has no credentials.
-func TestGetCredentials_RotatingSharedCredentials(t *testing.T) {
-	// unset any env var credentials
-	resetEnvVars := setEnvVars(t, "", "")
-	defer resetEnvVars()
+func TestInstanceCredentialsProvider_RotatingSharedCredentials(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
 
-	// unset any shared credentials
-	sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// unset any shared credentials
+			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
 
-	p := NewInstanceCredentialsProvider(false, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
-	creds, err := p.Retrieve(context.TODO())
-	require.NoError(t, err)
-	require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
-	require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
-	require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+			p := NewInstanceCredentialsProvider(isExternal, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NoError(t, err)
+			require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+			require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
+			require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
+		})
+	}
 }
 
-func TestGetCredentials_NoValidProviders(t *testing.T) {
-	// unset any env var credentials
-	resetEnvVars := setEnvVars(t, "", "")
-	defer resetEnvVars()
+// Test that order of precedence is correct when the shared credentials file and
+// rotating shared credentials are set.
+func TestInstanceCredentialsProvider_SharedCredentialsFile_RotatingSharedCredentials(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
 
-	// unset any shared credentials
-	sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-	defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// set shared credentials file
+			resetSharedCreds := setSharedCredentials(t, "TESTFILEKEYID", "TESTFILESECRET")
+			defer resetSharedCreds()
 
-	p := NewInstanceCredentialsProvider(false, &nopCredsProvider{}, &nopIMDSClient{})
-	creds, err := p.Retrieve(context.TODO())
-	require.Error(t, err)
-	require.ErrorContains(t, err, "no valid providers in chain")
-	require.False(t, creds.HasKeys())
+			p := NewInstanceCredentialsProvider(isExternal, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NoError(t, err)
+
+			// For ECS-A on Windows, rotating shared credentials take precedence over the shared credentials file.
+			if runtime.GOOS == "windows" && isExternal {
+				require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+				require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
+				require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
+			} else {
+				require.Contains(t, creds.Source, "SharedConfigCredentials")
+				require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
+				require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
+			}
+		})
+	}
+}
+
+func TestInstanceCredentialsProvider_NoValidProviders(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
+
+			// unset any shared credentials
+			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+
+			p := NewInstanceCredentialsProvider(isExternal, &nopCredsProvider{}, &nopIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.Error(t, err)
+			require.ErrorContains(t, err, "no valid providers in chain")
+			require.False(t, creds.HasKeys())
+		})
+	}
 }
 
 func setEnvVars(t *testing.T, key string, secret string) func() {

@@ -17,10 +17,7 @@
 package providers
 
 import (
-	"context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
 
@@ -45,17 +42,5 @@ func NewInstanceCredentialsProvider(
 			defaultCreds(options),
 			rotatingSharedCreds,
 		},
-	}
-}
-
-func defaultCreds(options func(*ec2rolecreds.Options)) aws.CredentialsProviderFunc {
-	return func(ctx context.Context) (aws.Credentials, error) {
-		cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2RoleCredentialOptions(options))
-		if err != nil {
-			return aws.Credentials{}, err
-		}
-
-		return cfg.Credentials.Retrieve(ctx)
-
 	}
 }

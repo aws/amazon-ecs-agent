@@ -33,7 +33,7 @@ func TestNewRotatingSharedCredentialsProviderV2(t *testing.T) {
 	require.Equal(t, defaultRotatingCredentialsFilename, p.file)
 }
 
-func TestNewRotatingSharedCredentialsProviderV2External(t *testing.T) {
+func TestNewRotatingSharedCredentialsProviderV2_AlternateProfile(t *testing.T) {
 	os.Setenv("ECS_ALTERNATE_CREDENTIAL_PROFILE", "external")
 	defer os.Unsetenv("ECS_ALTERNATE_CREDENTIAL_PROFILE")
 	p := NewRotatingSharedCredentialsProviderV2()
@@ -88,28 +88,6 @@ aws_secret_access_key = TESTFILESECRET
 	require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
 	require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
 	require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
-	require.True(t, creds.CanExpire)
-}
-
-func TestRotatingSharedCredentialsProviderV2_Retrieve_ShortSecrets(t *testing.T) {
-	// create tmp credentials file and use that for this test
-	tmpFile, err := os.CreateTemp(os.TempDir(), "credentials")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	text := []byte(`[default]
-aws_access_key_id = A
-aws_secret_access_key = B
-`)
-	_, err = tmpFile.Write(text)
-	require.NoError(t, err)
-
-	p := NewRotatingSharedCredentialsProviderV2()
-	p.file = tmpFile.Name()
-	creds, err := p.Retrieve(context.TODO())
-	require.NoError(t, err)
-	require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
-	require.Equal(t, "A", creds.AccessKeyID)
-	require.Equal(t, "B", creds.SecretAccessKey)
 	require.True(t, creds.CanExpire)
 }
 

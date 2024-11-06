@@ -83,6 +83,22 @@ var envCreds = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Creden
 })
 
 var sharedCreds = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
-	cfg, err := config.LoadSharedConfigProfile(ctx, config.DefaultSharedConfigProfile)
+	// Load the env config to get shared config values from env vars (AWS_PROFILE and AWS_SHARED_CREDENTIALS_FILE).
+	envCfg, err := config.NewEnvConfig()
+	if err != nil {
+		return aws.Credentials{}, err
+	}
+
+	// If shared config env vars are unset, use the default values.
+	if envCfg.SharedConfigProfile == "" {
+		envCfg.SharedConfigProfile = config.DefaultSharedConfigProfile
+	}
+	if envCfg.SharedCredentialsFile == "" {
+		envCfg.SharedCredentialsFile = config.DefaultSharedCredentialsFilename()
+	}
+
+	cfg, err := config.LoadSharedConfigProfile(ctx, envCfg.SharedConfigProfile, func(option *config.LoadSharedConfigOptions) {
+		option.CredentialsFiles = []string{envCfg.SharedCredentialsFile}
+	})
 	return cfg.Credentials, err
 })
