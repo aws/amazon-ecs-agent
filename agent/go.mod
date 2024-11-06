@@ -7,6 +7,7 @@ toolchain go1.21.1
 require (
 	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
 	github.com/aws/aws-sdk-go v1.51.3
+	github.com/aws/aws-sdk-go-v2 v1.32.3
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/container-storage-interface/spec v1.8.0
@@ -39,7 +40,6 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.32.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.28.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18 // indirect

@@ -59,6 +59,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
@@ -68,6 +69,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -146,6 +148,7 @@ type ecsAgent struct {
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
+	credentialProviderV2        awsv2.CredentialsProvider
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
@@ -231,6 +234,11 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
+	credentialProviderV2 := providers.NewInstanceCredentialsProvider(
+		cfg.External.Enabled(),
+		providers.NewRotatingSharedCredentialsProviderV2(),
+		nil,
+	)
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
@@ -244,6 +252,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
 		credentialProvider:          instancecreds.GetCredentials(cfg.External.Enabled()),
+		credentialProviderV2:        credentialProviderV2,
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
@@ -781,7 +790,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	client ecs.ECSClient,
 	additionalAttributes []*ecsmodel.Attribute) error {
 	// Preflight request to make sure they're good
-	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
+	if preflightCreds, err := agent.credentialProviderV2.Retrieve(context.TODO()); err != nil || !preflightCreds.HasKeys() {
 		seelog.Errorf("Error getting valid credentials: %s", err)
 	}
 
