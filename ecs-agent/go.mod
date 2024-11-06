@@ -9,6 +9,8 @@ require (
 	github.com/aws/aws-sdk-go v1.51.3
 	github.com/aws/aws-sdk-go-v2 v1.32.3
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.42
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/containernetworking/cni v1.1.2
@@ -38,8 +40,6 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.42 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
