@@ -134,6 +134,7 @@ var (
 		attributePrefix + taskEIAWithOptimizedCPU,
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityEBSTaskAttach,
+		attributePrefix + capabilityFaultInjection,
 	}
 	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
 	// for future proof and also align with externalUnsupportedCapabilities.
@@ -314,8 +315,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
 
-	// TODO add fault-injection capabilities if applicable
-	// capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 
 	return capabilities, nil
 }
@@ -543,9 +543,6 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attri
 	return capabilities
 }
 
-// TODO Remove linter directive below when the function becomes used
-//
-//lint:ignore U1000 as this method will be used in the future.
 func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 
 	// Check if the agent is running in EXTERNAL launch type
