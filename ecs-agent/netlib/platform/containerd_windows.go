@@ -56,7 +56,7 @@ type containerdDebug struct {
 
 // NewPlatform returns a platform instance with windows specific implementations of the API interface.
 func NewPlatform(
-	platformString string,
+	config Config,
 	_ volume.TaskVolumeAccessor,
 	_ string,
 	net netwrapper.Net) (API, error) {
@@ -68,7 +68,7 @@ func NewPlatform(
 			net:       net,
 		},
 	}
-	switch platformString {
+	switch config.Name {
 	case WarmpoolPlatform:
 		return &c, nil
 	case WarmpoolDebugPlatform:
@@ -76,7 +76,7 @@ func NewPlatform(
 			containerd: c,
 		}, nil
 	default:
-		return nil, errors.New("invalid platform string: " + platformString)
+		return nil, errors.New("invalid platform string: " + config.Name)
 	}
 	return nil, nil
 }
