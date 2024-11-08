@@ -18,8 +18,6 @@ import "fmt"
 // String construct the version info of ecs-init
 func String() string {
 	dirtyMark := ""
-	// Note that GitDirty is defined via command-line linker flags, so
-	// it must be a string rather than a bool
 	if GitDirty {
 		dirtyMark = "*"
 	}
