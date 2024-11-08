@@ -25,7 +25,7 @@ export GO111MODULE="auto"
 source ./scripts/install-golang.sh
 
 if [ -d "${TOPWD}/.git" ]; then
-    version=$(cat "${TOPWD}/ecs-init/ECSVERSION")
+    version=$(cat "${TOPWD}/VERSION")
     git_hash=$(git rev-parse --short=8 HEAD)
     git_dirty=false
 
