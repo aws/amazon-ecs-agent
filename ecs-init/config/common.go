@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config/awsrulesfn"
+	"github.com/aws/amazon-ecs-agent/ecs-init/version"
 	"github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
@@ -41,11 +42,6 @@ const (
 
 	// Used to mount /proc for agent container
 	ProcFS = "/proc"
-
-	// DefaultAgentVersion is the version of the agent that will be
-	// fetched if required. This should look like v1.2.3 or an
-	// 8-character sha, as is downloadable from S3.
-	DefaultAgentVersion = "v1.88.0"
 
 	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
 	AgentPartitionBucketName = "amazon-ecs-agent"
@@ -109,6 +105,11 @@ const (
 	ECSAgentAppArmorProfileNameEnvVar  = "ECS_AGENT_APPARMOR_PROFILE"
 	ECSAgentAppArmorDefaultProfileName = "ecs-agent-default"
 )
+
+// DefaultAgentVersion is the version of the agent that will be
+// fetched if required. This should look like v1.2.3 or an
+// 8-character sha, as is downloadable from S3.
+var DefaultAgentVersion = "v" + version.Version
 
 // partitionBucketRegion provides the "partitional" bucket region
 // suitable for downloading agent from.

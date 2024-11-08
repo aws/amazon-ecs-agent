@@ -18,10 +18,10 @@
 package version
 
 // Please DO NOT commit any changes to this file (specifically the hash) except
-// for those created by running ./scripts/update-version at the root of the
+// for those created by running 'go run scripts/version-gen.go' at the root of the
 // repository. Only the 'Version' const should change in checked-in source code
 
-// Version is the version of the Agent
+// Version is the version of agent
 const Version = "1.88.0"
 
 // GitDirty indicates the cleanliness of the git repo when this agent was built
