@@ -20,7 +20,7 @@ func String() string {
 	dirtyMark := ""
 	// Note that GitDirty is defined via command-line linker flags, so
 	// it must be a string rather than a bool
-	if GitDirty == "true" {
+	if GitDirty {
 		dirtyMark = "*"
 	}
 	return fmt.Sprintf("ecs-init version %s (%s%s)", Version, dirtyMark, GitShortHash)
