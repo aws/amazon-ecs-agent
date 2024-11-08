@@ -25,7 +25,7 @@ export GO111MODULE="auto"
 source ./scripts/install-golang.sh
 
 # regenerate version files for accurate version info
-./scripts/version-gen.go
+go run scripts/version-gen.go
 
 mkdir -p "${SRCPATH}"
 ln -s "${TOPWD}/ecs-init" "${SRCPATH}"
