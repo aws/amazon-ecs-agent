@@ -133,6 +133,15 @@ gogenerate-init:
 	PATH=$(PATH):$(shell pwd)/scripts go generate -x ./ecs-init/...
 	$(MAKE) goimports
 
+AWS_SDK_CODEGEN_IMAGE="amazon/aws-sdk-go-codegen"
+gogenerate-aws-sdk:
+	@docker build --build-arg GO_VERSION=${GO_VERSION} -t $(AWS_SDK_CODEGEN_IMAGE) aws-sdk-go-v2
+	@docker run \
+		--volume "$(PWD)/aws-sdk-go-v2/aws-models:/go/src/github.com/aws/aws-sdk-go-v2/codegen/sdk-codegen/aws-models" \
+		--volume "$(PWD)/aws-sdk-go-v2/service:/go/src/github.com/aws/aws-sdk-go-v2/service" \
+		--rm \
+		$(AWS_SDK_CODEGEN_IMAGE)
+
 # 'go' may not be on the $PATH for sudo tests
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
@@ -506,8 +515,7 @@ clean-all: clean
 	# for our dockerfree builds, we likely don't have docker
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
-	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
-	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
+	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make" "amazon/amazon-ecs-agent-cleanbuild-windows:make" $(AWS_SDK_CODEGEN_IMAGE)
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
