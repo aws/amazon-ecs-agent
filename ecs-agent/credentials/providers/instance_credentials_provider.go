@@ -15,7 +15,11 @@ type InstanceCredentialsCache struct {
 	providers []aws.CredentialsProvider
 }
 
+<<<<<<< HEAD
 func (p *InstanceCredentialsCache) Retrieve(ctx context.Context) (aws.Credentials, error) {
+=======
+func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
+>>>>>>> 8ad27e1790 (clean up InstanceCredentialsProvider)
 	var errs []error
 	for _, provider := range p.providers {
 		creds, err := provider.Retrieve(ctx)
