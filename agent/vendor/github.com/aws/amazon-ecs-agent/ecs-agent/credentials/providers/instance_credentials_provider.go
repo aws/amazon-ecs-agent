@@ -15,26 +15,21 @@ type InstanceCredentialsProvider struct {
 	providers []aws.CredentialsProvider
 }
 
-func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (creds aws.Credentials, err error) {
-	defer func() {
-		if err != nil {
-			logger.Error(fmt.Sprintf("Error getting ECS instance credentials from credentials chain: %s", err))
-		} else {
-			logger.Info(fmt.Sprintf("Successfully got ECS instance credentials from provider: %s", creds.Source))
-		}
-	}()
-
+func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	var errs []error
 	for _, provider := range p.providers {
 		creds, err := provider.Retrieve(ctx)
 		if creds.HasKeys() && err == nil {
+			logger.Info(fmt.Sprintf("Successfully got ECS instance credentials from provider: %s", creds.Source))
 			return creds, nil
 		}
 
 		errs = append(errs, err)
 	}
 
-	return aws.Credentials{}, fmt.Errorf("no valid providers in chain: %s", errors.Join(errs...))
+	err := fmt.Errorf("no valid providers in chain: %s", errors.Join(errs...))
+	logger.Error(fmt.Sprintf("Error getting ECS instance credentials from credentials chain: %s", err))
+	return aws.Credentials{}, err
 }
 
 func defaultCreds(options func(*ec2rolecreds.Options)) aws.CredentialsProviderFunc {
