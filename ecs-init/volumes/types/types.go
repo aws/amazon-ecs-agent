@@ -41,7 +41,7 @@ func (v *Volume) RemoveMount(mountID string) bool {
 	}
 
 	v.Mounts[mountID] -= 1
-	if v.Mounts[mountID] == 0 {
+	if v.Mounts[mountID] <= 0 {
 		delete(v.Mounts, mountID)
 	}
 
