@@ -342,27 +342,35 @@ func testBranchENIConfiguration(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.TODO()
+	osWrapper := mock_oswrapper.NewMockOS(ctrl)
 	cniClient := mock_ecscni2.NewMockCNI(ctrl)
 	commonPlatform := &common{
-		cniClient: cniClient,
+		os:         osWrapper,
+		cniClient:  cniClient,
+		stateDBDir: "dummy-db-dir",
 	}
 
 	branchENI := getTestBranchENI()
-
+	branchENI.DesiredStatus = status.NetworkReadyPull
+	bridgeConfig := createBridgePluginConfig(netNSPath)
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan)
-	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Add(gomock.Any(), bridgeConfig).Return(nil, nil).Times(1),
+		cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1),
+	)
 	err := commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
+	// Ready-Pull to Ready transition
 	branchENI.DesiredStatus = status.NetworkReady
-	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
-	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db"))
 	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
 	// Delete workflow.
 	branchENI.DesiredStatus = status.NetworkDeleted
-	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db"))
 	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
