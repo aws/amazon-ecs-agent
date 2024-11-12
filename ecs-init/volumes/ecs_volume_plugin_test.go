@@ -22,6 +22,7 @@ import (
 	"github.com/docker/go-plugins-helpers/volume"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestVolumeDriver implements VolumeDriver interface for testing
@@ -611,35 +612,95 @@ func TestCapabilities(t *testing.T) {
 }
 
 func TestPluginLoadState(t *testing.T) {
-	plugin := &AmazonECSVolumePlugin{
-		volumeDrivers: map[string]driver.VolumeDriver{
-			"efs": NewECSVolumeDriver(),
+	tcs := []struct {
+		name              string
+		stateFileContents string
+		pluginAssertions  func(*testing.T, *AmazonECSVolumePlugin)
+	}{
+		{
+			name: "backwards compatibility with state format without reference counting of mounts",
+			stateFileContents: `
+            {
+                "volumes": {
+                    "efsVolume": {
+                        "type":"efs",
+                        "path":"/var/lib/ecs/volumes/efsVolume",
+                        "options": {"device":"fs-123","o":"tls","type":"efs"},
+                        "mounts": {"id1": null}
+                    }
+                }
+            }`,
+			pluginAssertions: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				assert.Len(t, plugin.volumes, 1)
+				vol, ok := plugin.volumes["efsVolume"]
+				assert.True(t, ok)
+				assert.Equal(t, "efs", vol.Type)
+				assert.Equal(t, VolumeMountPathPrefix+"efsVolume", vol.Path)
+				vols := plugin.state.VolState.Volumes
+				assert.Len(t, vols, 1)
+				volInfo, ok := vols["efsVolume"]
+				require.True(t, ok)
+				assert.Equal(t, "efs", volInfo.Type)
+				assert.Equal(t, VolumeMountPathPrefix+"efsVolume", volInfo.Path)
+
+				// Test for backwards compatibility of old state format following implmentation of
+				// reference counting of volume mounts null value for mount IDs should be converted to 1.
+				assert.Equal(t, map[string]int{"id1": 1}, vols["efsVolume"].Mounts)
+			},
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		{
+			name: "current state format",
+			stateFileContents: `
+            {
+                "volumes": {
+                    "efsVolume": {
+                        "type":"efs",
+                        "path":"/var/lib/ecs/volumes/efsVolume",
+                        "options": {"device":"fs-123","o":"tls","type":"efs"},
+                        "mounts": {"id1": 1, "id2": 2}
+                    }
+                }
+            }`,
+			pluginAssertions: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				assert.Len(t, plugin.volumes, 1)
+				vol, ok := plugin.volumes["efsVolume"]
+				assert.True(t, ok)
+				assert.Equal(t, "efs", vol.Type)
+				assert.Equal(t, VolumeMountPathPrefix+"efsVolume", vol.Path)
+				vols := plugin.state.VolState.Volumes
+				assert.Len(t, vols, 1)
+				volInfo, ok := vols["efsVolume"]
+				require.True(t, ok)
+				assert.Equal(t, "efs", volInfo.Type)
+				assert.Equal(t, VolumeMountPathPrefix+"efsVolume", volInfo.Path)
+				assert.Equal(t, map[string]int{"id1": 1, "id2": 2}, vols["efsVolume"].Mounts)
+			},
+		},
 	}
-	fileExists = func(path string) bool {
-		return true
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			plugin := &AmazonECSVolumePlugin{
+				volumeDrivers: map[string]driver.VolumeDriver{
+					"efs": NewECSVolumeDriver(),
+				},
+				volumes: make(map[string]*types.Volume),
+				state:   NewStateManager(),
+			}
+			fileExists = func(path string) bool {
+				return true
+			}
+			readStateFile = func() ([]byte, error) {
+				return []byte(tc.stateFileContents), nil
+			}
+			defer func() {
+				fileExists = checkFile
+				readStateFile = readFile
+			}()
+			assert.NoError(t, plugin.LoadState(), "expected no error when loading state")
+			tc.pluginAssertions(t, plugin)
+		})
 	}
-	readStateFile = func() ([]byte, error) {
-		return []byte(`{"volumes":{"efsVolume":{"type":"efs","path":"/var/lib/ecs/volumes/efsVolume","options":{"device":"fs-123","o":"tls","type":"efs"}}}}`), nil
-	}
-	defer func() {
-		fileExists = checkFile
-		readStateFile = readFile
-	}()
-	assert.NoError(t, plugin.LoadState(), "expected no error when loading state")
-	assert.Len(t, plugin.volumes, 1)
-	vol, ok := plugin.volumes["efsVolume"]
-	assert.True(t, ok)
-	assert.Equal(t, "efs", vol.Type)
-	assert.Equal(t, VolumeMountPathPrefix+"efsVolume", vol.Path)
-	vols := plugin.state.VolState.Volumes
-	assert.Len(t, vols, 1)
-	volInfo, ok := vols["efsVolume"]
-	assert.True(t, ok)
-	assert.Equal(t, "efs", volInfo.Type)
-	assert.Equal(t, VolumeMountPathPrefix+"efsVolume", volInfo.Path)
 }
 
 func TestPluginNoStateFile(t *testing.T) {
@@ -758,7 +819,7 @@ func TestPluginMount(t *testing.T) {
 			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
 			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{reqMountID: nil}
+				mounts := map[string]int{reqMountID: 1}
 				assert.Equal(t,
 					map[string]*types.Volume{
 						volName: {Path: volPath, Options: volOpts, Mounts: mounts},
@@ -778,13 +839,13 @@ func TestPluginMount(t *testing.T) {
 			pluginVolumes: map[string]*types.Volume{
 				volName: {
 					Path:   volPath,
-					Mounts: map[string]*string{"someMount": nil},
+					Mounts: map[string]int{"someMount": 1},
 				},
 			},
 			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
 			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{reqMountID: nil, "someMount": nil}
+				mounts := map[string]int{reqMountID: 1, "someMount": 1}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
@@ -826,24 +887,24 @@ func TestPluginMount(t *testing.T) {
 				assert.Equal(t, map[string]*types.Volume{volName: {Path: volPath}}, plugin.volumes)
 				assert.Equal(t,
 					&VolumeState{Volumes: map[string]*VolumeInfo{
-						volName: {Path: volPath, Mounts: map[string]*string{}},
+						volName: {Path: volPath, Mounts: map[string]int{}},
 					}},
 					plugin.state.VolState)
 			},
 		},
 		{
-			name: "duplicate mount is a no-op",
+			name: "duplicate mount increments mount reference count",
 			pluginVolumes: map[string]*types.Volume{
 				volName: {
 					Path:    volPath,
-					Mounts:  map[string]*string{reqMountID: nil},
+					Mounts:  map[string]int{reqMountID: 1},
 					Options: volOpts,
 				},
 			},
 			req:              &volume.MountRequest{Name: volName, ID: reqMountID},
 			expectedResponse: &volume.MountResponse{Mountpoint: volPath},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{reqMountID: nil}
+				mounts := map[string]int{reqMountID: 2}
 				assert.Equal(t,
 					map[string]*types.Volume{
 						volName: {Path: volPath, Options: volOpts, Mounts: mounts},
@@ -870,7 +931,7 @@ func TestPluginMount(t *testing.T) {
 			expectedError:   "mount failed due to an error while saving state: some error",
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
 				// No mounts expected on the volume
-				mounts := map[string]*string{}
+				mounts := map[string]int{}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
@@ -963,11 +1024,11 @@ func TestPluginUnmount(t *testing.T) {
 				d.EXPECT().Remove(&driver.RemoveRequest{Name: volName}).Return(nil)
 			},
 			pluginVolumes: map[string]*types.Volume{
-				volName: {Path: volPath, Mounts: map[string]*string{reqMountID: nil}},
+				volName: {Path: volPath, Mounts: map[string]int{reqMountID: 1}},
 			},
 			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{}
+				mounts := map[string]int{}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
@@ -983,12 +1044,33 @@ func TestPluginUnmount(t *testing.T) {
 			pluginVolumes: map[string]*types.Volume{
 				volName: {
 					Path:   volPath,
-					Mounts: map[string]*string{"someMount": nil, reqMountID: nil},
+					Mounts: map[string]int{"someMount": 1, reqMountID: 1},
 				},
 			},
 			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{"someMount": nil}
+				mounts := map[string]int{"someMount": 1}
+				assert.Equal(t,
+					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
+					plugin.volumes)
+				assert.Equal(t,
+					&VolumeState{
+						Volumes: map[string]*VolumeInfo{volName: {Path: volPath, Mounts: mounts}},
+					},
+					plugin.state.VolState)
+			},
+		},
+		{
+			name: "mount reference count decrements",
+			pluginVolumes: map[string]*types.Volume{
+				volName: {
+					Path:   volPath,
+					Mounts: map[string]int{reqMountID: 2},
+				},
+			},
+			req: &volume.UnmountRequest{Name: volName, ID: reqMountID},
+			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
+				mounts := map[string]int{reqMountID: 1}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
@@ -1023,13 +1105,13 @@ func TestPluginUnmount(t *testing.T) {
 					Return(errors.New("some error"))
 			},
 			pluginVolumes: map[string]*types.Volume{
-				volName: {Path: volPath, Mounts: map[string]*string{reqMountID: nil}},
+				volName: {Path: volPath, Mounts: map[string]int{reqMountID: 1}},
 			},
 			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			expectedError: "failed to unmount volume volume: some error",
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
 				// Mount should not exist in the plugin state
-				mounts := map[string]*string{}
+				mounts := map[string]int{}
 				assert.Equal(t,
 					map[string]*types.Volume{volName: {Path: volPath, Mounts: mounts}},
 					plugin.volumes)
@@ -1040,7 +1122,7 @@ func TestPluginUnmount(t *testing.T) {
 			pluginVolumes: map[string]*types.Volume{volName: {Path: volPath, Options: volOpts}},
 			req:           &volume.UnmountRequest{Name: volName, ID: reqMountID},
 			assertPluginState: func(t *testing.T, plugin *AmazonECSVolumePlugin) {
-				mounts := map[string]*string{}
+				mounts := map[string]int{}
 				assert.Equal(t,
 					map[string]*types.Volume{
 						volName: {Path: volPath, Mounts: nil, Options: volOpts},
