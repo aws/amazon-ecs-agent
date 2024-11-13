@@ -25,8 +25,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 )
 
-// RotatingSharedCredentialsProviderV2 is a provider that retrieves credentials via the
-// shared credentials provider, and adds the functionality of expiring and re-retrieving
+// RotatingSharedCredentialsProviderV2 is a provider that retrieves credentials from the
+// shared credentials file and adds the functionality of expiring and re-retrieving
 // those credentials from the file.
 // TODO (@tiffwang): Remove V2 suffix after the credentials package is
 // fully migrated to aws-sdk-go-v2.
