@@ -199,7 +199,7 @@ func (c *client) LoadImage(image io.Reader) error {
 	return c.docker.LoadImage(godocker.LoadImageOptions{InputStream: image})
 }
 
-// RemoveExistingAgentContainer remvoes any existing container named
+// RemoveExistingAgentContainer removes any existing container named
 // "ecs-agent" or returns without error if none is found
 func (c *client) RemoveExistingAgentContainer() error {
 	containerToRemove, err := c.findAgentContainer()
