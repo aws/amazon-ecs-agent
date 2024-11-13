@@ -19,16 +19,16 @@ type Volume struct {
 	Path      string
 	Options   map[string]string
 	CreatedAt string
-	Mounts    map[string]*string
+	Mounts    map[string]int
 }
 
 // Adds a new mount to the volume.
 // This method is not thread-safe, caller is responsible for holding any locks on the volume.
 func (v *Volume) AddMount(mountID string) {
 	if v.Mounts == nil {
-		v.Mounts = map[string]*string{}
+		v.Mounts = map[string]int{}
 	}
-	v.Mounts[mountID] = nil
+	v.Mounts[mountID] += 1
 }
 
 // Removes a mount from the volume.
@@ -36,6 +36,14 @@ func (v *Volume) AddMount(mountID string) {
 // Returns a bool indicating whether the mountID was found in mounts or not.
 func (v *Volume) RemoveMount(mountID string) bool {
 	_, exists := v.Mounts[mountID]
-	delete(v.Mounts, mountID)
-	return exists
+	if !exists {
+		return false
+	}
+
+	v.Mounts[mountID] -= 1
+	if v.Mounts[mountID] <= 0 {
+		delete(v.Mounts, mountID)
+	}
+
+	return true
 }

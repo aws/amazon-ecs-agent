@@ -23,18 +23,19 @@ func TestAddMount(t *testing.T) {
 	t.Run("new map is created when Mounts is nil", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
-		assert.Equal(t, map[string]*string{"id": nil}, v.Mounts)
+		assert.Equal(t, map[string]int{"id": 1}, v.Mounts)
 	})
 	t.Run("second mount", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
 		v.AddMount("id2")
-		assert.Equal(t, map[string]*string{"id": nil, "id2": nil}, v.Mounts)
+		assert.Equal(t, map[string]int{"id": 1, "id2": 1}, v.Mounts)
 	})
-	t.Run("mount already exists", func(t *testing.T) {
+	t.Run("mount reference count is incremented if a mount already exists", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
-		assert.Equal(t, map[string]*string{"id": nil}, v.Mounts)
+		v.AddMount("id")
+		assert.Equal(t, map[string]int{"id": 2}, v.Mounts)
 	})
 }
 
@@ -44,7 +45,14 @@ func TestRemoveMount(t *testing.T) {
 		assert.False(t, v.RemoveMount("id"))
 		assert.Empty(t, v.Mounts)
 	})
-	t.Run("mount should be removed if it exists", func(t *testing.T) {
+	t.Run("mount reference count is decremented", func(t *testing.T) {
+		v := &Volume{}
+		v.AddMount("id")
+		v.AddMount("id")
+		assert.True(t, v.RemoveMount("id"))
+		assert.Equal(t, map[string]int{"id": 1}, v.Mounts)
+	})
+	t.Run("mount should be removed if it exists and mount reference count is 1", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
 		assert.True(t, v.RemoveMount("id"))
