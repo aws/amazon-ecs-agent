@@ -643,7 +643,7 @@ func TestPluginLoadState(t *testing.T) {
 				assert.Equal(t, "efs", volInfo.Type)
 				assert.Equal(t, VolumeMountPathPrefix+"efsVolume", volInfo.Path)
 
-				// Test for backwards compatibility of old state format following implmentation of
+				// Test for backwards compatibility of old state format following implementation of
 				// reference counting of volume mounts null value for mount IDs should be converted to 1.
 				assert.Equal(t, map[string]int{"id1": 1}, vols["efsVolume"].Mounts)
 			},

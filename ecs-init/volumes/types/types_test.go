@@ -52,7 +52,7 @@ func TestRemoveMount(t *testing.T) {
 		assert.True(t, v.RemoveMount("id"))
 		assert.Equal(t, map[string]int{"id": 1}, v.Mounts)
 	})
-	t.Run("mount should be removed if it exists", func(t *testing.T) {
+	t.Run("mount should be removed if it exists and mount reference count is 1", func(t *testing.T) {
 		v := &Volume{}
 		v.AddMount("id")
 		assert.True(t, v.RemoveMount("id"))
