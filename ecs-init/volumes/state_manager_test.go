@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSaveStateSuccess(t *testing.T) {
@@ -83,6 +84,34 @@ func TestLoadStateSuccess(t *testing.T) {
 		readStateFile = readFile
 	}()
 	assert.NoError(t, s.load(oldState))
+}
+
+// Tests backwards compatibility of state loading.
+// A change to state format has been introduced with reference counting of volume mounts.
+func TestLoadStateFromOldFormat(t *testing.T) {
+	s := NewStateManager()
+	oldState := &VolumeState{}
+	readStateFile = func() ([]byte, error) {
+		return []byte(`
+        {
+            "volumes": {
+                "efsVolume": {
+                    "type":"efs",
+                    "mounts": {"id1": null}
+                }
+            }
+        }`), nil
+	}
+	defer func() {
+		readStateFile = readFile
+	}()
+	require.NoError(t, s.load(oldState))
+	assert.Equal(t,
+		&VolumeState{Volumes: map[string]*VolumeInfo{"efsVolume": {
+			Type:   "efs",
+			Mounts: map[string]int{"id1": 0},
+		}}},
+		oldState)
 }
 
 func TestLoadInvalidState(t *testing.T) {

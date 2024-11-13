@@ -70,6 +70,17 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 	if oldState.Volumes == nil {
 		return nil
 	}
+
+	// Reset volume mount reference count. This is for backwards-compatibility with old
+	// state file format which did not have reference counting of volume mounts.
+	for _, vol := range oldState.Volumes {
+		for mountId, count := range vol.Mounts {
+			if count == 0 {
+				vol.Mounts[mountId] = 1
+			}
+		}
+	}
+
 	for volName, vol := range oldState.Volumes {
 		voldriver, err := a.getVolumeDriver(vol.Type)
 		if err != nil {
@@ -146,7 +157,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		Path:      target,
 		Options:   r.Options,
 		CreatedAt: time.Now().Format(time.RFC3339Nano),
-		Mounts:    map[string]*string{},
+		Mounts:    map[string]int{},
 	}
 	// record the volume information
 	a.volumes[r.Name] = vol
