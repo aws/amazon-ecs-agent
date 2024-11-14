@@ -15,6 +15,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +26,7 @@ import (
 	"time"
 
 	mock_api "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	ecserrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -34,9 +35,13 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
+	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -132,7 +137,7 @@ func TestGetTaskProtection(t *testing.T) {
 	// Initialize some data common to the test cases
 	happyECSInput := ecs.GetTaskProtectionInput{
 		Cluster: aws.String(cluster),
-		Tasks:   aws.StringSlice([]string{taskARN}),
+		Tasks:   []string{taskARN},
 	}
 	metricName := metrics.GetTaskProtectionMetricName
 
@@ -144,8 +149,8 @@ func TestGetTaskProtection(t *testing.T) {
 	) func(*gomock.Controller, *MockTaskProtectionClientFactoryInterface) {
 		return func(ctrl *gomock.Controller, factory *MockTaskProtectionClientFactoryInterface) {
 			client := mock_api.NewMockECSTaskProtectionSDK(ctrl)
-			client.EXPECT().GetTaskProtectionWithContext(gomock.Any(), &input).Return(output, err)
-			factory.EXPECT().NewTaskProtectionClient(taskRoleCreds()).Return(client)
+			client.EXPECT().GetTaskProtection(gomock.Any(), &input, gomock.Any()).Return(output, err)
+			factory.EXPECT().NewTaskProtectionClient(taskRoleCreds()).Return(client, nil)
 		}
 	}
 
@@ -171,18 +176,25 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-					http.StatusBadRequest,
-					ecsRequestID,
-				)),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusBadRequest,
+							},
+						},
+						Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
+			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
+					Code:    ecserrors.ErrCodeAccessDeniedException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -193,7 +205,8 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+				&awsv2.RequestCanceledError{Err: context.Canceled},
+			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
 			expectedResponseBody: types.TaskProtectionResponse{
@@ -211,13 +224,13 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+				&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    ecserrors.ErrCodeInvalidParameterException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -233,7 +246,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedStatusCode:          http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
-					Arn: taskARN, Code: ecs.ErrCodeServerException, Message: err.Error(),
+					Arn: taskARN, Code: ecserrors.ErrCodeServerException, Message: err.Error(),
 				},
 			},
 		})
@@ -244,7 +257,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
-				Failures: []*ecs.Failure{ecsFailure},
+				Failures: []ecstypes.Failure{ecsFailure},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
@@ -258,14 +271,14 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
-				Failures: []*ecs.Failure{makeECSFailure("1"), makeECSFailure("2")},
+				Failures: []ecstypes.Failure{makeECSFailure("1"), makeECSFailure("2")},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
+					Code:    ecserrors.ErrCodeServerException,
 					Message: "Unexpected error occurred",
 				},
 			},
@@ -277,11 +290,11 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
-				ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
+				ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 1),
 			expectedStatusCode:     http.StatusOK,
-			expectedResponseBody:   types.TaskProtectionResponse{Protection: &protectedTask},
+			expectedResponseBody:   types.TaskProtectionResponse{Protection: protectedTask},
 		})
 	})
 }
@@ -289,15 +302,15 @@ func TestGetTaskProtection(t *testing.T) {
 func TestUpdateTaskProtection(t *testing.T) {
 	// Initialize some data common to the test cases
 	metricName := metrics.UpdateTaskProtectionMetricName
-	expiresInMinutes := aws.Int64(5)
-	protectionEnabled := aws.Bool(true)
+	expiresInMinutes := 5
+	protectionEnabled := true
 	happyRequestBody := &TaskProtectionRequest{
-		ProtectionEnabled: protectionEnabled, ExpiresInMinutes: expiresInMinutes,
+		ProtectionEnabled: aws.Bool(protectionEnabled), ExpiresInMinutes: aws.Int64(int64(expiresInMinutes)),
 	}
 	happyECSInput := ecs.UpdateTaskProtectionInput{
 		Cluster:           aws.String(cluster),
-		Tasks:             aws.StringSlice([]string{taskARN}),
-		ExpiresInMinutes:  expiresInMinutes,
+		Tasks:             []string{taskARN},
+		ExpiresInMinutes:  aws.Int32(int32(expiresInMinutes)),
 		ProtectionEnabled: protectionEnabled,
 	}
 
@@ -309,8 +322,8 @@ func TestUpdateTaskProtection(t *testing.T) {
 	) func(*gomock.Controller, *MockTaskProtectionClientFactoryInterface) {
 		return func(ctrl *gomock.Controller, factory *MockTaskProtectionClientFactoryInterface) {
 			client := mock_api.NewMockECSTaskProtectionSDK(ctrl)
-			client.EXPECT().UpdateTaskProtectionWithContext(gomock.Any(), &input).Return(output, err)
-			factory.EXPECT().NewTaskProtectionClient(taskRoleCreds()).Return(client)
+			client.EXPECT().UpdateTaskProtection(gomock.Any(), &input, gomock.Any()).Return(output, err)
+			factory.EXPECT().NewTaskProtectionClient(taskRoleCreds()).Return(client, nil)
 		}
 	}
 
@@ -337,7 +350,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    ecserrors.ErrCodeInvalidParameterException,
 					Message: "UpdateTaskProtection: failed to decode request",
 				},
 			},
@@ -350,7 +363,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    ecserrors.ErrCodeInvalidParameterException,
 					Message: "UpdateTaskProtection: failed to decode request",
 				},
 			},
@@ -358,7 +371,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 	})
 	t.Run("ProtectionEnabled field not found on the request", func(t *testing.T) {
 		testTaskProtectionRequest(t, TestCase{
-			requestBody:               &TaskProtectionRequest{ExpiresInMinutes: expiresInMinutes},
+			requestBody:               &TaskProtectionRequest{ExpiresInMinutes: aws.Int64(int64(expiresInMinutes))},
 			setAgentStateExpectations: happyStateExpectations,
 			setMetricsExpectations: func(ctrl *gomock.Controller, metricsFactory *mock_metrics.MockEntryFactory) {
 				// expecting entry creation but no publish
@@ -369,7 +382,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    ecserrors.ErrCodeInvalidParameterException,
 					Message: "Invalid request: does not contain 'ProtectionEnabled' field",
 				},
 			},
@@ -386,18 +399,25 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-					http.StatusBadRequest,
-					ecsRequestID,
-				)),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusBadRequest,
+							},
+						},
+						Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
+			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusBadRequest,
 			expectedResponseBody: types.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
+					Code:    ecserrors.ErrCodeAccessDeniedException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -409,7 +429,8 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+				&awsv2.RequestCanceledError{Err: context.Canceled},
+			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
 			expectedResponseBody: types.TaskProtectionResponse{
@@ -428,13 +449,13 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+				&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    ecserrors.ErrCodeInvalidParameterException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -451,7 +472,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedStatusCode:          http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
-					Arn: taskARN, Code: ecs.ErrCodeServerException, Message: err.Error(),
+					Arn: taskARN, Code: ecserrors.ErrCodeServerException, Message: err.Error(),
 				},
 			},
 		})
@@ -463,7 +484,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{ecsFailure},
+				Failures: []ecstypes.Failure{ecsFailure},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
@@ -478,14 +499,14 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{makeECSFailure("1"), makeECSFailure("2")},
+				Failures: []ecstypes.Failure{makeECSFailure("1"), makeECSFailure("2")},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusInternalServerError,
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
+					Code:    ecserrors.ErrCodeServerException,
 					Message: "Unexpected error occurred",
 				},
 			},
@@ -498,27 +519,27 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
-				ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
+				ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 			}, nil),
 			setMetricsExpectations: metricsExpectations(metricName, 1),
 			expectedStatusCode:     http.StatusOK,
-			expectedResponseBody:   types.TaskProtectionResponse{Protection: &protectedTask},
+			expectedResponseBody:   types.TaskProtectionResponse{Protection: protectedTask},
 		})
 	})
 }
 
 // Returns an ECS Failure with the given reason. Uses standard Task ARN.
-func makeECSFailure(reason string) *ecs.Failure {
-	return &ecs.Failure{
+func makeECSFailure(reason string) ecstypes.Failure {
+	return ecstypes.Failure{
 		Arn:    aws.String(taskARN),
 		Reason: aws.String("ecs failure 1"),
 	}
 }
 
 // Returns a standard ECS Protected Task for testing.
-func ecsProtectedTask() ecs.ProtectedTask {
-	return ecs.ProtectedTask{
-		ProtectionEnabled: aws.Bool(true),
+func ecsProtectedTask() ecstypes.ProtectedTask {
+	return ecstypes.ProtectedTask{
+		ProtectionEnabled: true,
 		TaskArn:           aws.String(taskARN),
 	}
 }
@@ -557,7 +578,7 @@ func taskMetadataFetchErrorCase(err error, metricName string, reqBody interface{
 		expectedStatusCode:     http.StatusInternalServerError,
 		expectedResponseBody: types.TaskProtectionResponse{
 			Error: &types.ErrorResponse{
-				Code:    ecs.ErrCodeServerException,
+				Code:    ecserrors.ErrCodeServerException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -579,7 +600,7 @@ func taskMetadataLookupFailureCase(metricName string, reqBody interface{}) TestC
 		expectedStatusCode: http.StatusNotFound,
 		expectedResponseBody: types.TaskProtectionResponse{
 			Error: &types.ErrorResponse{
-				Code:    ecs.ErrCodeResourceNotFoundException,
+				Code:    ecserrors.ErrCodeResourceNotFoundException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -600,7 +621,7 @@ func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}) TestCase 
 		expectedResponseBody: types.TaskProtectionResponse{
 			Error: &types.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeAccessDeniedException,
+				Code:    ecserrors.ErrCodeAccessDeniedException,
 				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
 		},
