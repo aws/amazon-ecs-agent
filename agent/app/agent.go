@@ -234,10 +234,12 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
-	credentialProviderV2 := providers.NewInstanceCredentialsProvider(
-		cfg.External.Enabled(),
-		providers.NewRotatingSharedCredentialsProviderV2(),
-		nil,
+	credentialProviderV2 := awsv2.NewCredentialsCache(
+		providers.NewInstanceCredentialsProvider(
+			cfg.External.Enabled(),
+			providers.NewRotatingSharedCredentialsProviderV2(),
+			nil,
+		),
 	)
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
