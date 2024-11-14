@@ -31,12 +31,14 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/smithy-go"
 	"github.com/gorilla/mux"
 )
 
@@ -57,6 +59,10 @@ func TaskProtectionPath() string {
 type TaskProtectionRequest struct {
 	ProtectionEnabled *bool
 	ExpiresInMinutes  *int64
+}
+
+type CanceledError interface {
+	CanceledError() bool
 }
 
 // GetTaskProtectionHandler returns a handler function for GetTaskProtection API
@@ -414,8 +420,28 @@ func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 				err))
 			return awsErr.Code(), msg, http.StatusInternalServerError, nil
 		}
-	} else {
-		logger.Error(fmt.Sprintf("non aws error received: %v", err))
-		return ecserrors.ErrCodeServerException, msg, http.StatusInternalServerError, nil
 	}
+
+	var ce CanceledError
+	if errors.As(err, &ce) {
+		return ecserrors.ErrCodeRequestCanceled, ecsCallTimedOutError, http.StatusGatewayTimeout, nil
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		msg = apiErr.ErrorMessage()
+
+		var re *awshttp.ResponseError
+		if errors.As(err, &re) {
+			return apiErr.ErrorCode(), msg, re.HTTPStatusCode(), &re.RequestID
+		}
+
+		logger.Error(fmt.Sprintf(
+			"got a %T exception that does not implement ResponseError. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
+			err, err))
+		return apiErr.ErrorCode(), msg, http.StatusInternalServerError, nil
+	}
+
+	logger.Error(fmt.Sprintf("non aws error received: %v", err))
+	return ecserrors.ErrCodeServerException, msg, http.StatusInternalServerError, nil
 }
