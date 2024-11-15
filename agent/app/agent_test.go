@@ -56,6 +56,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
@@ -81,19 +82,19 @@ var serverErr = awserr.NewRequestFailure(awserr.Error(awserr.New("InternalServer
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.MinDockerAPIVersion,
 }
-var capabilities []*ecs.Attribute
-var testHostCPU = int64(1024)
-var testHostMEMORY = int64(1024)
-var testHostResource = map[string]*ecs.Resource{
-	"CPU": &ecs.Resource{
+var capabilities []ecstypes.Attribute
+var testHostCPU = int32(1024)
+var testHostMEMORY = int32(1024)
+var testHostResource = map[string]ecstypes.Resource{
+	"CPU": ecstypes.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &testHostCPU,
+		IntegerValue: testHostCPU,
 	},
-	"MEMORY": &ecs.Resource{
+	"MEMORY": ecstypes.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &testHostMEMORY,
+		IntegerValue: testHostMEMORY,
 	},
 }
 
@@ -1508,7 +1509,7 @@ func TestMergeTags(t *testing.T) {
 	commonKeyEC2Value := "commonEC2Value"
 	commonKeyLocalValue := "commonKeyLocalValue"
 
-	localTags := []*ecs.Tag{
+	localTags := []ecstypes.Tag{
 		{
 			Key:   aws.String(localKey),
 			Value: aws.String(localValue),
@@ -1519,7 +1520,7 @@ func TestMergeTags(t *testing.T) {
 		},
 	}
 
-	ec2Tags := []*ecs.Tag{
+	ec2Tags := []ecstypes.Tag{
 		{
 			Key:   aws.String(ec2Key),
 			Value: aws.String(ec2Value),
@@ -1557,7 +1558,7 @@ func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {
 		ec2Client:         ec2Client,
 	}
 	instanceID := "iid"
-	tags := []*ecs.Tag{
+	tags := []ecstypes.Tag{
 		{
 			Key:   aws.String("key"),
 			Value: aws.String("value"),
@@ -1565,7 +1566,12 @@ func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {
 	}
 	gomock.InOrder(
 		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil),
-		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return(tags, nil),
+		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return([]*ecs.Tag{
+			{
+				Key:   aws.String("key"),
+				Value: aws.String("value"),
+			},
+		}, nil),
 	)
 
 	resTags, err := agent.getContainerInstanceTagsFromEC2API()
@@ -1682,7 +1688,7 @@ func TestSpotInstanceActionCheck_Sunny(t *testing.T) {
 			containerInstanceARN: myARN,
 		}
 		ec2MetadataClient.EXPECT().SpotInstanceAction().Return(test.jsonresp, nil)
-		ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
+		ecsClient.EXPECT().UpdateContainerInstancesState(myARN, ecstypes.ContainerInstanceStatusDraining).Return(nil)
 
 		assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
 	}
@@ -1758,41 +1764,41 @@ func getTestConfig() config.Config {
 	return cfg
 }
 
-func getTestHostResources() map[string]*ecs.Resource {
-	hostResources := make(map[string]*ecs.Resource)
-	CPUs := int64(1024)
-	hostResources["CPU"] = &ecs.Resource{
+func getTestHostResources() map[string]ecstypes.Resource {
+	hostResources := make(map[string]ecstypes.Resource)
+	CPUs := int32(1024)
+	hostResources["CPU"] = ecstypes.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &CPUs,
+		IntegerValue: CPUs,
 	}
 	//MEMORY
-	memory := int64(1024)
-	hostResources["MEMORY"] = &ecs.Resource{
+	memory := int32(1024)
+	hostResources["MEMORY"] = ecstypes.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &memory,
+		IntegerValue: memory,
 	}
 	//PORTS
-	ports_tcp := []*string{}
-	hostResources["PORTS_TCP"] = &ecs.Resource{
+	portsTCP := []string{}
+	hostResources["PORTS_TCP"] = ecstypes.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: ports_tcp,
+		StringSetValue: portsTCP,
 	}
 	//PORTS_UDP
-	ports_udp := []*string{}
-	hostResources["PORTS_UDP"] = &ecs.Resource{
+	portsUDP := []string{}
+	hostResources["PORTS_UDP"] = ecstypes.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: ports_udp,
+		StringSetValue: portsUDP,
 	}
 	//GPUs
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	hostResources["GPU"] = &ecs.Resource{
+	hostResources["GPU"] = ecstypes.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: aws.StringSlice(gpuIDs),
+		StringSetValue: gpuIDs,
 	}
 	return hostResources
 }

@@ -38,10 +38,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -117,13 +117,13 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
@@ -148,7 +148,7 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -199,14 +199,14 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityNvidiaDriverVersionInfix + nvidiaDriverVersion,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 
 	expectedCapabilities = append(expectedCapabilities,
-		&ecs.Attribute{Name: aws.String(attributePrefix + capabilityGpuDriverVersion),
+		types.Attribute{Name: aws.String(attributePrefix + capabilityGpuDriverVersion),
 			Value: aws.String(nvidiaDriverVersion)})
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -231,7 +231,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -278,10 +278,10 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilitySecretLogDriverSSM,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -306,7 +306,7 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -361,13 +361,13 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilitySecretLogDriverSSM,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			// linux specific capabilities
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
@@ -397,7 +397,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -449,13 +449,13 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilitySecretEnvSSM,
 		attributePrefix + capabilitySecretLogDriverSSM,
 	}
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			// linux specific capabilities
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
@@ -481,7 +481,7 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -536,10 +536,10 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -558,7 +558,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -610,10 +610,10 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -632,7 +632,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -688,10 +688,10 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -711,7 +711,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -769,8 +769,8 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
-	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + taskEIAAttributeSuffix)})
-	assert.NotContains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + taskEIAWithOptimizedCPU)})
+	assert.Contains(t, capabilities, types.Attribute{Name: aws.String(attributePrefix + taskEIAAttributeSuffix)})
+	assert.NotContains(t, capabilities, types.Attribute{Name: aws.String(attributePrefix + taskEIAWithOptimizedCPU)})
 }
 
 func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
@@ -825,7 +825,7 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
-	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + taskEIAWithOptimizedCPU)})
+	assert.Contains(t, capabilities, types.Attribute{Name: aws.String(attributePrefix + taskEIAWithOptimizedCPU)})
 }
 
 func resetOpenFile() {
@@ -887,10 +887,10 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -909,7 +909,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -962,12 +962,12 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
 
-	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigFile)})
-	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigS3)})
+	assert.Contains(t, capabilities, types.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigFile)})
+	assert.Contains(t, capabilities, types.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigS3)})
 }
 
 func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
-	var inputCapabilities []*ecs.Attribute
+	var inputCapabilities []types.Attribute
 
 	agent := &ecsAgent{}
 
