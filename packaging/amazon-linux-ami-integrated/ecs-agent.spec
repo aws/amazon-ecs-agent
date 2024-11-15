@@ -270,6 +270,9 @@ fi
 %endif
 
 %changelog
+* Thu Nov 14 2024 Thean Lim <theanlim@amazon.com> - 1.89.0-1
+- Cache Agent version 1.89.0
+
 * Wed Oct 30 2024 Michael Ye <yemike@amazon.com> - 1.88.0-1
 - Cache Agent version 1.88.0
 
