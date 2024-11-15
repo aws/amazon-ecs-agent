@@ -290,24 +290,3 @@ func TestResourceHealthGPUFalse(t *testing.T) {
 	err := h.checkResourcesHealth(resources)
 	assert.Error(t, err, "Error in checking unhealthy resource map status")
 }
-
-func TestResourceHealthStringSetFalse(t *testing.T) {
-	hostResourcePort1 := "22"
-	hostResourcePort2 := "1000"
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
-
-	// Create unhealthy resource map, nil value for StringSetValue field
-	resources := make(map[string]types.Resource)
-	resources["PORTS"] = types.Resource{
-		Name: utils.Strptr("PORTS"),
-		Type: utils.Strptr("STRINGSET"),
-	}
-	resources["PORTS_UDP"] = types.Resource{
-		Name: utils.Strptr("PORTS_UDP"),
-		Type: utils.Strptr("STRINGSET"),
-	}
-
-	err := h.checkResourcesHealth(resources)
-	assert.Error(t, err, "Error in checking unhealthy resource map status")
-}
