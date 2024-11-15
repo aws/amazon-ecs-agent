@@ -43,28 +43,12 @@ type HostResourceManager struct {
 	taskConsumed map[string]bool
 }
 
-type ResourceNotFoundForTask struct {
-	resource string
-}
-
-func (e *ResourceNotFoundForTask) Error() string {
-	return fmt.Sprintf("no %s in task resources", e.resource)
-}
-
 type InvalidHostResource struct {
 	resource string
 }
 
 func (e *InvalidHostResource) Error() string {
 	return fmt.Sprintf("no %s resource found in host resources", e.resource)
-}
-
-type ResourceIsNilForTask struct {
-	resource string
-}
-
-func (e *ResourceIsNilForTask) Error() string {
-	return fmt.Sprintf("resource %s is nil in task resources", e.resource)
 }
 
 func (h *HostResourceManager) logResources(msg string, taskArn string) {
@@ -175,22 +159,6 @@ func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, 
 	return true
 }
 
-func checkResourceExistsInt(resourceName string, resources map[string]types.Resource) error {
-	_, ok := resources[resourceName]
-	if !ok {
-		return &ResourceNotFoundForTask{resourceName}
-	}
-	return nil
-}
-
-func checkResourceExistsStringSet(resourceName string, resources map[string]types.Resource) error {
-	_, ok := resources[resourceName]
-	if !ok {
-		return &ResourceNotFoundForTask{resourceName}
-	}
-	return nil
-}
-
 // Checks all resources exists and their values are not nil
 func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Resource) error {
 	for resourceKey, resourceVal := range resources {
@@ -208,37 +176,21 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Re
 			return fmt.Errorf("invalid resource type for %s", resourceKey)
 		}
 
-		// CPU, MEMORY
-		if *resourceVal.Type == "INTEGER" {
-			err := checkResourceExistsInt(resourceKey, resources)
-			if err != nil {
-				return err
+		// Verify resource comes from an existing pool of values - for valid gpu ids
+		if *resourceVal.Type == "STRINGSET" && resourceKey == GPU {
+			if *resourceVal.Type != "STRINGSET" {
+				return fmt.Errorf("resource gpu must be STRINGSET type")
 			}
-		}
 
-		// PORTS_TCP, PORTS_UDP, GPU
-		if *resourceVal.Type == "STRINGSET" {
-			err := checkResourceExistsStringSet(resourceKey, resources)
-
-			// Verify resource comes from an existing pool of values - for valid gpu ids
-			if resourceKey == GPU && err == nil {
-				if *resourceVal.Type != "STRINGSET" {
-					return fmt.Errorf("resource gpu must be STRINGSET type")
-				}
-
-				hostGpuMap := make(map[string]struct{}, len(h.initialHostResource[GPU].StringSetValue))
-				for _, v := range h.initialHostResource[GPU].StringSetValue {
-					hostGpuMap[v] = struct{}{}
-				}
-				for _, obj1 := range resourceVal.StringSetValue {
-					_, ok := hostGpuMap[obj1]
-					if !ok {
-						return fmt.Errorf("task gpu %s not found in host gpus", obj1)
-					}
-				}
+			hostGpuMap := make(map[string]struct{}, len(h.initialHostResource[GPU].StringSetValue))
+			for _, v := range h.initialHostResource[GPU].StringSetValue {
+				hostGpuMap[v] = struct{}{}
 			}
-			if err != nil {
-				return err
+			for _, obj1 := range resourceVal.StringSetValue {
+				_, ok := hostGpuMap[obj1]
+				if !ok {
+					return fmt.Errorf("task gpu %s not found in host gpus", obj1)
+				}
 			}
 		}
 	}

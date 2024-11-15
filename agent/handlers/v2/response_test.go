@@ -27,10 +27,10 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
@@ -453,7 +453,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]ecstypes.Tag{
 			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
@@ -463,7 +463,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 				Value: &contInstTag2Val,
 			},
 		}, nil),
-		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]ecstypes.Tag{
 			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,

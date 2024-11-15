@@ -50,7 +50,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
@@ -557,7 +556,7 @@ func TestManagedAgentEvent(t *testing.T) {
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
 	testTask := CreateTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
-	testTask.PIDMode = ecs.PidModeHost
+	testTask.PIDMode = string(ecstypes.PidModeHost)
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage
 	testTask.Containers[0].Command = []string{testExecCommandAgentSleepBin, "-time=" + sleepFor.String()}
