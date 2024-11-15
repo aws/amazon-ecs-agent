@@ -22,10 +22,10 @@ package version
 // repository. Only the 'Version' const should change in checked-in source code
 
 // Version is the version of agent
-const Version = "1.88.0"
+const Version = "1.89.0"
 
 // GitDirty indicates the cleanliness of the git repo when this agent was built
 const GitDirty = true
 
 // GitShortHash is the short hash of this agent build
-const GitShortHash = "c9040caf"
+const GitShortHash = "4843cd00"
