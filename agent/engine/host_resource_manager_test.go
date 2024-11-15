@@ -20,40 +20,39 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestHostResourceManager(cpu int64, mem int64, ports []*string, portsUdp []*string, gpuIDs []*string) *HostResourceManager {
-	hostResources := make(map[string]*ecs.Resource)
-	hostResources["CPU"] = &ecs.Resource{
+func getTestHostResourceManager(cpu int32, mem int32, ports []string, portsUdp []string, gpuIDs []string) *HostResourceManager {
+	hostResources := make(map[string]types.Resource)
+	hostResources["CPU"] = types.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &cpu,
+		IntegerValue: cpu,
 	}
 
-	hostResources["MEMORY"] = &ecs.Resource{
+	hostResources["MEMORY"] = types.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &mem,
+		IntegerValue: mem,
 	}
 
-	hostResources["PORTS_TCP"] = &ecs.Resource{
+	hostResources["PORTS_TCP"] = types.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: ports,
 	}
 
-	hostResources["PORTS_UDP"] = &ecs.Resource{
+	hostResources["PORTS_UDP"] = types.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUdp,
 	}
 
-	hostResources["GPU"] = &ecs.Resource{
+	hostResources["GPU"] = types.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpuIDs,
@@ -64,33 +63,33 @@ func getTestHostResourceManager(cpu int64, mem int64, ports []*string, portsUdp 
 	return &hostResourceManager
 }
 
-func getTestTaskResourceMap(cpu int64, mem int64, ports []*string, portsUdp []*string, gpuIDs []*string) map[string]*ecs.Resource {
-	taskResources := make(map[string]*ecs.Resource)
-	taskResources["CPU"] = &ecs.Resource{
+func getTestTaskResourceMap(cpu int32, mem int32, ports []string, portsUdp []string, gpuIDs []string) map[string]types.Resource {
+	taskResources := make(map[string]types.Resource)
+	taskResources["CPU"] = types.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &cpu,
+		IntegerValue: cpu,
 	}
 
-	taskResources["MEMORY"] = &ecs.Resource{
+	taskResources["MEMORY"] = types.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: &mem,
+		IntegerValue: mem,
 	}
 
-	taskResources["PORTS_TCP"] = &ecs.Resource{
+	taskResources["PORTS_TCP"] = types.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: ports,
 	}
 
-	taskResources["PORTS_UDP"] = &ecs.Resource{
+	taskResources["PORTS_UDP"] = types.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUdp,
 	}
 
-	taskResources["GPU"] = &ecs.Resource{
+	taskResources["GPU"] = types.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpuIDs,
@@ -103,27 +102,27 @@ func TestHostResourceConsumeSuccess(t *testing.T) {
 	hostResourcePort1 := "22"
 	hostResourcePort2 := "1000"
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
 
 	testTaskArn := "arn:aws:ecs:us-east-1:<aws_account_id>:task/cluster-name/11111"
 	taskPort1 := "23"
 	taskPort2 := "1001"
 	taskGpuId1 := "gpu2"
 	taskGpuId2 := "gpu3"
-	taskResources := getTestTaskResourceMap(int64(512), int64(768), []*string{&taskPort1}, []*string{&taskPort2}, []*string{&taskGpuId1, &taskGpuId2})
+	taskResources := getTestTaskResourceMap(int32(512), int32(768), []string{taskPort1}, []string{taskPort2}, []string{taskGpuId1, taskGpuId2})
 
 	consumed, _ := h.consume(testTaskArn, taskResources)
 	assert.Equal(t, consumed, true, "Incorrect consumed status")
-	assert.Equal(t, *h.consumedResource["CPU"].IntegerValue, int64(512), "Incorrect cpu resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["MEMORY"].IntegerValue, int64(768), "Incorrect memory resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_TCP"].StringSetValue[1], "23", "Incorrect port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["CPU"].IntegerValue, int32(512), "Incorrect cpu resource accounting during consume")
+	assert.Equal(t, h.consumedResource["MEMORY"].IntegerValue, int32(768), "Incorrect memory resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_TCP"].StringSetValue[1], "23", "Incorrect port resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["PORTS_TCP"].StringSetValue), 2, "Incorrect port resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_UDP"].StringSetValue[1], "1001", "Incorrect udp port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_UDP"].StringSetValue[1], "1001", "Incorrect udp port resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["PORTS_UDP"].StringSetValue), 2, "Incorrect port resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["GPU"].StringSetValue[0], "gpu2", "Incorrect gpu resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["GPU"].StringSetValue[1], "gpu3", "Incorrect gpu resource accounting during consume")
+	assert.Equal(t, h.consumedResource["GPU"].StringSetValue[0], "gpu2", "Incorrect gpu resource accounting during consume")
+	assert.Equal(t, h.consumedResource["GPU"].StringSetValue[1], "gpu3", "Incorrect gpu resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["GPU"].StringSetValue), 2, "Incorrect gpu resource accounting during consume")
 }
 
@@ -131,22 +130,22 @@ func TestHostResourceConsumeFail(t *testing.T) {
 	hostResourcePort1 := "22"
 	hostResourcePort2 := "1000"
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
 
 	testTaskArn := "arn:aws:ecs:us-east-1:<aws_account_id>:task/cluster-name/11111"
 	taskPort1 := "22"
 	taskPort2 := "1001"
 	taskGpuId1 := "gpu2"
 	taskGpuId2 := "gpu3"
-	taskResources := getTestTaskResourceMap(int64(512), int64(768), []*string{&taskPort1}, []*string{&taskPort2}, []*string{&taskGpuId1, &taskGpuId2})
+	taskResources := getTestTaskResourceMap(int32(512), int32(768), []string{taskPort1}, []string{taskPort2}, []string{taskGpuId1, taskGpuId2})
 
 	consumed, _ := h.consume(testTaskArn, taskResources)
 	assert.Equal(t, consumed, false, "Incorrect consumed status")
-	assert.Equal(t, *h.consumedResource["CPU"].IntegerValue, int64(0), "Incorrect cpu resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["MEMORY"].IntegerValue, int64(0), "Incorrect memory resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["CPU"].IntegerValue, int32(0), "Incorrect cpu resource accounting during consume")
+	assert.Equal(t, h.consumedResource["MEMORY"].IntegerValue, int32(0), "Incorrect memory resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["PORTS_TCP"].StringSetValue), 1, "Incorrect port resource accounting during consume")
-	assert.Equal(t, *h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during consume")
+	assert.Equal(t, h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["PORTS_UDP"].StringSetValue), 1, "Incorrect port resource accounting during consume")
 	assert.Equal(t, len(h.consumedResource["GPU"].StringSetValue), 0, "Incorrect gpu resource accounting during consume")
 }
@@ -155,23 +154,23 @@ func TestHostResourceRelease(t *testing.T) {
 	hostResourcePort1 := "22"
 	hostResourcePort2 := "1000"
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
 
 	testTaskArn := "arn:aws:ecs:us-east-1:<aws_account_id>:task/cluster-name/11111"
 	taskPort1 := "23"
 	taskPort2 := "1001"
 	taskGpuId1 := "gpu2"
 	taskGpuId2 := "gpu3"
-	taskResources := getTestTaskResourceMap(int64(512), int64(768), []*string{&taskPort1}, []*string{&taskPort2}, []*string{&taskGpuId1, &taskGpuId2})
+	taskResources := getTestTaskResourceMap(int32(512), int32(768), []string{taskPort1}, []string{taskPort2}, []string{taskGpuId1, taskGpuId2})
 
 	h.consume(testTaskArn, taskResources)
 	h.release(testTaskArn, taskResources)
 
-	assert.Equal(t, *h.consumedResource["CPU"].IntegerValue, int64(0), "Incorrect cpu resource accounting during release")
-	assert.Equal(t, *h.consumedResource["MEMORY"].IntegerValue, int64(0), "Incorrect memory resource accounting during release")
-	assert.Equal(t, *h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during release")
+	assert.Equal(t, h.consumedResource["CPU"].IntegerValue, int32(0), "Incorrect cpu resource accounting during release")
+	assert.Equal(t, h.consumedResource["MEMORY"].IntegerValue, int32(0), "Incorrect memory resource accounting during release")
+	assert.Equal(t, h.consumedResource["PORTS_TCP"].StringSetValue[0], "22", "Incorrect port resource accounting during release")
 	assert.Equal(t, len(h.consumedResource["PORTS_TCP"].StringSetValue), 1, "Incorrect port resource accounting during release")
-	assert.Equal(t, *h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during release")
+	assert.Equal(t, h.consumedResource["PORTS_UDP"].StringSetValue[0], "1000", "Incorrect udp port resource accounting during release")
 	assert.Equal(t, len(h.consumedResource["PORTS_UDP"].StringSetValue), 1, "Incorrect udp port resource accounting during release")
 	assert.Equal(t, len(h.consumedResource["GPU"].StringSetValue), 0, "Incorrect gpu resource accounting during release")
 }
@@ -179,8 +178,8 @@ func TestHostResourceRelease(t *testing.T) {
 func TestConsumable(t *testing.T) {
 	testCases := []struct {
 		name                       string
-		cpu                        int64
-		mem                        int64
+		cpu                        int32
+		mem                        int32
 		ports                      []uint16
 		portsUdp                   []uint16
 		gpus                       []string
@@ -189,8 +188,8 @@ func TestConsumable(t *testing.T) {
 	}{
 		{
 			name:                       "consumable",
-			cpu:                        int64(1024),
-			mem:                        int64(1024),
+			cpu:                        int32(1024),
+			mem:                        int32(1024),
 			ports:                      []uint16{25},
 			portsUdp:                   []uint16{1003},
 			gpus:                       []string{"gpu1", "gpu2"},
@@ -199,8 +198,8 @@ func TestConsumable(t *testing.T) {
 		},
 		{
 			name:                       "cpu not consumable",
-			cpu:                        int64(2500),
-			mem:                        int64(1024),
+			cpu:                        int32(2500),
+			mem:                        int32(1024),
 			ports:                      []uint16{},
 			portsUdp:                   []uint16{},
 			gpus:                       []string{},
@@ -209,8 +208,8 @@ func TestConsumable(t *testing.T) {
 		},
 		{
 			name:                       "memory not consumable",
-			cpu:                        int64(1024),
-			mem:                        int64(2500),
+			cpu:                        int32(1024),
+			mem:                        int32(2500),
 			ports:                      []uint16{},
 			portsUdp:                   []uint16{},
 			gpus:                       []string{},
@@ -219,8 +218,8 @@ func TestConsumable(t *testing.T) {
 		},
 		{
 			name:                       "tcp ports not consumable",
-			cpu:                        int64(1024),
-			mem:                        int64(1024),
+			cpu:                        int32(1024),
+			mem:                        int32(1024),
 			ports:                      []uint16{22},
 			portsUdp:                   []uint16{},
 			gpus:                       []string{},
@@ -229,8 +228,8 @@ func TestConsumable(t *testing.T) {
 		},
 		{
 			name:                       "udp ports not consumable",
-			cpu:                        int64(1024),
-			mem:                        int64(1024),
+			cpu:                        int32(1024),
+			mem:                        int32(1024),
 			ports:                      []uint16{},
 			portsUdp:                   []uint16{1000},
 			gpus:                       []string{},
@@ -239,8 +238,8 @@ func TestConsumable(t *testing.T) {
 		},
 		{
 			name:                       "multiple resources not consumable - cpu and udp ports",
-			cpu:                        int64(2500),
-			mem:                        int64(1024),
+			cpu:                        int32(2500),
+			mem:                        int32(1024),
 			ports:                      []uint16{},
 			portsUdp:                   []uint16{1000},
 			gpus:                       []string{},
@@ -254,11 +253,11 @@ func TestConsumable(t *testing.T) {
 			hostResourcePort1 := "22"
 			hostResourcePort2 := "1000"
 			gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-			h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1},
-				[]*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+			h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1},
+				[]string{hostResourcePort2}, gpuIDs)
 
 			resources := getTestTaskResourceMap(tc.cpu, tc.mem, commonutils.Uint16SliceToStringSlice(tc.ports),
-				commonutils.Uint16SliceToStringSlice(tc.portsUdp), aws.StringSlice(tc.gpus))
+				commonutils.Uint16SliceToStringSlice(tc.portsUdp), tc.gpus)
 			canBeConsumed, failedResourceKeys, err := h.consumable(resources)
 			assert.Equal(t, tc.canBeConsumed, canBeConsumed,
 				"Error in checking if resources can be successfully consumed")
@@ -273,9 +272,9 @@ func TestResourceHealthTrue(t *testing.T) {
 	hostResourcePort1 := "22"
 	hostResourcePort2 := "1000"
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
 
-	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu2"}))
+	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), []string{"gpu1", "gpu2"})
 	err := h.checkResourcesHealth(resources)
 	assert.NoError(t, err, "Error in checking healthy resource map status")
 }
@@ -285,51 +284,9 @@ func TestResourceHealthGPUFalse(t *testing.T) {
 	hostResourcePort1 := "22"
 	hostResourcePort2 := "1000"
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
+	h := getTestHostResourceManager(int32(2048), int32(2048), []string{hostResourcePort1}, []string{hostResourcePort2}, gpuIDs)
 
-	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), aws.StringSlice([]string{"gpu1", "gpu5"}))
-	err := h.checkResourcesHealth(resources)
-	assert.Error(t, err, "Error in checking unhealthy resource map status")
-}
-
-func TestResourceHealthIntegerFalse(t *testing.T) {
-	hostResourcePort1 := "22"
-	hostResourcePort2 := "1000"
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
-
-	// Create unhealthy resource map, nil value for IntegerValue field
-	resources := make(map[string]*ecs.Resource)
-	resources["CPU"] = &ecs.Resource{
-		Name: utils.Strptr("CPU"),
-		Type: utils.Strptr("INTEGER"),
-	}
-	resources["MEMORY"] = &ecs.Resource{
-		Name: utils.Strptr("MEMORY"),
-		Type: utils.Strptr("INTEGER"),
-	}
-
-	err := h.checkResourcesHealth(resources)
-	assert.Error(t, err, "Error in checking unhealthy resource map status")
-}
-
-func TestResourceHealthStringSetFalse(t *testing.T) {
-	hostResourcePort1 := "22"
-	hostResourcePort2 := "1000"
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	h := getTestHostResourceManager(int64(2048), int64(2048), []*string{&hostResourcePort1}, []*string{&hostResourcePort2}, aws.StringSlice(gpuIDs))
-
-	// Create unhealthy resource map, nil value for StringSetValue field
-	resources := make(map[string]*ecs.Resource)
-	resources["PORTS"] = &ecs.Resource{
-		Name: utils.Strptr("PORTS"),
-		Type: utils.Strptr("STRINGSET"),
-	}
-	resources["PORTS_UDP"] = &ecs.Resource{
-		Name: utils.Strptr("PORTS_UDP"),
-		Type: utils.Strptr("STRINGSET"),
-	}
-
+	resources := getTestTaskResourceMap(1024, 1024, commonutils.Uint16SliceToStringSlice([]uint16{22}), commonutils.Uint16SliceToStringSlice([]uint16{1000}), []string{"gpu1", "gpu5"})
 	err := h.checkResourcesHealth(resources)
 	assert.Error(t, err, "Error in checking unhealthy resource map status")
 }

@@ -29,7 +29,7 @@ import (
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -89,13 +89,13 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
@@ -119,7 +119,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -187,13 +187,13 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []*ecs.Attribute
+	var expectedCapabilities []types.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			&ecs.Attribute{Name: aws.String(name)})
+			types.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
@@ -217,7 +217,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, &ecs.Attribute{
+		assert.Contains(t, capabilities, types.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -225,11 +225,11 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 }
 
 func TestAppendGMSACapabilitiesFalse(t *testing.T) {
-	var inputCapabilities []*ecs.Attribute
-	var expectedCapabilities []*ecs.Attribute
+	var inputCapabilities []types.Attribute
+	var expectedCapabilities []types.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{}...)
+		[]types.Attribute{}...)
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
@@ -243,11 +243,11 @@ func TestAppendGMSACapabilitiesFalse(t *testing.T) {
 }
 
 func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
-	var inputCapabilities []*ecs.Attribute
-	var expectedCapabilities []*ecs.Attribute
+	var inputCapabilities []types.Attribute
+	var expectedCapabilities []types.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{
+		[]types.Attribute{
 			{
 				Name: aws.String(attributePrefix + capabilityFSxWindowsFileServer),
 			},
@@ -269,11 +269,11 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 }
 
 func TestAppendFSxWindowsFileServerCapabilitiesFalse(t *testing.T) {
-	var inputCapabilities []*ecs.Attribute
-	var expectedCapabilities []*ecs.Attribute
+	var inputCapabilities []types.Attribute
+	var expectedCapabilities []types.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{}...)
+		[]types.Attribute{}...)
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
@@ -287,14 +287,14 @@ func TestAppendFSxWindowsFileServerCapabilitiesFalse(t *testing.T) {
 }
 
 func TestAppendExecCapabilities(t *testing.T) {
-	var inputCapabilities []*ecs.Attribute
-	var expectedCapabilities []*ecs.Attribute
-	execCapability := ecs.Attribute{
+	var inputCapabilities []types.Attribute
+	var expectedCapabilities []types.Attribute
+	execCapability := types.Attribute{
 		Name: aws.String(attributePrefix + capabilityExec),
 	}
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]*ecs.Attribute{}...)
+		[]types.Attribute{}...)
 	testCases := []struct {
 		name                     string
 		pathExists               func(string, bool) (bool, error)
@@ -338,9 +338,9 @@ func TestAppendExecCapabilities(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tc.shouldHaveExecCapability {
-				assert.Contains(t, capabilities, &execCapability)
+				assert.Contains(t, capabilities, execCapability)
 			} else {
-				assert.NotContains(t, capabilities, &execCapability)
+				assert.NotContains(t, capabilities, execCapability)
 			}
 		})
 	}

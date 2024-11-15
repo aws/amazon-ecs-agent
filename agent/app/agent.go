@@ -1042,7 +1042,7 @@ func (agent *ecsAgent) spotInstanceDrainingPoller(client ecs.ECSClient) bool {
 		}
 
 		seelog.Infof("Received a spot interruption (%s) scheduled for %s, setting state to DRAINING", ia.Action, ia.Time)
-		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, "DRAINING")
+		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, types.ContainerInstanceStatusDraining)
 		if err != nil {
 			seelog.Errorf("Error setting instance [ARN: %s] state to DRAINING: %s", agent.containerInstanceARN, err)
 		} else {
