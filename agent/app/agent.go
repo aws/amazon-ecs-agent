@@ -148,7 +148,7 @@ type ecsAgent struct {
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
-	credentialProviderV2        awsv2.CredentialsProvider
+	credentialsCache            awsv2.CredentialsProvider
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
@@ -234,8 +234,8 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
-	credentialProviderV2 := awsv2.NewCredentialsCache(
-		providers.NewInstanceCredentialsProvider(
+	credentialsCache := awsv2.NewCredentialsCache(
+		providers.NewInstanceCredentialsCache(
 			cfg.External.Enabled(),
 			providers.NewRotatingSharedCredentialsProviderV2(),
 			nil,
@@ -254,7 +254,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
 		credentialProvider:          instancecreds.GetCredentials(cfg.External.Enabled()),
-		credentialProviderV2:        credentialProviderV2,
+		credentialsCache:            credentialsCache,
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
@@ -792,7 +792,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	client ecs.ECSClient,
 	additionalAttributes []*ecsmodel.Attribute) error {
 	// Preflight request to make sure they're good
-	if preflightCreds, err := agent.credentialProviderV2.Retrieve(context.TODO()); err != nil || !preflightCreds.HasKeys() {
+	if preflightCreds, err := agent.credentialsCache.Retrieve(context.TODO()); err != nil || !preflightCreds.HasKeys() {
 		seelog.Errorf("Error getting valid credentials: %s", err)
 	}
 

@@ -21,23 +21,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
 
+// NewInstanceCredentialsCache returns a chain of instance credentials providers wrapped in a credentials cache.
 // The instance credentials chain is the default credentials chain plus the "rotating shared credentials provider",
 // so credentials will be checked in this order:
 //  1. Env vars (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).
 //  2. Shared credentials file (https://docs.aws.amazon.com/ses/latest/DeveloperGuide/create-shared-credentials-file.html) (file at ~/.aws/credentials containing access key id and secret access key).
 //  3. EC2 role credentials. This is an IAM role that the user specifies when they launch their EC2 container instance (ie ecsInstanceRole (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html)).
 //  4. Rotating shared credentials file located at /rotatingcreds/credentials
-func NewInstanceCredentialsProvider(
+func NewInstanceCredentialsCache(
 	isExternal bool,
 	rotatingSharedCreds aws.CredentialsProvider,
 	imdsClient ec2rolecreds.GetMetadataAPIClient,
-) *InstanceCredentialsProvider {
+) *InstanceCredentialsCache {
 	// If imdsClient is nil, the SDK will default to the EC2 IMDS client.
 	// Pass a non-nil imdsClient to stub it out in tests.
 	options := func(o *ec2rolecreds.Options) {
 		o.Client = imdsClient
 	}
-	return &InstanceCredentialsProvider{
+	return &InstanceCredentialsCache{
 		providers: []aws.CredentialsProvider{
 			defaultCreds(options),
 			rotatingSharedCreds,

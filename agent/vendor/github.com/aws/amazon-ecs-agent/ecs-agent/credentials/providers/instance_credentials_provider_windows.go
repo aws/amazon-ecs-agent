@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
 
+// NewInstanceCredentialsCache returns a chain of instance credentials providers wrapped in a credentials cache.
 // The instance credentials chain is the default credentials chain plus the "rotating shared credentials provider",
 // so credentials will be checked in this order:
 //
@@ -45,11 +46,11 @@ import (
 //     in the credentials not being refreshed. To mitigate this issue, we will
 //     reorder the credential chain and ensure that `RotatingSharedCredentialsProvider`
 //     takes precedence over the `SharedCredentialsProvider` for ECS-A.
-func NewInstanceCredentialsProvider(
+func NewInstanceCredentialsCache(
 	isExternal bool,
 	rotatingSharedCreds aws.CredentialsProvider,
 	imdsClient ec2rolecreds.GetMetadataAPIClient,
-) *InstanceCredentialsProvider {
+) *InstanceCredentialsCache {
 	var providers []aws.CredentialsProvider
 
 	// If imdsClient is nil, the SDK will default to the EC2 IMDS client.
@@ -72,7 +73,7 @@ func NewInstanceCredentialsProvider(
 		}
 	}
 
-	return &InstanceCredentialsProvider{
+	return &InstanceCredentialsCache{
 		providers: providers,
 	}
 }
