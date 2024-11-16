@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +63,7 @@ func getFaultInjectionTaskResponse(t *testing.T, netConfigClient *netconfig.Netw
 	deviceName, err := getHostNetworkInterfaceName(netConfigClient)
 	require.NoError(t, err)
 	taskNetworkConfig := state.TaskNetworkConfig{
-		NetworkMode: ecs.NetworkModeHost,
+		NetworkMode: types.NetworkModeHost,
 		NetworkNamespaces: []*state.NetworkNamespace{
 			{
 				Path: "/some/path",

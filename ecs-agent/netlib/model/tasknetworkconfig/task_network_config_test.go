@@ -17,14 +17,14 @@
 package tasknetworkconfig
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"fmt"
 	"testing"
+
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTaskNetworkConfig_GetPrimaryInterface(t *testing.T) {
@@ -48,11 +48,11 @@ func TestTaskNetworkConfig_GetPrimaryNetNS(t *testing.T) {
 // TestNewTaskNetConfig tests creation of TaskNetworkConfig out of
 // a given set of NetworkNamespace objects.
 func TestNewTaskNetConfig(t *testing.T) {
-	protos := []string{
-		ecs.NetworkModeAwsvpc,
-		ecs.NetworkModeHost,
-		ecs.NetworkModeBridge,
-		ecs.NetworkModeNone,
+	protos := []types.NetworkMode{
+		types.NetworkModeAwsvpc,
+		types.NetworkModeHost,
+		types.NetworkModeBridge,
+		types.NetworkModeNone,
 	}
 	for _, proto := range protos {
 		_, err := New(proto, nil)
@@ -76,7 +76,7 @@ func TestNewTaskNetConfig(t *testing.T) {
 	}
 
 	taskNetConfig, err := New(
-		ecs.NetworkModeAwsvpc,
+		types.NetworkModeAwsvpc,
 		netNSs...)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(taskNetConfig.NetworkNamespaces))

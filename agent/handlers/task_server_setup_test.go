@@ -39,7 +39,7 @@ import (
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	ecserrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
@@ -3237,7 +3237,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedStatusCode: http.StatusNotFound,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
-					Code:    ecserrors.ErrCodeResourceNotFoundException,
+					Code:    apierrors.ErrCodeResourceNotFoundException,
 					Message: "Failed to find a task for the request",
 				},
 			},
@@ -3255,7 +3255,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
-					Code:    ecserrors.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "Failed to find a task for the request",
 				},
 			},
@@ -3274,7 +3274,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeAccessDeniedException,
+					Code:    apierrors.ErrCodeAccessDeniedException,
 					Message: "Invalid Request: no task IAM role credentials available for task",
 				},
 			},
@@ -3288,7 +3288,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
 				awserr.NewRequestFailure(
-					awserr.New(ecserrors.ErrCodeServerException, ecsErrMessage, nil),
+					awserr.New(apierrors.ErrCodeServerException, ecsErrMessage, nil),
 					http.StatusInternalServerError,
 					ecsRequestID,
 				),
@@ -3298,7 +3298,7 @@ func TestGetTaskProtection(t *testing.T) {
 				RequestID: &ecsRequestID,
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3312,7 +3312,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
 				awserr.NewRequestFailure(
-					awserr.New(ecserrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
+					awserr.New(apierrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
 					http.StatusBadRequest,
 					ecsRequestID,
 				),
@@ -3322,7 +3322,7 @@ func TestGetTaskProtection(t *testing.T) {
 				RequestID: &ecsRequestID,
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeAccessDeniedException,
+					Code:    apierrors.ErrCodeAccessDeniedException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3335,12 +3335,12 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.New(ecserrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+				awserr.New(apierrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeInvalidParameterException,
+					Code:    apierrors.ErrCodeInvalidParameterException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3374,7 +3374,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "some error",
 				},
 			},
@@ -3423,7 +3423,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecserrors.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "Unexpected error occurred",
 				},
 			},
@@ -3517,7 +3517,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusNotFound,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecserrors.ErrCodeResourceNotFoundException,
+				Code:    apierrors.ErrCodeResourceNotFoundException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -3533,7 +3533,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecserrors.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -3550,7 +3550,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeAccessDeniedException,
+				Code:    apierrors.ErrCodeAccessDeniedException,
 				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
 		},
@@ -3562,7 +3562,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
 			awserr.NewRequestFailure(
-				awserr.New(ecserrors.ErrCodeServerException, ecsErrMessage, nil),
+				awserr.New(apierrors.ErrCodeServerException, ecsErrMessage, nil),
 				http.StatusInternalServerError,
 				ecsRequestID,
 			),
@@ -3572,7 +3572,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			RequestID: &ecsRequestID,
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3584,7 +3584,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
 			awserr.NewRequestFailure(
-				awserr.New(ecserrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
+				awserr.New(apierrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
 				http.StatusBadRequest,
 				ecsRequestID,
 			),
@@ -3594,7 +3594,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			RequestID: &ecsRequestID,
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeAccessDeniedException,
+				Code:    apierrors.ErrCodeAccessDeniedException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3605,12 +3605,12 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.New(ecserrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+			awserr.New(apierrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3640,7 +3640,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "some error",
 			},
 		},
@@ -3685,7 +3685,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "Unexpected error occurred",
 			},
 		},
@@ -3697,7 +3697,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecserrors.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "Invalid request: does not contain 'ProtectionEnabled' field",
 			},
 		},
@@ -3710,7 +3710,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecserrors.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},
@@ -3724,7 +3724,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecserrors.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},
@@ -3734,7 +3734,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecserrors.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},

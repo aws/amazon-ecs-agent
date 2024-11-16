@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -39,7 +39,7 @@ const (
 
 type Client interface {
 	CreateTags(input *ec2sdk.CreateTagsInput) (*ec2sdk.CreateTagsOutput, error)
-	DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, error)
+	DescribeECSTagsForInstance(instanceID string) ([]types.Tag, error)
 }
 
 type ClientSDK interface {
@@ -69,7 +69,7 @@ func (c *ClientImpl) SetClientSDK(sdk ClientSDK) {
 
 // DescribeECSTagsForInstance calls DescribeTags API to get the EC2 tags of the
 // instance id, and return it back as ECS tags
-func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, error) {
+func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]types.Tag, error) {
 	describeTagsInput := ec2sdk.DescribeTagsInput{
 		Filters: []*ec2sdk.Filter{
 			{
@@ -90,13 +90,13 @@ func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, 
 		return nil, err
 	}
 
-	var tags []*ecs.Tag
+	var tags []types.Tag
 	// Convert ec2 tags to ecs tags
 	for _, ec2Tag := range res.Tags {
 		// Filter out all tags "aws:" prefix
 		if !strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Key)), awsTagPrefix) &&
 			!strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Value)), awsTagPrefix) {
-			tags = append(tags, &ecs.Tag{
+			tags = append(tags, types.Tag{
 				Key:   ec2Tag.Key,
 				Value: ec2Tag.Value,
 			})

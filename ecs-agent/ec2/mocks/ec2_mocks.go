@@ -21,8 +21,8 @@ package mock_ec2
 import (
 	reflect "reflect"
 
-	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	types "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 	ec20 "github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"
@@ -443,10 +443,10 @@ func (mr *MockClientMockRecorder) CreateTags(arg0 interface{}) *gomock.Call {
 }
 
 // DescribeECSTagsForInstance mocks base method.
-func (m *MockClient) DescribeECSTagsForInstance(arg0 string) ([]*ecs.Tag, error) {
+func (m *MockClient) DescribeECSTagsForInstance(arg0 string) ([]types.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeECSTagsForInstance", arg0)
-	ret0, _ := ret[0].([]*ecs.Tag)
+	ret0, _ := ret[0].([]types.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

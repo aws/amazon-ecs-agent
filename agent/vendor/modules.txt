@@ -21,7 +21,6 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks
-github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
 github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status
 github.com/aws/amazon-ecs-agent/ecs-agent/async
