@@ -49,7 +49,6 @@ import (
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
@@ -1566,12 +1565,7 @@ func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {
 	}
 	gomock.InOrder(
 		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil),
-		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return([]*ecs.Tag{
-			{
-				Key:   aws.String("key"),
-				Value: aws.String("value"),
-			},
-		}, nil),
+		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return(tags, nil),
 	)
 
 	resTags, err := agent.getContainerInstanceTagsFromEC2API()

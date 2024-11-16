@@ -22,10 +22,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	imds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	ec20 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -469,10 +469,10 @@ func (mr *MockClientMockRecorder) CreateTags(arg0 interface{}) *gomock.Call {
 }
 
 // DescribeECSTagsForInstance mocks base method.
-func (m *MockClient) DescribeECSTagsForInstance(arg0 string) ([]*ecs.Tag, error) {
+func (m *MockClient) DescribeECSTagsForInstance(arg0 string) ([]types.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DescribeECSTagsForInstance", arg0)
-	ret0, _ := ret[0].([]*ecs.Tag)
+	ret0, _ := ret[0].([]types.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
