@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -340,7 +341,7 @@ func createFakeContainerStats() []*ContainerStats {
 type MockTaskEngine struct {
 }
 
-func (engine *MockTaskEngine) GetAdditionalAttributes() []types.Attribute {
+func (engine *MockTaskEngine) GetAdditionalAttributes() []ecstypes.Attribute {
 	return nil
 }
 
@@ -391,7 +392,7 @@ func (engine *MockTaskEngine) SaveState() error {
 	return nil
 }
 
-func (engine *MockTaskEngine) Capabilities() []types.Attribute {
+func (engine *MockTaskEngine) Capabilities() []ecstypes.Attribute {
 	return nil
 }
 
