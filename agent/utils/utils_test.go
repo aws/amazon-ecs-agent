@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/stretchr/testify/assert"
@@ -107,7 +107,7 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			err:  awserr.New(ecs.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
+			err:  awserr.New(apierrors.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
 			res:  true,
 		},
 		{
@@ -124,7 +124,7 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
+			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, apierrors.ErrCodeInvalidParameterException))
 		})
 	}
 }

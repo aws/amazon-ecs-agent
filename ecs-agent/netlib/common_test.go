@@ -17,12 +17,12 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-
 	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 const (
@@ -60,7 +60,7 @@ const (
 func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
 	enis, netIfs := getTestInterfacesData_Containerd()
 	taskPayload := &ecsacs.Task{
-		NetworkMode:              aws.String(ecs.NetworkModeAwsvpc),
+		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{enis[0]},
 		Containers:               []*ecsacs.Container{{}},
 	}
@@ -68,7 +68,7 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 	netNSName := fmt.Sprintf(netNSNamePattern, testTaskID, eniName)
 	netNSPath := netNSPathDir + netNSName
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
-		NetworkMode: ecs.NetworkModeAwsvpc,
+		NetworkMode: types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			{
 				Name:  netNSName,
@@ -129,7 +129,7 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	netIfs[1].Default = true
 
 	taskPayload := &ecsacs.Task{
-		NetworkMode:              aws.String(ecs.NetworkModeAwsvpc),
+		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
 		ElasticNetworkInterfaces: enis,
 		Containers: []*ecsacs.Container{
 			{
@@ -153,7 +153,7 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	secondaryNetNSPath := netNSPathDir + secondaryNetNSName
 
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
-		NetworkMode: ecs.NetworkModeAwsvpc,
+		NetworkMode: types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			{
 				Name:  primaryNetNSName,
@@ -291,7 +291,7 @@ func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []ne
 func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
 	enis, netIfs := getTestInterfacesData_Firecracker()
 	taskPayload := &ecsacs.Task{
-		NetworkMode:              aws.String(ecs.NetworkModeAwsvpc),
+		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
 		ElasticNetworkInterfaces: enis,
 		Containers: []*ecsacs.Container{
 			{
@@ -313,7 +313,7 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 	netNSPath := netNSPathDir + netNSName
 
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
-		NetworkMode: ecs.NetworkModeAwsvpc,
+		NetworkMode: types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			{
 				Name:              netNSName,
