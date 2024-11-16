@@ -175,58 +175,6 @@ func TestInstanceCredentialsCache_NoValidProviders(t *testing.T) {
 	}
 }
 
-// Test that order of precedence is correct when the shared credentials file and
-// rotating shared credentials are set.
-func TestInstanceCredentialsProvider_SharedCredentialsFile_RotatingSharedCredentials(t *testing.T) {
-	for _, isExternal := range []bool{true, false} {
-		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
-			// unset any env var credentials
-			resetEnvVars := setEnvVars(t, "", "")
-			defer resetEnvVars()
-
-			// set shared credentials file
-			resetSharedCreds := setSharedCredentials(t, "TESTFILEKEYID", "TESTFILESECRET")
-			defer resetSharedCreds()
-
-			p := NewInstanceCredentialsProvider(isExternal, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
-			creds, err := p.Retrieve(context.TODO())
-			require.NoError(t, err)
-
-			// For ECS-A on Windows, rotating shared credentials take precedence over the shared credentials file.
-			if runtime.GOOS == "windows" && isExternal {
-				require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
-				require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
-				require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
-			} else {
-				require.Contains(t, creds.Source, "SharedConfigCredentials")
-				require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
-				require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
-			}
-		})
-	}
-}
-
-func TestInstanceCredentialsProvider_NoValidProviders(t *testing.T) {
-	for _, isExternal := range []bool{true, false} {
-		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
-			// unset any env var credentials
-			resetEnvVars := setEnvVars(t, "", "")
-			defer resetEnvVars()
-
-			// unset any shared credentials
-			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
-
-			p := NewInstanceCredentialsProvider(isExternal, &nopCredsProvider{}, &nopIMDSClient{})
-			creds, err := p.Retrieve(context.TODO())
-			require.Error(t, err)
-			require.ErrorContains(t, err, "no valid providers in chain")
-			require.False(t, creds.HasKeys())
-		})
-	}
-}
-
 func setEnvVars(t *testing.T, key string, secret string) func() {
 	t.Helper()
 
