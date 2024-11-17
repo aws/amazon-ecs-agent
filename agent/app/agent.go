@@ -148,7 +148,7 @@ type ecsAgent struct {
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
-	credentialsCache            awsv2.CredentialsProvider
+	credentialsCache            *awsv2.CredentialsCache
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
