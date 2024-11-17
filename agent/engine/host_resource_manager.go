@@ -178,10 +178,6 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Re
 
 		// Verify resource comes from an existing pool of values - for valid gpu ids
 		if *resourceVal.Type == "STRINGSET" && resourceKey == GPU {
-			if *resourceVal.Type != "STRINGSET" {
-				return fmt.Errorf("resource gpu must be STRINGSET type")
-			}
-
 			hostGpuMap := make(map[string]struct{}, len(h.initialHostResource[GPU].StringSetValue))
 			for _, v := range h.initialHostResource[GPU].StringSetValue {
 				hostGpuMap[v] = struct{}{}

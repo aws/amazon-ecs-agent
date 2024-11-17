@@ -1162,19 +1162,7 @@ func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]types.Tag, error)
 		return nil, err
 	}
 
-	ecsTags, err := agent.ec2Client.DescribeECSTagsForInstance(instanceID)
-	if err != nil {
-		return nil, err
-	}
-
-	var tags []types.Tag
-	for _, tag := range ecsTags {
-		tags = append(tags, types.Tag{
-			Key:   tag.Key,
-			Value: tag.Value,
-		})
-	}
-	return tags, nil
+	return agent.ec2Client.DescribeECSTagsForInstance(instanceID)
 }
 
 // mergeTags will merge the local tags and ec2 tags, for the overlap part, ec2 tags
