@@ -11,11 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 )
 
-type InstanceCredentialsCache struct {
+type InstanceCredentialsProvider struct {
 	providers []aws.CredentialsProvider
 }
 
-func (p *InstanceCredentialsCache) Retrieve(ctx context.Context) (aws.Credentials, error) {
+func (p *InstanceCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	var errs []error
 	for _, provider := range p.providers {
 		creds, err := provider.Retrieve(ctx)
