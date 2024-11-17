@@ -555,7 +555,7 @@ func TestManagedAgentEvent(t *testing.T) {
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
 	testTask := CreateTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
-	testTask.PIDMode = ecstypes.PidModeHost
+	testTask.PIDMode = string(ecstypes.PidModeHost)
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage
 	testTask.Containers[0].Command = []string{testExecCommandAgentSleepBin, "-time=" + sleepFor.String()}
