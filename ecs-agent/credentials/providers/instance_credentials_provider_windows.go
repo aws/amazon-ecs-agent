@@ -50,7 +50,7 @@ func NewInstanceCredentialsCache(
 	isExternal bool,
 	rotatingSharedCreds aws.CredentialsProvider,
 	imdsClient ec2rolecreds.GetMetadataAPIClient,
-) *InstanceCredentialsCache {
+) *aws.CredentialsCache {
 	var providers []aws.CredentialsProvider
 
 	// If imdsClient is nil, the SDK will default to the EC2 IMDS client.
@@ -73,9 +73,11 @@ func NewInstanceCredentialsCache(
 		}
 	}
 
-	return &InstanceCredentialsCache{
-		providers: providers,
-	}
+	return aws.NewCredentialsCache(
+		&InstanceCredentialsProvider{
+			providers: providers,
+		},
+	)
 }
 
 var envCreds = aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
