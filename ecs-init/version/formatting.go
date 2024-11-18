@@ -18,7 +18,9 @@ import "fmt"
 // String construct the version info of ecs-init
 func String() string {
 	dirtyMark := ""
-	if GitDirty {
+	// Note that GitDirty is defined via command-line linker flags, so
+	// it must be a string rather than a bool
+	if GitDirty == "true" {
 		dirtyMark = "*"
 	}
 	return fmt.Sprintf("ecs-init version %s (%s%s)", Version, dirtyMark, GitShortHash)
