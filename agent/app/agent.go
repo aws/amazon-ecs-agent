@@ -148,7 +148,7 @@ type ecsAgent struct {
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
-	credentialsCache            *awsv2.CredentialsCache
+	credentialsCache            awsv2.CredentialsProvider
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
@@ -234,10 +234,12 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
-	credentialsCache := providers.NewInstanceCredentialsCache(
-		cfg.External.Enabled(),
-		providers.NewRotatingSharedCredentialsProviderV2(),
-		nil,
+	credentialsCache := awsv2.NewCredentialsCache(
+		providers.NewInstanceCredentialsCache(
+			cfg.External.Enabled(),
+			providers.NewRotatingSharedCredentialsProviderV2(),
+			nil,
+		),
 	)
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
