@@ -171,7 +171,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:               ctx,
 		cfg:               &cfg,
-		credentialsCache:  mockCredentialsProvider,
+		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
 		dataClient:        data.NewNoopClient(),
 		dockerClient:      dockerClient,
 		pauseLoader:       mockPauseLoader,
@@ -510,7 +510,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: mockCredentialsProvider,
+		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
 		pauseLoader:      mockPauseLoader,
 		dockerClient:     dockerClient,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -579,7 +579,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: mockCredentialsProvider,
+		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -689,7 +689,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: mockCredentialsProvider,
+		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -751,7 +751,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: mockCredentialsProvider,
+		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -799,7 +799,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:               ctx,
 		cfg:               &cfg,
-		credentialsCache:  mockCredentialsProvider,
+		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:      dockerClient,
 		pauseLoader:       mockPauseLoader,
 		cniClient:         cniClient,

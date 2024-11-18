@@ -32,16 +32,18 @@ func NewInstanceCredentialsCache(
 	isExternal bool,
 	rotatingSharedCreds aws.CredentialsProvider,
 	imdsClient ec2rolecreds.GetMetadataAPIClient,
-) *InstanceCredentialsCache {
+) *aws.CredentialsCache {
 	// If imdsClient is nil, the SDK will default to the EC2 IMDS client.
 	// Pass a non-nil imdsClient to stub it out in tests.
 	options := func(o *ec2rolecreds.Options) {
 		o.Client = imdsClient
 	}
-	return &InstanceCredentialsCache{
-		providers: []aws.CredentialsProvider{
-			defaultCreds(options),
-			rotatingSharedCreds,
+	return aws.NewCredentialsCache(
+		&InstanceCredentialsProvider{
+			providers: []aws.CredentialsProvider{
+				defaultCreds(options),
+				rotatingSharedCreds,
+			},
 		},
-	}
+	)
 }
