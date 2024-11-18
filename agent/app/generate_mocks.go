@@ -14,4 +14,3 @@
 package app
 
 //go:generate mockgen -destination=mocks/credentials_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/aws-sdk-go/aws/credentials Provider
-//go:generate mockgen -destination=mocks/credentials_provider_mocks.go -package mock_credentials -copyright_file=../../scripts/copyright_file github.com/aws/aws-sdk-go-v2/aws CredentialsProvider
