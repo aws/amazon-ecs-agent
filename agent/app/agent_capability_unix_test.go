@@ -19,9 +19,12 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
@@ -40,12 +43,36 @@ import (
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/vishvananda/netlink"
+)
+
+const (
+	deviceName    = "eth0"
+	internalError = "internal error"
+)
+
+var (
+	routes = []netlink.Route{
+		netlink.Route{
+			Gw:        net.ParseIP("10.194.20.1"),
+			Dst:       nil,
+			LinkIndex: 0,
+		},
+	}
+	link = &netlink.Device{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 0,
+			Name:  deviceName,
+		},
+	}
 )
 
 func init() {
@@ -982,20 +1009,33 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		lookPathFunc = originalLookPath
 	}()
 	originalOSExecWrapper := execwrapper.NewExec()
+	originalNetConfig := netconfig.NewNetworkConfigClient()
 	defer func() {
 		osExecWrapper = originalOSExecWrapper
+		networkConfigClient = originalNetConfig
 	}()
 
 	t.Run("all tools and kernel modules available", func(t *testing.T) {
 		lookPathFunc = func(file string) (string, error) {
-			return "/usr/bin" + file, nil
+			return "/usr/bin/" + file, nil
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockExec := mock_execwrapper.NewMockExec(ctrl)
 		cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+		mock_netlinkwrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+		cmdList := convertToInterfaceList(strings.Split(fmt.Sprintf(tcShowCmdString, deviceName), " "))
+
+		gomock.InOrder(
+			mock_netlinkwrapper.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, nil).AnyTimes(),
+			mock_netlinkwrapper.EXPECT().LinkByIndex(link.Attrs().Index).Return(link, nil).AnyTimes(),
+		)
+		networkConfigClient.NetlinkClient = mock_netlinkwrapper
 		gomock.InOrder(
 			mockExec.EXPECT().CommandContext(gomock.Any(), modInfoCmd, faultInjectionKernelModules).Times(1).Return(cmdExec),
+			cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+
+			mockExec.EXPECT().CommandContext(gomock.Any(), cmdList[0], cmdList[1:]...).Times(1).Return(cmdExec),
 			cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 		)
 		osExecWrapper = mockExec
@@ -1006,7 +1046,7 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 
 	t.Run("missing kernel modules", func(t *testing.T) {
 		lookPathFunc = func(file string) (string, error) {
-			return "/usr/bin" + file, nil
+			return "/usr/bin/" + file, nil
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1022,6 +1062,59 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 			"Expected checkFaultInjectionTooling to return false when kernel modules are not available")
 	})
 
+	t.Run("failed to obtain default host device name", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockExec := mock_execwrapper.NewMockExec(ctrl)
+		cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+		mock_netlinkwrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+
+		gomock.InOrder(
+			mock_netlinkwrapper.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, errors.New(internalError)).AnyTimes(),
+		)
+		networkConfigClient.NetlinkClient = mock_netlinkwrapper
+		gomock.InOrder(
+			mockExec.EXPECT().CommandContext(gomock.Any(), modInfoCmd, faultInjectionKernelModules).Times(1).Return(cmdExec),
+			cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+		)
+		osExecWrapper = mockExec
+		assert.False(t,
+			checkFaultInjectionTooling(),
+			"Expected checkFaultInjectionTooling to return false when unable to find default host interface name")
+	})
+
+	t.Run("failed tc show command", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockExec := mock_execwrapper.NewMockExec(ctrl)
+		cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+		mock_netlinkwrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+		cmdList := convertToInterfaceList(strings.Split(fmt.Sprintf(tcShowCmdString, deviceName), " "))
+
+		gomock.InOrder(
+			mock_netlinkwrapper.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, nil).AnyTimes(),
+			mock_netlinkwrapper.EXPECT().LinkByIndex(link.Attrs().Index).Return(link, nil).AnyTimes(),
+		)
+		networkConfigClient.NetlinkClient = mock_netlinkwrapper
+		gomock.InOrder(
+			mockExec.EXPECT().CommandContext(gomock.Any(), modInfoCmd, faultInjectionKernelModules).Times(1).Return(cmdExec),
+			cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+
+			mockExec.EXPECT().CommandContext(gomock.Any(), cmdList[0], cmdList[1:]...).Times(1).Return(cmdExec),
+			cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("What is \"parent\"? Try \"tc qdisc help\".")),
+		)
+		osExecWrapper = mockExec
+		assert.False(t,
+			checkFaultInjectionTooling(),
+			"Expected checkFaultInjectionTooling to return false when required tc show command failed")
+	})
+
 	tools := []string{"iptables", "tc", "nsenter"}
 	for _, tool := range tools {
 		t.Run(tool+" missing", func(t *testing.T) {
@@ -1029,11 +1122,19 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 				if file == tool {
 					return "", exec.ErrNotFound
 				}
-				return "/usr/bin" + file, nil
+				return "/usr/bin/" + file, nil
 			}
 			assert.False(t,
 				checkFaultInjectionTooling(),
 				"Expected checkFaultInjectionTooling to return false when a tool is missing")
 		})
 	}
+}
+
+func convertToInterfaceList(strings []string) []interface{} {
+	interfaces := make([]interface{}, len(strings))
+	for i, s := range strings {
+		interfaces[i] = s
+	}
+	return interfaces
 }
