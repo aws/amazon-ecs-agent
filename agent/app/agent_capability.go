@@ -553,6 +553,7 @@ func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attr
 
 	if isFaultInjectionToolingAvailable() {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
+		seelog.Debug("Fault injection capability is enabled.")
 	} else {
 		seelog.Warn("Fault injection capability not enabled: Required network tools are missing")
 	}
