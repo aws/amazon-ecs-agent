@@ -1,5 +1,8 @@
 # Changelog
 
+# 1.89.1
+* Changes included from discarded v1.89.0 release
+
 # 1.89.0
 * Enhancement - Bump google.golang.org/grpc from 1.64.0 to 1.64.1 in /ecs-agent/daemonimages/csidriver [#4361](https://github.com/aws/amazon-ecs-agent/pull/4361)
 * Enhancement - Log unresolved dependencies at info level [#4419](https://github.com/aws/amazon-ecs-agent/pull/4419)
