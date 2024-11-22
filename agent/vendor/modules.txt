@@ -161,27 +161,32 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/cilium/ebpf v0.11.0
-## explicit; go 1.19
+# github.com/cilium/ebpf v0.16.0
+## explicit; go 1.21
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/btf
 github.com/cilium/ebpf/internal
+github.com/cilium/ebpf/internal/kallsyms
 github.com/cilium/ebpf/internal/kconfig
 github.com/cilium/ebpf/internal/sys
+github.com/cilium/ebpf/internal/sysenc
 github.com/cilium/ebpf/internal/tracefs
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
 # github.com/container-storage-interface/spec v1.8.0
 ## explicit; go 1.18
 github.com/container-storage-interface/spec/lib/go/csi
-# github.com/containerd/cgroups/v3 v3.0.3
-## explicit; go 1.18
+# github.com/containerd/cgroups/v3 v3.0.4
+## explicit; go 1.22.0
 github.com/containerd/cgroups/v3
 github.com/containerd/cgroups/v3/cgroup1
 github.com/containerd/cgroups/v3/cgroup1/stats
 github.com/containerd/cgroups/v3/cgroup2
 github.com/containerd/cgroups/v3/cgroup2/stats
+# github.com/containerd/log v0.1.0
+## explicit; go 1.20
+github.com/containerd/log
 # github.com/containernetworking/cni v1.1.2
 ## explicit; go 1.14
 github.com/containernetworking/cni/libcni
@@ -302,6 +307,9 @@ github.com/json-iterator/go
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/moby/sys/userns v0.1.0
+## explicit; go 1.21
+github.com/moby/sys/userns
 # github.com/moby/term v0.0.0-20221205130635-1aeaba878587
 ## explicit; go 1.18
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -365,17 +373,15 @@ github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.9
 ## explicit; go 1.17
 go.etcd.io/bbolt
-# golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-## explicit; go 1.20
+# golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
+## explicit; go 1.22.0
 golang.org/x/exp/constraints
-golang.org/x/exp/maps
-golang.org/x/exp/slices
-# golang.org/x/mod v0.17.0
-## explicit; go 1.18
+# golang.org/x/mod v0.22.0
+## explicit; go 1.22.0
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.29.0
+# golang.org/x/net v0.31.0
 ## explicit; go 1.18
 golang.org/x/net/html
 golang.org/x/net/html/atom
@@ -387,17 +393,17 @@ golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
-# golang.org/x/sync v0.8.0
+# golang.org/x/sync v0.9.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.25.0
+# golang.org/x/sys v0.27.0
 ## explicit; go 1.18
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
-# golang.org/x/text v0.18.0
+# golang.org/x/text v0.20.0
 ## explicit; go 1.18
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
@@ -406,14 +412,14 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
-## explicit; go 1.19
+# golang.org/x/tools v0.27.0
+## explicit; go 1.22.0
 golang.org/x/tools/cmd/stringer
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
-golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
+golang.org/x/tools/go/types/typeutil
 golang.org/x/tools/imports
 golang.org/x/tools/internal/aliases
 golang.org/x/tools/internal/event
@@ -427,7 +433,7 @@ golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/stdlib
-golang.org/x/tools/internal/tokeninternal
+golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80
@@ -486,8 +492,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.33.0
-## explicit; go 1.17
+# google.golang.org/protobuf v1.35.2
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -495,6 +501,7 @@ google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
 google.golang.org/protobuf/internal/editiondefaults
+google.golang.org/protobuf/internal/editionssupport
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
