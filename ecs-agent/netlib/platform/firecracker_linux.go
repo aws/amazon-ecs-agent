@@ -20,9 +20,12 @@ import (
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -59,13 +62,29 @@ func (f *firecraker) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.Net
 	return f.configureSecondaryDNSConfig(taskID, netNS)
 }
 
+// ConfigureInterface is a firecracker-specific method that adds network interfaces to tasks running on
+// Firecracker microVMs. It calls a FC-specific method that configures and connect Branch ENIs to a TAP interface.
 func (f *firecraker) ConfigureInterface(
 	ctx context.Context,
 	netNSPath string,
 	iface *networkinterface.NetworkInterface,
 	netDAO netlibdata.NetworkDataClient,
 ) error {
-	return f.common.configureInterface(ctx, netNSPath, iface, netDAO)
+	var err error
+	switch iface.InterfaceAssociationProtocol {
+	case networkinterface.DefaultInterfaceAssociationProtocol:
+		err = f.common.configureRegularENI(ctx, netNSPath, iface)
+	case networkinterface.VLANInterfaceAssociationProtocol:
+		err = f.configureBranchENI(ctx, netNSPath, iface)
+	case networkinterface.V2NInterfaceAssociationProtocol:
+		err = f.common.configureGENEVEInterface(ctx, netNSPath, iface, netDAO)
+	case networkinterface.VETHInterfaceAssociationProtocol:
+		// Do nothing. Virtual Ethernet Interfaces do not need to be configured by the Linux Kernel.
+		return nil
+	default:
+		err = errors.New("invalid interface association protocol " + iface.InterfaceAssociationProtocol)
+	}
+	return err
 }
 
 func (f *firecraker) ConfigureAppMesh(ctx context.Context, netNSPath string, cfg *appmesh.AppMesh) error {
@@ -170,4 +189,34 @@ func assignInterfacesToNamespaces(taskPayload *ecsacs.Task) (map[string]string, 
 	}
 
 	return i2n, nil
+}
+
+// configureBranchENI configures a network interface for a branch ENI.
+func (f *firecraker) configureBranchENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring branch ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
+	var cniNetConf ecscni.PluginConfig
+	var err error
+	add := true
+
+	// Generate CNI network configuration based on the ENI's desired state.
+	switch eni.DesiredStatus {
+	case status.NetworkReadyPull:
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan)
+	case status.NetworkReady:
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+	case status.NetworkDeleted:
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+		add = false
+	}
+
+	_, err = f.common.executeCNIPlugin(ctx, add, cniNetConf)
+	if err != nil {
+		err = errors.Wrap(err, "failed to setup branch eni")
+	}
+
+	return err
 }
