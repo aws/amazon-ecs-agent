@@ -83,6 +83,7 @@ type FirelensResource struct {
 	networkMode            string
 	ioutil                 ioutilwrapper.IOUtil
 	s3ClientCreator        factory.S3ClientCreator
+	containerMemoryLimit   int64
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe     time.Time
@@ -98,7 +99,7 @@ type FirelensResource struct {
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
 	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string) (*FirelensResource, error) {
+	executionCredentialsID string, containerMemoryLimit int64) (*FirelensResource, error) {
 	firelensResource := &FirelensResource{
 		cluster:                cluster,
 		taskARN:                taskARN,
@@ -112,6 +113,7 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 		s3ClientCreator:        factory.NewS3ClientCreator(),
 		executionCredentialsID: executionCredentialsID,
 		credentialsManager:     credentialsManager,
+		containerMemoryLimit:   containerMemoryLimit,
 	}
 
 	fields := strings.Split(taskARN, "/")

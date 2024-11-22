@@ -62,11 +62,12 @@ if [[ "${version_gen}" == "true" ]]; then
     cp agent/version/version.go agent/version/_version.go
     trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
 
+    cd ./agent/version/
     # Turn off go module here because version-gen.go is a separate program (i.e. "package main")
     # and no dependency needed to be fetched (but if go mod is on it will try to fetch dependency causing
     # this script to fail when we run it in a container with network mode "none").
     echo "running version gen"
-    GO111MODULE=off go run scripts/version-gen.go
+    GO111MODULE=off go run gen/version-gen.go
 fi
 
 if [[ "${with_pause}" == "true" ]]; then

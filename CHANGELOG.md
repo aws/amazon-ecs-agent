@@ -1,5 +1,15 @@
 # Changelog
 
+# 1.89.1
+* Changes included from discarded v1.89.0 release
+
+# 1.89.0
+* Enhancement - Bump google.golang.org/grpc from 1.64.0 to 1.64.1 in /ecs-agent/daemonimages/csidriver [#4361](https://github.com/aws/amazon-ecs-agent/pull/4361)
+* Enhancement - Log unresolved dependencies at info level [#4419](https://github.com/aws/amazon-ecs-agent/pull/4419)
+* Enhancement - Make the path to resolv.conf a configuration parameter instead of a hardcoded string [#4421](https://github.com/aws/amazon-ecs-agent/pull/4421)
+* Bugfix - Implement reference counting of volume mounts in amazon-ecs-volume-plugin [#4425](https://github.com/aws/amazon-ecs-agent/pull/4425) 
+* Bugfix - Set firelens mem_buf_limit by default [#4405](https://github.com/aws/amazon-ecs-agent/pull/4405)
+
 # 1.88.0
 * Feature - Fault Injection Service Integration [#4414](https://github.com/aws/amazon-ecs-agent/pull/4414)
 * Bugfix - Retry GPU devices check during env vars load if instance supports GPU [#4387](https://github.com/aws/amazon-ecs-agent/pull/4387)
