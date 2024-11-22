@@ -84,6 +84,12 @@ const (
 
 	ecsAgentLogFileENV              = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer = "/log"
+
+	// This is the path to the host's PKI directory. The appnet agent container needs
+	// this directory mounted so that it can access the host's PKI directory for the
+	// purpose of utilizing any special CA certs that the underlying EC2 instance has
+	// configured.
+	hostPKIDirPath = "/etc/pki"
 )
 
 type manager struct {
@@ -207,6 +213,7 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
+	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(hostPKIDirPath, hostPKIDirPath))
 
 	// create logging directory and bind mount, if customer has not configured a logging driver
 	if container.GetLogDriver() == "" {
