@@ -13,7 +13,11 @@
 
 package state
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
+)
 
 // Error to be returned when container or task lookup failed
 type ErrorLookupFailure struct {
@@ -90,6 +94,23 @@ func (e *ErrorStatsFetchFailure) Unwrap() error {
 	return e.cause
 }
 
+// Error to be returned when we're unable to obtain the default network interface name on the host namespace for a task
+type ErrorDefaultNetworkInterfaceName struct {
+	externalReason string // Reason to be returned in TMDS response
+}
+
+func NewErrorDefaultNetworkInterfaceName(externalReason string) *ErrorDefaultNetworkInterfaceName {
+	return &ErrorDefaultNetworkInterfaceName{externalReason: externalReason}
+}
+
+func (e *ErrorDefaultNetworkInterfaceName) ExternalReason() string {
+	return e.externalReason
+}
+
+func (e *ErrorDefaultNetworkInterfaceName) Error() string {
+	return fmt.Sprintf("failed to obtain default network interface name: %s", e.externalReason)
+}
+
 // Interface for interacting with Agent State relevant to TMDS
 type AgentState interface {
 	// Returns container metadata in v4 format for the container identified by the
@@ -108,6 +129,12 @@ type AgentState interface {
 	// Returns ErrorTaskLookupFailed if task lookup fails.
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
 	GetTaskMetadataWithTags(endpointContainerID string) (TaskResponse, error)
+
+	// Returns task metadata including the task network configuration (if applicable) in v4 format
+	// for the task identified by the provided endpointContainerID.
+	// Returns ErrorTaskLookupFailed if task lookup fails.
+	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	GetTaskMetadataWithTaskNetworkConfig(endpointContainerID string, networkConfigClient *netconfig.NetworkConfigClient) (TaskResponse, error)
 
 	// Returns container stats in v4 format for the container identified by the provided
 	// endpointContainerID.

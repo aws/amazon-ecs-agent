@@ -32,7 +32,7 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	defaultExpectedAgentBinds = 20
+	defaultExpectedAgentBinds = 22
 )
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
@@ -458,6 +458,58 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 
 	_, err := client.StartAgent()
 	assert.NoError(t, err)
+}
+
+func TestNvidiaGPUDevicesPresentWithRetries(t *testing.T) {
+	testCases := []struct {
+		name                                     string
+		nvidiaGPUDevicesWillBePresent            bool
+		numRetriesForNvidiaGPUDevicesToBePresent int
+	}{
+		{
+			name:                                     "NVIDIA GPU devices present without retrying",
+			nvidiaGPUDevicesWillBePresent:            true,
+			numRetriesForNvidiaGPUDevicesToBePresent: 0,
+		},
+		{
+			name:                                     "NVIDIA GPU devices present after retrying",
+			nvidiaGPUDevicesWillBePresent:            true,
+			numRetriesForNvidiaGPUDevicesToBePresent: 3,
+		},
+		{
+			name:                          "NVIDIA GPU devices not present after retrying",
+			nvidiaGPUDevicesWillBePresent: false,
+		},
+	}
+
+	defer func() {
+		checkNvidiaGPUDevicesPresence = nvidiaGPUDevicesPresent
+	}()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			numTimesNvidiaGPUDevicesPresenceChecked := 0
+			checkNvidiaGPUDevicesPresence = func() bool {
+				if !tc.nvidiaGPUDevicesWillBePresent {
+					return false
+				}
+				numTimesNvidiaGPUDevicesPresenceChecked++
+				if numTimesNvidiaGPUDevicesPresenceChecked > tc.numRetriesForNvidiaGPUDevicesToBePresent {
+					return true
+				}
+				return false
+			}
+
+			devicesPresent := nvidiaGPUDevicesPresentWithRetries()
+			if !tc.nvidiaGPUDevicesWillBePresent {
+				assert.False(t, devicesPresent)
+			} else {
+				assert.Equal(t, tc.numRetriesForNvidiaGPUDevicesToBePresent, numTimesNvidiaGPUDevicesPresenceChecked-1)
+				assert.True(t, devicesPresent)
+			}
+		})
+	}
+
 }
 
 func TestGetContainerConfigWithFileOverrides(t *testing.T) {

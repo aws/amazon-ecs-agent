@@ -1272,6 +1272,27 @@ func (c *Container) GetNetworkModeFromHostConfig() string {
 	return hostConfig.NetworkMode.NetworkName()
 }
 
+// GetMemoryReservationFromHostConfig returns the container memory reservation
+func (c *Container) GetMemoryReservationFromHostConfig() int64 {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.DockerConfig.HostConfig == nil {
+		return 0
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+	if err != nil {
+		seelog.Warnf("Encountered error when trying to get memory reservation for container %s: %v", c.RuntimeID, err)
+		return 0
+	}
+
+	// Soft limit is specified in MiB units but translated to bytes while being transferred to Agent
+	// Converting back to MiB
+	return hostConfig.MemoryReservation / (1024 * 1024)
+}
+
 // GetHostConfig returns the container's host config.
 func (c *Container) GetHostConfig() *string {
 	c.lock.RLock()

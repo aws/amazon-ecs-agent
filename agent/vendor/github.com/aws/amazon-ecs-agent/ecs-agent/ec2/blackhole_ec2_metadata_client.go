@@ -69,6 +69,10 @@ func (blackholeMetadataClient) Region() (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) AvailabilityZoneID() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) PrivateIPv4Address() (string, error) {
 	return "", errors.New("blackholed")
 }

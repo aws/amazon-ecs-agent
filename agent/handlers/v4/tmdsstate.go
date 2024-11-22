@@ -91,17 +91,17 @@ func (s *TMDSAgentState) GetContainerMetadata(v3EndpointID string) (tmdsv4.Conta
 
 // Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
 func (s *TMDSAgentState) GetTaskMetadata(v3EndpointID string) (tmdsv4.TaskResponse, error) {
-	return s.getTaskMetadata(v3EndpointID, false)
+	return s.getTaskMetadata(v3EndpointID, false, false)
 }
 
 // Returns task metadata including task and container instance tags in v4 format for the
 // task identified by the provided endpointContainerID.
 func (s *TMDSAgentState) GetTaskMetadataWithTags(v3EndpointID string) (tmdsv4.TaskResponse, error) {
-	return s.getTaskMetadata(v3EndpointID, true)
+	return s.getTaskMetadata(v3EndpointID, true, false)
 }
 
 // Returns task metadata in v4 format for the task identified by the provided endpointContainerID.
-func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) (tmdsv4.TaskResponse, error) {
+func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, includeTaskNetworkConfig bool) (tmdsv4.TaskResponse, error) {
 	taskARN, ok := s.state.TaskARNByV3EndpointID(v3EndpointID)
 	if !ok {
 		return tmdsv4.TaskResponse{}, tmdsv4.NewErrorLookupFailure(fmt.Sprintf(
@@ -156,17 +156,17 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool) 
 	}
 
 	taskResponse.FaultInjectionEnabled = task.IsFaultInjectionEnabled()
-	var taskNetworkConfig *tmdsv4.TaskNetworkConfig
-	if task.IsNetworkModeHost() {
-		// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
-		// and so we will set this to an arbitrary value such as "host".
-		// TODO: Will need to find/obtain the interface name of the default network interface on the host instance
-		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
-	} else {
-		taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
+	if includeTaskNetworkConfig {
+		var taskNetworkConfig *tmdsv4.TaskNetworkConfig
+		if task.IsNetworkModeHost() {
+			// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
+			// and so we will set this to an arbitrary value such as "host".
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
+		} else {
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
+		}
+		taskResponse.TaskNetworkConfig = taskNetworkConfig
 	}
-
-	taskResponse.TaskNetworkConfig = taskNetworkConfig
 
 	return *taskResponse, nil
 }

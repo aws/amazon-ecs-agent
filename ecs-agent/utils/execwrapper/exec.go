@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 )
 
 // Exec acts as a wrapper to functions exposed by the exec package.
@@ -27,6 +28,7 @@ type Exec interface {
 	CommandContext(ctx context.Context, name string, arg ...string) Cmd
 	ConvertToExitError(err error) (*exec.ExitError, bool)
 	GetExitCode(exitErr *exec.ExitError) int
+	NewExecContextWithTimeout(parent context.Context, duration time.Duration) (context.Context, context.CancelFunc)
 }
 
 // execWrapper is a placeholder struct which implements the Exec interface.
@@ -51,6 +53,10 @@ func (e *execWrapper) ConvertToExitError(err error) (*exec.ExitError, bool) {
 // GetExitCode gets the exit code of an exec.ExitError object
 func (e *execWrapper) GetExitCode(exitErr *exec.ExitError) int {
 	return exitErr.ExitCode()
+}
+
+func (e *execWrapper) NewExecContextWithTimeout(parent context.Context, duration time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, duration)
 }
 
 // Cmd acts as a wrapper to functions exposed by the exec.Cmd object.

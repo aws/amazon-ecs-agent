@@ -2597,6 +2597,8 @@ type Task struct {
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
 
+	EnableFaultInjection *bool `locationName:"enableFaultInjection" type:"boolean"`
+
 	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
 
 	Family *string `locationName:"family" type:"string"`

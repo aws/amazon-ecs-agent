@@ -1566,7 +1566,9 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 		// Test case where required tooling is available
 		isFaultInjectionToolingAvailable = func() bool { return true }
 		capabilities := []*ecs.Attribute{}
-		agent := &ecsAgent{}
+		agent := &ecsAgent{
+			cfg: &config.Config{},
+		}
 		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 		// Check that the only capability is "ecs.capability.fault-injection"
 		require.Len(t, capabilities, 1)
@@ -1576,9 +1578,24 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 		// Test case where required tooling is not available
 		isFaultInjectionToolingAvailable = func() bool { return false }
 		capabilities := []*ecs.Attribute{}
-		agent := &ecsAgent{}
+		agent := &ecsAgent{
+			cfg: &config.Config{},
+		}
 		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 		// Check that no capability is added
+		assert.Empty(t, capabilities)
+	})
+
+	t.Run("Fault Injection Capability Not Available for EXTERNAL Launch Type", func(t *testing.T) {
+		// Test case where required tooling is available but EXTERNAL Launch Type
+		isFaultInjectionToolingAvailable = func() bool { return true }
+		capabilities := []*ecs.Attribute{}
+		agent := &ecsAgent{
+			cfg: &config.Config{
+				External: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			},
+		}
+		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 		assert.Empty(t, capabilities)
 	})
 }

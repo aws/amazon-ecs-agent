@@ -28,7 +28,7 @@ import (
 	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -56,7 +56,7 @@ func startServer(t *testing.T) (*http.Server, int) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
-	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	metricsFactory := metrics.NewNopEntryFactory()
 	execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
 	registerFaultHandlers(router, agentState, metricsFactory, execWrapper)
@@ -105,46 +105,46 @@ func TestRateLimiterIntegration(t *testing.T) {
 	}{
 		{
 			name:            "Same network faults A1 + same methods B1",
-			method1:         "GET",
-			method2:         "GET",
-			url1:            "/api/container123/fault/v1/network-blackhole-port",
-			url2:            "/api/container123/fault/v1/network-blackhole-port",
+			method1:         "POST",
+			method2:         "POST",
+			url1:            "/api/container123/fault/v1/network-blackhole-port/status",
+			url2:            "/api/container123/fault/v1/network-blackhole-port/status",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  false,
 		},
 		{
 			name:            "Same network fault A1 + different methods B1, B2",
-			method1:         "GET",
-			method2:         "PUT",
-			url1:            "/api/container123/fault/v1/network-blackhole-port",
-			url2:            "/api/container123/fault/v1/network-blackhole-port",
+			method1:         "POST",
+			method2:         "POST",
+			url1:            "/api/container123/fault/v1/network-blackhole-port/status",
+			url2:            "/api/container123/fault/v1/network-blackhole-port/start",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
 		{
 			name:            "Different network faults A1, A2 + same method B1",
-			method1:         "GET",
-			method2:         "GET",
-			url1:            "/api/container123/fault/v1/network-blackhole-port",
-			url2:            "/api/container123/fault/v1/network-latency",
+			method1:         "POST",
+			method2:         "POST",
+			url1:            "/api/container123/fault/v1/network-blackhole-port/start",
+			url2:            "/api/container123/fault/v1/network-latency/start",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
 		{
 			name:            "Different network faults A1, A3 + same method B1",
-			method1:         "GET",
-			method2:         "GET",
-			url1:            "/api/container123/fault/v1/network-blackhole-port",
-			url2:            "/api/container123/fault/v1/network-packet-loss",
+			method1:         "POST",
+			method2:         "POST",
+			url1:            "/api/container123/fault/v1/network-blackhole-port/start",
+			url2:            "/api/container123/fault/v1/network-packet-loss/start",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},
 		{
 			name:            "Different network faults A2, A3 + same methods B1",
-			method1:         "GET",
-			method2:         "GET",
-			url1:            "/api/container123/fault/v1/network-latency",
-			url2:            "/api/container123/fault/v1/network-packet-loss",
+			method1:         "POST",
+			method2:         "POST",
+			url1:            "/api/container123/fault/v1/network-latency/start",
+			url2:            "/api/container123/fault/v1/network-packet-loss/start",
 			expectedStatus2: http.StatusTooManyRequests,
 			assertNotEqual:  true,
 		},

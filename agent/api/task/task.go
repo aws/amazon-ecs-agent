@@ -299,8 +299,7 @@ type Task struct {
 
 	NetworkNamespace string `json:"NetworkNamespace,omitempty"`
 
-	// TODO: Will need to initialize/set the value in a follow PR
-	FaultInjectionEnabled bool `json:"FaultInjectionEnabled,omitempty"`
+	EnableFaultInjection bool `json:"enableFaultInjection,omitempty"`
 
 	// DefaultIfname is used to reference the default network interface name on the task network namespace
 	// For AWSVPC mode, it can be eth0 which corresponds to the interface name on the task ENI
@@ -321,6 +320,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
+
+	// Set the EnableFaultInjection field if present
+	task.EnableFaultInjection = aws.BoolValue(acsTask.EnableFaultInjection)
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
@@ -1244,7 +1246,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 
 	for _, container := range task.Containers {
 		firelensConfig := container.GetFirelensConfig()
-		if firelensConfig != nil {
+		if firelensConfig != nil { // is Firelens container
 			var ec2InstanceID string
 			if container.Environment != nil && container.Environment[awsExecutionEnvKey] == ec2ExecutionEnv {
 				ec2InstanceID = resourceFields.EC2InstanceID
@@ -1258,9 +1260,22 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			} else {
 				networkMode = container.GetNetworkModeFromHostConfig()
 			}
+			// Resolve Firelens container memory limit to be used for calculating Firelens memory buffer limit
+			// We will use the container 'memoryReservation' (soft limit) if present, otherwise the container 'memory' (hard limit)
+			// If neither is present, we will pass in 0 indicating that a memory limit is not specified, and firelens will
+			// fall back to use a default memory buffer limit value
+			// see - agent/taskresource/firelens/firelensconfig_unix.go:resolveMemBufLimit()
+			var containerMemoryLimit int64
+			if memoryReservation := container.GetMemoryReservationFromHostConfig(); memoryReservation > 0 {
+				containerMemoryLimit = memoryReservation
+			} else if container.Memory > 0 {
+				containerMemoryLimit = int64(container.Memory)
+			} else {
+				containerMemoryLimit = 0
+			}
 			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
-				credentialsManager, task.ExecutionCredentialsID)
+				credentialsManager, task.ExecutionCredentialsID, containerMemoryLimit)
 			if err != nil {
 				return errors.Wrap(err, "unable to initialize firelens resource")
 			}
@@ -3771,7 +3786,7 @@ func (task *Task) IsFaultInjectionEnabled() bool {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.FaultInjectionEnabled
+	return task.EnableFaultInjection
 }
 
 func (task *Task) GetNetworkMode() string {
