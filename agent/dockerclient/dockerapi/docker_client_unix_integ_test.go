@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,7 +71,7 @@ func TestImageManifestPullInteg(t *testing.T) {
 			imageRef:     "127.0.0.1:51671/busybox:latest",
 			authData: func() *container.RegistryAuthenticationData {
 				asmAuthData := &apicontainer.ASMAuthData{}
-				asmAuthData.SetDockerAuthConfig(types.AuthConfig{
+				asmAuthData.SetDockerAuthConfig(registry.AuthConfig{
 					Username: "username",
 					Password: "password",
 				})

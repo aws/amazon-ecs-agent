@@ -22,9 +22,9 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/docker/docker/api/types/registry"
 
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
 )
 
 func NewDockerAuthProvider(authType string, authData json.RawMessage) DockerAuthProvider {
@@ -38,7 +38,7 @@ type dockerAuthProvider struct {
 }
 
 // map from registry url (minus schema) to auth information
-type dockerAuths map[string]types.AuthConfig
+type dockerAuths map[string]registry.AuthConfig
 
 type dockercfgConfigEntry struct {
 	Auth string `json:"auth"`
@@ -47,7 +47,7 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
 	// Ignore 'tag', not used in auth determination
 	repository, _ := utils.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap
@@ -87,7 +87,7 @@ func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuth
 	if longestKey != "" {
 		return authDataMap[longestKey], nil
 	}
-	return types.AuthConfig{}, nil
+	return registry.AuthConfig{}, nil
 }
 
 // Normalize all auth types into a uniform 'dockerAuths' type.
@@ -109,19 +109,19 @@ func parseAuthData(authType string, authData json.RawMessage) dockerAuths {
 			return dockerAuths{}
 		}
 
-		for registry, auth := range base64dAuthInfo {
+		for registryIdentifier, auth := range base64dAuthInfo {
 			data, err := base64.StdEncoding.DecodeString(auth.Auth)
 			if err != nil {
-				seelog.Warnf("Malformed auth data for registry %v", registry)
+				seelog.Warnf("Malformed auth data for registry %v", registryIdentifier)
 				continue
 			}
 
 			usernamePass := strings.SplitN(string(data), ":", 2)
 			if len(usernamePass) != 2 {
-				seelog.Warnf("Malformed auth data for registry %v; must contain ':'", registry)
+				seelog.Warnf("Malformed auth data for registry %v; must contain ':'", registryIdentifier)
 				continue
 			}
-			intermediateAuthData[registry] = types.AuthConfig{
+			intermediateAuthData[registryIdentifier] = registry.AuthConfig{
 				Username: usernamePass[0],
 				Password: usernamePass[1],
 			}

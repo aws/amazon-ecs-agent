@@ -26,9 +26,9 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/docker/docker/api/types/registry"
 
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -55,7 +55,7 @@ type ASMAuthResource struct {
 
 	// required for asm private registry auth
 	requiredASMResources []*apicontainer.ASMAuthData
-	dockerAuthData       map[string]types.AuthConfig
+	dockerAuthData       map[string]registry.AuthConfig
 	// asmClientCreator is a factory interface that creates new ASM clients. This is
 	// needed mostly for testing as we're creating an asm client per every item in
 	// the requiredASMResources list. Each of these items could be from different
@@ -250,7 +250,7 @@ func (auth *ASMAuthResource) GetCreatedAt() time.Time {
 func (auth *ASMAuthResource) Create() error {
 	seelog.Infof("ASM Auth: Retrieving credentials for containers in task: [%s]", auth.taskARN)
 	if auth.dockerAuthData == nil {
-		auth.dockerAuthData = make(map[string]types.AuthConfig)
+		auth.dockerAuthData = make(map[string]registry.AuthConfig)
 	}
 	for _, a := range auth.GetRequiredASMResources() {
 		err := auth.retrieveASMDockerAuthData(a)
@@ -328,7 +328,7 @@ func (auth *ASMAuthResource) clearASMDockerAuthConfig() {
 
 // GetASMDockerAuthConfig retrieves the docker private registry auth data from
 // the task
-func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (types.AuthConfig, bool) {
+func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (registry.AuthConfig, bool) {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -337,11 +337,11 @@ func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (types.Auth
 }
 
 // Stores provided docker auth config against the provided secret ID.
-func (auth *ASMAuthResource) PutASMDockerAuthConfig(secretID string, authCfg types.AuthConfig) {
+func (auth *ASMAuthResource) PutASMDockerAuthConfig(secretID string, authCfg registry.AuthConfig) {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 	if auth.dockerAuthData == nil {
-		auth.dockerAuthData = make(map[string]types.AuthConfig)
+		auth.dockerAuthData = make(map[string]registry.AuthConfig)
 	}
 	auth.dockerAuthData[secretID] = authCfg
 }

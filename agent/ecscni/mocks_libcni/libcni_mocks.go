@@ -24,6 +24,7 @@ import (
 
 	libcni "github.com/containernetworking/cni/libcni"
 	types "github.com/containernetworking/cni/pkg/types"
+	version "github.com/containernetworking/cni/pkg/version"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -136,6 +137,35 @@ func (mr *MockCNIMockRecorder) DelNetworkList(arg0, arg1, arg2 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelNetworkList", reflect.TypeOf((*MockCNI)(nil).DelNetworkList), arg0, arg1, arg2)
 }
 
+// GCNetworkList mocks base method.
+func (m *MockCNI) GCNetworkList(arg0 context.Context, arg1 *libcni.NetworkConfigList, arg2 *libcni.GCArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GCNetworkList", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GCNetworkList indicates an expected call of GCNetworkList.
+func (mr *MockCNIMockRecorder) GCNetworkList(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GCNetworkList", reflect.TypeOf((*MockCNI)(nil).GCNetworkList), arg0, arg1, arg2)
+}
+
+// GetCachedAttachments mocks base method.
+func (m *MockCNI) GetCachedAttachments(arg0 string) ([]*libcni.NetworkAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCachedAttachments", arg0)
+	ret0, _ := ret[0].([]*libcni.NetworkAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCachedAttachments indicates an expected call of GetCachedAttachments.
+func (mr *MockCNIMockRecorder) GetCachedAttachments(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedAttachments", reflect.TypeOf((*MockCNI)(nil).GetCachedAttachments), arg0)
+}
+
 // GetNetworkCachedConfig mocks base method.
 func (m *MockCNI) GetNetworkCachedConfig(arg0 *libcni.NetworkConfig, arg1 *libcni.RuntimeConf) ([]byte, *libcni.RuntimeConf, error) {
 	m.ctrl.T.Helper()
@@ -196,6 +226,35 @@ func (m *MockCNI) GetNetworkListCachedResult(arg0 *libcni.NetworkConfigList, arg
 func (mr *MockCNIMockRecorder) GetNetworkListCachedResult(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkListCachedResult", reflect.TypeOf((*MockCNI)(nil).GetNetworkListCachedResult), arg0, arg1)
+}
+
+// GetStatusNetworkList mocks base method.
+func (m *MockCNI) GetStatusNetworkList(arg0 context.Context, arg1 *libcni.NetworkConfigList) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStatusNetworkList", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GetStatusNetworkList indicates an expected call of GetStatusNetworkList.
+func (mr *MockCNIMockRecorder) GetStatusNetworkList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatusNetworkList", reflect.TypeOf((*MockCNI)(nil).GetStatusNetworkList), arg0, arg1)
+}
+
+// GetVersionInfo mocks base method.
+func (m *MockCNI) GetVersionInfo(arg0 context.Context, arg1 string) (version.PluginInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVersionInfo", arg0, arg1)
+	ret0, _ := ret[0].(version.PluginInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVersionInfo indicates an expected call of GetVersionInfo.
+func (mr *MockCNIMockRecorder) GetVersionInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionInfo", reflect.TypeOf((*MockCNI)(nil).GetVersionInfo), arg0, arg1)
 }
 
 // ValidateNetwork mocks base method.

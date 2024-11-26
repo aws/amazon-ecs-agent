@@ -33,6 +33,7 @@ import (
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
 	registry "github.com/docker/docker/api/types/registry"
+	system "github.com/docker/docker/api/types/system"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -148,10 +149,10 @@ func (mr *MockDockerClientMockRecorder) DescribeContainer(arg0, arg1 interface{}
 }
 
 // Info mocks base method.
-func (m *MockDockerClient) Info(arg0 context.Context, arg1 time.Duration) (types.Info, error) {
+func (m *MockDockerClient) Info(arg0 context.Context, arg1 time.Duration) (system.Info, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(types.Info)
+	ret0, _ := ret[0].(system.Info)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
