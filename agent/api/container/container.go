@@ -34,6 +34,7 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/registry"
 )
 
 const (
@@ -977,7 +978,7 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 // SetASMDockerAuthConfig add the docker auth config data to the
 // RegistryAuthentication struct held by the container, this is then passed down
 // to the docker client to pull the image
-func (c *Container) SetASMDockerAuthConfig(dac types.AuthConfig) {
+func (c *Container) SetASMDockerAuthConfig(dac registry.AuthConfig) {
 	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
 }
 

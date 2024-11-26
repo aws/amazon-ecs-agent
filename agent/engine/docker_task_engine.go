@@ -60,6 +60,7 @@ import (
 	ep "github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/pkg/errors"
 )
 
@@ -1729,7 +1730,7 @@ func (engine *DockerTaskEngine) setRegistryCredentials(
 				FromError: errors.New("engine docker private registry credentials: not found"),
 			}
 		}
-		cleanup = func() { container.SetASMDockerAuthConfig(types.AuthConfig{}) }
+		cleanup = func() { container.SetASMDockerAuthConfig(registry.AuthConfig{}) }
 	}
 
 	return cleanup, nil

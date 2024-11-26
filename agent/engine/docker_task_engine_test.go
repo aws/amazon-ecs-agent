@@ -4277,7 +4277,7 @@ func TestPullContainerManifest(t *testing.T) {
 			expectedDigest: testDigest.String(),
 		},
 		func() testcase {
-			dockerAuthConfig := types.AuthConfig{Username: "user", Password: "pass"}
+			dockerAuthConfig := registry.AuthConfig{Username: "user", Password: "pass"}
 			asmAuthRes := &asmauth.ASMAuthResource{}
 			asmAuthRes.PutASMDockerAuthConfig("key", dockerAuthConfig)
 			return testcase{
@@ -4965,7 +4965,7 @@ func TestSetRegistryCredentials(t *testing.T) {
 			name: "asm auth creds success",
 			task: func() *apitask.Task {
 				asmAuthRes := &asmauth.ASMAuthResource{}
-				authData := types.AuthConfig{Username: "user", Password: "pass"}
+				authData := registry.AuthConfig{Username: "user", Password: "pass"}
 				asmAuthRes.PutASMDockerAuthConfig("key", authData)
 				t := &apitask.Task{
 					Containers: []*apicontainer.Container{
@@ -4983,7 +4983,7 @@ func TestSetRegistryCredentials(t *testing.T) {
 				return t
 			}(),
 			expectedCreds: func() *apicontainer.RegistryAuthenticationData {
-				authData := types.AuthConfig{Username: "user", Password: "pass"}
+				authData := registry.AuthConfig{Username: "user", Password: "pass"}
 				asmAuthData := &apicontainer.ASMAuthData{CredentialsParameter: "key"}
 				asmAuthData.SetDockerAuthConfig(authData)
 				creds := &apicontainer.RegistryAuthenticationData{

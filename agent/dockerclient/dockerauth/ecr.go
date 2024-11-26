@@ -29,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 )
 
 type cacheKey struct {
@@ -70,16 +70,16 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
-	registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+	registryAuthData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
 
 	if registryAuthData == nil {
-		return types.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
+		return registry.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
 	}
 
 	authData := registryAuthData.ECRAuthData
 
 	if authData == nil {
-		return types.AuthConfig{}, fmt.Errorf("dockerauth: missing container's ecr auth data")
+		return registry.AuthConfig{}, fmt.Errorf("dockerauth: missing container's ecr auth data")
 	}
 
 	// First try to get the token from cache, if the token does not exist,
@@ -109,7 +109,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 }
 
 // getAuthconfigFromCache retrieves the token from cache
-func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *types.AuthConfig {
+func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *registry.AuthConfig {
 	token, ok := authProvider.tokenCache.Get(key.String())
 	if !ok {
 		return nil
@@ -138,11 +138,11 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *types
 }
 
 // getAuthConfigFromECR calls the ECR API to get docker auth config
-func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (types.AuthConfig, error) {
+func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (registry.AuthConfig, error) {
 	// Create ECR client to get the token
 	client, err := authProvider.factory.GetClient(authData)
 	if err != nil {
-		return types.AuthConfig{}, err
+		return registry.AuthConfig{}, err
 	}
 
 	logger.Debug("Calling ECR.GetAuthorizationToken", logger.Fields{
@@ -155,10 +155,10 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 	})
 	ecrAuthData, err := client.GetAuthorizationToken(authData.RegistryID)
 	if err != nil {
-		return types.AuthConfig{}, err
+		return registry.AuthConfig{}, err
 	}
 	if ecrAuthData == nil {
-		return types.AuthConfig{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
+		return registry.AuthConfig{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
 	}
 
 	// Verify the auth data has the correct format for ECR
@@ -170,16 +170,16 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
 		return extractToken(ecrAuthData)
 	}
-	return types.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
+	return registry.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
 }
 
-func extractToken(authData *ecrapi.AuthorizationData) (types.AuthConfig, error) {
+func extractToken(authData *ecrapi.AuthorizationData) (registry.AuthConfig, error) {
 	decodedToken, err := base64.StdEncoding.DecodeString(aws.StringValue(authData.AuthorizationToken))
 	if err != nil {
-		return types.AuthConfig{}, err
+		return registry.AuthConfig{}, err
 	}
 	parts := strings.SplitN(string(decodedToken), ":", 2)
-	return types.AuthConfig{
+	return registry.AuthConfig{
 		Username:      parts[0],
 		Password:      parts[1],
 		ServerAddress: aws.StringValue(authData.ProxyEndpoint),
