@@ -24,3 +24,10 @@ updates:
     # the bot stuck at trying to upgrade it; (2) sdk change has higher risk of breaking the agent so probably safer to
     # upgrade manually.
     - dependency-name: "github.com/aws/aws-sdk-go"
+- package-ecosystem: "github-actions"
+  directory: ".github/workflows"
+  schedule:
+    interval: weekly
+    time: "00:00"
+  open-pull-requests-limit: 1
+  target-branch: "dev"
