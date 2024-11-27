@@ -242,9 +242,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		s.firstDiscoverPollEndpointTime = time.Now()
 	}
 
-	discoverPollEndpointMetric := s.metricsFactory.New(metrics.ACSDiscoverPollEndpointDurationName)
 	acsEndpoint, err := s.ecsClient.DiscoverPollEndpoint(s.containerInstanceARN)
-	discoverPollEndpointMetric.Done(err)
 
 	if err != nil {
 		logger.Error("ACS: Unable to discover poll endpoint", logger.Fields{
@@ -253,6 +251,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
+	s.metricsFactory.New(metrics.DiscoverPollEndpointDurationName).WithGauge(s.ecsClient.GetDiscoverPollEndpointDuration()).Done(nil)
 
 	client := s.clientFactory.New(
 		s.acsURL(acsEndpoint),

@@ -77,6 +77,7 @@ type ecsClient struct {
 	shouldExcludeIPv6PortBinding     bool
 	sascCustomRetryBackoff           func(func() error) error
 	stscAttachmentCustomRetryBackoff func(func() error) error
+	discoverPollEndpointDuration     time.Duration
 }
 
 // NewECSClient creates a new ECSClient interface object.
@@ -747,7 +748,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 			}
 		}
 	}
-
+	discoverPollEndpointStartTime := time.Now()
 	// Cache miss or expired, invoke the ECS DiscoverPollEndpoint API.
 	logger.Debug("Invoking DiscoverPollEndpoint", logger.Fields{
 		field.ContainerInstanceARN: containerInstanceArn,
@@ -777,6 +778,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		return nil, err
 	}
 
+	client.discoverPollEndpointDuration = time.Since(discoverPollEndpointStartTime)
 	// Cache the response from ECS.
 	client.pollEndpointCache.Set(containerInstanceArn, output)
 	return output, nil
@@ -869,4 +871,8 @@ func trimString(inputString string, maxLen int) string {
 	} else {
 		return inputString
 	}
+}
+
+func (client *ecsClient) GetDiscoverPollEndpointDuration() time.Duration {
+	return client.discoverPollEndpointDuration
 }

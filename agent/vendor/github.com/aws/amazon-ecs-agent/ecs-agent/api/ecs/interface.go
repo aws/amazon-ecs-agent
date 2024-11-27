@@ -14,6 +14,8 @@
 package ecs
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 
@@ -62,6 +64,8 @@ type ECSClient interface {
 	UpdateContainerInstancesState(instanceARN, status string) error
 	// GetHostResources retrieves a map that map the resource name to the corresponding resource
 	GetHostResources() (map[string]*ecs.Resource, error)
+	// GetDiscoverPollEndpointDuration retrieves the time it takes for the DiscoverPollEndpoint call
+	GetDiscoverPollEndpointDuration() time.Duration
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
