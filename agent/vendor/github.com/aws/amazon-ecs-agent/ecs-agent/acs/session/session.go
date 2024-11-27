@@ -99,6 +99,8 @@ type session struct {
 	disconnectJitter               time.Duration
 	inactiveInstanceReconnectDelay time.Duration
 	lastConnectedTime              time.Time
+	firstACSConnectionTime         time.Time
+	firstDiscoverPollEndpointTime  time.Time
 }
 
 // NewSession creates a new Session.
@@ -158,6 +160,8 @@ func NewSession(containerInstanceARN string,
 		disconnectJitter:               wsclient.DisconnectJitterMax,
 		inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 		lastConnectedTime:              time.Time{},
+		firstACSConnectionTime:         time.Time{},
+		firstDiscoverPollEndpointTime:  time.Time{},
 	}
 }
 
@@ -234,7 +238,14 @@ func (s *session) Start(ctx context.Context) error {
 // startSessionOnce creates a session with ACS and handles requests using the passed
 // in arguments.
 func (s *session) startSessionOnce(ctx context.Context) error {
+	if s.GetFirstDiscoverPollEndpointTime().IsZero() {
+		s.firstDiscoverPollEndpointTime = time.Now()
+	}
+
+	discoverPollEndpointMetric := s.metricsFactory.New(metrics.ACSDiscoverPollEndpointDurationName)
 	acsEndpoint, err := s.ecsClient.DiscoverPollEndpoint(s.containerInstanceARN)
+	discoverPollEndpointMetric.Done(err)
+
 	if err != nil {
 		logger.Error("ACS: Unable to discover poll endpoint", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
@@ -253,6 +264,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 
 	// Invoke Connect method as soon as we create client. This will ensure all the
 	// request handlers to be associated with this client have a valid connection.
+	acsConnectionMetric := s.metricsFactory.New(metrics.ACSConnectionMetricDurationName)
 	disconnectTimer, err := client.Connect(metrics.ACSDisconnectTimeoutMetricName, s.disconnectTimeout,
 		s.disconnectJitter)
 	if err != nil {
@@ -262,7 +274,12 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
+	acsConnectionMetric.Done(err)
 	defer disconnectTimer.Stop()
+
+	if s.GetFirstACSConnectionTime().IsZero() {
+		s.firstACSConnectionTime = time.Now()
+	}
 
 	// Record the timestamp of the last connection to ACS.
 	s.lastConnectedTime = time.Now()
@@ -474,4 +491,12 @@ func formatDockerVersion(dockerVersionValue string) string {
 // GetLastConnectedTime returns the timestamp that the last connection was established to ACS.
 func (s *session) GetLastConnectedTime() time.Time {
 	return s.lastConnectedTime
+}
+
+func (s *session) GetFirstACSConnectionTime() time.Time {
+	return s.firstACSConnectionTime
+}
+
+func (s *session) GetFirstDiscoverPollEndpointTime() time.Time {
+	return s.firstDiscoverPollEndpointTime
 }
