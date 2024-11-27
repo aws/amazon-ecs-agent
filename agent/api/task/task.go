@@ -3006,9 +3006,9 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 		return
 	}
 	logger.Info("Essential container stopped; recording task stopped time", logger.Fields{
-		field.TaskID:    task.GetID(),
-		field.Container: container.Name,
-		field.Time:      now.String(),
+		field.TaskID:             task.GetID(),
+		field.Container:          container.Name,
+		field.ExecutionStoppedAt: now.String(),
 	})
 }
 
