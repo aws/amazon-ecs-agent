@@ -19,11 +19,12 @@
 package mock_ec2
 
 import (
+	context "context"
 	reflect "reflect"
 
 	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	ec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
+	imds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	ec20 "github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -157,10 +158,10 @@ func (mr *MockEC2MetadataClientMockRecorder) InstanceID() *gomock.Call {
 }
 
 // InstanceIdentityDocument mocks base method.
-func (m *MockEC2MetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+func (m *MockEC2MetadataClient) InstanceIdentityDocument() (imds.InstanceIdentityDocument, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceIdentityDocument")
-	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
+	ret0, _ := ret[0].(imds.InstanceIdentityDocument)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -330,78 +331,103 @@ func (m *MockHttpClient) EXPECT() *MockHttpClientMockRecorder {
 }
 
 // GetDynamicData mocks base method.
-func (m *MockHttpClient) GetDynamicData(arg0 string) (string, error) {
+func (m *MockHttpClient) GetDynamicData(arg0 context.Context, arg1 *imds.GetDynamicDataInput, arg2 ...func(*imds.Options)) (*imds.GetDynamicDataOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDynamicData", arg0)
-	ret0, _ := ret[0].(string)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetDynamicData", varargs...)
+	ret0, _ := ret[0].(*imds.GetDynamicDataOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDynamicData indicates an expected call of GetDynamicData.
-func (mr *MockHttpClientMockRecorder) GetDynamicData(arg0 interface{}) *gomock.Call {
+func (mr *MockHttpClientMockRecorder) GetDynamicData(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDynamicData", reflect.TypeOf((*MockHttpClient)(nil).GetDynamicData), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDynamicData", reflect.TypeOf((*MockHttpClient)(nil).GetDynamicData), varargs...)
 }
 
 // GetInstanceIdentityDocument mocks base method.
-func (m *MockHttpClient) GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
+func (m *MockHttpClient) GetInstanceIdentityDocument(arg0 context.Context, arg1 *imds.GetInstanceIdentityDocumentInput, arg2 ...func(*imds.Options)) (*imds.GetInstanceIdentityDocumentOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstanceIdentityDocument")
-	ret0, _ := ret[0].(ec2metadata.EC2InstanceIdentityDocument)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetInstanceIdentityDocument", varargs...)
+	ret0, _ := ret[0].(*imds.GetInstanceIdentityDocumentOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetInstanceIdentityDocument indicates an expected call of GetInstanceIdentityDocument.
-func (mr *MockHttpClientMockRecorder) GetInstanceIdentityDocument() *gomock.Call {
+func (mr *MockHttpClientMockRecorder) GetInstanceIdentityDocument(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceIdentityDocument", reflect.TypeOf((*MockHttpClient)(nil).GetInstanceIdentityDocument))
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceIdentityDocument", reflect.TypeOf((*MockHttpClient)(nil).GetInstanceIdentityDocument), varargs...)
 }
 
 // GetMetadata mocks base method.
-func (m *MockHttpClient) GetMetadata(arg0 string) (string, error) {
+func (m *MockHttpClient) GetMetadata(arg0 context.Context, arg1 *imds.GetMetadataInput, arg2 ...func(*imds.Options)) (*imds.GetMetadataOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMetadata", arg0)
-	ret0, _ := ret[0].(string)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetMetadata", varargs...)
+	ret0, _ := ret[0].(*imds.GetMetadataOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMetadata indicates an expected call of GetMetadata.
-func (mr *MockHttpClientMockRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
+func (mr *MockHttpClientMockRecorder) GetMetadata(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockHttpClient)(nil).GetMetadata), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockHttpClient)(nil).GetMetadata), varargs...)
+}
+
+// GetRegion mocks base method.
+func (m *MockHttpClient) GetRegion(arg0 context.Context, arg1 *imds.GetRegionInput, arg2 ...func(*imds.Options)) (*imds.GetRegionOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRegion", varargs...)
+	ret0, _ := ret[0].(*imds.GetRegionOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRegion indicates an expected call of GetRegion.
+func (mr *MockHttpClientMockRecorder) GetRegion(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRegion", reflect.TypeOf((*MockHttpClient)(nil).GetRegion), varargs...)
 }
 
 // GetUserData mocks base method.
-func (m *MockHttpClient) GetUserData() (string, error) {
+func (m *MockHttpClient) GetUserData(arg0 context.Context, arg1 *imds.GetUserDataInput, arg2 ...func(*imds.Options)) (*imds.GetUserDataOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserData")
-	ret0, _ := ret[0].(string)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetUserData", varargs...)
+	ret0, _ := ret[0].(*imds.GetUserDataOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUserData indicates an expected call of GetUserData.
-func (mr *MockHttpClientMockRecorder) GetUserData() *gomock.Call {
+func (mr *MockHttpClientMockRecorder) GetUserData(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockHttpClient)(nil).GetUserData))
-}
-
-// Region mocks base method.
-func (m *MockHttpClient) Region() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Region")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Region indicates an expected call of Region.
-func (mr *MockHttpClientMockRecorder) Region() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockHttpClient)(nil).Region))
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockHttpClient)(nil).GetUserData), varargs...)
 }
 
 // MockClient is a mock of Client interface.
