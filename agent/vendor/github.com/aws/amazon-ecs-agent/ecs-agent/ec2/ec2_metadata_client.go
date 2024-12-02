@@ -14,17 +14,20 @@
 package ec2
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"io"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 )
 
 const (
@@ -61,11 +64,11 @@ type RoleCredentials struct {
 }
 
 type HttpClient interface {
-	GetMetadata(string) (string, error)
-	GetDynamicData(string) (string, error)
-	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
-	GetUserData() (string, error)
-	Region() (string, error)
+	GetMetadata(context.Context, *imds.GetMetadataInput, ...func(*imds.Options)) (*imds.GetMetadataOutput, error)
+	GetDynamicData(context.Context, *imds.GetDynamicDataInput, ...func(*imds.Options)) (*imds.GetDynamicDataOutput, error)
+	GetInstanceIdentityDocument(context.Context, *imds.GetInstanceIdentityDocumentInput, ...func(*imds.Options)) (*imds.GetInstanceIdentityDocumentOutput, error)
+	GetUserData(context.Context, *imds.GetUserDataInput, ...func(*imds.Options)) (*imds.GetUserDataOutput, error)
+	GetRegion(context.Context, *imds.GetRegionInput, ...func(*imds.Options)) (*imds.GetRegionOutput, error)
 }
 
 // EC2MetadataClient is the client used to get metadata from instance metadata service
@@ -73,7 +76,7 @@ type EC2MetadataClient interface {
 	DefaultCredentials() (*RoleCredentials, error)
 	GetMetadata(string) (string, error)
 	GetDynamicData(string) (string, error)
-	InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
+	InstanceIdentityDocument() (imds.InstanceIdentityDocument, error)
 	VPCID(mac string) (string, error)
 	SubnetID(mac string) (string, error)
 	PrimaryENIMAC() (string, error)
@@ -94,21 +97,35 @@ type ec2MetadataClientImpl struct {
 }
 
 // NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
-func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
+func NewEC2MetadataClient(client HttpClient) (EC2MetadataClient, error) {
 	if client == nil {
-		config := aws.NewConfig().WithMaxRetries(metadataRetries)
-		config.Credentials = instancecreds.GetCredentials(false)
-		return &ec2MetadataClientImpl{
-			client: ec2metadata.New(session.New(), config),
+		credentialsProvider := providers.NewInstanceCredentialsCache(
+			false,
+			providers.NewRotatingSharedCredentialsProviderV2(),
+			nil,
+		)
+		cfg, err := config.LoadDefaultConfig(
+			context.TODO(),
+			config.WithCredentialsProvider(credentialsProvider),
+			config.WithRetryer(func() aws.Retryer {
+				return retry.AddWithMaxAttempts(retry.NewStandard(), metadataRetries)
+			}),
+		)
+		if err != nil {
+			return nil, err
 		}
+
+		return &ec2MetadataClientImpl{
+			client: imds.NewFromConfig(cfg),
+		}, nil
 	} else {
-		return &ec2MetadataClientImpl{client: client}
+		return &ec2MetadataClientImpl{client: client}, nil
 	}
 }
 
 // DefaultCredentials returns the credentials associated with the instance iam role
 func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
-	securityCredential, err := c.client.GetMetadata(SecurityCredentialsResource)
+	securityCredential, err := c.GetMetadata(SecurityCredentialsResource)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +137,7 @@ func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 
 	defaultCredentialName := securityCredentialList[0]
 
-	defaultCredentialStr, err := c.client.GetMetadata(SecurityCredentialsResource + defaultCredentialName)
+	defaultCredentialStr, err := c.GetMetadata(SecurityCredentialsResource + defaultCredentialName)
 	if err != nil {
 		return nil, err
 	}
@@ -134,72 +151,116 @@ func (c *ec2MetadataClientImpl) DefaultCredentials() (*RoleCredentials, error) {
 
 // GetDynamicData returns the dynamic data with provided path from instance metadata
 func (c *ec2MetadataClientImpl) GetDynamicData(path string) (string, error) {
-	return c.client.GetDynamicData(path)
+	output, err := c.client.GetDynamicData(context.TODO(), &imds.GetDynamicDataInput{
+		Path: path,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	content, err := io.ReadAll(output.Content)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }
 
 // InstanceIdentityDocument returns instance identity documents
 // http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
-func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
-	return c.client.GetInstanceIdentityDocument()
+func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (imds.InstanceIdentityDocument, error) {
+	output, err := c.client.GetInstanceIdentityDocument(context.TODO(), &imds.GetInstanceIdentityDocumentInput{})
+	if err != nil {
+		return imds.InstanceIdentityDocument{}, err
+	}
+
+	return output.InstanceIdentityDocument, nil
 }
 
 // GetMetadata returns the metadata from instance metadata service specified by the path
 func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
-	return c.client.GetMetadata(path)
+	output, err := c.client.GetMetadata(context.TODO(), &imds.GetMetadataInput{
+		Path: path,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	content, err := io.ReadAll(output.Content)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }
 
 // PrimaryENIMAC returns the MAC address for the primary
 // network interface of the instance
 func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
-	return c.client.GetMetadata(MacResource)
+	return c.GetMetadata(MacResource)
 }
 
 // AllENIMacs returns the mac addresses for all the network interfaces attached to the instance
 func (c *ec2MetadataClientImpl) AllENIMacs() (string, error) {
-	return c.client.GetMetadata(AllMacResource)
+	return c.GetMetadata(AllMacResource)
 }
 
 // VPCID returns the VPC id for the network interface, given
 // its mac address
 func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
-	return c.client.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
+	return c.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
 }
 
 // SubnetID returns the subnet id for the network interface,
 // given its mac address
 func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
-	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
+	return c.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
 }
 
 // InstanceID returns the id of this instance.
 func (c *ec2MetadataClientImpl) InstanceID() (string, error) {
-	return c.client.GetMetadata(InstanceIDResource)
+	return c.GetMetadata(InstanceIDResource)
 }
 
 // GetUserData returns the userdata that was configured for the
 func (c *ec2MetadataClientImpl) GetUserData() (string, error) {
-	return c.client.GetUserData()
+	output, err := c.client.GetUserData(context.TODO(), &imds.GetUserDataInput{})
+	if err != nil {
+		return "", err
+	}
+
+	content, err := io.ReadAll(output.Content)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }
 
 // Region returns the region the instance is running in.
 func (c *ec2MetadataClientImpl) Region() (string, error) {
-	return c.client.Region()
+	output, err := c.client.GetRegion(context.TODO(), &imds.GetRegionInput{})
+	if err != nil {
+		return "", err
+	}
+
+	return output.Region, nil
 }
 
 // AvailabilityZoneID returns the availability zone ID that the instance is running in.
 func (c *ec2MetadataClientImpl) AvailabilityZoneID() (string, error) {
-	return c.client.GetMetadata(AvailabilityZoneID)
+	return c.GetMetadata(AvailabilityZoneID)
 }
 
 // PublicIPv4Address returns the public IPv4 of this instance
 // if this instance has a public address
 func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
-	return c.client.GetMetadata(PublicIPv4Resource)
+	return c.GetMetadata(PublicIPv4Resource)
 }
 
 // PrivateIPv4Address returns the private IPv4 of this instance
 func (c *ec2MetadataClientImpl) PrivateIPv4Address() (string, error) {
-	return c.client.GetMetadata(PrivateIPv4Resource)
+	return c.GetMetadata(PrivateIPv4Resource)
 }
 
 // SpotInstanceAction returns the spot instance-action, if it has been set.
@@ -207,13 +268,13 @@ func (c *ec2MetadataClientImpl) PrivateIPv4Address() (string, error) {
 // then this function returns an error.
 // see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html#using-spot-instances-managing-interruptions
 func (c *ec2MetadataClientImpl) SpotInstanceAction() (string, error) {
-	return c.client.GetMetadata(SpotInstanceActionResource)
+	return c.GetMetadata(SpotInstanceActionResource)
 }
 
 func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
-	return c.client.GetMetadata(OutpostARN)
+	return c.GetMetadata(OutpostARN)
 }
 
 func (c *ec2MetadataClientImpl) TargetLifecycleState() (string, error) {
-	return c.client.GetMetadata(TargetLifecycleState)
+	return c.GetMetadata(TargetLifecycleState)
 }

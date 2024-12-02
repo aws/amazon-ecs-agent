@@ -31,7 +31,7 @@ const (
 
 type managedLinux struct {
 	common
-	client ec2.HttpClient
+	client ec2.EC2MetadataClient
 }
 
 // BuildTaskNetworkConfiguration translates network data in task payload sent by ACS

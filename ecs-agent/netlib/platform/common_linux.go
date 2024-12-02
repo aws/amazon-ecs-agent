@@ -26,7 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -41,9 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -127,9 +125,10 @@ func NewPlatform(
 			},
 		}, nil
 	case ManagedPlatform, ManagedDebugPlatform:
-		config := aws.NewConfig().WithMaxRetries(metadataRetries)
-		config.Credentials = instancecreds.GetCredentials(false)
-		ec2Client := ec2metadata.New(session.New(), config)
+		ec2Client, err := ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			return nil, err
+		}
 		return &managedLinux{
 			common: commonPlatform,
 			client: ec2Client,
@@ -146,7 +145,7 @@ func (c *common) buildTaskNetworkConfiguration(
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := aws.StringValue(taskPayload.NetworkMode)
+	mode := aws.ToString(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
@@ -207,7 +206,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	// This case is identified if the singleNetNS flag is set, or if the ENIs have an empty 'Name' field,
 	// or if there is only on ENI in the payload.
 	if singleNetNS || len(taskPayload.ElasticNetworkInterfaces) == 1 ||
-		aws.StringValue(taskPayload.ElasticNetworkInterfaces[0].Name) == "" ||
+		aws.ToString(taskPayload.ElasticNetworkInterfaces[0].Name) == "" ||
 		len(taskPayload.Containers[0].NetworkInterfaceNames) == 0 {
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
@@ -242,9 +241,9 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 
 	// Order the containers such that the container attached to the interface with index 0 comes first.
 	sort.Slice(taskPayload.Containers, func(i, j int) bool {
-		iName := aws.StringValue(taskPayload.Containers[i].NetworkInterfaceNames[0])
-		jName := aws.StringValue(taskPayload.Containers[j].NetworkInterfaceNames[0])
-		return aws.Int64Value(ifNameMap[iName].Index) < aws.Int64Value(ifNameMap[jName].Index)
+		iName := aws.ToString(taskPayload.Containers[i].NetworkInterfaceNames[0])
+		jName := aws.ToString(taskPayload.Containers[j].NetworkInterfaceNames[0])
+		return aws.ToInt64(ifNameMap[iName].Index) < aws.ToInt64(ifNameMap[jName].Index)
 	})
 
 	var netNSs []*tasknetworkconfig.NetworkNamespace
@@ -254,7 +253,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 		// ifaces holds all interfaces associated with a particular container.
 		var ifaces []*ecsacs.ElasticNetworkInterface
 		for _, ifNameP := range container.NetworkInterfaceNames {
-			ifName := aws.StringValue(ifNameP)
+			ifName := aws.ToString(ifNameP)
 			if iface := ifNameMap[ifName]; iface != nil {
 				ifaces = append(ifaces, iface)
 				// Remove ENI from map to indicate that the ENI is assigned to
@@ -296,14 +295,14 @@ func (c *common) buildNetNS(
 	var ifaces []*networkinterface.NetworkInterface
 	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
-		guestNetNS := ifaceToGuestNetNS[aws.StringValue(ni.Name)]
+		guestNetNS := ifaceToGuestNetNS[aws.ToString(ni.Name)]
 		iface, err := networkinterface.New(ni, guestNetNS, networkInterfaces, macToName)
 		if err != nil {
 			return nil, err
 		}
-		if aws.Int64Value(ni.Index) < lowestIdx {
+		if aws.ToInt64(ni.Index) < lowestIdx {
 			primaryIF = iface
-			lowestIdx = aws.Int64Value(ni.Index)
+			lowestIdx = aws.ToInt64(ni.Index)
 		}
 		ifaces = append(ifaces, iface)
 	}
