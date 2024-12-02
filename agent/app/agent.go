@@ -174,7 +174,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 
 	var (
 		ec2MetadataClient ec2.EC2MetadataClient
-		err error
+		err               error
 	)
 	if blackholeEC2Metadata {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()

@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"

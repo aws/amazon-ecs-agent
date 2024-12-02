@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

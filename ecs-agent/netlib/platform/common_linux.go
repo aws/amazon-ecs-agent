@@ -64,8 +64,6 @@ const (
 	// It is assigned 100 because it is an unrealistically high
 	// value for interface index.
 	indexHighValue = 100
-
-	metadataRetries = 5
 )
 
 // common will be embedded within every implementation of the platform API.

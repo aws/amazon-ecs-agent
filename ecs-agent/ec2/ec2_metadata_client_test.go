@@ -109,7 +109,7 @@ func TestDefaultCredentials(t *testing.T) {
 		Content: nopReadCloser(testRoleName),
 	}, nil)
 	mockGetter.EXPECT().GetMetadata(gomock.Any(), &imds.GetMetadataInput{
-		Path: ec2.SecurityCredentialsResource+testRoleName,
+		Path: ec2.SecurityCredentialsResource + testRoleName,
 	}, gomock.Any()).Return(&imds.GetMetadataOutput{
 		Content: nopReadCloser(string(ignoreError(json.Marshal(makeTestRoleCredentials())).([]byte))),
 	}, nil)
