@@ -25,7 +25,7 @@ import (
 	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	imds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	ec20 "github.com/aws/aws-sdk-go/service/ec2"
+	ec20 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -507,31 +507,41 @@ func (m *MockClientSDK) EXPECT() *MockClientSDKMockRecorder {
 }
 
 // CreateTags mocks base method.
-func (m *MockClientSDK) CreateTags(arg0 *ec20.CreateTagsInput) (*ec20.CreateTagsOutput, error) {
+func (m *MockClientSDK) CreateTags(arg0 context.Context, arg1 *ec20.CreateTagsInput, arg2 ...func(*ec20.Options)) (*ec20.CreateTagsOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateTags", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateTags", varargs...)
 	ret0, _ := ret[0].(*ec20.CreateTagsOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateTags indicates an expected call of CreateTags.
-func (mr *MockClientSDKMockRecorder) CreateTags(arg0 interface{}) *gomock.Call {
+func (mr *MockClientSDKMockRecorder) CreateTags(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTags", reflect.TypeOf((*MockClientSDK)(nil).CreateTags), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTags", reflect.TypeOf((*MockClientSDK)(nil).CreateTags), varargs...)
 }
 
 // DescribeTags mocks base method.
-func (m *MockClientSDK) DescribeTags(arg0 *ec20.DescribeTagsInput) (*ec20.DescribeTagsOutput, error) {
+func (m *MockClientSDK) DescribeTags(arg0 context.Context, arg1 *ec20.DescribeTagsInput, arg2 ...func(*ec20.Options)) (*ec20.DescribeTagsOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DescribeTags", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeTags", varargs...)
 	ret0, _ := ret[0].(*ec20.DescribeTagsOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DescribeTags indicates an expected call of DescribeTags.
-func (mr *MockClientSDKMockRecorder) DescribeTags(arg0 interface{}) *gomock.Call {
+func (mr *MockClientSDKMockRecorder) DescribeTags(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTags", reflect.TypeOf((*MockClientSDK)(nil).DescribeTags), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTags", reflect.TypeOf((*MockClientSDK)(nil).DescribeTags), varargs...)
 }
