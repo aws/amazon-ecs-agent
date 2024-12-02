@@ -214,9 +214,16 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		cfg.NoIID = true
 	}
 
-	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
-	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
+	ec2Client, err := ec2.NewClientImpl(cfg.AWSRegion)
+	if err != nil {
+		logger.Critical("Error creating EC2 client", logger.Fields{
+			field.Error: err,
+		})
+		cancel()
+		return nil, err
+	}
 
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 	if err != nil {
 		// This is also non terminal in the current config
 		logger.Critical("Error creating Docker client", logger.Fields{

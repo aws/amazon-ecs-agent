@@ -14,15 +14,19 @@
 package ec2
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 const (
@@ -43,22 +47,35 @@ type Client interface {
 }
 
 type ClientSDK interface {
-	CreateTags(input *ec2sdk.CreateTagsInput) (*ec2sdk.CreateTagsOutput, error)
-	DescribeTags(input *ec2sdk.DescribeTagsInput) (*ec2sdk.DescribeTagsOutput, error)
+	CreateTags(ctx context.Context, input *ec2sdk.CreateTagsInput, optsFns ...func(*ec2sdk.Options)) (*ec2sdk.CreateTagsOutput, error)
+	DescribeTags(ctx context.Context, input *ec2sdk.DescribeTagsInput, optsFns ...func(*ec2sdk.Options)) (*ec2sdk.DescribeTagsOutput, error)
 }
 
 type ClientImpl struct {
 	client ClientSDK
 }
 
-func NewClientImpl(awsRegion string) Client {
-	ec2Config := aws.NewConfig().WithMaxRetries(clientRetriesNum)
-	ec2Config.Region = aws.String(awsRegion)
-	ec2Config.Credentials = instancecreds.GetCredentials(false)
-	client := ec2sdk.New(session.New(), ec2Config)
-	return &ClientImpl{
-		client: client,
+func NewClientImpl(awsRegion string) (Client, error) {
+	credentialsProvider := providers.NewInstanceCredentialsCache(
+		false,
+		providers.NewRotatingSharedCredentialsProviderV2(),
+		nil,
+	)
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+		config.WithRegion(awsRegion),
+		config.WithCredentialsProvider(credentialsProvider),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.AddWithMaxAttempts(retry.NewStandard(), clientRetriesNum)
+		}),
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	return &ClientImpl{
+		client: ec2sdk.NewFromConfig(cfg),
+	}, nil
 }
 
 // SetSDK overrides the SDK to the given one. This is useful for injecting a
@@ -71,19 +88,19 @@ func (c *ClientImpl) SetClientSDK(sdk ClientSDK) {
 // instance id, and return it back as ECS tags
 func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, error) {
 	describeTagsInput := ec2sdk.DescribeTagsInput{
-		Filters: []*ec2sdk.Filter{
+		Filters: []types.Filter{
 			{
 				Name:   aws.String(ResourceIDFilterName),
-				Values: []*string{aws.String(instanceID)},
+				Values: []string{instanceID},
 			},
 			{
 				Name:   aws.String(ResourceTypeFilterName),
-				Values: []*string{aws.String(ResourceTypeFilterValueInstance)},
+				Values: []string{ResourceTypeFilterValueInstance},
 			},
 		},
-		MaxResults: aws.Int64(InstanceMaxTagsNum),
+		MaxResults: aws.Int32(InstanceMaxTagsNum),
 	}
-	res, err := c.client.DescribeTags(&describeTagsInput)
+	res, err := c.client.DescribeTags(context.TODO(), &describeTagsInput)
 
 	if err != nil {
 		logger.Critical(fmt.Sprintf("Error calling DescribeTags API: %v", err))
@@ -94,8 +111,8 @@ func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, 
 	// Convert ec2 tags to ecs tags
 	for _, ec2Tag := range res.Tags {
 		// Filter out all tags "aws:" prefix
-		if !strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Key)), awsTagPrefix) &&
-			!strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Value)), awsTagPrefix) {
+		if !strings.HasPrefix(strings.ToLower(aws.ToString(ec2Tag.Key)), awsTagPrefix) &&
+			!strings.HasPrefix(strings.ToLower(aws.ToString(ec2Tag.Value)), awsTagPrefix) {
 			tags = append(tags, &ecs.Tag{
 				Key:   ec2Tag.Key,
 				Value: ec2Tag.Value,
@@ -106,5 +123,5 @@ func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, 
 }
 
 func (c *ClientImpl) CreateTags(input *ec2sdk.CreateTagsInput) (*ec2sdk.CreateTagsOutput, error) {
-	return c.client.CreateTags(input)
+	return c.client.CreateTags(context.TODO(), input)
 }
