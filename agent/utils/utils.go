@@ -29,10 +29,12 @@ import (
 	"strings"
 
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 
 	"github.com/pkg/errors"
 )
@@ -140,7 +142,16 @@ func Remove(slice []string, s int) []string {
 // the passed in error code.
 func IsAWSErrorCodeEqual(err error, code string) bool {
 	awsErr, ok := err.(awserr.Error)
-	return ok && awsErr.Code() == code
+	if ok {
+		return awsErr.Code() == code
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == code
+	}
+
+	return false
 }
 
 // GetRequestFailureStatusCode returns the status code from a
@@ -148,8 +159,14 @@ func IsAWSErrorCodeEqual(err error, code string) bool {
 func GetRequestFailureStatusCode(err error) int {
 	var statusCode int
 	if reqErr, ok := err.(awserr.RequestFailure); ok {
-		statusCode = reqErr.StatusCode()
+		return reqErr.StatusCode()
 	}
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		return re.HTTPStatusCode()
+	}
+
 	return statusCode
 }
 
