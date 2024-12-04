@@ -57,12 +57,14 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
+	smithy "github.com/aws/smithy-go"
 
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -3287,11 +3289,17 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.NewRequestFailure(
-					awserr.New(apierrors.ErrCodeServerException, ecsErrMessage, nil),
-					http.StatusInternalServerError,
-					ecsRequestID,
-				),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusInternalServerError,
+							},
+						},
+						Err: &ecstypes.ServerException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
 			),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
@@ -3311,11 +3319,17 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.NewRequestFailure(
-					awserr.New(apierrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-					http.StatusBadRequest,
-					ecsRequestID,
-				),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusBadRequest,
+							},
+						},
+						Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
 			),
 			expectedStatusCode: http.StatusBadRequest,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
@@ -3335,7 +3349,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.New(apierrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+				&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
@@ -3352,7 +3366,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setStateExpectations:              happyStateExpectations,
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+				nil, &smithy.CanceledError{}),
 			expectedStatusCode: http.StatusGatewayTimeout,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
@@ -3561,11 +3575,17 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.NewRequestFailure(
-				awserr.New(apierrors.ErrCodeServerException, ecsErrMessage, nil),
-				http.StatusInternalServerError,
-				ecsRequestID,
-			),
+			&awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusInternalServerError,
+						},
+					},
+					Err: &ecstypes.ServerException{Message: &ecsErrMessage},
+				},
+				RequestID: ecsRequestID,
+			},
 		),
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
@@ -3583,11 +3603,17 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.NewRequestFailure(
-				awserr.New(apierrors.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-				http.StatusBadRequest,
-				ecsRequestID,
-			),
+			&awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusBadRequest,
+						},
+					},
+					Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+				},
+				RequestID: ecsRequestID,
+			},
 		),
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
@@ -3605,7 +3631,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.New(apierrors.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+			&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
@@ -3620,7 +3646,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setStateExpectations:              happyStateExpectations,
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-			nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+			nil, &smithy.CanceledError{}),
 		expectedStatusCode: http.StatusGatewayTimeout,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{

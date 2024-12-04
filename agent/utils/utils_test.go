@@ -19,14 +19,18 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
 	"testing"
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -116,6 +120,15 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 			res:  false,
 		},
 		{
+			name: "Happy Path SDKv2",
+			err:  &smithy.GenericAPIError{Code: apierrors.ErrCodeInvalidParameterException},
+			res:  true,
+		},
+		{
+			name: "Wrong Error Code SDKv2",
+			err:  &smithy.GenericAPIError{Code: "errCode"},
+		},
+		{
 			name: "Wrong Error Type",
 			err:  errors.New("err"),
 			res:  false,
@@ -137,6 +150,19 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 	}{
 		{
 			name: "TestGetRequestFailureStatusCodeSuccess",
+			err: &awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusBadRequest,
+						},
+					},
+				},
+			},
+			res: 400,
+		},
+		{
+			name: "TestGetRequestFailureStatusCodeSuccess SDKv2",
 			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
 			res:  400,
 		},

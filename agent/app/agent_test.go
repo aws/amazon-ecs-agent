@@ -58,6 +58,7 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	smithy "github.com/aws/smithy-go"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -1059,8 +1060,9 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("", "", awserr.New("",
-			apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
+			gomock.Any(), gomock.Any()).Return("", "", &smithy.GenericAPIError{
+			Message: apierrors.InstanceTypeChangedErrorMessage,
+		}),
 	)
 
 	cfg := getTestConfig()
