@@ -129,6 +129,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		fmt.Sprintf("%s/status/%s:%s", tempDir, scTask.GetID(), "/some/other/run"),
 		fmt.Sprintf("%s/relay:%s", tempDir, "/not/var/run"),
 		fmt.Sprintf("%s/log/%s:%s", tempDir, scTask.GetID(), "/some/other/log"),
+		"/etc/pki:/etc/pki",
 	}
 	expectedENVs := map[string]string{
 		"ReLaYgOeShErE":                 "unix:///not/var/run/relay_file_of_holiness",
@@ -190,7 +191,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.Equal(t, tc.expectedBinds, hostConfig.Binds)
+			assert.ElementsMatch(t, tc.expectedBinds, hostConfig.Binds)
 			assert.Equal(t, tc.expectedENV, tc.container.Environment)
 			if privilegedMode {
 				for _, bind := range hostConfig.Binds {
