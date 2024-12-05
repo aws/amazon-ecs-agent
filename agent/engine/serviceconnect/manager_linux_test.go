@@ -182,3 +182,130 @@ func TestGetSupportedAppnetInterfaceVerToCapabilities(t *testing.T) {
 		})
 	}
 }
+
+func TestGetRegionFromContainerInstanceARN(t *testing.T) {
+	tests := []struct {
+		name                 string
+		containerInstanceARN string
+		expectedRegion       string
+	}{
+		{
+			name:                 "Valid ARN - US West 2",
+			containerInstanceARN: "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-1234-1234-1234-123456789012",
+			expectedRegion:       "us-west-2",
+		},
+		{
+			name:                 "Valid ARN - EU Central 1",
+			containerInstanceARN: "arn:aws:ecs:eu-central-1:123456789012:container-instance/87654321-4321-4321-4321-210987654321",
+			expectedRegion:       "eu-central-1",
+		},
+		{
+			name:                 "Valid ARN - AP Southeast 1",
+			containerInstanceARN: "arn:aws:ecs:ap-southeast-1:123456789012:container-instance/11223344-5566-7788-9900-112233445566",
+			expectedRegion:       "ap-southeast-1",
+		},
+		{
+			name:                 "Valid ARN - US Gov West 1",
+			containerInstanceARN: "arn:aws-us-gov:ecs:us-gov-west-1:123456789012:container-instance/98765432-1234-5678-9012-123456789012",
+			expectedRegion:       "us-gov-west-1",
+		},
+		{
+			name:                 "Valid ARN - CN North 1",
+			containerInstanceARN: "arn:aws-cn:ecs:cn-north-1:123456789012:container-instance/11223344-5566-7788-9900-112233445566",
+			expectedRegion:       "cn-north-1",
+		},
+		{
+			name:                 "Invalid ARN - Missing Region",
+			containerInstanceARN: "arn:aws:ecs::123456789012:container-instance/12345678-1234-1234-1234-123456789012",
+			expectedRegion:       "",
+		},
+		{
+			name:                 "Invalid ARN - Wrong Service",
+			containerInstanceARN: "arn:aws:ec2:us-west-2:123456789012:instance/i-1234567890abcdef0",
+			expectedRegion:       "us-west-2",
+		},
+		{
+			name:                 "Invalid ARN Format",
+			containerInstanceARN: "invalid:arn:format",
+			expectedRegion:       "",
+		},
+		{
+			name:                 "Empty ARN",
+			containerInstanceARN: "",
+			expectedRegion:       "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getRegionFromContainerInstanceARN(tt.containerInstanceARN)
+			assert.Equal(t, tt.expectedRegion, result, "Unexpected region for ARN: %s", tt.containerInstanceARN)
+		})
+	}
+}
+
+func TestIsIsoRegion(t *testing.T) {
+	tests := []struct {
+		name           string
+		region         string
+		expectedResult bool
+	}{
+		{
+			name:           "AWS Standard Region - US West 2",
+			region:         "us-west-2",
+			expectedResult: false,
+		},
+		{
+			name:           "AWS Standard Region - EU Central 1",
+			region:         "eu-central-1",
+			expectedResult: false,
+		},
+		{
+			name:           "AWS GovCloud Region - US Gov West 1",
+			region:         "us-gov-west-1",
+			expectedResult: false,
+		},
+		{
+			name:           "AWS GovCloud Region - US Gov East 1",
+			region:         "us-gov-east-1",
+			expectedResult: false,
+		},
+		{
+			name:           "AWS China Region - CN North 1",
+			region:         "cn-north-1",
+			expectedResult: false,
+		},
+		{
+			name:           "AWS China Region - CN Northwest 1",
+			region:         "cn-northwest-1",
+			expectedResult: false,
+		},
+		{
+			name:           "ISO Region - US ISO East 1",
+			region:         "us-iso-east-1",
+			expectedResult: true,
+		},
+		{
+			name:           "ISO Region - US ISOB East 1",
+			region:         "us-isob-east-1",
+			expectedResult: true,
+		},
+		{
+			name:           "Unknown Region",
+			region:         "unknown-region",
+			expectedResult: true,
+		},
+		{
+			name:           "Empty Region",
+			region:         "",
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isIsoRegion(tt.region)
+			assert.Equal(t, tt.expectedResult, result, "Unexpected result for region: %s", tt.region)
+		})
+	}
+}

@@ -26,6 +26,8 @@ import (
 	"github.com/pborman/uuid"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -200,6 +202,37 @@ func defaultMkdirAllAndChown(path string, perm fs.FileMode, uid, gid int) error 
 	return nil
 }
 
+func getRegionFromContainerInstanceARN(containerInstanceARN string) string {
+	// Parse the ARN
+	parsedARN, err := arn.Parse(containerInstanceARN)
+	if err != nil {
+		return ""
+	}
+
+	// Extract the region from the parsed ARN
+	return parsedARN.Region
+}
+
+func isIsoRegion(region string) bool {
+	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
+	if !ok {
+		// if partition is not found, assume it's iso
+		return true
+	}
+	switch partition.ID() {
+	case endpoints.AwsPartitionID:
+		return false
+	case endpoints.AwsUsGovPartitionID:
+		return false
+	case endpoints.AwsCnPartitionID:
+		return false
+	default:
+		// region partition is not 'aws', 'aws-us-gov', nor 'aws-cn', so assume it's
+		// an iso region.
+		return true
+	}
+}
+
 func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) (string, error) {
 	statusPathHost := filepath.Join(m.statusPathHostRoot, taskId)
 
@@ -213,7 +246,10 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
-	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(hostPKIDirPath, hostPKIDirPath))
+	region := getRegionFromContainerInstanceARN(m.containerInstanceARN)
+	if isIsoRegion(region) {
+		hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(hostPKIDirPath, hostPKIDirPath))
+	}
 
 	// create logging directory and bind mount, if customer has not configured a logging driver
 	if container.GetLogDriver() == "" {
