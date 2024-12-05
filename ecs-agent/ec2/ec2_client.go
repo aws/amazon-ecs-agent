@@ -23,7 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -65,9 +64,7 @@ func NewClientImpl(awsRegion string) (Client, error) {
 		context.TODO(),
 		config.WithRegion(awsRegion),
 		config.WithCredentialsProvider(credentialsProvider),
-		config.WithRetryer(func() aws.Retryer {
-			return retry.AddWithMaxAttempts(retry.NewStandard(), clientRetriesNum)
-		}),
+		config.WithRetryMaxAttempts(clientRetriesNum),
 	)
 	if err != nil {
 		return nil, err

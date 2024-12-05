@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 
@@ -96,7 +94,8 @@ type ec2MetadataClientImpl struct {
 	client HttpClient
 }
 
-// NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
+// NewEC2MetadataClient creates an ec2metadata client to retrieve metadata.
+// Pass a non-nil HttpClient to mock behavior in tests.
 func NewEC2MetadataClient(client HttpClient) (EC2MetadataClient, error) {
 	if client == nil {
 		credentialsProvider := providers.NewInstanceCredentialsCache(
@@ -107,9 +106,7 @@ func NewEC2MetadataClient(client HttpClient) (EC2MetadataClient, error) {
 		cfg, err := config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithCredentialsProvider(credentialsProvider),
-			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(), metadataRetries)
-			}),
+			config.WithRetryMaxAttempts(metadataRetries),
 		)
 		if err != nil {
 			return nil, err
