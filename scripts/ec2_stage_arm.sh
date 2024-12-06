@@ -19,7 +19,7 @@ DRYRUN=true
 
 AWS_PROFILE=""
 AWS_REGION="us-east-1"
-AMI_ID="ami-053b2a8c2f3e87928" #amzn2-ami-hvm-2.0.20181020.0-aarch64-gp2
+AMI_ID="ami-01180c1a1421554af" #amzn2-ami-ecs-hvm-2.0.20241120-arm64-ebs
 ARTIFACT_BUCKET=""
 SOURCE_BUCKET=""
 KEY_NAME=""
@@ -168,7 +168,7 @@ ec2_instance_id=$(dryval aws ${profile} "--region=${AWS_REGION}" \
 	"--image-id=${AMI_ID}" \
 	"--key-name=${KEY_NAME}" \
 	"--security-groups=${SECURITY_GROUP}" \
-	"--instance-type=a1.xlarge" \
+	"--instance-type=c8g.2xlarge" \
 	"--instance-initiated-shutdown-behavior=terminate" \
 	"--iam-instance-profile=Name=${INSTANCE_PROFILE}" \
 	"--query=Instances[0].InstanceId" \
