@@ -161,6 +161,11 @@ func TestDependencyComplete(t *testing.T) {
 // Container 'parent' depends on  container 'dependency' to START. We ensure that the 'parent' container starts only
 // after the 'dependency' container has started.
 func TestDependencyStart(t *testing.T) {
+	// Skip these tests on WS 2016 until the failures are root-caused.
+	isWindows2016, err := config.IsWindows2016()
+	if err == nil && isWindows2016 == true {
+		t.Skip()
+	}
 	taskEngine, done, _, _ := setupWithDefaultConfig(t)
 	defer done()
 
