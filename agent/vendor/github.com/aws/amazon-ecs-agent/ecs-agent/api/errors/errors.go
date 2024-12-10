@@ -39,6 +39,8 @@ const (
 	ErrCodeResourceNotFoundException = "ResourceNotFoundException"
 
 	ErrCodeRequestCanceled = "RequestCanceled"
+
+	ErrCodeClientException = "ClientException"
 )
 
 // IsInstanceTypeChangedError returns true if the error when

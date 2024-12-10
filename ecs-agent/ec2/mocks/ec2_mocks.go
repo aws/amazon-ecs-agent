@@ -25,7 +25,7 @@ import (
 	ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	imds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	ec20 "github.com/aws/aws-sdk-go-v2/service/ec2"
-	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	types "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	gomock "github.com/golang/mock/gomock"
 )
 

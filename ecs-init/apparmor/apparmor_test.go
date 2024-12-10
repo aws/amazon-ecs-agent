@@ -19,7 +19,10 @@ import (
 	"path/filepath"
 	"testing"
 
+<<<<<<< HEAD
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
+=======
+>>>>>>> 447b0eb52 (fix after rebase)
 	aaprofile "github.com/docker/docker/profiles/apparmor"
 
 	"github.com/stretchr/testify/assert"
