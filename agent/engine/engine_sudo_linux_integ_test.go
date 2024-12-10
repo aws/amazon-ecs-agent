@@ -215,7 +215,9 @@ func TestFirelensFluentbit(t *testing.T) {
 	defer server.Close()
 
 	port := getPortFromAddr(t, server.URL)
-	serverURL := fmt.Sprintf("http://%s:%s", getHostPrivateIP(t, ec2.NewEC2MetadataClient(nil)), port)
+	ec2MetadataClient, err := ec2.NewEC2MetadataClient(nil)
+	require.NoError(t, err)
+	serverURL := fmt.Sprintf("http://%s:%s", getHostPrivateIP(t, ec2MetadataClient), port)
 	defer setV3MetadataURLFormat(serverURL + "/v3/%s")()
 
 	testTask := createFirelensTask(t)

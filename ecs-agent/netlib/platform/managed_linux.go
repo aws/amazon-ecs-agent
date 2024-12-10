@@ -17,7 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -31,7 +31,7 @@ const (
 
 type managedLinux struct {
 	common
-	client ec2.HttpClient
+	client ec2.EC2MetadataClient
 }
 
 // BuildTaskNetworkConfiguration translates network data in task payload sent by ACS
@@ -40,7 +40,7 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := aws.StringValue(taskPayload.NetworkMode)
+	mode := aws.ToString(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
