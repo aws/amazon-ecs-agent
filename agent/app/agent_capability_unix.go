@@ -18,6 +18,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -45,6 +47,7 @@ const (
 	modInfoCmd                  = "modinfo"
 	faultInjectionKernelModules = "sch_netem"
 	ctxTimeoutDuration          = 60 * time.Second
+	tcShowCmdString             = "tc -j q show dev %s parent 1:1"
 )
 
 var (
@@ -250,6 +253,7 @@ var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
 // wrapper around exec.LookPath
 var lookPathFunc = exec.LookPath
 var osExecWrapper = execwrapper.NewExec()
+var networkConfigClient = netconfig.NewNetworkConfigClient()
 
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
@@ -263,7 +267,7 @@ func checkFaultInjectionTooling() bool {
 			return false
 		}
 	}
-	return checkFaultInjectionModules()
+	return checkFaultInjectionModules() && checkTCShowTooling()
 }
 
 // checkFaultInjectionModules checks for the required kernel modules such as sch_netem to be installed
@@ -274,6 +278,24 @@ func checkFaultInjectionModules() bool {
 	_, err := osExecWrapper.CommandContext(ctxWithTimeout, modInfoCmd, faultInjectionKernelModules).CombinedOutput()
 	if err != nil {
 		seelog.Warnf("Failed to find kernel module %s that is needed for fault-injection feature: %v", faultInjectionKernelModules, err)
+		return false
+	}
+	return true
+}
+
+func checkTCShowTooling() bool {
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	defer cancel()
+	hostDeviceName, netErr := netconfig.DefaultNetInterfaceName(networkConfigClient.NetlinkClient)
+	if netErr != nil {
+		seelog.Warnf("Failed to obtain the network interface device name on the host: %v", netErr)
+		return false
+	}
+	tcShowCmd := fmt.Sprintf(tcShowCmdString, hostDeviceName)
+	cmdList := strings.Split(tcShowCmd, " ")
+	_, err := osExecWrapper.CommandContext(ctxWithTimeout, cmdList[0], cmdList[1:]...).CombinedOutput()
+	if err != nil {
+		seelog.Warnf("Failed to call %s which is needed for fault-injection feature: %v", tcShowCmd, err)
 		return false
 	}
 	return true

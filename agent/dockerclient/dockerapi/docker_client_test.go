@@ -415,7 +415,7 @@ func TestPullImageManifest(t *testing.T) {
 				Type:        apicontainer.AuthTypeASM,
 				ASMAuthData: &apicontainer.ASMAuthData{},
 			}
-			authConfig := types.AuthConfig{Username: "username", Password: "password"}
+			authConfig := registry.AuthConfig{Username: "username", Password: "password"}
 			authData.ASMAuthData.SetDockerAuthConfig(authConfig)
 			encodedAuthConfig, err := registry.EncodeAuthConfig(authConfig)
 			require.NoError(t, err)
@@ -1091,7 +1091,7 @@ func TestContainerEvents(t *testing.T) {
 
 	// Verify only the container type event will translate to our event stream
 	// Events type: network, image, volume, daemon, plugins won't be handled
-	ignoreEventType := map[string]string{
+	ignoreEventType := map[events.Type]string{
 		"network": "connect",
 		"image":   "pull",
 		"volume":  "create",

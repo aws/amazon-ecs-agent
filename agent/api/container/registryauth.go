@@ -18,7 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 )
 
 // RegistryAuthenticationData is the authentication data sent by the ECS backend.  Currently, the only supported
@@ -36,7 +36,7 @@ type ECRAuthData struct {
 	RegistryID       string `json:"registryId"`
 	UseExecutionRole bool   `json:"useExecutionRole"`
 	pullCredentials  credentials.IAMRoleCredentials
-	dockerAuthConfig types.AuthConfig
+	dockerAuthConfig registry.AuthConfig
 	lock             sync.RWMutex
 }
 
@@ -50,7 +50,7 @@ type ASMAuthData struct {
 	Region string `json:"region"`
 	// dockerAuthConfig gets populated during the ASM resource creation
 	// by the task engine
-	dockerAuthConfig types.AuthConfig
+	dockerAuthConfig registry.AuthConfig
 	lock             sync.RWMutex
 }
 
@@ -71,7 +71,7 @@ func (auth *ECRAuthData) SetPullCredentials(creds credentials.IAMRoleCredentials
 }
 
 // GetDockerAuthConfig returns the pull credentials in the auth
-func (auth *ECRAuthData) GetDockerAuthConfig() types.AuthConfig {
+func (auth *ECRAuthData) GetDockerAuthConfig() registry.AuthConfig {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -80,7 +80,7 @@ func (auth *ECRAuthData) GetDockerAuthConfig() types.AuthConfig {
 
 // SetDockerAuthConfig sets the credentials to pull from ECR in the
 // ecr auth data
-func (auth *ECRAuthData) SetDockerAuthConfig(dac types.AuthConfig) {
+func (auth *ECRAuthData) SetDockerAuthConfig(dac registry.AuthConfig) {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 
@@ -88,7 +88,7 @@ func (auth *ECRAuthData) SetDockerAuthConfig(dac types.AuthConfig) {
 }
 
 // GetDockerAuthConfig returns the pull credentials in the auth
-func (auth *ASMAuthData) GetDockerAuthConfig() types.AuthConfig {
+func (auth *ASMAuthData) GetDockerAuthConfig() registry.AuthConfig {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -97,7 +97,7 @@ func (auth *ASMAuthData) GetDockerAuthConfig() types.AuthConfig {
 
 // SetDockerAuthConfig sets the credentials to pull from ECR in the
 // auth
-func (auth *ASMAuthData) SetDockerAuthConfig(dac types.AuthConfig) {
+func (auth *ASMAuthData) SetDockerAuthConfig(dac registry.AuthConfig) {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 

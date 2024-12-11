@@ -695,22 +695,28 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 		"NetNSPath": netNSPath,
 	})
 
-	var cniNetConf ecscni.PluginConfig
+	// Set the path for the IPAM CNI local db to track assigned IPs.
+	// Default path is /data but in some linux distros (i.e.Amazon BottleRocket) the root volume is read-only.
+	c.os.Setenv(IPAMDataPathEnv, filepath.Join(c.stateDBDir, IPAMDataFileName))
+
+	var cniNetConf []ecscni.PluginConfig
 	var err error
 	add := true
 
 	// Generate CNI network configuration based on the ENI's desired state.
 	switch eni.DesiredStatus {
 	case status.NetworkReadyPull:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan)
-	case status.NetworkReady:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+		// Setup bridge to connect task network namespace to TMDS running in host's primary netns.
+		if eni.IsPrimary() {
+			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+		}
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan))
 	case status.NetworkDeleted:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan))
 		add = false
 	}
 
-	_, err = c.executeCNIPlugin(ctx, add, cniNetConf)
+	_, err = c.executeCNIPlugin(ctx, add, cniNetConf...)
 	if err != nil {
 		err = errors.Wrap(err, "failed to setup branch eni")
 	}

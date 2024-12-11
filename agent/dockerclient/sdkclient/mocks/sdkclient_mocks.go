@@ -27,8 +27,10 @@ import (
 	container "github.com/docker/docker/api/types/container"
 	events "github.com/docker/docker/api/types/events"
 	filters "github.com/docker/docker/api/types/filters"
+	image "github.com/docker/docker/api/types/image"
 	network "github.com/docker/docker/api/types/network"
 	registry "github.com/docker/docker/api/types/registry"
+	system "github.com/docker/docker/api/types/system"
 	volume "github.com/docker/docker/api/types/volume"
 	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -146,7 +148,7 @@ func (mr *MockClientMockRecorder) ContainerInspect(arg0, arg1 interface{}) *gomo
 }
 
 // ContainerList mocks base method.
-func (m *MockClient) ContainerList(arg0 context.Context, arg1 types.ContainerListOptions) ([]types.Container, error) {
+func (m *MockClient) ContainerList(arg0 context.Context, arg1 container.ListOptions) ([]types.Container, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerList", arg0, arg1)
 	ret0, _ := ret[0].([]types.Container)
@@ -161,7 +163,7 @@ func (mr *MockClientMockRecorder) ContainerList(arg0, arg1 interface{}) *gomock.
 }
 
 // ContainerRemove mocks base method.
-func (m *MockClient) ContainerRemove(arg0 context.Context, arg1 string, arg2 types.ContainerRemoveOptions) error {
+func (m *MockClient) ContainerRemove(arg0 context.Context, arg1 string, arg2 container.RemoveOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerRemove", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -175,7 +177,7 @@ func (mr *MockClientMockRecorder) ContainerRemove(arg0, arg1, arg2 interface{}) 
 }
 
 // ContainerStart mocks base method.
-func (m *MockClient) ContainerStart(arg0 context.Context, arg1 string, arg2 types.ContainerStartOptions) error {
+func (m *MockClient) ContainerStart(arg0 context.Context, arg1 string, arg2 container.StartOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerStart", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -294,10 +296,10 @@ func (mr *MockClientMockRecorder) ImageInspectWithRaw(arg0, arg1 interface{}) *g
 }
 
 // ImageList mocks base method.
-func (m *MockClient) ImageList(arg0 context.Context, arg1 types.ImageListOptions) ([]types.ImageSummary, error) {
+func (m *MockClient) ImageList(arg0 context.Context, arg1 types.ImageListOptions) ([]image.Summary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImageList", arg0, arg1)
-	ret0, _ := ret[0].([]types.ImageSummary)
+	ret0, _ := ret[0].([]image.Summary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -339,10 +341,10 @@ func (mr *MockClientMockRecorder) ImagePull(arg0, arg1, arg2 interface{}) *gomoc
 }
 
 // ImageRemove mocks base method.
-func (m *MockClient) ImageRemove(arg0 context.Context, arg1 string, arg2 types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error) {
+func (m *MockClient) ImageRemove(arg0 context.Context, arg1 string, arg2 types.ImageRemoveOptions) ([]image.DeleteResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImageRemove", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]types.ImageDeleteResponseItem)
+	ret0, _ := ret[0].([]image.DeleteResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -368,10 +370,10 @@ func (mr *MockClientMockRecorder) ImageTag(arg0, arg1, arg2 interface{}) *gomock
 }
 
 // Info mocks base method.
-func (m *MockClient) Info(arg0 context.Context) (types.Info, error) {
+func (m *MockClient) Info(arg0 context.Context) (system.Info, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0)
-	ret0, _ := ret[0].(types.Info)
+	ret0, _ := ret[0].(system.Info)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

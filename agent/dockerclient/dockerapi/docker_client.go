@@ -652,7 +652,7 @@ func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error
 	return &imageData, err
 }
 
-func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
+func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
 
 	if authData == nil {
 		return dg.auth.GetAuthconfig(image, nil)

@@ -1,5 +1,14 @@
 # Changelog
 
+# 1.89.2
+* Enhancement - Refactors Branch ENI configuration to support all platform types [#4436](https://github.com/aws/amazon-ecs-agent/pull/4436)
+* Enhancement - Update agent version of https://github.com/containerd/cgroups from v3.0.2 to v3.0.4 [#4350](https://github.com/aws/amazon-ecs-agent/pull/4350)
+* Enhancement - Implement credentials chain for aws-sdk-go-v2 [#4424](https://github.com/aws/amazon-ecs-agent/pull/4424)
+* Enhancement - Update amazon-ecs-cni-plugins to 2024.09.0 [#4442](https://github.com/aws/amazon-ecs-agent/pull/4442)
+* Enhancement - Remove typos from annotations in ecs-init/docker/docker.go [#4426](https://github.com/aws/amazon-ecs-agent/pull/4426)
+* Enhancement - Add check if tc is compatible before advertising fault injection capability [#4434](https://github.com/aws/amazon-ecs-agent/pull/4434)
+* Enhancement - Add /etc/pki directory to appnet agent's bind mounts for service connect [#4437](https://github.com/aws/amazon-ecs-agent/pull/4437)
+
 # 1.89.1
 * Changes included from discarded v1.89.0 release
 

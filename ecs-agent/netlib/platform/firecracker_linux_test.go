@@ -17,13 +17,16 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
 	"testing"
 
+	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ioutilwrapper/mocks"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
@@ -140,5 +143,39 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 		volumeAccessor.EXPECT().CopyToVolume(taskID, secondaryNetNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
 	)
 	err := fc.CreateDNSConfig(taskID, netns)
+	require.NoError(t, err)
+}
+
+func TestFirecracker_BranchENIConfiguration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	commonPlatform := common{
+		cniClient: cniClient,
+	}
+	fc := &firecraker{
+		common: commonPlatform,
+	}
+
+	branchENI := getTestBranchENI()
+
+	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan)
+	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	err := fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
+	require.NoError(t, err)
+
+	branchENI.DesiredStatus = status.NetworkReady
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
+	err = fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
+	require.NoError(t, err)
+
+	// Delete workflow.
+	branchENI.DesiredStatus = status.NetworkDeleted
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
+	err = fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 }

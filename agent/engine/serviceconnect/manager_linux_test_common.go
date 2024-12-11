@@ -111,6 +111,17 @@ func getAWSVPCTask(t *testing.T) (*apitask.Task, *apicontainer.Container, *apico
 	return sleepTask, pauseContainer, serviceConnectContainer
 }
 
+func copyMap(input map[string]string, addk string, addv string) map[string]string {
+	output := make(map[string]string)
+	if len(addk) > 0 && len(addv) > 0 {
+		output[addk] = addv
+	}
+	for k, v := range input {
+		output[k] = v
+	}
+	return output
+}
+
 func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMode bool) {
 	backupMkdirAllAndChown := mkdirAllAndChown
 	tempDir := t.TempDir()
@@ -135,7 +146,6 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		"StAtUsGoEsHeRe":                "/some/other/run/status_file_of_holiness",
 		"APPNET_AGENT_ADMIN_MODE":       "uds",
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
-		"ECS_CONTAINER_INSTANCE_ARN":    "fake_container_instance",
 		"APPNET_ENVOY_LOG_DESTINATION":  "/some/other/log",
 	}
 
@@ -146,15 +156,80 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		expectedBinds        []string
 		expectedBindDirPerm  string
 		expectedBindDirOwner uint32
+		containerInstanceARN string
 	}
 	testcases := []testCase{
 		{
-			name:                 "Service connect container has extra binds/ENV",
+			name:                 "Service connect container has extra binds/ENV. Commercial region has no /etc/pki mount.",
 			container:            serviceConnectContainer,
-			expectedENV:          expectedENVs,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-test-test-test-123456789012"),
 			expectedBinds:        expectedBinds,
 			expectedBindDirPerm:  fs.FileMode(0700).String(),
 			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. US gov region has no /etc/pki mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:us-gov-west-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        expectedBinds,
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:us-gov-west-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. China region has no /etc/pki mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:cn-north-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        expectedBinds,
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:cn-north-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. Iso region gets extra /etc/pki bind mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:us-iso-east-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        append(expectedBinds, "/etc/pki:/etc/pki"),
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:us-iso-east-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. Iso region gets extra /etc/pki bind mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:eu-isoe-west-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        append(expectedBinds, "/etc/pki:/etc/pki"),
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:eu-isoe-west-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. Iso region gets extra /etc/pki bind mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:us-isof-south-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        append(expectedBinds, "/etc/pki:/etc/pki"),
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:us-isof-south-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. Unknown region gets /etc/pki bind mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:ap-iso-southeast-1:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        append(expectedBinds, "/etc/pki:/etc/pki"),
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:ap-iso-southeast-1:123456789012:container-instance/12345678-test-test-test-123456789012",
+		},
+		{
+			name:                 "Service connect container has extra binds/ENV. Invalid region gets /etc/pki bind mount.",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVs, "ECS_CONTAINER_INSTANCE_ARN", "foo-bar-invalid-arn"),
+			expectedBinds:        append(expectedBinds, "/etc/pki:/etc/pki"),
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "foo-bar-invalid-arn",
 		},
 	}
 	// Add test cases for other containers expecting no modifications
@@ -178,19 +253,19 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		agentContainerImageName: "container",
 		appnetInterfaceVersion:  "v1",
 
-		containerInstanceARN: "fake_container_instance",
-		logPathContainer:     "/some/other/log",
-		logPathHostRoot:      filepath.Join(tempDir, "log"),
+		logPathContainer: "/some/other/log",
+		logPathHostRoot:  filepath.Join(tempDir, "log"),
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
+			scManager.containerInstanceARN = tc.containerInstanceARN
 			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.Equal(t, tc.expectedBinds, hostConfig.Binds)
+			assert.ElementsMatch(t, tc.expectedBinds, hostConfig.Binds)
 			assert.Equal(t, tc.expectedENV, tc.container.Environment)
 			if privilegedMode {
 				for _, bind := range hostConfig.Binds {
