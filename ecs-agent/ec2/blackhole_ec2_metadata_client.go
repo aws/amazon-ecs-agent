@@ -16,7 +16,7 @@ package ec2
 import (
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 )
 
 type blackholeMetadataClient struct{}
@@ -29,8 +29,8 @@ func (blackholeMetadataClient) DefaultCredentials() (*RoleCredentials, error) {
 	return nil, errors.New("blackholed")
 }
 
-func (blackholeMetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
-	return ec2metadata.EC2InstanceIdentityDocument{}, errors.New("blackholed")
+func (blackholeMetadataClient) InstanceIdentityDocument() (imds.InstanceIdentityDocument, error) {
+	return imds.InstanceIdentityDocument{}, errors.New("blackholed")
 }
 
 func (blackholeMetadataClient) PrimaryENIMAC() (string, error) {

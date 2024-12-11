@@ -171,10 +171,24 @@ type ecsAgent struct {
 // newAgent returns a new ecsAgent object, but does not start anything
 func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+
+	var (
+		ec2MetadataClient ec2.EC2MetadataClient
+		err               error
+	)
 	if blackholeEC2Metadata {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
+	} else {
+		ec2MetadataClient, err = ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			logger.Critical("Error creating EC2 metadata client", logger.Fields{
+				field.Error: err,
+			})
+			cancel()
+			return nil, err
+		}
 	}
+
 	logger.Info("Starting Amazon ECS Agent", logger.Fields{
 		"version": version.Version,
 		"commit":  version.GitShortHash,
@@ -200,9 +214,16 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		cfg.NoIID = true
 	}
 
-	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
-	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
+	ec2Client, err := ec2.NewClientImpl(cfg.AWSRegion)
+	if err != nil {
+		logger.Critical("Error creating EC2 client", logger.Fields{
+			field.Error: err,
+		})
+		cancel()
+		return nil, err
+	}
 
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 	if err != nil {
 		// This is also non terminal in the current config
 		logger.Critical("Error creating Docker client", logger.Fields{
@@ -216,7 +237,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	if cfg.Checkpoint.Enabled() {
 		dataClient, err = data.New(cfg.DataDir)
 		if err != nil {
-			logger.Critical("Error creating Docker client", logger.Fields{
+			logger.Critical("Error creating data client", logger.Fields{
 				field.Error: err,
 			})
 			cancel()

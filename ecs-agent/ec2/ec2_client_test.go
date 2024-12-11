@@ -17,12 +17,14 @@
 package ec2_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,13 +34,14 @@ func TestCreateTags(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockClientSDK := mock_ec2.NewMockClientSDK(ctrl)
-	testClient := ec2.NewClientImpl("us-west-2")
+	testClient, err := ec2.NewClientImpl("us-west-2")
+	assert.NoError(t, err)
 	testClient.(*ec2.ClientImpl).SetClientSDK(mockClientSDK)
 
 	createTagsInput := &ec2sdk.CreateTagsInput{}
 	createTagsOutput := &ec2sdk.CreateTagsOutput{}
 
-	mockClientSDK.EXPECT().CreateTags(createTagsInput).Return(createTagsOutput, nil)
+	mockClientSDK.EXPECT().CreateTags(gomock.Any(), createTagsInput, gomock.Any()).Return(createTagsOutput, nil)
 
 	res, err := testClient.CreateTags(createTagsInput)
 	assert.NoError(t, err)
@@ -51,11 +54,12 @@ func TestDescribeECSTagsForInstance(t *testing.T) {
 
 	instanceID := "iid"
 	mockClientSDK := mock_ec2.NewMockClientSDK(ctrl)
-	testClient := ec2.NewClientImpl("us-west-2")
+	testClient, err := ec2.NewClientImpl("us-west-2")
+	assert.NoError(t, err)
 	testClient.(*ec2.ClientImpl).SetClientSDK(mockClientSDK)
 
 	describeTagsOutput := &ec2sdk.DescribeTagsOutput{
-		Tags: []*ec2sdk.TagDescription{
+		Tags: []types.TagDescription{
 			{
 				Key:   aws.String("key"),
 				Value: aws.String("value"),
@@ -75,14 +79,16 @@ func TestDescribeECSTagsForInstance(t *testing.T) {
 		},
 	}
 
-	mockClientSDK.EXPECT().DescribeTags(gomock.Any()).Do(func(input *ec2sdk.DescribeTagsInput) {
+	mockClientSDK.EXPECT().DescribeTags(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Do(func(_ context.Context, input *ec2sdk.DescribeTagsInput, _ ...func(*ec2sdk.Options)) {
 		assert.Equal(t, len(input.Filters), 2)
-		assert.Equal(t, aws.StringValue(input.Filters[0].Values[0]), instanceID)
+		assert.Equal(t, input.Filters[0].Values[0], instanceID)
 	}).Return(describeTagsOutput, nil)
 
 	tags, err := testClient.DescribeECSTagsForInstance(instanceID)
 	assert.NoError(t, err)
 	assert.Equal(t, len(tags), 1)
-	assert.Equal(t, aws.StringValue(tags[0].Key), "key")
-	assert.Equal(t, aws.StringValue(tags[0].Value), "value")
+	assert.Equal(t, aws.ToString(tags[0].Key), "key")
+	assert.Equal(t, aws.ToString(tags[0].Value), "value")
 }
