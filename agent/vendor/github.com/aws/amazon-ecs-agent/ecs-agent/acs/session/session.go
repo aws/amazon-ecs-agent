@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	http://aws.amazon.com/apache2.0/
+//  http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -251,7 +251,6 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
-	s.metricsFactory.New(metrics.DiscoverPollEndpointDurationName).WithGauge(s.ecsClient.GetDiscoverPollEndpointDuration()).Done(nil)
 
 	client := s.clientFactory.New(
 		s.acsURL(acsEndpoint),
@@ -263,9 +262,10 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 
 	// Invoke Connect method as soon as we create client. This will ensure all the
 	// request handlers to be associated with this client have a valid connection.
-	acsConnectionMetric := s.metricsFactory.New(metrics.ACSConnectionMetricDurationName)
+	acsConnectionStartTime := time.Now()
 	disconnectTimer, err := client.Connect(metrics.ACSDisconnectTimeoutMetricName, s.disconnectTimeout,
 		s.disconnectJitter)
+	s.metricsFactory.New(metrics.ACSSessionCallName).Done(err)
 	if err != nil {
 		logger.Error("Failed to connect to ACS", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
@@ -273,7 +273,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
-	acsConnectionMetric.Done(err)
+	s.metricsFactory.New(metrics.ACSSessionCallDurationName).WithGauge(time.Since(acsConnectionStartTime)).Done(nil)
 	defer disconnectTimer.Stop()
 
 	if s.GetFirstACSConnectionTime().IsZero() {

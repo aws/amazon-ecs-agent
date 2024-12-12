@@ -22,6 +22,7 @@ import (
 
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -101,4 +102,11 @@ func TestWithSubmitStateChangeClient(t *testing.T) {
 	option := WithSubmitStateChangeClient(newSubmitStateChangeClient)
 	option(client)
 	assert.Equal(t, newSubmitStateChangeClient, client.submitStateChangeClient)
+}
+
+func TestWithMetricsFactory(t *testing.T) {
+	client := &ecsClient{} // client.metricsFactory is nil by default
+	option := WithMetricsFactory(metrics.NewNopEntryFactory())
+	option(client)
+	assert.NotNil(t, client.metricsFactory)
 }
