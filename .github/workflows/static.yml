@@ -24,7 +24,7 @@ jobs:
             exit 1
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - uses: actions/checkout@v3
@@ -59,7 +59,7 @@ jobs:
             exit 1
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - uses: actions/checkout@v3
@@ -94,7 +94,7 @@ jobs:
             exit 1
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - uses: actions/checkout@v3
