@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	http://aws.amazon.com/apache2.0/
+//  http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -99,6 +99,7 @@ type session struct {
 	disconnectJitter               time.Duration
 	inactiveInstanceReconnectDelay time.Duration
 	lastConnectedTime              time.Time
+	firstACSConnectionTime         time.Time
 }
 
 // NewSession creates a new Session.
@@ -158,6 +159,7 @@ func NewSession(containerInstanceARN string,
 		disconnectJitter:               wsclient.DisconnectJitterMax,
 		inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 		lastConnectedTime:              time.Time{},
+		firstACSConnectionTime:         time.Time{},
 	}
 }
 
@@ -253,8 +255,12 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 
 	// Invoke Connect method as soon as we create client. This will ensure all the
 	// request handlers to be associated with this client have a valid connection.
+	acsConnectionStartTime := time.Now()
 	disconnectTimer, err := client.Connect(metrics.ACSDisconnectTimeoutMetricName, s.disconnectTimeout,
 		s.disconnectJitter)
+
+	// Metric created for determining whether ACS connection is successful or not
+	s.metricsFactory.New(metrics.ACSSessionCallName).Done(err)
 	if err != nil {
 		logger.Error("Failed to connect to ACS", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
@@ -262,7 +268,12 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
+	s.metricsFactory.New(metrics.ACSSessionCallDurationName).WithGauge(time.Since(acsConnectionStartTime)).Done(nil)
 	defer disconnectTimer.Stop()
+
+	if s.GetFirstACSConnectionTime().IsZero() {
+		s.firstACSConnectionTime = time.Now()
+	}
 
 	// Record the timestamp of the last connection to ACS.
 	s.lastConnectedTime = time.Now()
@@ -474,4 +485,8 @@ func formatDockerVersion(dockerVersionValue string) string {
 // GetLastConnectedTime returns the timestamp that the last connection was established to ACS.
 func (s *session) GetLastConnectedTime() time.Time {
 	return s.lastConnectedTime
+}
+
+func (s *session) GetFirstACSConnectionTime() time.Time {
+	return s.firstACSConnectionTime
 }

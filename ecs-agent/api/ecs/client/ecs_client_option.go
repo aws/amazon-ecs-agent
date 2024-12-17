@@ -16,6 +16,7 @@ package ecsclient
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 )
 
 // ECSClientOption allows for configuration of an ecsClient.
@@ -85,5 +86,14 @@ func WithStandardClient(s ecs.ECSStandardSDK) ECSClientOption {
 func WithSubmitStateChangeClient(s ecs.ECSSubmitStateSDK) ECSClientOption {
 	return func(client *ecsClient) {
 		client.submitStateChangeClient = s
+	}
+}
+
+// WithMetricsFactory is an ECSClientOption that configures
+// ecsClient.metricsFactory with the value passed as a parameter.
+// This is especially useful for emitting metrics in the ECS Client
+func WithMetricsFactory(metricsFactory metrics.EntryFactory) ECSClientOption {
+	return func(client *ecsClient) {
+		client.metricsFactory = metricsFactory
 	}
 }
