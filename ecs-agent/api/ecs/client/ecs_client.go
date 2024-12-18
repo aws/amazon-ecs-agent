@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
@@ -77,6 +78,7 @@ type ecsClient struct {
 	shouldExcludeIPv6PortBinding     bool
 	sascCustomRetryBackoff           func(func() error) error
 	stscAttachmentCustomRetryBackoff func(func() error) error
+	metricsFactory                   metrics.EntryFactory
 }
 
 // NewECSClient creates a new ECSClient interface object.
@@ -111,6 +113,9 @@ func NewECSClient(
 	}
 	if client.submitStateChangeClient == nil {
 		client.submitStateChangeClient = newSubmitStateChangeClient(&ecsConfig)
+	}
+	if client.metricsFactory == nil {
+		client.metricsFactory = metrics.NewNopEntryFactory()
 	}
 
 	return client, nil
@@ -747,7 +752,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 			}
 		}
 	}
-
+	discoverPollEndpointStartTime := time.Now()
 	// Cache miss or expired, invoke the ECS DiscoverPollEndpoint API.
 	logger.Debug("Invoking DiscoverPollEndpoint", logger.Fields{
 		field.ContainerInstanceARN: containerInstanceArn,
@@ -758,6 +763,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
 	})
+	client.metricsFactory.New(metrics.DiscoverPollEndpointCallName).Done(err)
 	if err != nil {
 		// If we got an error calling the API, fallback to an expired cached endpoint if
 		// we have it.
@@ -776,7 +782,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		}
 		return nil, err
 	}
-
+	client.metricsFactory.New(metrics.DiscoverPollEndpointDurationName).WithGauge(time.Since(discoverPollEndpointStartTime)).Done(nil)
 	// Cache the response from ECS.
 	client.pollEndpointCache.Set(containerInstanceArn, output)
 	return output, nil
