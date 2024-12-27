@@ -13,15 +13,16 @@
 
 package app
 
-// transientError represents a transient error when executing the ECS Agent
-type transientError struct {
+type terminalError struct {
 	error
 }
 
-// isTransient returns true if the error is transient
-func isTransient(err error) bool {
-	_, ok := err.(transientError)
-	return ok
+// isTerminal returns true if the error is already wrapped as an unrecoverable condition
+// which will allow agent to exit terminally.
+func isTerminal(err error) bool {
+	// Check if the error is already wrapped as a terminalError
+	_, terminal := err.(terminalError)
+	return terminal
 }
 
 // clusterMismatchError represents a mismatch in cluster name between the
