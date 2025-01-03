@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/docker/pkg/aaparser"
 	aaprofile "github.com/docker/docker/profiles/apparmor"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,7 +106,7 @@ func TestLoadDefaultProfile(t *testing.T) {
 	}
 	defer func() {
 		isProfileLoaded = aaprofile.IsLoaded
-		loadPath = aaparser.LoadProfile
+		loadPath = loadProfile
 		createFile = os.Create
 		statFile = os.Stat
 	}()
