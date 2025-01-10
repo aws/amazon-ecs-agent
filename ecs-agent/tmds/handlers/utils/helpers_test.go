@@ -111,6 +111,47 @@ func TestWriteJSONResponseError(t *testing.T) {
 	assert.Equal(t, "{}", recorder.Body.String())
 }
 
+// Tests that WriteStringToResponse puts the given string in the response body and correctly
+// sets the Content-Type header.
+func TestWriteStringToResponse(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteStringToResponse(recorder, http.StatusOK, "test", RequestTypeTaskMetadata)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "test", recorder.Body.String())
+	assert.Equal(t, "text/plain", recorder.Header().Get("Content-Type"))
+}
+
+func TestLogFriendlyContentType(t *testing.T) {
+	testCases := []struct {
+		testName string
+		content  string
+		expected string
+	}{
+		{
+			testName: "With json content type",
+			content:  "application/json",
+			expected: "JSON",
+		},
+		{
+			testName: "With text content type",
+			content:  "text/plain",
+			expected: "plaintext",
+		},
+		{
+			testName: "With empty content type",
+			content:  "",
+			expected: "plaintext",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			assert.Equal(t, tc.expected, logFriendlyContentType(tc.content))
+		})
+	}
+}
+
 func TestValueFromRequest(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/v1/credentials?id=credid", nil)
 	val, ok := ValueFromRequest(r, "id")
