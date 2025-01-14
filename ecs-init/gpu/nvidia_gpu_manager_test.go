@@ -16,10 +16,13 @@ package gpu
 import (
 	"errors"
 	"os"
-	"reflect"
 	"testing"
 
-	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
+	mock_gpu "github.com/aws/amazon-ecs-agent/ecs-init/gpu/mocks"
+
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
+	"github.com/golang/mock/gomock"
+	_ "github.com/golang/mock/mockgen/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,19 +51,19 @@ func TestNVMLInitializeError(t *testing.T) {
 }
 
 func TestDeviceCount(t *testing.T) {
-	NvmlGetDeviceCount = func() (uint, error) {
+	NvmlGetDeviceCount = func() (int, error) {
 		return 1, nil
 	}
 	defer func() {
 		NvmlGetDeviceCount = GetDeviceCount
 	}()
 	count, err := NvmlGetDeviceCount()
-	assert.Equal(t, uint(1), count)
+	assert.Equal(t, int(1), count)
 	assert.NoError(t, err)
 }
 
 func TestDeviceCountError(t *testing.T) {
-	NvmlGetDeviceCount = func() (uint, error) {
+	NvmlGetDeviceCount = func() (int, error) {
 		return 0, errors.New("device count error")
 	}
 	defer func() {
@@ -70,85 +73,95 @@ func TestDeviceCountError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestNewDeviceLite(t *testing.T) {
-	model := "Tesla-k80"
-	NvmlNewDeviceLite = func(idx uint) (*nvml.Device, error) {
-		return &nvml.Device{
-			UUID:  "gpu-0123",
-			Model: &model,
-		}, nil
-	}
-	defer func() {
-		NvmlNewDeviceLite = NewDeviceLite
-	}()
-	device, err := NvmlNewDeviceLite(4)
-	assert.NoError(t, err)
-	assert.Equal(t, "gpu-0123", device.UUID)
-	assert.Equal(t, model, *device.Model)
-}
-
-func TestNewDeviceLiteError(t *testing.T) {
-	NvmlNewDeviceLite = func(idx uint) (*nvml.Device, error) {
-		return nil, errors.New("device error")
-	}
-	defer func() {
-		NvmlNewDeviceLite = NewDeviceLite
-	}()
-	device, err := NvmlNewDeviceLite(4)
-	assert.Error(t, err)
-	assert.Nil(t, device)
-}
-
 func TestGetGPUDeviceIDs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	nvidiaGPUManager := NewNvidiaGPUManager()
-	NvmlGetDeviceCount = func() (uint, error) {
+
+	// Mock NvmlGetDeviceCount
+	oldNvmlGetDeviceCount := NvmlGetDeviceCount
+	NvmlGetDeviceCount = func() (int, error) {
 		return 2, nil
 	}
-	NvmlNewDeviceLite = func(idx uint) (*nvml.Device, error) {
-		var uuid string
-		if idx == 0 {
-			uuid = "gpu-0123"
-		} else {
-			uuid = "gpu-1234"
-		}
-		return &nvml.Device{
-			UUID: uuid,
-		}, nil
-	}
 	defer func() {
-		NvmlGetDeviceCount = GetDeviceCount
-		NvmlNewDeviceLite = NewDeviceLite
+		NvmlGetDeviceCount = oldNvmlGetDeviceCount
 	}()
+
+	// Mock DeviceGetHandleByIndex and DeviceGetUUID
+	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
+	oldDeviceGetUUID := nvml.DeviceGetUUID
+
+	mockDevice1 := mock_gpu.NewMockGPUDevice(ctrl)
+	mockDevice2 := mock_gpu.NewMockGPUDevice(ctrl)
+
+	nvml.DeviceGetHandleByIndex = func(idx int) (nvml.Device, nvml.Return) {
+		if idx == 0 {
+			return mockDevice1, nvml.SUCCESS
+		}
+		return mockDevice2, nvml.SUCCESS
+	}
+
+	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
+	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+
+	defer func() {
+		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
+		nvml.DeviceGetUUID = oldDeviceGetUUID
+	}()
+
+	// Call the function and assert
 	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.NoError(t, err)
-	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, gpuIDs))
+	assert.Equal(t, []string{"gpu-0123", "gpu-1234"}, gpuIDs)
 }
 
 func TestGetGPUDeviceIDsCountError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	nvidiaGPUManager := NewNvidiaGPUManager()
-	NvmlGetDeviceCount = func() (uint, error) {
+
+	// Mock NvmlGetDeviceCount
+	oldNvmlGetDeviceCount := NvmlGetDeviceCount
+	NvmlGetDeviceCount = func() (int, error) {
 		return 0, errors.New("device count error")
 	}
 	defer func() {
-		NvmlGetDeviceCount = GetDeviceCount
+		NvmlGetDeviceCount = oldNvmlGetDeviceCount
 	}()
+
+	// Call the function and assert
 	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.Error(t, err)
 	assert.Empty(t, gpuIDs)
 }
 
 func TestGetGPUDeviceIDsDeviceError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	nvidiaGPUManager := NewNvidiaGPUManager()
-	NvmlGetDeviceCount = func() (uint, error) {
+
+	// Mock NvmlGetDeviceCount
+	oldNvmlGetDeviceCount := NvmlGetDeviceCount
+	NvmlGetDeviceCount = func() (int, error) {
 		return 1, nil
 	}
-	NvmlNewDeviceLite = func(idx uint) (*nvml.Device, error) {
-		return nil, errors.New("device error")
+	defer func() {
+		NvmlGetDeviceCount = oldNvmlGetDeviceCount
+	}()
+
+	// Mock DeviceGetHandleByIndex to return an error
+	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
+	nvml.DeviceGetHandleByIndex = func(int) (nvml.Device, nvml.Return) {
+		return nil, nvml.ERROR_UNKNOWN
 	}
 	defer func() {
-		NvmlGetDeviceCount = GetDeviceCount
-		NvmlNewDeviceLite = NewDeviceLite
+		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
 	}()
+
+	// Call the function and assert
 	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.Error(t, err)
 	assert.Empty(t, gpuIDs)
@@ -279,50 +292,64 @@ func TestSetupNoGPU(t *testing.T) {
 }
 
 func TestGPUSetupSuccessful(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	driverVersion := "396.44"
 	nvidiaGPUManager := NewNvidiaGPUManager()
+
 	MatchFilePattern = func(string) ([]string, error) {
 		return []string{"/dev/nvidia0", "/dev/nvidia1"}, nil
 	}
+
 	InitializeNVML = func() error {
 		return nil
 	}
+
 	NvmlGetDriverVersion = func() (string, error) {
 		return driverVersion, nil
 	}
-	NvmlGetDeviceCount = func() (uint, error) {
+
+	NvmlGetDeviceCount = func() (int, error) {
 		return 2, nil
 	}
-	NvmlNewDeviceLite = func(idx uint) (*nvml.Device, error) {
-		var uuid string
+
+	mockDevice1 := mock_gpu.NewMockGPUDevice(ctrl)
+	mockDevice2 := mock_gpu.NewMockGPUDevice(ctrl)
+	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
+	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+
+	// Mock DeviceGetHandleByIndex
+	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
+	nvml.DeviceGetHandleByIndex = func(idx int) (nvml.Device, nvml.Return) {
 		if idx == 0 {
-			uuid = "gpu-0123"
-		} else {
-			uuid = "gpu-1234"
+			return mockDevice1, nvml.SUCCESS
 		}
-		return &nvml.Device{
-			UUID: uuid,
-		}, nil
+		return mockDevice2, nvml.SUCCESS
 	}
+
 	WriteContentToFile = func(string, []byte, os.FileMode) error {
 		return nil
 	}
+
 	ShutdownNVML = func() error {
 		return nil
 	}
+
 	defer func() {
 		MatchFilePattern = FilePatternMatch
 		InitializeNVML = InitNVML
 		NvmlGetDriverVersion = GetNvidiaDriverVersion
 		NvmlGetDeviceCount = GetDeviceCount
-		NvmlNewDeviceLite = NewDeviceLite
+		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
 		WriteContentToFile = WriteToFile
 		ShutdownNVML = ShutdownNVMLib
 	}()
+
 	err := nvidiaGPUManager.Setup()
 	assert.NoError(t, err)
 	assert.Equal(t, driverVersion, nvidiaGPUManager.(*NvidiaGPUManager).DriverVersion)
-	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIDs))
+	assert.Equal(t, []string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIDs)
 }
 
 func TestSetupNVMLError(t *testing.T) {
