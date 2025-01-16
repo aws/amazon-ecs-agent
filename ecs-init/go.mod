@@ -3,7 +3,7 @@ module github.com/aws/amazon-ecs-agent/ecs-init
 go 1.22
 
 require (
-	github.com/NVIDIA/gpu-monitoring-tools v0.0.0-20180829222009-86f2a9fac6c5
+	github.com/NVIDIA/go-nvml v0.12.4-0
 	github.com/aws/aws-sdk-go-v2 v1.31.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.37
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.14
@@ -16,7 +16,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.10.1
 	github.com/golang/mock v1.6.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 )
 
 require (
