@@ -120,7 +120,8 @@
       "members":{
         "containerName":{"shape":"String"},
         "healthStatus":{"shape":"HealthStatus"},
-        "statusSince":{"shape":"Timestamp"}
+        "statusSince":{"shape":"Timestamp"},
+        "statusMessage":{"shape":"String"}
       }
     },
     "ContainerHealths":{
@@ -137,12 +138,6 @@
         "networkStatsSet":{"shape":"NetworkStatsSet"},
         "storageStatsSet":{"shape":"StorageStatsSet"},
         "restartStatsSet":{"shape":"RestartStatsSet"}
-      }
-    },
-    "RestartStatsSet":{
-      "type":"structure",
-	  "members":{
-        "restartCount":{"shape":"UInteger"}
       }
     },
     "ContainerMetrics":{
@@ -164,7 +159,7 @@
     "EphemeralStorageMetrics":{
       "type":"structure",
       "members":{
-        "bytesUtilized":{"shape":"ULongStatsSet"}
+        "BytesUtilized":{"shape":"ULongStatsSet"}
       }
     },
     "GeneralMetric":{
@@ -219,6 +214,12 @@
         "INITIALIZING"
       ]
     },
+    "InstanceMetrics":{
+      "type":"structure",
+      "members":{
+        "storage":{"shape":"InstanceStorageMetrics"}
+      }
+    },
     "InstanceStatus":{
       "type":"structure",
       "members":{
@@ -239,6 +240,13 @@
     "InstanceStatuses":{
       "type":"list",
       "member":{"shape":"InstanceStatus"}
+    },
+    "InstanceStorageMetrics":{
+      "type":"structure",
+      "members":{
+        "OSFilesystem":{"shape":"Percentage"},
+        "DataFilesystem":{"shape":"Percentage"}
+      }
     },
     "InvalidParameterException":{
       "type":"structure",
@@ -288,6 +296,11 @@
         "txPackets":{"shape":"ULongStatsSet"}
       }
     },
+    "Percentage":{
+      "type":"double",
+      "max":100.0,
+      "min":0.0
+    },
     "PublishHealthRequest":{
       "type":"structure",
       "members":{
@@ -308,6 +321,7 @@
       "type":"structure",
       "members":{
         "metadata":{"shape":"MetricsMetadata"},
+        "instanceMetrics":{"shape":"InstanceMetrics"},
         "taskMetrics":{"shape":"TaskMetrics"},
         "timestamp":{"shape":"Timestamp"}
       }
@@ -318,6 +332,12 @@
         "message":{"shape":"String"}
       },
       "exception":true
+    },
+    "RestartStatsSet":{
+      "type":"structure",
+      "members":{
+        "restartCount":{"shape":"UInteger"}
+      }
     },
     "ServerException":{
       "type":"structure",
