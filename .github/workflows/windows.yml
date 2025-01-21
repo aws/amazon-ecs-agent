@@ -8,7 +8,7 @@ jobs:
     name: Windows unit tests
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
@@ -24,10 +24,10 @@ jobs:
             exit 1
           }
           Write-Output "GO_VERSION_WINDOWS=$go_version_win" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent

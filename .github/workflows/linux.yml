@@ -8,7 +8,7 @@ jobs:
     name: Linux unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent
@@ -26,7 +26,7 @@ jobs:
             exit 1
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - name: make test

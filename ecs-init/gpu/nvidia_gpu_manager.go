@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -129,7 +129,11 @@ func (n *NvidiaGPUManager) Initialize() error {
 var InitializeNVML = InitNVML
 
 func InitNVML() error {
-	return nvml.Init()
+	ret := nvml.Init()
+	if ret != nvml.SUCCESS {
+		return errors.New(nvml.ErrorString(ret))
+	}
+	return nil
 }
 
 // Shutdown is for shutting down nvidia's nvml library
@@ -144,7 +148,11 @@ func (n *NvidiaGPUManager) Shutdown() error {
 var ShutdownNVML = ShutdownNVMLib
 
 func ShutdownNVMLib() error {
-	return nvml.Shutdown()
+	ret := nvml.Shutdown()
+	if ret != nvml.SUCCESS {
+		return errors.New(nvml.ErrorString(ret))
+	}
+	return nil
 }
 
 // GetDriverVersion is for getting Nvidia driver version on the instance
@@ -159,7 +167,11 @@ func (n *NvidiaGPUManager) GetDriverVersion() (string, error) {
 var NvmlGetDriverVersion = GetNvidiaDriverVersion
 
 func GetNvidiaDriverVersion() (string, error) {
-	return nvml.GetDriverVersion()
+	version, ret := nvml.SystemGetDriverVersion()
+	if ret != nvml.SUCCESS {
+		return "", errors.New(nvml.ErrorString(ret))
+	}
+	return version, nil
 }
 
 // GetGPUDeviceIDs is for getting the GPU device UUIDs
@@ -169,14 +181,18 @@ func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 		return nil, errors.Wrapf(err, "error getting GPU device count for UUID detection")
 	}
 	var gpuIDs []string
-	var i uint
-	for i = 0; i < count; i++ {
-		device, err := NvmlNewDeviceLite(i)
-		if err != nil {
-			seelog.Errorf("error initializing device of index %d: %v", i, err)
+	for i := 0; i < count; i++ {
+		device, ret := nvml.DeviceGetHandleByIndex(i)
+		if ret != nvml.SUCCESS {
+			seelog.Errorf("Error initializing device of index %d: %v", i, nvml.ErrorString(ret))
 			continue
 		}
-		gpuIDs = append(gpuIDs, device.UUID)
+		uuid, ret := nvml.DeviceGetUUID(device)
+		if ret != nvml.SUCCESS {
+			seelog.Errorf("Failed to get UUID for device at index %d: %v", i, nvml.ErrorString(ret))
+			continue
+		}
+		gpuIDs = append(gpuIDs, uuid)
 	}
 	if len(gpuIDs) == 0 {
 		return gpuIDs, errors.New("error initializing GPU devices")
@@ -187,15 +203,12 @@ func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 var NvmlGetDeviceCount = GetDeviceCount
 
 // GetDeviceCount is for getting the number of GPU devices in the instance
-func GetDeviceCount() (uint, error) {
-	return nvml.GetDeviceCount()
-}
-
-var NvmlNewDeviceLite = NewDeviceLite
-
-// NewDeviceLite is for initializing a new GPU device
-func NewDeviceLite(idx uint) (*nvml.Device, error) {
-	return nvml.NewDeviceLite(idx)
+func GetDeviceCount() (int, error) {
+	count, ret := nvml.DeviceGetCount()
+	if ret != nvml.SUCCESS {
+		return 0, errors.New(nvml.ErrorString(ret))
+	}
+	return count, nil
 }
 
 // SaveGPUState saves gpu state info on the disk

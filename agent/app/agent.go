@@ -468,10 +468,15 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Register the container instance
 	err = agent.registerContainerInstance(client, vpcSubnetAttributes)
 	if err != nil {
-		if isTransient(err) {
-			return exitcodes.ExitError
+		if isTerminal(err) {
+			// On unrecoverable error codes, agent should terminally exit.
+			logger.Critical("Agent will terminally exit, unable to register container instance:", logger.Fields{
+				field.Error: err,
+			})
+			return exitcodes.ExitTerminal
 		}
-		return exitcodes.ExitTerminal
+		// Other errors are considered recoverable and will be retried.
+		return exitcodes.ExitError
 	}
 
 	// Load Managed Daemon images asynchronously
@@ -855,13 +860,19 @@ func (agent *ecsAgent) registerContainerInstance(
 			field.Error: err,
 		})
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
-			return err
+			return terminalError{err}
 		}
 		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
 				field.Error: err,
 			})
-			return err
+			return terminalError{err}
+		}
+		if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+			logger.Critical("Instance registration attempt with client performing invalid action", logger.Fields{
+				field.Error: err,
+			})
+			return terminalError{err}
 		}
 		if _, ok := err.(apierrors.AttributeError); ok {
 			attributeErrorMsg := ""
@@ -871,9 +882,9 @@ func (agent *ecsAgent) registerContainerInstance(
 			logger.Critical("Instance registration attempt with invalid attribute(s)", logger.Fields{
 				field.Error: attributeErrorMsg,
 			})
-			return err
+			return terminalError{err}
 		}
-		return transientError{err}
+		return err
 	}
 	logger.Info("Instance registration completed successfully", logger.Fields{
 		"instanceArn": containerInstanceArn,
@@ -903,7 +914,19 @@ func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabil
 	})
 	if apierrors.IsInstanceTypeChangedError(err) {
 		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
-		return err
+		return terminalError{err}
+	}
+	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
+		logger.Critical("Instance re-registration attempt with an invalid parameter", logger.Fields{
+			field.Error: err,
+		})
+		return terminalError{err}
+	}
+	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+		logger.Critical("Instance re-registration attempt with client performing invalid action", logger.Fields{
+			field.Error: err,
+		})
+		return terminalError{err}
 	}
 	if _, ok := err.(apierrors.AttributeError); ok {
 		attributeErrorMsg := ""
@@ -913,9 +936,9 @@ func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabil
 		logger.Critical("Instance re-registration attempt with invalid attribute(s)", logger.Fields{
 			field.Error: attributeErrorMsg,
 		})
-		return err
+		return terminalError{err}
 	}
-	return transientError{err}
+	return err
 }
 
 // startAsyncRoutines starts all background methods

@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
-	"github.com/docker/docker/pkg/aaparser"
+
 	aaprofile "github.com/docker/docker/profiles/apparmor"
 )
 
@@ -88,10 +90,26 @@ profile ecs-agent-default flags=(attach_disconnected,mediate_deleted) {
 
 var (
 	isProfileLoaded = aaprofile.IsLoaded
-	loadPath        = aaparser.LoadProfile
+	loadPath        = loadProfile
 	createFile      = os.Create
 	statFile        = os.Stat
 )
+
+// loadPath runs `apparmor_parser -Kr` on a specified apparmor profile to
+// replace the profile. The `-K` is necessary to make sure that apparmor_parser
+// doesn't try to write to a read-only filesystem.
+// reference: https://github.com/moby/moby/blob/a0524492712a1aa27ae0429028c09d04522926a5/profiles/apparmor/apparmor.go#L129
+func loadProfile(profilePath string) error {
+	c := exec.Command("apparmor_parser", "-Kr", profilePath)
+	c.Dir = ""
+
+	output, err := c.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("running `%s %s` failed with output: %s\nerror: %v", c.Path, strings.Join(c.Args, " "), output, err)
+	}
+
+	return nil
+}
 
 // LoadDefaultProfile ensures the default profile to be loaded with the given name.
 // Returns nil error if the profile is already loaded.

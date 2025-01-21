@@ -34,7 +34,6 @@ const (
 	Event                   = "event"
 	Image                   = "image"
 	Volume                  = "volume"
-	Time                    = "time"
 	NetworkMode             = "networkMode"
 	Cluster                 = "cluster"
 	ServiceName             = "ServiceName"
@@ -72,4 +71,5 @@ const (
 	CommandString           = "commandString"
 	CommandOutput           = "commandOutput"
 	RegistryID              = "registryID"
+	ExecutionStoppedAt      = "executionStoppedAt"
 )

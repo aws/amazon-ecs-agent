@@ -196,6 +196,8 @@ type ContainerHealth struct {
 
 	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
 
+	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
 	StatusSince *time.Time `locationName:"statusSince" type:"timestamp"`
 }
 
@@ -302,7 +304,7 @@ func (s Dimension) GoString() string {
 type EphemeralStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
-	BytesUtilized *ULongStatsSet `locationName:"bytesUtilized" type:"structure"`
+	BytesUtilized *ULongStatsSet `type:"structure"`
 }
 
 // String returns the string representation.
@@ -494,6 +496,30 @@ func (s HeartbeatOutput) GoString() string {
 	return s.String()
 }
 
+type InstanceMetrics struct {
+	_ struct{} `type:"structure"`
+
+	Storage *InstanceStorageMetrics `locationName:"storage" type:"structure"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InstanceMetrics) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InstanceMetrics) GoString() string {
+	return s.String()
+}
+
 type InstanceStatus struct {
 	_ struct{} `type:"structure"`
 
@@ -549,6 +575,32 @@ func (s InstanceStatusMetadata) String() string {
 // be included in the string output. The member name will be present, but the
 // value will be replaced with "sensitive".
 func (s InstanceStatusMetadata) GoString() string {
+	return s.String()
+}
+
+type InstanceStorageMetrics struct {
+	_ struct{} `type:"structure"`
+
+	DataFilesystem *float64 `type:"double"`
+
+	OSFilesystem *float64 `type:"double"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InstanceStorageMetrics) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InstanceStorageMetrics) GoString() string {
 	return s.String()
 }
 
@@ -912,6 +964,8 @@ func (s PublishInstanceStatusRequest) GoString() string {
 type PublishMetricsInput struct {
 	_ struct{} `type:"structure"`
 
+	InstanceMetrics *InstanceMetrics `locationName:"instanceMetrics" type:"structure"`
+
 	Metadata *MetricsMetadata `locationName:"metadata" type:"structure"`
 
 	TaskMetrics []*TaskMetric `locationName:"taskMetrics" type:"list"`
@@ -983,6 +1037,8 @@ func (s PublishMetricsOutput) GoString() string {
 
 type PublishMetricsRequest struct {
 	_ struct{} `type:"structure"`
+
+	InstanceMetrics *InstanceMetrics `locationName:"instanceMetrics" type:"structure"`
 
 	Metadata *MetricsMetadata `locationName:"metadata" type:"structure"`
 

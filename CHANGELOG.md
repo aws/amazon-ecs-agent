@@ -1,5 +1,10 @@
 # Changelog
 
+# 1.89.3
+* Enhancement - Migrate ec2 package to aws-sdk-go-v2 [#4446](https://github.com/aws/amazon-ecs-agent/pull/4446)
+* Enhancement - Handle specific exception codes on RCI call [#4457](https://github.com/aws/amazon-ecs-agent/pull/4457)
+* Enhancement - Rename duplicate time field to be more descriptive and unique [#4465](https://github.com/aws/amazon-ecs-agent/pull/4465)
+
 # 1.89.2
 * Enhancement - Refactors Branch ENI configuration to support all platform types [#4436](https://github.com/aws/amazon-ecs-agent/pull/4436)
 * Enhancement - Update agent version of https://github.com/containerd/cgroups from v3.0.2 to v3.0.4 [#4350](https://github.com/aws/amazon-ecs-agent/pull/4350)
