@@ -55,8 +55,9 @@ func TestGetAgentMetadata(t *testing.T) {
 		ContainerInstanceArn: containerInstanceArn,
 		ClusterName:          clusterName,
 	}
-	response, _ := agentState.GetAgentMetadata()
+	response, err := agentState.GetAgentMetadata()
 
+	assert.Nil(t, err)
 	assert.Equal(t, response.Cluster, clusterName)
 	assert.Equal(t, response.ContainerInstanceArn, containerInstanceArn)
 	assert.Equal(t, response.Version, agentversion.String())
@@ -85,7 +86,9 @@ func TestGetTasksMetadata(t *testing.T) {
 		ClusterName:          clusterName,
 		TaskEngine:           mockDockerState,
 	}
-	response, _ := agentState.GetTasksMetadata()
+	response, err := agentState.GetTasksMetadata()
+
+	assert.Nil(t, err)
 
 	assert.Equal(t, &introspection.TasksResponse{
 		Tasks: []*introspection.TaskResponse{
@@ -114,8 +117,9 @@ func TestGetTaskMetadataByArn(t *testing.T) {
 			ClusterName:          clusterName,
 			TaskEngine:           mockDockerState,
 		}
-		response, _ := agentState.GetTaskMetadataByArn(taskARN)
+		response, err := agentState.GetTaskMetadataByArn(taskARN)
 
+		assert.Nil(t, err)
 		assert.Equal(t, &expectedTaskResponse, response)
 	})
 	t.Run("task not found", func(t *testing.T) {
@@ -135,7 +139,7 @@ func TestGetTaskMetadataByArn(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByArn(taskARN)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", taskARN)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", taskARN)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -159,7 +163,7 @@ func TestGetTaskMetadataByArn(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByArn(taskARN)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", taskARN)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", taskARN)), err)
 	})
 }
 
@@ -183,8 +187,9 @@ func TestGetTaskMetadataByID(t *testing.T) {
 			ClusterName:          clusterName,
 			TaskEngine:           mockDockerState,
 		}
-		response, _ := agentState.GetTaskMetadataByID(containerID)
+		response, err := agentState.GetTaskMetadataByID(containerID)
 
+		assert.Nil(t, err)
 		assert.Equal(t, &expectedTaskResponse, response)
 	})
 	t.Run("task not found", func(t *testing.T) {
@@ -204,7 +209,7 @@ func TestGetTaskMetadataByID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", containerID)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", containerID)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -228,7 +233,7 @@ func TestGetTaskMetadataByID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", taskARN)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", taskARN)), err)
 	})
 }
 
@@ -252,8 +257,9 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 			ClusterName:          clusterName,
 			TaskEngine:           mockDockerState,
 		}
-		response, _ := agentState.GetTaskMetadataByShortID(containerID)
+		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
+		assert.Nil(t, err)
 		assert.Equal(t, &expectedTaskResponse, response)
 	})
 
@@ -274,7 +280,7 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", containerID)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", containerID)), err)
 	})
 
 	t.Run("multiple found", func(t *testing.T) {
@@ -284,7 +290,7 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 
 		mockDockerState := mock_utils.NewMockDockerStateResolver(ctrl)
 		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
-		mockTaskEngine.EXPECT().TaskByShortID(containerID).Return([]*apitask.Task{task, task}, false)
+		mockTaskEngine.EXPECT().TaskByShortID(containerID).Return([]*apitask.Task{task, task}, true)
 
 		mockDockerState.EXPECT().State().Return(mockTaskEngine)
 
@@ -296,7 +302,7 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorBadRequest(fmt.Sprintf("Multiple tasks found with short id %s", containerID)), err)
+		assert.Equal(t, introspection.NewErrorBadRequest(fmt.Sprintf("multiple tasks found with short id %s", containerID)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -320,6 +326,6 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", taskARN)), err)
+		assert.Equal(t, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", taskARN)), err)
 	})
 }

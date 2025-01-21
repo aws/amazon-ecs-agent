@@ -50,13 +50,16 @@ func TestNewServerDefaults(t *testing.T) {
 	agentState := NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 	t.Run("read/write defaults", func(t *testing.T) {
-		server, _ := NewServer(agentState, metricsFactory)
+		server, err := NewServer(agentState, metricsFactory)
+		assert.Nil(t, err)
 		assert.Equal(t, time.Duration(0), server.ReadTimeout)
 		assert.Equal(t, time.Duration(0), server.WriteTimeout)
 	})
 
 	t.Run("profiling off by default", func(t *testing.T) {
-		server, _ := NewServer(agentState, metricsFactory)
+		server, err := NewServer(agentState, metricsFactory)
+
+		assert.Nil(t, err)
 
 		req, err := http.NewRequest("GET", "/", nil)
 		require.NoError(t, err)

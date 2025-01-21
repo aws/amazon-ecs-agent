@@ -39,13 +39,18 @@ func ServeIntrospectionHTTPEndpoint(ctx context.Context, containerInstanceArn *s
 		TaskEngine:           dockerTaskEngine,
 	}
 
-	server, _ := introspection.NewServer(
+	server, err := introspection.NewServer(
 		agentState,
 		metrics.NewNopEntryFactory(),
 		introspection.WithReadTimeout(readTimeout),
 		introspection.WithWriteTimeout(writeTimeout),
 		introspection.WithRuntimeStats(cfg.EnableRuntimeStats.Enabled()),
 	)
+
+	if err != nil {
+		seelog.Criticalf("Failed to set up Introspection Server: %v", err)
+		return
+	}
 
 	go func() {
 		<-ctx.Done()

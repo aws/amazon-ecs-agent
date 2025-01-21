@@ -47,8 +47,8 @@ func licenseHandler(agentState AgentState, metricsFactory metrics.EntryFactory) 
 	}
 }
 
-// getErrorResponse returns an appropriate HTTP response status code and body for the error.
-func getErrorResponse(err error) (int, string) {
+// getHTTPErrorCode returns an appropriate HTTP response status code and body for the error.
+func getHTTPErrorCode(err error) (int, string) {
 	// There was something wrong with the request
 	var errBadRequest *ErrorBadRequest
 	if errors.As(err, &errBadRequest) {
@@ -79,7 +79,7 @@ func agentMetadataHandler(
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentMetadata, err := agentState.GetAgentMetadata()
 		if err != nil {
-			responseCode, metricName := getErrorResponse(err)
+			responseCode, metricName := getHTTPErrorCode(err)
 			metricsFactory.New(metricName).Done(err)
 			tmdsutils.WriteJSONResponse(w, responseCode, AgentMetadataResponse{}, requestTypeAgent)
 			return
@@ -130,7 +130,7 @@ func getTasksMetadata(
 ) {
 	tasksMetadata, err := agentState.GetTasksMetadata()
 	if err != nil {
-		responseCode, metricName := getErrorResponse(err)
+		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)
 		tmdsutils.WriteJSONResponse(w, responseCode, TasksResponse{}, requestTypeTasks)
 		return
@@ -148,7 +148,7 @@ func getTaskByArn(
 ) {
 	taskMetadata, err := agentState.GetTaskMetadataByArn(taskArn)
 	if err != nil {
-		responseCode, metricName := getErrorResponse(err)
+		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)
 		tmdsutils.WriteJSONResponse(w, responseCode, TaskResponse{}, requestTypeTasks)
 		return
@@ -166,7 +166,7 @@ func getTaskByID(
 ) {
 	taskMetadata, err := agentState.GetTaskMetadataByID(dockerID)
 	if err != nil {
-		responseCode, metricName := getErrorResponse(err)
+		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)
 		tmdsutils.WriteJSONResponse(w, responseCode, TaskResponse{}, requestTypeTasks)
 		return
@@ -184,7 +184,7 @@ func getTaskByShortID(
 ) {
 	taskMetadata, err := agentState.GetTaskMetadataByShortID(shortDockerID)
 	if err != nil {
-		responseCode, metricName := getErrorResponse(err)
+		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)
 		tmdsutils.WriteJSONResponse(w, responseCode, TaskResponse{}, requestTypeTasks)
 		return

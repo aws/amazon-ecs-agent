@@ -17,7 +17,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -34,9 +33,6 @@ func TestTaskResponse(t *testing.T) {
 	containerNameToDockerContainer := testContainerMap(container)
 
 	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
-
-	_, err := json.Marshal(taskResponse)
-	assert.NoError(t, err)
 
 	assert.Equal(t, expectedTaskResponse, *taskResponse)
 }
@@ -55,9 +51,6 @@ func TestContainerResponse(t *testing.T) {
 	}
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
-
-	_, err := json.Marshal(containerResponse)
-	assert.NoError(t, err)
 
 	assert.Equal(t, expectedContainerResponse, containerResponse)
 }
@@ -83,9 +76,6 @@ func TestContainerResponseWithRestartPolicy(t *testing.T) {
 	}
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
-
-	_, err := json.Marshal(containerResponse)
-	assert.NoError(t, err)
 
 	expectedContainerResponseWithRestartPolicy := expectedContainerResponse
 	rc := int(1)

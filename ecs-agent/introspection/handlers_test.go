@@ -517,25 +517,25 @@ func TestLicenseHandler(t *testing.T) {
 
 func TestGetErrorResponse(t *testing.T) {
 	t.Run("bad request error", func(t *testing.T) {
-		statusCode, metricName := getErrorResponse(NewErrorBadRequest(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(NewErrorBadRequest(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionBadRequest, metricName)
 		assert.Equal(t, http.StatusBadRequest, statusCode)
 	})
 
 	t.Run("not found error", func(t *testing.T) {
-		statusCode, metricName := getErrorResponse(NewErrorNotFound(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(NewErrorNotFound(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionNotFound, metricName)
 		assert.Equal(t, http.StatusNotFound, statusCode)
 	})
 
 	t.Run("fetch failed error", func(t *testing.T) {
-		statusCode, metricName := getErrorResponse(NewErrorFetchFailure(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(NewErrorFetchFailure(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionFetchFailure, metricName)
 		assert.Equal(t, http.StatusInternalServerError, statusCode)
 	})
 
 	t.Run("unknown error", func(t *testing.T) {
-		statusCode, metricName := getErrorResponse(errors.New(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(errors.New(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionInternalServerError, metricName)
 		assert.Equal(t, http.StatusInternalServerError, statusCode)
 	})

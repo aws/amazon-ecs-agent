@@ -52,16 +52,19 @@ func TestMetadataHandler(t *testing.T) {
 
 	mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
 
-	server, _ := introspection.NewServer(&v1.AgentStateImpl{
+	server, err := introspection.NewServer(&v1.AgentStateImpl{
 		ContainerInstanceArn: aws.String(testContainerInstanceArn),
 		ClusterName:          testClusterArn,
 		TaskEngine:           mockStateResolver,
 	}, metrics.NewNopEntryFactory(), introspection.WithRuntimeStats(runtimeStatsConfigForTest.Enabled()))
 
+	require.NoError(t, err, "unable to create server")
+
 	requestHandler := server.Handler
 
 	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/metadata", nil)
+	req, err := http.NewRequest("GET", "/v1/metadata", nil)
+	require.NoError(t, err, "unable to create request")
 	requestHandler.ServeHTTP(recorder, req)
 
 	var resp introspection.AgentMetadataResponse
@@ -236,19 +239,22 @@ func TestBackendMismatchMapping(t *testing.T) {
 	stateSetupHelper(state, []*apitask.Task{testTask})
 
 	mockStateResolver.EXPECT().State().Return(state)
-	server, _ := introspection.NewServer(&v1.AgentStateImpl{
+	server, err := introspection.NewServer(&v1.AgentStateImpl{
 		ContainerInstanceArn: aws.String(testContainerInstanceArn),
 		ClusterName:          testClusterArn,
 		TaskEngine:           mockStateResolver,
 	}, metrics.NewNopEntryFactory(), introspection.WithRuntimeStats(runtimeStatsConfigForTest.Enabled()))
 	requestHandler := server.Handler
 
+	require.NoError(t, err, "unable to create server")
+
 	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/tasks", nil)
+	req, err := http.NewRequest("GET", "/v1/tasks", nil)
+	require.NoError(t, err, "unable to create request")
 	requestHandler.ServeHTTP(recorder, req)
 
 	var tasksResponse introspection.TasksResponse
-	err := json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
+	err = json.Unmarshal(recorder.Body.Bytes(), &tasksResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,17 +438,21 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 
 	mockStateResolver.EXPECT().State().Return(state)
 
-	server, _ := introspection.NewServer(&v1.AgentStateImpl{
+	server, err := introspection.NewServer(&v1.AgentStateImpl{
 		ContainerInstanceArn: aws.String(testContainerInstanceArn),
 		ClusterName:          testClusterArn,
 		TaskEngine:           mockStateResolver,
 	}, metrics.NewNopEntryFactory(), introspection.WithRuntimeStats(runtimeStatsConfigForTest.Enabled()))
 
+	require.NoError(t, err, "unable to create server")
+
 	requestHandler := server.Handler
 
 	recorder := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", path, nil)
+	req, err := http.NewRequest("GET", path, nil)
 	requestHandler.ServeHTTP(recorder, req)
+
+	require.NoError(t, err, "unable to perform request")
 
 	return recorder
 }

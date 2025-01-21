@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type ServerTestConfig struct {
@@ -46,7 +47,7 @@ func TestServerSetup(t *testing.T) {
 
 		mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
 
-		server, _ := introspection.NewServer(&v1.AgentStateImpl{
+		server, err := introspection.NewServer(&v1.AgentStateImpl{
 			ContainerInstanceArn: aws.String("test_container_instance_arn"),
 			ClusterName:          "test_cluster_arn",
 			TaskEngine:           mockStateResolver,
@@ -56,10 +57,13 @@ func TestServerSetup(t *testing.T) {
 			introspection.WithRuntimeStats(config.runtimeStats),
 		)
 
+		require.NoError(t, err, "unable to create server")
+
 		requestHandler := server.Handler
 
 		recorder := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", path, nil)
+		req, err := http.NewRequest("GET", path, nil)
+		require.NoError(t, err, "unable to create request")
 		requestHandler.ServeHTTP(recorder, req)
 		return recorder
 	}

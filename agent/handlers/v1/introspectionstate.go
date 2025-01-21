@@ -55,7 +55,7 @@ func (as *AgentStateImpl) GetTasksMetadata() (*introspection.TasksResponse, erro
 	for ndx, task := range allTasks {
 		containerMap, ok := agentState.ContainerMapByArn(task.Arn)
 		if !ok {
-			return nil, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", task.Arn))
+			return nil, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", task.Arn))
 		}
 		taskResponses[ndx] = NewTaskResponse(task, containerMap)
 	}
@@ -68,11 +68,11 @@ func (as *AgentStateImpl) GetTaskMetadataByArn(taskArn string) (*introspection.T
 	agentState := as.TaskEngine.State()
 	task, found := agentState.TaskByArn(taskArn)
 	if !found {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", taskArn))
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", taskArn))
 	}
 	containerMap, ok := agentState.ContainerMapByArn(task.Arn)
 	if !ok {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", taskArn))
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", taskArn))
 	}
 	return NewTaskResponse(task, containerMap), nil
 }
@@ -83,11 +83,11 @@ func (as *AgentStateImpl) GetTaskMetadataByID(dockerID string) (*introspection.T
 	agentState := as.TaskEngine.State()
 	task, found := agentState.TaskByID(dockerID)
 	if !found {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", dockerID))
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", dockerID))
 	}
 	containerMap, ok := agentState.ContainerMapByArn(task.Arn)
 	if !ok {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", task.Arn))
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", task.Arn))
 	}
 	return NewTaskResponse(task, containerMap), nil
 }
@@ -96,15 +96,17 @@ func (as *AgentStateImpl) GetTaskMetadataByID(dockerID string) (*introspection.T
 // an error if the metadata cannot be retrieved.
 func (as *AgentStateImpl) GetTaskMetadataByShortID(shortDockerID string) (*introspection.TaskResponse, error) {
 	agentState := as.TaskEngine.State()
-	tasks, _ := agentState.TaskByShortID(shortDockerID)
-	if len(tasks) == 0 {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Task %s not found", shortDockerID))
-	} else if len(tasks) > 1 {
-		return nil, introspection.NewErrorBadRequest(fmt.Sprintf("Multiple tasks found with short id %s", shortDockerID))
+	tasks, found := agentState.TaskByShortID(shortDockerID)
+
+	if !found {
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("task %s not found", shortDockerID))
+	}
+	if len(tasks) > 1 {
+		return nil, introspection.NewErrorBadRequest(fmt.Sprintf("multiple tasks found with short id %s", shortDockerID))
 	}
 	containerMap, ok := agentState.ContainerMapByArn(tasks[0].Arn)
 	if !ok {
-		return nil, introspection.NewErrorNotFound(fmt.Sprintf("Container map for task %s not found", tasks[0].Arn))
+		return nil, introspection.NewErrorNotFound(fmt.Sprintf("container map for task %s not found", tasks[0].Arn))
 	}
 	return NewTaskResponse(tasks[0], containerMap), nil
 }
