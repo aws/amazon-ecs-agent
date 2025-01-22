@@ -868,7 +868,7 @@ func (agent *ecsAgent) registerContainerInstance(
 			})
 			return terminalError{err}
 		}
-		if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeClientException) {
 			logger.Critical("Instance registration attempt with client performing invalid action", logger.Fields{
 				field.Error: err,
 			})
@@ -916,13 +916,13 @@ func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabil
 		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
 		return terminalError{err}
 	}
-	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
+	if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 		logger.Critical("Instance re-registration attempt with an invalid parameter", logger.Fields{
 			field.Error: err,
 		})
 		return terminalError{err}
 	}
-	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+	if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeClientException) {
 		logger.Critical("Instance re-registration attempt with client performing invalid action", logger.Fields{
 			field.Error: err,
 		})
