@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// defaultExpectedAgentBinds is the total number of agent host config binds.
+// defaultExpectedAgentBinds is the total number of agent host config binds
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
