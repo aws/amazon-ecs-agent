@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.90.0
+* Enhancement - Upgrade to latest NVIDIA NVML package [#4469](https://github.com/aws/amazon-ecs-agent/pull/4469)
+* Enhancement - Update SSM GPG key for ECS anywhere installation [#4474](https://github.com/aws/amazon-ecs-agent/pull/4474)
+
 # 1.89.3
 * Enhancement - Migrate ec2 package to aws-sdk-go-v2 [#4446](https://github.com/aws/amazon-ecs-agent/pull/4446)
 * Enhancement - Handle specific exception codes on RCI call [#4457](https://github.com/aws/amazon-ecs-agent/pull/4457)
