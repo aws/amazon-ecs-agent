@@ -250,6 +250,7 @@ func validateCommonCreateContainerOptions(
 
 	hostCfg := opts.HostConfig
 
+	fmt.Printf("List of bind mounts: %v", hostCfg.Binds)
 	assert.Len(t, hostCfg.Binds, expectedAgentBinds)
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
