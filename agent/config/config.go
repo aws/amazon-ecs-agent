@@ -603,6 +603,7 @@ func environmentConfig() (Config, error) {
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
+		FirelensAsyncEnabled:                parseBooleanDefaultTrueConfig("ECS_ENABLE_FIRELENS_ASYNC"),
 	}, err
 }
 

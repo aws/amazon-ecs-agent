@@ -394,4 +394,8 @@ type Config struct {
 
 	// NodeUnstageTimeout is the amount of time to wait for unstaging an EBS TA volume
 	NodeUnstageTimeout time.Duration
+
+	// FirelensAsyncEnabled specifies whether the agent should enable the async connect option of the
+	// fluentd log driver. Ref: https://docs.docker.com/engine/logging/drivers/fluentd/#fluentd-async
+	FirelensAsyncEnabled BooleanDefaultTrue
 }
