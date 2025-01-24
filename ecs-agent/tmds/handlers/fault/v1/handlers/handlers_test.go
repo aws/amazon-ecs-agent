@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,6 +60,9 @@ const (
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
 	tcLossFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
 	tcCommandEmptyOutput              = `[]`
+	startEndpoint                     = "/api/%s/fault/v1/%s/start"
+	stopEndpoint                      = "/api/%s/fault/v1/%s/stop"
+	path                              = "/some/path"
 )
 
 var (
@@ -76,7 +80,7 @@ var (
 
 	happyNetworkNamespaces = []*state.NetworkNamespace{
 		{
-			Path:              "/some/path",
+			Path:              path,
 			NetworkInterfaces: happyNetworkInterfaces,
 		},
 	}
@@ -2027,9 +2031,13 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
 				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
 				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+				)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(2).Return([]byte(""), nil)
 			},
 		},
 		{
@@ -2174,4 +2182,298 @@ func TestStopNetworkPacketLoss(t *testing.T) {
 func TestCheckNetworkPacketLoss(t *testing.T) {
 	tcs := generateCheckNetworkPacketLossTestCases()
 	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
+}
+
+func TestNetworkFaultRequestOrdering(t *testing.T) {
+	tcs := []struct {
+		name                      string
+		faultType                 string
+		requestBody               interface{}
+		setAgentStateExpectations func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient)
+		setExecExpectations       func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller, firstStartExecCmd, firstStopExecCmd []interface{})
+	}{
+		{
+			name:        types.BlackHolePortFaultType + "request ordering",
+			faultType:   types.BlackHolePortFaultType,
+			requestBody: happyBlackHolePortReqBody,
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(2)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller, firstStartExecCmd, firstStopExecCmd []interface{}) {
+				startCtx, startCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				stopCtx, stopCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				// We want to ensure that the start fault request executes and finishes first before the stop fault request.
+				// We can enforce the ordering of exec mock calls.
+				gomock.InOrder(
+					// Exec mocks for start black hole port request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
+						// Sleep for 2 seconds to mock that the request is taking some time
+						time.Sleep(2 * time.Second)
+					}).Times(1).Return(startCtx, startCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
+					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
+					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					// Ensuring that the start request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStartExecCmd[0], firstStartExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+
+					// Exec mocks for stop black hole port request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(stopCtx, stopCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Ensuring that the stop request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStopExecCmd[0], firstStopExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+				)
+			},
+		},
+		{
+			name:        types.LatencyFaultType + "request ordering",
+			faultType:   types.LatencyFaultType,
+			requestBody: happyNetworkLatencyReqBody,
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(2)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller, firstStartExecCmd, firstStopExecCmd []interface{}) {
+				startCtx, startCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				stopCtx, stopCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				// We want to ensure that the start fault request executes and finishes first before the stop fault request.
+				// We can enforce the ordering of exec mock calls.
+				gomock.InOrder(
+					// Exec mocks for start latency request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
+						// Sleep for 2 seconds to mock that the request is taking some time
+						time.Sleep(2 * time.Second)
+					}).Times(1).Return(startCtx, startCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					// Ensuring that the start request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStartExecCmd[0], firstStartExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+
+					// Exec mocks for stop latency request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(stopCtx, stopCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+					// Ensuring that the stop request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStopExecCmd[0], firstStopExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(""), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(""), nil),
+				)
+			},
+		},
+		{
+			name:        types.PacketLossFaultType + "request ordering",
+			faultType:   types.PacketLossFaultType,
+			requestBody: happyNetworkPacketLossReqBody,
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponse, nil).
+					Times(2)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller, firstStartExecCmd, firstStopExecCmd []interface{}) {
+				startCtx, startCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				stopCtx, stopCancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
+				// We want to ensure that the start fault request executes and finishes first before the stop fault request.
+				// We can enforce the ordering of exec mock calls.
+				gomock.InOrder(
+					// Exec mocks for start packet loss request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Do(func(_, _ interface{}) {
+						// Sleep for 2 seconds to mock that the request is taking some time
+						time.Sleep(2 * time.Second)
+					}).Times(1).Return(startCtx, startCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					// Ensuring that the start request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStartExecCmd[0], firstStartExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+
+					// Exec mocks for stop packet loss request
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(stopCtx, stopCancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+					// Ensuring that the stop request is running here by also passing in the expected parameters for the first CommandContext call
+					exec.EXPECT().CommandContext(gomock.Any(), firstStopExecCmd[0], firstStopExecCmd[1:]...).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(""), nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(""), nil),
+				)
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			agentState := mock_state.NewMockAgentState(ctrl)
+			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+			router := mux.NewRouter()
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			handler := New(agentState, metricsFactory, mockExec)
+			networkConfigClient := netconfig.NewNetworkConfigClient()
+
+			var startHandleMethod, stopHandleMethod func(http.ResponseWriter, *http.Request)
+			var firstStartExecCmd, firstStopExecCmd []string
+			nsenterPrefix := fmt.Sprintf(nsenterCommandString, path)
+			switch tc.faultType {
+			case types.BlackHolePortFaultType:
+				chain := fmt.Sprintf("%s-%s-%d", trafficType, protocol, port)
+
+				newChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesNewChainCmd, requestTimeoutSeconds, chain)
+				firstStartExecCmd = strings.Split(newChainCmdString, " ")
+
+				clearChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesClearChainCmd, requestTimeoutSeconds, chain)
+				firstStopExecCmd = strings.Split(clearChainCmdString, " ")
+
+				startHandleMethod = handler.StartNetworkBlackholePort()
+				stopHandleMethod = handler.StopNetworkBlackHolePort()
+			case types.LatencyFaultType:
+				tcAddQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscRootCommandString, deviceName)
+				firstStartExecCmd = strings.Split(tcAddQdiscRootCommandComposed, " ")
+
+				tcDeleteQdiscParentCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteQdiscParentCommandString, deviceName)
+				firstStopExecCmd = strings.Split(tcDeleteQdiscParentCommandComposed, " ")
+
+				startHandleMethod = handler.StartNetworkLatency()
+				stopHandleMethod = handler.StopNetworkLatency()
+			case types.PacketLossFaultType:
+				tcAddQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscRootCommandString, deviceName)
+				firstStartExecCmd = strings.Split(tcAddQdiscRootCommandComposed, " ")
+
+				tcDeleteQdiscParentCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteQdiscParentCommandString, deviceName)
+				firstStopExecCmd = strings.Split(tcDeleteQdiscParentCommandComposed, " ")
+
+				startHandleMethod = handler.StartNetworkPacketLoss()
+				stopHandleMethod = handler.StopNetworkPacketLoss()
+			default:
+				t.Error("Unrecognized network fault type")
+			}
+
+			tc.setAgentStateExpectations(agentState, networkConfigClient)
+			tc.setExecExpectations(mockExec, ctrl, convertToInterfaceList(firstStartExecCmd), convertToInterfaceList(firstStopExecCmd))
+
+			router.HandleFunc(
+				NetworkFaultPath(tc.faultType, types.StartNetworkFaultPostfix),
+				startHandleMethod,
+			).Methods(http.MethodPost)
+
+			router.HandleFunc(
+				NetworkFaultPath(tc.faultType, types.StopNetworkFaultPostfix),
+				stopHandleMethod,
+			).Methods(http.MethodPost)
+
+			var requestBody io.Reader
+			reqBodyBytes, err := json.Marshal(tc.requestBody)
+			require.NoError(t, err)
+			requestBody = bytes.NewReader(reqBodyBytes)
+			startReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf(startEndpoint, endpointId, tc.faultType), requestBody)
+			require.NoError(t, err)
+
+			ch1 := make(chan struct {
+				int
+				error
+			})
+
+			reqBodyBytes, err = json.Marshal(tc.requestBody)
+			require.NoError(t, err)
+			requestBody = bytes.NewReader(reqBodyBytes)
+			stopReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf(stopEndpoint, endpointId, tc.faultType), requestBody)
+			require.NoError(t, err)
+
+			ch2 := make(chan struct {
+				int
+				error
+			})
+
+			// Make an asynchronous Start request first
+			go makeAsyncRequest(router, startReq, ch1)
+
+			// Waiting a bit before sending the stop request
+			time.Sleep(1 * time.Second)
+
+			// Make an asynchronous Stop request second
+			go makeAsyncRequest(router, stopReq, ch2)
+
+			// Waiting to get the status code of the start request
+			resp1 := <-ch1
+			require.NoError(t, resp1.error)
+			assert.Equal(t, http.StatusOK, resp1.int)
+
+			// Waiting to get the status code of the stop request
+			resp2 := <-ch2
+			require.NoError(t, resp2.error)
+			assert.Equal(t, http.StatusOK, resp2.int)
+		})
+	}
+}
+
+// Helper function for making asynchronous mock HTTP requests
+func makeAsyncRequest(router *mux.Router, req *http.Request, ch chan<- struct {
+	int
+	error
+}) {
+	defer close(ch)
+
+	// Makes a mock HTTP request
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	var actualResponseBody types.NetworkFaultInjectionResponse
+	err := json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
+	if err != nil {
+		ch <- struct {
+			int
+			error
+		}{-1, err}
+	} else {
+		ch <- struct {
+			int
+			error
+		}{recorder.Code, nil}
+	}
+}
+
+func convertToInterfaceList(strings []string) []interface{} {
+	interfaces := make([]interface{}, len(strings))
+	for i, s := range strings {
+		interfaces[i] = s
+	}
+	return interfaces
 }
