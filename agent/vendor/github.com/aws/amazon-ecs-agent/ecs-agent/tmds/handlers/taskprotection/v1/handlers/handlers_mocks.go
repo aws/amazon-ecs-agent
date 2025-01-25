@@ -50,11 +50,12 @@ func (m *MockTaskProtectionClientFactoryInterface) EXPECT() *MockTaskProtectionC
 }
 
 // NewTaskProtectionClient mocks base method.
-func (m *MockTaskProtectionClientFactoryInterface) NewTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) ecs.ECSTaskProtectionSDK {
+func (m *MockTaskProtectionClientFactoryInterface) NewTaskProtectionClient(arg0 credentials.TaskIAMRoleCredentials) (ecs.ECSTaskProtectionSDK, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewTaskProtectionClient", arg0)
 	ret0, _ := ret[0].(ecs.ECSTaskProtectionSDK)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewTaskProtectionClient indicates an expected call of NewTaskProtectionClient.

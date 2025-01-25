@@ -14,7 +14,11 @@
 package v2
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -25,9 +29,7 @@ import (
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 )
 
 // Agent versions >= 1.2.0: Null, zero, and CPU values of 1
@@ -278,6 +280,18 @@ func newErrorResponse(err error, field, resourceARN string) *tmdsv2.ErrorRespons
 			errResp.StatusCode = reqErr.StatusCode()
 			errResp.RequestId = reqErr.RequestID()
 		}
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		errResp.ErrorCode = apiErr.ErrorCode()
+		errResp.ErrorMessage = apiErr.ErrorMessage()
+	}
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		errResp.StatusCode = re.HTTPStatusCode()
+		errResp.RequestId = re.RequestID
 	}
 
 	return errResp

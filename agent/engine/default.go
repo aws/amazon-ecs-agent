@@ -24,16 +24,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // NewTaskEngine returns a default TaskEngine
 func NewTaskEngine(cfg *config.Config, client dockerapi.DockerClient,
 	credentialsManager credentials.Manager,
 	containerChangeEventStream *eventstream.EventStream,
-	imageManager ImageManager, hostResources map[string]*ecs.Resource, state dockerstate.TaskEngineState,
+	imageManager ImageManager, hostResources map[string]types.Resource, state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
 	execCmdMgr execcmd.Manager,

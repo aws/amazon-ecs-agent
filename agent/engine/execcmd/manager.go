@@ -21,13 +21,13 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
-	ExecuteCommandAgentName    = ecs.ManagedAgentNameExecuteCommandAgent
+	ExecuteCommandAgentName    = string(types.ManagedAgentNameExecuteCommandAgent)
 	defaultStartRetryTimeout   = time.Minute * 10
 	defaultRetryMinDelay       = time.Second * 1
 	defaultRetryMaxDelay       = time.Second * 30
