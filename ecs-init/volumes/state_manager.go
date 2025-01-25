@@ -20,7 +20,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/types"
+
 	"github.com/cihub/seelog"
 )
 
@@ -138,7 +140,7 @@ func saveState(b []byte) error {
 var fileExists = checkFile
 
 func checkFile(filename string) bool {
-	_, err := os.Stat(filename)
+	_, err := config.OsStat(filename)
 	return !os.IsNotExist(err)
 }
 

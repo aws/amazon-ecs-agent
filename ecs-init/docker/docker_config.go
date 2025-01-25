@@ -45,10 +45,10 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+readOnly,
 		iptablesAltDir+":"+iptablesAltDir+readOnly,
 		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
-		"/usr/bin/lsblk:/usr/bin/lsblk",
+		lsblkDir+":"+lsblkDir,
 	)
-	binds = append(binds, getNsenterBinds(os.Stat)...)
-	binds = append(binds, getModInfoBinds(os.Stat)...)
+	binds = append(binds, getNsenterBinds(config.OsStat)...)
+	binds = append(binds, getModInfoBinds(config.OsStat)...)
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
@@ -89,12 +89,11 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 // Returns an empty slice otherwise.
 func getNsenterBinds(statFn func(string) (os.FileInfo, error)) []string {
 	binds := []string{}
-	const nsenterPath = "/usr/bin/nsenter"
-	if _, err := statFn(nsenterPath); err == nil {
-		binds = append(binds, nsenterPath+":"+nsenterPath)
+	if _, err := statFn(nsEnterDir); err == nil {
+		binds = append(binds, nsEnterDir+":"+nsEnterDir)
 	} else {
 		seelog.Warnf("nsenter not found at %s, skip binding it to Agent container: %v",
-			nsenterPath, err)
+			nsEnterDir, err)
 	}
 	return binds
 }
@@ -104,8 +103,8 @@ func getNsenterBinds(statFn func(string) (os.FileInfo, error)) []string {
 func getModInfoBinds(statFn func(string) (os.FileInfo, error)) []string {
 	binds := []string{}
 	modInfoPathLocations := []string{
-		"/sbin/modinfo",
-		"/usr/sbin/modinfo",
+		modInfoSbinDir,
+		modInfoUsrSbinDir,
 	}
 	for _, path := range modInfoPathLocations {
 		if _, err := statFn(path); err == nil {
