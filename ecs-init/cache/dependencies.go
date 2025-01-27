@@ -26,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 
+	cfg "github.com/aws/amazon-ecs-agent/ecs-init/config"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -185,7 +187,7 @@ func (s *standardFS) Open(name string) (io.ReadCloser, error) {
 }
 
 func (s *standardFS) Stat(name string) (fileSizeInfo, error) {
-	return os.Stat(name)
+	return cfg.OsStat(name)
 }
 
 func (s *standardFS) Base(path string) string {

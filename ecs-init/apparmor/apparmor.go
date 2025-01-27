@@ -92,7 +92,6 @@ var (
 	isProfileLoaded = aaprofile.IsLoaded
 	loadPath        = loadProfile
 	createFile      = os.Create
-	statFile        = os.Stat
 )
 
 // loadPath runs `apparmor_parser -Kr` on a specified apparmor profile to
@@ -152,7 +151,7 @@ func LoadDefaultProfile(profileName string) error {
 }
 
 func fileExists(path string) (bool, error) {
-	_, err := statFile(path)
+	_, err := config.OsStat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil

@@ -117,6 +117,19 @@ const (
 	// nvidiaGPUDevicesPresentMaxRetries specifies the maximum number of retries to attempt for checking if NVIDIA
 	// GPU devices are present.
 	nvidiaGPUDevicesPresentMaxRetries = 10
+
+	// lsblk lists information about block devices. This is used by the ECS agent for the EBS task attach functionality.
+	// Ref: https://man7.org/linux/man-pages/man8/lsblk.8.html
+	lsblkDir = "/usr/bin/lsblk"
+
+	// nsenter helps run program in different namespaces. This is used by the ECS agent for the fault inject functionality.
+	// Ref: https://man7.org/linux/man-pages/man1/nsenter.1.html
+	nsEnterDir = "/usr/bin/nsenter"
+
+	// modinfo is used to display information about a Linux kernel module. This is used by the ECS agent for the
+	// fault inject functionality. Ref: https://man7.org/linux/man-pages/man8/modinfo.8.html
+	modInfoSbinDir    = "/sbin/modinfo"
+	modInfoUsrSbinDir = "/usr/sbin/modinfo"
 )
 
 // Do NOT include "CAP_" in capability string
@@ -495,7 +508,7 @@ func getCredentialsFetcherSocketBind() (string, bool) {
 	credentialsFetcherUnixSocketHostPath, ok := config.HostCredentialsFetcherPath()
 	if ok && credentialsFetcherUnixSocketHostPath != "" {
 		// check whether the path to the credentials fetcher socket exists
-		_, err := os.Stat(credentialsFetcherUnixSocketHostPath)
+		_, err := config.OsStat(credentialsFetcherUnixSocketHostPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return "", false
@@ -508,7 +521,7 @@ func getCredentialsFetcherSocketBind() (string, bool) {
 }
 
 // getDockerSocketBind returns the bind for Docker socket.
-// Value for the bind is as follow:
+// Value for the bind is as follows:
 //  1. DOCKER_HOST (as in os.Getenv) not set: source /var/run, dest /var/run
 //  2. DOCKER_HOST (as in os.Getenv) set: source DOCKER_HOST (as in os.Getenv, trim unix:// prefix),
 //     dest DOCKER_HOST (as in /etc/ecs/ecs.config, trim unix:// prefix)
@@ -562,7 +575,7 @@ func getCapabilityBinds() []string {
 }
 
 func defaultIsPathValid(path string, shouldBeDirectory bool) bool {
-	fileInfo, err := os.Stat(path)
+	fileInfo, err := config.OsStat(path)
 	if err != nil {
 		return false
 	}

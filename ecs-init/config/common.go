@@ -110,6 +110,9 @@ const (
 	ECSAgentAppArmorDefaultProfileName = "ecs-agent-default"
 )
 
+// OsStat is useful for mocking in unit tests
+var OsStat = os.Stat
+
 // partitionBucketRegion provides the "partitional" bucket region
 // suitable for downloading agent from.
 var partitionBucketRegion = map[string]string{
@@ -256,17 +259,17 @@ func MountDirectoryEBS() string {
 	return directoryPrefix + "/mnt/ecs/ebs"
 }
 
-// HostCertsDirPath() returns the CA store path on the host
+// HostCertsDirPath returns the CA store path on the host
 func HostCertsDirPath() string {
-	if _, err := os.Stat(hostCertsDirPath); err != nil {
+	if _, err := OsStat(hostCertsDirPath); err != nil {
 		return ""
 	}
 	return hostCertsDirPath
 }
 
-// HostPKIDirPath() returns the CA store path on the host
+// HostPKIDirPath returns the CA store path on the host
 func HostPKIDirPath() string {
-	if _, err := os.Stat(hostPKIDirPath); err != nil {
+	if _, err := OsStat(hostPKIDirPath); err != nil {
 		return ""
 	}
 	return hostPKIDirPath
