@@ -91,6 +91,14 @@ type Config struct {
 	// sent to the ECS telemetry endpoint
 	DisableMetrics BooleanDefaultFalse
 
+	// DisableNetworkMetrics configures whether task network IO utilization metrics should be
+	// sent to the ECS telemetry endpoint
+	DisableNetworkMetrics BooleanDefaultFalse
+
+	// DisableStorageMetrics configures whether task block IO utilization metrics should be
+	// sent to the ECS telemetry endpoint
+	DisableStorageMetrics BooleanDefaultFalse
+
 	// PollMetrics configures whether metrics are constantly streamed for each container or
 	// polled on interval instead.
 	PollMetrics BooleanDefaultFalse
