@@ -574,8 +574,10 @@ func TestCreateContainerTimeout(t *testing.T) {
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
-	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &dockercontainer.Config{}, hostConfig,
-		&network.NetworkingConfig{}, gomock.Any(), "containerName").Do(func(u, v, w, x, y, z interface{}) {
+	networkConfig := &network.NetworkingConfig{EndpointsConfig: make(map[string]*network.EndpointSettings)}
+
+	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &dockercontainer.Config{}, hostConfig, networkConfig,
+		gomock.Any(), "containerName").Do(func(u, v, w, x, y, z interface{}) {
 		wait.Wait()
 	}).MaxTimes(1).Return(dockercontainer.CreateResponse{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -592,6 +594,8 @@ func TestCreateContainer(t *testing.T) {
 
 	name := "containerName"
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
+	dockerContainerConfig := &dockercontainer.Config{}
+
 	gomock.InOrder(
 		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any(), hostConfig, gomock.Any(), gomock.Any(), name).
 			Do(func(u, v, actualHostConfig, x, y, actualName interface{}) {
@@ -609,7 +613,7 @@ func TestCreateContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, nil, hostConfig, name, defaultTestConfig().ContainerCreateTimeout)
+	metadata := client.CreateContainer(ctx, dockerContainerConfig, hostConfig, name, defaultTestConfig().ContainerCreateTimeout)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
