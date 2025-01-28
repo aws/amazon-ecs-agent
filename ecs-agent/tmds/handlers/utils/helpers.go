@@ -89,17 +89,37 @@ func WriteJSONResponse(
 // WriteJSONToResponse writes the header, JSON response to a ResponseWriter, and
 // log the error if necessary.
 func WriteJSONToResponse(w http.ResponseWriter, httpStatusCode int, responseJSON []byte, requestType string) {
-	w.Header().Set("Content-Type", "application/json")
+	writeContentToResponse(w, "application/json", httpStatusCode, requestType, responseJSON)
+}
+
+// WriteStringToResponse writes the header, plaintext response to a ResponseWriter, and
+// log the error if necessary.
+func WriteStringToResponse(w http.ResponseWriter, httpStatusCode int, response string, requestType string) {
+	writeContentToResponse(w, "text/plain", httpStatusCode, requestType, []byte(response))
+}
+
+// logFriendlyContentType returns a friendly name for an http Content-Type header for the purpose of logging.
+func logFriendlyContentType(contentType string) string {
+	if contentType == "application/json" {
+		return "JSON"
+	}
+	return "plaintext"
+}
+
+func writeContentToResponse(w http.ResponseWriter, contentType string, httpStatusCode int, requestType string, response []byte) {
+	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(httpStatusCode)
-	_, err := w.Write(responseJSON)
+	_, err := w.Write([]byte(response))
 	if err != nil {
 		seelog.Errorf(
-			"Unable to write %s json response message to ResponseWriter",
-			requestType)
+			"Unable to write response message to ResponseWriter")
 	}
-
+	responseString := string(response)
+	if responseString == "" {
+		responseString = "<empty>"
+	}
 	if httpStatusCode >= 400 && httpStatusCode <= 599 {
-		seelog.Errorf("HTTP response status code is '%d', request type is: %s, and response in JSON is %s", httpStatusCode, requestType, string(responseJSON))
+		seelog.Errorf("HTTP response status code is '%d', request type is: %s, and response in %s is %s", httpStatusCode, requestType, logFriendlyContentType(contentType), responseString)
 	}
 }
 
