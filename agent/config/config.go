@@ -603,6 +603,8 @@ func environmentConfig() (Config, error) {
 		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
+		OverrideBridgeNetworkName:           os.Getenv("ECS_OVERRIDE_BRIDGE_NETWORK_NAME"),
+		AddContainerNameAsNetworkAlias:      parseBooleanDefaultTrueConfig("ECS_ADD_CONTAINER_NAME_AS_NETWORK_ALIAS"),
 	}, err
 }
 
