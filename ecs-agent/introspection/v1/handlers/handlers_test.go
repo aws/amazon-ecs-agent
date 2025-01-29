@@ -14,7 +14,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package introspection
+package handlers
 
 import (
 	"encoding/json"
@@ -24,6 +24,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
+	mock_v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
@@ -59,19 +61,19 @@ const (
 	testEndpoint         = "test endpoint"
 )
 
-var testAgentMetadata = &AgentMetadataResponse{
+var testAgentMetadata = &v1.AgentMetadataResponse{
 	Cluster:              cluster,
 	ContainerInstanceArn: aws.String(conatinerInstanceArn),
 	Version:              agentVersion,
 }
 
-var testTask = &TaskResponse{
+var testTask = &v1.TaskResponse{
 	Arn:           "t1",
 	DesiredStatus: statusRunning,
 	KnownStatus:   statusRunning,
 	Family:        "sleep",
 	Version:       "1",
-	Containers: []ContainerResponse{
+	Containers: []v1.ContainerResponse{
 		{
 			DockerID:   dockerId,
 			DockerName: dockerName,
@@ -101,17 +103,17 @@ var testTask = &TaskResponse{
 	},
 }
 
-var testTasks = &TasksResponse{
-	Tasks: []*TaskResponse{
+var testTasks = &v1.TasksResponse{
+	Tasks: []*v1.TaskResponse{
 		testTask,
 	},
 }
 
 type IntrospectionResponse interface {
 	string |
-		*AgentMetadataResponse |
-		*TaskResponse |
-		*TasksResponse
+		*v1.AgentMetadataResponse |
+		*v1.TaskResponse |
+		*v1.TasksResponse
 }
 
 type IntrospectionTestCase[R IntrospectionResponse] struct {
@@ -122,11 +124,11 @@ type IntrospectionTestCase[R IntrospectionResponse] struct {
 }
 
 func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase IntrospectionTestCase[R]) (
-	*gomock.Controller, *MockAgentState, *mock_metrics.MockEntryFactory, *http.Request, *httptest.ResponseRecorder) {
+	*gomock.Controller, *mock_v1.MockAgentState, *mock_metrics.MockEntryFactory, *http.Request, *httptest.ResponseRecorder) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	agentState := NewMockAgentState(ctrl)
+	agentState := mock_v1.NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	req, err := http.NewRequest("GET", testCase.Path, nil)
@@ -137,7 +139,7 @@ func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase Introspect
 }
 
 func TestAgentMetadataHandler(t *testing.T) {
-	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*AgentMetadataResponse]) *httptest.ResponseRecorder {
+	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.AgentMetadataResponse]) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetAgentMetadata().
@@ -148,13 +150,13 @@ func TestAgentMetadataHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		agentMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		AgentMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 
 	t.Run("happy case", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*AgentMetadataResponse]{
-			Path:          agentMetadataPath,
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata,
 			Err:           nil,
 		})
@@ -163,13 +165,13 @@ func TestAgentMetadataHandler(t *testing.T) {
 		assert.Equal(t, string(testAgentMetadataJson), recorder.Body.String())
 	})
 
-	emptyMetadataResponse, _ := json.Marshal(AgentMetadataResponse{})
+	emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
 
 	t.Run("bad request", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*AgentMetadataResponse]{
-			Path:          agentMetadataPath,
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata,
-			Err:           NewErrorBadRequest(internalErrorText),
+			Err:           v1.NewErrorBadRequest(internalErrorText),
 			MetricName:    metrics.IntrospectionBadRequest,
 		})
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -177,10 +179,10 @@ func TestAgentMetadataHandler(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*AgentMetadataResponse]{
-			Path:          agentMetadataPath,
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata,
-			Err:           NewErrorNotFound(internalErrorText),
+			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -188,10 +190,10 @@ func TestAgentMetadataHandler(t *testing.T) {
 	})
 
 	t.Run("fetch failure", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*AgentMetadataResponse]{
-			Path:          agentMetadataPath,
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata,
-			Err:           NewErrorFetchFailure(internalErrorText),
+			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -199,8 +201,8 @@ func TestAgentMetadataHandler(t *testing.T) {
 	})
 
 	t.Run("unkown error", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*AgentMetadataResponse]{
-			Path:          agentMetadataPath,
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata,
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -212,7 +214,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 
 func TestTasksHandler(t *testing.T) {
 	/* all tasks */
-	var performMockTasksRequest = func(t *testing.T, testCase IntrospectionTestCase[*TasksResponse]) *httptest.ResponseRecorder {
+	var performMockTasksRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.TasksResponse]) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetTasksMetadata().
@@ -223,12 +225,12 @@ func TestTasksHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		tasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		TasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 	t.Run("all tasks: happy case", func(t *testing.T) {
-		recorder := performMockTasksRequest(t, IntrospectionTestCase[*TasksResponse]{
-			Path:          tasksMetadataPath,
+		recorder := performMockTasksRequest(t, IntrospectionTestCase[*v1.TasksResponse]{
+			Path:          V1TasksMetadataPath,
 			AgentResponse: testTasks,
 			Err:           nil,
 		})
@@ -237,13 +239,13 @@ func TestTasksHandler(t *testing.T) {
 		assert.Equal(t, string(testTasksJSON), recorder.Body.String())
 	})
 
-	emptyTasksResponse, _ := json.Marshal(TasksResponse{})
+	emptyTasksResponse, _ := json.Marshal(v1.TasksResponse{})
 
 	t.Run("all tasks: not found", func(t *testing.T) {
-		recorder := performMockTasksRequest(t, IntrospectionTestCase[*TasksResponse]{
-			Path:          tasksMetadataPath,
+		recorder := performMockTasksRequest(t, IntrospectionTestCase[*v1.TasksResponse]{
+			Path:          V1TasksMetadataPath,
 			AgentResponse: nil,
-			Err:           NewErrorNotFound(internalErrorText),
+			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -251,10 +253,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("all tasks: fetch failed", func(t *testing.T) {
-		recorder := performMockTasksRequest(t, IntrospectionTestCase[*TasksResponse]{
-			Path:          tasksMetadataPath,
+		recorder := performMockTasksRequest(t, IntrospectionTestCase[*v1.TasksResponse]{
+			Path:          V1TasksMetadataPath,
 			AgentResponse: nil,
-			Err:           NewErrorFetchFailure(internalErrorText),
+			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -262,8 +264,8 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("all tasks: unknown error", func(t *testing.T) {
-		recorder := performMockTasksRequest(t, IntrospectionTestCase[*TasksResponse]{
-			Path:          tasksMetadataPath,
+		recorder := performMockTasksRequest(t, IntrospectionTestCase[*v1.TasksResponse]{
+			Path:          V1TasksMetadataPath,
 			AgentResponse: nil,
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -273,7 +275,7 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	/* task by Id */
-	performMockTaskRequest := func(t *testing.T, testCase IntrospectionTestCase[*TaskResponse]) *httptest.ResponseRecorder {
+	performMockTaskRequest := func(t *testing.T, testCase IntrospectionTestCase[*v1.TaskResponse]) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetTaskMetadataByID(dockerId).
@@ -284,13 +286,13 @@ func TestTasksHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		tasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		TasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 
 	t.Run("task by Id: happy case", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, dockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, dockerId),
 			AgentResponse: testTask,
 			Err:           nil,
 		})
@@ -299,13 +301,13 @@ func TestTasksHandler(t *testing.T) {
 		assert.Equal(t, string(testTaskJSON), recorder.Body.String())
 	})
 
-	emptyTaskResponse, _ := json.Marshal(TaskResponse{})
+	emptyTaskResponse, _ := json.Marshal(v1.TaskResponse{})
 
 	t.Run("task by id: not found", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, dockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, dockerId),
 			AgentResponse: nil,
-			Err:           NewErrorNotFound(internalErrorText),
+			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -313,10 +315,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by id: fetch failed", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, dockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, dockerId),
 			AgentResponse: nil,
-			Err:           NewErrorFetchFailure(internalErrorText),
+			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -324,8 +326,8 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by id: unknown error", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, dockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, dockerId),
 			AgentResponse: nil,
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -335,7 +337,7 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	/* task by short Id */
-	performMockTaskRequest = func(t *testing.T, testCase IntrospectionTestCase[*TaskResponse]) *httptest.ResponseRecorder {
+	performMockTaskRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.TaskResponse]) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetTaskMetadataByShortID(shortDockerId).
@@ -346,12 +348,12 @@ func TestTasksHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		tasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		TasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 	t.Run("task by short Id: happy case", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, shortDockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, shortDockerId),
 			AgentResponse: testTask,
 			Err:           nil,
 		})
@@ -361,10 +363,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by short id: not found", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, shortDockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, shortDockerId),
 			AgentResponse: nil,
-			Err:           NewErrorNotFound(internalErrorText),
+			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -372,10 +374,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by short id: fetch failed", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, shortDockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, shortDockerId),
 			AgentResponse: nil,
-			Err:           NewErrorFetchFailure(internalErrorText),
+			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -383,8 +385,8 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by short id: unknown error", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, dockerIDQueryField, shortDockerId),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, shortDockerId),
 			AgentResponse: nil,
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -394,7 +396,7 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	/* task by arn */
-	performMockTaskRequest = func(t *testing.T, testCase IntrospectionTestCase[*TaskResponse]) *httptest.ResponseRecorder {
+	performMockTaskRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.TaskResponse]) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetTaskMetadataByArn(taskARN).
@@ -405,12 +407,12 @@ func TestTasksHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		tasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		TasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 	t.Run("task by arn: happy case", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, taskARNQueryField, taskARN),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN),
 			AgentResponse: testTask,
 			Err:           nil,
 		})
@@ -420,10 +422,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by arn: not found", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, taskARNQueryField, taskARN),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN),
 			AgentResponse: nil,
-			Err:           NewErrorNotFound(internalErrorText),
+			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -431,10 +433,10 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by arn: fetch failed", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, taskARNQueryField, taskARN),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN),
 			AgentResponse: nil,
-			Err:           NewErrorFetchFailure(internalErrorText),
+			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -442,8 +444,8 @@ func TestTasksHandler(t *testing.T) {
 	})
 
 	t.Run("task by arn: unknown error", func(t *testing.T) {
-		recorder := performMockTaskRequest(t, IntrospectionTestCase[*TaskResponse]{
-			Path:          fmt.Sprintf("%s?%s=%s", tasksMetadataPath, taskARNQueryField, taskARN),
+		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
+			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN),
 			AgentResponse: nil,
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -460,13 +462,13 @@ func TestTasksHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		tasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		TasksMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 	t.Run("tasks: too many parameters", func(t *testing.T) {
-		errorMsg := fmt.Sprintf("Request contains both %s and %s. Expect at most one of these.", dockerIDQueryField, taskARNQueryField)
+		errorMsg := fmt.Sprintf("request contains both %s and %s but expect at most one of these", dockerIDQueryField, taskARNQueryField)
 		recorder := performMockRequest(t, IntrospectionTestCase[string]{
-			Path:          fmt.Sprintf("%s?%s=%s&%s=%s", tasksMetadataPath, taskARNQueryField, taskARN, dockerIDQueryField, dockerId),
+			Path:          fmt.Sprintf("%s?%s=%s&%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN, dockerIDQueryField, dockerId),
 			AgentResponse: "",
 			Err:           errors.New(errorMsg),
 			MetricName:    metrics.IntrospectionBadRequest,
@@ -489,13 +491,13 @@ func TestLicenseHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		licenseHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		LicenseHandler(mockAgentState, mockMetricsFactory)(recorder, req)
 		return recorder
 	}
 
 	t.Run("happy case", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[string]{
-			Path:          licensePath,
+			Path:          V1LicensePath,
 			AgentResponse: licenseText,
 			Err:           nil,
 		})
@@ -505,7 +507,7 @@ func TestLicenseHandler(t *testing.T) {
 
 	t.Run("internal error", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[string]{
-			Path:          licensePath,
+			Path:          V1LicensePath,
 			AgentResponse: "",
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
@@ -517,19 +519,19 @@ func TestLicenseHandler(t *testing.T) {
 
 func TestGetErrorResponse(t *testing.T) {
 	t.Run("bad request error", func(t *testing.T) {
-		statusCode, metricName := getHTTPErrorCode(NewErrorBadRequest(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(v1.NewErrorBadRequest(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionBadRequest, metricName)
 		assert.Equal(t, http.StatusBadRequest, statusCode)
 	})
 
 	t.Run("not found error", func(t *testing.T) {
-		statusCode, metricName := getHTTPErrorCode(NewErrorNotFound(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(v1.NewErrorNotFound(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionNotFound, metricName)
 		assert.Equal(t, http.StatusNotFound, statusCode)
 	})
 
 	t.Run("fetch failed error", func(t *testing.T) {
-		statusCode, metricName := getHTTPErrorCode(NewErrorFetchFailure(internalErrorText))
+		statusCode, metricName := getHTTPErrorCode(v1.NewErrorFetchFailure(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionFetchFailure, metricName)
 		assert.Equal(t, http.StatusInternalServerError, statusCode)
 	})

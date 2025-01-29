@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/handlers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/logging"
@@ -85,7 +87,7 @@ func WithWriteTimeout(writeTimeout time.Duration) ConfigOpt {
 }
 
 // Create a new HTTP Introspection Server
-func NewServer(agentState AgentState, metricsFactory metrics.EntryFactory, options ...ConfigOpt) (*http.Server, error) {
+func NewServer(agentState v1.AgentState, metricsFactory metrics.EntryFactory, options ...ConfigOpt) (*http.Server, error) {
 	config := new(Config)
 	for _, opt := range options {
 		opt(config)
@@ -93,11 +95,11 @@ func NewServer(agentState AgentState, metricsFactory metrics.EntryFactory, optio
 	return setup(agentState, metricsFactory, config)
 }
 func v1HandlersSetup(serverMux *http.ServeMux,
-	agentState AgentState,
+	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory) {
-	serverMux.HandleFunc(agentMetadataPath, agentMetadataHandler(agentState, metricsFactory))
-	serverMux.HandleFunc(tasksMetadataPath, tasksMetadataHandler(agentState, metricsFactory))
-	serverMux.HandleFunc(licensePath, licenseHandler(agentState, metricsFactory))
+	serverMux.HandleFunc(handlers.V1AgentMetadataPath, handlers.AgentMetadataHandler(agentState, metricsFactory))
+	serverMux.HandleFunc(handlers.V1TasksMetadataPath, handlers.TasksMetadataHandler(agentState, metricsFactory))
+	serverMux.HandleFunc(handlers.V1LicensePath, handlers.LicenseHandler(agentState, metricsFactory))
 }
 func pprofHandlerSetup(serverMux *http.ServeMux) {
 	serverMux.HandleFunc(pprofBasePath, pprofIndexHandler)
@@ -107,7 +109,7 @@ func pprofHandlerSetup(serverMux *http.ServeMux) {
 	serverMux.HandleFunc(pprofTracePath, pprofTraceHandler)
 }
 func setup(
-	agentState AgentState,
+	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory,
 	config *Config,
 ) (*http.Server, error) {
@@ -118,7 +120,7 @@ func setup(
 		return nil, errors.New("metrics factory cannot be nil")
 	}
 
-	paths := []string{agentMetadataPath, tasksMetadataPath, licensePath}
+	paths := []string{handlers.V1AgentMetadataPath, handlers.V1TasksMetadataPath, handlers.V1LicensePath}
 
 	if config.enableRuntimeStats {
 		paths = append(paths, pprofBasePath, pprofCMDLinePath, pprofProfilePath, pprofSymbolPath, pprofTracePath)

@@ -11,5 +11,5 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-//go:generate mockgen -destination=state_mock.go -copyright_file=../../scripts/copyright_file -package=introspection . AgentState
-package introspection
+//go:generate mockgen -destination=./mocks/state_mock.go -copyright_file=../../../scripts/copyright_file -package=mock_v1 . AgentState
+package v1

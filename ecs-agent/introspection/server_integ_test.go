@@ -22,6 +22,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/handlers"
+	mock_v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,13 +33,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testSetup(t *testing.T) (*gomock.Controller, *MockAgentState,
+func testSetup(t *testing.T) (*gomock.Controller, *mock_v1.MockAgentState,
 	*mock_metrics.MockEntryFactory, *http.Server,
 ) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	agentState := NewMockAgentState(ctrl)
+	agentState := mock_v1.NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	server, err := NewServer(agentState, metricsFactory)
@@ -61,7 +64,7 @@ func TestRoutes(t *testing.T) {
 	t.Run("agent metadata - happy case", func(t *testing.T) {
 		_, mockAgentState, _, server := testSetup(t)
 
-		testAgentMetadata := &AgentMetadataResponse{
+		testAgentMetadata := &v1.AgentMetadataResponse{
 			Cluster:              "cluster",
 			ContainerInstanceArn: aws.String("some/arn"),
 			Version:              "1.0.0",
@@ -71,7 +74,7 @@ func TestRoutes(t *testing.T) {
 			GetAgentMetadata().
 			Return(testAgentMetadata, nil)
 
-		recorder := performMockRequest(t, server, agentMetadataPath)
+		recorder := performMockRequest(t, server, handlers.V1AgentMetadataPath)
 
 		testAgentMetadataJSON, _ := json.Marshal(testAgentMetadata)
 
@@ -82,7 +85,7 @@ func TestRoutes(t *testing.T) {
 	t.Run("agent metadata - fetch failed", func(t *testing.T) {
 		mockCtrl, mockAgentState, mockMetricsFactory, server := testSetup(t)
 
-		testErr := NewErrorFetchFailure("some error")
+		testErr := v1.NewErrorFetchFailure("some error")
 
 		mockAgentState.EXPECT().
 			GetAgentMetadata().
@@ -93,9 +96,9 @@ func TestRoutes(t *testing.T) {
 		mockMetricsFactory.EXPECT().
 			New(metrics.IntrospectionFetchFailure).Return(mockEntry)
 
-		recorder := performMockRequest(t, server, agentMetadataPath)
+		recorder := performMockRequest(t, server, handlers.V1AgentMetadataPath)
 
-		emptyMetadataResponse, _ := json.Marshal(AgentMetadataResponse{})
+		emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
 
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
@@ -110,7 +113,7 @@ func TestRoutes(t *testing.T) {
 			GetLicenseText().
 			Return(licenseText, nil)
 
-		recorder := performMockRequest(t, server, licensePath)
+		recorder := performMockRequest(t, server, handlers.V1LicensePath)
 
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, string(licenseText), recorder.Body.String())
@@ -130,7 +133,7 @@ func TestRoutes(t *testing.T) {
 		mockMetricsFactory.EXPECT().
 			New(metrics.IntrospectionInternalServerError).Return(mockEntry)
 
-		recorder := performMockRequest(t, server, licensePath)
+		recorder := performMockRequest(t, server, handlers.V1LicensePath)
 
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		assert.Equal(t, "", recorder.Body.String())
@@ -139,8 +142,8 @@ func TestRoutes(t *testing.T) {
 	t.Run("tasks - happy case", func(t *testing.T) {
 		_, mockAgentState, _, server := testSetup(t)
 
-		tasksResponse := &TasksResponse{
-			Tasks: []*TaskResponse{
+		tasksResponse := &v1.TasksResponse{
+			Tasks: []*v1.TaskResponse{
 				{
 					Arn: "task/arn/123",
 				},
@@ -151,7 +154,7 @@ func TestRoutes(t *testing.T) {
 			GetTasksMetadata().
 			Return(tasksResponse, nil)
 
-		recorder := performMockRequest(t, server, tasksMetadataPath)
+		recorder := performMockRequest(t, server, handlers.V1TasksMetadataPath)
 
 		testAgentMetadataJSON, _ := json.Marshal(tasksResponse)
 

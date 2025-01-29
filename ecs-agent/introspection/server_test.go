@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	mock_v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/mocks"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ var runtimeStatsConfigForTest = false
 
 func TestNewServerErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	agentState := NewMockAgentState(ctrl)
+	agentState := mock_v1.NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 	t.Run("state is required", func(t *testing.T) {
 		_, err := NewServer(nil, metricsFactory)
@@ -47,7 +48,7 @@ func TestNewServerErrors(t *testing.T) {
 
 func TestNewServerDefaults(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	agentState := NewMockAgentState(ctrl)
+	agentState := mock_v1.NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 	t.Run("read/write defaults", func(t *testing.T) {
 		server, err := NewServer(agentState, metricsFactory)
@@ -103,7 +104,7 @@ func setupMockPprofHandlers() func() {
 
 func TestPProfHandlerSetup(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	agentState := NewMockAgentState(ctrl)
+	agentState := mock_v1.NewMockAgentState(ctrl)
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	pprofPaths := []string{

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package introspection
+package v1
 
 // AgentState is the interface for interacting with agent state relevant to the Introspection Server.
 type AgentState interface {
