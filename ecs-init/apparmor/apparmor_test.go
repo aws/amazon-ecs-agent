@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	aaprofile "github.com/docker/docker/profiles/apparmor"
 
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestLoadDefaultProfile(t *testing.T) {
 		isProfileLoaded = aaprofile.IsLoaded
 		loadPath = loadProfile
 		createFile = os.Create
-		statFile = os.Stat
+		config.OsStat = os.Stat
 	}()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -123,7 +124,7 @@ func TestLoadDefaultProfile(t *testing.T) {
 				return f, err
 			}
 
-			statFile = func(fileName string) (os.FileInfo, error) {
+			config.OsStat = func(fileName string) (os.FileInfo, error) {
 				relativePath, err := filepath.Rel(appArmorProfileDir, fileName)
 				require.NoError(t, err)
 				return nil, tc.statErrors[relativePath]
