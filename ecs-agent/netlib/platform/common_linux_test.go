@@ -353,7 +353,7 @@ func testBranchENIConfiguration(t *testing.T) {
 	branchENI := getTestBranchENI()
 	branchENI.DesiredStatus = status.NetworkReadyPull
 	bridgeConfig := createBridgePluginConfig(netNSPath)
-	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan)
+	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
 		cniClient.EXPECT().Add(gomock.Any(), bridgeConfig).Return(nil, nil).Times(1),
