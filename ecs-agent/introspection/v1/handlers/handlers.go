@@ -31,28 +31,10 @@ const (
 	dockerShortIDLen   = 12
 	requestTypeAgent   = "introspection/agent"
 	requestTypeTasks   = "introspection/tasks"
-	requestTypeLicense = "introspection/license"
 
-	V1LicensePath       = "/license"
 	V1AgentMetadataPath = "/v1/metadata"
 	V1TasksMetadataPath = "/v1/tasks"
 )
-
-// LicenseHandler creates response for '/license' API.
-func LicenseHandler(agentState v1.AgentState, metricsFactory metrics.EntryFactory) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		text, err := agentState.GetLicenseText()
-		if err != nil {
-			logger.Error("Failed to get v1 license.", logger.Fields{
-				field.Error: err,
-			})
-			metricsFactory.New(metrics.IntrospectionInternalServerError).Done(err)
-			tmdsutils.WriteStringToResponse(w, http.StatusInternalServerError, "", requestTypeLicense)
-		} else {
-			tmdsutils.WriteStringToResponse(w, http.StatusOK, text, requestTypeLicense)
-		}
-	}
-}
 
 // getHTTPErrorCode returns an appropriate HTTP response status code and body for the error.
 func getHTTPErrorCode(err error) (int, string) {

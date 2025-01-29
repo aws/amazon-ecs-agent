@@ -99,7 +99,7 @@ func v1HandlersSetup(serverMux *http.ServeMux,
 	metricsFactory metrics.EntryFactory) {
 	serverMux.HandleFunc(handlers.V1AgentMetadataPath, handlers.AgentMetadataHandler(agentState, metricsFactory))
 	serverMux.HandleFunc(handlers.V1TasksMetadataPath, handlers.TasksMetadataHandler(agentState, metricsFactory))
-	serverMux.HandleFunc(handlers.V1LicensePath, handlers.LicenseHandler(agentState, metricsFactory))
+	serverMux.HandleFunc(licensePath, licenseHandler(agentState, metricsFactory))
 }
 func pprofHandlerSetup(serverMux *http.ServeMux) {
 	serverMux.HandleFunc(pprofBasePath, pprofIndexHandler)
@@ -120,7 +120,7 @@ func setup(
 		return nil, errors.New("metrics factory cannot be nil")
 	}
 
-	paths := []string{handlers.V1AgentMetadataPath, handlers.V1TasksMetadataPath, handlers.V1LicensePath}
+	paths := []string{handlers.V1AgentMetadataPath, handlers.V1TasksMetadataPath, licensePath}
 
 	if config.enableRuntimeStats {
 		paths = append(paths, pprofBasePath, pprofCMDLinePath, pprofProfilePath, pprofSymbolPath, pprofTracePath)

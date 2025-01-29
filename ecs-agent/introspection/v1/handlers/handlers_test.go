@@ -36,7 +36,6 @@ import (
 )
 
 const (
-	licenseText          = "Licensed under the Apache License ..."
 	taskARN              = "t1"
 	family               = "sleep"
 	version              = "1"
@@ -477,44 +476,6 @@ func TestTasksHandler(t *testing.T) {
 		assert.Equal(t, string(emptyTaskResponse), recorder.Body.String())
 	})
 
-}
-
-func TestLicenseHandler(t *testing.T) {
-	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[string]) *httptest.ResponseRecorder {
-		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
-		mockAgentState.EXPECT().
-			GetLicenseText().
-			Return(testCase.AgentResponse, testCase.Err)
-		if testCase.Err != nil {
-			mockEntry := mock_metrics.NewMockEntry(mockCtrl)
-			mockEntry.EXPECT().Done(testCase.Err)
-			mockMetricsFactory.EXPECT().
-				New(testCase.MetricName).Return(mockEntry)
-		}
-		LicenseHandler(mockAgentState, mockMetricsFactory)(recorder, req)
-		return recorder
-	}
-
-	t.Run("happy case", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[string]{
-			Path:          V1LicensePath,
-			AgentResponse: licenseText,
-			Err:           nil,
-		})
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Equal(t, licenseText, recorder.Body.String())
-	})
-
-	t.Run("internal error", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[string]{
-			Path:          V1LicensePath,
-			AgentResponse: "",
-			Err:           errors.New(internalErrorText),
-			MetricName:    metrics.IntrospectionInternalServerError,
-		})
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "", recorder.Body.String())
-	})
 }
 
 func TestGetErrorResponse(t *testing.T) {

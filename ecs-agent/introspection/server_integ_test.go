@@ -113,7 +113,7 @@ func TestRoutes(t *testing.T) {
 			GetLicenseText().
 			Return(licenseText, nil)
 
-		recorder := performMockRequest(t, server, handlers.V1LicensePath)
+		recorder := performMockRequest(t, server, licensePath)
 
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, string(licenseText), recorder.Body.String())
@@ -133,7 +133,7 @@ func TestRoutes(t *testing.T) {
 		mockMetricsFactory.EXPECT().
 			New(metrics.IntrospectionInternalServerError).Return(mockEntry)
 
-		recorder := performMockRequest(t, server, handlers.V1LicensePath)
+		recorder := performMockRequest(t, server, licensePath)
 
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		assert.Equal(t, "", recorder.Body.String())
