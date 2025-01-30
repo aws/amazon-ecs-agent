@@ -45,8 +45,7 @@ func licenseHandler(agentState v1.AgentState, metricsFactory metrics.EntryFactor
 	}
 }
 
-// panicHandler handler will gracefully close the connection if a panic occurs, returning
-// an internal server error to the client.
+// panicHandler handler will gracefully close the connection if a panic occurs and emit a metric.
 func panicHandler(next http.Handler, metricsFactory metrics.EntryFactory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

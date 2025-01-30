@@ -36,13 +36,8 @@ const (
 	V1TasksMetadataPath = "/v1/tasks"
 )
 
-// getHTTPErrorCode returns an appropriate HTTP response status code and body for the error.
+// getHTTPErrorCode returns an appropriate HTTP response status code and metric name for a given error.
 func getHTTPErrorCode(err error) (int, string) {
-	// There was something wrong with the request
-	var errBadRequest *v1.ErrorBadRequest
-	if errors.As(err, &errBadRequest) {
-		return errBadRequest.StatusCode(), errBadRequest.MetricName()
-	}
 
 	// The requested object was not found
 	var errNotFound *v1.ErrorNotFound
@@ -169,8 +164,8 @@ func getTaskByID(
 	taskMetadata, err := agentState.GetTaskMetadataByID(dockerID)
 	if err != nil {
 		logger.Error("Failed to get v1 task metadata.", logger.Fields{
-			field.Error:  err,
-			field.TaskID: dockerID,
+			field.Error:    err,
+			field.DockerId: dockerID,
 		})
 		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)
@@ -191,8 +186,8 @@ func getTaskByShortID(
 	taskMetadata, err := agentState.GetTaskMetadataByShortID(shortDockerID)
 	if err != nil {
 		logger.Error("Failed to get v1 task metadata.", logger.Fields{
-			field.Error:  err,
-			field.TaskID: shortDockerID,
+			field.Error:    err,
+			field.DockerId: shortDockerID,
 		})
 		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)

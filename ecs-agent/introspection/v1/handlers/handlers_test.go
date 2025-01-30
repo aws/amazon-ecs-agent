@@ -60,51 +60,55 @@ const (
 	testEndpoint         = "test endpoint"
 )
 
-var testAgentMetadata = &v1.AgentMetadataResponse{
-	Cluster:              cluster,
-	ContainerInstanceArn: aws.String(conatinerInstanceArn),
-	Version:              agentVersion,
+func testAgentMetadata() *v1.AgentMetadataResponse {
+	return &v1.AgentMetadataResponse{
+		Cluster:              cluster,
+		ContainerInstanceArn: aws.String(conatinerInstanceArn),
+		Version:              agentVersion,
+	}
 }
 
-var testTask = &v1.TaskResponse{
-	Arn:           "t1",
-	DesiredStatus: statusRunning,
-	KnownStatus:   statusRunning,
-	Family:        "sleep",
-	Version:       "1",
-	Containers: []v1.ContainerResponse{
-		{
-			DockerID:   dockerId,
-			DockerName: dockerName,
-			Name:       containerName,
-			Image:      imageName,
-			ImageID:    imageID,
-			Ports: []response.PortResponse{
-				{
-					ContainerPort: port,
-					Protocol:      protocol,
+func testTask() *v1.TaskResponse {
+	return &v1.TaskResponse{
+		Arn:           "t1",
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Family:        "sleep",
+		Version:       "1",
+		Containers: []v1.ContainerResponse{
+			{
+				DockerID:   dockerId,
+				DockerName: dockerName,
+				Name:       containerName,
+				Image:      imageName,
+				ImageID:    imageID,
+				Ports: []response.PortResponse{
+					{
+						ContainerPort: port,
+						Protocol:      protocol,
+					},
 				},
-			},
-			Networks: []response.Network{
-				{
-					NetworkMode:   networkModeAwsvpc,
-					IPv4Addresses: []string{eniIPv4Address},
+				Networks: []response.Network{
+					{
+						NetworkMode:   networkModeAwsvpc,
+						IPv4Addresses: []string{eniIPv4Address},
+					},
 				},
-			},
-			Volumes: []response.VolumeResponse{
-				{
-					DockerName:  volName,
-					Source:      volSource,
-					Destination: volDestination,
+				Volumes: []response.VolumeResponse{
+					{
+						DockerName:  volName,
+						Source:      volSource,
+						Destination: volDestination,
+					},
 				},
 			},
 		},
-	},
+	}
 }
 
 var testTasks = &v1.TasksResponse{
 	Tasks: []*v1.TaskResponse{
-		testTask,
+		testTask(),
 	},
 }
 
@@ -156,31 +160,20 @@ func TestAgentMetadataHandler(t *testing.T) {
 	t.Run("happy case", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata,
+			AgentResponse: testAgentMetadata(),
 			Err:           nil,
 		})
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		testAgentMetadataJson, _ := json.Marshal(testAgentMetadata)
+		testAgentMetadataJson, _ := json.Marshal(testAgentMetadata())
 		assert.Equal(t, string(testAgentMetadataJson), recorder.Body.String())
 	})
 
 	emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
 
-	t.Run("bad request", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata,
-			Err:           v1.NewErrorBadRequest(internalErrorText),
-			MetricName:    metrics.IntrospectionBadRequest,
-		})
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
-
 	t.Run("not found", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata,
+			AgentResponse: testAgentMetadata(),
 			Err:           v1.NewErrorNotFound(internalErrorText),
 			MetricName:    metrics.IntrospectionNotFound,
 		})
@@ -191,7 +184,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 	t.Run("fetch failure", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata,
+			AgentResponse: testAgentMetadata(),
 			Err:           v1.NewErrorFetchFailure(internalErrorText),
 			MetricName:    metrics.IntrospectionFetchFailure,
 		})
@@ -202,7 +195,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 	t.Run("unkown error", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata,
+			AgentResponse: testAgentMetadata(),
 			Err:           errors.New(internalErrorText),
 			MetricName:    metrics.IntrospectionInternalServerError,
 		})
@@ -292,11 +285,11 @@ func TestTasksHandler(t *testing.T) {
 	t.Run("task by Id: happy case", func(t *testing.T) {
 		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
 			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, dockerId),
-			AgentResponse: testTask,
+			AgentResponse: testTask(),
 			Err:           nil,
 		})
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		testTaskJSON, _ := json.Marshal(testTask)
+		testTaskJSON, _ := json.Marshal(testTask())
 		assert.Equal(t, string(testTaskJSON), recorder.Body.String())
 	})
 
@@ -353,11 +346,11 @@ func TestTasksHandler(t *testing.T) {
 	t.Run("task by short Id: happy case", func(t *testing.T) {
 		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
 			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, dockerIDQueryField, shortDockerId),
-			AgentResponse: testTask,
+			AgentResponse: testTask(),
 			Err:           nil,
 		})
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		testTaskJSON, _ := json.Marshal(testTask)
+		testTaskJSON, _ := json.Marshal(testTask())
 		assert.Equal(t, string(testTaskJSON), recorder.Body.String())
 	})
 
@@ -412,11 +405,11 @@ func TestTasksHandler(t *testing.T) {
 	t.Run("task by arn: happy case", func(t *testing.T) {
 		recorder := performMockTaskRequest(t, IntrospectionTestCase[*v1.TaskResponse]{
 			Path:          fmt.Sprintf("%s?%s=%s", V1TasksMetadataPath, taskARNQueryField, taskARN),
-			AgentResponse: testTask,
+			AgentResponse: testTask(),
 			Err:           nil,
 		})
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		testTaskJSON, _ := json.Marshal(testTask)
+		testTaskJSON, _ := json.Marshal(testTask())
 		assert.Equal(t, string(testTaskJSON), recorder.Body.String())
 	})
 
@@ -479,11 +472,6 @@ func TestTasksHandler(t *testing.T) {
 }
 
 func TestGetErrorResponse(t *testing.T) {
-	t.Run("bad request error", func(t *testing.T) {
-		statusCode, metricName := getHTTPErrorCode(v1.NewErrorBadRequest(internalErrorText))
-		assert.Equal(t, metrics.IntrospectionBadRequest, metricName)
-		assert.Equal(t, http.StatusBadRequest, statusCode)
-	})
 
 	t.Run("not found error", func(t *testing.T) {
 		statusCode, metricName := getHTTPErrorCode(v1.NewErrorNotFound(internalErrorText))

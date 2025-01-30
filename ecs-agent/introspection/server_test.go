@@ -127,7 +127,7 @@ func TestPProfHandlerSetup(t *testing.T) {
 		runtimeStatsConfigForTest = tc.runtimeStatsEnabled
 		for _, p := range tc.paths {
 			t.Run(p+"-"+strconv.FormatBool(runtimeStatsConfigForTest), func(t *testing.T) {
-				defer setupMockPprofHandlers()
+				defer setupMockPprofHandlers()()
 				server, _ := NewServer(agentState, metricsFactory, WithRuntimeStats(runtimeStatsConfigForTest))
 				req, err := http.NewRequest("GET", p, nil)
 				require.NoError(t, err)

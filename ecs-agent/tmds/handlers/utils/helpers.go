@@ -109,10 +109,9 @@ func logFriendlyContentType(contentType string) string {
 func writeContentToResponse(w http.ResponseWriter, contentType string, httpStatusCode int, requestType string, response []byte) {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(httpStatusCode)
-	_, err := w.Write([]byte(response))
+	_, err := w.Write(response)
 	if err != nil {
-		seelog.Errorf(
-			"Unable to write response message to ResponseWriter")
+		seelog.Errorf("Unable to write %s response message to ResponseWriter", requestType)
 	}
 	responseString := string(response)
 	if responseString == "" {

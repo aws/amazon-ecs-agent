@@ -18,9 +18,11 @@ package introspection
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
+	"time"
 
 	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/handlers"
@@ -33,36 +35,82 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testSetup(t *testing.T) (*gomock.Controller, *mock_v1.MockAgentState,
-	*mock_metrics.MockEntryFactory, *http.Server,
-) {
+var serverAddress = fmt.Sprintf("http://localhost:%d", Port)
+
+// Starts the HTTP server in a new goroutine
+func startServer(t *testing.T, server *http.Server) {
+	go func() {
+		err := server.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			require.NoError(t, err)
+		}
+	}()
+}
+
+// waitForServer waits for the server to come up. Checks if the server is up by sending
+// repeated requests to it.
+func waitForServer(client *http.Client, serverAddress string) error {
+	var err error
+	// wait for the server to come up
+	for i := 0; i < 10; i++ {
+		time.Sleep(100 * time.Millisecond)
+		_, err = client.Get(serverAddress)
+		if err == nil {
+			return nil // server is up now
+		}
+	}
+	return fmt.Errorf("timed out waiting for server %s to come up: %w", serverAddress, err)
+}
+
+func performRequest(t *testing.T, agentState v1.AgentState, metricsFactory metrics.EntryFactory, path string, options ...ConfigOpt) (*http.Response, error) {
+	server, err := NewServer(agentState, metricsFactory, options...)
+
+	startServer(t, server)
+	defer server.Close()
+
+	client := http.DefaultClient
+	err = waitForServer(client, serverAddress)
+	require.NoError(t, err)
+
+	return client.Get(fmt.Sprintf("%s%s", serverAddress, path))
+}
+
+// Verify that the connection closes as expected and a metric is emitted if a panic occurs.
+func TestPanicHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	agentState := mock_v1.NewMockAgentState(ctrl)
-	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockAgentState := mock_v1.NewMockAgentState(ctrl)
+	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
-	server, err := NewServer(agentState, metricsFactory)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	mockEntry.EXPECT().Done(fmt.Errorf("panic!"))
+	mockMetricsFactory.EXPECT().
+		New(metrics.IntrospectionCrash).Return(mockEntry)
+
+	mockAgentState.EXPECT().
+		GetAgentMetadata().
+		DoAndReturn(func() (interface{}, error) {
+			panic("panic!")
+		})
+
+	response, err := performRequest(t, mockAgentState, mockMetricsFactory, handlers.V1AgentMetadataPath)
 	require.NoError(t, err)
 
-	return ctrl, agentState, metricsFactory, server
-}
-
-func performMockRequest(t *testing.T, server *http.Server, path string) *httptest.ResponseRecorder {
-	// Create the request
-	req, err := http.NewRequest("GET", path, nil)
+	bodyBytes, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 
-	// Send the request and record the response
-	recorder := httptest.NewRecorder()
-	server.Handler.ServeHTTP(recorder, req)
-
-	return recorder
+	assert.Equal(t, http.StatusInternalServerError, response.StatusCode)
+	assert.Equal(t, "", string(bodyBytes))
 }
 
-func TestRoutes(t *testing.T) {
-	t.Run("agent metadata - happy case", func(t *testing.T) {
-		_, mockAgentState, _, server := testSetup(t)
+func TestWriteTimeout(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAgentState := mock_v1.NewMockAgentState(ctrl)
+		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 		testAgentMetadata := &v1.AgentMetadataResponse{
 			Cluster:              "cluster",
@@ -72,93 +120,98 @@ func TestRoutes(t *testing.T) {
 
 		mockAgentState.EXPECT().
 			GetAgentMetadata().
-			Return(testAgentMetadata, nil)
+			DoAndReturn(func() (*v1.AgentMetadataResponse, error) {
+				time.Sleep(100 * time.Millisecond)
+				return testAgentMetadata, nil
+			})
 
-		recorder := performMockRequest(t, server, handlers.V1AgentMetadataPath)
+		response, err := performRequest(t, mockAgentState, mockMetricsFactory, handlers.V1AgentMetadataPath, WithReadTimeout(time.Millisecond*150))
+		require.NoError(t, err)
+
+		bodyBytes, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
 
 		testAgentMetadataJSON, _ := json.Marshal(testAgentMetadata)
 
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Equal(t, string(testAgentMetadataJSON), recorder.Body.String())
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, testAgentMetadataJSON, bodyBytes)
 	})
 
-	t.Run("agent metadata - fetch failed", func(t *testing.T) {
-		mockCtrl, mockAgentState, mockMetricsFactory, server := testSetup(t)
+	t.Run("timeout exceeded", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-		testErr := v1.NewErrorFetchFailure("some error")
+		mockAgentState := mock_v1.NewMockAgentState(ctrl)
+		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
-		mockAgentState.EXPECT().
-			GetAgentMetadata().
-			Return(nil, testErr)
-
-		mockEntry := mock_metrics.NewMockEntry(mockCtrl)
-		mockEntry.EXPECT().Done(testErr)
-		mockMetricsFactory.EXPECT().
-			New(metrics.IntrospectionFetchFailure).Return(mockEntry)
-
-		recorder := performMockRequest(t, server, handlers.V1AgentMetadataPath)
-
-		emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
-
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
-
-	t.Run("license - happy case", func(t *testing.T) {
-		_, mockAgentState, _, server := testSetup(t)
-
-		licenseText := "some license text"
-
-		mockAgentState.EXPECT().
-			GetLicenseText().
-			Return(licenseText, nil)
-
-		recorder := performMockRequest(t, server, licensePath)
-
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Equal(t, string(licenseText), recorder.Body.String())
-	})
-
-	t.Run("license - internal error", func(t *testing.T) {
-		mockCtrl, mockAgentState, mockMetricsFactory, server := testSetup(t)
-
-		internalErr := errors.New("some internal error")
-
-		mockAgentState.EXPECT().
-			GetLicenseText().
-			Return("", internalErr)
-
-		mockEntry := mock_metrics.NewMockEntry(mockCtrl)
-		mockEntry.EXPECT().Done(internalErr)
-		mockMetricsFactory.EXPECT().
-			New(metrics.IntrospectionInternalServerError).Return(mockEntry)
-
-		recorder := performMockRequest(t, server, licensePath)
-
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, "", recorder.Body.String())
-	})
-
-	t.Run("tasks - happy case", func(t *testing.T) {
-		_, mockAgentState, _, server := testSetup(t)
-
-		tasksResponse := &v1.TasksResponse{
-			Tasks: []*v1.TaskResponse{
-				{
-					Arn: "task/arn/123",
-				},
-			},
+		testAgentMetadata := &v1.AgentMetadataResponse{
+			Cluster:              "cluster",
+			ContainerInstanceArn: aws.String("some/arn"),
+			Version:              "1.0.0",
 		}
 
 		mockAgentState.EXPECT().
-			GetTasksMetadata().
-			Return(tasksResponse, nil)
+			GetAgentMetadata().
+			DoAndReturn(func() (*v1.AgentMetadataResponse, error) {
+				time.Sleep(100 * time.Millisecond)
+				return testAgentMetadata, nil
+			})
 
-		recorder := performMockRequest(t, server, handlers.V1TasksMetadataPath)
+		_, err := performRequest(t, mockAgentState, mockMetricsFactory, handlers.V1AgentMetadataPath, WithWriteTimeout(time.Millisecond*50))
 
-		testAgentMetadataJSON, _ := json.Marshal(tasksResponse)
+		// An EOF error is expected when write timeout is exceeded
+		require.ErrorIs(t, err, io.EOF)
+	})
+}
 
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Equal(t, string(testAgentMetadataJSON), recorder.Body.String())
+// Test that profiling endpoints are only available when explicitly enabled by passing WithRuntimeStats(true).
+func TestPprof(t *testing.T) {
+	t.Run("pprof enabled", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAgentState := mock_v1.NewMockAgentState(ctrl)
+		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		response, err := performRequest(t, mockAgentState, mockMetricsFactory, "/", WithRuntimeStats(true))
+		require.NoError(t, err)
+
+		bodyBytes, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Contains(t, string(bodyBytes), "/pprof")
+	})
+	t.Run("pprof disabled", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAgentState := mock_v1.NewMockAgentState(ctrl)
+		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		response, err := performRequest(t, mockAgentState, mockMetricsFactory, "/", WithRuntimeStats(false))
+		require.NoError(t, err)
+
+		bodyBytes, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.NotContains(t, string(bodyBytes), "/pprof")
+	})
+	t.Run("default - pprof disabled", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockAgentState := mock_v1.NewMockAgentState(ctrl)
+		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		response, err := performRequest(t, mockAgentState, mockMetricsFactory, "/")
+		require.NoError(t, err)
+
+		bodyBytes, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.NotContains(t, string(bodyBytes), "/pprof")
 	})
 }

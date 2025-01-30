@@ -58,30 +58,6 @@ type ContainerResponse struct {
 	RestartCount *int                      `json:"RestartCount,omitempty"`
 }
 
-// ErrorBadRequest should be returned when lookup failed due to some fault in the request.
-type ErrorBadRequest struct {
-	externalReason string
-}
-
-func NewErrorBadRequest(externalReason string) *ErrorBadRequest {
-	return &ErrorBadRequest{externalReason: externalReason}
-}
-
-func (e *ErrorBadRequest) Error() string {
-	return e.externalReason
-}
-
-// StatusCode is the http status code that will appear in the response header when this
-// error is thrown.
-func (e *ErrorBadRequest) StatusCode() int {
-	return http.StatusBadRequest
-}
-
-// MetricName is the metric that will be fired when this error occurs.
-func (e *ErrorBadRequest) MetricName() string {
-	return metrics.IntrospectionBadRequest
-}
-
 // ErrorNotFound should be returned when the requested metadata cannot be found.
 type ErrorNotFound struct {
 	externalReason string
