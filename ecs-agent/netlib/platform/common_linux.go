@@ -707,9 +707,10 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 		if eni.IsPrimary() {
 			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
 		}
-		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan))
+		// We block IMDS access in awsvpc tasks.
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 	case status.NetworkDeleted:
-		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan))
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 		add = false
 	}
 

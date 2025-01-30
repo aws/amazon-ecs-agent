@@ -161,20 +161,20 @@ func TestFirecracker_BranchENIConfiguration(t *testing.T) {
 
 	branchENI := getTestBranchENI()
 
-	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan)
+	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, false)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
 	err := fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
 	branchENI.DesiredStatus = status.NetworkReady
-	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap, false)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)
 	err = fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
 
 	// Delete workflow.
 	branchENI.DesiredStatus = status.NetworkDeleted
-	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap)
+	cniConfig = createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeTap, false)
 	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = fc.ConfigureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
