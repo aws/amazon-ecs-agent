@@ -39,10 +39,10 @@ const (
 // getHTTPErrorCode returns an appropriate HTTP response status code and metric name for a given error.
 func getHTTPErrorCode(err error) (int, string) {
 
-	// There was something wrong with the request
-	var errBadRequest *v1.ErrorBadRequest
-	if errors.As(err, &errBadRequest) {
-		return errBadRequest.StatusCode(), errBadRequest.MetricName()
+	// Multiple tasks were found, but we expect only one
+	var errMultipleTasksFound *v1.ErrorMultipleTasksFound
+	if errors.As(err, &errMultipleTasksFound) {
+		return errMultipleTasksFound.StatusCode(), errMultipleTasksFound.MetricName()
 	}
 
 	// The requested object was not found

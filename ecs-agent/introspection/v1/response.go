@@ -58,27 +58,27 @@ type ContainerResponse struct {
 	RestartCount *int                      `json:"RestartCount,omitempty"`
 }
 
-// ErrorBadRequest should be returned when lookup failed due to some fault in the request.
-type ErrorBadRequest struct {
+// ErrorMultipleTasksFound should be returned when a task cannot be uniquely identified for a given request.
+type ErrorMultipleTasksFound struct {
 	externalReason string
 }
 
-func NewErrorBadRequest(externalReason string) *ErrorBadRequest {
-	return &ErrorBadRequest{externalReason: externalReason}
+func NewErrorMultipleTasksFound(externalReason string) *ErrorMultipleTasksFound {
+	return &ErrorMultipleTasksFound{externalReason: externalReason}
 }
 
-func (e *ErrorBadRequest) Error() string {
+func (e *ErrorMultipleTasksFound) Error() string {
 	return e.externalReason
 }
 
 // StatusCode is the http status code that will appear in the response header when this
 // error is thrown.
-func (e *ErrorBadRequest) StatusCode() int {
+func (e *ErrorMultipleTasksFound) StatusCode() int {
 	return http.StatusBadRequest
 }
 
 // MetricName is the metric that will be fired when this error occurs.
-func (e *ErrorBadRequest) MetricName() string {
+func (e *ErrorMultipleTasksFound) MetricName() string {
 	return metrics.IntrospectionBadRequest
 }
 

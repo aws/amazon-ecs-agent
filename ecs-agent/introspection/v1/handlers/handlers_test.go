@@ -170,11 +170,11 @@ func TestAgentMetadataHandler(t *testing.T) {
 
 	emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
 
-	t.Run("bad request", func(t *testing.T) {
+	t.Run("multiple tasks found error", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
 			AgentResponse: testAgentMetadata(),
-			Err:           v1.NewErrorBadRequest(internalErrorText),
+			Err:           v1.NewErrorMultipleTasksFound(internalErrorText),
 			MetricName:    metrics.IntrospectionBadRequest,
 		})
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -484,8 +484,8 @@ func TestTasksHandler(t *testing.T) {
 
 func TestGetErrorResponse(t *testing.T) {
 
-	t.Run("bad request error", func(t *testing.T) {
-		statusCode, metricName := getHTTPErrorCode(v1.NewErrorBadRequest(internalErrorText))
+	t.Run("multiple tasks found error", func(t *testing.T) {
+		statusCode, metricName := getHTTPErrorCode(v1.NewErrorMultipleTasksFound(internalErrorText))
 		assert.Equal(t, metrics.IntrospectionBadRequest, metricName)
 		assert.Equal(t, http.StatusBadRequest, statusCode)
 	})
