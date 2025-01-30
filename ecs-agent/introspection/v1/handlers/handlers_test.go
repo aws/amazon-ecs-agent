@@ -170,6 +170,17 @@ func TestAgentMetadataHandler(t *testing.T) {
 
 	emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
 
+	t.Run("bad request", func(t *testing.T) {
+		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
+			Path:          V1AgentMetadataPath,
+			AgentResponse: testAgentMetadata(),
+			Err:           v1.NewErrorBadRequest(internalErrorText),
+			MetricName:    metrics.IntrospectionBadRequest,
+		})
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
 			Path:          V1AgentMetadataPath,
@@ -472,6 +483,12 @@ func TestTasksHandler(t *testing.T) {
 }
 
 func TestGetErrorResponse(t *testing.T) {
+
+	t.Run("bad request error", func(t *testing.T) {
+		statusCode, metricName := getHTTPErrorCode(v1.NewErrorBadRequest(internalErrorText))
+		assert.Equal(t, metrics.IntrospectionBadRequest, metricName)
+		assert.Equal(t, http.StatusBadRequest, statusCode)
+	})
 
 	t.Run("not found error", func(t *testing.T) {
 		statusCode, metricName := getHTTPErrorCode(v1.NewErrorNotFound(internalErrorText))

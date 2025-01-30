@@ -25,6 +25,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Tests that errors.As() function works with ErrorBadRequest errors.
+func TestAsErrorBadRequest(t *testing.T) {
+	t.Run("as works no wrap", func(t *testing.T) {
+		var target *ErrorBadRequest
+		var err = NewErrorBadRequest("reason")
+
+		require.True(t, errors.As(err, &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as works wrapped", func(t *testing.T) {
+		var target *ErrorBadRequest
+		var err = NewErrorBadRequest("reason")
+
+		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
+		assert.Equal(t, err, target)
+	})
+	t.Run("as should fail when no match", func(t *testing.T) {
+		var target *ErrorBadRequest
+		require.False(t, errors.As(errors.New("other error"), &target))
+	})
+}
+
 // Tests that errors.As() function works with ErrorNotFound errors.
 func TestAsErrorNotFound(t *testing.T) {
 	t.Run("as works no wrap", func(t *testing.T) {
@@ -84,6 +106,10 @@ func TestError(t *testing.T) {
 }
 
 func TestMetricName(t *testing.T) {
+	t.Run("bad request", func(t *testing.T) {
+		var err = NewErrorBadRequest("")
+		assert.Equal(t, metrics.IntrospectionBadRequest, err.MetricName())
+	})
 	t.Run("not found", func(t *testing.T) {
 		var err = NewErrorNotFound("")
 		assert.Equal(t, metrics.IntrospectionNotFound, err.MetricName())
