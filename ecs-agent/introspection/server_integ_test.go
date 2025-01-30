@@ -125,7 +125,7 @@ func TestWriteTimeout(t *testing.T) {
 				return testAgentMetadata, nil
 			})
 
-		response, err := performRequest(t, mockAgentState, mockMetricsFactory, handlers.V1AgentMetadataPath, WithReadTimeout(time.Millisecond*150))
+		response, err := performRequest(t, mockAgentState, mockMetricsFactory, handlers.V1AgentMetadataPath, WithWriteTimeout(time.Millisecond*150))
 		require.NoError(t, err)
 
 		bodyBytes, err := io.ReadAll(response.Body)

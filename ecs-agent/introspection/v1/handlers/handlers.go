@@ -101,15 +101,15 @@ func TasksMetadataHandler(
 		if dockerIDExists {
 			// Find the task that has a container with a matching docker ID.
 			if len(dockerID) > dockerShortIDLen {
-				getTaskByID(agentState, metricsFactory, dockerID, w)
+				getTaskMetadata(agentState.GetTaskMetadataByID, dockerID, field.DockerId, metricsFactory, w)
 				return
 			} else {
-				getTaskByShortID(agentState, metricsFactory, dockerID, w)
+				getTaskMetadata(agentState.GetTaskMetadataByShortID, dockerID, field.DockerId, metricsFactory, w)
 				return
 			}
 		} else if taskARNExists {
 			// Find the task with a matching Arn.
-			getTaskByARN(agentState, metricsFactory, taskArn, w)
+			getTaskMetadata(agentState.GetTaskMetadataByArn, taskArn, field.TaskARN, metricsFactory, w)
 			return
 		} else {
 			// Return all tasks.
@@ -137,63 +137,18 @@ func getTasksMetadata(
 	tmdsutils.WriteJSONResponse(w, http.StatusOK, tasksMetadata, requestTypeTasks)
 }
 
-// getTaskByARN writes metadata for the corresponding task to the response, or an
-// error status if the agent cannot return the metadata
-func getTaskByARN(
-	agentState v1.AgentState,
+func getTaskMetadata(
+	lookupFn func(key string) (*v1.TaskResponse, error),
+	key string,
+	keyType string,
 	metricsFactory metrics.EntryFactory,
-	taskARN string,
 	w http.ResponseWriter,
 ) {
-	taskMetadata, err := agentState.GetTaskMetadataByArn(taskARN)
+	taskMetadata, err := lookupFn(key)
 	if err != nil {
 		logger.Error("Failed to get v1 task metadata.", logger.Fields{
-			field.Error:   err,
-			field.TaskARN: taskARN,
-		})
-		responseCode, metricName := getHTTPErrorCode(err)
-		metricsFactory.New(metricName).Done(err)
-		tmdsutils.WriteJSONResponse(w, responseCode, v1.TaskResponse{}, requestTypeTasks)
-		return
-	}
-	tmdsutils.WriteJSONResponse(w, http.StatusOK, taskMetadata, requestTypeTasks)
-}
-
-// getTaskByID writes metadata for the corresponding task to the response, or an
-// error status if the agent cannot return the metadata
-func getTaskByID(
-	agentState v1.AgentState,
-	metricsFactory metrics.EntryFactory,
-	dockerID string,
-	w http.ResponseWriter,
-) {
-	taskMetadata, err := agentState.GetTaskMetadataByID(dockerID)
-	if err != nil {
-		logger.Error("Failed to get v1 task metadata.", logger.Fields{
-			field.Error:    err,
-			field.DockerId: dockerID,
-		})
-		responseCode, metricName := getHTTPErrorCode(err)
-		metricsFactory.New(metricName).Done(err)
-		tmdsutils.WriteJSONResponse(w, responseCode, v1.TaskResponse{}, requestTypeTasks)
-		return
-	}
-	tmdsutils.WriteJSONResponse(w, http.StatusOK, taskMetadata, requestTypeTasks)
-}
-
-// getTaskByShortID writes metadata for the corresponding task to the response, or an
-// error status if the agent cannot return the metadata
-func getTaskByShortID(
-	agentState v1.AgentState,
-	metricsFactory metrics.EntryFactory,
-	shortDockerID string,
-	w http.ResponseWriter,
-) {
-	taskMetadata, err := agentState.GetTaskMetadataByShortID(shortDockerID)
-	if err != nil {
-		logger.Error("Failed to get v1 task metadata.", logger.Fields{
-			field.Error:    err,
-			field.DockerId: shortDockerID,
+			field.Error: err,
+			keyType:     key,
 		})
 		responseCode, metricName := getHTTPErrorCode(err)
 		metricsFactory.New(metricName).Done(err)

@@ -93,6 +93,7 @@ func NewServer(agentState v1.AgentState, metricsFactory metrics.EntryFactory, op
 	}
 	return setup(agentState, metricsFactory, config)
 }
+
 func v1HandlersSetup(serverMux *http.ServeMux,
 	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory) {
@@ -100,6 +101,7 @@ func v1HandlersSetup(serverMux *http.ServeMux,
 	serverMux.HandleFunc(handlers.V1TasksMetadataPath, handlers.TasksMetadataHandler(agentState, metricsFactory))
 	serverMux.HandleFunc(licensePath, licenseHandler(agentState, metricsFactory))
 }
+
 func pprofHandlerSetup(serverMux *http.ServeMux) {
 	serverMux.HandleFunc(pprofBasePath, pprofIndexHandler)
 	serverMux.HandleFunc(pprofCMDLinePath, pprofCmdlineHandler)
@@ -107,6 +109,7 @@ func pprofHandlerSetup(serverMux *http.ServeMux) {
 	serverMux.HandleFunc(pprofSymbolPath, pprofSymbolHandler)
 	serverMux.HandleFunc(pprofTracePath, pprofTraceHandler)
 }
+
 func setup(
 	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory,

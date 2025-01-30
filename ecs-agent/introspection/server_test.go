@@ -30,6 +30,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	writeTimeout = time.Second * 5
+	readTimeout  = time.Second * 6
+)
+
 var runtimeStatsConfigForTest = false
 
 func TestNewServerErrors(t *testing.T) {
@@ -43,6 +48,35 @@ func TestNewServerErrors(t *testing.T) {
 	t.Run("metrics factory is required", func(t *testing.T) {
 		_, err := NewServer(agentState, nil)
 		assert.EqualError(t, err, "metrics factory cannot be nil")
+	})
+}
+
+func TestNewServerConfig(t *testing.T) {
+	t.Run("read/write timeouts", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		agentState := mock_v1.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+		server, err := NewServer(agentState, metricsFactory,
+			WithReadTimeout(readTimeout),
+			WithWriteTimeout(writeTimeout),
+		)
+		assert.Nil(t, err)
+		assert.Equal(t, readTimeout, server.ReadTimeout)
+		assert.Equal(t, writeTimeout, server.WriteTimeout)
+	})
+
+	t.Run("overwrite write timeout when profiling enabled", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		agentState := mock_v1.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+		server, err := NewServer(agentState, metricsFactory,
+			WithReadTimeout(readTimeout),
+			WithWriteTimeout(writeTimeout),
+			WithRuntimeStats(true),
+		)
+		assert.Nil(t, err)
+		assert.Equal(t, readTimeout, server.ReadTimeout)
+		assert.Equal(t, writeTimeoutForPprof, server.WriteTimeout)
 	})
 }
 
