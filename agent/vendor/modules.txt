@@ -42,6 +42,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient
 github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient
 github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
+github.com/aws/amazon-ecs-agent/ecs-agent/introspection
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks
