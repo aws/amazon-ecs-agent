@@ -43,22 +43,30 @@ func ZeroOrNil(obj interface{}) bool {
 }
 
 // Uint16SliceToStringSlice converts a slice of type uint16 to a slice of type
-// *string. It uses strconv.Itoa on each element
-func Uint16SliceToStringSlice(slice []uint16) []*string {
-	stringSlice := make([]*string, len(slice))
+// string. It uses strconv.Itoa on each element
+func Uint16SliceToStringSlice(slice []uint16) []string {
+	stringSlice := make([]string, len(slice))
 	for i, el := range slice {
 		str := strconv.Itoa(int(el))
-		stringSlice[i] = &str
+		stringSlice[i] = str
 	}
 	return stringSlice
 }
 
-// Int64PtrToIntPtr converts a *int64 to *int.
-func Int64PtrToIntPtr(int64ptr *int64) *int {
+// Int32PtrToIntPtr converts a *int64 to *int.
+func Int32PtrToIntPtr(int32ptr *int32) *int {
+	if int32ptr == nil {
+		return nil
+	}
+	return aws.Int(int(aws.Int32Value(int32ptr)))
+}
+
+// Int64PtrToInt32Ptr converts a *int64 to *int32.
+func Int64PtrToInt32Ptr(int64ptr *int64) *int32 {
 	if int64ptr == nil {
 		return nil
 	}
-	return aws.Int(int(aws.Int64Value(int64ptr)))
+	return aws.Int32(int32(aws.Int64Value(int64ptr)))
 }
 
 // MaxNum returns the maximum value between two numbers.

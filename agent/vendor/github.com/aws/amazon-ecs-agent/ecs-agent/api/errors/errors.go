@@ -14,10 +14,13 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 )
 
 // InstanceTypeChangedErrorMessage is the error message to print for the
@@ -33,6 +36,12 @@ func IsInstanceTypeChangedError(err error) bool {
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
 	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return strings.Contains(apiErr.ErrorMessage(), InstanceTypeChangedErrorMessage)
+	}
+
 	return false
 }
 
@@ -40,7 +49,9 @@ func IsClusterNotFoundError(err error) bool {
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), ClusterNotFoundErrorMessage)
 	}
-	return false
+
+	var notFoundErr *types.ClusterNotFoundException
+	return errors.As(err, &notFoundErr)
 }
 
 // BadVolumeError represents an error caused by bad volume
