@@ -30,9 +30,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -69,7 +69,7 @@ var (
 	}
 )
 
-func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	// "local" is default docker driver
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+volume.DockerLocalVolumeDriver)
 
@@ -109,12 +109,12 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	return capabilities
 }
 
-func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.Attribute) []types.Attribute {
 	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
 		driverVersion := agent.resourceFields.NvidiaGPUManager.GetDriverVersion()
 		if driverVersion != "" {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityNvidiaDriverVersionInfix+driverVersion)
-			capabilities = append(capabilities, &ecs.Attribute{
+			capabilities = append(capabilities, types.Attribute{
 				Name:  aws.String(attributePrefix + capabilityGpuDriverVersion),
 				Value: aws.String(driverVersion),
 			})
@@ -123,7 +123,7 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.At
 	return capabilities
 }
 
-func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []types.Attribute) []types.Attribute {
 	if !agent.cfg.ENITrunkingEnabled.Enabled() {
 		return capabilities
 	}
@@ -131,7 +131,7 @@ func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribu
 	return agent.appendBranchENIPluginVersionAttribute(capabilities)
 }
 
-func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []types.Attribute) []types.Attribute {
 	version, err := agent.cniClient.Version(ecscni.ECSBranchENIPluginName)
 	if err != nil {
 		seelog.Warnf(
@@ -140,13 +140,13 @@ func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []*ecs
 		return capabilities
 	}
 
-	return append(capabilities, &ecs.Attribute{
+	return append(capabilities, types.Attribute{
 		Name:  aws.String(attributePrefix + branchCNIPluginVersionSuffix),
 		Value: aws.String(version),
 	})
 }
 
-func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []types.Attribute) []types.Attribute {
 	isLoaded, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
 	if !isLoaded || err != nil {
 		seelog.Warnf("Pause container is not loaded, did not append PID and IPC capabilities: %v", err)
@@ -155,11 +155,11 @@ func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities 
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
 }
 
-func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+appMeshAttributeSuffix)
 }
 
-func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []types.Attribute) []types.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
 
 	eiaRequiredFlags := []string{AVX, AVX2, SSE41, SSE42}
@@ -185,40 +185,40 @@ func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) 
 	return appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAWithOptimizedCPU)
 }
 
-func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentd)
 }
 
-func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 }
 
-func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
 }
 
-func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Attribute, pluginCapability string) []*ecs.Attribute {
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
 }
 
-func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }
 
-func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
 }
 
-func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
 }
 
-func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendIPv6Capability(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+taskENIIPv6AttributeSuffix)
 }
 
-func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
@@ -228,16 +228,16 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 // should also emit the same version information. Also, the version information
 // doesn't contribute to placement decisions and just serves as additional
 // debugging information
-func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
+func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (types.Attribute, error) {
 	version, err := agent.cniClient.Version(ecscni.VPCENIPluginName)
 	if err != nil {
 		seelog.Warnf(
 			"Unable to determine the version of the plugin '%s': %v",
 			ecscni.VPCENIPluginName, err)
-		return nil, err
+		return types.Attribute{}, err
 	}
 
-	return &ecs.Attribute{
+	return types.Attribute{
 		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 		Value: aws.String(version),
 	}, nil

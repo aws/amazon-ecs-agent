@@ -19,14 +19,18 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -107,13 +111,22 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			err:  awserr.New(ecs.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
+			err:  awserr.New(apierrors.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
 			res:  true,
 		},
 		{
 			name: "Wrong Error Code",
 			err:  awserr.New("errCode", "errMsg", errors.New("err")),
 			res:  false,
+		},
+		{
+			name: "Happy Path SDKv2",
+			err:  &smithy.GenericAPIError{Code: apierrors.ErrCodeInvalidParameterException},
+			res:  true,
+		},
+		{
+			name: "Wrong Error Code SDKv2",
+			err:  &smithy.GenericAPIError{Code: "errCode"},
 		},
 		{
 			name: "Wrong Error Type",
@@ -124,7 +137,7 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
+			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, apierrors.ErrCodeInvalidParameterException))
 		})
 	}
 }
@@ -137,6 +150,19 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 	}{
 		{
 			name: "TestGetRequestFailureStatusCodeSuccess",
+			err: &awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusBadRequest,
+						},
+					},
+				},
+			},
+			res: 400,
+		},
+		{
+			name: "TestGetRequestFailureStatusCodeSuccess SDKv2",
 			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
 			res:  400,
 		},

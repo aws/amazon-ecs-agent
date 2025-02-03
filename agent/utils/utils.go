@@ -28,11 +28,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 
 	"github.com/pkg/errors"
 )
@@ -140,7 +142,16 @@ func Remove(slice []string, s int) []string {
 // the passed in error code.
 func IsAWSErrorCodeEqual(err error, code string) bool {
 	awsErr, ok := err.(awserr.Error)
-	return ok && awsErr.Code() == code
+	if ok {
+		return awsErr.Code() == code
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == code
+	}
+
+	return false
 }
 
 // GetRequestFailureStatusCode returns the status code from a
@@ -148,20 +159,26 @@ func IsAWSErrorCodeEqual(err error, code string) bool {
 func GetRequestFailureStatusCode(err error) int {
 	var statusCode int
 	if reqErr, ok := err.(awserr.RequestFailure); ok {
-		statusCode = reqErr.StatusCode()
+		return reqErr.StatusCode()
 	}
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		return re.HTTPStatusCode()
+	}
+
 	return statusCode
 }
 
 // MapToTags converts a map to a slice of tags.
-func MapToTags(tagsMap map[string]string) []*ecs.Tag {
-	tags := make([]*ecs.Tag, 0)
+func MapToTags(tagsMap map[string]string) []types.Tag {
+	tags := make([]types.Tag, 0)
 	if tagsMap == nil {
 		return tags
 	}
 
 	for key, value := range tagsMap {
-		tags = append(tags, &ecs.Tag{
+		tags = append(tags, types.Tag{
 			Key:   aws.String(key),
 			Value: aws.String(value),
 		})

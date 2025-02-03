@@ -14,8 +14,8 @@
 package tasknetworkconfig
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/pkg/errors"
 )
@@ -23,15 +23,15 @@ import (
 // TaskNetworkConfig is the top level network data structure associated with a task.
 type TaskNetworkConfig struct {
 	NetworkNamespaces []*NetworkNamespace
-	NetworkMode       string
+	NetworkMode       types.NetworkMode
 }
 
-func New(networkMode string, netNSs ...*NetworkNamespace) (*TaskNetworkConfig, error) {
-	if networkMode != ecs.NetworkModeAwsvpc &&
-		networkMode != ecs.NetworkModeBridge &&
-		networkMode != ecs.NetworkModeHost &&
-		networkMode != ecs.NetworkModeNone {
-		return nil, errors.New("invalid network mode: " + networkMode)
+func New(networkMode types.NetworkMode, netNSs ...*NetworkNamespace) (*TaskNetworkConfig, error) {
+	if networkMode != types.NetworkModeAwsvpc &&
+		networkMode != types.NetworkModeBridge &&
+		networkMode != types.NetworkModeHost &&
+		networkMode != types.NetworkModeNone {
+		return nil, errors.New("invalid network mode: " + string(networkMode))
 	}
 
 	return &TaskNetworkConfig{

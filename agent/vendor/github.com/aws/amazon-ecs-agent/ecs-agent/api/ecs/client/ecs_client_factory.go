@@ -17,7 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/config"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // ECSClientFactory interface can be used to create new ECS clients.
@@ -26,36 +26,36 @@ type ECSClientFactory interface {
 	// NewClient creates a new ECS client.
 	NewClient() (ecs.ECSClient, error)
 	// GetCredentials returns the credentials chain used by the ECS client.
-	GetCredentials() *credentials.Credentials
+	GetCredentials() aws.CredentialsProvider
 }
 
 type ecsClientFactory struct {
-	credentialsProvider *credentials.Credentials
-	configAccessor      config.AgentConfigAccessor
-	ec2MetadataClient   ec2.EC2MetadataClient
-	agentVersion        string
-	options             []ECSClientOption
+	credentialsCache  *aws.CredentialsCache
+	configAccessor    config.AgentConfigAccessor
+	ec2MetadataClient ec2.EC2MetadataClient
+	agentVersion      string
+	options           []ECSClientOption
 }
 
 func NewECSClientFactory(
-	credentialsProvider *credentials.Credentials,
+	credentialsCache *aws.CredentialsCache,
 	configAccessor config.AgentConfigAccessor,
 	ec2MetadataClient ec2.EC2MetadataClient,
 	agentVersion string,
 	options ...ECSClientOption) ECSClientFactory {
 	return &ecsClientFactory{
-		credentialsProvider: credentialsProvider,
-		configAccessor:      configAccessor,
-		ec2MetadataClient:   ec2MetadataClient,
-		agentVersion:        agentVersion,
-		options:             options,
+		credentialsCache:  credentialsCache,
+		configAccessor:    configAccessor,
+		ec2MetadataClient: ec2MetadataClient,
+		agentVersion:      agentVersion,
+		options:           options,
 	}
 }
 
 func (f *ecsClientFactory) NewClient() (ecs.ECSClient, error) {
-	return NewECSClient(f.credentialsProvider, f.configAccessor, f.ec2MetadataClient, f.agentVersion, f.options...)
+	return NewECSClient(f.credentialsCache, f.configAccessor, f.ec2MetadataClient, f.agentVersion, f.options...)
 }
 
-func (f *ecsClientFactory) GetCredentials() *credentials.Credentials {
-	return f.credentialsProvider
+func (f *ecsClientFactory) GetCredentials() aws.CredentialsProvider {
+	return f.credentialsCache
 }
