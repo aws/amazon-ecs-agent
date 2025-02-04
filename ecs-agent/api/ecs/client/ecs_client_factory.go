@@ -17,7 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/config"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // ECSClientFactory interface can be used to create new ECS clients.
@@ -26,11 +26,11 @@ type ECSClientFactory interface {
 	// NewClient creates a new ECS client.
 	NewClient() (ecs.ECSClient, error)
 	// GetCredentials returns the credentials chain used by the ECS client.
-	GetCredentials() *credentials.Credentials
+	GetCredentials() aws.CredentialsProvider
 }
 
 type ecsClientFactory struct {
-	credentialsProvider *credentials.Credentials
+	credentialsProvider aws.CredentialsProvider
 	configAccessor      config.AgentConfigAccessor
 	ec2MetadataClient   ec2.EC2MetadataClient
 	agentVersion        string
@@ -38,7 +38,7 @@ type ecsClientFactory struct {
 }
 
 func NewECSClientFactory(
-	credentialsProvider *credentials.Credentials,
+	credentialsProvider aws.CredentialsProvider,
 	configAccessor config.AgentConfigAccessor,
 	ec2MetadataClient ec2.EC2MetadataClient,
 	agentVersion string,
@@ -56,6 +56,6 @@ func (f *ecsClientFactory) NewClient() (ecs.ECSClient, error) {
 	return NewECSClient(f.credentialsProvider, f.configAccessor, f.ec2MetadataClient, f.agentVersion, f.options...)
 }
 
-func (f *ecsClientFactory) GetCredentials() *credentials.Credentials {
+func (f *ecsClientFactory) GetCredentials() aws.CredentialsProvider {
 	return f.credentialsProvider
 }
