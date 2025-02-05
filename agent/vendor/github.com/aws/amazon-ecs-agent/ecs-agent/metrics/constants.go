@@ -61,7 +61,8 @@ const (
 
 	// ECS Client Metrics
 	ecsClientNamespace               = "ECSClient"
-	DiscoverPollEndpointCallName     = ecsClientNamespace + ".DiscoverPollEndpoint"
+	DiscoverPollEndpointFailure      = ecsClientNamespace + ".DiscoverPollEndpointFailure"
+	DiscoverPollEndpointTotal        = ecsClientNamespace + ".DiscoverPollEndpoint"
 	DiscoverPollEndpointDurationName = ecsClientNamespace + ".DiscoverPollEndpointDuration"
 
 	dbClientMetricNamespace                 = "Data"
