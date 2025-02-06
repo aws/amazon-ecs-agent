@@ -20,11 +20,12 @@ import (
 )
 
 // NewPublishMetricsRequest creates a PublishMetricsRequest object.
-func NewPublishMetricsRequest(metadata *MetricsMetadata, taskMetrics []*TaskMetric) *PublishMetricsRequest {
+func NewPublishMetricsRequest(instanceMetrics *InstanceMetrics, metadata *MetricsMetadata, taskMetrics []*TaskMetric) *PublishMetricsRequest {
 	return &PublishMetricsRequest{
-		Metadata:    metadata,
-		TaskMetrics: taskMetrics,
-		Timestamp:   aws.Time(time.Now()),
+		InstanceMetrics: instanceMetrics,
+		Metadata:        metadata,
+		TaskMetrics:     taskMetrics,
+		Timestamp:       aws.Time(time.Now()),
 	}
 }
 
@@ -38,8 +39,9 @@ func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*T
 }
 
 type TelemetryMessage struct {
-	Metadata    *MetricsMetadata
-	TaskMetrics []*TaskMetric
+	InstanceMetrics *InstanceMetrics
+	Metadata        *MetricsMetadata
+	TaskMetrics     []*TaskMetric
 }
 
 type HealthMessage struct {
