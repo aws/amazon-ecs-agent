@@ -22,7 +22,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -34,7 +34,7 @@ type GPUManager interface {
 	SetGPUIDs([]string)
 	GetGPUIDsUnsafe() []string
 	SetDevices()
-	GetDevices() []*ecs.PlatformDevice
+	GetDevices() []types.PlatformDevice
 	SetDriverVersion(string)
 	GetDriverVersion() string
 }
@@ -42,9 +42,9 @@ type GPUManager interface {
 // NvidiaGPUManager is used as a wrapper for NVML APIs and implements GPUManager
 // interface
 type NvidiaGPUManager struct {
-	DriverVersion string                `json:"DriverVersion"`
-	GPUIDs        []string              `json:"GPUIDs"`
-	GPUDevices    []*ecs.PlatformDevice `json:"-"`
+	DriverVersion string                 `json:"DriverVersion"`
+	GPUIDs        []string               `json:"GPUIDs"`
+	GPUDevices    []types.PlatformDevice `json:"-"`
 	lock          sync.RWMutex
 }
 
@@ -138,18 +138,18 @@ func (n *NvidiaGPUManager) SetDevices() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	gpuIDs := n.GetGPUIDsUnsafe()
-	devices := make([]*ecs.PlatformDevice, 0)
+	devices := make([]types.PlatformDevice, 0)
 	for _, gpuID := range gpuIDs {
-		devices = append(devices, &ecs.PlatformDevice{
+		devices = append(devices, types.PlatformDevice{
 			Id:   aws.String(gpuID),
-			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+			Type: types.PlatformDeviceTypeGpu,
 		})
 	}
 	n.GPUDevices = devices
 }
 
 // GetDevices returns the GPU devices as PlatformDevices
-func (n *NvidiaGPUManager) GetDevices() []*ecs.PlatformDevice {
+func (n *NvidiaGPUManager) GetDevices() []types.PlatformDevice {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
 	return n.GPUDevices
