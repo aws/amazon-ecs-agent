@@ -132,11 +132,12 @@ func TestCreateBranchENIConfig(t *testing.T) {
 		IPAddresses:        eni.GetIPAddressesWithPrefixLength(),
 		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
 		InterfaceType:      VPCBranchENIInterfaceTypeVlan,
+		BlockIMDS:          true,
 		UID:                strconv.Itoa(int(eni.UserID)),
 		GID:                strconv.Itoa(int(eni.UserID)),
 		IfName:             "eth1.13",
 	}
-	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan))
+	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 
 	expected = &ecscni.VPCBranchENIConfig{
 		CNIConfig:          cniConfig,
@@ -146,11 +147,12 @@ func TestCreateBranchENIConfig(t *testing.T) {
 		IPAddresses:        eni.GetIPAddressesWithPrefixLength(),
 		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
 		InterfaceType:      VPCBranchENIInterfaceTypeTap,
+		BlockIMDS:          false,
 		UID:                strconv.Itoa(int(eni.UserID)),
 		GID:                strconv.Itoa(int(eni.UserID)),
 		IfName:             "eth0",
 	}
-	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap))
+	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap, false))
 }
 
 func getTestRegularENI() *networkinterface.NetworkInterface {

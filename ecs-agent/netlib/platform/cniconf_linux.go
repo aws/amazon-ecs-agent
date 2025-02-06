@@ -139,6 +139,7 @@ func createBranchENIConfig(
 	netNSPath string,
 	iface *networkinterface.NetworkInterface,
 	ifType string,
+	blockInstanceMetadata bool,
 ) ecscni.PluginConfig {
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
@@ -162,6 +163,7 @@ func createBranchENIConfig(
 		BranchMACAddress:   iface.MacAddress,
 		IPAddresses:        iface.GetIPAddressesWithPrefixLength(),
 		GatewayIPAddresses: []string{iface.GetSubnetGatewayIPv4Address()},
+		BlockIMDS:          blockInstanceMetadata,
 		InterfaceType:      ifType,
 		UID:                strconv.Itoa(int(iface.UserID)),
 		GID:                strconv.Itoa(int(iface.UserID)),

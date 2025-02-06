@@ -28,13 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// defaultExpectedAgentBinds is the total number of agent host config binds.
-// Note: Change this value every time when a new bind mount is added to
-// agent for the tests to pass
-const (
-	defaultExpectedAgentBinds = 22
-)
-
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -188,6 +181,12 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	defer func() {
 		isPathValid = defaultIsPathValid
 	}()
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
 
 	containerID := "container id"
 
@@ -197,7 +196,7 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
+		validateCommonCreateContainerOptions(t, opts)
 	}).Return(&godocker.Container{
 		ID: containerID,
 	}, nil)
@@ -218,7 +217,6 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 func validateCommonCreateContainerOptions(
 	t *testing.T,
 	opts godocker.CreateContainerOptions,
-	expectedAgentBinds int,
 ) {
 	if opts.Name != "ecs-agent" {
 		t.Errorf("Expected container Name to be %s but was %s", "ecs-agent", opts.Name)
@@ -250,7 +248,6 @@ func validateCommonCreateContainerOptions(
 
 	hostCfg := opts.HostConfig
 
-	assert.Len(t, hostCfg.Binds, expectedAgentBinds)
 	binds := make(map[string]struct{})
 	for _, binding := range hostCfg.Binds {
 		binds[binding] = struct{}{}
@@ -261,6 +258,9 @@ func validateCommonCreateContainerOptions(
 	expectKey(config.AgentDataDirectory()+":/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
+	expectKey(config.CgroupMountpoint()+":"+DefaultCgroupMountpoint, binds, t)
+	expectKey(config.InstanceConfigDirectory()+":"+config.InstanceConfigDirectory(), binds, t)
+	expectKey(filepath.Join(config.LogDirectory(), execAgentLogRelativePath)+":"+filepath.Join(logDir, execAgentLogRelativePath), binds, t)
 	expectKey(config.ProcFS+":"+hostProcDir+":ro", binds, t)
 	expectKey(iptablesUsrLibDir+":"+iptablesUsrLibDir+":ro", binds, t)
 	expectKey(iptablesLibDir+":"+iptablesLibDir+":ro", binds, t)
@@ -269,7 +269,12 @@ func validateCommonCreateContainerOptions(
 	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)
 	expectKey(iptablesAltDir+":"+iptablesAltDir+":ro", binds, t)
 	expectKey(iptablesLegacyDir+":"+iptablesLegacyDir+":ro", binds, t)
+	expectKey(config.HostPKIDirPath()+":"+config.HostPKIDirPath()+":ro", binds, t)
+	expectKey(lsblkDir+":"+lsblkDir, binds, t)
 	expectKey(config.LogDirectory()+"/exec:/log/exec", binds, t)
+	expectKey(nsEnterDir+":"+nsEnterDir, binds, t)
+	expectKey(modInfoSbinDir+":"+modInfoSbinDir, binds, t)
+
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}
@@ -318,6 +323,13 @@ func TestStartAgentEnvFile(t *testing.T) {
 		isPathValid = defaultIsPathValid
 	}()
 
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
 	envFile := "\nAGENT_TEST_VAR=val\nAGENT_TEST_VAR2=val2\n"
 	containerID := "container id"
 
@@ -327,7 +339,7 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
+		validateCommonCreateContainerOptions(t, opts)
 		cfg := opts.Config
 
 		envVariables := make(map[string]struct{})
@@ -362,10 +374,15 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 		isPathValid = defaultIsPathValid
 	}()
 
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
 	containerID := "container id"
-	expectedAgentBinds := defaultExpectedAgentBinds
-	expectedAgentBinds += 1
 
 	defer func() {
 		MatchFilePatternForGPU = FilePatternMatchForGPU
@@ -380,7 +397,7 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts, expectedAgentBinds)
+		validateCommonCreateContainerOptions(t, opts)
 		var found bool
 		for _, bind := range opts.HostConfig.Binds {
 			if bind == gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath {
@@ -421,6 +438,13 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 		isPathValid = defaultIsPathValid
 	}()
 
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
 	containerID := "container id"
 
@@ -438,7 +462,7 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts, defaultExpectedAgentBinds)
+		validateCommonCreateContainerOptions(t, opts)
 		cfg := opts.Config
 
 		envVariables := make(map[string]struct{})
@@ -864,6 +888,16 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 	isPathValid = func(path string, isDir bool) bool {
 		return true
 	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
 	hostCapabilityExecResourcesDir := filepath.Join(hostResourcesRootDir, execCapabilityName)
 	containerCapabilityExecResourcesDir := filepath.Join(containerResourcesRootDir, execCapabilityName)
 
@@ -876,21 +910,15 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 		hostConfigDir + ":" + containerConfigDir,
 	}
 
-	expectedAgentBinds := defaultExpectedAgentBinds
-	expectedAgentBinds += len(expectedExecBinds)
 	// bind mount for the config folder is already included in expectedAgentBinds since it's always added
 	expectedExecBinds = append(expectedExecBinds, hostConfigDir+":"+containerConfigDir)
-	defer func() {
-		isPathValid = defaultIsPathValid
-	}()
-
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
 	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts, expectedAgentBinds)
+		validateCommonCreateContainerOptions(t, opts)
 
 		// verify that exec binds are added
 		assert.Subset(t, opts.HostConfig.Binds, expectedExecBinds)

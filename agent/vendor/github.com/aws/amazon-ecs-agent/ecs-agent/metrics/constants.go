@@ -24,6 +24,14 @@ const (
 	UpdateTaskProtectionMetricName = metadataServerMetricNamespace + ".UpdateTaskProtection"
 	AuthConfigMetricName           = metadataServerMetricNamespace + ".AuthConfig"
 
+	// IntrospectionServer
+	introspectionServerMetricNamespace = "IntrospectionServer"
+	IntrospectionCrash                 = introspectionServerMetricNamespace + ".Crash"
+	IntrospectionNotFound              = introspectionServerMetricNamespace + ".NotFound"
+	IntrospectionFetchFailure          = introspectionServerMetricNamespace + ".FetchFailure"
+	IntrospectionInternalServerError   = introspectionServerMetricNamespace + ".InternalServerError"
+	IntrospectionBadRequest            = introspectionServerMetricNamespace + ".BadRequest"
+
 	// AttachResourceResponder
 	attachResourceResponderNamespace = "ResourceAttachment"
 	ResourceValidationMetricName     = attachResourceResponderNamespace + ".Validation"
@@ -53,7 +61,8 @@ const (
 
 	// ECS Client Metrics
 	ecsClientNamespace               = "ECSClient"
-	DiscoverPollEndpointCallName     = ecsClientNamespace + ".DiscoverPollEndpoint"
+	DiscoverPollEndpointFailure      = ecsClientNamespace + ".DiscoverPollEndpointFailure"
+	DiscoverPollEndpointTotal        = ecsClientNamespace + ".DiscoverPollEndpoint"
 	DiscoverPollEndpointDurationName = ecsClientNamespace + ".DiscoverPollEndpointDuration"
 
 	dbClientMetricNamespace                 = "Data"

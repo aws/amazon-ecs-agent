@@ -201,15 +201,17 @@ func (f *firecraker) configureBranchENI(ctx context.Context, netNSPath string, e
 	var cniNetConf ecscni.PluginConfig
 	var err error
 	add := true
+	// On Firecracker, we don't want to block IMDS because we run MMDS on that address.
+	blockIMDS := false
 
 	// Generate CNI network configuration based on the ENI's desired state.
 	switch eni.DesiredStatus {
 	case status.NetworkReadyPull:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan)
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockIMDS)
 	case status.NetworkReady:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap, blockIMDS)
 	case status.NetworkDeleted:
-		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap)
+		cniNetConf = createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap, blockIMDS)
 		add = false
 	}
 

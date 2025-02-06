@@ -763,7 +763,8 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
 	})
-	client.metricsFactory.New(metrics.DiscoverPollEndpointCallName).Done(err)
+	client.metricsFactory.New(metrics.DiscoverPollEndpointFailure).Done(err)
+	client.metricsFactory.New(metrics.DiscoverPollEndpointTotal).Done(nil)
 	if err != nil {
 		// If we got an error calling the API, fallback to an expired cached endpoint if
 		// we have it.
