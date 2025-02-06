@@ -187,7 +187,7 @@ func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
 // objects.
 func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*ecstcs.PublishMetricsRequest, error) {
-	metadata, taskMetrics := metrics.Metadata, metrics.TaskMetrics
+	instanceMetrics, metadata, taskMetrics := metrics.InstanceMetrics, metrics.Metadata, metrics.TaskMetrics
 
 	var requests []*ecstcs.PublishMetricsRequest
 	if metadata == nil {
@@ -196,7 +196,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 	if *metadata.Idle {
 		metadata.Fin = aws.Bool(true)
 		// Idle instance, we have only one request to send to backend.
-		requests = append(requests, ecstcs.NewPublishMetricsRequest(metadata, taskMetrics))
+		requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, metadata, taskMetrics))
 		return requests, nil
 	}
 	var messageTaskMetrics []*ecstcs.TaskMetric
@@ -211,18 +211,18 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
-		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tmsg) > publishMetricRequestSizeLimit {
 			// Create a new request as the current task metric if added is exceeding the size of the frame.
-			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			// reset the messageTaskMetrics for the new request
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
 
 		if taskMetric.ServiceConnectMetricsWrapper != nil {
-			taskMetric, messageTaskMetrics, requests = cs.serviceConnectMetricsToPublishMetricRequests(requestMetadata, taskMetric, messageTaskMetrics, requests)
+			taskMetric, messageTaskMetrics, requests = cs.serviceConnectMetricsToPublishMetricRequests(instanceMetrics, requestMetadata, taskMetric, messageTaskMetrics, requests)
 		}
 		messageTaskMetrics = append(messageTaskMetrics, taskMetric)
 		if (i + 1) == numTasks {
@@ -231,7 +231,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		}
 		if len(messageTaskMetrics)%tasksInMetricMessage == 0 {
 			// Construct payload with tasksInMetricMessage number of task metrics and send to backend.
-			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 			messageTaskMetrics = messageTaskMetrics[:0]
 		}
 	}
@@ -240,7 +240,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		// Create the new metadata object and set fin to true as this is the last message in the payload.
 		requestMetadata := copyMetricsMetadata(metadata, true)
 		// Create a request with remaining task metrics.
-		requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, messageTaskMetrics))
+		requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, messageTaskMetrics))
 	}
 	return requests, nil
 }
@@ -248,7 +248,8 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 // serviceConnectMetricsToPublishMetricRequests loops over all the SC metrics in a
 // task metric to add SC metrics until the message size is within 1 MB.
 // If adding a SC metric to the message exceeds the 1 MB limit, it will be sent in the new message
-func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(requestMetadata *ecstcs.MetricsMetadata,
+func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instanceMetrics *ecstcs.InstanceMetrics,
+	requestMetadata *ecstcs.MetricsMetadata,
 	taskMetric *ecstcs.TaskMetric,
 	messageTaskMetrics []*ecstcs.TaskMetric,
 	requests []*ecstcs.PublishMetricsRequest,
@@ -260,7 +261,7 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(requestM
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
 		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
-		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tempMessage) > publishMetricRequestSizeLimit {
@@ -270,7 +271,7 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(requestM
 			taskMetricTruncated.ServiceConnectMetricsWrapper = copyServiceConnectMetrics(tempTaskMetric.ServiceConnectMetricsWrapper)
 
 			messageTaskMetrics = append(messageTaskMetrics, &taskMetricTruncated)
-			requests = append(requests, ecstcs.NewPublishMetricsRequest(requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+			requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 
 			// reset the messageTaskMetrics and tempTaskMetric for the new request,
 			messageTaskMetrics = messageTaskMetrics[:0]
