@@ -17,39 +17,28 @@
 package ecsclient
 
 import (
-	"errors"
-	"net/http"
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/defaults"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOneDayRetrier(t *testing.T) {
-	stateChangeClient := newSubmitStateChangeClient(defaults.Config())
-
-	request, _ := stateChangeClient.SubmitContainerStateChangeRequest(&ecs.SubmitContainerStateChangeInput{})
-
-	retrier := stateChangeClient.Retryer
-
-	var totalDelay time.Duration
-	for retries := 0; retries < retrier.MaxRetries(); retries++ {
-		request.Error = errors.New("")
-		request.Retryable = aws.Bool(true)
-		request.HTTPResponse = &http.Response{StatusCode: 500}
-		if request.WillRetry() && request.IsErrorRetryable() {
-			totalDelay += retrier.RetryRules(request)
-			request.RetryCount++
-		}
+	retrier := oneDayRetrier{
+		Standard: retry.NewStandard(),
 	}
 
-	request.Error = errors.New("")
-	request.Retryable = aws.Bool(true)
-	request.HTTPResponse = &http.Response{StatusCode: 500}
-	if request.WillRetry() {
-		t.Errorf("Expected request to not be retried after %v retries", retrier.MaxRetries())
+	retryErr := &types.LimitExceededException{}
+	var totalDelay time.Duration
+
+	for retries := 0; retries < retrier.MaxAttempts(); retries++ {
+		if retrier.IsErrorRetryable(retryErr) {
+			delay, err := retrier.RetryDelay(retries, retryErr)
+			assert.NoError(t, err)
+			totalDelay += delay
+		}
 	}
 
 	if totalDelay > 25*time.Hour || totalDelay < 23*time.Hour {
