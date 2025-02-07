@@ -290,6 +290,7 @@ func (cs *CredentialSpecResource) handleDomainlessKerberosTicketCreation() error
 				cs.setTerminalReason(err.Error())
 				return fmt.Errorf("failed to create kerberos tickets associated service account %s: %w", v.domainlessGmsaUserArn, err)
 			}
+			cs.leaseID = response.LeaseID
 			seelog.Infof("credentials fetcher response leaseID: %v", cs.leaseID)
 			cs.CredSpecMap[k] = response.KerberosTicketPaths[0]
 		}
