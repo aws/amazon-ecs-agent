@@ -149,7 +149,7 @@ github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/ssooidc
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/aws/aws-sdk-go-v2 v1.32.6
+# github.com/aws/aws-sdk-go-v2 v1.36.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/defaults
@@ -192,10 +192,10 @@ github.com/aws/aws-sdk-go-v2/credentials/stscreds
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.25
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.32
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.25
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.32
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1
@@ -206,6 +206,11 @@ github.com/aws/aws-sdk-go-v2/internal/ini
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
+# github.com/aws/aws-sdk-go-v2/service/ecr v1.40.3 => ../aws-sdk-go-v2/service/ecr
+## explicit; go 1.21
+github.com/aws/aws-sdk-go-v2/service/ecr
+github.com/aws/aws-sdk-go-v2/service/ecr/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/ecr/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
@@ -227,7 +232,7 @@ github.com/aws/aws-sdk-go-v2/service/ssooidc/types
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v1.22.1
+# github.com/aws/smithy-go v1.22.2
 ## explicit; go 1.21
 github.com/aws/smithy-go
 github.com/aws/smithy-go/auth
@@ -720,3 +725,4 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+# github.com/aws/aws-sdk-go-v2/service/ecr => ../aws-sdk-go-v2/service/ecr
