@@ -25,8 +25,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/pkg/errors"
 )
 

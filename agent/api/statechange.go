@@ -29,8 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
@@ -424,7 +424,7 @@ func (change *TaskStateChange) ToECSAgent() (*ecs.TaskStateChange, error) {
 
 	for _, managedAgentEvent := range change.ManagedAgents {
 		if mgspl := buildManagedAgentStateChangePayload(managedAgentEvent); mgspl != nil {
-			output.ManagedAgents = append(output.ManagedAgents, *mgspl)
+			output.ManagedAgents = append(output.ManagedAgents, mgspl)
 		}
 	}
 

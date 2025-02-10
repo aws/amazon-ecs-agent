@@ -43,8 +43,8 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"

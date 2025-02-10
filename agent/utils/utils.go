@@ -29,13 +29,13 @@ import (
 	"strings"
 
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
-
 	"github.com/pkg/errors"
 )
 

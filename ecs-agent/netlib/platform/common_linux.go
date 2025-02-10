@@ -164,7 +164,7 @@ func (c *common) buildTaskNetworkConfiguration(
 
 	return &tasknetworkconfig.TaskNetworkConfig{
 		NetworkNamespaces: netNSs,
-		NetworkMode:       types.NetworkMode(mode),
+		NetworkMode:       mode,
 	}, nil
 }
 

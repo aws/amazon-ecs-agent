@@ -30,13 +30,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )

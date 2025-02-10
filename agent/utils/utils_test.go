@@ -26,6 +26,7 @@ import (
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -150,6 +151,11 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 	}{
 		{
 			name: "TestGetRequestFailureStatusCodeSuccess",
+			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
+			res:  400,
+		},
+		{
+			name: "TestGetRequestFailureStatusCodeSuccess SDKv2",
 			err: &awshttp.ResponseError{
 				ResponseError: &smithyhttp.ResponseError{
 					Response: &smithyhttp.Response{
@@ -158,13 +164,7 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 						},
 					},
 				},
-			},
-			res: 400,
-		},
-		{
-			name: "TestGetRequestFailureStatusCodeSuccess SDKv2",
-			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
-			res:  400,
+			}, res: 400,
 		},
 		{
 			name: "TestGetRequestFailureStatusCodeWrongErrType",

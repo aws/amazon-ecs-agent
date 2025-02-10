@@ -45,9 +45,9 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
