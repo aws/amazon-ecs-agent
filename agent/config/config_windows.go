@@ -166,6 +166,7 @@ func DefaultConfig() Config {
 		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
 		NodeStageTimeout:                    nodeStageTimeout,
 		NodeUnstageTimeout:                  nodeUnstageTimeout,
+		FirelensAsyncEnabled:                BooleanDefaultTrue{Value: ExplicitlyEnabled},
 	}
 }
 

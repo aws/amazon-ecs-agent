@@ -2081,7 +2081,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	return metadata
 }
 
-func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
+func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
+	hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 	tag := fmt.Sprintf(fluentTagDockerFormat, container.Name, taskID)
@@ -2092,7 +2093,7 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
-	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
+	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
 	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
 	if bufferLimitExists {
 		logConfig.Config[logDriverBufferLimit] = bufferLimit

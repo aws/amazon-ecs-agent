@@ -5034,3 +5034,72 @@ func TestSetRegistryCredentials(t *testing.T) {
 		})
 	}
 }
+
+func TestGetFirelensConfigWithAsyncEnabledConfigOption(t *testing.T) {
+	rawHostConfigInput := &dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: "awsfirelens",
+			Config: map[string]string{
+				"log-driver-buffer-limit": "10000",
+			},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+	hostConfig := func() *string {
+		s := string(rawHostConfig)
+		return &s
+	}()
+
+	appContainer := &apicontainer.Container{
+		Name: "app",
+		DockerConfig: apicontainer.DockerConfig{
+			HostConfig: hostConfig,
+		},
+	}
+
+	firelensContainer := &apicontainer.Container{
+		Name: "firelens",
+		FirelensConfig: &apicontainer.FirelensConfig{
+			Type: "fluentbit",
+		},
+	}
+
+	task := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/task-id",
+		Containers: []*apicontainer.Container{
+			appContainer,
+			firelensContainer,
+		},
+	}
+
+	testCases := []struct {
+		name                   string
+		isFirelensAsyncEnabled string
+	}{
+		{
+			name:                   "async enabled",
+			isFirelensAsyncEnabled: "true",
+		},
+		{
+			name:                   "async disabled",
+			isFirelensAsyncEnabled: "false",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Initialize config with the appropriate FirelensAsyncEnabled value as per the test case.
+			asyncEnabled := config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled}
+			if tc.isFirelensAsyncEnabled == "true" {
+				asyncEnabled = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
+			}
+			cfg := &config.Config{
+				FirelensAsyncEnabled: asyncEnabled,
+			}
+			logConfig := getFirelensLogConfig(task, appContainer, rawHostConfigInput, cfg)
+			assert.Equal(t, tc.isFirelensAsyncEnabled, logConfig.Config[logDriverAsyncConnect])
+		})
+	}
+}

@@ -169,6 +169,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
 	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
 	setTestEnv("ECS_VOLUME_PLUGIN_CAPABILITIES", "[\"efsAuth\"]")
+	setTestEnv("ECS_ENABLE_FIRELENS_ASYNC", "true")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -224,6 +225,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.ShouldExcludeIPv6PortBinding.Enabled(), "Wrong value for ShouldExcludeIPv6PortBinding")
 	assert.False(t, conf.WarmPoolsSupport.Enabled(), "Wrong value for WarmPoolsSupport")
 	assert.Equal(t, "200-300", conf.DynamicHostPortRange)
+	assert.True(t, conf.FirelensAsyncEnabled.Enabled())
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -973,6 +975,47 @@ func TestExternalConfigMissingRegion(t *testing.T) {
 	defer setTestEnv("ECS_EXTERNAL", "true")()
 	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Error(t, err)
+}
+
+func TestFirelensAsyncEnabled(t *testing.T) {
+	testCases := []struct {
+		name           string
+		envVarValue    string
+		expectedResult bool
+	}{
+		{
+			name:           "default, env var not set",
+			envVarValue:    "",
+			expectedResult: true,
+		},
+		{
+			name:           "explicitly disabled",
+			envVarValue:    "false",
+			expectedResult: false,
+		},
+		{
+			name:           "explicitly enabled",
+			envVarValue:    "true",
+			expectedResult: true,
+		},
+		{
+			name:           "env var has invalid value",
+			envVarValue:    "foo",
+			expectedResult: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AWS_DEFAULT_REGION", "us-west-2")
+			if tc.envVarValue != "" {
+				t.Setenv("ECS_ENABLE_FIRELENS_ASYNC", tc.envVarValue)
+			}
+			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedResult, cfg.FirelensAsyncEnabled.Enabled())
+		})
+	}
 }
 
 func setTestRegion() func() {
