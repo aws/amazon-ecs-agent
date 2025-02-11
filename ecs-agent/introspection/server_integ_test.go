@@ -17,9 +17,9 @@ package introspection
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -34,46 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var serverAddress = fmt.Sprintf("http://localhost:%d", Port)
-
-// Starts the HTTP server in a new goroutine
-func startServer(t *testing.T, server *http.Server) {
-	go func() {
-		err := server.ListenAndServe()
-		if !errors.Is(err, http.ErrServerClosed) {
-			require.NoError(t, err)
-		}
-	}()
-}
-
-// waitForServer waits for the server to come up. Checks if the server is up by sending
-// repeated requests to it.
-func waitForServer(client *http.Client, serverAddress string) error {
-	var err error
-	// wait for the server to come up
-	for i := 0; i < 10; i++ {
-		time.Sleep(100 * time.Millisecond)
-		_, err = client.Get(serverAddress)
-		if err == nil {
-			return nil // server is up now
-		}
-	}
-	return fmt.Errorf("timed out waiting for server %s to come up: %w", serverAddress, err)
-}
-
-func performRequest(t *testing.T, agentState v1.AgentState, metricsFactory metrics.EntryFactory, path string, options ...ConfigOpt) (*http.Response, error) {
-	server, err := NewServer(agentState, metricsFactory, options...)
-
-	startServer(t, server)
-	defer server.Close()
-
-	client := http.DefaultClient
-	err = waitForServer(client, serverAddress)
-	require.NoError(t, err)
-
-	return client.Get(fmt.Sprintf("%s%s", serverAddress, path))
-}
 
 // Verify that the connection closes as expected and a metric is emitted if a panic occurs.
 func TestPanicHandler(t *testing.T) {
@@ -202,10 +162,7 @@ func TestPprof(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		mockAgentState := mock_v1.NewMockAgentState(ctrl)
-		mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-
-		response, err := performRequest(t, mockAgentState, mockMetricsFactory, "/")
+		response, err := performRequest(t, mock_v1.NewMockAgentState(ctrl), mock_metrics.NewMockEntryFactory(ctrl), "/")
 		require.NoError(t, err)
 
 		bodyBytes, err := io.ReadAll(response.Body)
@@ -214,4 +171,48 @@ func TestPprof(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		assert.NotContains(t, string(bodyBytes), "/pprof")
 	})
+}
+
+func performRequest(t *testing.T, state v1.AgentState, metricsFactory metrics.EntryFactory, path string, options ...ConfigOpt) (*http.Response, error) {
+	var waitForServer = func(client *http.Client, serverAddress string) error {
+		var err error
+		// wait for the server to come up
+		for i := 0; i < 10; i++ {
+			time.Sleep(100 * time.Millisecond)
+			_, err = client.Get(serverAddress)
+			if err == nil {
+				return nil // server is up now
+			}
+		}
+		return fmt.Errorf("timed out waiting for server %s to come up: %w", serverAddress, err)
+	}
+	var startServer = func(t *testing.T, server *http.Server) int {
+		server.Addr = ":0"
+		listener, err := net.Listen("tcp", server.Addr)
+		assert.NoError(t, err)
+
+		port := listener.Addr().(*net.TCPAddr).Port
+		t.Logf("Server started on port: %d", port)
+
+		go func() {
+			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+				t.Logf("ListenAndServe(): %s\n", err)
+			}
+		}()
+
+		return port
+	}
+
+	server, err := NewServer(state, metricsFactory, options...)
+
+	port := startServer(t, server)
+	defer server.Close()
+
+	serverAddress := fmt.Sprintf("http://localhost:%d", port)
+
+	client := http.DefaultClient
+	err = waitForServer(client, serverAddress)
+	assert.NoError(t, err)
+
+	return client.Get(fmt.Sprintf("%s%s", serverAddress, path))
 }
