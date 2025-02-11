@@ -783,7 +783,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		}
 		return nil, err
 	}
-	client.metricsFactory.New(metrics.DiscoverPollEndpointDurationName).WithGauge(time.Since(discoverPollEndpointStartTime)).Done(nil)
+	client.metricsFactory.New(metrics.DiscoverPollEndpointDurationName).WithGauge(time.Since(discoverPollEndpointStartTime).Nanoseconds()).Done(nil)
 	// Cache the response from ECS.
 	client.pollEndpointCache.Set(containerInstanceArn, output)
 	return output, nil
