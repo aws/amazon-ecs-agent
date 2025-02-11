@@ -61,6 +61,7 @@ type TaskProtectionRequest struct {
 	ExpiresInMinutes  *int64
 }
 
+// CanceledError is an interface that defines a method to check if an error is a cancellation error.
 // https://pkg.go.dev/github.com/aws/smithy-go#CanceledError.CanceledError
 type CanceledError interface {
 	CanceledError() bool
@@ -337,7 +338,7 @@ func logAndValidateECSResponse(
 	if len(failures) > 0 {
 		if len(failures) > expectedProtectionResponseLength {
 			err := fmt.Errorf(
-				"Expect at most %v failure in response, get %v",
+				"expect at most %v failure in response, get %v",
 				expectedProtectionResponseLength, len(failures))
 			logger.Error("Unexpected number of failures", logger.Fields{
 				field.Error:       err,
@@ -356,7 +357,7 @@ func logAndValidateECSResponse(
 
 	if len(protectedTasks) > expectedProtectionResponseLength {
 		err := fmt.Errorf(
-			"Expect %v protectedTask in response when no failure, get %v",
+			"expect %v protectedTask in response when no failure, get %v",
 			expectedProtectionResponseLength, len(protectedTasks))
 		logger.Error("Unexpected number of protections", logger.Fields{
 			field.Error:       err,

@@ -38,7 +38,6 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	"github.com/docker/docker/pkg/meminfo"
 )
@@ -262,52 +261,12 @@ func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, c
 	return containerInstanceARN, availabilityZone, nil
 }
 
-// registerContainerInstanceWithRetry wraps around registerContainerInstance with exponential backoff retry implementation.
-func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, containerInstanceArn string,
-	attributes []types.Attribute, tags []types.Tag, registrationToken string,
-	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
-
-	var containerInstanceARN, availabilityZone string
-	var errFromRCI error
-	ctx, cancel := context.WithTimeout(context.Background(), rciMaxRetryTimeAllowed)
-	defer cancel()
-	// Reset the backoff such that retries from past calls won't impact the current call.
-	client.rciRetryBackoff.Reset()
-	err := retry.RetryWithBackoffCtx(ctx, client.rciRetryBackoff,
-		func() error {
-			containerInstanceARN, availabilityZone, errFromRCI = client.registerContainerInstance(
-				clusterRef, containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
-			if errFromRCI != nil {
-				if !isTransientError(errFromRCI) {
-					logger.Error("Received terminal error from RegisterContainerInstance call, exiting", logger.Fields{
-						field.Error: errFromRCI,
-					})
-					// Mark the error as non-retriable, to stop the retry loop in RetryWithBackoffCtx.
-					return apierrors.NewRetriableError(apierrors.NewRetriable(false), errFromRCI)
-				} else {
-					logger.Error("Received non-terminal error from RegisterContainerInstance call, retrying with exponential backoff", logger.Fields{
-						field.Error: errFromRCI,
-					})
-					// Mark non-terminal errors as retriable, to continue the retry loop in RetryWithBackoffCtx.
-					return apierrors.NewRetriableError(apierrors.NewRetriable(true), errFromRCI)
-				}
-			}
-			return nil
-		})
-	if err != nil {
-		// return errFromRCI instead of err returned by the retry wrapper, as err wraps around the original error thrown by RCI.
-		// errFromRCI has implementation to mark the exit code terminal, so that systemd won't restart the agent binary.
-		return "", "", errFromRCI
-	}
-	return containerInstanceARN, availabilityZone, nil
-}
-
 func (client *ecsClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
 	attributes []types.Attribute, tags []types.Tag, registrationToken string,
 	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
 
-	registerRequest := ecsservice.RegisterContainerInstanceInput{Cluster: &clusterRef}
-	var registrationAttributes []types.Attribute
+	registerRequest := ecsmodel.RegisterContainerInstanceInput{Cluster: &clusterRef}
+	var registrationAttributes []*ecsmodel.Attribute
 	if containerInstanceArn != "" {
 		// We are re-connecting a previously registered instance, restored from snapshot.
 		registerRequest.ContainerInstanceArn = &containerInstanceArn
@@ -394,6 +353,7 @@ func (client *ecsClient) setInstanceIdentity(
 			})
 			// Force credentials to expire in case they are stale but not expired.
 			client.credentialsCache.Invalidate()
+			client.credentialsCache.Retrieve(ctx)
 			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 		}
 		logger.Debug("Successfully retrieved Instance Identity Document")
@@ -866,7 +826,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		field.ContainerInstanceARN: containerInstanceArn,
 		field.AvailabilityZone:     availabilityZone,
 	})
-	output, err := client.standardClient.DiscoverPollEndpointWithContext(ctx, context.TODO(), &ecsservice.DiscoverPollEndpointInput{
+	output, err := client.standardClient.DiscoverPollEndpointWithContext(ctx, &ecsservice.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
@@ -987,11 +947,11 @@ func trimString(inputString string, maxLen int) string {
 }
 
 func isTransientError(err error) bool {
-	var awsErr awserr.Error
+	var apiErr smithy.APIError
 	// Using errors.As to unwrap as opposed to errors.Is.
-	if errors.As(err, &awsErr) {
-		switch awsErr.Code() {
-		case ecsmodel.ErrCodeServerException, "ThrottlingException":
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case apierrors.ErrCodeServerException, "ThrottlingException":
 			return true
 		}
 	}

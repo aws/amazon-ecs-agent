@@ -58,7 +58,7 @@ func newSubmitStateChangeClient(awsConfig aws.Config) *ecs.Client {
 // oneDayRetrier is a retrier for the AWS SDK that retries up to one day.
 // Each retry will have an exponential backoff from 30ms to 5 minutes. Once the
 // backoff has reached 5 minutes, it will not increase further.
-// Confirms to the aws.Retryer interface https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#Retryer
+// Conforms to the aws.Retryer interface https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#Retryer
 type oneDayRetrier struct {
 	*retry.Standard
 }
@@ -67,6 +67,11 @@ func (retrier *oneDayRetrier) MaxAttempts() int {
 	return submitStateChangeExtraRetries + submitStateChangeInitialRetries
 }
 
+// RetryDelay returns the correct time to delay between retries for this
+// instance of a retry. For the first 14 requests, it follows an exponential
+// backoff between 30ms and 1 minute.
+// See the const comments for math on how this gets us to around 24 hours
+// total.
 func (retrier *oneDayRetrier) RetryDelay(attempt int, _ error) (time.Duration, error) {
 	if attempt <= submitStateChangeInitialRetries {
 		delay := int(math.Pow(2, float64(attempt))) * (rand.Intn(30) + 30)

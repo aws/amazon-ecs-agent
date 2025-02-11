@@ -353,6 +353,7 @@ func (client *ecsClient) setInstanceIdentity(
 			})
 			// Force credentials to expire in case they are stale but not expired.
 			client.credentialsCache.Invalidate()
+			client.credentialsCache.Retrieve(ctx)
 			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 		}
 		logger.Debug("Successfully retrieved Instance Identity Document")
@@ -946,11 +947,11 @@ func trimString(inputString string, maxLen int) string {
 }
 
 func isTransientError(err error) bool {
-	var awsErr awserr.Error
+	var apiErr smithy.APIError
 	// Using errors.As to unwrap as opposed to errors.Is.
-	if errors.As(err, &awsErr) {
-		switch awsErr.Code() {
-		case ecsmodel.ErrCodeServerException, "ThrottlingException":
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case apierrors.ErrCodeServerException, "ThrottlingException":
 			return true
 		}
 	}

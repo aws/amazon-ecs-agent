@@ -47,6 +47,7 @@ const (
 // registering the container instance is because of instance type being
 // changed
 func IsInstanceTypeChangedError(err error) bool {
+	// v1 error handling will be removed after all clients have been migrated to aws-sdk-go-v2
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
 	}
@@ -60,6 +61,7 @@ func IsInstanceTypeChangedError(err error) bool {
 }
 
 func IsClusterNotFoundError(err error) bool {
+	// v1 error handling will be removed after all clients have been migrated to aws-sdk-go-v2
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), ClusterNotFoundErrorMessage)
 	}

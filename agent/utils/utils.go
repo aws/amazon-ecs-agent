@@ -141,6 +141,7 @@ func Remove(slice []string, s int) []string {
 // interface of awserr and it has the same error code as
 // the passed in error code.
 func IsAWSErrorCodeEqual(err error, code string) bool {
+	// v1 error handling will be removed once v2 migraiton is complete.
 	awsErr, ok := err.(awserr.Error)
 	if ok {
 		return awsErr.Code() == code

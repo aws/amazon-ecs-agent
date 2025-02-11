@@ -23,9 +23,9 @@ import (
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	"github.com/cihub/seelog"
@@ -272,7 +272,7 @@ func newErrorResponse(err error, field, resourceARN string) *tmdsv2.ErrorRespons
 		ErrorMessage: err.Error(),
 		ResourceARN:  resourceARN,
 	}
-
+	// v1 error handling will be removed once v2 migraiton is complete.
 	if awsErr, ok := err.(awserr.Error); ok {
 		errResp.ErrorCode = awsErr.Code()
 		errResp.ErrorMessage = awsErr.Message()

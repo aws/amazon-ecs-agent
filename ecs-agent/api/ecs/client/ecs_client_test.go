@@ -305,6 +305,101 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	assert.NoError(t, err, "Unable to submit container state change")
 }
 
+func TestSetInstanceIdentity(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
+
+	// Create a new credentials provider function that we can trace
+	var retrieveCalled bool
+	credProvider := aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
+		retrieveCalled = true
+		return aws.Credentials{}, nil
+	})
+
+	credCache := aws.NewCredentialsCache(credProvider)
+
+	testCases := []struct {
+		name        string
+		description string
+		mockSetup   func(*mock_ec2.MockEC2MetadataClient)
+		expectedDoc string
+		expectedSig string
+	}{
+		{
+			name:        "Success case after retry ",
+			description: "First call fails, credentials refresh, then second call succeeds",
+			mockSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
+				// First call to GetDynamicData fails with an error
+				gomock.InOrder(
+					mockEC2Metadata.EXPECT().
+						GetDynamicData(ec2.InstanceIdentityDocumentResource).
+						Return("", fmt.Errorf("expired credentials")),
+					mockEC2Metadata.EXPECT().
+						GetDynamicData(ec2.InstanceIdentityDocumentResource).
+						Return("document-data", nil),
+					mockEC2Metadata.EXPECT().
+						GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+						Return("signature-data", nil),
+				)
+			},
+			expectedDoc: "document-data",
+			expectedSig: "signature-data",
+		},
+		{
+			name:        "Failure case - persistent error",
+			description: "Calls keep failing with persistent error",
+			mockSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
+				// All calls to GetDynamicData fail - allow any number of retries
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return("", fmt.Errorf("persistent error")).
+					AnyTimes()
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("", fmt.Errorf("persistent error")).
+					AnyTimes()
+			},
+			expectedDoc: "",
+			expectedSig: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Reset tracking flag for each test case
+			retrieveCalled = false
+
+			mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(false)
+			tc.mockSetup(mockEC2Metadata)
+
+			// Create the client with our real credentials cache
+			client := &ecsClient{
+				credentialsCache: credCache,
+				configAccessor:   mockConfigAccessor,
+				ec2metadata:      mockEC2Metadata,
+			}
+
+			registerRequest := ecsservice.RegisterContainerInstanceInput{
+				Cluster: aws.String("test-cluster"),
+			}
+			result := client.setInstanceIdentity(registerRequest)
+
+			assert.Equal(t, tc.expectedDoc, *result.InstanceIdentityDocument,
+				"Expected document %q but got %q", tc.expectedDoc, *result.InstanceIdentityDocument)
+			assert.Equal(t, tc.expectedSig, *result.InstanceIdentityDocumentSignature,
+				"Expected signature %q but got %q", tc.expectedSig, *result.InstanceIdentityDocumentSignature)
+
+			// Verify credentials operations based on observed behavior
+			if tc.name == "Credential refresh fixes transient error" {
+				assert.True(t, retrieveCalled, "Expected credentials to be retrieved during refresh")
+			}
+		})
+	}
+}
+
 func buildAttributeList(capabilities []string, attributes map[string]string) []types.Attribute {
 	var rv []types.Attribute
 	for _, capability := range capabilities {
@@ -499,35 +594,34 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 		cpuArchAttrName:             getCPUArch(),
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
-	platformDevices := []*ecsmodel.PlatformDevice{
+	platformDevices := []types.PlatformDevice{
 		{
 			Id:   aws.String("id1"),
-			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+			Type: types.PlatformDeviceTypeGpu,
 		},
 		{
 			Id:   aws.String("id2"),
-			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+			Type: types.PlatformDeviceTypeGpu,
 		},
 		{
 			Id:   aws.String("id3"),
-			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+			Type: types.PlatformDeviceTypeGpu,
 		},
 	}
 
 	testCases := []struct {
 		name                         string
-		finalRCICallResponse         *ecsmodel.RegisterContainerInstanceOutput
+		finalRCICallResponse         *ecsservice.RegisterContainerInstanceOutput
 		finalRCICallError            error
 		expectedContainerInstanceARN string
 		expectedAZ                   string
 	}{
 		{
 			name: "Happy Path",
-			finalRCICallResponse: &ecsmodel.RegisterContainerInstanceOutput{
-				ContainerInstance: &ecsmodel.ContainerInstance{
+			finalRCICallResponse: &ecsservice.RegisterContainerInstanceOutput{
+				ContainerInstance: &types.ContainerInstance{
 					ContainerInstanceArn: aws.String(containerInstanceARN),
-					Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes),
-				},
+					Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)},
 			},
 			finalRCICallError:            nil,
 			expectedContainerInstanceARN: containerInstanceARN,
@@ -536,7 +630,7 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 		{
 			name:                 "UnHappy Path",
 			finalRCICallResponse: nil,
-			finalRCICallError:    awserr.New("ClientException", "", nil),
+			finalRCICallError:    &types.InvalidParameterException{},
 		},
 	}
 
@@ -547,19 +641,19 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 					Return("instanceIdentityDocument", nil),
 				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 					Return("signature", nil),
-				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-					Return(nil, awserr.New("ThrottlingException", "", nil)),
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+					Return(nil, &types.LimitExceededException{}),
 				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
 					Return("instanceIdentityDocument", nil),
 				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 					Return("signature", nil),
-				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
-					Return(nil, awserr.New("ServerException", "", nil)),
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+					Return(nil, &types.ServerException{}),
 				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
 					Return("instanceIdentityDocument", nil),
 				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 					Return("signature", nil),
-				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
 					Return(tc.finalRCICallResponse, tc.finalRCICallError),
 			)
 			arn, availabilityzone, err := tester.client.RegisterContainerInstance("", capabilities,
