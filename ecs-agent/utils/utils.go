@@ -53,7 +53,7 @@ func Uint16SliceToStringSlice(slice []uint16) []string {
 	return stringSlice
 }
 
-// Int32PtrToIntPtr converts a *int64 to *int.
+// Int32PtrToIntPtr converts a *int32 to *int.
 func Int32PtrToIntPtr(int32ptr *int32) *int {
 	if int32ptr == nil {
 		return nil

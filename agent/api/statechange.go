@@ -424,7 +424,7 @@ func (change *TaskStateChange) ToECSAgent() (*ecs.TaskStateChange, error) {
 
 	for _, managedAgentEvent := range change.ManagedAgents {
 		if mgspl := buildManagedAgentStateChangePayload(managedAgentEvent); mgspl != nil {
-			output.ManagedAgents = append(output.ManagedAgents, mgspl)
+			output.ManagedAgents = append(output.ManagedAgents, *mgspl)
 		}
 	}
 

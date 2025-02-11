@@ -31,10 +31,10 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -61,6 +61,8 @@ type TaskProtectionRequest struct {
 	ExpiresInMinutes  *int64
 }
 
+// CanceledError is an interface that defines a method to check if an error is a cancellation error.
+// https://pkg.go.dev/github.com/aws/smithy-go#CanceledError.CanceledError
 type CanceledError interface {
 	CanceledError() bool
 }
@@ -416,12 +418,13 @@ func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 			return aerr.Code(), ecsCallTimedOutError, http.StatusGatewayTimeout, nil
 		} else {
 			logger.Error(fmt.Sprintf(
-				"got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
+				"Got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
 				err))
 			return awsErr.Code(), msg, http.StatusInternalServerError, nil
 		}
 	}
 
+	// below is the aws-sdk-go-v2 error handling and the above v1 error handling will be removed once we complete aws-sdk-go-v2 migration
 	var ce CanceledError
 	if errors.As(err, &ce) {
 		return apierrors.ErrCodeRequestCanceled, ecsCallTimedOutError, http.StatusGatewayTimeout, nil
@@ -437,11 +440,11 @@ func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 		}
 
 		logger.Error(fmt.Sprintf(
-			"got a %T exception that does not implement ResponseError. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
-			err, err))
+			"Got an exception that does not implement ResponseError. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
+			err))
 		return apiErr.ErrorCode(), msg, http.StatusInternalServerError, nil
 	}
 
-	logger.Error(fmt.Sprintf("non aws error received: %v", err))
+	logger.Error(fmt.Sprintf("Non aws error received: %v", err))
 	return apierrors.ErrCodeServerException, msg, http.StatusInternalServerError, nil
 }

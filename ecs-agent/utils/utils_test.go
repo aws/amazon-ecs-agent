@@ -109,6 +109,23 @@ func TestInt32PtrToIntPtr(t *testing.T) {
 	}
 }
 
+func TestInt64PtrToInt32Ptr(t *testing.T) {
+	testCases := []struct {
+		input          *int64
+		expectedOutput *int32
+		name           string
+	}{
+		{nil, nil, "nil"},
+		{aws.Int64(2147483647), aws.Int32(2147483647), "smallest max value type int can hold"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, Int64PtrToInt32Ptr(tc.input))
+		})
+	}
+}
+
 func TestMaxNum(t *testing.T) {
 	testMaxNumInt(t)
 	testMaxNumFloat(t)
