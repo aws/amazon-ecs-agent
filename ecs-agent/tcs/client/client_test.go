@@ -42,16 +42,17 @@ import (
 )
 
 const (
-	testPublishMetricsInterval             = 1 * time.Second
-	testMessageId                          = "testMessageId"
-	testCluster                            = "default"
-	testContainerInstance                  = "containerInstance"
-	rwTimeout                              = time.Second
-	testPublishMetricRequestSizeLimitSC    = 1024
-	testPublishMetricRequestSizeLimitNonSC = 220
-	testTelemetryChannelDefaultBufferSize  = 10
-	testIncludeScStats                     = true
-	testNotIncludeScStats                  = false
+	testPublishMetricsInterval                                = 1 * time.Second
+	testMessageId                                             = "testMessageId"
+	testCluster                                               = "default"
+	testContainerInstance                                     = "containerInstance"
+	rwTimeout                                                 = time.Second
+	testPublishMetricRequestSizeLimitSC                       = 1024
+	testPublishMetricRequestSizeLimitNonSC                    = 220
+	testPublishMetricRequestSizeLimitNonSCWithInstanceMetrics = 300
+	testTelemetryChannelDefaultBufferSize                     = 10
+	testIncludeScStats                                        = true
+	testNotIncludeScStats                                     = false
 )
 
 type trueHealthcheck struct{}
@@ -523,7 +524,7 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 // only in the first request of a batch.
 func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *testing.T) {
 	tempLimit := publishMetricRequestSizeLimit
-	publishMetricRequestSizeLimit = testPublishMetricRequestSizeLimitNonSC
+	publishMetricRequestSizeLimit = testPublishMetricRequestSizeLimitNonSCWithInstanceMetrics
 	defer func() {
 		publishMetricRequestSizeLimit = tempLimit
 	}()
@@ -535,14 +536,14 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 	cs := tcsClientServer{}
 	statsSource := newNonIdleInstanceMetricsStatsSource(numTasks)
 	instanceMetrics, metadata, taskMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	if err != nil {
+		t.Errorf("Error getting Instance Metrics")
+	}
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		InstanceMetrics: instanceMetrics,
 		Metadata:        metadata,
 		TaskMetrics:     taskMetrics,
 	})
-	if err != nil {
-		t.Fatal("Error creating publishMetricRequests: ", err)
-	}
 	taskArns := make(map[string]bool)
 	for _, request := range requests {
 		for _, taskMetric := range request.TaskMetrics {
@@ -569,7 +570,8 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 	for i, req := range requests {
 		if i == 0 && req.InstanceMetrics == nil {
 			t.Error("Instance Metrics not included in the first request")
-		} else if req.InstanceMetrics != nil {
+		}
+		if i != 0 && req.InstanceMetrics != nil {
 			t.Error("Instance Metrics included in the requests other than the first request")
 		}
 	}

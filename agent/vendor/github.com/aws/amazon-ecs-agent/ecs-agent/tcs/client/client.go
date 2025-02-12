@@ -206,7 +206,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 
 	for i, taskMetric := range taskMetrics {
 		// TACS expects that the instance metrics are included only in the first request.
-		messageInstanceMetrics = shouldIncludeInstanceMetrics(instanceMetrics, len(requests))
+		messageInstanceMetrics = filterInstanceMetrics(instanceMetrics, len(requests))
 		requestMetadata = copyMetricsMetadata(metadata, false)
 
 		// Check if taskMetric without service connect metrics exceed the message size
@@ -240,7 +240,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 	}
 
 	if len(messageTaskMetrics) > 0 {
-		messageInstanceMetrics = shouldIncludeInstanceMetrics(instanceMetrics, len(requests))
+		messageInstanceMetrics = filterInstanceMetrics(instanceMetrics, len(requests))
 		// Create the new metadata object and set fin to true as this is the last message in the payload.
 		requestMetadata := copyMetricsMetadata(metadata, true)
 		// Create a request with remaining task metrics.
@@ -263,7 +263,7 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instance
 	tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
 	for _, serviceConnectMetric := range taskMetric.ServiceConnectMetricsWrapper {
-		messageInstanceMetrics = shouldIncludeInstanceMetrics(instanceMetrics, len(requests))
+		messageInstanceMetrics = filterInstanceMetrics(instanceMetrics, len(requests))
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
 		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
@@ -326,7 +326,7 @@ func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMes
 
 // shouldIncludeInstanceMetrics determines if we want to include instance metrics in the telemetry request.
 // Include instance metrics only in the first request.
-func shouldIncludeInstanceMetrics(instanceMetrics *ecstcs.InstanceMetrics, requestCount int) *ecstcs.InstanceMetrics {
+func filterInstanceMetrics(instanceMetrics *ecstcs.InstanceMetrics, requestCount int) *ecstcs.InstanceMetrics {
 	if instanceMetrics != nil && requestCount == 0 {
 		return instanceMetrics
 	}
