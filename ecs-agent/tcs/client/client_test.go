@@ -311,6 +311,50 @@ func newServiceConnectStatsSource(numTasks int) *serviceConnectStatsSource {
 	return &serviceConnectStatsSource{numTasks: numTasks}
 }
 
+type nonIdleInstanceMetricsStatsSource struct {
+	numTasks int
+}
+
+func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.InstanceMetrics, *ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+	metadata := &ecstcs.MetricsMetadata{
+		Cluster:           aws.String(testCluster),
+		ContainerInstance: aws.String(testContainerInstance),
+		Idle:              aws.Bool(false),
+		MessageId:         aws.String(testMessageId),
+	}
+	var instanceMetrics *ecstcs.InstanceMetrics
+	var storageMetrics *ecstcs.InstanceStorageMetrics
+	var taskMetrics []*ecstcs.TaskMetric
+	var i int64
+	for i = 0; int(i) < engine.numTasks; i++ {
+		taskArn := "task/" + strconv.FormatInt(i, 10)
+		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
+	}
+	storageMetrics = &ecstcs.InstanceStorageMetrics{DataFilesystem: aws.Float64(25), OSFilesystem: aws.Float64(50)}
+	instanceMetrics = &ecstcs.InstanceMetrics{Storage: storageMetrics}
+	return instanceMetrics, metadata, taskMetrics, nil
+}
+
+func (*nonIdleInstanceMetricsStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+	return nil, nil, nil
+}
+
+func (*nonIdleInstanceMetricsStatsSource) GetPublishServiceConnectTickerInterval() int32 {
+	return 0
+}
+
+func (*nonIdleInstanceMetricsStatsSource) SetPublishServiceConnectTickerInterval(counter int32) {
+	return
+}
+
+func (*nonIdleInstanceMetricsStatsSource) GetPublishMetricsTicker() *time.Ticker {
+	return time.NewTicker(DefaultContainerMetricsPublishInterval)
+}
+
+func newNonIdleInstanceMetricsStatsSource(numTasks int) *nonIdleInstanceMetricsStatsSource {
+	return &nonIdleInstanceMetricsStatsSource{numTasks: numTasks}
+}
+
 func TestPayloadHandlerCalled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -471,6 +515,62 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 	for i, request := range requests {
 		if *request.Metadata.Fin {
 			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
+		}
+	}
+}
+
+// TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource checks the Instance Metrics are included
+// only in the first request of a batch.
+func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *testing.T) {
+	tempLimit := publishMetricRequestSizeLimit
+	publishMetricRequestSizeLimit = testPublishMetricRequestSizeLimitNonSC
+	defer func() {
+		publishMetricRequestSizeLimit = tempLimit
+	}()
+
+	expectedRequests := 2
+	// Creates 3 task metrics, which translate to 2 batches,
+	// {[Task1, Task2], [Task3]}
+	numTasks := 3
+	cs := tcsClientServer{}
+	statsSource := newNonIdleInstanceMetricsStatsSource(numTasks)
+	instanceMetrics, metadata, taskMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
+		InstanceMetrics: instanceMetrics,
+		Metadata:        metadata,
+		TaskMetrics:     taskMetrics,
+	})
+	if err != nil {
+		t.Fatal("Error creating publishMetricRequests: ", err)
+	}
+	taskArns := make(map[string]bool)
+	for _, request := range requests {
+		for _, taskMetric := range request.TaskMetrics {
+			_, exists := taskArns[*taskMetric.TaskArn]
+			if exists {
+				t.Fatal("Duplicate task arn in requests: ", *taskMetric.TaskArn)
+			}
+			taskArns[*taskMetric.TaskArn] = true
+		}
+	}
+	if len(requests) != expectedRequests {
+		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))
+	}
+	lastRequest := requests[expectedRequests-1]
+	if !*lastRequest.Metadata.Fin {
+		t.Error("Fin not set to true in last request")
+	}
+	requests = requests[:(expectedRequests - 1)]
+	for i, request := range requests {
+		if *request.Metadata.Fin {
+			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
+		}
+	}
+	for i, req := range requests {
+		if i == 0 && req.InstanceMetrics == nil {
+			t.Error("Instance Metrics not included in the first request")
+		} else if req.InstanceMetrics != nil {
+			t.Error("Instance Metrics included in the requests other than the first request")
 		}
 	}
 }
