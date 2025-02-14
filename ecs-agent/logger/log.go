@@ -50,7 +50,10 @@ const (
 // Because timestamp format will be called in the custom formatter
 // for each log message processed, it should not be handled
 // with an explicitly write protected configuration.
-var timestampFormat = DEFAULT_TIMESTAMP_FORMAT
+var (
+	timestampFormatMu sync.RWMutex
+	timestampFormat   = DEFAULT_TIMESTAMP_FORMAT
+)
 
 // logLevels is the mapping from ECS_LOGLEVEL to Seelog provided levels.
 var logLevels = map[string]string{
@@ -105,7 +108,7 @@ func logfmtFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(level.String())
 		buf.WriteByte(' ')
 		buf.WriteString("time=")
-		buf.WriteString(context.CallTime().UTC().Format(timestampFormat))
+		buf.WriteString(context.CallTime().UTC().Format(getTimestampFormat()))
 		buf.WriteByte(' ')
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredTxtFormatPrefix) {
@@ -130,7 +133,7 @@ func jsonFormatter(params string) seelog.FormatterFunc {
 		buf.WriteString(`{"level":"`)
 		buf.WriteString(level.String())
 		buf.WriteString(`","time":"`)
-		buf.WriteString(context.CallTime().UTC().Format(timestampFormat))
+		buf.WriteString(context.CallTime().UTC().Format(getTimestampFormat()))
 		buf.WriteString(`",`)
 		// temporary measure to make this change backwards compatible as we update to structured logs
 		if strings.HasPrefix(message, structuredJsonFormatPrefix) {
@@ -318,13 +321,22 @@ func SetRolloverType(rolloverType string) {
 	}
 }
 
+// Add getter for timestampFormat
+func getTimestampFormat() string {
+	timestampFormatMu.RLock()
+	defer timestampFormatMu.RUnlock()
+	return timestampFormat
+}
+
 // SetTimestampFormat sets the time formatting
 // for custom seelog formatters. It will expect
 // a valid time format such as time.RFC3339
 // or "2006-01-02T15:04:05.000".
 func SetTimestampFormat(format string) {
 	if format != "" {
+		timestampFormatMu.Lock()
 		timestampFormat = format
+		timestampFormatMu.Unlock()
 	}
 }
 
@@ -337,6 +349,50 @@ func SetLogToStdout(duplicate bool) {
 
 	Config.logToStdout = duplicate
 	reloadConfig()
+}
+
+// SetCustomReceiver configures the ECS Agent logger to use a custom logger implementation.
+// This allows external applications to intercept and handle ECS Agent logs in their own way,
+// such as sending logs to a custom destination or formatting them differently.
+// More details can be found here: https://github.com/cihub/seelog/wiki/Custom-receivers
+// The custom receiver must implement the CustomReceiver interface, which requires:
+// - GetTimestampFormat(): returns the desired timestamp format (e.g., "2006-01-02T15:04:05Z07:00")
+// - GetOutputFormat(): returns the desired output format ("logfmt", "json", or "windows")
+// - Log handling methods (Debug, Info, Warn, etc.)
+func SetCustomReceiver(receiver CustomReceiver) {
+	registerCustomFormatters()
+	wrapper := &customReceiverWrapper{receiver: receiver}
+	SetTimestampFormat(receiver.GetTimestampFormat())
+	outputFormat := receiver.GetOutputFormat()
+
+	// Internal seelog configuration
+	customConfig := `
+    <seelog type="asyncloop">
+        <outputs>
+            <custom name="customReceiver" formatid="` + outputFormat + `"/>
+        </outputs>
+        <formats>
+			<format id="` + logFmt + `" format="%EcsAgentLogfmt" />
+			<format id="` + jsonFmt + `" format="%EcsAgentJson" />
+			<format id="windows" format="%EcsMsg" />
+        </formats>
+    </seelog>
+    `
+
+	parserParams := &seelog.CfgParseParams{
+		CustomReceiverProducers: map[string]seelog.CustomReceiverProducer{
+			"customReceiver": func(seelog.CustomReceiverInitArgs) (seelog.CustomReceiver, error) {
+				return wrapper, nil
+			},
+		},
+	}
+
+	replacementLogger, err := seelog.LoggerFromParamConfigAsString(customConfig, parserParams)
+	if err != nil {
+		fmt.Println("Failed to create a replacement logger", err)
+	}
+
+	setGlobalLogger(replacementLogger, outputFormat)
 }
 
 func init() {
@@ -352,10 +408,7 @@ func init() {
 	}
 }
 
-// InitSeelog registers custom logging formats, updates the internal Config struct
-// and reloads the global logger. This should only be called once, as external
-// callers should use the Config struct over environment variables directly.
-func InitSeelog() {
+func registerCustomFormatters() {
 	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
 		seelog.Error(err)
 	}
@@ -365,6 +418,13 @@ func InitSeelog() {
 	if err := seelog.RegisterCustomFormatter("EcsMsg", ecsMsgFormatter); err != nil {
 		seelog.Error(err)
 	}
+}
+
+// InitSeelog registers custom logging formats, updates the internal Config struct
+// and reloads the global logger. This should only be called once, as external
+// callers should use the Config struct over environment variables directly.
+func InitSeelog() {
+	registerCustomFormatters()
 
 	if DriverLogLevel := os.Getenv(LOGLEVEL_ENV_VAR); DriverLogLevel != "" {
 		SetDriverLogLevel(DriverLogLevel)
