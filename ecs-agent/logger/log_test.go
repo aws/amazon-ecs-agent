@@ -17,10 +17,13 @@
 package logger
 
 import (
+	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
+	mock_seelog "github.com/aws/amazon-ecs-agent/ecs-agent/logger/mocks"
 	"github.com/cihub/seelog"
 	"github.com/stretchr/testify/require"
 )
@@ -293,4 +296,119 @@ func (l *LogContextMock) CallTime() time.Time {
 // Custom context that can be set by calling logger.SetContext
 func (l *LogContextMock) CustomContext() interface{} {
 	return map[string]string{}
+}
+
+func TestSetCustomLogger(t *testing.T) {
+	// Store the original logger to restore it later
+	originalLogger := seelog.Current
+	defer func() {
+		// Restore the original logger
+		err := seelog.ReplaceLogger(originalLogger)
+		if err != nil {
+			t.Errorf("Failed to restore original logger: %v", err)
+		}
+	}()
+
+	tests := []struct {
+		name         string
+		logLevel     seelog.LogLevel
+		logFunc      func(logger seelog.LoggerInterface, msg string)
+		outputFormat string
+	}{
+		{
+			name:         "trace",
+			logLevel:     seelog.TraceLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Trace(msg) },
+			outputFormat: jsonFmt,
+		},
+		{
+			name:         "debug",
+			logLevel:     seelog.DebugLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Debug(msg) },
+			outputFormat: logFmt,
+		},
+		{
+			name:         "info",
+			logLevel:     seelog.InfoLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Info(msg) },
+			outputFormat: "windows",
+		},
+		{
+			name:         "warn",
+			logLevel:     seelog.WarnLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Warn(msg) },
+			outputFormat: jsonFmt,
+		},
+		{
+			name:         "error",
+			logLevel:     seelog.ErrorLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Error(msg) },
+			outputFormat: logFmt,
+		},
+		{
+			name:         "critical",
+			logLevel:     seelog.CriticalLvl,
+			logFunc:      func(l seelog.LoggerInterface, msg string) { l.Critical(msg) },
+			outputFormat: "windows",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockReceiver := &(mock_seelog.CustomLoggerReceiver{
+				OutputFormat: tt.outputFormat,
+			})
+
+			SetCustomReceiver(mockReceiver)
+
+			message := fmt.Sprintf("test %s message", tt.name)
+			logger := seelog.Current
+			tt.logFunc(logger, message)
+
+			// Use a wait group to ensure we've processed the log
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				for i := 0; i < 50; i++ { // try for up to 5 seconds
+					mockReceiver.Mu.Lock()
+					var called bool
+					var lastMessage string
+
+					// Check the appropriate field based on log level
+					switch tt.logLevel {
+					case seelog.TraceLvl:
+						called = mockReceiver.TraceCalled
+						lastMessage = mockReceiver.LastTraceMessage
+					case seelog.DebugLvl:
+						called = mockReceiver.DebugCalled
+						lastMessage = mockReceiver.LastDebugMessage
+					case seelog.InfoLvl:
+						called = mockReceiver.InfoCalled
+						lastMessage = mockReceiver.LastInfoMessage
+					case seelog.WarnLvl:
+						called = mockReceiver.WarnCalled
+						lastMessage = mockReceiver.LastWarnMessage
+					case seelog.ErrorLvl:
+						called = mockReceiver.ErrorCalled
+						lastMessage = mockReceiver.LastErrorMessage
+					case seelog.CriticalLvl:
+						called = mockReceiver.CriticalCalled
+						lastMessage = mockReceiver.LastCriticalMessage
+					}
+					mockReceiver.Mu.Unlock()
+
+					if called {
+						require.Contains(t, lastMessage, message)
+						return
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+				t.Errorf("%s method was not called within timeout", tt.name)
+			}()
+
+			wg.Wait()
+		})
+	}
 }
