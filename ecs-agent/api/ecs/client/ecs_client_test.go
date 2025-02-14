@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -836,6 +837,36 @@ func TestDiscoverNilSystemLogsEndpoint(t *testing.T) {
 	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.ErrorContains(t, err, "no system logs endpoint returned",
 		"Expected error getting system logs endpoint with old response")
+}
+
+func TestDiscoverPollEndpointRace(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	pollEndpoint := "http://127.0.0.1"
+	// SDK call to DiscoverPollEndpoint should only happen once.
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Times(1).Do(func(interface{}) {
+		// Wait before returning to try and induce the race condition.
+		time.Sleep(500 * time.Millisecond)
+	}).Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// First caller.
+	go func() {
+		defer wg.Done()
+		tester.client.DiscoverPollEndpoint(containerInstanceARN)
+	}()
+	// Second caller.
+	go func() {
+		defer wg.Done()
+		time.Sleep(200 * time.Millisecond)
+		tester.client.DiscoverPollEndpoint(containerInstanceARN)
+	}()
+
+	wg.Wait()
 }
 
 func TestUpdateContainerInstancesState(t *testing.T) {
