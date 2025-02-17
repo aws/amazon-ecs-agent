@@ -1,0 +1,1674 @@
+{
+    "smithy": "2.0",
+    "metadata": {
+        "suppressions": [
+            {
+                "id": "HttpMethodSemantics",
+                "namespace": "*"
+            },
+            {
+                "id": "HttpResponseCodeSemantics",
+                "namespace": "*"
+            },
+            {
+                "id": "PaginatedTrait",
+                "namespace": "*"
+            },
+            {
+                "id": "HttpHeaderTrait",
+                "namespace": "*"
+            },
+            {
+                "id": "HttpUriConflict",
+                "namespace": "*"
+            },
+            {
+                "id": "Service",
+                "namespace": "*"
+            }
+        ]
+    },
+    "shapes": {
+        "com.amazonaws.tcs#AckPublishHealth": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            }
+        },
+        "com.amazonaws.tcs#AckPublishInstanceStatus": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            }
+        },
+        "com.amazonaws.tcs#AckPublishMetric": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            }
+        },
+        "com.amazonaws.tcs#AmazonEC2ContainerServiceTelemetryV20150310": {
+            "type": "service",
+            "version": "2015-03-10",
+            "operations": [
+                {
+                    "target": "com.amazonaws.tcs#Heartbeat"
+                },
+                {
+                    "target": "com.amazonaws.tcs#PublishHealth"
+                },
+                {
+                    "target": "com.amazonaws.tcs#PublishInstanceStatus"
+                },
+                {
+                    "target": "com.amazonaws.tcs#PublishMetrics"
+                },
+                {
+                    "target": "com.amazonaws.tcs#StartTelemetrySession"
+                }
+            ],
+            "traits": {
+                "aws.api#service": {
+                    "sdkId": "TCS",
+                    "arnNamespace": "ecstcs",
+                    "cloudFormationName": "TCS",
+                    "cloudTrailEventSource": "tcs.amazonaws.com",
+                    "docId": "ecstcs-2015-03-10",
+                    "endpointPrefix": "ecstcs"
+                },
+                "aws.auth#sigv4": {
+                    "name": "ecstcs"
+                },
+                "aws.protocols#awsJson1_1": {},
+                "smithy.api#documentation": "A service used to communicate task metrics and health from the\n\t\tAgent to the ECS Control Plane and CloudWatch for customer usage.",
+                "smithy.api#title": "Amazon EC2 Container Service Telemetry Communication Service",
+                "smithy.rules#endpointRuleSet": {
+                    "version": "1.0",
+                    "parameters": {
+                        "Region": {
+                            "builtIn": "AWS::Region",
+                            "required": false,
+                            "documentation": "The AWS region used to dispatch the request.",
+                            "type": "String"
+                        },
+                        "UseDualStack": {
+                            "builtIn": "AWS::UseDualStack",
+                            "required": true,
+                            "default": false,
+                            "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+                            "type": "Boolean"
+                        },
+                        "UseFIPS": {
+                            "builtIn": "AWS::UseFIPS",
+                            "required": true,
+                            "default": false,
+                            "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+                            "type": "Boolean"
+                        },
+                        "Endpoint": {
+                            "builtIn": "SDK::Endpoint",
+                            "required": false,
+                            "documentation": "Override the endpoint used to send this request",
+                            "type": "String"
+                        }
+                    },
+                    "rules": [
+                        {
+                            "conditions": [
+                                {
+                                    "fn": "isSet",
+                                    "argv": [
+                                        {
+                                            "ref": "Endpoint"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "rules": [
+                                {
+                                    "conditions": [
+                                        {
+                                            "fn": "booleanEquals",
+                                            "argv": [
+                                                {
+                                                    "ref": "UseFIPS"
+                                                },
+                                                true
+                                            ]
+                                        }
+                                    ],
+                                    "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+                                    "type": "error"
+                                },
+                                {
+                                    "conditions": [],
+                                    "rules": [
+                                        {
+                                            "conditions": [
+                                                {
+                                                    "fn": "booleanEquals",
+                                                    "argv": [
+                                                        {
+                                                            "ref": "UseDualStack"
+                                                        },
+                                                        true
+                                                    ]
+                                                }
+                                            ],
+                                            "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+                                            "type": "error"
+                                        },
+                                        {
+                                            "conditions": [],
+                                            "endpoint": {
+                                                "url": {
+                                                    "ref": "Endpoint"
+                                                },
+                                                "properties": {},
+                                                "headers": {}
+                                            },
+                                            "type": "endpoint"
+                                        }
+                                    ],
+                                    "type": "tree"
+                                }
+                            ],
+                            "type": "tree"
+                        },
+                        {
+                            "conditions": [],
+                            "rules": [
+                                {
+                                    "conditions": [
+                                        {
+                                            "fn": "isSet",
+                                            "argv": [
+                                                {
+                                                    "ref": "Region"
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    "rules": [
+                                        {
+                                            "conditions": [
+                                                {
+                                                    "fn": "aws.partition",
+                                                    "argv": [
+                                                        {
+                                                            "ref": "Region"
+                                                        }
+                                                    ],
+                                                    "assign": "PartitionResult"
+                                                }
+                                            ],
+                                            "rules": [
+                                                {
+                                                    "conditions": [
+                                                        {
+                                                            "fn": "booleanEquals",
+                                                            "argv": [
+                                                                {
+                                                                    "ref": "UseFIPS"
+                                                                },
+                                                                true
+                                                            ]
+                                                        },
+                                                        {
+                                                            "fn": "booleanEquals",
+                                                            "argv": [
+                                                                {
+                                                                    "ref": "UseDualStack"
+                                                                },
+                                                                true
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "rules": [
+                                                        {
+                                                            "conditions": [
+                                                                {
+                                                                    "fn": "booleanEquals",
+                                                                    "argv": [
+                                                                        true,
+                                                                        {
+                                                                            "fn": "getAttr",
+                                                                            "argv": [
+                                                                                {
+                                                                                    "ref": "PartitionResult"
+                                                                                },
+                                                                                "supportsFIPS"
+                                                                            ]
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "fn": "booleanEquals",
+                                                                    "argv": [
+                                                                        true,
+                                                                        {
+                                                                            "fn": "getAttr",
+                                                                            "argv": [
+                                                                                {
+                                                                                    "ref": "PartitionResult"
+                                                                                },
+                                                                                "supportsDualStack"
+                                                                            ]
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ],
+                                                            "rules": [
+                                                                {
+                                                                    "conditions": [],
+                                                                    "rules": [
+                                                                        {
+                                                                            "conditions": [],
+                                                                            "endpoint": {
+                                                                                "url": "https://ecstcs-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                                                                                "properties": {},
+                                                                                "headers": {}
+                                                                            },
+                                                                            "type": "endpoint"
+                                                                        }
+                                                                    ],
+                                                                    "type": "tree"
+                                                                }
+                                                            ],
+                                                            "type": "tree"
+                                                        },
+                                                        {
+                                                            "conditions": [],
+                                                            "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+                                                            "type": "error"
+                                                        }
+                                                    ],
+                                                    "type": "tree"
+                                                },
+                                                {
+                                                    "conditions": [
+                                                        {
+                                                            "fn": "booleanEquals",
+                                                            "argv": [
+                                                                {
+                                                                    "ref": "UseFIPS"
+                                                                },
+                                                                true
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "rules": [
+                                                        {
+                                                            "conditions": [
+                                                                {
+                                                                    "fn": "booleanEquals",
+                                                                    "argv": [
+                                                                        {
+                                                                            "fn": "getAttr",
+                                                                            "argv": [
+                                                                                {
+                                                                                    "ref": "PartitionResult"
+                                                                                },
+                                                                                "supportsFIPS"
+                                                                            ]
+                                                                        },
+                                                                        true
+                                                                    ]
+                                                                }
+                                                            ],
+                                                            "rules": [
+                                                                {
+                                                                    "conditions": [],
+                                                                    "rules": [
+                                                                        {
+                                                                            "conditions": [],
+                                                                            "endpoint": {
+                                                                                "url": "https://ecstcs-fips.{Region}.{PartitionResult#dnsSuffix}",
+                                                                                "properties": {},
+                                                                                "headers": {}
+                                                                            },
+                                                                            "type": "endpoint"
+                                                                        }
+                                                                    ],
+                                                                    "type": "tree"
+                                                                }
+                                                            ],
+                                                            "type": "tree"
+                                                        },
+                                                        {
+                                                            "conditions": [],
+                                                            "error": "FIPS is enabled but this partition does not support FIPS",
+                                                            "type": "error"
+                                                        }
+                                                    ],
+                                                    "type": "tree"
+                                                },
+                                                {
+                                                    "conditions": [
+                                                        {
+                                                            "fn": "booleanEquals",
+                                                            "argv": [
+                                                                {
+                                                                    "ref": "UseDualStack"
+                                                                },
+                                                                true
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "rules": [
+                                                        {
+                                                            "conditions": [
+                                                                {
+                                                                    "fn": "booleanEquals",
+                                                                    "argv": [
+                                                                        true,
+                                                                        {
+                                                                            "fn": "getAttr",
+                                                                            "argv": [
+                                                                                {
+                                                                                    "ref": "PartitionResult"
+                                                                                },
+                                                                                "supportsDualStack"
+                                                                            ]
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ],
+                                                            "rules": [
+                                                                {
+                                                                    "conditions": [],
+                                                                    "rules": [
+                                                                        {
+                                                                            "conditions": [],
+                                                                            "endpoint": {
+                                                                                "url": "https://ecstcs.{Region}.{PartitionResult#dualStackDnsSuffix}",
+                                                                                "properties": {},
+                                                                                "headers": {}
+                                                                            },
+                                                                            "type": "endpoint"
+                                                                        }
+                                                                    ],
+                                                                    "type": "tree"
+                                                                }
+                                                            ],
+                                                            "type": "tree"
+                                                        },
+                                                        {
+                                                            "conditions": [],
+                                                            "error": "DualStack is enabled but this partition does not support DualStack",
+                                                            "type": "error"
+                                                        }
+                                                    ],
+                                                    "type": "tree"
+                                                },
+                                                {
+                                                    "conditions": [],
+                                                    "rules": [
+                                                        {
+                                                            "conditions": [],
+                                                            "endpoint": {
+                                                                "url": "https://ecstcs.{Region}.{PartitionResult#dnsSuffix}",
+                                                                "properties": {},
+                                                                "headers": {}
+                                                            },
+                                                            "type": "endpoint"
+                                                        }
+                                                    ],
+                                                    "type": "tree"
+                                                }
+                                            ],
+                                            "type": "tree"
+                                        }
+                                    ],
+                                    "type": "tree"
+                                },
+                                {
+                                    "conditions": [],
+                                    "error": "Invalid Configuration: Missing Region",
+                                    "type": "error"
+                                }
+                            ],
+                            "type": "tree"
+                        }
+                    ]
+                },
+                "smithy.rules#endpointTests": {
+                    "testCases": [
+                        {
+                            "documentation": "For region us-east-1 with FIPS enabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-east-1.api.aws"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-east-1 with FIPS enabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-east-1.amazonaws.com"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-east-1 with FIPS disabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-east-1.api.aws"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-east-1 with FIPS disabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-east-1.amazonaws.com"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region cn-north-1 with FIPS enabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.cn-north-1.api.amazonwebservices.com.cn"
+                                }
+                            },
+                            "params": {
+                                "Region": "cn-north-1",
+                                "UseFIPS": true,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region cn-north-1 with FIPS enabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.cn-north-1.amazonaws.com.cn"
+                                }
+                            },
+                            "params": {
+                                "Region": "cn-north-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region cn-north-1 with FIPS disabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.cn-north-1.api.amazonwebservices.com.cn"
+                                }
+                            },
+                            "params": {
+                                "Region": "cn-north-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region cn-north-1 with FIPS disabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.cn-north-1.amazonaws.com.cn"
+                                }
+                            },
+                            "params": {
+                                "Region": "cn-north-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-gov-east-1 with FIPS enabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-gov-east-1.api.aws"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-gov-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-gov-east-1 with FIPS enabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-gov-east-1.amazonaws.com"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-gov-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-gov-east-1 with FIPS disabled and DualStack enabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-gov-east-1.api.aws"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-gov-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-gov-east-1 with FIPS disabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-gov-east-1.amazonaws.com"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-gov-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-iso-east-1 with FIPS enabled and DualStack enabled",
+                            "expect": {
+                                "error": "FIPS and DualStack are enabled, but this partition does not support one or both"
+                            },
+                            "params": {
+                                "Region": "us-iso-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-iso-east-1 with FIPS enabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-iso-east-1.c2s.ic.gov"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-iso-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-iso-east-1 with FIPS disabled and DualStack enabled",
+                            "expect": {
+                                "error": "DualStack is enabled but this partition does not support DualStack"
+                            },
+                            "params": {
+                                "Region": "us-iso-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-iso-east-1 with FIPS disabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-iso-east-1.c2s.ic.gov"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-iso-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-isob-east-1 with FIPS enabled and DualStack enabled",
+                            "expect": {
+                                "error": "FIPS and DualStack are enabled, but this partition does not support one or both"
+                            },
+                            "params": {
+                                "Region": "us-isob-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-isob-east-1 with FIPS enabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs-fips.us-isob-east-1.sc2s.sgov.gov"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-isob-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For region us-isob-east-1 with FIPS disabled and DualStack enabled",
+                            "expect": {
+                                "error": "DualStack is enabled but this partition does not support DualStack"
+                            },
+                            "params": {
+                                "Region": "us-isob-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true
+                            }
+                        },
+                        {
+                            "documentation": "For region us-isob-east-1 with FIPS disabled and DualStack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://ecstcs.us-isob-east-1.sc2s.sgov.gov"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-isob-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false
+                            }
+                        },
+                        {
+                            "documentation": "For custom endpoint with region set and fips disabled and dualstack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://example.com"
+                                }
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": false,
+                                "Endpoint": "https://example.com"
+                            }
+                        },
+                        {
+                            "documentation": "For custom endpoint with region not set and fips disabled and dualstack disabled",
+                            "expect": {
+                                "endpoint": {
+                                    "url": "https://example.com"
+                                }
+                            },
+                            "params": {
+                                "UseFIPS": false,
+                                "UseDualStack": false,
+                                "Endpoint": "https://example.com"
+                            }
+                        },
+                        {
+                            "documentation": "For custom endpoint with fips enabled and dualstack disabled",
+                            "expect": {
+                                "error": "Invalid Configuration: FIPS and custom endpoint are not supported"
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": true,
+                                "UseDualStack": false,
+                                "Endpoint": "https://example.com"
+                            }
+                        },
+                        {
+                            "documentation": "For custom endpoint with fips disabled and dualstack enabled",
+                            "expect": {
+                                "error": "Invalid Configuration: Dualstack and custom endpoint are not supported"
+                            },
+                            "params": {
+                                "Region": "us-east-1",
+                                "UseFIPS": false,
+                                "UseDualStack": true,
+                                "Endpoint": "https://example.com"
+                            }
+                        },
+                        {
+                            "documentation": "Missing region",
+                            "expect": {
+                                "error": "Invalid Configuration: Missing Region"
+                            }
+                        }
+                    ],
+                    "version": "1.0"
+                }
+            }
+        },
+        "com.amazonaws.tcs#BadRequestException": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#error": "client"
+            }
+        },
+        "com.amazonaws.tcs#Boolean": {
+            "type": "boolean",
+            "traits": {
+                "smithy.api#default": false
+            }
+        },
+        "com.amazonaws.tcs#CWStatsSet": {
+            "type": "structure",
+            "members": {
+                "min": {
+                    "target": "com.amazonaws.tcs#Double",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "max": {
+                    "target": "com.amazonaws.tcs#Double",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "sampleCount": {
+                    "target": "com.amazonaws.tcs#UInteger",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "sum": {
+                    "target": "com.amazonaws.tcs#Double",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#ContainerHealth": {
+            "type": "structure",
+            "members": {
+                "containerName": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "healthStatus": {
+                    "target": "com.amazonaws.tcs#HealthStatus"
+                },
+                "statusSince": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                },
+                "statusMessage": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            }
+        },
+        "com.amazonaws.tcs#ContainerHealths": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#ContainerHealth"
+            }
+        },
+        "com.amazonaws.tcs#ContainerMetric": {
+            "type": "structure",
+            "members": {
+                "containerArn": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerName": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "cpuStatsSet": {
+                    "target": "com.amazonaws.tcs#CWStatsSet"
+                },
+                "memoryStatsSet": {
+                    "target": "com.amazonaws.tcs#CWStatsSet"
+                },
+                "networkStatsSet": {
+                    "target": "com.amazonaws.tcs#NetworkStatsSet"
+                },
+                "storageStatsSet": {
+                    "target": "com.amazonaws.tcs#StorageStatsSet"
+                },
+                "restartStatsSet": {
+                    "target": "com.amazonaws.tcs#RestartStatsSet"
+                }
+            }
+        },
+        "com.amazonaws.tcs#ContainerMetrics": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#ContainerMetric"
+            }
+        },
+        "com.amazonaws.tcs#Dimension": {
+            "type": "structure",
+            "members": {
+                "key": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "value": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            }
+        },
+        "com.amazonaws.tcs#Dimensions": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#Dimension"
+            }
+        },
+        "com.amazonaws.tcs#Double": {
+            "type": "double",
+            "traits": {
+                "smithy.api#default": 0
+            }
+        },
+        "com.amazonaws.tcs#EphemeralStorageMetrics": {
+            "type": "structure",
+            "members": {
+                "BytesUtilized": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                }
+            }
+        },
+        "com.amazonaws.tcs#GeneralMetric": {
+            "type": "structure",
+            "members": {
+                "metricName": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "metricValues": {
+                    "target": "com.amazonaws.tcs#MetricValues"
+                },
+                "metricCounts": {
+                    "target": "com.amazonaws.tcs#MetricCounts"
+                }
+            }
+        },
+        "com.amazonaws.tcs#GeneralMetrics": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#GeneralMetric"
+            }
+        },
+        "com.amazonaws.tcs#GeneralMetricsWrapper": {
+            "type": "structure",
+            "members": {
+                "dimensions": {
+                    "target": "com.amazonaws.tcs#Dimensions"
+                },
+                "metricType": {
+                    "target": "com.amazonaws.tcs#MetricType"
+                },
+                "generalMetrics": {
+                    "target": "com.amazonaws.tcs#GeneralMetrics"
+                }
+            }
+        },
+        "com.amazonaws.tcs#HealthMetadata": {
+            "type": "structure",
+            "members": {
+                "cluster": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerInstance": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "messageId": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "fin": {
+                    "target": "com.amazonaws.tcs#Boolean",
+                    "traits": {
+                        "smithy.api#default": false
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "HealthMetadata is used while sending a PublishHealthRequest to set\n\t\tmetadata for the request. The cluster and containerInstance fields\n\t\tare expected to remain unchanged during the course of a session.\n\n\t\tIn situations where the session is used to send data for multiple\n\t\tcustomer clusters, the cluster field should represent the\n\t\tinfrastructure cluster, and the containInstance field should\n\t\trepresent the infrastructure container instance. Furthermore,\n\t\tthe clusterArn field in the TaskHealth structure must be passed in."
+            }
+        },
+        "com.amazonaws.tcs#HealthStatus": {
+            "type": "enum",
+            "members": {
+                "HEALTHY": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "HEALTHY"
+                    }
+                },
+                "UNHEALTHY": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "UNHEALTHY"
+                    }
+                },
+                "UNKNOWN": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "UNKNOWN"
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#Heartbeat": {
+            "type": "operation",
+            "input": {
+                "target": "com.amazonaws.tcs#HeartbeatMessage"
+            },
+            "output": {
+                "target": "smithy.api#Unit"
+            },
+            "traits": {
+                "smithy.api#documentation": "A heartbeat to notify the Telemetry host that the connection is ongoing."
+            }
+        },
+        "com.amazonaws.tcs#HeartbeatMessage": {
+            "type": "structure",
+            "members": {
+                "healthy": {
+                    "target": "com.amazonaws.tcs#Boolean",
+                    "traits": {
+                        "smithy.api#default": false
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#input": {}
+            }
+        },
+        "com.amazonaws.tcs#InstanceHealthcheckStatus": {
+            "type": "enum",
+            "members": {
+                "OK": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "OK"
+                    }
+                },
+                "IMPAIRED": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "IMPAIRED"
+                    }
+                },
+                "INSUFFICIENT_DATA": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "INSUFFICIENT_DATA"
+                    }
+                },
+                "INITIALIZING": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "INITIALIZING"
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#InstanceMetrics": {
+            "type": "structure",
+            "members": {
+                "storage": {
+                    "target": "com.amazonaws.tcs#InstanceStorageMetrics"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "InstanceMetrics defines the set of metrics that would be published\n\t\tfor resource usage on the instance."
+            }
+        },
+        "com.amazonaws.tcs#InstanceStatus": {
+            "type": "structure",
+            "members": {
+                "type": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "status": {
+                    "target": "com.amazonaws.tcs#InstanceHealthcheckStatus"
+                },
+                "lastUpdated": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                },
+                "lastStatusChange": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "InstanceStatus is provided for use by the Madison Health Service."
+            }
+        },
+        "com.amazonaws.tcs#InstanceStatusMetadata": {
+            "type": "structure",
+            "members": {
+                "cluster": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerInstance": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "requestId": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "InstanceStatusMetadata is used while sending a PublishInstanceStatusRequest to set\n\t\tmetadata for the request. The cluster and containerInstance fields\n\t\tare expected to remain unchanged during the course of a session.\n\n\t\trequestId is for logging purposes."
+            }
+        },
+        "com.amazonaws.tcs#InstanceStatuses": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#InstanceStatus"
+            }
+        },
+        "com.amazonaws.tcs#InstanceStorageMetrics": {
+            "type": "structure",
+            "members": {
+                "OSFilesystem": {
+                    "target": "com.amazonaws.tcs#Percentage",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "DataFilesystem": {
+                    "target": "com.amazonaws.tcs#Percentage",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "InstanceStorageMetrics defines the set of metrics that represent the filesystem\n\t\tutilization of the container instance. Every container instance will have a\n\t\tfilesystem to back the operating system and optionally contain another filesystem\n\t\tto back the container data storage, including containers' writeable layers,\n\t\tcontents of container images, ephemeral bind-mounts etc. The former is captured\n\t\tby 'OSFilesystem' and the latter by 'DataFilesystem'."
+            }
+        },
+        "com.amazonaws.tcs#InvalidParameterException": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#error": "client"
+            }
+        },
+        "com.amazonaws.tcs#Long": {
+            "type": "long",
+            "traits": {
+                "smithy.api#default": 0
+            }
+        },
+        "com.amazonaws.tcs#MetricCounts": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#Long"
+            }
+        },
+        "com.amazonaws.tcs#MetricType": {
+            "type": "enum",
+            "members": {
+                "ServiceConnectIngress": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "1"
+                    }
+                },
+                "ServiceConnectEgress": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "2"
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#MetricValues": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#Double"
+            }
+        },
+        "com.amazonaws.tcs#MetricsMetadata": {
+            "type": "structure",
+            "members": {
+                "cluster": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerInstance": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "messageId": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "idle": {
+                    "target": "com.amazonaws.tcs#Boolean",
+                    "traits": {
+                        "smithy.api#default": false
+                    }
+                },
+                "fin": {
+                    "target": "com.amazonaws.tcs#Boolean",
+                    "traits": {
+                        "smithy.api#default": false
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "MetricsMetadata is used while sending a PublishMetricsRequest to set\n\t\tmetadata for the request. The cluster and containerInstance fields\n\t\tare expected to remain unchanged during the course of a session.\n\t\tThe idle field indicates if the container instance is idle, which is\n\t\tto indicate that there are no running tasks on the instance. Incorrectly\n\t\tsetting this to true when there are task metrics in the payload will\n\t\tresult in an error.\n\n\t\tIn situations where the session is used to send data for multiple\n\t\tcustomer clusters, the cluster field should represent the\n\t\tinfrastructure cluster, and the containInstance field should\n\t\trepresent the infrastructure container instance. Furthermore,\n\t\tthe clusterArn field in the TaskMetrics structure must be passed in."
+            }
+        },
+        "com.amazonaws.tcs#NetworkStatsSet": {
+            "type": "structure",
+            "members": {
+                "rxBytesPerSecond": {
+                    "target": "com.amazonaws.tcs#UDoubleCWStatsSet"
+                },
+                "rxBytes": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "rxDropped": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "rxErrors": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "rxPackets": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "txBytesPerSecond": {
+                    "target": "com.amazonaws.tcs#UDoubleCWStatsSet"
+                },
+                "txBytes": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "txDropped": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "txErrors": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "txPackets": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "A set of stats that cover the aggregate of several network interfaces used by\n\t\ta container. Stats are in bytes due to the same unit being used in Docker."
+            }
+        },
+        "com.amazonaws.tcs#Percentage": {
+            "type": "double",
+            "traits": {
+                "smithy.api#default": 0,
+                "smithy.api#range": {
+                    "min": 0.0,
+                    "max": 100.0
+                }
+            }
+        },
+        "com.amazonaws.tcs#PublishHealth": {
+            "type": "operation",
+            "input": {
+                "target": "com.amazonaws.tcs#PublishHealthRequest"
+            },
+            "output": {
+                "target": "com.amazonaws.tcs#AckPublishHealth"
+            },
+            "errors": [
+                {
+                    "target": "com.amazonaws.tcs#BadRequestException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#InvalidParameterException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ResourceValidationException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ServerException"
+                }
+            ],
+            "traits": {
+                "smithy.api#documentation": "Publishes a set of health data to ECS Control Plane via the connected WebSocket."
+            }
+        },
+        "com.amazonaws.tcs#PublishHealthRequest": {
+            "type": "structure",
+            "members": {
+                "metadata": {
+                    "target": "com.amazonaws.tcs#HealthMetadata"
+                },
+                "tasks": {
+                    "target": "com.amazonaws.tcs#TaskHealths"
+                },
+                "timestamp": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "PublishHealthRequest defines the payload format for the\n\t\tPublishHealth operation. The timestamp is expected to be seconds\n\t\tsince UTC.",
+                "smithy.api#input": {}
+            }
+        },
+        "com.amazonaws.tcs#PublishInstanceStatus": {
+            "type": "operation",
+            "input": {
+                "target": "com.amazonaws.tcs#PublishInstanceStatusRequest"
+            },
+            "output": {
+                "target": "com.amazonaws.tcs#AckPublishInstanceStatus"
+            },
+            "errors": [
+                {
+                    "target": "com.amazonaws.tcs#BadRequestException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#InvalidParameterException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ResourceValidationException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ServerException"
+                }
+            ],
+            "traits": {
+                "smithy.api#documentation": "Publishes a set of instance status data to ECS Control Plane via the connected WebSocket."
+            }
+        },
+        "com.amazonaws.tcs#PublishInstanceStatusRequest": {
+            "type": "structure",
+            "members": {
+                "metadata": {
+                    "target": "com.amazonaws.tcs#InstanceStatusMetadata"
+                },
+                "statuses": {
+                    "target": "com.amazonaws.tcs#InstanceStatuses"
+                },
+                "timestamp": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "PublishInstanceStatusRequest defines the payload format for the\n\t\tPublishInstanceStatus operation. The timestamp is expected to be seconds\n\t\tsince UTC.",
+                "smithy.api#input": {}
+            }
+        },
+        "com.amazonaws.tcs#PublishMetrics": {
+            "type": "operation",
+            "input": {
+                "target": "com.amazonaws.tcs#PublishMetricsRequest"
+            },
+            "output": {
+                "target": "com.amazonaws.tcs#AckPublishMetric"
+            },
+            "errors": [
+                {
+                    "target": "com.amazonaws.tcs#BadRequestException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#InvalidParameterException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ResourceValidationException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ServerException"
+                }
+            ],
+            "traits": {
+                "smithy.api#documentation": "Publishes a set of metrics to CloudWatch via the connected WebSocket."
+            }
+        },
+        "com.amazonaws.tcs#PublishMetricsRequest": {
+            "type": "structure",
+            "members": {
+                "metadata": {
+                    "target": "com.amazonaws.tcs#MetricsMetadata"
+                },
+                "instanceMetrics": {
+                    "target": "com.amazonaws.tcs#InstanceMetrics"
+                },
+                "taskMetrics": {
+                    "target": "com.amazonaws.tcs#TaskMetrics"
+                },
+                "timestamp": {
+                    "target": "com.amazonaws.tcs#Timestamp"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "PublishMetricsRequest defines the payload format for the\n\t\tPublishMetrics operation. The timestamp is expected to be seconds\n\t\tsince UTC.",
+                "smithy.api#input": {}
+            }
+        },
+        "com.amazonaws.tcs#ResourceValidationException": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#error": "client"
+            }
+        },
+        "com.amazonaws.tcs#RestartStatsSet": {
+            "type": "structure",
+            "members": {
+                "restartCount": {
+                    "target": "com.amazonaws.tcs#UInteger",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "A set of stats that cover the container restart metrics."
+            }
+        },
+        "com.amazonaws.tcs#ServerException": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#error": "server"
+            }
+        },
+        "com.amazonaws.tcs#ServiceConnectMetricsWrapper": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#GeneralMetricsWrapper"
+            }
+        },
+        "com.amazonaws.tcs#StartTelemetrySession": {
+            "type": "operation",
+            "input": {
+                "target": "com.amazonaws.tcs#StartTelemetrySessionRequest"
+            },
+            "output": {
+                "target": "com.amazonaws.tcs#StopTelemetrySessionMessage"
+            },
+            "errors": [
+                {
+                    "target": "com.amazonaws.tcs#BadRequestException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ResourceValidationException"
+                },
+                {
+                    "target": "com.amazonaws.tcs#ServerException"
+                }
+            ],
+            "traits": {
+                "smithy.api#documentation": "Starts a websocket session with a host in TelemetryAgentCommunicationService."
+            }
+        },
+        "com.amazonaws.tcs#StartTelemetrySessionRequest": {
+            "type": "structure",
+            "members": {
+                "cluster": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerInstance": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#input": {}
+            }
+        },
+        "com.amazonaws.tcs#StopTelemetrySessionMessage": {
+            "type": "structure",
+            "members": {
+                "message": {
+                    "target": "com.amazonaws.tcs#String"
+                }
+            },
+            "traits": {
+                "smithy.api#output": {}
+            }
+        },
+        "com.amazonaws.tcs#StorageStatsSet": {
+            "type": "structure",
+            "members": {
+                "readSizeBytes": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                },
+                "writeSizeBytes": {
+                    "target": "com.amazonaws.tcs#ULongStatsSet"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "A set of stats that cover the aggregate of several storage devices used by\n\t\ta container. Stats are in bytes due to the same unit being used in Docker."
+            }
+        },
+        "com.amazonaws.tcs#String": {
+            "type": "string"
+        },
+        "com.amazonaws.tcs#TaskHealth": {
+            "type": "structure",
+            "members": {
+                "taskArn": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "clusterArn": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "taskDefinitionFamily": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "taskDefinitionVersion": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containers": {
+                    "target": "com.amazonaws.tcs#ContainerHealths"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "TaskHealth is provided for use by the Health Service. The clusterArn\n\t\tfield is expected to be provided if the session is used to send\n\t\tdata for multiple customer clusters, such as in the case of Fargate\n\t\ton Firecracker."
+            }
+        },
+        "com.amazonaws.tcs#TaskHealths": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#TaskHealth"
+            }
+        },
+        "com.amazonaws.tcs#TaskMetric": {
+            "type": "structure",
+            "members": {
+                "taskArn": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "clusterArn": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "taskDefinitionFamily": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "taskDefinitionVersion": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "containerMetrics": {
+                    "target": "com.amazonaws.tcs#ContainerMetrics"
+                },
+                "ephemeralStorageMetrics": {
+                    "target": "com.amazonaws.tcs#EphemeralStorageMetrics"
+                },
+                "volumeMetrics": {
+                    "target": "com.amazonaws.tcs#VolumeMetrics"
+                },
+                "serviceConnectMetricsWrapper": {
+                    "target": "com.amazonaws.tcs#ServiceConnectMetricsWrapper"
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "TaskMetric is used to provide customer facing metrics. The clusterArn\n\t\tfield is expected to be provided if the Agent in question is sending\n\t\tdata for multiple customer clusters, such as in the case of Fargate\n\t\ton Firecracker."
+            }
+        },
+        "com.amazonaws.tcs#TaskMetrics": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#TaskMetric"
+            },
+            "traits": {
+                "smithy.api#length": {
+                    "min": 0,
+                    "max": 10
+                }
+            }
+        },
+        "com.amazonaws.tcs#Timestamp": {
+            "type": "timestamp"
+        },
+        "com.amazonaws.tcs#UDouble": {
+            "type": "double",
+            "traits": {
+                "smithy.api#default": 0,
+                "smithy.api#range": {
+                    "min": 0.0
+                }
+            }
+        },
+        "com.amazonaws.tcs#UDoubleCWStatsSet": {
+            "type": "structure",
+            "members": {
+                "min": {
+                    "target": "com.amazonaws.tcs#UDouble",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "max": {
+                    "target": "com.amazonaws.tcs#UDouble",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "sampleCount": {
+                    "target": "com.amazonaws.tcs#UInteger",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "sum": {
+                    "target": "com.amazonaws.tcs#UDouble",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#UInteger": {
+            "type": "integer",
+            "traits": {
+                "smithy.api#default": 0,
+                "smithy.api#range": {
+                    "min": 0
+                }
+            }
+        },
+        "com.amazonaws.tcs#ULong": {
+            "type": "long",
+            "traits": {
+                "smithy.api#default": 0,
+                "smithy.api#range": {
+                    "min": 0
+                }
+            }
+        },
+        "com.amazonaws.tcs#ULongStatsSet": {
+            "type": "structure",
+            "members": {
+                "min": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "max": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "sampleCount": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "sum": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0,
+                        "smithy.api#required": {}
+                    }
+                },
+                "overflowMin": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "overflowMax": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                },
+                "overflowSum": {
+                    "target": "com.amazonaws.tcs#ULong",
+                    "traits": {
+                        "smithy.api#default": 0
+                    }
+                }
+            }
+        },
+        "com.amazonaws.tcs#VolumeMetric": {
+            "type": "structure",
+            "members": {
+                "volumeId": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "volumeName": {
+                    "target": "com.amazonaws.tcs#String"
+                },
+                "utilized": {
+                    "target": "com.amazonaws.tcs#UDoubleCWStatsSet"
+                },
+                "size": {
+                    "target": "com.amazonaws.tcs#UDoubleCWStatsSet"
+                }
+            }
+        },
+        "com.amazonaws.tcs#VolumeMetrics": {
+            "type": "list",
+            "member": {
+                "target": "com.amazonaws.tcs#VolumeMetric"
+            }
+        }
+    }
+}
