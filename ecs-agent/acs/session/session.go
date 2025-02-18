@@ -268,7 +268,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		})
 		return err
 	}
-	s.metricsFactory.New(metrics.ACSSessionCallDurationName).WithGauge(time.Since(acsConnectionStartTime)).Done(nil)
+	s.metricsFactory.New(metrics.ACSSessionCallDurationName).WithGauge(time.Since(acsConnectionStartTime).Milliseconds()).Done(nil)
 	defer disconnectTimer.Stop()
 
 	if s.GetFirstACSConnectionTime().IsZero() {
