@@ -43,7 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -173,8 +173,8 @@ type ClientServerImpl struct {
 	Cfg *WSClientMinAgentConfig
 	// conn holds the underlying low-level websocket connection
 	conn wsconn.WebsocketConn
-	// CredentialProvider is used to retrieve AWS credentials
-	CredentialProvider *credentials.Credentials
+	// CredentialCache is used to retrieve AWS credentials
+	CredentialsCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
@@ -231,7 +231,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache)
 	if err != nil {
 		return nil, err
 	}

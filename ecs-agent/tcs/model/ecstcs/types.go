@@ -16,12 +16,14 @@ package ecstcs
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/tcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-// NewPublishMetricsRequest creates a PublishMetricsRequest object.
-func NewPublishMetricsRequest(instanceMetrics *InstanceMetrics, metadata *MetricsMetadata, taskMetrics []*TaskMetric) *PublishMetricsRequest {
-	return &PublishMetricsRequest{
+// / NewPublishMetricsRequest creates a PublishMetricsRequest object.
+func NewPublishMetricsRequest(instanceMetrics *types.InstanceMetrics, metadata *types.MetricsMetadata, taskMetrics []types.TaskMetric) *tcs.PublishMetricsInput {
+	return &tcs.PublishMetricsInput{
 		InstanceMetrics: instanceMetrics,
 		Metadata:        metadata,
 		TaskMetrics:     taskMetrics,
@@ -30,8 +32,8 @@ func NewPublishMetricsRequest(instanceMetrics *InstanceMetrics, metadata *Metric
 }
 
 // NewPublishHealthMetricsRequest creates a PublishHealthRequest
-func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*TaskHealth) *PublishHealthRequest {
-	return &PublishHealthRequest{
+func NewPublishHealthMetricsRequest(metadata *types.HealthMetadata, healthMetrics []types.TaskHealth) *tcs.PublishHealthInput {
+	return &tcs.PublishHealthInput{
 		Metadata:  metadata,
 		Tasks:     healthMetrics,
 		Timestamp: aws.Time(time.Now()),
@@ -39,12 +41,12 @@ func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*T
 }
 
 type TelemetryMessage struct {
-	InstanceMetrics *InstanceMetrics
-	Metadata        *MetricsMetadata
-	TaskMetrics     []*TaskMetric
+	InstanceMetrics *types.InstanceMetrics
+	Metadata        *types.MetricsMetadata
+	TaskMetrics     []types.TaskMetric
 }
 
 type HealthMessage struct {
-	Metadata      *HealthMetadata
-	HealthMetrics []*TaskHealth
+	Metadata      *types.HealthMetadata
+	HealthMetrics []types.TaskHealth
 }

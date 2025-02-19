@@ -18,11 +18,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // ClientFactory interface abstracts the method that creates new ClientServer
 // objects. This is helpful when writing unit tests.
 type ClientFactory interface {
-	New(url string, credentialProvider *credentials.Credentials, rwTimeout time.Duration, cfg *WSClientMinAgentConfig, metricsFactory metrics.EntryFactory) ClientServer
+	New(url string, CredentialCache *aws.CredentialsCache, rwTimeout time.Duration, cfg *WSClientMinAgentConfig, metricsFactory metrics.EntryFactory) ClientServer
 }
