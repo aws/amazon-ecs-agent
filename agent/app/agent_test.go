@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"testing"
 	"time"
@@ -58,6 +59,10 @@ import (
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
+
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -73,11 +78,14 @@ const (
 	instanceID                       = "i-123"
 	warmedState                      = "Warmed:Running"
 	testTargetLifecycleMaxRetryCount = 1
+	serviceId                        = "ec2imds"
+	getMetadataOperationId           = "GetMetadata"
 )
 
-var notFoundErr = awserr.NewRequestFailure(awserr.Error(awserr.New("NotFound", "", errors.New(""))), 404, "")
-var badReqErr = awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, "")
-var serverErr = awserr.NewRequestFailure(awserr.Error(awserr.New("InternalServerError", "", errors.New(""))), 500, "")
+var notFoundErr = getResponseError(404)
+var badReqErr = getResponseError(400)
+var serverErr = getResponseError(500)
+
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.MinDockerAPIVersion,
 }
@@ -120,6 +128,20 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_factory.NewMockSaveableOption(ctrl),
 		mock_execcmdagent.NewMockManager(ctrl),
 		mock_serviceconnect.NewMockManager(ctrl)
+}
+
+func getResponseError(statusCode int) *smithy.OperationError {
+	return &smithy.OperationError{
+		ServiceID:     serviceId,
+		OperationName: getMetadataOperationId,
+		Err: &smithyhttp.ResponseError{
+			Response: &smithyhttp.Response{
+				Response: &http.Response{
+					StatusCode: statusCode,
+				},
+			},
+		},
+	}
 }
 
 func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
