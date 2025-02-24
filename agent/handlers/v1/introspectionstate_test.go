@@ -158,8 +158,8 @@ func TestGetTaskMetadataByArn(t *testing.T) {
 
 		response, err := agentState.GetTaskMetadataByArn(taskARN)
 
-		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskARN)), err)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)
 	})
 }
 
@@ -228,8 +228,8 @@ func TestGetTaskMetadataByID(t *testing.T) {
 
 		response, err := agentState.GetTaskMetadataByID(containerID)
 
-		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskARN)), err)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)
 	})
 }
 
@@ -321,8 +321,8 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 
 		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
-		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskARN)), err)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)
 	})
 }
 
@@ -351,8 +351,8 @@ func TestGetContainerMap(t *testing.T) {
 
 		response, err := getContainerMap(mockTaskEngine, taskARN)
 
+		assert.Nil(t, err)
 		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskARN)), err)
 	})
 }
 
@@ -393,7 +393,7 @@ func TestCreateTaskResponse(t *testing.T) {
 
 		response, err := createTaskResponse(containerID, mockTaskEngine, task, true)
 
-		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskARN)), err)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)
 	})
 }
