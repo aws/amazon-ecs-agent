@@ -1,4 +1,8 @@
 # Changelog
+# 1.91.0
+* Enhancement - Make the fluentd-async-connect log driver option configurable [#4476](https://github.com/aws/amazon-ecs-agent/pull/4476)
+* Enhancement - Update amazon-ssm-agent version for exec to 3.3.1802.0 for ecs-anywhere [#4511](https://github.com/aws/amazon-ecs-agent/pull/4511)
+* Bugfix - Ensure proper cleanup of gMSA Linux credentials by assigning leaseId to taskResource for credentialfetcher tasks [#4490](https://github.com/aws/amazon-ecs-agent/pull/4490)
 
 # 1.90.0
 * Enhancement - Upgrade to latest NVIDIA NVML package [#4469](https://github.com/aws/amazon-ecs-agent/pull/4469)
