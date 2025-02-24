@@ -13,17 +13,17 @@
 package taskprotection
 
 import (
+	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	ecsapi "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-
-	"github.com/aws/aws-sdk-go/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
 
 // TaskProtectionClientFactory implements TaskProtectionClientFactoryInterface
@@ -36,17 +36,33 @@ type TaskProtectionClientFactory struct {
 // Helper function for retrieving credential from credentials manager and create ecs client
 func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 	taskRoleCredential credentials.TaskIAMRoleCredentials,
-) ecsapi.ECSTaskProtectionSDK {
+) (ecsapi.ECSTaskProtectionSDK, error) {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
-	cfg := aws.NewConfig().
-		WithCredentials(awscreds.NewStaticCredentials(taskCredential.AccessKeyID,
-			taskCredential.SecretAccessKey,
-			taskCredential.SessionToken)).
-		WithRegion(factory.Region).
-		WithHTTPClient(httpclient.New(ecsclient.RoundtripTimeout, factory.AcceptInsecureCert, version.String(),
-			config.OSType)).
-		WithEndpoint(factory.Endpoint)
+	cfg, err := awsconfig.LoadDefaultConfig(
+		context.TODO(),
+		awsconfig.WithCredentialsProvider(
+			awscreds.NewStaticCredentialsProvider(
+				taskCredential.AccessKeyID,
+				taskCredential.SecretAccessKey,
+				taskCredential.SessionToken,
+			),
+		),
+		awsconfig.WithRegion(factory.Region),
+		awsconfig.WithHTTPClient(
+			httpclient.New(
+				ecsclient.RoundtripTimeout,
+				factory.AcceptInsecureCert,
+				version.String(),
+				config.OSType,
+			),
+		),
+		awsconfig.WithBaseEndpoint(factory.Endpoint),
+	)
 
-	ecsClient := ecs.New(session.Must(session.NewSession()), cfg)
-	return ecsClient
+	if err != nil {
+		return nil, err
+	}
+
+	ecsClient := ecs.NewFromConfig(cfg)
+	return ecsClient, nil
 }

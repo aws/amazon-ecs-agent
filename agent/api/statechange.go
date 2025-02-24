@@ -24,13 +24,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
-	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
@@ -327,7 +327,7 @@ func (c *ContainerStateChange) ToECSAgent() (*ecs.ContainerStateChange, error) {
 		Status:          c.Status,
 		ImageDigest:     aws.StringValue(pl.ImageDigest),
 		Reason:          aws.StringValue(pl.Reason),
-		ExitCode:        utils.Int64PtrToIntPtr(pl.ExitCode),
+		ExitCode:        utils.Int32PtrToIntPtr(pl.ExitCode),
 		NetworkBindings: pl.NetworkBindings,
 		MetadataGetter:  newContainerMetadataGetter(c.Container),
 	}, nil
@@ -424,11 +424,11 @@ func (change *TaskStateChange) ToECSAgent() (*ecs.TaskStateChange, error) {
 
 	for _, managedAgentEvent := range change.ManagedAgents {
 		if mgspl := buildManagedAgentStateChangePayload(managedAgentEvent); mgspl != nil {
-			output.ManagedAgents = append(output.ManagedAgents, mgspl)
+			output.ManagedAgents = append(output.ManagedAgents, *mgspl)
 		}
 	}
 
-	containerEvents := make([]*ecsmodel.ContainerStateChange, len(change.Containers))
+	containerEvents := make([]types.ContainerStateChange, len(change.Containers))
 	for i, containerEvent := range change.Containers {
 		payload, err := buildContainerStateChangePayload(containerEvent)
 		if err != nil {
@@ -438,7 +438,7 @@ func (change *TaskStateChange) ToECSAgent() (*ecs.TaskStateChange, error) {
 			})
 			return nil, err
 		}
-		containerEvents[i] = payload
+		containerEvents[i] = *payload
 	}
 	output.Containers = containerEvents
 
@@ -481,7 +481,7 @@ func (AttachmentStateChange) GetEventType() statechange.EventType {
 	return statechange.AttachmentEvent
 }
 
-func buildManagedAgentStateChangePayload(change ManagedAgentStateChange) *ecsmodel.ManagedAgentStateChange {
+func buildManagedAgentStateChangePayload(change ManagedAgentStateChange) *types.ManagedAgentStateChange {
 	if !change.Status.ShouldReportToBackend() {
 		logger.Warn("Not submitting unsupported managed agent state", logger.Fields{
 			field.Status:        change.Status.String(),
@@ -490,19 +490,19 @@ func buildManagedAgentStateChangePayload(change ManagedAgentStateChange) *ecsmod
 		})
 		return nil
 	}
-	return &ecsmodel.ManagedAgentStateChange{
-		ManagedAgentName: aws.String(change.Name),
+	return &types.ManagedAgentStateChange{
+		ManagedAgentName: types.ManagedAgentName(change.Name),
 		ContainerName:    aws.String(change.Container.Name),
 		Status:           aws.String(change.Status.String()),
 		Reason:           aws.String(change.Reason),
 	}
 }
 
-func buildContainerStateChangePayload(change ContainerStateChange) (*ecsmodel.ContainerStateChange, error) {
+func buildContainerStateChangePayload(change ContainerStateChange) (*types.ContainerStateChange, error) {
 	if change.ContainerName == "" {
 		return nil, fmt.Errorf("container state change has no container name")
 	}
-	statechange := &ecsmodel.ContainerStateChange{
+	statechange := types.ContainerStateChange{
 		ContainerName: aws.String(change.ContainerName),
 	}
 	if change.RuntimeID != "" {
@@ -534,8 +534,8 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*ecsmodel.Co
 	statechange.Status = aws.String(stat.BackendStatusString())
 
 	if change.ExitCode != nil {
-		exitCode := int64(aws.IntValue(change.ExitCode))
-		statechange.ExitCode = aws.Int64(exitCode)
+		exitCode := int32(aws.IntValue(change.ExitCode))
+		statechange.ExitCode = aws.Int32(exitCode)
 	}
 
 	networkBindings := getNetworkBindings(change)
@@ -547,7 +547,7 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*ecsmodel.Co
 	}
 	statechange.NetworkBindings = networkBindings
 
-	return statechange, nil
+	return &statechange, nil
 }
 
 // ProtocolBindIP used to store protocol and bindIP information associated to a particular host port
@@ -557,8 +557,8 @@ type ProtocolBindIP struct {
 }
 
 // getNetworkBindings returns the list of networkingBindings, sent to ECS as part of the container state change payload
-func getNetworkBindings(change ContainerStateChange) []*ecsmodel.NetworkBinding {
-	networkBindings := []*ecsmodel.NetworkBinding{}
+func getNetworkBindings(change ContainerStateChange) []types.NetworkBinding {
+	networkBindings := []types.NetworkBinding{}
 	// hostPortToProtocolBindIPMap is a map to store protocol and bindIP information associated to host ports
 	// that belong to a range. This is used in case when there are multiple protocol/bindIP combinations associated to a
 	// port binding. example: when both IPv4 and IPv6 bindIPs are populated by docker.
@@ -571,22 +571,22 @@ func getNetworkBindings(change ContainerStateChange) []*ecsmodel.NetworkBinding 
 	containerPortRangeMap := change.Container.GetContainerPortRangeMap()
 
 	for _, binding := range change.PortBindings {
-		hostPort := int64(binding.HostPort)
-		containerPort := int64(binding.ContainerPort)
+		containerPort := int32(binding.ContainerPort)
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 
 		// create network binding for each containerPort that exists in the singular ContainerPortSet
 		// for container ports that belong to a range, we'll have 1 consolidated network binding for the range
 		if _, ok := containerPortSet[int(containerPort)]; ok {
-			networkBindings = append(networkBindings, &ecsmodel.NetworkBinding{
+			networkBindings = append(networkBindings, types.NetworkBinding{
 				BindIP:        aws.String(bindIP),
-				ContainerPort: aws.Int64(containerPort),
-				HostPort:      aws.Int64(hostPort),
-				Protocol:      aws.String(protocol),
+				ContainerPort: aws.Int32(containerPort),
+				HostPort:      aws.Int32(int32(binding.HostPort)),
+				Protocol:      types.TransportProtocol(protocol),
 			})
 		} else {
 			// populate hostPortToProtocolBindIPMap – this is used below when we construct network binding for ranges.
+			hostPort := int64(binding.HostPort)
 			hostPortToProtocolBindIPMap[hostPort] = append(hostPortToProtocolBindIPMap[hostPort],
 				ProtocolBindIP{
 					protocol: protocol,
@@ -601,11 +601,11 @@ func getNetworkBindings(change ContainerStateChange) []*ecsmodel.NetworkBinding 
 		hostPort, _, _ := nat.ParsePortRangeToInt(hostPortRange)
 		if val, ok := hostPortToProtocolBindIPMap[int64(hostPort)]; ok {
 			for _, v := range val {
-				networkBindings = append(networkBindings, &ecsmodel.NetworkBinding{
+				networkBindings = append(networkBindings, types.NetworkBinding{
 					BindIP:             aws.String(v.bindIP),
 					ContainerPortRange: aws.String(containerPortRange),
 					HostPortRange:      aws.String(hostPortRange),
-					Protocol:           aws.String(v.protocol),
+					Protocol:           types.TransportProtocol(v.protocol),
 				})
 			}
 		}

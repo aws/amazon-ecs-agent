@@ -26,9 +26,9 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
-	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -327,36 +327,36 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 
 func TestGetNetworkBindings(t *testing.T) {
 	testContainerStateChange := getTestContainerStateChange()
-	expectedNetworkBindings := []*ecs.NetworkBinding{
+	expectedNetworkBindings := []types.NetworkBinding{
 		{
 			BindIP:        aws.String("0.0.0.0"),
-			ContainerPort: aws.Int64(10),
-			HostPort:      aws.Int64(10),
-			Protocol:      aws.String("tcp"),
+			ContainerPort: aws.Int32(10),
+			HostPort:      aws.Int32(10),
+			Protocol:      "tcp",
 		},
 		{
 			BindIP:        aws.String("1.2.3.4"),
-			ContainerPort: aws.Int64(12),
-			HostPort:      aws.Int64(12),
-			Protocol:      aws.String("udp"),
+			ContainerPort: aws.Int32(12),
+			HostPort:      aws.Int32(12),
+			Protocol:      "udp",
 		},
 		{
 			BindIP:        aws.String("5.6.7.8"),
-			ContainerPort: aws.Int64(15),
-			HostPort:      aws.Int64(20),
-			Protocol:      aws.String("tcp"),
+			ContainerPort: aws.Int32(15),
+			HostPort:      aws.Int32(20),
+			Protocol:      "tcp",
 		},
 		{
 			BindIP:             aws.String("::"),
 			ContainerPortRange: aws.String("21-22"),
 			HostPortRange:      aws.String("60001-60002"),
-			Protocol:           aws.String("udp"),
+			Protocol:           "udp",
 		},
 		{
 			BindIP:             aws.String("0.0.0.0"),
 			ContainerPortRange: aws.String("96-97"),
 			HostPortRange:      aws.String("47001-47002"),
-			Protocol:           aws.String("tcp"),
+			Protocol:           "tcp",
 		},
 	}
 
@@ -748,7 +748,7 @@ func TestBuildContainerStateChangePayload(t *testing.T) {
 	tcs := []struct {
 		name          string
 		change        ContainerStateChange
-		expected      *ecsmodel.ContainerStateChange
+		expected      *types.ContainerStateChange
 		expectedError string
 	}{
 		{
@@ -772,10 +772,10 @@ func TestBuildContainerStateChangePayload(t *testing.T) {
 				Status:        apicontainerstatus.ContainerManifestPulled,
 				ImageDigest:   "digest",
 			},
-			expected: &ecsmodel.ContainerStateChange{
+			expected: &types.ContainerStateChange{
 				ContainerName:   aws.String("container"),
 				ImageDigest:     aws.String("digest"),
-				NetworkBindings: []*ecs.NetworkBinding{},
+				NetworkBindings: []types.NetworkBinding{},
 				Status:          aws.String("PENDING"),
 			},
 		},
@@ -788,11 +788,11 @@ func TestBuildContainerStateChangePayload(t *testing.T) {
 				ImageDigest:   "digest",
 				RuntimeID:     "runtimeid",
 			},
-			expected: &ecsmodel.ContainerStateChange{
+			expected: &types.ContainerStateChange{
 				ContainerName:   aws.String("container"),
 				ImageDigest:     aws.String("digest"),
 				RuntimeId:       aws.String("runtimeid"),
-				NetworkBindings: []*ecs.NetworkBinding{},
+				NetworkBindings: []types.NetworkBinding{},
 				Status:          aws.String("RUNNING"),
 			},
 		},
@@ -806,12 +806,12 @@ func TestBuildContainerStateChangePayload(t *testing.T) {
 				RuntimeID:     "runtimeid",
 				ExitCode:      aws.Int(1),
 			},
-			expected: &ecsmodel.ContainerStateChange{
+			expected: &types.ContainerStateChange{
 				ContainerName:   aws.String("container"),
 				ImageDigest:     aws.String("digest"),
 				RuntimeId:       aws.String("runtimeid"),
-				ExitCode:        aws.Int64(1),
-				NetworkBindings: []*ecs.NetworkBinding{},
+				ExitCode:        aws.Int32(1),
+				NetworkBindings: []types.NetworkBinding{},
 				Status:          aws.String("STOPPED"),
 			},
 		},

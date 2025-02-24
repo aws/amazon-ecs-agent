@@ -36,7 +36,6 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -123,7 +122,7 @@ func TestSendsEventsInvalidParametersEventsRemoved(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(interface{}) {
 		assert.Equal(t, 1, handler.tasksToEvents[taskARN].events.Len())
 		wg.Done()
-	}).Return(awserr.New(ecsmodel.ErrCodeInvalidParameterException, "", nil))
+	}).Return(awserr.New(apierrors.ErrCodeInvalidParameterException, "", nil))
 
 	handler.AddStateChangeEvent(taskEvent, client)
 
