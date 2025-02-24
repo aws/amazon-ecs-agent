@@ -114,9 +114,6 @@ func createTaskResponse(
 
 // getContainerMap returns a map of the containers belonging to a task or a not found error if it cannot.
 func getContainerMap(agentState dockerstate.TaskEngineState, taskArn string) (map[string]*container.DockerContainer, error) {
-	containers, ok := agentState.ContainerMapByArn(taskArn)
-	if !ok {
-		return nil, v1.NewErrorFetchFailure(fmt.Sprintf("container map for task %s not found", taskArn))
-	}
+	containers, _ := agentState.ContainerMapByArn(taskArn)
 	return containers, nil
 }

@@ -109,6 +109,17 @@ func expectedTaskResponse() v1.TaskResponse {
 	}
 }
 
+func expectedTaskWithoutContainersResponse() v1.TaskResponse {
+	return v1.TaskResponse{
+		Arn:           taskARN,
+		DesiredStatus: status,
+		KnownStatus:   status,
+		Family:        family,
+		Version:       version,
+		Containers:    []v1.ContainerResponse{},
+	}
+}
+
 func testTask() *apitask.Task {
 	return &apitask.Task{
 		Arn:                 taskARN,
