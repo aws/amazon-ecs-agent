@@ -11,24 +11,5 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
+//go:generate mockgen -destination=./mocks/state_mock.go -copyright_file=../../../scripts/copyright_file -package=mock_v1 . AgentState
 package v1
-
-import (
-	"net/http"
-
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-)
-
-const LicensePath = "/license"
-
-var licenseProvider = utils.NewLicenseProvider()
-
-// LicenseHandler creates response for '/license' API.
-func LicenseHandler(w http.ResponseWriter, h *http.Request) {
-	text, err := licenseProvider.GetText()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.Write([]byte(text))
-	}
-}
