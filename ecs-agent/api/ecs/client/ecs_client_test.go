@@ -108,8 +108,13 @@ func setup(t *testing.T,
 	mockCfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
 	mockStandardClient := mock_ecs.NewMockECSStandardSDK(ctrl)
 	mockSubmitStateClient := mock_ecs.NewMockECSSubmitStateSDK(ctrl)
+	// Override the retry backoff to accelerate the test's speed, with the following backoff configuration:
+	// Min backoff: 1 second; Max backoff: 1 second; Multiple: 2; Jitter: 10%.
+	// This brings down the test's execution time from 20 seconds to 0.5 second.
+	customRCIRetryBackoff := retry.NewExponentialBackoff(100*time.Millisecond, 200*time.Millisecond, rciRetryJitter, rciRetryMultiple)
 	options = append(options, WithStandardClient(mockStandardClient),
-		WithSubmitStateChangeClient(mockSubmitStateClient))
+		WithSubmitStateChangeClient(mockSubmitStateClient),
+		WithRCICustomRetryBackoff(customRCIRetryBackoff))
 	client, err := NewECSClient(credentials.AnonymousCredentials, mockCfgAccessor, ec2MetadataClient, agentVer, options...)
 	assert.NoError(t, err)
 
@@ -458,6 +463,110 @@ func TestRegisterContainerInstance(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, containerInstanceARN, arn)
 			assert.Equal(t, availabilityZone, availabilityzone)
+		})
+	}
+}
+
+// TestRegisterContainerInstanceWithRetry tests the RegisterContainerInstanceWithRetry wrapper.
+// The wrapper implements registerContainerInstance with an additional layer of retry with exponential backoff.
+// RCI call has 4 failure types: ServerException, ClientException, InvalidParameterException, ThrottlingException.
+// ServerException and ThrottlingException are considered transient, and should be retried upon receiving such failures.
+// We have 2 subtests, one for happy path and one for unhappy path.
+// For both tests, we will make 3 RCI calls, and the first 2 will fail with ThrottlingException and ServerException, respectively.
+// In the happy test, the last RCI call will succeed, and we will examine the expected attributes are present.
+// In the unhappy test, the last RCI call will fail with ClientException, and an appropriate error will be returned.
+// For both test cases, the last RCI call should effectively terminate the retry loop.
+func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().InstanceAttributes().Return(additionalAttributes).AnyTimes()
+	}
+	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
+
+	fakeCapabilities := []string{"capability1", "capability2"}
+	expectedAttributes := map[string]string{
+		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+		"my_custom_attribute":       "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+		"ecs.availability-zone":     availabilityZone,
+		"ecs.outpost-arn":           outpostARN,
+		cpuArchAttrName:             getCPUArch(),
+	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
+	platformDevices := []*ecsmodel.PlatformDevice{
+		{
+			Id:   aws.String("id1"),
+			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id2"),
+			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id3"),
+			Type: aws.String(ecsmodel.PlatformDeviceTypeGpu),
+		},
+	}
+
+	testCases := []struct {
+		name                         string
+		finalRCICallResponse         *ecsmodel.RegisterContainerInstanceOutput
+		finalRCICallError            error
+		expectedContainerInstanceARN string
+		expectedAZ                   string
+	}{
+		{
+			name: "Happy Path",
+			finalRCICallResponse: &ecsmodel.RegisterContainerInstanceOutput{
+				ContainerInstance: &ecsmodel.ContainerInstance{
+					ContainerInstanceArn: aws.String(containerInstanceARN),
+					Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes),
+				},
+			},
+			finalRCICallError:            nil,
+			expectedContainerInstanceARN: containerInstanceARN,
+			expectedAZ:                   availabilityZone,
+		},
+		{
+			name:                 "UnHappy Path",
+			finalRCICallResponse: nil,
+			finalRCICallError:    awserr.New("ClientException", "", nil),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gomock.InOrder(
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return("instanceIdentityDocument", nil),
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("signature", nil),
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
+					Return(nil, awserr.New("ThrottlingException", "", nil)),
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return("instanceIdentityDocument", nil),
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("signature", nil),
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
+					Return(nil, awserr.New("ServerException", "", nil)),
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return("instanceIdentityDocument", nil),
+				mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("signature", nil),
+				tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any()).
+					Return(tc.finalRCICallResponse, tc.finalRCICallError),
+			)
+			arn, availabilityzone, err := tester.client.RegisterContainerInstance("", capabilities,
+				containerInstanceTags, registrationToken, platformDevices, outpostARN)
+			assert.Equal(t, tc.finalRCICallError, err)
+			assert.Equal(t, tc.expectedContainerInstanceARN, arn)
+			assert.Equal(t, tc.expectedAZ, availabilityzone)
 		})
 	}
 }

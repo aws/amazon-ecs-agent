@@ -63,6 +63,14 @@ const (
 	setInstanceIdRetryBackoffMax      = 5 * time.Second
 	setInstanceIdRetryBackoffJitter   = 0.2
 	setInstanceIdRetryBackoffMultiple = 2
+	// Below constants are used for RegisterContainerInstance retry with exponential backoff when receiving non-terminal errors.
+	// To ensure parity in all regions and on all launch types, we should not set any time limit on the RCI timeout.
+	// Thus, setting the max RCI retry timeout allowed to 1 hour, and capping max retry backoff at 192 seconds (3 * 2^6).
+	rciMaxRetryTimeAllowed = 1 * time.Hour
+	rciMinBackoff          = 3 * time.Second
+	rciMaxBackoff          = 192 * time.Second
+	rciRetryJitter         = 0.2
+	rciRetryMultiple       = 2.0
 )
 
 // ecsClient implements ECSClient interface.
@@ -79,6 +87,7 @@ type ecsClient struct {
 	sascCustomRetryBackoff           func(func() error) error
 	stscAttachmentCustomRetryBackoff func(func() error) error
 	metricsFactory                   metrics.EntryFactory
+	rciRetryBackoff                  *retry.ExponentialBackoff
 }
 
 // NewECSClient creates a new ECSClient interface object.
@@ -116,6 +125,9 @@ func NewECSClient(
 	}
 	if client.metricsFactory == nil {
 		client.metricsFactory = metrics.NewNopEntryFactory()
+	}
+	if client.rciRetryBackoff == nil {
+		client.rciRetryBackoff = retry.NewExponentialBackoff(rciMinBackoff, rciMaxBackoff, rciRetryJitter, rciRetryMultiple)
 	}
 
 	return client, nil
@@ -173,7 +185,7 @@ func (client *ecsClient) RegisterContainerInstance(containerInstanceArn string, 
 		defer client.configAccessor.UpdateCluster(clusterRef)
 		// Attempt to register without checking existence of the cluster so that we don't require
 		// excess permissions in the case where the cluster already exists and is active.
-		containerInstanceArn, availabilityzone, err := client.registerContainerInstance(clusterRef,
+		containerInstanceArn, availabilityzone, err := client.registerContainerInstanceWithRetry(clusterRef,
 			containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
 		if err == nil {
 			return containerInstanceArn, availabilityzone, nil
@@ -188,8 +200,48 @@ func (client *ecsClient) RegisterContainerInstance(containerInstanceArn string, 
 			}
 		}
 	}
-	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken,
+	return client.registerContainerInstanceWithRetry(clusterRef, containerInstanceArn, attributes, tags, registrationToken,
 		platformDevices, outpostARN)
+}
+
+// registerContainerInstanceWithRetry wraps around registerContainerInstance with exponential backoff retry implementation.
+func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, containerInstanceArn string,
+	attributes []*ecsmodel.Attribute, tags []*ecsmodel.Tag, registrationToken string,
+	platformDevices []*ecsmodel.PlatformDevice, outpostARN string) (string, string, error) {
+
+	var containerInstanceARN, availabilityZone string
+	var errFromRCI error
+	ctx, cancel := context.WithTimeout(context.Background(), rciMaxRetryTimeAllowed)
+	defer cancel()
+	// Reset the backoff such that retries from past calls won't impact the current call.
+	client.rciRetryBackoff.Reset()
+	err := retry.RetryWithBackoffCtx(ctx, client.rciRetryBackoff,
+		func() error {
+			containerInstanceARN, availabilityZone, errFromRCI = client.registerContainerInstance(
+				clusterRef, containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
+			if errFromRCI != nil {
+				if !isTransientError(errFromRCI) {
+					logger.Error("Received terminal error from RegisterContainerInstance call, exiting", logger.Fields{
+						field.Error: errFromRCI,
+					})
+					// Mark the error as non-retriable, to stop the retry loop in RetryWithBackoffCtx.
+					return apierrors.NewRetriableError(apierrors.NewRetriable(false), errFromRCI)
+				} else {
+					logger.Error("Received non-terminal error from RegisterContainerInstance call, retrying with exponential backoff", logger.Fields{
+						field.Error: errFromRCI,
+					})
+					// Mark non-terminal errors as retriable, to continue the retry loop in RetryWithBackoffCtx.
+					return apierrors.NewRetriableError(apierrors.NewRetriable(true), errFromRCI)
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		// return errFromRCI instead of err returned by the retry wrapper, as err wraps around the original error thrown by RCI.
+		// errFromRCI has implementation to mark the exit code terminal, so that systemd won't restart the agent binary.
+		return "", "", errFromRCI
+	}
+	return containerInstanceARN, availabilityZone, nil
 }
 
 func (client *ecsClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
@@ -876,4 +928,16 @@ func trimString(inputString string, maxLen int) string {
 	} else {
 		return inputString
 	}
+}
+
+func isTransientError(err error) bool {
+	var awsErr awserr.Error
+	// Using errors.As to unwrap as opposed to errors.Is.
+	if errors.As(err, &awsErr) {
+		switch awsErr.Code() {
+		case ecsmodel.ErrCodeServerException, "ThrottlingException":
+			return true
+		}
+	}
+	return false
 }
