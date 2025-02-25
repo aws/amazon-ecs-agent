@@ -17,6 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 )
 
 // ECSClientOption allows for configuration of an ecsClient.
@@ -59,6 +60,14 @@ func WithSASCCustomRetryBackoff(f func(func() error) error) ECSClientOption {
 func WithSTSCAttachmentCustomRetryBackoff(f func(func() error) error) ECSClientOption {
 	return func(client *ecsClient) {
 		client.stscAttachmentCustomRetryBackoff = f
+	}
+}
+
+// WithRCICustomRetryBackoff is an ECSClientOption that configures the
+// ecsClient.rciRetryBackoff with the value passed as a parameter.
+func WithRCICustomRetryBackoff(backoff *retry.ExponentialBackoff) ECSClientOption {
+	return func(client *ecsClient) {
+		client.rciRetryBackoff = backoff
 	}
 }
 
