@@ -136,7 +136,7 @@ func TestGetTaskMetadataByArn(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByArn(taskARN)
 
 		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", taskARN)), err)
+		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("no task found with arn %s", taskARN)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestGetTaskMetadataByID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", containerID)), err)
+		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("no task found with dockerID %s", containerID)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 		response, err := agentState.GetTaskMetadataByShortID(containerID)
 
 		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", containerID)), err)
+		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("no task found with shortDockerID %s", containerID)), err)
 	})
 
 	t.Run("multiple found", func(t *testing.T) {
@@ -338,7 +338,7 @@ func TestCreateTaskResponse(t *testing.T) {
 		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
 		mockTaskEngine.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true)
 
-		response, err := createTaskResponse(containerID, mockTaskEngine, task, true)
+		response, err := createTaskResponse(containerID, "containerID", mockTaskEngine, task, true)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expectedTaskResponse(), *response)
@@ -348,10 +348,10 @@ func TestCreateTaskResponse(t *testing.T) {
 
 		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
 
-		response, err := createTaskResponse(containerID, mockTaskEngine, nil, false)
+		response, err := createTaskResponse(containerID, "containerID", mockTaskEngine, nil, false)
 
 		assert.Nil(t, response)
-		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", containerID)), err)
+		assert.Equal(t, v1.NewErrorNotFound(fmt.Sprintf("no task found with containerID %s", containerID)), err)
 	})
 
 	t.Run("container map not found", func(t *testing.T) {
@@ -362,7 +362,7 @@ func TestCreateTaskResponse(t *testing.T) {
 		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
 		mockTaskEngine.EXPECT().ContainerMapByArn(taskARN).Return(nil, false)
 
-		response, err := createTaskResponse(containerID, mockTaskEngine, task, true)
+		response, err := createTaskResponse(containerID, "cotainerID", mockTaskEngine, task, true)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)

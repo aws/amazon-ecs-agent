@@ -66,7 +66,7 @@ func (as *AgentStateImpl) GetTasksMetadata() (*v1.TasksResponse, error) {
 func (as *AgentStateImpl) GetTaskMetadataByArn(taskArn string) (*v1.TaskResponse, error) {
 	agentState := as.TaskEngine.State()
 	task, found := agentState.TaskByArn(taskArn)
-	return createTaskResponse(taskArn, agentState, task, found)
+	return createTaskResponse(taskArn, "arn", agentState, task, found)
 }
 
 // GetTaskMetadataByID returns task metadata in v1 format for the task with a matching docker ID, with an error
@@ -74,7 +74,7 @@ func (as *AgentStateImpl) GetTaskMetadataByArn(taskArn string) (*v1.TaskResponse
 func (as *AgentStateImpl) GetTaskMetadataByID(dockerID string) (*v1.TaskResponse, error) {
 	agentState := as.TaskEngine.State()
 	task, found := agentState.TaskByID(dockerID)
-	return createTaskResponse(dockerID, agentState, task, found)
+	return createTaskResponse(dockerID, "dockerID", agentState, task, found)
 }
 
 // GetTaskMetadataByShortID returns task metadata in v1 format for the task with a matching short docker ID, with
@@ -89,17 +89,18 @@ func (as *AgentStateImpl) GetTaskMetadataByShortID(shortDockerID string) (*v1.Ta
 	if found {
 		task = tasks[0]
 	}
-	return createTaskResponse(shortDockerID, agentState, task, found)
+	return createTaskResponse(shortDockerID, "shortDockerID", agentState, task, found)
 }
 
 // createTaskResponse looks up a task and returns the task metadata response in v1 format or a not found error
 // if the response cannot be constructed.
 func createTaskResponse(
 	key string,
+	keyType string,
 	agentState dockerstate.TaskEngineState,
 	task *apitask.Task, found bool) (*v1.TaskResponse, error) {
 	if !found {
-		return nil, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", key))
+		return nil, v1.NewErrorNotFound(fmt.Sprintf("no task found with %s %s", keyType, key))
 	}
 	containerMap, _ := agentState.ContainerMapByArn(task.Arn)
 	return NewTaskResponse(task, containerMap), nil
