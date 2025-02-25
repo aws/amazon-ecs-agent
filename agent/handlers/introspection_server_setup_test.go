@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/handlers"
 	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

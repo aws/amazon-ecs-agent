@@ -19,14 +19,14 @@ package v1
 import (
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
-	"github.com/docker/docker/api/types"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/docker/docker/api/types"
 )
 
 const (

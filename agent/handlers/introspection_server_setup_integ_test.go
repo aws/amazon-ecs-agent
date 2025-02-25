@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

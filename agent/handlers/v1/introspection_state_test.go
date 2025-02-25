@@ -26,6 +26,7 @@ import (
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	v1 "github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1"
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -323,36 +324,6 @@ func TestGetTaskMetadataByShortID(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Equal(t, expectedTaskWithoutContainersResponse(), *response)
-	})
-}
-
-func TestGetContainerMap(t *testing.T) {
-	t.Run("happy case", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		container := testContainer()
-		containerMap := testContainerMap(container)
-
-		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
-
-		mockTaskEngine.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true)
-
-		response, err := getContainerMap(mockTaskEngine, taskARN)
-
-		assert.Nil(t, err)
-		assert.Equal(t, containerMap, response)
-	})
-	t.Run("container map not found", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockTaskEngine := mock_dockerstate.NewMockTaskEngineState(ctrl)
-
-		mockTaskEngine.EXPECT().ContainerMapByArn(taskARN).Return(nil, false)
-
-		response, err := getContainerMap(mockTaskEngine, taskARN)
-
-		assert.Nil(t, err)
-		assert.Nil(t, response)
 	})
 }
 

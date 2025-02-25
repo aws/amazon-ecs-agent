@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+
 	"github.com/cihub/seelog"
 )
 

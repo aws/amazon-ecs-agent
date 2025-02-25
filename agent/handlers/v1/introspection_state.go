@@ -16,7 +16,6 @@ package v1
 import (
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	handlerutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
@@ -56,10 +55,7 @@ func (as *AgentStateImpl) GetTasksMetadata() (*v1.TasksResponse, error) {
 	allTasks := agentState.AllExternalTasks()
 	taskResponses := make([]*v1.TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
-		containerMap, err := getContainerMap(agentState, task.Arn)
-		if err != nil {
-			return nil, err
-		}
+		containerMap, _ := agentState.ContainerMapByArn(task.Arn)
 		taskResponses[ndx] = NewTaskResponse(task, containerMap)
 	}
 	return &v1.TasksResponse{Tasks: taskResponses}, nil
@@ -105,15 +101,6 @@ func createTaskResponse(
 	if !found {
 		return nil, v1.NewErrorNotFound(fmt.Sprintf("task %s not found", key))
 	}
-	containerMap, err := getContainerMap(agentState, task.Arn)
-	if err != nil {
-		return nil, err
-	}
+	containerMap, _ := agentState.ContainerMapByArn(task.Arn)
 	return NewTaskResponse(task, containerMap), nil
-}
-
-// getContainerMap returns a map of the containers belonging to a task or a not found error if it cannot.
-func getContainerMap(agentState dockerstate.TaskEngineState, taskArn string) (map[string]*container.DockerContainer, error) {
-	containers, _ := agentState.ContainerMapByArn(taskArn)
-	return containers, nil
 }
