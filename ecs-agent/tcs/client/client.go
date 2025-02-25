@@ -25,11 +25,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/tcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 
 	"github.com/cihub/seelog"
@@ -72,7 +76,7 @@ func New(url string,
 	doctor *doctor.Doctor,
 	disableResourceMetrics bool,
 	publishMetricsInterval time.Duration,
-	credentialProvider *credentials.Credentials,
+	credentialsCache *aws.CredentialsCache,
 	rwTimeout time.Duration,
 	metricsMessages <-chan ecstcs.TelemetryMessage,
 	healthMessages <-chan ecstcs.HealthMessage,
@@ -86,14 +90,14 @@ func New(url string,
 		health:                   healthMessages,
 		disableResourceMetrics:   disableResourceMetrics,
 		ClientServerImpl: wsclient.ClientServerImpl{
-			URL:                url,
-			Cfg:                cfg,
-			CredentialProvider: credentialProvider,
-			RWTimeout:          rwTimeout,
-			MakeRequestHook:    signRequestFunc(url, cfg.AWSRegion, credentialProvider),
-			TypeDecoder:        NewTCSDecoder(),
-			RequestHandlers:    make(map[string]wsclient.RequestHandler),
-			MetricsFactory:     metricsFactory,
+			URL:              url,
+			Cfg:              cfg,
+			CredentialsCache: credentialsCache,
+			RWTimeout:        rwTimeout,
+			MakeRequestHook:  signRequestFunc(url, cfg.AWSRegion, credentialsCache),
+			TypeDecoder:      NewTCSDecoder(),
+			RequestHandlers:  make(map[string]wsclient.RequestHandler),
+			MetricsFactory:   metricsFactory,
 		},
 	}
 	cs.ServiceError = &tcsError{}
@@ -186,22 +190,22 @@ func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error 
 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
 // objects.
-func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*ecstcs.PublishMetricsRequest, error) {
+func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.TelemetryMessage) ([]*tcs.PublishMetricsInput, error) {
 	instanceMetrics, metadata, taskMetrics := metrics.InstanceMetrics, metrics.Metadata, metrics.TaskMetrics
 
-	var requests []*ecstcs.PublishMetricsRequest
+	var requests []*tcs.PublishMetricsInput
 	if metadata == nil {
 		return nil, seelog.Errorf("nil metrics metadata")
 	}
-	if *metadata.Idle {
-		metadata.Fin = aws.Bool(true)
+	if metadata.Idle {
+		metadata.Fin = true
 		// Idle instance, we have only one request to send to backend.
 		requests = append(requests, ecstcs.NewPublishMetricsRequest(instanceMetrics, metadata, taskMetrics))
 		return requests, nil
 	}
-	var messageInstanceMetrics *ecstcs.InstanceMetrics
-	var messageTaskMetrics []*ecstcs.TaskMetric
-	var requestMetadata *ecstcs.MetricsMetadata
+	var messageInstanceMetrics *types.InstanceMetrics
+	var messageTaskMetrics []types.TaskMetric
+	var requestMetadata *types.MetricsMetadata
 	numTasks := len(taskMetrics)
 
 	for i, taskMetric := range taskMetrics {
@@ -210,10 +214,10 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		requestMetadata = copyMetricsMetadata(metadata, false)
 
 		// Check if taskMetric without service connect metrics exceed the message size
-		tempTaskMetric := *taskMetric
+		tempTaskMetric := taskMetric
 		tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
-		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
+		messageTaskMetrics = append(messageTaskMetrics, tempTaskMetric)
 		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
@@ -252,20 +256,20 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 // serviceConnectMetricsToPublishMetricRequests loops over all the SC metrics in a
 // task metric to add SC metrics until the message size is within 1 MB.
 // If adding a SC metric to the message exceeds the 1 MB limit, it will be sent in the new message
-func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instanceMetrics *ecstcs.InstanceMetrics,
-	requestMetadata *ecstcs.MetricsMetadata,
-	taskMetric *ecstcs.TaskMetric,
-	messageTaskMetrics []*ecstcs.TaskMetric,
-	requests []*ecstcs.PublishMetricsRequest,
-) (*ecstcs.TaskMetric, []*ecstcs.TaskMetric, []*ecstcs.PublishMetricsRequest) {
-	var messageInstanceMetrics *ecstcs.InstanceMetrics
-	tempTaskMetric := *taskMetric
+func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instanceMetrics *types.InstanceMetrics,
+	requestMetadata *types.MetricsMetadata,
+	taskMetric types.TaskMetric,
+	messageTaskMetrics []types.TaskMetric,
+	requests []*tcs.PublishMetricsInput,
+) (types.TaskMetric, []types.TaskMetric, []*tcs.PublishMetricsInput) {
+	var messageInstanceMetrics *types.InstanceMetrics
+	tempTaskMetric := taskMetric
 	tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
 	for _, serviceConnectMetric := range taskMetric.ServiceConnectMetricsWrapper {
 		messageInstanceMetrics = filterInstanceMetrics(instanceMetrics, len(requests))
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
-		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
+		messageTaskMetrics = append(messageTaskMetrics, tempTaskMetric)
 		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
 		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
@@ -276,7 +280,7 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instance
 			taskMetricTruncated := tempTaskMetric
 			taskMetricTruncated.ServiceConnectMetricsWrapper = copyServiceConnectMetrics(tempTaskMetric.ServiceConnectMetricsWrapper)
 
-			messageTaskMetrics = append(messageTaskMetrics, &taskMetricTruncated)
+			messageTaskMetrics = append(messageTaskMetrics, taskMetricTruncated)
 			requests = append(requests, ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 
 			// reset the messageTaskMetrics and tempTaskMetric for the new request,
@@ -288,11 +292,11 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instance
 			tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		}
 	}
-	return &tempTaskMetric, messageTaskMetrics, requests
+	return tempTaskMetric, messageTaskMetrics, requests
 }
 
 // healthToPublishHealthRequests creates the requests to publish container health
-func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMessage) ([]*ecstcs.PublishHealthRequest, error) {
+func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMessage) ([]*tcs.PublishHealthInput, error) {
 	metadata, taskHealthMetrics := health.Metadata, health.HealthMetrics
 
 	if metadata == nil || taskHealthMetrics == nil {
@@ -300,8 +304,8 @@ func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMes
 		return nil, nil
 	}
 
-	var requests []*ecstcs.PublishHealthRequest
-	var taskHealths []*ecstcs.TaskHealth
+	var requests []*tcs.PublishHealthInput
+	var taskHealths []types.TaskHealth
 	numOfTasks := len(taskHealthMetrics)
 	for i, taskHealth := range taskHealthMetrics {
 		taskHealths = append(taskHealths, taskHealth)
@@ -326,7 +330,7 @@ func (cs *tcsClientServer) healthToPublishHealthRequests(health ecstcs.HealthMes
 
 // shouldIncludeInstanceMetrics determines if we want to include instance metrics in the telemetry request.
 // Include instance metrics only in the first request.
-func filterInstanceMetrics(instanceMetrics *ecstcs.InstanceMetrics, requestCount int) *ecstcs.InstanceMetrics {
+func filterInstanceMetrics(instanceMetrics *types.InstanceMetrics, requestCount int) *types.InstanceMetrics {
 	if instanceMetrics != nil && requestCount == 0 {
 		return instanceMetrics
 	}
@@ -336,48 +340,45 @@ func filterInstanceMetrics(instanceMetrics *ecstcs.InstanceMetrics, requestCount
 // copyMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata object.
 // It copies all the fields from the source object to the new object and sets the 'Fin' field
 // as specified by the argument.
-func copyMetricsMetadata(metadata *ecstcs.MetricsMetadata, fin bool) *ecstcs.MetricsMetadata {
-	return &ecstcs.MetricsMetadata{
+func copyMetricsMetadata(metadata *types.MetricsMetadata, fin bool) *types.MetricsMetadata {
+	return &types.MetricsMetadata{
 		Cluster:           aws.String(*metadata.Cluster),
 		ContainerInstance: aws.String(*metadata.ContainerInstance),
-		Idle:              aws.Bool(*metadata.Idle),
+		Idle:              metadata.Idle,
 		MessageId:         aws.String(*metadata.MessageId),
-		Fin:               aws.Bool(fin),
+		Fin:               fin,
 	}
 }
 
 // copyTaskMetrics copies a slice of TaskMetric objects to another slice. This is needed as we
 // reset the source slice after creating a new PublishMetricsRequest object.
-func copyTaskMetrics(from []*ecstcs.TaskMetric) []*ecstcs.TaskMetric {
-	to := make([]*ecstcs.TaskMetric, len(from))
+func copyTaskMetrics(from []types.TaskMetric) []types.TaskMetric {
+	to := make([]types.TaskMetric, len(from))
 	copy(to, from)
 	return to
 }
 
 // copyServiceConnectMetrics loops over list of GeneralMetricsWrapper obejcts and creates a new GeneralMetricsWrapper list
 // and creates a new GeneralMetricsWrapper object from each given GeneralMetricsWrapper object.
-func copyServiceConnectMetrics(scMetrics []*ecstcs.GeneralMetricsWrapper) []*ecstcs.GeneralMetricsWrapper {
-	scMetricsTo := make([]*ecstcs.GeneralMetricsWrapper, len(scMetrics))
-	for i, scMetricFrom := range scMetrics {
-		scMetricTo := *scMetricFrom
-		scMetricsTo[i] = &scMetricTo
-	}
+func copyServiceConnectMetrics(scMetrics []types.GeneralMetricsWrapper) []types.GeneralMetricsWrapper {
+	scMetricsTo := make([]types.GeneralMetricsWrapper, len(scMetrics))
+	copy(scMetricsTo, scMetrics)
 	return scMetricsTo
 }
 
 // copyHealthMetadata performs a deep copy of HealthMetadata object
-func copyHealthMetadata(metadata *ecstcs.HealthMetadata, fin bool) *ecstcs.HealthMetadata {
-	return &ecstcs.HealthMetadata{
-		Cluster:           aws.String(aws.StringValue(metadata.Cluster)),
-		ContainerInstance: aws.String(aws.StringValue(metadata.ContainerInstance)),
-		Fin:               aws.Bool(fin),
-		MessageId:         aws.String(aws.StringValue(metadata.MessageId)),
+func copyHealthMetadata(metadata *types.HealthMetadata, fin bool) *types.HealthMetadata {
+	return &types.HealthMetadata{
+		Cluster:           aws.String(aws.ToString(metadata.Cluster)),
+		ContainerInstance: aws.String(aws.ToString(metadata.ContainerInstance)),
+		Fin:               fin,
+		MessageId:         aws.String(aws.ToString(metadata.MessageId)),
 	}
 }
 
 // copyTaskHealthMetrics copies a slice of taskHealthMetrics to another slice
-func copyTaskHealthMetrics(from []*ecstcs.TaskHealth) []*ecstcs.TaskHealth {
-	to := make([]*ecstcs.TaskHealth, len(from))
+func copyTaskHealthMetrics(from []types.TaskHealth) []types.TaskHealth {
+	to := make([]types.TaskHealth, len(from))
 	copy(to, from)
 	return to
 }
@@ -447,8 +448,8 @@ func (cs *tcsClientServer) publishInstanceStatusOnce() error {
 
 // GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
 // a sendable PublishInstanceStatusRequest
-func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
-	metadata := &ecstcs.InstanceStatusMetadata{
+func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*tcs.PublishInstanceStatusInput, error) {
+	metadata := &types.InstanceStatusMetadata{
 		Cluster:           aws.String(cs.doctor.GetCluster()),
 		ContainerInstance: aws.String(cs.doctor.GetContainerInstanceArn()),
 		RequestId:         aws.String(uuid.NewRandom().String()),
@@ -458,7 +459,7 @@ func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishIns
 		return nil, doctor.EmptyHealthcheckError
 	}
 
-	return &ecstcs.PublishInstanceStatusRequest{
+	return &tcs.PublishInstanceStatusInput{
 		Metadata:  metadata,
 		Statuses:  instanceStatuses,
 		Timestamp: aws.Time(time.Now()),
@@ -467,14 +468,14 @@ func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishIns
 
 // getInstanceStatuses returns a list of instance statuses converted from what
 // the doctor knows about the registered healthchecks
-func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
-	var instanceStatuses []*ecstcs.InstanceStatus
+func (cs *tcsClientServer) getInstanceStatuses() []types.InstanceStatus {
+	var instanceStatuses []types.InstanceStatus
 
 	for _, healthcheck := range *cs.doctor.GetHealthchecks() {
-		instanceStatus := &ecstcs.InstanceStatus{
+		instanceStatus := types.InstanceStatus{
 			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
 			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
-			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
+			Status:           types.InstanceHealthcheckStatus(healthcheck.GetHealthcheckStatus()),
 			Type:             aws.String(healthcheck.GetHealthcheckType()),
 		}
 		instanceStatuses = append(instanceStatuses, instanceStatus)
@@ -492,7 +493,7 @@ func (cs *tcsClientServer) Close() error {
 }
 
 // signRequestFunc is a MakeRequestHookFunc that signs each generated request
-func signRequestFunc(url, region string, credentialProvider *credentials.Credentials) wsclient.MakeRequestHookFunc {
+func signRequestFunc(url, region string, credentialsCache *aws.CredentialsCache) wsclient.MakeRequestHookFunc {
 	return func(payload []byte) ([]byte, error) {
 		reqBody := bytes.NewReader(payload)
 
@@ -501,7 +502,7 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 			return nil, err
 		}
 
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
+		err = utils.SignHTTPRequest(request, region, "ecs", credentialsCache)
 		if err != nil {
 			return nil, err
 		}

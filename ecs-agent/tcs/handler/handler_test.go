@@ -35,8 +35,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/tcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +70,7 @@ type mockStatsSource struct {
 	publishMetricsTicker *time.Ticker
 }
 
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AWSRegion:          "us-east-1",
@@ -78,12 +81,12 @@ var testCfg = &wsclient.WSClientMinAgentConfig{
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
-func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []types.TaskMetric, error) {
 	req := createPublishMetricsRequest()
 	return req.Metadata, req.TaskMetrics, nil
 }
 
-func (*mockStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*mockStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -108,21 +111,21 @@ func (Source *mockStatsSource) SimulateMetricsPublishToChannel(ctx context.Conte
 		select {
 		case <-Source.publishMetricsTicker.C:
 			Source.metricsChannel <- ecstcs.TelemetryMessage{
-				Metadata: &ecstcs.MetricsMetadata{
+				Metadata: &types.MetricsMetadata{
 					Cluster:           aws.String(testClusterArn),
 					ContainerInstance: aws.String(testInstanceArn),
-					Fin:               aws.Bool(false),
-					Idle:              aws.Bool(false),
+					Fin:               false,
+					Idle:              false,
 					MessageId:         aws.String(testMessageId),
 				},
-				TaskMetrics: []*ecstcs.TaskMetric{
-					&ecstcs.TaskMetric{},
+				TaskMetrics: []types.TaskMetric{
+					types.TaskMetric{},
 				},
 			}
 
 			Source.healthChannel <- ecstcs.HealthMessage{
-				Metadata:      &ecstcs.HealthMetadata{},
-				HealthMetrics: []*ecstcs.TaskHealth{},
+				Metadata:      &types.HealthMetadata{},
+				HealthMetrics: []types.TaskHealth{},
 			}
 
 		case <-ctx.Done():
@@ -196,7 +199,7 @@ func TestStartTelemetrySession(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -290,7 +293,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -353,7 +356,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		5*time.Second,
@@ -418,7 +421,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		50*time.Millisecond,
@@ -458,40 +461,40 @@ func closeSocket(ws chan<- []byte) {
 	close(ws)
 }
 
-func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
+func createPublishMetricsRequest() *tcs.PublishMetricsInput {
 	cluster := testClusterArn
 	ci := testInstanceArn
 	taskArn := testTaskArn
 	taskDefinitionFamily := testTaskDefinitionFamily
 	var fval float64
 	fval = rand.Float64()
-	var ival int64
-	ival = rand.Int63n(10)
+	var ival int32
+	ival = rand.Int31n(10)
 	ts := time.Now()
 	idle := false
 	messageId := testMessageId
-	return &ecstcs.PublishMetricsRequest{
-		Metadata: &ecstcs.MetricsMetadata{
+	return &tcs.PublishMetricsInput{
+		Metadata: &types.MetricsMetadata{
 			Cluster:           &cluster,
 			ContainerInstance: &ci,
-			Idle:              &idle,
+			Idle:              idle,
 			MessageId:         &messageId,
 		},
-		TaskMetrics: []*ecstcs.TaskMetric{
+		TaskMetrics: []types.TaskMetric{
 			{
-				ContainerMetrics: []*ecstcs.ContainerMetric{
+				ContainerMetrics: []types.ContainerMetric{
 					{
-						CpuStatsSet: &ecstcs.CWStatsSet{
-							Max:         &fval,
-							Min:         &fval,
-							SampleCount: &ival,
-							Sum:         &fval,
+						CpuStatsSet: &types.CWStatsSet{
+							Max:         fval,
+							Min:         fval,
+							SampleCount: ival,
+							Sum:         fval,
 						},
-						MemoryStatsSet: &ecstcs.CWStatsSet{
-							Max:         &fval,
-							Min:         &fval,
-							SampleCount: &ival,
-							Sum:         &fval,
+						MemoryStatsSet: &types.CWStatsSet{
+							Max:         fval,
+							Min:         fval,
+							SampleCount: ival,
+							Sum:         fval,
 						},
 					},
 				},
@@ -529,7 +532,7 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -609,7 +612,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		testCreds,
+		aws.NewCredentialsCache(testCreds),
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,

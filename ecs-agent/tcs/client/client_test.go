@@ -33,10 +33,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -99,17 +103,17 @@ func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
 
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
 type mockStatsSource struct{}
 
-func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []*types.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
-func (*mockStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*mockStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -127,11 +131,11 @@ func (*mockStatsSource) GetPublishMetricsTicker() *time.Ticker {
 
 type emptyStatsSource struct{}
 
-func (*emptyStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*emptyStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []*types.TaskMetric, error) {
 	return nil, nil, fmt.Errorf("empty stats")
 }
 
-func (*emptyStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*emptyStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -149,17 +153,17 @@ func (*emptyStatsSource) GetPublishMetricsTicker() *time.Ticker {
 
 type idleStatsSource struct{}
 
-func (*idleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	metadata := &ecstcs.MetricsMetadata{
+func (*idleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []types.TaskMetric, error) {
+	metadata := &types.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Bool(true),
+		Idle:              true,
 		MessageId:         aws.String(testMessageId),
 	}
-	return metadata, []*ecstcs.TaskMetric{}, nil
+	return metadata, []types.TaskMetric{}, nil
 }
 
-func (*idleStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*idleStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -179,23 +183,23 @@ type nonIdleStatsSource struct {
 	numTasks int
 }
 
-func (engine *nonIdleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	metadata := &ecstcs.MetricsMetadata{
+func (engine *nonIdleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []types.TaskMetric, error) {
+	metadata := &types.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Bool(false),
+		Idle:              false,
 		MessageId:         aws.String(testMessageId),
 	}
-	var taskMetrics []*ecstcs.TaskMetric
+	var taskMetrics []types.TaskMetric
 	var i int64
 	for i = 0; int(i) < engine.numTasks; i++ {
 		taskArn := "task/" + strconv.FormatInt(i, 10)
-		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
+		taskMetrics = append(taskMetrics, types.TaskMetric{TaskArn: &taskArn})
 	}
 	return metadata, taskMetrics, nil
 }
 
-func (*nonIdleStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*nonIdleStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -219,44 +223,44 @@ type serviceConnectStatsSource struct {
 	numTasks int
 }
 
-func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	metadata := &ecstcs.MetricsMetadata{
+func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.MetricsMetadata, []types.TaskMetric, error) {
+	metadata := &types.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Bool(false),
+		Idle:              false,
 		MessageId:         aws.String(testMessageId),
 	}
-	var taskMetrics []*ecstcs.TaskMetric
+	var taskMetrics []types.TaskMetric
 	var i int64
 	var fval float64
 	fval = rand.Float64()
-	var ival int64
-	ival = rand.Int63n(10)
+	var ival int32
+	ival = rand.Int31n(10)
 	for i = 0; int(i) < engine.numTasks; i++ {
 		taskArn := "task/" + strconv.FormatInt(i, 10)
-		taskMetric := ecstcs.TaskMetric{
+		taskMetric := types.TaskMetric{
 			TaskArn: &taskArn,
-			ContainerMetrics: []*ecstcs.ContainerMetric{
+			ContainerMetrics: []types.ContainerMetric{
 				{
-					CpuStatsSet: &ecstcs.CWStatsSet{
-						Max:         &fval,
-						Min:         &fval,
-						SampleCount: &ival,
-						Sum:         &fval,
+					CpuStatsSet: &types.CWStatsSet{
+						Max:         fval,
+						Min:         fval,
+						SampleCount: ival,
+						Sum:         fval,
 					},
-					MemoryStatsSet: &ecstcs.CWStatsSet{
-						Max:         &fval,
-						Min:         &fval,
-						SampleCount: &ival,
-						Sum:         &fval,
+					MemoryStatsSet: &types.CWStatsSet{
+						Max:         fval,
+						Min:         fval,
+						SampleCount: ival,
+						Sum:         fval,
 					},
 				},
 			},
 		}
 		if includeServiceConnectStats {
-			var serviceConnectMetrics []*ecstcs.GeneralMetricsWrapper
-			var generalMetrics []*ecstcs.GeneralMetric
-			metricType := "2"
+			var serviceConnectMetrics []types.GeneralMetricsWrapper
+			var generalMetrics []types.GeneralMetric
+			metricType := types.MetricType("2")
 			dimensionKey := "ClusterName"
 			dimentsionValue := "TestClusterName"
 			metricName := "HTTPCode_Target_2XX_Count"
@@ -264,18 +268,18 @@ func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnec
 			var metricCount int64 = 1
 
 			// generate a task metric with size more than testPublishMetricRequestSizeLimitSC i.e 1kB
-			generalMetric := ecstcs.GeneralMetric{
+			generalMetric := types.GeneralMetric{
 				MetricName:   &metricName,
-				MetricValues: []*float64{&metricValue},
-				MetricCounts: []*int64{&metricCount},
+				MetricValues: []float64{metricValue},
+				MetricCounts: []int64{metricCount},
 			}
-			generalMetrics = append(generalMetrics, &generalMetric)
-			generalMetrics = append(generalMetrics, &generalMetric)
-			generalMetrics = append(generalMetrics, &generalMetric)
-			generalMetrics = append(generalMetrics, &generalMetric)
-			generalMetricsWrapper := ecstcs.GeneralMetricsWrapper{
-				MetricType: &metricType,
-				Dimensions: []*ecstcs.Dimension{
+			generalMetrics = append(generalMetrics, generalMetric)
+			generalMetrics = append(generalMetrics, generalMetric)
+			generalMetrics = append(generalMetrics, generalMetric)
+			generalMetrics = append(generalMetrics, generalMetric)
+			generalMetricsWrapper := types.GeneralMetricsWrapper{
+				MetricType: metricType,
+				Dimensions: []types.Dimension{
 					{
 						Key:   &dimensionKey,
 						Value: &dimentsionValue,
@@ -283,16 +287,16 @@ func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnec
 				},
 				GeneralMetrics: generalMetrics,
 			}
-			serviceConnectMetrics = append(serviceConnectMetrics, &generalMetricsWrapper)
-			serviceConnectMetrics = append(serviceConnectMetrics, &generalMetricsWrapper)
+			serviceConnectMetrics = append(serviceConnectMetrics, generalMetricsWrapper)
+			serviceConnectMetrics = append(serviceConnectMetrics, generalMetricsWrapper)
 			taskMetric.ServiceConnectMetricsWrapper = serviceConnectMetrics
 		}
-		taskMetrics = append(taskMetrics, &taskMetric)
+		taskMetrics = append(taskMetrics, taskMetric)
 	}
 	return metadata, taskMetrics, nil
 }
 
-func (*serviceConnectStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*serviceConnectStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -316,27 +320,27 @@ type nonIdleInstanceMetricsStatsSource struct {
 	numTasks int
 }
 
-func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.InstanceMetrics, *ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	metadata := &ecstcs.MetricsMetadata{
+func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*types.InstanceMetrics, *types.MetricsMetadata, []types.TaskMetric, error) {
+	metadata := &types.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
-		Idle:              aws.Bool(false),
+		Idle:              false,
 		MessageId:         aws.String(testMessageId),
 	}
-	var instanceMetrics *ecstcs.InstanceMetrics
-	var storageMetrics *ecstcs.InstanceStorageMetrics
-	var taskMetrics []*ecstcs.TaskMetric
+	var instanceMetrics *types.InstanceMetrics
+	var storageMetrics *types.InstanceStorageMetrics
+	var taskMetrics []types.TaskMetric
 	var i int64
 	for i = 0; int(i) < engine.numTasks; i++ {
 		taskArn := "task/" + strconv.FormatInt(i, 10)
-		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
+		taskMetrics = append(taskMetrics, types.TaskMetric{TaskArn: &taskArn})
 	}
-	storageMetrics = &ecstcs.InstanceStorageMetrics{DataFilesystem: aws.Float64(25), OSFilesystem: aws.Float64(50)}
-	instanceMetrics = &ecstcs.InstanceMetrics{Storage: storageMetrics}
+	storageMetrics = &types.InstanceStorageMetrics{DataFilesystem: *aws.Float64(25), OSFilesystem: *aws.Float64(50)}
+	instanceMetrics = &types.InstanceMetrics{Storage: storageMetrics}
 	return instanceMetrics, metadata, taskMetrics, nil
 }
 
-func (*nonIdleInstanceMetricsStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (*nonIdleInstanceMetricsStatsSource) GetTaskHealthMetrics() (*types.HealthMetadata, []*types.TaskHealth, error) {
 	return nil, nil, nil
 }
 
@@ -373,9 +377,9 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	handledPayload := make(chan *ecstcs.AckPublishMetric)
+	handledPayload := make(chan *tcs.PublishMetricsOutput)
 
-	reqHandler := func(payload *ecstcs.AckPublishMetric) {
+	reqHandler := func(payload *tcs.PublishMetricsOutput) {
 		handledPayload <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -400,7 +404,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 
 	cs := testCS(conn, nil, nil)
 	defer cs.Close()
-	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
+	err := cs.MakeRequest(&tcs.PublishMetricsInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,7 +425,7 @@ func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {
 		t.Errorf("Expected %d requests, got %d", 1, len(requests))
 	}
 	lastRequest := requests[0]
-	if !*lastRequest.Metadata.Fin {
+	if !lastRequest.Metadata.Fin {
 		t.Error("Fin not set to true in Last request")
 	}
 }
@@ -459,12 +463,12 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithTaskNumbe
 		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))
 	}
 	lastRequest := requests[expectedRequests-1]
-	if !*lastRequest.Metadata.Fin {
+	if !lastRequest.Metadata.Fin {
 		t.Error("Fin not set to true in last request")
 	}
 	requests = requests[:(expectedRequests - 1)]
 	for i, request := range requests {
-		if *request.Metadata.Fin {
+		if request.Metadata.Fin {
 			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
 		}
 	}
@@ -509,12 +513,12 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))
 	}
 	lastRequest := requests[expectedRequests-1]
-	if !*lastRequest.Metadata.Fin {
+	if !lastRequest.Metadata.Fin {
 		t.Error("Fin not set to true in last request")
 	}
 	requests = requests[:(expectedRequests - 1)]
 	for i, request := range requests {
-		if *request.Metadata.Fin {
+		if request.Metadata.Fin {
 			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
 		}
 	}
@@ -558,12 +562,12 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 		t.Errorf("Expected %d requests, got %d", expectedRequests, len(requests))
 	}
 	lastRequest := requests[expectedRequests-1]
-	if !*lastRequest.Metadata.Fin {
+	if !lastRequest.Metadata.Fin {
 		t.Error("Fin not set to true in last request")
 	}
 	requests = requests[:(expectedRequests - 1)]
 	for i, request := range requests {
-		if *request.Metadata.Fin {
+		if request.Metadata.Fin {
 			t.Errorf("Fin set to true in request %d/%d", i, (expectedRequests - 1))
 		}
 	}
@@ -632,10 +636,10 @@ func TestMetricsToPublishMetricRequestsServiceConnectStatsSource(t *testing.T) {
 			}
 			assert.Equal(t, tc.expectedRequests, len(requests), "Wrong number of requests generated")
 			lastRequest := requests[tc.expectedRequests-1]
-			assert.True(t, *lastRequest.Metadata.Fin, "Fin not set to true in last request")
+			assert.True(t, lastRequest.Metadata.Fin, "Fin not set to true in last request")
 			requests = requests[:(tc.expectedRequests - 1)]
 			for i, request := range requests {
-				assert.False(t, *request.Metadata.Fin, "Fin set to true in request %d/%d", i, (tc.expectedRequests - 1))
+				assert.False(t, request.Metadata.Fin, "Fin set to true in request %d/%d", i, (tc.expectedRequests - 1))
 			}
 		})
 	}
@@ -647,7 +651,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		testCreds, rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -668,7 +672,7 @@ func TestCloseClientServer(t *testing.T) {
 		conn.EXPECT().Close(),
 	)
 
-	err := cs.MakeRequest(&ecstcs.PublishMetricsRequest{})
+	err := cs.MakeRequest(&tcs.PublishMetricsInput{})
 	assert.Nil(t, err)
 
 	err = cs.Disconnect()
@@ -692,9 +696,9 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	handledPayload := make(chan *ecstcs.AckPublishHealth)
+	handledPayload := make(chan *tcs.PublishHealthOutput)
 
-	reqHandler := func(payload *ecstcs.AckPublishHealth) {
+	reqHandler := func(payload *tcs.PublishHealthOutput) {
 		handledPayload <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -718,22 +722,22 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 		IsDocker:           true,
 	}
 
-	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, testCreds, rwTimeout, nil, nil, metrics.NewNopEntryFactory())
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, metrics.NewNopEntryFactory())
 	cs.SetConnection(conn)
 
-	testMetadata := &ecstcs.HealthMetadata{
+	testMetadata := &types.HealthMetadata{
 		Cluster:           aws.String("TestCreatePublishHealthRequests"),
 		ContainerInstance: aws.String("container_instance"),
-		Fin:               aws.Bool(true),
+		Fin:               true,
 		MessageId:         aws.String("message_id"),
 	}
 
-	testHealthMetrics := []*ecstcs.TaskHealth{
+	testHealthMetrics := []types.TaskHealth{
 		{
-			Containers: []*ecstcs.ContainerHealth{
+			Containers: []types.ContainerHealth{
 				{
 					ContainerName: aws.String("container1"),
-					HealthStatus:  aws.String("HEALTHY"),
+					HealthStatus:  types.HealthStatus("HEALTHY"),
 					StatusSince:   aws.Time(time.Now()),
 				},
 			},
@@ -742,10 +746,10 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 			TaskDefinitionVersion: aws.String("1"),
 		},
 		{
-			Containers: []*ecstcs.ContainerHealth{
+			Containers: []types.ContainerHealth{
 				{
 					ContainerName: aws.String("container2"),
-					HealthStatus:  aws.String("HEALTHY"),
+					HealthStatus:  types.HealthStatus("HEALTHY"),
 					StatusSince:   aws.Time(time.Now()),
 				},
 			},
@@ -785,8 +789,8 @@ func TestSessionClosed(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	handledPayload := make(chan *ecstcs.AckPublishMetric)
-	reqHandler := func(payload *ecstcs.AckPublishMetric) {
+	handledPayload := make(chan *tcs.PublishMetricsOutput)
+	reqHandler := func(payload *tcs.PublishMetricsOutput) {
 		handledPayload <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -800,23 +804,23 @@ func TestSessionClosed(t *testing.T) {
 func TestGetInstanceStatuses(t *testing.T) {
 	trueCheck := &trueHealthcheck{}
 	falseCheck := &falseHealthcheck{}
-	trueStatus := &ecstcs.InstanceStatus{
+	trueStatus := &types.InstanceStatus{
 		LastStatusChange: aws.Time(trueCheck.GetStatusChangeTime()),
 		LastUpdated:      aws.Time(trueCheck.GetLastHealthcheckTime()),
-		Status:           aws.String(trueCheck.GetHealthcheckStatus().String()),
+		Status:           types.InstanceHealthcheckStatus(trueCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(trueCheck.GetHealthcheckType()),
 	}
-	falseStatus := &ecstcs.InstanceStatus{
+	falseStatus := &types.InstanceStatus{
 		LastStatusChange: aws.Time(falseCheck.GetStatusChangeTime()),
 		LastUpdated:      aws.Time(falseCheck.GetLastHealthcheckTime()),
-		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
+		Status:           types.InstanceHealthcheckStatus(falseCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(falseCheck.GetHealthcheckType()),
 	}
 
 	testcases := []struct {
 		name           string
 		checks         []doctor.Healthcheck
-		expectedResult []*ecstcs.InstanceStatus
+		expectedResult []*types.InstanceStatus
 	}{
 		{
 			name:           "empty checks",
@@ -826,17 +830,17 @@ func TestGetInstanceStatuses(t *testing.T) {
 		{
 			name:           "all true checks",
 			checks:         []doctor.Healthcheck{trueCheck},
-			expectedResult: []*ecstcs.InstanceStatus{trueStatus},
+			expectedResult: []*types.InstanceStatus{trueStatus},
 		},
 		{
 			name:           "all false checks",
 			checks:         []doctor.Healthcheck{falseCheck},
-			expectedResult: []*ecstcs.InstanceStatus{falseStatus},
+			expectedResult: []*types.InstanceStatus{falseStatus},
 		},
 		{
 			name:           "mixed checks",
 			checks:         []doctor.Healthcheck{trueCheck, falseCheck},
-			expectedResult: []*ecstcs.InstanceStatus{trueStatus, falseStatus},
+			expectedResult: []*types.InstanceStatus{trueStatus, falseStatus},
 		},
 	}
 
@@ -855,25 +859,25 @@ func TestGetInstanceStatuses(t *testing.T) {
 }
 
 func TestGetPublishInstanceStatusRequest(t *testing.T) {
-	trueCheck := &trueHealthcheck{}
-	falseCheck := &falseHealthcheck{}
-	trueStatus := &ecstcs.InstanceStatus{
+	trueCheck := trueHealthcheck{}
+	falseCheck := falseHealthcheck{}
+	trueStatus := types.InstanceStatus{
 		LastStatusChange: aws.Time(trueCheck.GetStatusChangeTime()),
 		LastUpdated:      aws.Time(trueCheck.GetLastHealthcheckTime()),
-		Status:           aws.String(trueCheck.GetHealthcheckStatus().String()),
+		Status:           types.InstanceHealthcheckStatus(trueCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(trueCheck.GetHealthcheckType()),
 	}
-	falseStatus := &ecstcs.InstanceStatus{
+	falseStatus := types.InstanceStatus{
 		LastStatusChange: aws.Time(falseCheck.GetStatusChangeTime()),
 		LastUpdated:      aws.Time(falseCheck.GetLastHealthcheckTime()),
-		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
+		Status:           types.InstanceHealthcheckStatus(falseCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(falseCheck.GetHealthcheckType()),
 	}
 
 	testcases := []struct {
 		name             string
 		checks           []doctor.Healthcheck
-		expectedStatuses []*ecstcs.InstanceStatus
+		expectedStatuses []types.InstanceStatus
 	}{
 		{
 			name:             "empty checks",
@@ -882,18 +886,18 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 		},
 		{
 			name:             "all true checks",
-			checks:           []doctor.Healthcheck{trueCheck},
-			expectedStatuses: []*ecstcs.InstanceStatus{trueStatus},
+			checks:           []doctor.Healthcheck{&trueCheck},
+			expectedStatuses: []types.InstanceStatus{trueStatus},
 		},
 		{
 			name:             "all false checks",
-			checks:           []doctor.Healthcheck{falseCheck},
-			expectedStatuses: []*ecstcs.InstanceStatus{falseStatus},
+			checks:           []doctor.Healthcheck{&falseCheck},
+			expectedStatuses: []types.InstanceStatus{falseStatus},
 		},
 		{
 			name:             "mixed checks",
-			checks:           []doctor.Healthcheck{trueCheck, falseCheck},
-			expectedStatuses: []*ecstcs.InstanceStatus{trueStatus, falseStatus},
+			checks:           []doctor.Healthcheck{&trueCheck, &falseCheck},
+			expectedStatuses: []types.InstanceStatus{trueStatus, falseStatus},
 		},
 	}
 
@@ -906,7 +910,7 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 			cs.doctor.RunHealthchecks()
 
 			// note: setting RequestId and Timestamp to nil so I can make the comparison
-			metadata := &ecstcs.InstanceStatusMetadata{
+			metadata := &types.InstanceStatusMetadata{
 				Cluster:           aws.String(testCluster),
 				ContainerInstance: aws.String(testContainerInstance),
 				RequestId:         nil,
@@ -915,7 +919,7 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 			testResult, err := cs.getPublishInstanceStatusRequest()
 
 			if tc.expectedStatuses != nil {
-				expectedResult := &ecstcs.PublishInstanceStatusRequest{
+				expectedResult := &tcs.PublishInstanceStatusInput{
 					Metadata:  metadata,
 					Statuses:  tc.expectedStatuses,
 					Timestamp: nil,
@@ -948,9 +952,9 @@ func TestAckPublishInstanceStatusHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	handledPayload := make(chan *ecstcs.AckPublishInstanceStatus)
+	handledPayload := make(chan *tcs.PublishInstanceStatusOutput)
 
-	reqHandler := func(payload *ecstcs.AckPublishInstanceStatus) {
+	reqHandler := func(payload *tcs.PublishInstanceStatusOutput) {
 		handledPayload <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
