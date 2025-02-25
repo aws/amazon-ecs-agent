@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -838,7 +839,7 @@ func TestDiscoverTelemetryEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{TelemetryEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error getting telemetry endpoint")
@@ -851,7 +852,7 @@ func TestDiscoverTelemetryEndpointError(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -864,7 +865,7 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverTelemetryEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "no telemetry endpoint returned",
@@ -877,7 +878,7 @@ func TestDiscoverServiceConnectEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{ServiceConnectEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.NoError(t, err, "Error getting service connect endpoint")
@@ -889,7 +890,7 @@ func TestDiscoverServiceConnectEndpointError(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -902,7 +903,7 @@ func TestDiscoverNilServiceConnectEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverServiceConnectEndpoint(containerInstanceARN)
 	assert.ErrorContains(t, err, "no ServiceConnect endpoint returned",
@@ -915,7 +916,7 @@ func TestDiscoverSystemLogsEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	expectedEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{SystemLogsEndpoint: &expectedEndpoint}, nil)
 	endpoint, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.NoError(t, err, "Error getting system logs endpoint")
@@ -927,7 +928,7 @@ func TestDiscoverSystemLogsEndpointError(t *testing.T) {
 	defer ctrl.Finish()
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil,
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil,
 		fmt.Errorf("Error getting endpoint"))
 	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.ErrorContains(t, err, "Error getting endpoint",
@@ -940,11 +941,41 @@ func TestDiscoverNilSystemLogsEndpoint(t *testing.T) {
 
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
 	_, err := tester.client.DiscoverSystemLogsEndpoint(containerInstanceARN, zoneId)
 	assert.ErrorContains(t, err, "no system logs endpoint returned",
 		"Expected error getting system logs endpoint with old response")
+}
+
+func TestDiscoverPollEndpointRace(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	pollEndpoint := "http://127.0.0.1"
+	// SDK call to DiscoverPollEndpoint should only happen once.
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(func(interface{}, interface{}, ...interface{}) {
+		// Wait before returning to try and induce the race condition.
+		time.Sleep(100 * time.Millisecond)
+	}).Return(&ecsmodel.DiscoverPollEndpointOutput{Endpoint: &pollEndpoint}, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// First caller.
+	go func() {
+		defer wg.Done()
+		tester.client.DiscoverPollEndpoint(containerInstanceARN)
+	}()
+	// Second caller.
+	go func() {
+		defer wg.Done()
+		time.Sleep(10 * time.Millisecond)
+		tester.client.DiscoverPollEndpoint(containerInstanceARN)
+	}()
+
+	wg.Wait()
 }
 
 func TestUpdateContainerInstancesState(t *testing.T) {
@@ -1041,7 +1072,7 @@ func TestDiscoverPollEndpointCacheMiss(t *testing.T) {
 
 	gomock.InOrder(
 		pollEndpointCache.EXPECT().Get(containerInstanceARN).Return(nil, false, false),
-		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(pollEndpointOutput, nil),
+		tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(pollEndpointOutput, nil),
 		pollEndpointCache.EXPECT().Set(containerInstanceARN, pollEndpointOutput),
 	)
 
@@ -1064,7 +1095,7 @@ func TestDiscoverPollEndpointExpiredButDPEFailed(t *testing.T) {
 
 	gomock.InOrder(
 		pollEndpointCache.EXPECT().Get(containerInstanceARN).Return(pollEndpointOutput, true, false),
-		tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(nil, fmt.Errorf("error!")),
+		tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error!")),
 	)
 
 	output, err := tester.client.(*ecsClient).discoverPollEndpoint(containerInstanceARN, "")
@@ -1081,7 +1112,7 @@ func TestDiscoverTelemetryEndpointAfterPollEndpointCacheHit(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&ecsmodel.DiscoverPollEndpointOutput{
 			Endpoint:          &pollEndpoint,
 			TelemetryEndpoint: &pollEndpoint,
@@ -1106,7 +1137,7 @@ func TestDiscoverSystemLogsEndpointAfterCacheHit_HappyPath(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&ecsmodel.DiscoverPollEndpointOutput{
 			Endpoint:           &pollEndpoint,
 			SystemLogsEndpoint: &pollEndpoint,
@@ -1130,7 +1161,7 @@ func TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_UnhappyPath(t *test
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
 		WithDiscoverPollEndpointCache(pollEndpointCache))
 	pollEndpoint := "http://127.0.0.1"
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&ecsmodel.DiscoverPollEndpointOutput{
 			Endpoint: &pollEndpoint,
 		}, nil).Times(1)
@@ -1138,7 +1169,7 @@ func TestDiscoverSystemLogsEndpointAfterPollEndpointCacheHit_UnhappyPath(t *test
 	assert.NoError(t, err, "Error in DiscoverPollEndpoint")
 	assert.Equal(t, pollEndpoint, endpoint, "Mismatch in poll endpoint")
 
-	tester.mockStandardClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(
+	tester.mockStandardClient.EXPECT().DiscoverPollEndpointWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&ecsmodel.DiscoverPollEndpointOutput{
 			Endpoint:           &pollEndpoint,
 			SystemLogsEndpoint: &pollEndpoint,

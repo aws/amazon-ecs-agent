@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -63,6 +64,9 @@ const (
 	setInstanceIdRetryBackoffMax      = 5 * time.Second
 	setInstanceIdRetryBackoffJitter   = 0.2
 	setInstanceIdRetryBackoffMultiple = 2
+	// discoverPollEndpointTimeout is the maximum permitted time a single ECSClient.DiscoverPollEndpoint call can take.
+	// The SDK client uses the default retryer which gives a max retry count of 3, we combine this with the timeout for the underlying httpclient's RoundtripTimeout.
+	discoverPollEndpointTimeout = 3 * RoundtripTimeout
 	// Below constants are used for RegisterContainerInstance retry with exponential backoff when receiving non-terminal errors.
 	// To ensure parity in all regions and on all launch types, we should not set any time limit on the RCI timeout.
 	// Thus, setting the max RCI retry timeout allowed to 1 hour, and capping max retry backoff at 192 seconds (3 * 2^6).
@@ -82,6 +86,7 @@ type ecsClient struct {
 	ec2metadata                      ec2.EC2MetadataClient
 	httpClient                       *http.Client
 	pollEndpointCache                async.TTLCache
+	pollEndpointLock                 sync.Mutex
 	isFIPSDetected                   bool
 	shouldExcludeIPv6PortBinding     bool
 	sascCustomRetryBackoff           func(func() error) error
@@ -783,6 +788,10 @@ func (client *ecsClient) DiscoverSystemLogsEndpoint(containerInstanceArn string,
 
 func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 	availabilityZone string) (*ecsmodel.DiscoverPollEndpointOutput, error) {
+	client.pollEndpointLock.Lock()
+	defer client.pollEndpointLock.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), discoverPollEndpointTimeout)
+	defer cancel()
 	// Try getting an entry from the cache.
 	cachedEndpoint, expired, found := client.pollEndpointCache.Get(containerInstanceArn)
 	if !expired && found {
@@ -810,7 +819,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		field.ContainerInstanceARN: containerInstanceArn,
 		field.AvailabilityZone:     availabilityZone,
 	})
-	output, err := client.standardClient.DiscoverPollEndpoint(&ecsmodel.DiscoverPollEndpointInput{
+	output, err := client.standardClient.DiscoverPollEndpointWithContext(ctx, &ecsmodel.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
