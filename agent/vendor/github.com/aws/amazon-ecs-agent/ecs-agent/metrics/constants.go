@@ -56,7 +56,7 @@ const (
 
 	// ACS Session Metrics
 	acsSessionNamespace        = "ACSSession"
-	ACSSessionCallName         = acsSessionNamespace + ".ACSConnect"
+	ACSSessionFailureCallName  = acsSessionNamespace + ".ACSConnectFailure"
 	ACSSessionCallDurationName = acsSessionNamespace + ".ACSConnectDuration"
 
 	// ECS Client Metrics
