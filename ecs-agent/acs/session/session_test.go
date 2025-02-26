@@ -229,7 +229,7 @@ func TestSessionReconnectsOnConnectErrors(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -362,7 +362,7 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -423,7 +423,7 @@ func TestSessionReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -485,7 +485,7 @@ func TestSessionCallsInactiveInstanceCB(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -552,7 +552,7 @@ func TestSessionReconnectDelayForInactiveInstanceError(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -624,7 +624,7 @@ func TestSessionReconnectsOnServeErrors(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -685,7 +685,7 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).AnyTimes()
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -742,7 +742,7 @@ func TestSessionStopsWhenContextIsErrorDueToTimeout(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -795,7 +795,7 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -868,7 +868,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
@@ -1127,7 +1127,7 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnect").Return(mockACSConnectEndpointEntry).Times(10)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).Times(10)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any()).Times(10)
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)

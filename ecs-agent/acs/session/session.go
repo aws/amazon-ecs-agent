@@ -260,7 +260,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		s.disconnectJitter)
 
 	// Metric created for determining whether ACS connection is successful or not
-	s.metricsFactory.New(metrics.ACSSessionCallName).Done(err)
+	s.metricsFactory.New(metrics.ACSSessionFailureCallName).Done(err)
 	if err != nil {
 		logger.Error("Failed to connect to ACS", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
