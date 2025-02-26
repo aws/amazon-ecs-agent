@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	mock_async "github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/docker/docker/api/types/registry"

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+
 	"github.com/stretchr/testify/assert"
 )
 
