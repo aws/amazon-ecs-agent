@@ -81,6 +81,26 @@ func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpoint(arg0 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverPollEndpoint", reflect.TypeOf((*MockECSStandardSDK)(nil).DiscoverPollEndpoint), arg0)
 }
 
+// DiscoverPollEndpointWithContext mocks base method.
+func (m *MockECSStandardSDK) DiscoverPollEndpointWithContext(arg0 context.Context, arg1 *ecs0.DiscoverPollEndpointInput, arg2 ...request.Option) (*ecs0.DiscoverPollEndpointOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DiscoverPollEndpointWithContext", varargs...)
+	ret0, _ := ret[0].(*ecs0.DiscoverPollEndpointOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DiscoverPollEndpointWithContext indicates an expected call of DiscoverPollEndpointWithContext.
+func (mr *MockECSStandardSDKMockRecorder) DiscoverPollEndpointWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverPollEndpointWithContext", reflect.TypeOf((*MockECSStandardSDK)(nil).DiscoverPollEndpointWithContext), varargs...)
+}
+
 // ListTagsForResource mocks base method.
 func (m *MockECSStandardSDK) ListTagsForResource(arg0 *ecs0.ListTagsForResourceInput) (*ecs0.ListTagsForResourceOutput, error) {
 	m.ctrl.T.Helper()
