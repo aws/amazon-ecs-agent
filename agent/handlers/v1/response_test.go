@@ -17,170 +17,28 @@
 package v1
 
 import (
-	"encoding/json"
 	"testing"
-	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
-	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	taskARN        = "t1"
-	family         = "sleep"
-	version        = "1"
-	status         = "RUNNING"
-	containerID    = "cid"
-	containerName  = "sleepy"
-	imageName      = "busybox"
-	imageID        = "busyboxID"
-	networkMode    = "awsvpc"
-	eniIPv4Address = "10.0.0.2"
-	port           = 80
-	protocol       = "tcp"
-	volName        = "volume1"
-	volSource      = "/var/lib/volume1"
-	volDestination = "/volume"
-)
-
-var (
-	containerTime        = time.Now()
-	containerTimeUTC     = containerTime.UTC()
-	expectedPortResponse = response.PortResponse{
-		ContainerPort: port,
-		Protocol:      protocol,
-		HostPort:      port,
-	}
-	expectedNetworkResponse = response.Network{
-		NetworkMode:   networkMode,
-		IPv4Addresses: []string{eniIPv4Address},
-	}
-	expectedVolumeResponse = response.VolumeResponse{
-		DockerName:  volName,
-		Source:      volSource,
-		Destination: volDestination,
-	}
-	expectedContainerResponse = ContainerResponse{
-		DockerID:   containerID,
-		DockerName: containerName,
-		Name:       containerName,
-		Image:      imageName,
-		ImageID:    imageID,
-		CreatedAt:  &containerTimeUTC,
-		StartedAt:  &containerTimeUTC,
-		Ports: []response.PortResponse{
-			expectedPortResponse,
-		},
-		Networks: []response.Network{
-			expectedNetworkResponse,
-		},
-		Volumes: []response.VolumeResponse{
-			expectedVolumeResponse,
-		},
-	}
-	expectedTaskResponse = TaskResponse{
-		Arn:           taskARN,
-		DesiredStatus: status,
-		KnownStatus:   status,
-		Family:        family,
-		Version:       version,
-		Containers: []ContainerResponse{
-			expectedContainerResponse,
-		},
-	}
-)
-
 func TestTaskResponse(t *testing.T) {
-	task := &apitask.Task{
-		Arn:                 taskARN,
-		Family:              family,
-		Version:             version,
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*ni.NetworkInterface{
-			{
-				IPV4Addresses: []*ni.IPV4Address{
-					{
-						Address: eniIPv4Address,
-					},
-				},
-			},
-		},
-	}
-
-	container := &apicontainer.Container{
-		Name:    containerName,
-		Image:   imageName,
-		ImageID: imageID,
-		Ports: []apicontainer.PortBinding{
-			{
-				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
-			},
-		},
-		VolumesUnsafe: []types.MountPoint{
-			{
-				Name:        volName,
-				Source:      volSource,
-				Destination: volDestination,
-			},
-		},
-	}
-
-	container.SetCreatedAt(containerTime)
-	container.SetStartedAt(containerTime)
-
-	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
-		taskARN: {
-			DockerID:   containerID,
-			DockerName: containerName,
-			Container:  container,
-		},
-	}
-
+	task := testTask()
+	container := testContainer()
+	containerNameToDockerContainer := testContainerMap(container)
 	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
-
-	_, err := json.Marshal(taskResponse)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedTaskResponse, *taskResponse)
+	assert.Equal(t, expectedTaskResponse(), *taskResponse)
 }
 
 func TestContainerResponse(t *testing.T) {
-	container := &apicontainer.Container{
-		Name:    containerName,
-		Image:   imageName,
-		ImageID: imageID,
-		Ports: []apicontainer.PortBinding{
-			{
-				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
-			},
-		},
-		VolumesUnsafe: []types.MountPoint{
-			{
-				Name:        volName,
-				Source:      volSource,
-				Destination: volDestination,
-			},
-		},
-	}
+	container := testContainer()
 
-	container.SetCreatedAt(containerTime)
-	container.SetStartedAt(containerTime)
-
-	dockerContainer := &apicontainer.DockerContainer{
-		DockerID:   containerID,
-		DockerName: containerName,
-		Container:  container,
-	}
+	dockerContainer := testDockerContainer(container)
 
 	eni := &ni.NetworkInterface{
 		IPV4Addresses: []*ni.IPV4Address{
@@ -192,46 +50,20 @@ func TestContainerResponse(t *testing.T) {
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
 
-	_, err := json.Marshal(containerResponse)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedContainerResponse, containerResponse)
+	assert.Equal(t, expectedContainerResponse(), containerResponse)
 }
 
 func TestContainerResponseWithRestartPolicy(t *testing.T) {
 	restartPolicy := &restart.RestartPolicy{
 		Enabled: true,
 	}
-	container := &apicontainer.Container{
-		Name:    containerName,
-		Image:   imageName,
-		ImageID: imageID,
-		Ports: []apicontainer.PortBinding{
-			{
-				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
-			},
-		},
-		VolumesUnsafe: []types.MountPoint{
-			{
-				Name:        volName,
-				Source:      volSource,
-				Destination: volDestination,
-			},
-		},
-		RestartPolicy:  restartPolicy,
-		RestartTracker: restart.NewRestartTracker(*restartPolicy),
-	}
+	container := testContainer()
 
-	container.SetCreatedAt(containerTime)
-	container.SetStartedAt(containerTime)
+	container.RestartPolicy = restartPolicy
+	container.RestartTracker = restart.NewRestartTracker(*restartPolicy)
 	container.RestartTracker.RecordRestart()
 
-	dockerContainer := &apicontainer.DockerContainer{
-		DockerID:   containerID,
-		DockerName: containerName,
-		Container:  container,
-	}
+	dockerContainer := testDockerContainer(container)
 
 	eni := &ni.NetworkInterface{
 		IPV4Addresses: []*ni.IPV4Address{
@@ -243,10 +75,7 @@ func TestContainerResponseWithRestartPolicy(t *testing.T) {
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
 
-	_, err := json.Marshal(containerResponse)
-	assert.NoError(t, err)
-
-	expectedContainerResponseWithRestartPolicy := expectedContainerResponse
+	expectedContainerResponseWithRestartPolicy := expectedContainerResponse()
 	rc := int(1)
 	expectedContainerResponseWithRestartPolicy.RestartCount = &rc
 
@@ -270,7 +99,7 @@ func TestPortBindingsResponse(t *testing.T) {
 	}
 
 	PortBindingsResponse := NewPortBindingsResponse(dockerContainer, nil)
-	assert.Equal(t, expectedPortResponse, PortBindingsResponse[0])
+	assert.Equal(t, expectedPortResponse(), PortBindingsResponse[0])
 }
 
 func TestVolumesResponse(t *testing.T) {
@@ -290,5 +119,5 @@ func TestVolumesResponse(t *testing.T) {
 	}
 
 	VolumesResponse := NewVolumesResponse(dockerContainer)
-	assert.Equal(t, expectedVolumeResponse, VolumesResponse[0])
+	assert.Equal(t, expectedVolumeResponse(), VolumesResponse[0])
 }

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,5 +34,5 @@ func TestGetClientConfigEndpointOverride(t *testing.T) {
 	cfg, err := getClientConfig(nil, testAuthData)
 
 	assert.Nil(t, err)
-	assert.Equal(t, testAuthData.EndpointOverride, *cfg.Endpoint)
+	assert.Equal(t, testAuthData.EndpointOverride, *cfg.BaseEndpoint)
 }
