@@ -36,17 +36,15 @@ import (
 	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
 	mock_sdkclientfactory "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
 	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
-	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
-	"github.com/opencontainers/go-digest"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecr_types "github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -56,6 +54,8 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang/mock/gomock"
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -282,7 +282,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		}, nil)
@@ -1020,7 +1020,7 @@ func TestContainerEvents(t *testing.T) {
 		anEvent := <-dockerEvents
 		assert.True(t, anEvent.DockerID == "cid30" || anEvent.DockerID == "cid31", "Wrong container id: "+anEvent.DockerID)
 		assert.Equal(t, anEvent.Status, apicontainerstatus.ContainerStopped, "Should be stopped")
-		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
+		assert.Equal(t, aws.ToInt(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
 	containerWithHealthInfo := types.ContainerJSON{
@@ -1771,7 +1771,7 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
@@ -1827,7 +1827,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
@@ -1846,7 +1846,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	authData.ECRAuthData.RegistryID = "another"
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken("another").Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
@@ -1886,7 +1886,7 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
@@ -1941,7 +1941,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
@@ -1962,7 +1962,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	})
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
-		&ecrapi.AuthorizationData{
+		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
