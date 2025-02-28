@@ -13,7 +13,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3
-
 	github.com/aws/smithy-go v1.22.2
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575

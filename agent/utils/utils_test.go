@@ -27,7 +27,6 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"

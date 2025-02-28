@@ -30,7 +30,6 @@ import (
 
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
