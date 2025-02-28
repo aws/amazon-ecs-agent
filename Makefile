@@ -32,6 +32,8 @@ endif
 
 export GO111MODULE=auto
 
+VERSION = $(shell cat ecs-init/ECSVERSION)
+
 all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
@@ -315,6 +317,12 @@ EBS_CSI_DRIVER_DIR=./ecs-agent/daemonimages/csidriver
 ebs-csi-driver:
 	$(MAKE) -C $(EBS_CSI_DRIVER_DIR) $(MFLAGS) bin/ebs-csi-driver
 
+# This is used to build the EBS CSI driver tar files during ECS Init RPM builds via CodeBuild
+ebs-csi-driver-codebuild:
+	$(MAKE) -C $(EBS_CSI_DRIVER_DIR) $(MFLAGS) tarfiles/ebs-csi-driver.tar
+	cp $(EBS_CSI_DRIVER_DIR)/tarfiles/ebs-csi-driver.tar ebs-csi-driver-v${VERSION}.tar
+	cp $(EBS_CSI_DRIVER_DIR)/tarfiles/ebs-csi-driver.tar ebs-csi-driver-arm64-v${VERSION}.tar
+
 # Starts EBS CSI Driver as a background process.
 # The driver uses /tmp/ebs-csi-driver.sock as the socket file.
 start-ebs-csi-driver: ebs-csi-driver
@@ -417,7 +425,7 @@ amazon-linux-sources.tgz:
 amazon-linux-rpm-integrated: .amazon-linux-rpm-integrated-done
 
 # Make target for Amazon Linux Codebuild jobs
-.amazon-linux-rpm-codebuild-done: get-cni-sources
+.amazon-linux-rpm-codebuild-done: get-cni-sources ebs-csi-driver-codebuild
 	./scripts/update-version.sh
 	cp packaging/amazon-linux-ami-integrated/ecs-agent.spec ecs-agent.spec
 	cp packaging/amazon-linux-ami-integrated/ecs.conf ecs.conf
@@ -447,8 +455,6 @@ amazon-linux-rpm-codebuild: .amazon-linux-rpm-codebuild-done
 
 # Build init rpm
 generic-rpm-integrated: .generic-rpm-integrated-done
-
-VERSION = $(shell cat ecs-init/ECSVERSION)
 
 .generic-deb-integrated-done: get-cni-sources
 	./scripts/update-version.sh
@@ -513,6 +519,8 @@ clean:
 	-rm -f .generic-rpm-integrated-done
 	-rm -f amazon-ecs-volume-plugin
 	-rm -rf $(EBS_CSI_DRIVER_DIR)/bin
+	-rm -rf $(EBS_CSI_DRIVER_DIR)/tarfiles
+	-rm -f ebs-csi-driver-*.tar
 	-rm -rf /tmp/private-test-registry-htpasswd # private registry credentials cleanup
 
 clean-all: clean
