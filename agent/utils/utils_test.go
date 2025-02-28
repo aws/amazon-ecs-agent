@@ -19,6 +19,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
 	"testing"
@@ -27,8 +28,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	serviceId              = "ec2imds"
+	getMetadataOperationId = "GetMetadata"
 )
 
 func TestDefaultIfBlank(t *testing.T) {
@@ -129,19 +137,29 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}
 }
 
-func TestGetRequestFailureStatusCode(t *testing.T) {
+func TestGetResponseErrorStatusCode(t *testing.T) {
 	testcases := []struct {
 		name string
 		err  error
 		res  int
 	}{
 		{
-			name: "TestGetRequestFailureStatusCodeSuccess",
-			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
-			res:  400,
+			name: "TestGetResponseErrorStatusCodeSuccess",
+			err: &smithy.OperationError{
+				ServiceID:     serviceId,
+				OperationName: getMetadataOperationId,
+				Err: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: 400,
+						},
+					},
+				},
+			},
+			res: 400,
 		},
 		{
-			name: "TestGetRequestFailureStatusCodeWrongErrType",
+			name: "TestGetResponseErrorStatusCodeCodeWrongErrType",
 			err:  errors.New("err"),
 			res:  0,
 		},
@@ -149,7 +167,7 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, GetRequestFailureStatusCode(tc.err))
+			assert.Equal(t, tc.res, GetResponseErrorStatusCode(tc.err))
 		})
 	}
 }

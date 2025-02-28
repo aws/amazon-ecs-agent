@@ -551,7 +551,7 @@ func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration
 		if err != nil {
 			// Do not exit if error is due to throttling or temporary server errors
 			// These are likely transient, as at this point IMDS has been successfully queried for state
-			switch utils.GetRequestFailureStatusCode(err) {
+			switch utils.GetResponseErrorStatusCode(err) {
 			case 429, 500, 502, 503, 504:
 				seelog.Warnf("Encountered error while waiting for warmed instance to go in service: %v", err)
 			default:
@@ -569,7 +569,7 @@ func (agent *ecsAgent) pollUntilTargetLifecyclePresent(pollWaitDuration time.Dur
 	for i := 0; i < pollMaxTimes; i++ {
 		targetState, err = agent.getTargetLifecycle(maxRetries)
 		if targetState != "" ||
-			(err != nil && utils.GetRequestFailureStatusCode(err) != 404) {
+			(err != nil && utils.GetResponseErrorStatusCode(err) != 404) {
 			break
 		}
 		time.Sleep(pollWaitDuration)
