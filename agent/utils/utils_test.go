@@ -36,6 +36,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	serviceId              = "ec2imds"
+	getMetadataOperationId = "GetMetadata"
+)
+
 func TestDefaultIfBlank(t *testing.T) {
 	const defaultValue = "a boring default"
 	const specifiedValue = "new value"
@@ -143,31 +148,29 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}
 }
 
-func TestGetRequestFailureStatusCode(t *testing.T) {
+func TestGetResponseErrorStatusCode(t *testing.T) {
 	testcases := []struct {
 		name string
 		err  error
 		res  int
 	}{
 		{
-			name: "TestGetRequestFailureStatusCodeSuccess",
-			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
-			res:  400,
-		},
-		{
-			name: "TestGetRequestFailureStatusCodeSuccess SDKv2",
-			err: &awshttp.ResponseError{
-				ResponseError: &smithyhttp.ResponseError{
+			name: "TestGetResponseErrorStatusCodeSuccess",
+			err: &smithy.OperationError{
+				ServiceID:     serviceId,
+				OperationName: getMetadataOperationId,
+				Err: &smithyhttp.ResponseError{
 					Response: &smithyhttp.Response{
 						Response: &http.Response{
-							StatusCode: http.StatusBadRequest,
+							StatusCode: 400,
 						},
 					},
 				},
-			}, res: 400,
+			},
+			res: 400,
 		},
 		{
-			name: "TestGetRequestFailureStatusCodeWrongErrType",
+			name: "TestGetResponseErrorStatusCodeCodeWrongErrType",
 			err:  errors.New("err"),
 			res:  0,
 		},
@@ -175,7 +178,7 @@ func TestGetRequestFailureStatusCode(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, GetRequestFailureStatusCode(tc.err))
+			assert.Equal(t, tc.res, GetResponseErrorStatusCode(tc.err))
 		})
 	}
 }
