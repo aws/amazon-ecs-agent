@@ -18,8 +18,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
@@ -73,7 +71,6 @@ type ECSStandardSDK interface {
 	CreateCluster(context.Context, *ecs.CreateClusterInput, ...func(*ecs.Options)) (*ecs.CreateClusterOutput, error)
 	RegisterContainerInstance(context.Context, *ecs.RegisterContainerInstanceInput, ...func(*ecs.Options)) (*ecs.RegisterContainerInstanceOutput, error)
 	DiscoverPollEndpoint(context.Context, *ecs.DiscoverPollEndpointInput, ...func(*ecs.Options)) (*ecs.DiscoverPollEndpointOutput, error)
-	DiscoverPollEndpointWithContext(ctx aws.Context, input *ecs.DiscoverPollEndpointInput, opts ...request.Option) (*ecs.DiscoverPollEndpointOutput, error)
 	ListTagsForResource(context.Context, *ecs.ListTagsForResourceInput, ...func(*ecs.Options)) (*ecs.ListTagsForResourceOutput, error)
 	UpdateContainerInstancesState(context.Context, *ecs.UpdateContainerInstancesStateInput, ...func(*ecs.Options)) (*ecs.UpdateContainerInstancesStateOutput, error)
 }

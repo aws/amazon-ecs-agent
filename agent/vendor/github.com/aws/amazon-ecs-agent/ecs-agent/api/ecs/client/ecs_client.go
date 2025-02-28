@@ -265,8 +265,8 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 	attributes []types.Attribute, tags []types.Tag, registrationToken string,
 	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
 
-	registerRequest := ecsmodel.RegisterContainerInstanceInput{Cluster: &clusterRef}
-	var registrationAttributes []*ecsmodel.Attribute
+	registerRequest := ecsservice.RegisterContainerInstanceInput{Cluster: &clusterRef}
+	var registrationAttributes []types.Attribute
 	if containerInstanceArn != "" {
 		// We are re-connecting a previously registered instance, restored from snapshot.
 		registerRequest.ContainerInstanceArn = &containerInstanceArn
@@ -826,7 +826,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		field.ContainerInstanceARN: containerInstanceArn,
 		field.AvailabilityZone:     availabilityZone,
 	})
-	output, err := client.standardClient.DiscoverPollEndpointWithContext(ctx, &ecsservice.DiscoverPollEndpointInput{
+	output, err := client.standardClient.DiscoverPollEndpoint(ctx, &ecsservice.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
