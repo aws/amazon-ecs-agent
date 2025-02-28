@@ -861,7 +861,6 @@ func (agent *ecsAgent) registerContainerInstance(
 		})
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return terminalError{err}
-			return terminalError{err}
 		}
 		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
