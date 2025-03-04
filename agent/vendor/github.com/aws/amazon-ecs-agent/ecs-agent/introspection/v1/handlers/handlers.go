@@ -65,20 +65,39 @@ func getHTTPErrorCode(err error) (int, string) {
 func AgentMetadataHandler(
 	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory,
+	isManagedAgent bool,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentMetadata, err := agentState.GetAgentMetadata()
-		if err != nil {
-			logger.Error("Failed to get v1 agent metadata.", logger.Fields{
-				field.Error: err,
-			})
-			responseCode, metricName := getHTTPErrorCode(err)
-			metricsFactory.New(metricName).Done(err)
-			tmdsutils.WriteJSONResponse(w, responseCode, v1.AgentMetadataResponse{}, requestTypeAgent)
+		if isManagedAgent {
+			managedAgentMetadata := v1.ManagedAgentMetadataResponse{
+				Cluster:              agentMetadata.Cluster,
+				ContainerInstanceArn: agentMetadata.ContainerInstanceArn,
+			}
+			handleAgentMetadata(err, v1.ManagedAgentMetadataResponse{}, managedAgentMetadata, metricsFactory, w)
 			return
 		}
-		tmdsutils.WriteJSONResponse(w, http.StatusOK, agentMetadata, requestTypeAgent)
+		handleAgentMetadata(err, v1.AgentMetadataResponse{}, agentMetadata, metricsFactory, w)
 	}
+}
+
+func handleAgentMetadata(
+	err error,
+	defaultResponse interface{},
+	agentMetadata interface{},
+	metricsFactory metrics.EntryFactory,
+	w http.ResponseWriter,
+) {
+	if err != nil {
+		logger.Error("Failed to get v1 agent metadata.", logger.Fields{
+			field.Error: err,
+		})
+		responseCode, metricName := getHTTPErrorCode(err)
+		metricsFactory.New(metricName).Done(err)
+		tmdsutils.WriteJSONResponse(w, responseCode, defaultResponse, requestTypeAgent)
+		return
+	}
+	tmdsutils.WriteJSONResponse(w, http.StatusOK, agentMetadata, requestTypeAgent)
 }
 
 // TasksMetadataHandler returns the HTTP handler function for handling tasks metadata requests.

@@ -68,6 +68,23 @@ func testAgentMetadata() *v1.AgentMetadataResponse {
 	}
 }
 
+func testAgentMetadataJson() string {
+	json, _ := json.Marshal(testAgentMetadata())
+	return string(json)
+}
+
+func testManagedAgentMetadata() *v1.ManagedAgentMetadataResponse {
+	return &v1.ManagedAgentMetadataResponse{
+		Cluster:              cluster,
+		ContainerInstanceArn: aws.String(conatinerInstanceArn),
+	}
+}
+
+func testManagedAgentMetadataJson() string {
+	json, _ := json.Marshal(testManagedAgentMetadata())
+	return string(json)
+}
+
 func testTask() *v1.TaskResponse {
 	return &v1.TaskResponse{
 		Arn:           "t1",
@@ -126,6 +143,14 @@ type IntrospectionTestCase[R IntrospectionResponse] struct {
 	MetricName    string
 }
 
+type agentMetadataTestCase struct {
+	name               string
+	testCase           IntrospectionTestCase[*v1.AgentMetadataResponse]
+	expectedStatusCode int
+	expectedResponse   string
+	isManaged          bool
+}
+
 func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase IntrospectionTestCase[R]) (
 	*gomock.Controller, *mock_v1.MockAgentState, *mock_metrics.MockEntryFactory, *http.Request, *httptest.ResponseRecorder) {
 	ctrl := gomock.NewController(t)
@@ -142,7 +167,7 @@ func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase Introspect
 }
 
 func TestAgentMetadataHandler(t *testing.T) {
-	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.AgentMetadataResponse]) *httptest.ResponseRecorder {
+	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.AgentMetadataResponse], isManaged bool) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetAgentMetadata().
@@ -153,66 +178,124 @@ func TestAgentMetadataHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		AgentMetadataHandler(mockAgentState, mockMetricsFactory)(recorder, req)
+		AgentMetadataHandler(mockAgentState, mockMetricsFactory, isManaged)(recorder, req)
 		return recorder
 	}
 
-	t.Run("happy case", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata(),
-			Err:           nil,
-		})
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		testAgentMetadataJson, _ := json.Marshal(testAgentMetadata())
-		assert.Equal(t, string(testAgentMetadataJson), recorder.Body.String())
-	})
+	var emptyResponse = func() string {
+		json, _ := json.Marshal(&v1.AgentMetadataResponse{})
+		return string(json)
+	}
 
-	emptyMetadataResponse, _ := json.Marshal(v1.AgentMetadataResponse{})
+	var emptyManagedResponse = func() string {
+		json, _ := json.Marshal(&v1.ManagedAgentMetadataResponse{})
+		return string(json)
+	}
 
-	t.Run("multiple tasks found error", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata(),
-			Err:           v1.NewErrorMultipleTasksFound(internalErrorText),
-			MetricName:    metrics.IntrospectionBadRequest,
-		})
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
+	testCases := []agentMetadataTestCase{
+		{
+			name: "happy case",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           nil,
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   testAgentMetadataJson(),
+			isManaged:          false,
+		},
+		{
+			name: "not found",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           v1.NewErrorNotFound(internalErrorText),
+				MetricName:    metrics.IntrospectionNotFound,
+			},
+			expectedStatusCode: http.StatusNotFound,
+			expectedResponse:   emptyResponse(),
+			isManaged:          false,
+		},
+		{
+			name: "fetch failure",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           v1.NewErrorFetchFailure(internalErrorText),
+				MetricName:    metrics.IntrospectionFetchFailure,
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   emptyResponse(),
+			isManaged:          false,
+		},
+		{
+			name: "unkown error",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           errors.New(internalErrorText),
+				MetricName:    metrics.IntrospectionInternalServerError,
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   emptyResponse(),
+			isManaged:          false,
+		},
+		{
+			name: "happy case managed agent",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           nil,
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   testManagedAgentMetadataJson(),
+			isManaged:          true,
+		},
+		{
+			name: "not found managed agent",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           v1.NewErrorNotFound(internalErrorText),
+				MetricName:    metrics.IntrospectionNotFound,
+			},
+			expectedStatusCode: http.StatusNotFound,
+			expectedResponse:   emptyManagedResponse(),
+			isManaged:          true,
+		},
+		{
+			name: "fetch failure managed agent",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           v1.NewErrorFetchFailure(internalErrorText),
+				MetricName:    metrics.IntrospectionFetchFailure,
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   emptyManagedResponse(),
+			isManaged:          true,
+		},
+		{
+			name: "unkown error managed agent",
+			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
+				Path:          V1AgentMetadataPath,
+				AgentResponse: testAgentMetadata(),
+				Err:           errors.New(internalErrorText),
+				MetricName:    metrics.IntrospectionInternalServerError,
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   emptyManagedResponse(),
+			isManaged:          true,
+		},
+	}
 
-	t.Run("not found", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata(),
-			Err:           v1.NewErrorNotFound(internalErrorText),
-			MetricName:    metrics.IntrospectionNotFound,
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			recorder := performMockRequest(t, testCase.testCase, testCase.isManaged)
+			assert.Equal(t, testCase.expectedStatusCode, recorder.Code)
+			assert.Equal(t, testCase.expectedResponse, recorder.Body.String())
 		})
-		assert.Equal(t, http.StatusNotFound, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
-
-	t.Run("fetch failure", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata(),
-			Err:           v1.NewErrorFetchFailure(internalErrorText),
-			MetricName:    metrics.IntrospectionFetchFailure,
-		})
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
-
-	t.Run("unkown error", func(t *testing.T) {
-		recorder := performMockRequest(t, IntrospectionTestCase[*v1.AgentMetadataResponse]{
-			Path:          V1AgentMetadataPath,
-			AgentResponse: testAgentMetadata(),
-			Err:           errors.New(internalErrorText),
-			MetricName:    metrics.IntrospectionInternalServerError,
-		})
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-		assert.Equal(t, string(emptyMetadataResponse), recorder.Body.String())
-	})
+	}
 }
 
 func TestTasksHandler(t *testing.T) {

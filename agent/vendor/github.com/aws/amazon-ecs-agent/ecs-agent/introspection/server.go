@@ -59,6 +59,7 @@ type Config struct {
 	readTimeout        time.Duration // http server read timeout
 	writeTimeout       time.Duration // http server write timeout
 	enableRuntimeStats bool          // enable profiling handlers
+	isManagedAgent     bool          // if true, do not show Version in metadata
 }
 
 // Function type for updating Introspection Server config
@@ -85,6 +86,14 @@ func WithWriteTimeout(writeTimeout time.Duration) ConfigOpt {
 	}
 }
 
+// Set Introspection Server managed agent flag. If true, the Version
+// will be omitted from Agent Metadata responses.
+func IsManagedAgent(isManaged bool) ConfigOpt {
+	return func(c *Config) {
+		c.isManagedAgent = isManaged
+	}
+}
+
 // Create a new HTTP Introspection Server
 func NewServer(agentState v1.AgentState, metricsFactory metrics.EntryFactory, options ...ConfigOpt) (*http.Server, error) {
 	config := new(Config)
@@ -96,8 +105,9 @@ func NewServer(agentState v1.AgentState, metricsFactory metrics.EntryFactory, op
 
 func v1HandlersSetup(serverMux *http.ServeMux,
 	agentState v1.AgentState,
-	metricsFactory metrics.EntryFactory) {
-	serverMux.HandleFunc(handlers.V1AgentMetadataPath, handlers.AgentMetadataHandler(agentState, metricsFactory))
+	metricsFactory metrics.EntryFactory,
+	isManagedAgent bool) {
+	serverMux.HandleFunc(handlers.V1AgentMetadataPath, handlers.AgentMetadataHandler(agentState, metricsFactory, isManagedAgent))
 	serverMux.HandleFunc(handlers.V1TasksMetadataPath, handlers.TasksMetadataHandler(agentState, metricsFactory))
 	serverMux.HandleFunc(licensePath, licenseHandler(agentState, metricsFactory))
 }
@@ -142,7 +152,7 @@ func setup(
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc("/", defaultHandler)
 
-	v1HandlersSetup(serveMux, agentState, metricsFactory)
+	v1HandlersSetup(serveMux, agentState, metricsFactory, config.isManagedAgent)
 	wTimeout := config.writeTimeout
 	if config.enableRuntimeStats {
 		pprofHandlerSetup(serveMux)

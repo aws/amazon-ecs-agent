@@ -28,6 +28,13 @@ type AgentMetadataResponse struct {
 	Version              string  `json:"Version"`
 }
 
+// ManagedAgentMetadataResponse is the schema for the metadata response JSON object for
+// the managed agent platform.
+type ManagedAgentMetadataResponse struct {
+	Cluster              string  `json:"Cluster"`
+	ContainerInstanceArn *string `json:"ContainerInstanceArn"`
+}
+
 // TaskResponse is the schema for the task response JSON object.
 type TaskResponse struct {
 	Arn           string              `json:"Arn"`
