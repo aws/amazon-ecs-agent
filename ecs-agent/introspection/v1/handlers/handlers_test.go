@@ -73,15 +73,15 @@ func testAgentMetadataJson() string {
 	return string(json)
 }
 
-func testManagedAgentMetadata() *v1.ManagedAgentMetadataResponse {
-	return &v1.ManagedAgentMetadataResponse{
+func testUnversionedAgentMetadata() *v1.UnversionedAgentMetadataResponse {
+	return &v1.UnversionedAgentMetadataResponse{
 		Cluster:              cluster,
 		ContainerInstanceArn: aws.String(conatinerInstanceArn),
 	}
 }
 
-func testManagedAgentMetadataJson() string {
-	json, _ := json.Marshal(testManagedAgentMetadata())
+func testUnversionedAgentMetadataJson() string {
+	json, _ := json.Marshal(testUnversionedAgentMetadata())
 	return string(json)
 }
 
@@ -148,7 +148,7 @@ type agentMetadataTestCase struct {
 	testCase           IntrospectionTestCase[*v1.AgentMetadataResponse]
 	expectedStatusCode int
 	expectedResponse   string
-	isManaged          bool
+	hideAgentVersion   bool
 }
 
 func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase IntrospectionTestCase[R]) (
@@ -167,7 +167,7 @@ func testHandlerSetup[R IntrospectionResponse](t *testing.T, testCase Introspect
 }
 
 func TestAgentMetadataHandler(t *testing.T) {
-	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.AgentMetadataResponse], isManaged bool) *httptest.ResponseRecorder {
+	var performMockRequest = func(t *testing.T, testCase IntrospectionTestCase[*v1.AgentMetadataResponse], hideAgentVersion bool) *httptest.ResponseRecorder {
 		mockCtrl, mockAgentState, mockMetricsFactory, req, recorder := testHandlerSetup(t, testCase)
 		mockAgentState.EXPECT().
 			GetAgentMetadata().
@@ -178,7 +178,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			mockMetricsFactory.EXPECT().
 				New(testCase.MetricName).Return(mockEntry)
 		}
-		AgentMetadataHandler(mockAgentState, mockMetricsFactory, isManaged)(recorder, req)
+		AgentMetadataHandler(mockAgentState, mockMetricsFactory, hideAgentVersion)(recorder, req)
 		return recorder
 	}
 
@@ -187,8 +187,8 @@ func TestAgentMetadataHandler(t *testing.T) {
 		return string(json)
 	}
 
-	var emptyManagedResponse = func() string {
-		json, _ := json.Marshal(&v1.ManagedAgentMetadataResponse{})
+	var emptyUnversionedResponse = func() string {
+		json, _ := json.Marshal(&v1.UnversionedAgentMetadataResponse{})
 		return string(json)
 	}
 
@@ -202,7 +202,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponse:   testAgentMetadataJson(),
-			isManaged:          false,
+			hideAgentVersion:   false,
 		},
 		{
 			name: "not found",
@@ -214,7 +214,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusNotFound,
 			expectedResponse:   emptyResponse(),
-			isManaged:          false,
+			hideAgentVersion:   false,
 		},
 		{
 			name: "fetch failure",
@@ -226,7 +226,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponse:   emptyResponse(),
-			isManaged:          false,
+			hideAgentVersion:   false,
 		},
 		{
 			name: "unkown error",
@@ -238,21 +238,21 @@ func TestAgentMetadataHandler(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponse:   emptyResponse(),
-			isManaged:          false,
+			hideAgentVersion:   false,
 		},
 		{
-			name: "happy case managed agent",
+			name: "happy case unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
 				AgentResponse: testAgentMetadata(),
 				Err:           nil,
 			},
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   testManagedAgentMetadataJson(),
-			isManaged:          true,
+			expectedResponse:   testUnversionedAgentMetadataJson(),
+			hideAgentVersion:   true,
 		},
 		{
-			name: "not found managed agent",
+			name: "not found unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
 				AgentResponse: testAgentMetadata(),
@@ -260,11 +260,11 @@ func TestAgentMetadataHandler(t *testing.T) {
 				MetricName:    metrics.IntrospectionNotFound,
 			},
 			expectedStatusCode: http.StatusNotFound,
-			expectedResponse:   emptyManagedResponse(),
-			isManaged:          true,
+			expectedResponse:   emptyUnversionedResponse(),
+			hideAgentVersion:   true,
 		},
 		{
-			name: "fetch failure managed agent",
+			name: "fetch failure unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
 				AgentResponse: testAgentMetadata(),
@@ -272,11 +272,11 @@ func TestAgentMetadataHandler(t *testing.T) {
 				MetricName:    metrics.IntrospectionFetchFailure,
 			},
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse:   emptyManagedResponse(),
-			isManaged:          true,
+			expectedResponse:   emptyUnversionedResponse(),
+			hideAgentVersion:   true,
 		},
 		{
-			name: "unkown error managed agent",
+			name: "unkown error unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
 				AgentResponse: testAgentMetadata(),
@@ -284,14 +284,14 @@ func TestAgentMetadataHandler(t *testing.T) {
 				MetricName:    metrics.IntrospectionInternalServerError,
 			},
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse:   emptyManagedResponse(),
-			isManaged:          true,
+			expectedResponse:   emptyUnversionedResponse(),
+			hideAgentVersion:   true,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			recorder := performMockRequest(t, testCase.testCase, testCase.isManaged)
+			recorder := performMockRequest(t, testCase.testCase, testCase.hideAgentVersion)
 			assert.Equal(t, testCase.expectedStatusCode, recorder.Code)
 			assert.Equal(t, testCase.expectedResponse, recorder.Body.String())
 		})

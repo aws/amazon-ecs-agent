@@ -65,16 +65,16 @@ func getHTTPErrorCode(err error) (int, string) {
 func AgentMetadataHandler(
 	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory,
-	isManagedAgent bool,
+	hideAgentVersion bool,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentMetadata, err := agentState.GetAgentMetadata()
-		if isManagedAgent {
-			managedAgentMetadata := v1.ManagedAgentMetadataResponse{
+		if hideAgentVersion {
+			unversionedAgentMetadata := v1.UnversionedAgentMetadataResponse{
 				Cluster:              agentMetadata.Cluster,
 				ContainerInstanceArn: agentMetadata.ContainerInstanceArn,
 			}
-			handleAgentMetadata(err, v1.ManagedAgentMetadataResponse{}, managedAgentMetadata, metricsFactory, w)
+			handleAgentMetadata(err, v1.UnversionedAgentMetadataResponse{}, unversionedAgentMetadata, metricsFactory, w)
 			return
 		}
 		handleAgentMetadata(err, v1.AgentMetadataResponse{}, agentMetadata, metricsFactory, w)

@@ -28,9 +28,9 @@ type AgentMetadataResponse struct {
 	Version              string  `json:"Version"`
 }
 
-// ManagedAgentMetadataResponse is the schema for the metadata response JSON object for
-// the managed agent platform.
-type ManagedAgentMetadataResponse struct {
+// UnversionedAgentMetadataResponse is the schema for the metadata response JSON object
+// without the agent version.
+type UnversionedAgentMetadataResponse struct {
 	Cluster              string  `json:"Cluster"`
 	ContainerInstanceArn *string `json:"ContainerInstanceArn"`
 }
