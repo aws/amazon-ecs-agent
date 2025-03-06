@@ -61,6 +61,27 @@ func getHTTPErrorCode(err error) (int, string) {
 	return http.StatusInternalServerError, metrics.IntrospectionInternalServerError
 }
 
+// defaultMetadataResponse returns an empty agent metadata response. The response will
+// exclude the Version field if hideAgentVersion is true.
+func defaultMetadataResponse(hideAgentVersion bool) any {
+	if hideAgentVersion {
+		return v1.UnversionedAgentMetadataResponse{}
+	}
+	return v1.AgentMetadataResponse{}
+}
+
+// prepareAgentMetadata strips the Version field from the provided agentMetadata response
+// if hideAgentVersion is true. If not, it will return the metadata unchanged.
+func prepareAgentMetadata(agentMetadata *v1.AgentMetadataResponse, hideAgentVersion bool) any {
+	if hideAgentVersion {
+		return &v1.UnversionedAgentMetadataResponse{
+			Cluster:              agentMetadata.Cluster,
+			ContainerInstanceArn: agentMetadata.ContainerInstanceArn,
+		}
+	}
+	return agentMetadata
+}
+
 // AgentMetadataHandler returns the HTTP handler function for handling agent metadata requests.
 func AgentMetadataHandler(
 	agentState v1.AgentState,
@@ -69,35 +90,17 @@ func AgentMetadataHandler(
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentMetadata, err := agentState.GetAgentMetadata()
-		if hideAgentVersion {
-			unversionedAgentMetadata := v1.UnversionedAgentMetadataResponse{
-				Cluster:              agentMetadata.Cluster,
-				ContainerInstanceArn: agentMetadata.ContainerInstanceArn,
-			}
-			handleAgentMetadata(err, v1.UnversionedAgentMetadataResponse{}, unversionedAgentMetadata, metricsFactory, w)
+		if err != nil {
+			logger.Error("Failed to get v1 agent metadata.", logger.Fields{
+				field.Error: err,
+			})
+			responseCode, metricName := getHTTPErrorCode(err)
+			metricsFactory.New(metricName).Done(err)
+			tmdsutils.WriteJSONResponse(w, responseCode, defaultMetadataResponse(hideAgentVersion), requestTypeAgent)
 			return
 		}
-		handleAgentMetadata(err, v1.AgentMetadataResponse{}, agentMetadata, metricsFactory, w)
+		tmdsutils.WriteJSONResponse(w, http.StatusOK, prepareAgentMetadata(agentMetadata, hideAgentVersion), requestTypeAgent)
 	}
-}
-
-func handleAgentMetadata(
-	err error,
-	defaultResponse interface{},
-	agentMetadata interface{},
-	metricsFactory metrics.EntryFactory,
-	w http.ResponseWriter,
-) {
-	if err != nil {
-		logger.Error("Failed to get v1 agent metadata.", logger.Fields{
-			field.Error: err,
-		})
-		responseCode, metricName := getHTTPErrorCode(err)
-		metricsFactory.New(metricName).Done(err)
-		tmdsutils.WriteJSONResponse(w, responseCode, defaultResponse, requestTypeAgent)
-		return
-	}
-	tmdsutils.WriteJSONResponse(w, http.StatusOK, agentMetadata, requestTypeAgent)
 }
 
 // TasksMetadataHandler returns the HTTP handler function for handling tasks metadata requests.

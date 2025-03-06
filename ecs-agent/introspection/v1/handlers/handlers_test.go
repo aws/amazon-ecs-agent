@@ -255,7 +255,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			name: "not found unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
-				AgentResponse: testAgentMetadata(),
+				AgentResponse: nil,
 				Err:           v1.NewErrorNotFound(internalErrorText),
 				MetricName:    metrics.IntrospectionNotFound,
 			},
@@ -267,7 +267,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			name: "fetch failure unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
-				AgentResponse: testAgentMetadata(),
+				AgentResponse: nil,
 				Err:           v1.NewErrorFetchFailure(internalErrorText),
 				MetricName:    metrics.IntrospectionFetchFailure,
 			},
@@ -279,7 +279,7 @@ func TestAgentMetadataHandler(t *testing.T) {
 			name: "unkown error unversioned agent",
 			testCase: IntrospectionTestCase[*v1.AgentMetadataResponse]{
 				Path:          V1AgentMetadataPath,
-				AgentResponse: testAgentMetadata(),
+				AgentResponse: nil,
 				Err:           errors.New(internalErrorText),
 				MetricName:    metrics.IntrospectionInternalServerError,
 			},
