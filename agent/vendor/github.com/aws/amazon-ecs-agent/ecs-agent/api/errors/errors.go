@@ -41,6 +41,8 @@ const (
 	ErrCodeRequestCanceled = "RequestCanceled"
 
 	ErrCodeClientException = "ClientException"
+
+	ErrCodeLimitExceededException = "LimitExceededException"
 )
 
 // IsInstanceTypeChangedError returns true if the error when
