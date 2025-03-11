@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -353,6 +354,11 @@ func (client *ecsClient) setInstanceIdentity(
 			})
 			// Force credentials to expire in case they are stale but not expired.
 			client.credentialsCache.Invalidate()
+			if creds, err := client.credentialsCache.Retrieve(ctx); err != nil || !creds.HasKeys() {
+				logger.Debug("Unable to get valid credentials, retrying", logger.Fields{
+					field.Error: err,
+				})
+			}
 			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 		}
 		logger.Debug("Successfully retrieved Instance Identity Document")
