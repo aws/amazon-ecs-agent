@@ -339,6 +339,49 @@ func SetLogToStdout(duplicate bool) {
 	reloadConfig()
 }
 
+// SetCustomReceiver configures the ECS Agent logger to use a custom logger implementation.
+// This allows external applications to intercept and handle ECS Agent logs in their own way,
+// such as sending logs to a custom destination or formatting them differently.
+// More details can be found here: https://github.com/cihub/seelog/wiki/Custom-receivers
+// The custom receiver must implement the CustomReceiver interface, which requires:
+// - GetTimestampFormat(): returns the desired timestamp format (e.g., "2006-01-02T15:04:05Z07:00")
+// - GetOutputFormat(): returns the desired output format ("logfmt", "json", or "windows")
+// - Log handling methods (Debug, Info, Warn, etc.)
+func SetCustomReceiver(receiver CustomReceiver) {
+	registerCustomFormatters()
+	wrapper := &customReceiverWrapper{receiver: receiver}
+	outputFormat := receiver.GetOutputFormat()
+
+	// Internal seelog configuration
+	customConfig := `
+    <seelog type="asyncloop">
+        <outputs>
+            <custom name="customReceiver" formatid="` + outputFormat + `"/>
+        </outputs>
+        <formats>
+			<format id="` + logFmt + `" format="%EcsAgentLogfmt" />
+			<format id="` + jsonFmt + `" format="%EcsAgentJson" />
+			<format id="windows" format="%EcsMsg" />
+        </formats>
+    </seelog>
+    `
+
+	parserParams := &seelog.CfgParseParams{
+		CustomReceiverProducers: map[string]seelog.CustomReceiverProducer{
+			"customReceiver": func(seelog.CustomReceiverInitArgs) (seelog.CustomReceiver, error) {
+				return wrapper, nil
+			},
+		},
+	}
+
+	replacementLogger, err := seelog.LoggerFromParamConfigAsString(customConfig, parserParams)
+	if err != nil {
+		fmt.Println("Failed to create a replacement logger", err)
+	}
+
+	setGlobalLogger(replacementLogger, outputFormat)
+}
+
 func init() {
 	Config = &logConfig{
 		logfile:       os.Getenv(LOGFILE_ENV_VAR),
@@ -352,10 +395,7 @@ func init() {
 	}
 }
 
-// InitSeelog registers custom logging formats, updates the internal Config struct
-// and reloads the global logger. This should only be called once, as external
-// callers should use the Config struct over environment variables directly.
-func InitSeelog() {
+func registerCustomFormatters() {
 	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
 		seelog.Error(err)
 	}
@@ -365,6 +405,13 @@ func InitSeelog() {
 	if err := seelog.RegisterCustomFormatter("EcsMsg", ecsMsgFormatter); err != nil {
 		seelog.Error(err)
 	}
+}
+
+// InitSeelog registers custom logging formats, updates the internal Config struct
+// and reloads the global logger. This should only be called once, as external
+// callers should use the Config struct over environment variables directly.
+func InitSeelog() {
+	registerCustomFormatters()
 
 	if DriverLogLevel := os.Getenv(LOGLEVEL_ENV_VAR); DriverLogLevel != "" {
 		SetDriverLogLevel(DriverLogLevel)

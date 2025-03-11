@@ -3039,6 +3039,110 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 
 }
 
+func TestCreateContainerLogDriverBufferSize(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		logMode              string
+		initialBufferSize    string
+		expectedBufferSize   string
+		shouldHaveBufferSize bool
+	}{
+		{
+			name:                 "non-blocking mode without buffer size should set default",
+			logMode:              "non-blocking",
+			initialBufferSize:    "",
+			expectedBufferSize:   "10m",
+			shouldHaveBufferSize: true,
+		},
+		{
+			name:                 "non-blocking mode with existing buffer size should not change",
+			logMode:              "non-blocking",
+			initialBufferSize:    "8m",
+			expectedBufferSize:   "8m",
+			shouldHaveBufferSize: true,
+		},
+		{
+			name:                 "blocking mode should not set buffer size",
+			logMode:              "blocking",
+			initialBufferSize:    "",
+			expectedBufferSize:   "",
+			shouldHaveBufferSize: false,
+		},
+		{
+			name:                 "blocking mode with errant buffer size should not change",
+			logMode:              "blocking",
+			initialBufferSize:    "7m",
+			expectedBufferSize:   "7m",
+			shouldHaveBufferSize: true,
+		},
+		{
+			name:                 "no mode specified should not set buffer size",
+			logMode:              "",
+			initialBufferSize:    "",
+			expectedBufferSize:   "",
+			shouldHaveBufferSize: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			logConfig := map[string]string{}
+			if tc.logMode != "" {
+				logConfig["mode"] = tc.logMode
+			}
+			if tc.initialBufferSize != "" {
+				logConfig["max-buffer-size"] = tc.initialBufferSize
+			}
+
+			rawHostConfigInput := dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Type:   "awslogs",
+					Config: logConfig,
+				},
+			}
+			rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+			require.NoError(t, err)
+
+			testTask := &apitask.Task{
+				Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+				Containers: []*apicontainer.Container{
+					{
+						Name: "test-container",
+						DockerConfig: apicontainer.DockerConfig{
+							HostConfig: func() *string {
+								s := string(rawHostConfig)
+								return &s
+							}(),
+						},
+					},
+				},
+			}
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					bufferSize, exists := hostConfig.LogConfig.Config["max-buffer-size"]
+					assert.Equal(t, tc.shouldHaveBufferSize, exists)
+					if tc.shouldHaveBufferSize {
+						assert.Equal(t, tc.expectedBufferSize, bufferSize)
+					}
+				})
+
+			ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+	}
+}
+
 // TestCreateContainerAddFirelensLogDriverConfig tests that in createContainer, when the
 // container is using firelens log driver, its logConfig is properly set.
 func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {

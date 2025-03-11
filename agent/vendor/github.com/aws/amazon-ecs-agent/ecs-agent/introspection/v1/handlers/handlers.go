@@ -61,10 +61,32 @@ func getHTTPErrorCode(err error) (int, string) {
 	return http.StatusInternalServerError, metrics.IntrospectionInternalServerError
 }
 
+// defaultMetadataResponse returns an empty agent metadata response. The response will
+// exclude the Version field if hideAgentVersion is true.
+func defaultMetadataResponse(hideAgentVersion bool) any {
+	if hideAgentVersion {
+		return v1.UnversionedAgentMetadataResponse{}
+	}
+	return v1.AgentMetadataResponse{}
+}
+
+// prepareAgentMetadata strips the Version field from the provided agentMetadata response
+// if hideAgentVersion is true. If not, it will return the metadata unchanged.
+func prepareAgentMetadata(agentMetadata *v1.AgentMetadataResponse, hideAgentVersion bool) any {
+	if hideAgentVersion {
+		return &v1.UnversionedAgentMetadataResponse{
+			Cluster:              agentMetadata.Cluster,
+			ContainerInstanceArn: agentMetadata.ContainerInstanceArn,
+		}
+	}
+	return agentMetadata
+}
+
 // AgentMetadataHandler returns the HTTP handler function for handling agent metadata requests.
 func AgentMetadataHandler(
 	agentState v1.AgentState,
 	metricsFactory metrics.EntryFactory,
+	hideAgentVersion bool,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentMetadata, err := agentState.GetAgentMetadata()
@@ -74,10 +96,10 @@ func AgentMetadataHandler(
 			})
 			responseCode, metricName := getHTTPErrorCode(err)
 			metricsFactory.New(metricName).Done(err)
-			tmdsutils.WriteJSONResponse(w, responseCode, v1.AgentMetadataResponse{}, requestTypeAgent)
+			tmdsutils.WriteJSONResponse(w, responseCode, defaultMetadataResponse(hideAgentVersion), requestTypeAgent)
 			return
 		}
-		tmdsutils.WriteJSONResponse(w, http.StatusOK, agentMetadata, requestTypeAgent)
+		tmdsutils.WriteJSONResponse(w, http.StatusOK, prepareAgentMetadata(agentMetadata, hideAgentVersion), requestTypeAgent)
 	}
 }
 

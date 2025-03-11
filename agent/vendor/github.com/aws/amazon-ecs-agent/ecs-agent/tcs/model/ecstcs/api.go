@@ -581,9 +581,9 @@ func (s InstanceStatusMetadata) GoString() string {
 type InstanceStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
-	DataFilesystem *float64 `type:"double"`
+	DataFilesystem *float64 `locationName:"dataFilesystem" type:"double"`
 
-	OSFilesystem *float64 `type:"double"`
+	OSFilesystem *float64 `locationName:"oSFilesystem" type:"double"`
 }
 
 // String returns the string representation.

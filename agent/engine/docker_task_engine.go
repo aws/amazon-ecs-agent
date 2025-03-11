@@ -86,10 +86,14 @@ const (
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
-	logDriverTypeFirelens       = "awsfirelens"
-	logDriverTypeFluentd        = "fluentd"
-	logDriverTypeAwslogs        = "awslogs"
-	logDriverTag                = "tag"
+	logDriverTypeFirelens = "awsfirelens"
+	logDriverTypeFluentd  = "fluentd"
+	logDriverTypeAwslogs  = "awslogs"
+	logDriverTag          = "tag"
+	logDriverMode         = "mode"
+	logDriverBufferSize   = "max-buffer-size"
+	// maxBufferSizeDefault is the default value for max-buffer-size if it's unset in the task payload
+	maxBufferSizeDefault        = "10m"
 	logDriverFluentdAddress     = "fluentd-address"
 	dataLogDriverPath           = "/data/firelens/"
 	logDriverAsyncConnect       = "fluentd-async-connect"
@@ -1921,6 +1925,15 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
 			}
 			hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
+		}
+	}
+
+	// If the container has mode=non-blocking set, and the max-buffer-size field is
+	// unset, then default to maxBufferSizeDefault.
+	if mode, ok := hostConfig.LogConfig.Config[logDriverMode]; ok {
+		_, hasBufferSize := hostConfig.LogConfig.Config[logDriverBufferSize]
+		if mode == string(dockercontainer.LogModeNonBlock) && !hasBufferSize {
+			hostConfig.LogConfig.Config[logDriverBufferSize] = maxBufferSizeDefault
 		}
 	}
 
