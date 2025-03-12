@@ -17,11 +17,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
+
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 )
 
 // NetworkNamespace is model representing each network namespace.

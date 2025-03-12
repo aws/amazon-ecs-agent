@@ -21,10 +21,9 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 )
 
 const (

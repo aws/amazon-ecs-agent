@@ -108,3 +108,5 @@ require (
 )
 
 replace github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+
+replace github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs

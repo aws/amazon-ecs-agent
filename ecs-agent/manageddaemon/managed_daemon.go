@@ -18,8 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 

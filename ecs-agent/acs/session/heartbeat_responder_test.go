@@ -19,12 +19,12 @@ package session
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 )
 
 const (
