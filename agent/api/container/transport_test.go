@@ -21,10 +21,10 @@ import (
 	"testing"
 )
 
-func TestUnmarshalTransportProtocol_Null(t *testing.T) {
+func TestUnmarshalTransportProtocol_EmptyString(t *testing.T) {
 	tp := TransportProtocolTCP
 
-	err := json.Unmarshal([]byte("null"), &tp)
+	err := json.Unmarshal([]byte(`""`), &tp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,12 +57,12 @@ func TestUnmarshalTransportProtocol_UDP(t *testing.T) {
 	}
 }
 
-func TestUnmarshalTransportProtocol_NullStruct(t *testing.T) {
+func TestUnmarshalTransportProtocol_EmptyStringStruct(t *testing.T) {
 	tp := struct {
 		Field1 TransportProtocol
 	}{}
 
-	err := json.Unmarshal([]byte(`{"Field1":null}`), &tp)
+	err := json.Unmarshal([]byte(`{"Field1":""}`), &tp)
 	if err != nil {
 		t.Error(err)
 	}
