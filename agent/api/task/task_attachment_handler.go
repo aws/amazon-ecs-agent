@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // AttachmentHandler defines an interface to handle attachment received from ACS.
@@ -80,7 +80,7 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 		var serviceConnectAttachment *ecsacs.Attachment
 		var ebsVolumeAttachments []*ecsacs.Attachment
 		for _, attachment := range acsTask.Attachments {
-			switch aws.StringValue(attachment.AttachmentType) {
+			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
 				serviceConnectAttachment = attachment
 			case apiresource.EBSTaskAttach:

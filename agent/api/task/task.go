@@ -55,7 +55,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -322,7 +322,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	}
 
 	// Set the EnableFaultInjection field if present
-	task.EnableFaultInjection = aws.BoolValue(acsTask.EnableFaultInjection)
+	task.EnableFaultInjection = aws.ToBool(acsTask.EnableFaultInjection)
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
@@ -521,7 +521,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 // ACS is streaming down this value with task payload. In case of docker bridge mode task, this value might be left empty
 // as it's the default task network mode.
 func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
-	switch aws.StringValue(acsTaskNetworkMode) {
+	switch aws.ToString(acsTaskNetworkMode) {
 	case AWSVPCNetworkMode:
 		task.NetworkMode = AWSVPCNetworkMode
 	case HostNetworkMode:
@@ -533,7 +533,7 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 	default:
 		logger.Warn("Unmapped task network mode", logger.Fields{
 			field.TaskID:      task.GetID(),
-			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+			field.NetworkMode: aws.ToString(acsTaskNetworkMode),
 		})
 	}
 }
@@ -1487,7 +1487,7 @@ func (task *Task) addNetworkResourceProvisioningDependencyAwsvpc(cfg *config.Con
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+			if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1792,7 +1792,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+		if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
@@ -3724,9 +3724,9 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 		"taskArn":   task.Arn,
 		"CPU":       *resources["CPU"].IntegerValue,
 		"MEMORY":    *resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
-		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
-		"GPU":       aws.StringValueSlice(resources["GPU"].StringSetValue),
+		"PORTS_TCP": aws.ToStringSlice(resources["PORTS_TCP"].StringSetValue),
+		"PORTS_UDP": aws.ToStringSlice(resources["PORTS_UDP"].StringSetValue),
+		"GPU":       aws.ToStringSlice(resources["GPU"].StringSetValue),
 	})
 	return resources
 }
