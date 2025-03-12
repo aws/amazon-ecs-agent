@@ -1,4 +1,9 @@
-<<<<<<< HEAD
+amazon-ecs-init (1.91.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.91.1
+
+ -- Michael Ye <yemike@amazon.com>  Tue, 11 Mar 2025 18:00:00 +0000
+
 amazon-ecs-init (1.91.0-1) stable; urgency=medium
 
   * Cache Agent version 1.91.0
@@ -11,8 +16,6 @@ amazon-ecs-init (1.90.0-1) stable; urgency=medium
 
  -- Thean Lim <theanlim@amazon.com>  Thu, 23 Jan 2025 18:00:00 +0000
 
-=======
->>>>>>> 447b0eb52 (fix after rebase)
 amazon-ecs-init (1.89.3-1) stable; urgency=medium
 
   * Cache Agent version 1.89.3

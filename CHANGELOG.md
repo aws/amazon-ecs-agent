@@ -1,4 +1,14 @@
 # Changelog
+# 1.91.1
+* Enhancement - Add adaptive retry logic in RCI call for non-terminal errors. [#4499](https://github.com/aws/amazon-ecs-agent/pull/4499)
+* Enhancement - Refactor introspection api to consume shared server in ecs-agent [#4483](https://github.com/aws/amazon-ecs-agent/pull/4483)
+* Enhancement - Migrate ECR client to aws-sdk-go-v2. [#4512](https://github.com/aws/amazon-ecs-agent/pull/4512)
+* Bugfix - Fixed a race condition with concurrent DiscoverPollEndpoint calls [#4504](https://github.com/aws/amazon-ecs-agent/pull/4504)
+* Bugfix - Migrate over to smithy ResponseError for obtaining status code of IMDS GetMetadata calls [#4516](https://github.com/aws/amazon-ecs-agent/pull/4516)
+* Enhancement -  Update tcs api model. Includes update to field names to be camelCased and not CamelCased. [#4525](https://github.com/aws/amazon-ecs-agent/pull/4525)
+* Enhancement - Increase LogConfig default max-buffer-size from 1m to 10m. [#4524](https://github.com/aws/amazon-ecs-agent/pull/4524)
+* Enhancement - Modify amazon linux codebuild and spec file to include baking in the CSI driver tar file [#4526](https://github.com/aws/amazon-ecs-agent/pull/4526)
+
 # 1.91.0
 * Enhancement - Make the fluentd-async-connect log driver option configurable [#4476](https://github.com/aws/amazon-ecs-agent/pull/4476)
 * Enhancement - Update amazon-ssm-agent version for exec to 3.3.1802.0 for ecs-anywhere [#4511](https://github.com/aws/amazon-ecs-agent/pull/4511)
