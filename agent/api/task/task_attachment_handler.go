@@ -81,11 +81,12 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 		var serviceConnectAttachment *types.Attachment
 		var ebsVolumeAttachments []*types.Attachment
 		for _, attachment := range acsTask.Attachments {
+			attachmentPtr:= &attachment
 			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
-				serviceConnectAttachment = attachment
+				serviceConnectAttachment = attachmentPtr
 			case apiresource.EBSTaskAttach:
-				ebsVolumeAttachments = append(ebsVolumeAttachments, attachment)
+				ebsVolumeAttachments = append(ebsVolumeAttachments, attachmentPtr)
 			default:
 				logger.Debug("Received an attachment type", logger.Fields{
 					"attachmentType": attachment.AttachmentType,
