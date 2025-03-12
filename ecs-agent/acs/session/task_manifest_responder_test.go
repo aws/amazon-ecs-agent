@@ -37,12 +37,12 @@ const (
 )
 
 // setupTestManifestMessage initializes a dummy TaskManifestMessage for testing
-func setupTestManifestMessage() *ecsacs.TaskManifestMessage {
-	return &ecsacs.TaskManifestMessage{
+func setupTestManifestMessage() *ecsacs.TaskManifestInput {
+	return &ecsacs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String(testconst.MessageID),
-		Tasks:                []*types.TaskIdentifier{},
+		Tasks:                []types.TaskIdentifier{},
 		Timeline:             aws.Int64(StartingTaskManifestSequenceNumber),
 	}
 }
@@ -99,7 +99,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 	)
 
 	// Handle the task manifest message update.
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestMessage))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestInput))
 	handleManifestMessage(testManifest)
 }
 
@@ -123,11 +123,11 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	testManifest := setupTestManifestMessage()
 
 	// Set up a new manifest with a stale number and distinct message ID.
-	newManifest := &ecsacs.TaskManifestMessage{
+	newManifest := &ecsacs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String("456"),
-		Tasks:                []*types.TaskIdentifier{},
+		Tasks:                []types.TaskIdentifier{},
 		Timeline:             aws.Int64(StaleTaskManifestSequenceNumber),
 	}
 
@@ -142,7 +142,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID)
 	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]types.TaskIdentifier{}, nil)
 
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestMessage))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestInput))
 
 	// Handle the task manifest message update, this should correctly set the message ID and sequence number.
 	handleManifestMessage(testManifest)
