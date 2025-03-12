@@ -22,8 +22,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	tasknetworkconfig "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+	types "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -51,7 +51,7 @@ func (m *MockNetworkBuilder) EXPECT() *MockNetworkBuilderMockRecorder {
 }
 
 // BuildTaskNetworkConfiguration mocks base method.
-func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *types.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BuildTaskNetworkConfiguration", arg0, arg1)
 	ret0, _ := ret[0].(*tasknetworkconfig.TaskNetworkConfig)

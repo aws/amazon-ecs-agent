@@ -81,7 +81,7 @@ func handleTaskAttachments(acsTask *types.Task, task *Task) error {
 		var serviceConnectAttachment *types.Attachment
 		var ebsVolumeAttachments []*types.Attachment
 		for _, attachment := range acsTask.Attachments {
-			attachmentPtr:= &attachment
+			attachmentPtr := &attachment
 			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
 				serviceConnectAttachment = attachmentPtr

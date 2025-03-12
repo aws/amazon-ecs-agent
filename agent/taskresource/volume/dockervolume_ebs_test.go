@@ -77,8 +77,8 @@ func TestParseEBSTaskVolumeAttachmentHappyCase(t *testing.T) {
 
 func TestParseEBSTaskVolumeAttachmentNilProperty(t *testing.T) {
 	attachment := &types.Attachment{
-		AttachmentArn:  aws.String(testAttachmentArn),
-		AttachmentType: aws.String(apiresource.EBSTaskAttach),
+		AttachmentArn:        aws.String(testAttachmentArn),
+		AttachmentType:       aws.String(apiresource.EBSTaskAttach),
 		AttachmentProperties: []types.AttachmentProperty{},
 	}
 

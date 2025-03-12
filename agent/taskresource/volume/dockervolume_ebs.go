@@ -45,7 +45,7 @@ type EBSTaskVolumeConfig struct {
 // from the given attachment.
 func ParseEBSTaskVolumeAttachment(ebsAttachment *types.Attachment) (*EBSTaskVolumeConfig, error) {
 	ebsTaskVolumeConfig := &EBSTaskVolumeConfig{}
-	
+
 	if len(ebsAttachment.AttachmentProperties) == 0 {
 		return nil, fmt.Errorf("failed to parse task ebs attachment: no attachment properties found")
 	}
