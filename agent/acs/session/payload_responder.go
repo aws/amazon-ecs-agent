@@ -67,7 +67,7 @@ func NewPayloadMessageHandler(taskEngine engine.TaskEngine,
 }
 
 func (pmHandler *payloadMessageHandler) ProcessMessage(message *ecsacs.PayloadMessage,
-	ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) error {
+	ackFunc func(*ecsacs.AckRequest, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput)) error {
 
 	credentialsAcks, allTasksHandled := pmHandler.addPayloadTasks(message)
 
@@ -95,7 +95,7 @@ func (pmHandler *payloadMessageHandler) ProcessMessage(message *ecsacs.PayloadMe
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests.
 func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadMessage) (
-	[]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
+	[]*ecsacs.RefreshTaskIAMRoleCredentialsOutput, bool) {
 	// Verify that we were able to work with all tasks in this payload.
 	// This is so we know whether to ACK the whole thing or not.
 	allTasksOK := true
@@ -264,9 +264,9 @@ func (pmHandler *payloadMessageHandler) handleInvalidTask(task *ecsacs.Task, err
 // addTasks adds the tasks to the task engine based on the skipAddTask condition.
 // This is used to add non-stopped tasks before adding stopped tasks.
 func (pmHandler *payloadMessageHandler) addTasks(payload *ecsacs.PayloadMessage, tasks []*apitask.Task,
-	skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
+	skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.RefreshTaskIAMRoleCredentialsOutput, bool) {
 	allTasksOK := true
-	var credentialsAcks []*ecsacs.IAMRoleCredentialsAckRequest
+	var credentialsAcks []*ecsacs.RefreshTaskIAMRoleCredentialsOutput
 	for _, task := range tasks {
 		if skipAddTask(task.GetDesiredStatus()) {
 			continue
@@ -316,13 +316,13 @@ func (pmHandler *payloadMessageHandler) addTasks(payload *ecsacs.PayloadMessage,
 }
 
 func (pmHandler *payloadMessageHandler) ackCredentials(messageID *string, credentialsID string) (
-	*ecsacs.IAMRoleCredentialsAckRequest, error) {
+	*ecsacs.RefreshTaskIAMRoleCredentialsOutput, error) {
 	creds, ok := pmHandler.credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		return nil, errors.Errorf("credentials could not be retrieved")
 
 	} else {
-		return &ecsacs.IAMRoleCredentialsAckRequest{
+		return &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 			MessageId:     messageID,
 			Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
 			CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),

@@ -21,14 +21,14 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestIAMRoleCredentialsFromACS tests if credentials sent from ACS can be
 // represented correctly as IAMRoleCredentials
 func TestIAMRoleCredentialsFromACS(t *testing.T) {
-	acsCredentials := &ecsacs.IAMRoleCredentials{
+	acsCredentials := &types.IAMRoleCredentials{
 		CredentialsId:   aws.String("credsId"),
 		AccessKeyId:     aws.String("keyId"),
 		Expiration:      aws.String("soon"),

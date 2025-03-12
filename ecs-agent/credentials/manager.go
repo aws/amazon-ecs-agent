@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -90,9 +90,9 @@ type credentialsManager struct {
 	taskCredentialsLock sync.RWMutex
 }
 
-// IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
+// IAMRoleCredentialsFromACS translates types.IAMRoleCredentials object to
 // api.IAMRoleCredentials
-func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleType string) IAMRoleCredentials {
+func IAMRoleCredentialsFromACS(roleCredentials *types.IAMRoleCredentials, roleType string) IAMRoleCredentials {
 	return IAMRoleCredentials{
 		CredentialsID:   aws.ToString(roleCredentials.CredentialsId),
 		SessionToken:    aws.ToString(roleCredentials.SessionToken),

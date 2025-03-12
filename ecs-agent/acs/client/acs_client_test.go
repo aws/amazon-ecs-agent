@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -208,18 +209,18 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	cs := testCS(conn)
 	defer cs.Close()
 
-	messageChannel := make(chan *ecsacs.IAMRoleCredentialsMessage)
-	reqHandler := func(message *ecsacs.IAMRoleCredentialsMessage) {
+	messageChannel := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsInput)
+	reqHandler := func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
 		messageChannel <- message
 	}
 	cs.AddRequestHandler(reqHandler)
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &ecsacs.IAMRoleCredentialsMessage{
+	expectedMessage := &ecsacs.RefreshTaskIAMRoleCredentialsInput{
 		MessageId: aws.String("123"),
 		TaskArn:   aws.String("t1"),
-		RoleCredentials: &ecsacs.IAMRoleCredentials{
+		RoleCredentials: &types.IAMRoleCredentials{
 			CredentialsId:   aws.String("credsId"),
 			AccessKeyId:     aws.String("accessKeyId"),
 			Expiration:      aws.String("2016-03-25T06:17:19.318+0000"),

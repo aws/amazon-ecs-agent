@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -61,9 +62,9 @@ func dockerMap(task *Task) map[string]*apicontainer.DockerContainer {
 	return m
 }
 
-func getACSIAMRoleCredentials() *ecsacs.IAMRoleCredentials {
+func getACSIAMRoleCredentials() *types.IAMRoleCredentials {
 	testTime := ttime.Now().Truncate(1 * time.Second).Format(time.RFC3339)
-	return &ecsacs.IAMRoleCredentials{
+	return &types.IAMRoleCredentials{
 		CredentialsId:   strptr("credsId"),
 		AccessKeyId:     strptr("keyId"),
 		Expiration:      strptr(testTime),
