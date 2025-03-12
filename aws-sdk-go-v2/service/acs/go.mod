@@ -1,4 +1,4 @@
-module github.com/aws/aws-sdk-go-v2/service/ecs
+module github.com/aws/aws-sdk-go-v2/service/acs
 
 go 1.22
 
