@@ -6,7 +6,7 @@ github.com/Microsoft/go-winio/internal/socket
 github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
-## explicit; go 1.21
+## explicit; go 1.22
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
@@ -152,9 +152,10 @@ github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/ssooidc
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/aws/aws-sdk-go-v2 v1.36.2
+# github.com/aws/aws-sdk-go-v2 v1.36.3
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/aws
+github.com/aws/aws-sdk-go-v2/aws/arn
 github.com/aws/aws-sdk-go-v2/aws/defaults
 github.com/aws/aws-sdk-go-v2/aws/middleware
 github.com/aws/aws-sdk-go-v2/aws/protocol/ec2query
@@ -195,15 +196,20 @@ github.com/aws/aws-sdk-go-v2/credentials/stscreds
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.33
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.33
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/internal/ini
+# github.com/aws/aws-sdk-go-v2/service/acs v0.0.0-00010101000000-000000000000 => ../aws-sdk-go-v2/service/acs
+## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/acs
+github.com/aws/aws-sdk-go-v2/service/acs/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/acs/types
 # github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/ec2
@@ -220,6 +226,11 @@ github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
 # github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
+# github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.1
+## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/secretsmanager
+github.com/aws/aws-sdk-go-v2/service/secretsmanager/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/secretsmanager/types
 # github.com/aws/aws-sdk-go-v2/service/sso v1.24.3
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/sso
@@ -728,3 +739,4 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+# github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs

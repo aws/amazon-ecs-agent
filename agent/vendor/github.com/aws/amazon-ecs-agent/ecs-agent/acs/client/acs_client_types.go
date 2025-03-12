@@ -14,8 +14,10 @@
 package acsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 var acsRecognizedTypes []interface{}
@@ -29,29 +31,29 @@ func init() {
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
 	acsRecognizedTypes = []interface{}{
-		ecsacs.HeartbeatMessage{},
-		ecsacs.HeartbeatAckRequest{},
+		ecsacs.HeartbeatInput{},
+		ecsacs.HeartbeatOutput{},
 		ecsacs.PayloadMessage{},
-		ecsacs.CloseMessage{},
+		ecsacs.PollOutput{},
 		ecsacs.AckRequest{},
-		ecsacs.NackRequest{},
-		ecsacs.PerformUpdateMessage{},
-		ecsacs.StageUpdateMessage{},
-		ecsacs.IAMRoleCredentialsMessage{},
-		ecsacs.IAMRoleCredentialsAckRequest{},
-		ecsacs.ServerException{},
-		ecsacs.BadRequestException{},
-		ecsacs.InvalidClusterException{},
-		ecsacs.InvalidInstanceException{},
-		ecsacs.AccessDeniedException{},
-		ecsacs.InactiveInstanceException{},
-		ecsacs.ErrorMessage{},
-		ecsacs.AttachTaskNetworkInterfacesMessage{},
-		ecsacs.AttachInstanceNetworkInterfacesMessage{},
-		ecsacs.ConfirmAttachmentMessage{},
-		ecsacs.TaskManifestMessage{},
-		ecsacs.TaskStopVerificationAck{},
-		ecsacs.TaskStopVerificationMessage{},
+		ecsacs.UpdateFailureInput{},
+		ecsacs.PerformUpdateInput{},
+		ecsacs.StageUpdateInput{},
+		ecsacs.RefreshTaskIAMRoleCredentialsInput{},
+		ecsacs.RefreshTaskIAMRoleCredentialsOutput{},
+		types.ServerException{},
+		types.BadRequestException{},
+		types.InvalidClusterException{},
+		types.InvalidInstanceException{},
+		types.AccessDeniedException{},
+		types.InactiveInstanceException{},
+		ecsacs.ErrorInput{},
+		ecsacs.AttachTaskNetworkInterfacesInput{},
+		ecsacs.AttachInstanceNetworkInterfacesInput{},
+		ecsacs.ConfirmAttachmentInput{},
+		ecsacs.TaskManifestInput{},
+		ecsacs.TaskStopVerificationOutput{},
+		ecsacs.TaskStopVerificationInput{},
 	}
 }
 

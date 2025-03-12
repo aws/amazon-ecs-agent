@@ -14,8 +14,9 @@
 package acsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const errType = "ACSError"
@@ -45,8 +46,8 @@ func (ae *acsError) NewError(err interface{}) *wsclient.WSError {
 // AccessDeniedException is actually potentially fixable because you can change
 // credentials at runtime, but still close to unretriable.
 var unretriableErrors = []interface{}{
-	&ecsacs.InvalidInstanceException{},
-	&ecsacs.InvalidClusterException{},
-	&ecsacs.InactiveInstanceException{},
-	&ecsacs.AccessDeniedException{},
+	&types.InvalidInstanceException{},
+	&types.InvalidClusterException{},
+	&types.InactiveInstanceException{},
+	&types.AccessDeniedException{},
 }

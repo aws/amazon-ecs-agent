@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -25,8 +24,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
-	"github.com/aws/aws-sdk-go/aws"
-	awsARN "github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsARN "github.com/aws/aws-sdk-go-v2/aws/arn"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
@@ -41,7 +41,7 @@ type ResourceHandler interface {
 }
 
 // attachResourceResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.ConfirmAttachmentMessage messages sent by ACS.
+// to ecsacs.ConfirmAttachmentInput messages sent by ACS.
 type attachResourceResponder struct {
 	resourceHandler ResourceHandler
 	metricsFactory  metrics.EntryFactory
@@ -64,7 +64,7 @@ func (r *attachResourceResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentMessage) {
+func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachResourceMessageName))
 	receivedAt := time.Now()
 
@@ -78,10 +78,10 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 		return
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	// Set a default wait timeout (5m) for the attachment message from ACS if not provided.
 	// For example, the attachment payload for the EBS attach might not have the property.
-	waitTimeoutMs := aws.Int64Value(message.WaitTimeoutMs)
+	waitTimeoutMs := aws.ToInt64(message.WaitTimeoutMs)
 	if waitTimeoutMs == 0 {
 		waitTimeoutMs = DefaultAttachmentWaitTimeoutInMs
 	}
@@ -92,16 +92,16 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	go r.resourceHandler.HandleResourceAttachment(&resource.ResourceAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
-			TaskARN:              aws.StringValue(message.TaskArn),
-			TaskClusterARN:       aws.StringValue(message.TaskClusterArn),
-			ClusterARN:           aws.StringValue(message.ClusterArn),
-			ContainerInstanceARN: aws.StringValue(message.ContainerInstanceArn),
+			TaskARN:              aws.ToString(message.TaskArn),
+			TaskClusterARN:       aws.ToString(message.TaskClusterArn),
+			ClusterARN:           aws.ToString(message.ClusterArn),
+			ContainerInstanceARN: aws.ToString(message.ContainerInstanceArn),
 			ExpiresAt:            expiresAt,
-			AttachmentARN:        aws.StringValue(message.Attachment.AttachmentArn),
+			AttachmentARN:        aws.ToString(message.Attachment.AttachmentArn),
 			Status:               attachment.AttachmentNone,
 		},
 		AttachmentProperties: attachmentProperties,
-		AttachmentType:       aws.StringValue(message.Attachment.AttachmentType),
+		AttachmentType:       aws.ToString(message.Attachment.AttachmentType),
 	})
 
 	// Send ACK.
@@ -122,24 +122,24 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 
 // validateAttachResourceMessage performs validation checks on the ConfirmAttachmentMessage
 // and returns the attachment properties received from validateAttachmentAndReturnProperties()
-func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentMessage) (
+func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	if message == nil {
 		return nil, errors.New("Message is empty")
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if messageID == "" {
 		return nil, errors.New("Message ID is not set")
 	}
 
-	clusterArn := aws.StringValue(message.ClusterArn)
+	clusterArn := aws.ToString(message.ClusterArn)
 	_, err = awsARN.Parse(clusterArn)
 	if err != nil {
 		return nil, errors.Errorf("Invalid clusterArn specified for message ID %s", messageID)
 	}
 
-	containerInstanceArn := aws.StringValue(message.ContainerInstanceArn)
+	containerInstanceArn := aws.ToString(message.ContainerInstanceArn)
 	_, err = awsARN.Parse(containerInstanceArn)
 	if err != nil {
 		return nil, errors.Errorf(
@@ -162,11 +162,11 @@ func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentMessage) (
 
 // validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentMessage
 // and returns the attachment's properties
-func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMessage) (
+func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	attachment := message.Attachment
 
-	arn := aws.StringValue(attachment.AttachmentArn)
+	arn := aws.ToString(attachment.AttachmentArn)
 	_, err = awsARN.Parse(arn)
 	if err != nil {
 		return nil, errors.Errorf(
@@ -176,13 +176,13 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 	attachmentProperties = make(map[string]string)
 	properties := attachment.AttachmentProperties
 	for _, property := range properties {
-		name := aws.StringValue(property.Name)
+		name := aws.ToString(property.Name)
 		if name == "" {
 			return nil, errors.Errorf(
 				"resource attachment validation: no name specified for attachment property: %s", property.String())
 		}
 
-		value := aws.StringValue(property.Value)
+		value := aws.ToString(property.Value)
 		if value == "" {
 			return nil, errors.Errorf(
 				"resource attachment validation: no value specified for attachment property: %s", property.String())
@@ -192,7 +192,7 @@ func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMess
 	}
 
 	// For "EBSTaskAttach" used by the EBS attach, ACS is using attachmentType to indicate its attachment type.
-	attachmentType := aws.StringValue(message.Attachment.AttachmentType)
+	attachmentType := aws.ToString(message.Attachment.AttachmentType)
 	if attachmentType == resource.EBSTaskAttach {
 		err = resource.ValidateRequiredProperties(
 			attachmentProperties,

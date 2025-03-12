@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -90,16 +90,16 @@ type credentialsManager struct {
 	taskCredentialsLock sync.RWMutex
 }
 
-// IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
+// IAMRoleCredentialsFromACS translates types.IAMRoleCredentials object to
 // api.IAMRoleCredentials
-func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleType string) IAMRoleCredentials {
+func IAMRoleCredentialsFromACS(roleCredentials *types.IAMRoleCredentials, roleType string) IAMRoleCredentials {
 	return IAMRoleCredentials{
-		CredentialsID:   aws.StringValue(roleCredentials.CredentialsId),
-		SessionToken:    aws.StringValue(roleCredentials.SessionToken),
-		RoleArn:         aws.StringValue(roleCredentials.RoleArn),
-		AccessKeyID:     aws.StringValue(roleCredentials.AccessKeyId),
-		SecretAccessKey: aws.StringValue(roleCredentials.SecretAccessKey),
-		Expiration:      aws.StringValue(roleCredentials.Expiration),
+		CredentialsID:   aws.ToString(roleCredentials.CredentialsId),
+		SessionToken:    aws.ToString(roleCredentials.SessionToken),
+		RoleArn:         aws.ToString(roleCredentials.RoleArn),
+		AccessKeyID:     aws.ToString(roleCredentials.AccessKeyId),
+		SecretAccessKey: aws.ToString(roleCredentials.SecretAccessKey),
+		Expiration:      aws.ToString(roleCredentials.Expiration),
 		RoleType:        roleType,
 	}
 }
