@@ -1,13 +1,13 @@
 module github.com/aws/amazon-ecs-agent/ecs-agent
 
-go 1.21
+go 1.22
 
-toolchain go1.21.1
+toolchain go1.22.4
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0
 	github.com/aws/aws-sdk-go v1.51.3
-	github.com/aws/aws-sdk-go-v2 v1.32.6
+	github.com/aws/aws-sdk-go-v2 v1.36.2
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
@@ -49,7 +49,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.32.3 // indirect
-	github.com/aws/smithy-go v1.22.1 // indirect
+	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/containerd/cgroups/v3 v3.0.2 // indirect
 	github.com/containerd/errdefs v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
