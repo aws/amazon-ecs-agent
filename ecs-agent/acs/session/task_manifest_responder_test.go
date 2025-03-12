@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func setupTestManifestMessage() *ecsacs.TaskManifestMessage {
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String(testconst.MessageID),
-		Tasks:                []*ecsacs.TaskIdentifier{},
+		Tasks:                []*types.TaskIdentifier{},
 		Timeline:             aws.Int64(StartingTaskManifestSequenceNumber),
 	}
 }
@@ -60,7 +61,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 			// Validate ack request fields when happy path is reached.
 			require.Equal(t, aws.ToString(ackRequest.MessageId), testconst.MessageID)
 		} else {
-			stopVerification, isStopVerification := response.(*ecsacs.TaskStopVerificationMessage)
+			stopVerification, isStopVerification := response.(*ecsacs.TaskStopVerificationInput)
 			if isStopVerification {
 				// We expect only one task marked for termination.
 				require.Equal(t, len(stopVerification.StopCandidates), 1)
@@ -91,7 +92,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 
 	// When the client queries tasks to be stopped, inject this task to be stopped.
 	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return(
-		[]*ecsacs.TaskIdentifier{
+		[]types.TaskIdentifier{
 			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String(testconst.TaskARN)},
 		},
 		nil,
@@ -126,7 +127,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String("456"),
-		Tasks:                []*ecsacs.TaskIdentifier{},
+		Tasks:                []*types.TaskIdentifier{},
 		Timeline:             aws.Int64(StaleTaskManifestSequenceNumber),
 	}
 
@@ -139,7 +140,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	// The test manifest should be valid, updating sequence number and message ID only once.
 	mockSNA.EXPECT().SetLatestSequenceNumber(*testManifest.Timeline)
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID)
-	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]*ecsacs.TaskIdentifier{}, nil)
+	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]types.TaskIdentifier{}, nil)
 
 	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestMessage))
 

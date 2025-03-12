@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -34,7 +35,7 @@ const (
 // TaskComparer gets and compares running tasks on an instance to those in the ACS manifest.
 // It should be implemented by an underlying struct that has access to such data.
 type TaskComparer interface {
-	CompareRunningTasksOnInstanceWithManifest(*ecsacs.TaskManifestMessage) ([]*ecsacs.TaskIdentifier, error)
+	CompareRunningTasksOnInstanceWithManifest(*ecsacs.TaskManifestMessage) ([]types.TaskIdentifier, error)
 }
 
 // SequenceNumberAccessor is used to get and set state for the current container
@@ -172,7 +173,7 @@ func (tmr *taskManifestResponder) ackTaskManifestMessage(message *ecsacs.TaskMan
 }
 
 // If there are stop candidates, send a TaskStopVerificationMessage to ACS and log each stop candidate.
-func (tmr *taskManifestResponder) sendTaskStopVerification(message *ecsacs.TaskManifestMessage, tasksToStop []*ecsacs.TaskIdentifier) {
+func (tmr *taskManifestResponder) sendTaskStopVerification(message *ecsacs.TaskManifestMessage, tasksToStop []types.TaskIdentifier) {
 	messageID := aws.ToString(message.MessageId)
 	if len(tasksToStop) == 0 {
 		return
@@ -186,7 +187,7 @@ func (tmr *taskManifestResponder) sendTaskStopVerification(message *ecsacs.TaskM
 		field.MessageID: messageID,
 		field.TaskARN:   taskARNList,
 	})
-	err := tmr.respond(&ecsacs.TaskStopVerificationMessage{
+	err := tmr.respond(&ecsacs.TaskStopVerificationInput{
 		MessageId:      message.MessageId,
 		StopCandidates: tasksToStop,
 	})

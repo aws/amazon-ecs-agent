@@ -52,8 +52,8 @@ func init() {
 		ecsacs.AttachInstanceNetworkInterfacesMessage{},
 		ecsacs.ConfirmAttachmentMessage{},
 		ecsacs.TaskManifestMessage{},
-		ecsacs.TaskStopVerificationAck{},
-		ecsacs.TaskStopVerificationMessage{},
+		ecsacs.TaskStopVerificationOutput{},
+		ecsacs.TaskStopVerificationInput{},
 	}
 }
 
