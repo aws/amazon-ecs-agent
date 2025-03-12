@@ -23,6 +23,8 @@ import (
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 )
@@ -174,18 +176,18 @@ func (queue *Queue) GetLastNetworkStatPerSec() *stats.NetworkStatsPerSec {
 }
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
-func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
+func (queue *Queue) GetCPUStatsSet() (tcstypes.CWStatsSet, error) {
 	return queue.getCWStatsSet(getCPUUsagePerc)
 }
 
 // GetMemoryStatsSet gets the stats set for memory utilization.
-func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
+func (queue *Queue) GetMemoryStatsSet() (tcstypes.CWStatsSet, error) {
 	return queue.getCWStatsSet(getMemoryUsagePerc)
 }
 
 // GetStorageStatsSet gets the stats set for aggregate storage
-func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
-	storageStatsSet := &ecstcs.StorageStatsSet{}
+func (queue *Queue) GetStorageStatsSet() (tcstypes.StorageStatsSet, error) {
+	storageStatsSet := ecstcs.StorageStatsSet{}
 	var err error
 	var errStr string
 	storageStatsSet.ReadSizeBytes, err = queue.getULongStatsSet(getStorageReadBytes)
@@ -204,11 +206,11 @@ func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
 }
 
 // GetRestartStatsSet gets the stats set for container restarts
-func (queue *Queue) GetRestartStatsSet() (*ecstcs.RestartStatsSet, error) {
+func (queue *Queue) GetRestartStatsSet() (tcstypes.RestartStatsSet, error) {
 	return queue.getRestartStatsSet(getRestartCount)
 }
 
-func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (*ecstcs.RestartStatsSet, error) {
+func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (tcstypes.RestartStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -271,7 +273,7 @@ func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (*ecstcs.Restar
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.
-func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
+func (queue *Queue) GetNetworkStatsSet() (tcstypes.NetworkStatsSet, error) {
 	networkStatsSet := &ecstcs.NetworkStatsSet{}
 	var err error
 	var errStr string
@@ -428,7 +430,7 @@ type getIntPointerFunc func(*UsageStats) *int64
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.
-func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecstcs.CWStatsSet, error) {
+func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.CWStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -478,7 +480,7 @@ func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecstcs.CWSt
 // stats come from docker as uint64 type, and by neccesity are packed into int64 type
 // where there is overflow (math.MaxInt64 + 1 or greater)
 // we capture the excess in optional overflow fields.
-func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*ecstcs.ULongStatsSet, error) {
+func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*tcstypes.ULongStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -532,7 +534,7 @@ func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*ecstcs.ULong
 }
 
 // getUDoubleCWStatsSet gets the stats set for per second network metrics
-func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecstcs.UDoubleCWStatsSet, error) {
+func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.UDoubleCWStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 

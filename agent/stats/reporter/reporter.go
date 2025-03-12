@@ -30,6 +30,7 @@ import (
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 

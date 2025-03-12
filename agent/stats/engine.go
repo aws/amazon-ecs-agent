@@ -44,6 +44,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 )
@@ -76,9 +78,9 @@ type DockerContainerMetadataResolver struct {
 // Engine defines methods to be implemented by the engine struct. It is
 // defined to make testing easier.
 type Engine interface {
-	GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
+	GetInstanceMetrics(includeServiceConnectStats bool) (*tcstypes.MetricsMetadata, []*tcstypes.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error)
-	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
+	GetTaskHealthMetrics() (*tcstypes.HealthMetadata, []*tcstypes.TaskHealth, error)
 	GetPublishServiceConnectTickerInterval() int32
 	SetPublishServiceConnectTickerInterval(int32)
 	GetPublishMetricsTicker() *time.Ticker
@@ -514,20 +516,20 @@ func (engine *DockerStatsEngine) publishHealth() {
 }
 
 // GetInstanceMetrics gets all task metrics and instance metadata from stats engine.
-func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats bool) (*tcstypes.MetricsMetadata, []tcstypes.TaskMetric, error) {
 	idle := engine.isIdle()
-	metricsMetadata := &ecstcs.MetricsMetadata{
+	metricsMetadata := &tcstypes.MetricsMetadata{
 		Cluster:           aws.String(engine.cluster),
 		ContainerInstance: aws.String(engine.containerInstanceArn),
-		Idle:              aws.Bool(idle),
+		Idle:              idle,
 		MessageId:         aws.String(uuid.NewRandom().String()),
 	}
 
-	var taskMetrics []*ecstcs.TaskMetric
+	var taskMetrics []tcstypes.TaskMetric
 	if idle {
 		seelog.Debug("Instance is idle. No task metrics to report")
 		fin := true
-		metricsMetadata.Fin = &fin
+		metricsMetadata.Fin = fin
 		return metricsMetadata, taskMetrics, nil
 	}
 
@@ -570,11 +572,10 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		taskDef, exists := engine.tasksToDefinitions[taskArn]
 		if !exists {
 			seelog.Debugf("Could not map task to definition, task: %s", taskArn)
-			continue
-		}
+			continue		}
 		volMetrics := engine.getEBSVolumeMetrics(taskArn)
 		metricTaskArn := taskArn
-		taskMetric := &ecstcs.TaskMetric{
+		taskMetric := &tcstypes.TaskMetric{
 			TaskArn:               &metricTaskArn,
 			TaskDefinitionFamily:  &taskDef.family,
 			TaskDefinitionVersion: &taskDef.version,
@@ -605,9 +606,9 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 }
 
 // GetTaskHealthMetrics returns the container health metrics
-func (engine *DockerStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
-	var taskHealths []*ecstcs.TaskHealth
-	metadata := &ecstcs.HealthMetadata{
+func (engine *DockerStatsEngine) GetTaskHealthMetrics() (*tcstypes.HealthMetadata, []tcstypes.TaskHealth, error) {
+	var taskHealths []tcstypes.TaskHealth
+	metadata := &tcstypes.HealthMetadata{
 		Cluster:           aws.String(engine.cluster),
 		ContainerInstance: aws.String(engine.containerInstanceArn),
 		MessageId:         aws.String(uuid.NewRandom().String()),
@@ -679,7 +680,7 @@ func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsCon
 	return false
 }
 
-func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.TaskHealth {
+func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) tcstypes.TaskHealth {
 	// Acquire the task definition information
 	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
 	if !ok {
@@ -694,7 +695,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 	}
 
 	// Aggregate container health information for all the containers in the task
-	var containerHealths []*ecstcs.ContainerHealth
+	var containerHealths []tcstypes.ContainerHealth
 	for _, container := range containers {
 		// check if the container is stopped/untracked, and remove it from stats
 		//engine if needed
@@ -717,7 +718,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 			// container was started but the health status isn't ready
 			healthInfo.Since = aws.Time(time.Now())
 		}
-		containerHealth := &ecstcs.ContainerHealth{
+		containerHealth := tcstypes.ContainerHealth{
 			ContainerName: aws.String(dockerContainer.Container.Name),
 			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
 			StatusSince:   aws.Time(healthInfo.Since.UTC()),
@@ -729,7 +730,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 		return nil
 	}
 
-	taskHealth := &ecstcs.TaskHealth{
+	taskHealth := &tcstypes.TaskHealth{
 		Containers:            containerHealths,
 		TaskArn:               aws.String(taskARN),
 		TaskDefinitionFamily:  aws.String(taskDefinition.family),
@@ -810,13 +811,13 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 // taskContainerMetricsUnsafe gets all container metrics for a task arn.
 //
 //gocyclo:ignore
-func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*ecstcs.ContainerMetric, error) {
+func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]tcstypes.ContainerMetric, error) {
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
 		return nil, fmt.Errorf("task not found")
 	}
 
-	var containerMetrics []*ecstcs.ContainerMetric
+	var containerMetrics []tcstypes.ContainerMetric
 	for _, container := range containerMap {
 		dockerID := container.containerMetadata.DockerID
 		// Check if the container is terminal. If it is, make sure that it is
@@ -858,7 +859,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		containerMetric := &ecstcs.ContainerMetric{
+		containerMetric := tcstypes.ContainerMetric{
 			ContainerName:  &container.containerMetadata.Name,
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
@@ -984,7 +985,7 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*tcstypes.StatsJSON, *stats.NetworkStatsPerSec, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
@@ -1087,7 +1088,7 @@ func (engine *DockerStatsEngine) GetPublishMetricsTicker() *time.Ticker {
 	return engine.publishMetricsTicker
 }
 
-func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.VolumeMetric {
+func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []tcstypes.VolumeMetric {
 	task, err := engine.resolver.ResolveTaskByARN(taskArn)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to get corresponding task from dd with task arn: %s", taskArn))
@@ -1110,8 +1111,8 @@ func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.V
 	return engine.fetchEBSVolumeMetrics(task, taskArn)
 }
 
-func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskArn string) []*ecstcs.VolumeMetric {
-	var metrics []*ecstcs.VolumeMetric
+func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskArn string) []tcstypes.VolumeMetric {
+	var metrics []*tcstypes.VolumeMetric
 	for _, tv := range task.Volumes {
 		if tv.Volume.GetType() == taskresourcevolume.EBSVolumeType {
 			volumeId := tv.Volume.GetVolumeId()
@@ -1128,16 +1129,16 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 			}
 			usedBytes := aws.Float64((float64)(metric.Used))
 			totalBytes := aws.Float64((float64)(metric.Capacity))
-			metrics = append(metrics, &ecstcs.VolumeMetric{
+			metrics = append(metrics, &tcstypes.VolumeMetric{
 				VolumeId:   aws.String(volumeId),
 				VolumeName: aws.String(volumeName),
-				Utilized: &ecstcs.UDoubleCWStatsSet{
+				Utilized: &tcstypes.UDoubleCWStatsSet{
 					Max:         usedBytes,
 					Min:         usedBytes,
 					SampleCount: aws.Int64(1),
 					Sum:         usedBytes,
 				},
-				Size: &ecstcs.UDoubleCWStatsSet{
+				Size: &tcstypes.UDoubleCWStatsSet{
 					Max:         totalBytes,
 					Min:         totalBytes,
 					SampleCount: aws.Int64(1),

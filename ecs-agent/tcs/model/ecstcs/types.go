@@ -16,9 +16,9 @@ package ecstcs
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/tcs"
 	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 // / NewPublishMetricsRequest creates a PublishMetricsRequest object.
