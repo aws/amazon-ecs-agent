@@ -220,6 +220,9 @@ github.com/aws/aws-sdk-go-v2/service/ec2/types
 github.com/aws/aws-sdk-go-v2/service/ecr
 github.com/aws/aws-sdk-go-v2/service/ecr/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ecr/types
+# github.com/aws/aws-sdk-go-v2/service/ecs v0.0.0-00010101000000-000000000000 => ../aws-sdk-go-v2/service/ecs
+## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/ecs/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
@@ -739,4 +742,5 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+# github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
 # github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs

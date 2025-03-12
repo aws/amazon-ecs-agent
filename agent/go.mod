@@ -51,6 +51,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecs v0.0.0-00010101000000-000000000000 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.3 // indirect
@@ -110,5 +111,7 @@ require (
 )
 
 replace github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+
+replace github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
 
 replace github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs
