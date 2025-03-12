@@ -35,8 +35,8 @@ import (
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 
 	"github.com/gorilla/websocket"
 
@@ -112,7 +112,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 }
 
 func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Duration) *ClientServerImpl {
-	testCreds := credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+	testCreds := credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 
 	return &ClientServerImpl{
 		URL: url,
