@@ -31,7 +31,7 @@ import (
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -104,7 +104,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 	for _, task := range payload.Tasks {
 		if task == nil {
 			logger.Critical("Received nil task for message", logger.Fields{
-				loggerfield.MessageID: aws.StringValue(payload.MessageId),
+				loggerfield.MessageID: aws.ToString(payload.MessageId),
 			})
 			allTasksOK = false
 			continue
@@ -146,7 +146,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				credentials.ApplicationRoleType)
 			err = pmHandler.credentialsManager.SetTaskCredentials(
 				&(credentials.TaskIAMRoleCredentials{
-					ARN:                aws.StringValue(task.Arn),
+					ARN:                aws.ToString(task.Arn),
 					IAMRoleCredentials: taskIAMRoleCredentials,
 				}))
 			if err != nil {
@@ -194,7 +194,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				credentials.ExecutionRoleType)
 			err = pmHandler.credentialsManager.SetTaskCredentials(
 				&(credentials.TaskIAMRoleCredentials{
-					ARN:                aws.StringValue(task.Arn),
+					ARN:                aws.ToString(task.Arn),
 					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
 				}))
 			if err != nil {
@@ -235,14 +235,14 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 func (pmHandler *payloadMessageHandler) handleInvalidTask(task *ecsacs.Task, err error,
 	payload *ecsacs.PayloadMessage) {
 	logger.Warn("Received unexpected ACS message", logger.Fields{
-		loggerfield.MessageID: aws.StringValue(payload.MessageId),
-		loggerfield.TaskARN:   aws.StringValue(task.Arn),
+		loggerfield.MessageID: aws.ToString(payload.MessageId),
+		loggerfield.TaskARN:   aws.ToString(task.Arn),
 		loggerfield.Error:     err,
 	})
 
-	if aws.StringValue(task.Arn) == "" {
+	if aws.ToString(task.Arn) == "" {
 		logger.Critical("Received task with no ARN for payload message", logger.Fields{
-			loggerfield.MessageID: aws.StringValue(payload.MessageId),
+			loggerfield.MessageID: aws.ToString(payload.MessageId),
 		})
 		return
 	}
