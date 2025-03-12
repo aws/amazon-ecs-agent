@@ -349,13 +349,13 @@ func (client *ecsClient) setInstanceIdentity(
 		logger.Debug("Attempting to get Instance Identity Document")
 		instanceIdentityDoc, attemptErr = client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
 		if attemptErr != nil {
-			logger.Debug("Unable to get instance identity document, retrying", logger.Fields{
+			logger.Error("Unable to get instance identity document, retrying", logger.Fields{
 				field.Error: attemptErr,
 			})
 			// Force credentials to expire in case they are stale but not expired.
 			client.credentialsCache.Invalidate()
 			if creds, err := client.credentialsCache.Retrieve(ctx); err != nil || !creds.HasKeys() {
-				logger.Debug("Unable to get valid credentials, retrying", logger.Fields{
+				logger.Error("Unable to get valid credentials after invalidating credentials cache", logger.Fields{
 					field.Error: err,
 				})
 			}
