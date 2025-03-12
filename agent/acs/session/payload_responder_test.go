@@ -38,6 +38,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -1104,7 +1105,7 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	expectedTaskCredentials credentials.IAMRoleCredentials) error {
 	if !reflect.DeepEqual(taskCredentialsAck, expectedCredentialsAckForTask) {
 		return errors.Errorf("mismatch between expected and received credentials ACK requests, expected: %s, got: %s",
-			expectedCredentialsAckForTask.String(), taskCredentialsAck.String())
+			utils.Prettify(expectedCredentialsAckForTask, ecsacs.SensitiveFields...), utils.Prettify(taskCredentialsAck, ecsacs.SensitiveFields...)) 
 	}
 
 	expectedTask := &apitask.Task{

@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
@@ -63,7 +65,7 @@ func ParseServiceConnectAttachment(scAttachment *types.Attachment) (*Config, err
 			containerName = aws.ToString(property.Value)
 		default:
 			logger.Warn("Received an unrecognized attachment property", logger.Fields{
-				"attachmentProperty": property.String(),
+				"attachmentProperty": utils.Prettify(property, ecsacs.SensitiveFields...),
 			})
 		}
 	}

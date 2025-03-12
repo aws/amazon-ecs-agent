@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acs"
@@ -164,7 +165,7 @@ func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
 
 	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		t.Run(property.String(), func(t *testing.T) {
+		t.Run(utils.Prettify(property), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -202,7 +203,7 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 
 	// Verify the property name & property value must be non-empty.
 	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		t.Run(property.String(), func(t *testing.T) {
+		t.Run(utils.Prettify(property), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)

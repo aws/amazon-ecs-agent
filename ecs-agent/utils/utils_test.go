@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,4 +128,68 @@ func testMaxNumFloat(t *testing.T) {
 
 	require.Equal(t, largerVal, MaxNum(largerVal, smallerVal))
 	require.Equal(t, largerVal, MaxNum(largerVal, largerVal))
+}
+
+// Adapted from https://github.com/aws/aws-sdk-go/blob/main/aws/awsutil/prettify_test.go
+type testPrettifyStruct struct {
+	Field1 string
+	Field2 *string
+	Field3 []byte
+	Field4 []byte
+	Value  []string
+}
+
+
+func TestPrettify(t *testing.T) {
+	cases := map[string]struct {
+		Value         interface{}
+		SensitiveKeys []string
+		Expect        string
+	}{
+		"multiple sensitive fields": {
+			Value: testPrettifyStruct{
+				Field1: "abc123",
+				Field2: aws.String("abc123"),
+				Field3: []byte("don't show me"),
+				Field4: []byte("also don't show me"),
+				Value:  []string{"first", "second"},
+			},
+			SensitiveKeys: []string{"Field3", "Field4"},
+			Expect: `{
+  Field1: "abc123",
+  Field2: "abc123",
+  Field3: <sensitive>,
+  Field4: <sensitive>,
+  Value: [
+    "first",
+    "second"
+  ]
+}`,
+		},
+		"no sensitive fields": {
+			Value: testPrettifyStruct{
+				Field1: "abc123",
+				Field2: aws.String("abc123"),
+				Value:  []string{"first", "second"},
+			},
+			SensitiveKeys: []string{},
+			Expect: `{
+  Field1: "abc123",
+  Field2: "abc123",
+  Value: [
+    "first",
+    "second"
+  ]
+}`,
+		},
+	}
+
+	for d, c := range cases {
+		t.Run(d, func(t *testing.T) {
+			actual := Prettify(c.Value, c.SensitiveKeys...)
+			if e, a := c.Expect, actual; e != a {
+				t.Errorf("expect:\n%v\nactual:\n%v\n", e, a)
+			}
+		})
+	}
 }
