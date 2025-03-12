@@ -419,12 +419,8 @@ func InterfaceFromACS(acsENI *types.ElasticNetworkInterface) (*NetworkInterface,
 		ni.InterfaceAssociationProtocol = VLANInterfaceAssociationProtocol
 	}
 
-	for _, nameserverIP := range acsENI.DomainNameServers {
-		ni.DomainNameServers = append(ni.DomainNameServers, nameserverIP)
-	}
-	for _, nameserverDomain := range acsENI.DomainName {
-		ni.DomainNameSearchList = append(ni.DomainNameSearchList, nameserverDomain)
-	}
+	ni.DomainNameServers = append(ni.DomainNameServers, acsENI.DomainNameServers...)
+	ni.DomainNameSearchList = append(ni.DomainNameSearchList, acsENI.DomainName...)
 
 	return ni, nil
 }
