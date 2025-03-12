@@ -22,13 +22,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // AttachmentHandler defines an interface to handle attachment received from ACS.
 type AttachmentHandler interface {
 	parseAttachment(acsAttachment *types.Attachment) error
-	validateAttachment(acsTask *ecsacs.Task, task *Task) error
+	validateAttachment(acsTask *types.Task, task *Task) error
 }
 
 // ServiceConnectAttachmentHandler defines a service connect type attachment handler.
@@ -59,7 +59,7 @@ func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachme
 }
 
 // attachment validator of service connect attachment handler.
-func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *ecsacs.Task, task *Task) error {
+func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *types.Task, task *Task) error {
 	config := scAttachment.scConfig
 	taskContainers := acsTask.Containers
 	ipv6Enabled := false
@@ -76,7 +76,7 @@ func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask 
 }
 
 // handleTaskAttachments parses and validates attachments based on attachment type.
-func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
+func handleTaskAttachments(acsTask *types.Task, task *Task) error {
 	if acsTask.Attachments != nil {
 		var serviceConnectAttachment *types.Attachment
 		var ebsVolumeAttachments []*types.Attachment

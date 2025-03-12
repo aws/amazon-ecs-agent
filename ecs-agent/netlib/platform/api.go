@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // API declares a set of methods that requires platform specific implementations.
@@ -32,7 +32,7 @@ type API interface {
 	// into the task network configuration data structure internal to the agent.
 	BuildTaskNetworkConfiguration(
 		taskID string,
-		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+		taskPayload *types.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
 	// HandleHostMode returns error if host mode is not enabled for the platform.
 	HandleHostMode() error

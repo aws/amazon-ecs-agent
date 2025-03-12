@@ -28,13 +28,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
 
 type NetworkBuilder interface {
-	BuildTaskNetworkConfiguration(taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+	BuildTaskNetworkConfiguration(taskID string, taskPayload *types.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
 	Start(ctx context.Context, mode string, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
@@ -72,7 +72,7 @@ func NewNetworkBuilder(
 
 // BuildTaskNetworkConfiguration builds the task's network configuration
 func (nb *networkBuilder) BuildTaskNetworkConfiguration(
-	taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskID string, taskPayload *types.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload)
 }
 

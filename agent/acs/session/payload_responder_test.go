@@ -2,7 +2,7 @@
 // +build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
-//
+////go:build unit
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
 // License is located at
@@ -53,8 +53,8 @@ const (
 	ec2ID         = "ec2id"
 )
 
-var testPayloadMessage = &ecsacs.PayloadMessage{
-	Tasks:                []*ecsacs.Task{{}},
+var testPayloadMessage = &ecsacs.PayloadInput{
+	Tasks:                []types.Task{{}},
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
@@ -133,8 +133,8 @@ func TestHandlePayloadMessageSaveData(t *testing.T) {
 			tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
 
 			handlePayloadMessage :=
-				tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-			testPayloadMessage.Tasks = []*ecsacs.Task{
+				tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+			testPayloadMessage.Tasks = []types.Task{
 				{
 					Arn:           aws.String(testconst.TaskARN),
 					DesiredStatus: aws.String(tc.taskDesiredStatus),
@@ -179,8 +179,8 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 
 	// Check if handleSingleMessage returns an error when we get error saving task data.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String("t1"), // Use an invalid task arn to trigger error on saving task.
 			DesiredStatus: aws.String("RUNNING"),
@@ -221,8 +221,8 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String("t1"),
 		},
@@ -284,8 +284,8 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(taskArn),
 			RoleCredentials: &types.IAMRoleCredentials{
@@ -348,8 +348,8 @@ func TestHandlePayloadMessageAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) 
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String(runningTaskArn),
 			DesiredStatus: aws.String("RUNNING"),
@@ -442,7 +442,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 	)
 
 	// The payload message in the test consists of two tasks, with credentials set for both.
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(firstTaskArn),
 			RoleCredentials: &types.IAMRoleCredentials{
@@ -469,7 +469,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
 	handlePayloadMessage(testPayloadMessage)
 
 	// Verify that payload message ACK is sent and is as expected.
@@ -558,8 +558,8 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(taskArn),
 			ExecutionRoleCredentials: &types.IAMRoleCredentials{
@@ -616,11 +616,11 @@ func TestHandlePayloadMessageAddedENIToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{
+			ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 				{
 					AttachmentArn: aws.String(attachmentARN),
 					Ec2Id:         aws.String(ec2ID),
@@ -676,17 +676,17 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 			addedTask = task
 		})
 
-	handlePayloadMessage := tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+	handlePayloadMessage := tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String(testconst.TaskARN),
 			DesiredStatus: aws.String("RUNNING"),
 			Family:        aws.String("myFamily"),
 			Version:       aws.String("1"),
-			Containers: []*ecsacs.Container{
+			Containers: []types.Container{
 				{
 					Name: aws.String("myName1"),
-					MountPoints: []*ecsacs.MountPoint{
+					MountPoints: []types.MountPoint{
 						{
 							ContainerPath: aws.String("/foo"),
 							SourceVolume:  aws.String("test-volume"),
@@ -727,10 +727,10 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					AttachmentType: aws.String(apiresource.EBSTaskAttach),
 				},
 			},
-			Volumes: []*ecsacs.Volume{
+			Volumes: []types.Volume{
 				{
 					Name: aws.String(taskresourcevolume.TestVolumeName),
-					Type: aws.String(apitask.AttachmentType),
+					Type: apitask.AttachmentType,
 				},
 			},
 		},
@@ -773,7 +773,7 @@ func TestHandlePayloadMessageAddedAppMeshToTask(t *testing.T) {
 			addedTask = task
 		})
 
-	appMeshType := "APPMESH"
+	appMeshType := types.ProxyConfigurationTypeAppmesh
 	mockEgressIgnoredIP1 := "128.0.0.1"
 	mockEgressIgnoredIP2 := "171.1.3.24"
 	mockAppPort1 := "8000"
@@ -793,20 +793,20 @@ func TestHandlePayloadMessageAddedAppMeshToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			ProxyConfiguration: &ecsacs.ProxyConfiguration{
-				Type: aws.String(appMeshType),
-				Properties: map[string]*string{
-					"IgnoredUID":         aws.String(mockIgnoredUID),
-					"IgnoredGID":         aws.String(mockIgnoredGID),
-					"ProxyIngressPort":   aws.String(mockProxyIngressPort),
-					"ProxyEgressPort":    aws.String(mockProxyEgressPort),
-					"AppPorts":           aws.String(mockAppPorts),
-					"EgressIgnoredIPs":   aws.String(mockEgressIgnoredIPs),
-					"EgressIgnoredPorts": aws.String(mockEgressIgnoredPorts),
+			ProxyConfiguration: &types.ProxyConfiguration{
+				Type: appMeshType,
+				Properties: map[string]string{
+					"IgnoredUID":         mockIgnoredUID,
+					"IgnoredGID":         mockIgnoredGID,
+					"ProxyIngressPort":   mockProxyIngressPort,
+					"ProxyEgressPort":    mockProxyEgressPort,
+					"AppPorts":           mockAppPorts,
+					"EgressIgnoredIPs":   mockEgressIgnoredIPs,
+					"EgressIgnoredPorts": mockEgressIgnoredPorts,
 				},
 				ContainerName: aws.String(mockContainerName),
 			},
@@ -860,11 +860,11 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{
+			ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 				{
 					InterfaceAssociationProtocol: ni.VLANInterfaceAssociationProtocol,
 					AttachmentArn:                aws.String(attachmentARN),
@@ -922,15 +922,15 @@ func TestHandlePayloadMessageAddedECRAuthData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			Containers: []*ecsacs.Container{
+			Containers: []types.Container{
 				{
-					RegistryAuthentication: &ecsacs.RegistryAuthenticationData{
-						Type: aws.String("ecr"),
-						EcrAuthData: &ecsacs.ECRAuthData{
+					RegistryAuthentication: &types.RegistryAuthenticationData{
+						Type: "ecr",
+						EcrAuthData: &types.ECRAuthData{
 							Region:     aws.String("us-west-2"),
 							RegistryId: aws.String("registry-id"),
 						},
@@ -950,7 +950,7 @@ func TestHandlePayloadMessageAddedECRAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ECRAuthData)
 	assert.Nil(t, actual.ASMAuthData)
-	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
+	assert.Equal(t, expected.Type, actual.Type)
 	assert.Equal(t, aws.ToString(expected.EcrAuthData.Region), actual.ECRAuthData.Region)
 	assert.Equal(t, aws.ToString(expected.EcrAuthData.RegistryId), actual.ECRAuthData.RegistryID)
 }
@@ -974,15 +974,15 @@ func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			Containers: []*ecsacs.Container{
+			Containers: []types.Container{
 				{
-					RegistryAuthentication: &ecsacs.RegistryAuthenticationData{
-						Type: aws.String("asm"),
-						AsmAuthData: &ecsacs.ASMAuthData{
+					RegistryAuthentication: &types.RegistryAuthenticationData{
+						Type: "asm",
+						AsmAuthData: &types.ASMAuthData{
 							Region:               aws.String("us-west-2"),
 							CredentialsParameter: aws.String("asm-arn"),
 						},
@@ -1002,7 +1002,7 @@ func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ASMAuthData)
 	assert.Nil(t, actual.ECRAuthData)
-	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
+	assert.Equal(t, expected.Type, actual.Type)
 	assert.Equal(t, aws.ToString(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
 	assert.Equal(t, aws.ToString(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
 }
@@ -1026,16 +1026,16 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
-	testPayloadMessage.Tasks = []*ecsacs.Task{
+		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			Containers: []*ecsacs.Container{
+			Containers: []types.Container{
 				{
-					FirelensConfiguration: &ecsacs.FirelensConfiguration{
-						Type: aws.String("fluentd"),
-						Options: map[string]*string{
-							"enable-ecs-log-metadata": aws.String("true"),
+					FirelensConfiguration: &types.FirelensConfiguration{
+						Type: "fluentd",
+						Options: map[string]string{
+							"enable-ecs-log-metadata": "true",
 						},
 					},
 				},
@@ -1051,9 +1051,9 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 	// Validate the pieces of the Firelens container.
 	expected := testPayloadMessage.Tasks[0].Containers[0].FirelensConfiguration
 	actual := addedTask.Containers[0].FirelensConfig
-	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
+	assert.Equal(t, expected.Type, actual.Type)
 	assert.NotNil(t, actual.Options)
-	assert.Equal(t, aws.ToString(expected.Options["enable-ecs-log-metadata"]),
+	assert.Equal(t, expected.Options["enable-ecs-log-metadata"],
 		actual.Options["enable-ecs-log-metadata"])
 }
 
@@ -1066,8 +1066,8 @@ func TestHandleInvalidTask(t *testing.T) {
 	tester.payloadMessageHandler.taskHandler = taskHandler
 	defer tester.ctrl.Finish()
 
-	ecsacsTask := &ecsacs.Task{Arn: aws.String(testconst.TaskARN)}
-	testPayloadMessage.Tasks = []*ecsacs.Task{ecsacsTask}
+	ecsacsTask := types.Task{Arn: aws.String(testconst.TaskARN)}
+	testPayloadMessage.Tasks = []types.Task{ecsacsTask}
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
@@ -1077,7 +1077,7 @@ func TestHandleInvalidTask(t *testing.T) {
 		wait.Done()
 	})
 
-	tester.payloadMessageHandler.handleInvalidTask(ecsacsTask, errors.New("test error"), testPayloadMessage)
+	tester.payloadMessageHandler.handleInvalidTask(&ecsacsTask, errors.New("test error"), testPayloadMessage)
 	wait.Wait()
 }
 

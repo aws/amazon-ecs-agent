@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,7 +66,7 @@ func TestAppMeshFromACS(t *testing.T) {
 func TestAppMeshFromACSContainsDefaultEgressIgnoredIP(t *testing.T) {
 	testProxyConfig := prepareProxyConfig()
 	egressIgnoredIPs := mockEgressIgnoredIPs + splitter + taskMetadataEndpointIP + splitter + instanceMetadataEndpointIP
-	testProxyConfig.Properties[egressIgnoredIPs] = aws.String(egressIgnoredIPs)
+	testProxyConfig.Properties[egressIgnoredIPs] = egressIgnoredIPs
 
 	appMesh, err := AppMeshFromACS(&testProxyConfig)
 
@@ -87,9 +87,8 @@ func TestAppMeshFromACSContainsDefaultEgressIgnoredIP(t *testing.T) {
 }
 
 func TestAppMeshFromACSNonAppMeshProxyInput(t *testing.T) {
-	someOtherProxyType := "fooProxy"
 	testProxyConfig := prepareProxyConfig()
-	testProxyConfig.Type = &someOtherProxyType
+	testProxyConfig.Type = "fooProxy"
 
 	_, err := AppMeshFromACS(&testProxyConfig)
 
@@ -97,9 +96,8 @@ func TestAppMeshFromACSNonAppMeshProxyInput(t *testing.T) {
 }
 
 func TestAppMeshEmptyAppPorts(t *testing.T) {
-	emptyAppPorts := ""
 	testProxyConfig := prepareProxyConfig()
-	testProxyConfig.Properties[appPorts] = &emptyAppPorts
+	testProxyConfig.Properties[appPorts] = ""
 
 	appMesh, err := AppMeshFromACS(&testProxyConfig)
 
@@ -108,9 +106,8 @@ func TestAppMeshEmptyAppPorts(t *testing.T) {
 }
 
 func TestAppMeshEmptyIgnoredIPs(t *testing.T) {
-	emptyIgnoredIPs := ""
 	testProxyConfig := prepareProxyConfig()
-	testProxyConfig.Properties[egressIgnoredIPs] = &emptyIgnoredIPs
+	testProxyConfig.Properties[egressIgnoredIPs] = ""
 
 	appMesh, err := AppMeshFromACS(&testProxyConfig)
 
@@ -119,9 +116,8 @@ func TestAppMeshEmptyIgnoredIPs(t *testing.T) {
 }
 
 func TestAppMeshEmptyIgnoredPorts(t *testing.T) {
-	emptyIgnoredPorts := ""
 	testProxyConfig := prepareProxyConfig()
-	testProxyConfig.Properties[egressIgnoredPorts] = &emptyIgnoredPorts
+	testProxyConfig.Properties[egressIgnoredPorts] = ""
 
 	appMesh, err := AppMeshFromACS(&testProxyConfig)
 
@@ -129,18 +125,18 @@ func TestAppMeshEmptyIgnoredPorts(t *testing.T) {
 	assert.Equal(t, 0, len(appMesh.EgressIgnoredPorts))
 }
 
-func prepareProxyConfig() ecsacs.ProxyConfiguration {
+func prepareProxyConfig() types.ProxyConfiguration {
 
-	return ecsacs.ProxyConfiguration{
-		Type: aws.String(appMesh),
-		Properties: map[string]*string{
-			ignoredUID:         aws.String(mockIgnoredUID),
-			ignoredGID:         aws.String(mockIgnoredGID),
-			proxyIngressPort:   aws.String(mockProxyIngressPort),
-			proxyEgressPort:    aws.String(mockProxyEgressPort),
-			appPorts:           aws.String(mockAppPorts),
-			egressIgnoredIPs:   aws.String(mockEgressIgnoredIPs),
-			egressIgnoredPorts: aws.String(mockEgressIgnoredPorts),
+	return types.ProxyConfiguration{
+		Type: appMesh,
+		Properties: map[string]string{
+			ignoredUID:         mockIgnoredUID,
+			ignoredGID:         mockIgnoredGID,
+			proxyIngressPort:   mockProxyIngressPort,
+			proxyEgressPort:    mockProxyEgressPort,
+			appPorts:           mockAppPorts,
+			egressIgnoredIPs:   mockEgressIgnoredIPs,
+			egressIgnoredPorts: mockEgressIgnoredPorts,
 		},
 		ContainerName: aws.String(mockContainerName),
 	}

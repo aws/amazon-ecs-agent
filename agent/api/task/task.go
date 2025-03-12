@@ -56,6 +56,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -311,7 +312,7 @@ type Task struct {
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
 // ecsacs.Task to json and unmarshalling it as apitask.Task
-func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+func TaskFromACS(acsTask *acstypes.Task, envelope *ecsacs.PayloadInput) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
 		return nil, err

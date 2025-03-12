@@ -26,16 +26,16 @@ import (
 )
 
 const (
-	PayloadMessageName = "PayloadMessage"
+	PayloadMessageName = "PayloadInput"
 )
 
 type PayloadMessageHandler interface {
-	ProcessMessage(message *ecsacs.PayloadMessage,
+	ProcessMessage(message *ecsacs.PayloadInput,
 		ackFunc func(*ecsacs.AckRequest, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput)) error
 }
 
 // payloadResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.PayloadMessage messages sent by ACS.
+// to ecsacs.PayloadInput messages sent by ACS.
 type payloadResponder struct {
 	payloadMessageHandler PayloadMessageHandler
 	respond               wsclient.RespondFunc
@@ -57,7 +57,7 @@ func (r *payloadResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handlePayloadMessage
 }
 
-func (r *payloadResponder) handlePayloadMessage(message *ecsacs.PayloadMessage) {
+func (r *payloadResponder) handlePayloadMessage(message *ecsacs.PayloadInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", PayloadMessageName))
 
 	// Validate fields in the message.
@@ -146,7 +146,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 }
 
 // validatePayloadMessage performs validation checks on the PayloadMessage.
-func validatePayloadMessage(message *ecsacs.PayloadMessage) error {
+func validatePayloadMessage(message *ecsacs.PayloadInput) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}

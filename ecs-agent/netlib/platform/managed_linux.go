@@ -17,7 +17,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
@@ -39,7 +38,7 @@ type managedLinux struct {
 // into the task network configuration data structure internal to the agent.
 func (m *managedLinux) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task,
+	taskPayload *types.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := aws.ToString(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace

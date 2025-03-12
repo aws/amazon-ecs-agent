@@ -30,7 +30,7 @@ const (
 )
 
 type PayloadMessageHandler interface {
-	ProcessMessage(message *ecsacs.PayloadMessage,
+	ProcessMessage(message *ecsacs.PayloadInput,
 		ackFunc func(*ecsacs.AckRequest, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput)) error
 }
 

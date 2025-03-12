@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
@@ -140,7 +139,7 @@ func NewPlatform(
 // into the task network configuration data structure internal to the agent.
 func (c *common) buildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task,
+	taskPayload *types.Task,
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
@@ -183,7 +182,7 @@ func (c *common) GetNetNSPath(netNSName string) string {
 //  4. Single netns, multiple interfaces (for V2N tasks on FoF).
 func (c *common) buildAWSVPCNetworkNamespaces(
 	taskID string,
-	taskPayload *ecsacs.Task,
+	taskPayload *types.Task,
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
 ) ([]*tasknetworkconfig.NetworkNamespace, error) {
@@ -207,9 +206,14 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	if singleNetNS || len(taskPayload.ElasticNetworkInterfaces) == 1 ||
 		aws.ToString(taskPayload.ElasticNetworkInterfaces[0].Name) == "" ||
 		len(taskPayload.Containers[0].NetworkInterfaceNames) == 0 {
+
+		eniPointerSlice := make([]*types.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
+		for i := range taskPayload.ElasticNetworkInterfaces {
+			eniPointerSlice[i] = &taskPayload.ElasticNetworkInterfaces[i]
+		}
 		primaryNetNS, err := c.buildNetNS(taskID,
 			0,
-			taskPayload.ElasticNetworkInterfaces,
+			eniPointerSlice,
 			taskPayload.ProxyConfiguration,
 			macToNames,
 			ifaceToGuestNetNS)
@@ -223,7 +227,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	// Create a map for easier lookup of ENIs by their names.
 	ifNameMap := make(map[string]*types.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
 	for _, iface := range taskPayload.ElasticNetworkInterfaces {
-		ifNameMap[networkinterface.GetInterfaceName(iface)] = iface
+		ifNameMap[networkinterface.GetInterfaceName(&iface)] = &iface
 	}
 
 	// Proxy configuration is not supported yet in a multi-ENI / multi-NetNS task.
@@ -240,8 +244,8 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 
 	// Order the containers such that the container attached to the interface with index 0 comes first.
 	sort.Slice(taskPayload.Containers, func(i, j int) bool {
-		iName := aws.ToString(taskPayload.Containers[i].NetworkInterfaceNames[0])
-		jName := aws.ToString(taskPayload.Containers[j].NetworkInterfaceNames[0])
+		iName := taskPayload.Containers[i].NetworkInterfaceNames[0]
+		jName := taskPayload.Containers[j].NetworkInterfaceNames[0]
 		return aws.ToInt32(ifNameMap[iName].Index) < aws.ToInt32(ifNameMap[jName].Index)
 	})
 
@@ -252,7 +256,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 		// ifaces holds all interfaces associated with a particular container.
 		var ifaces []*types.ElasticNetworkInterface
 		for _, ifNameP := range container.NetworkInterfaceNames {
-			ifName := aws.ToString(ifNameP)
+			ifName := ifNameP
 			if iface := ifNameMap[ifName]; iface != nil {
 				ifaces = append(ifaces, iface)
 				// Remove ENI from map to indicate that the ENI is assigned to
@@ -286,7 +290,7 @@ func (c *common) buildNetNS(
 	taskID string,
 	index int,
 	networkInterfaces []*types.ElasticNetworkInterface,
-	proxyConfig *ecsacs.ProxyConfiguration,
+	proxyConfig *types.ProxyConfiguration,
 	macToName map[string]string,
 	ifaceToGuestNetNS map[string]string,
 ) (*tasknetworkconfig.NetworkNamespace, error) {
