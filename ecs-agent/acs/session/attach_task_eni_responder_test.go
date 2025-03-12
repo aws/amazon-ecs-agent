@@ -27,21 +27,22 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
+var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesInput{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []types.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -115,12 +116,12 @@ func TestAttachTaskENIMessageWithNoInterfaces(t *testing.T) {
 // AttachTaskNetworkInterfacesMessage with multiple interfaces
 func TestAttachTaskENIMessageWithMultipleInterfaces(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces = append(testAttachTaskENIMessage.ElasticNetworkInterfaces,
-		&ecsacs.ElasticNetworkInterface{
+		types.ElasticNetworkInterface{
 			Ec2Id:                        aws.String("2"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []types.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -169,13 +170,10 @@ func TestAttachTaskENIMessageWithInvalidNetworkDetails(t *testing.T) {
 	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].Ec2Id = tempEc2Id
 
 	tempInterfaceAssociationProtocol := testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol
-	unsupportedInterfaceAssociationProtocol := aws.String("unsupported")
-	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = unsupportedInterfaceAssociationProtocol
+	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = "unsupported"
 	err = validateAttachTaskNetworkInterfacesMessage(testAttachTaskENIMessage)
-	assert.EqualError(t, err, fmt.Sprintf("invalid interface association protocol: %s",
-		aws.ToString(unsupportedInterfaceAssociationProtocol)))
-	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
-		aws.String(ni.VLANInterfaceAssociationProtocol)
+	assert.EqualError(t, err, "invalid interface association protocol: unsupported")
+	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = ni.VLANInterfaceAssociationProtocol
 	err = validateAttachTaskNetworkInterfacesMessage(testAttachTaskENIMessage)
 	assert.EqualError(t, err, "vlan interface properties missing")
 	testAttachTaskENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = tempInterfaceAssociationProtocol
@@ -237,7 +235,7 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 		mockENIHandler,
 		testResponseSender)
 
-	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesInput))
 	go handleAttachMessage(testAttachTaskENIMessage)
 
 	attachTaskEniAckSent := <-ackSent

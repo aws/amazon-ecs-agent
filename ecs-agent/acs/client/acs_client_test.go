@@ -403,8 +403,8 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	messageChannel := make(chan *ecsacs.AttachTaskNetworkInterfacesMessage)
-	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
+	messageChannel := make(chan *ecsacs.AttachTaskNetworkInterfacesInput)
+	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesInput) {
 		messageChannel <- message
 	}
 
@@ -412,20 +412,20 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
+	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesInput{
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
 		TaskArn:    aws.String("task"),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+		ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),
-				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				Ipv4Addresses: []types.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String("ipv4"),
 					},
 				},
-				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				Ipv6Addresses: []types.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},
