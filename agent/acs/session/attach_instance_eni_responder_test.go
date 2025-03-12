@@ -36,11 +36,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessage{
+var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesInput{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
@@ -57,7 +57,7 @@ var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessag
 	WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 }
 
-// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesMessage and confirms
+// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesInput and confirms
 // expected ACK request is made
 func TestInstanceENIAckHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -78,7 +78,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesInput))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent
@@ -133,7 +133,7 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesInput))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent

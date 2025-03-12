@@ -454,8 +454,8 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	messageChannel := make(chan *ecsacs.AttachInstanceNetworkInterfacesMessage)
-	reqHandler := func(message *ecsacs.AttachInstanceNetworkInterfacesMessage) {
+	messageChannel := make(chan *ecsacs.AttachInstanceNetworkInterfacesInput)
+	reqHandler := func(message *ecsacs.AttachInstanceNetworkInterfacesInput) {
 		messageChannel <- message
 	}
 
@@ -463,10 +463,10 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesMessage{
+	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesInput{
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
-		ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{
+		ElasticNetworkInterfaces: []types.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),
 				Ipv4Addresses: []types.IPv4AddressAssignment{
