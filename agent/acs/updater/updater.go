@@ -228,8 +228,8 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 
 var exit = os.Exit
 
-func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateMessage) {
-	return func(req *ecsacs.PerformUpdateMessage) {
+func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateInput) {
+	return func(req *ecsacs.PerformUpdateInput) {
 		u.Lock()
 		defer u.Unlock()
 
