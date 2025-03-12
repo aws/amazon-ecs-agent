@@ -27,7 +27,7 @@ import (
 
 // AttachmentHandler defines an interface to handle attachment received from ACS.
 type AttachmentHandler interface {
-	parseAttachment(acsAttachment *ecsacs.Attachment) error
+	parseAttachment(acsAttachment *types.Attachment) error
 	validateAttachment(acsTask *ecsacs.Task, task *Task) error
 }
 
@@ -52,7 +52,7 @@ func getHandlerByType(handlerType string, handlers map[string]AttachmentHandler)
 }
 
 // attachment parser of service connect attachment handler.
-func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachment *ecsacs.Attachment) error {
+func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachment *types.Attachment) error {
 	config, err := serviceconnect.ParseServiceConnectAttachment(acsAttachment)
 	scAttachment.scConfig = config
 	return err
@@ -78,8 +78,8 @@ func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask 
 // handleTaskAttachments parses and validates attachments based on attachment type.
 func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 	if acsTask.Attachments != nil {
-		var serviceConnectAttachment *ecsacs.Attachment
-		var ebsVolumeAttachments []*ecsacs.Attachment
+		var serviceConnectAttachment *types.Attachment
+		var ebsVolumeAttachments []*types.Attachment
 		for _, attachment := range acsTask.Attachments {
 			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:

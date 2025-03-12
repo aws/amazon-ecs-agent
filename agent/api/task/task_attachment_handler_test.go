@@ -164,10 +164,10 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []*ecsacs.Attachment{
+				Attachments: []*types.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
-						AttachmentProperties: []*ecsacs.AttachmentProperty{
+						AttachmentProperties: []types.AttachmentProperty{
 							{
 								Name:  stringToPointer(serviceconnect.GetServiceConnectConfigKey()),
 								Value: stringToPointer(tc.testServiceConnectConfig),
@@ -244,10 +244,10 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []*ecsacs.Attachment{
+				Attachments: []*types.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
-						AttachmentProperties: []*ecsacs.AttachmentProperty{
+						AttachmentProperties: []types.AttachmentProperty{
 							{
 								Name:  stringToPointer(apiresource.VolumeIdKey),
 								Value: stringToPointer(tc.testVolumeId),

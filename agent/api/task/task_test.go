@@ -4676,10 +4676,10 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
 					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
 				},
-				Attachments: []*ecsacs.Attachment{
+				Attachments: []*types.Attachment{
 					{
 						AttachmentArn: strptr("attachmentArn"),
-						AttachmentProperties: []*ecsacs.AttachmentProperty{
+						AttachmentProperties: []types.AttachmentProperty{
 							{
 								Name:  strptr(serviceconnect.GetServiceConnectConfigKey()),
 								Value: strptr(tc.testSCConfigValue),
@@ -4749,10 +4749,10 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				},
 			},
 		},
-		Attachments: []*ecsacs.Attachment{
+		Attachments: []*types.Attachment{
 			{
 				AttachmentArn: strptr("attachmentArn"),
-				AttachmentProperties: []*ecsacs.AttachmentProperty{
+				AttachmentProperties: []types.AttachmentProperty{
 					{
 						Name:  strptr(apiresource.VolumeIdKey),
 						Value: strptr(taskresourcevolume.TestVolumeId),
