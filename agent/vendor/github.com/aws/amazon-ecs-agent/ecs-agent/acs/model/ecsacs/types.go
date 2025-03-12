@@ -16,20 +16,19 @@
 package ecsacs
 
 import (
-	"github.com/aws/smithy-go/middleware"
 	smithydocument "github.com/aws/smithy-go/document"
+	"github.com/aws/smithy-go/middleware"
 )
 
 type AckRequest struct {
-	
 	Cluster *string
-	
+
 	ContainerInstance *string
-	
+
 	MessageId *string
-	
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
-	
+
 	smithydocument.NoSerde
 }
