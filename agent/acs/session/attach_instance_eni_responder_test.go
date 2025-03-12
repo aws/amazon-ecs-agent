@@ -24,19 +24,20 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesInput{
+var testAttachInstanceENIMessage = &acs.AttachInstanceNetworkInterfacesInput{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
@@ -78,7 +79,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesInput))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*acs.AttachInstanceNetworkInterfacesInput))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent
@@ -133,7 +134,7 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesInput))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*acs.AttachInstanceNetworkInterfacesInput))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent

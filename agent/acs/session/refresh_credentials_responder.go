@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +43,7 @@ func NewCredentialsMetadataSetter(taskEngine engine.TaskEngine) *credentialsMeta
 }
 
 func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
-	message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error {
+	message *acs.RefreshTaskIAMRoleCredentialsInput) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
 }
 
 func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
-	message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error {
+	message *acs.RefreshTaskIAMRoleCredentialsInput) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {
 		return errors.Wrap(err, "unable to get credentials message's task")
@@ -72,7 +72,7 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 }
 
 func (cmSetter *credentialsMetadataSetter) getCredentialsMessageTask(
-	message *ecsacs.RefreshTaskIAMRoleCredentialsInput) (*apitask.Task, error) {
+	message *acs.RefreshTaskIAMRoleCredentialsInput) (*apitask.Task, error) {
 	taskARN := aws.ToString(message.TaskArn)
 	messageID := aws.ToString(message.MessageId)
 	task, ok := cmSetter.taskEngine.GetTaskByArn(taskARN)

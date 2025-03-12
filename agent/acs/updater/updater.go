@@ -33,12 +33,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/cihub/seelog"
 )
@@ -96,8 +97,8 @@ func (u *updater) AddAgentUpdateHandlers(cs wsclient.ClientServer) {
 	cs.AddRequestHandler(u.performUpdateHandler())
 }
 
-func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateInput) {
-	return func(req *ecsacs.StageUpdateInput) {
+func (u *updater) stageUpdateHandler() func(req *acs.StageUpdateInput) {
+	return func(req *acs.StageUpdateInput) {
 		u.Lock()
 		defer u.Unlock()
 
@@ -108,7 +109,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateInput) {
 
 		nack := func(reason string) {
 			seelog.Errorf("Nacking StageUpdate; reason: %s", reason)
-			u.acs.MakeRequest(&ecsacs.UpdateFailureInput{
+			u.acs.MakeRequest(&acs.UpdateFailureInput{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,
@@ -145,7 +146,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateInput) {
 			} else {
 				// Nack previous update
 				reason := "New update arrived: " + *req.MessageId
-				u.acs.MakeRequest(&ecsacs.UpdateFailureInput{
+				u.acs.MakeRequest(&acs.UpdateFailureInput{
 					Cluster:           req.ClusterArn,
 					ContainerInstance: req.ContainerInstanceArn,
 					MessageId:         &u.downloadMessageID,
@@ -229,8 +230,8 @@ func (u *updater) download(info *types.UpdateInfo) (err error) {
 
 var exit = os.Exit
 
-func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateInput) {
-	return func(req *ecsacs.PerformUpdateInput) {
+func (u *updater) performUpdateHandler() func(req *acs.PerformUpdateInput) {
+	return func(req *acs.PerformUpdateInput) {
 		u.Lock()
 		defer u.Unlock()
 
@@ -239,7 +240,7 @@ func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateInput) {
 		if !u.config.UpdatesEnabled.Enabled() {
 			reason := "Updates are disabled"
 			seelog.Errorf("Nacking PerformUpdate; reason: %s", reason)
-			u.acs.MakeRequest(&ecsacs.UpdateFailureInput{
+			u.acs.MakeRequest(&acs.UpdateFailureInput{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,
@@ -251,7 +252,7 @@ func (u *updater) performUpdateHandler() func(req *ecsacs.PerformUpdateInput) {
 		if u.stage != updateDownloaded {
 			seelog.Error("Nacking PerformUpdate; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
-			u.acs.MakeRequest(&ecsacs.UpdateFailureInput{
+			u.acs.MakeRequest(&acs.UpdateFailureInput{
 				Cluster:           req.ClusterArn,
 				ContainerInstance: req.ContainerInstanceArn,
 				MessageId:         req.MessageId,

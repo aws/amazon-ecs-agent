@@ -26,7 +26,7 @@ import (
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -34,8 +34,8 @@ import (
 )
 
 // defaultTestRefreshCredentialsMessage returns a baseline refresh credentials message to be used in testing.
-func defaultTestRefreshCredentialsMessage() *ecsacs.RefreshTaskIAMRoleCredentialsInput {
-	return &ecsacs.RefreshTaskIAMRoleCredentialsInput{
+func defaultTestRefreshCredentialsMessage() *acs.RefreshTaskIAMRoleCredentialsInput {
+	return &acs.RefreshTaskIAMRoleCredentialsInput{
 		MessageId: aws.String(testconst.MessageID),
 		TaskArn:   aws.String(testconst.TaskARN),
 		RoleCredentials: &types.IAMRoleCredentials{
@@ -56,61 +56,61 @@ func TestValidateRefreshMessageWithNilMessage(t *testing.T) {
 func TestValidateInvalidRefreshMessages(t *testing.T) {
 	testCases := []struct {
 		name            string
-		messageMutation func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput)
+		messageMutation func(message *acs.RefreshTaskIAMRoleCredentialsInput)
 		failureMsg      string
 	}{
 		{
 			name: "nil message ID",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.MessageId = nil
 			},
 			failureMsg: "Expected validation error validating a message with no message ID",
 		},
 		{
 			name: "empty message ID",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.MessageId = aws.String("")
 			},
 			failureMsg: "Expected validation error validating a message with empty message ID",
 		},
 		{
 			name: "nil task ARN",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.TaskArn = nil
 			},
 			failureMsg: "Expected validation error validating a message with no task ARN",
 		},
 		{
 			name: "empty task ARN",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.TaskArn = aws.String("")
 			},
 			failureMsg: "Expected validation error validating a message with empty task ARN",
 		},
 		{
 			name: "nil role credentials",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.RoleCredentials = nil
 			},
 			failureMsg: "Expected validation error validating a message with no role credentials",
 		},
 		{
 			name: "nil credentials ID",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.RoleCredentials = &types.IAMRoleCredentials{}
 			},
 			failureMsg: "Expected validation error validating a message with no credentials ID",
 		},
 		{
 			name: "empty credentials ID",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.RoleCredentials = &types.IAMRoleCredentials{CredentialsId: aws.String("")}
 			},
 			failureMsg: "Expected validation error validating a message with empty credentials ID",
 		},
 		{
 			name: "invalid role type",
-			messageMutation: func(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+			messageMutation: func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 				message.RoleType = "not a valid role type"
 			},
 			failureMsg: "Expected validation error validating a message with an invalid role type",
@@ -159,7 +159,7 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 			defer ctrl.Finish()
 
 			testMessage := defaultTestRefreshCredentialsMessage()
-			var ackSent *ecsacs.RefreshTaskIAMRoleCredentialsOutput
+			var ackSent *acs.RefreshTaskIAMRoleCredentialsOutput
 			credentialsManager := credentials.NewManager()
 			mockCredsMetadataSetter := mock_session.NewMockCredentialsMetadataSetter(ctrl)
 			switch tc.roleType {
@@ -184,7 +184,7 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 			mockMetricsFactory.EXPECT().New(metrics.CredentialsRefreshSuccess).Return(mockEntry)
 
 			testResponseSender := func(response interface{}) error {
-				ackSent = response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+				ackSent = response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
 				return nil
 			}
 			testRefreshCredentialsResponder := NewRefreshCredentialsResponder(credentialsManager,
@@ -193,7 +193,7 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 				testResponseSender)
 
 			handleCredentialsMessage :=
-				testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+				testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 			handleCredentialsMessage(testMessage)
 
@@ -237,7 +237,7 @@ func TestRefreshCredentialsWhenUnableToSetCredentialsMetadata(t *testing.T) {
 		testResponseSender)
 
 	handleCredentialsMessage :=
-		testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+		testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 	handleCredentialsMessage(testMessage)
 	assert.False(t, ackSent,

@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/require"
 )
@@ -53,8 +53,8 @@ func TestTaskStopVerificationACKResponder_StopsTaskContainersAndResources(t *tes
 	taskStopper := session.NewTaskStopper(taskEngine, data.NewNoopClient())
 	responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
-	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
-	handler(&ecsacs.TaskStopVerificationOutput{
+	handler := responder.HandlerFunc().(func(*acs.TaskStopVerificationOutput))
+	handler(&acs.TaskStopVerificationOutput{
 		GeneratedAt: aws.Int64(testconst.DummyInt),
 		MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
 		StopTasks:   []types.TaskIdentifier{{TaskArn: aws.String(task.Arn)}},
@@ -107,8 +107,8 @@ func TestTaskStopVerificationACKResponder_StopsSpecificTasks(t *testing.T) {
 	responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
 	// Stop the last 2 tasks.
-	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
-	handler(&ecsacs.TaskStopVerificationOutput{
+	handler := responder.HandlerFunc().(func(*acs.TaskStopVerificationOutput))
+	handler(&acs.TaskStopVerificationOutput{
 		GeneratedAt: aws.Int64(testconst.DummyInt),
 		MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
 		StopTasks: []types.TaskIdentifier{
@@ -186,8 +186,8 @@ func TestTaskStopVerificationACKResponder(t *testing.T) {
 			taskStopper := session.NewTaskStopper(taskEngine, data.NewNoopClient())
 			responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
-			handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
-			handler(&ecsacs.TaskStopVerificationOutput{
+			handler := responder.HandlerFunc().(func(*acs.TaskStopVerificationOutput))
+			handler(&acs.TaskStopVerificationOutput{
 				GeneratedAt: aws.Int64(testconst.DummyInt),
 				MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
 				StopTasks: []types.TaskIdentifier{

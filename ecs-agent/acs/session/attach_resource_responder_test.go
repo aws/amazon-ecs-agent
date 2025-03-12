@@ -20,6 +20,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
@@ -27,7 +28,7 @@ import (
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -96,7 +97,7 @@ var (
 		AttachmentArn:        aws.String(testAttachmentArn),
 		AttachmentProperties: testAttachmentProperties,
 	}
-	testConfirmAttachmentMessage = &ecsacs.ConfirmAttachmentInput{
+	testConfirmAttachmentMessage = &acs.ConfirmAttachmentInput{
 		Attachment:           testAttachment,
 		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testClusterArn),
@@ -289,7 +290,7 @@ func TestResourceAckHappyPath(t *testing.T) {
 		mockMetricsFactory,
 		testResponseSender)
 
-	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*ecsacs.ConfirmAttachmentInput))
+	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*acs.ConfirmAttachmentInput))
 	go handleAttachMessage(&confirmAttachmentMessageCopy)
 
 	attachResourceAckSent := <-ackSent

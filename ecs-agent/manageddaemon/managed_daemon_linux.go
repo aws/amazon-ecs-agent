@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 )
 
 const (
@@ -88,8 +88,8 @@ func defaultImportAll() ([]*ManagedDaemon, error) {
 	thisCommand = append(thisCommand, "--logtostderr=false")
 	sysAdmin := "SYS_ADMIN"
 	addCapabilities := []*string{&sysAdmin}
-	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
-	ebsLinuxParams := ecsacs.LinuxParameters{Capabilities: &kernelCapabilities}
+	kernelCapabilities := acs.KernelCapabilities{Add: addCapabilities}
+	ebsLinuxParams := acs.LinuxParameters{Capabilities: &kernelCapabilities}
 	ebsManagedDaemon.linuxParameters = &ebsLinuxParams
 
 	ebsManagedDaemon.command = thisCommand

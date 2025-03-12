@@ -34,7 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
@@ -85,7 +85,7 @@ func NewPlatform(
 // BuildTaskNetworkConfiguration builds a task network configuration object from the task payload.
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *acs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := aws.ToString(taskPayload.NetworkMode)
 	switch mode {
 	case ecs.NetworkModeAwsvpc:
@@ -99,7 +99,7 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 // buildAWSVPCNetworkConfig builds task network config object for AWSVPC.
 func (c *containerd) buildAWSVPCNetworkConfig(
 	taskID string,
-	taskPayload *ecsacs.Task,
+	taskPayload *acs.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")

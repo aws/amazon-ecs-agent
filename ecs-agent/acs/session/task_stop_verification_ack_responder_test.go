@@ -21,13 +21,13 @@ import (
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-var testStopVerificationAck = &ecsacs.TaskStopVerificationOutput{
+var testStopVerificationAck = &acs.TaskStopVerificationOutput{
 	GeneratedAt: aws.Int64(testconst.DummyInt),
 	MessageId:   aws.String(testconst.MessageID),
 	StopTasks: []types.TaskIdentifier{
@@ -69,7 +69,7 @@ func TestTaskStopVerificationAckResponderStopsTasks(t *testing.T) {
 		manifestMessageIDAccessor,
 		metricsFactory)
 	handleTaskStopVerificationAck :=
-		taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationOutput))
+		taskStopVerificationAckResponder.HandlerFunc().(func(message *acs.TaskStopVerificationOutput))
 	handleTaskStopVerificationAck(testStopVerificationAck)
 
 	assert.True(t, taskStopVerificationAckTaskHasBeenStopped)
@@ -100,7 +100,7 @@ func TestTaskStopVerificationAckResponderInvalidAck(t *testing.T) {
 		manifestMessageIDAccessor,
 		metricsFactory)
 	handleTaskStopVerificationAck :=
-		taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationOutput))
+		taskStopVerificationAckResponder.HandlerFunc().(func(message *acs.TaskStopVerificationOutput))
 	handleTaskStopVerificationAck(testStopVerificationAck)
 
 	assert.NotEqual(t, aws.ToString(testStopVerificationAck.MessageId), differentMessageID)

@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -53,7 +53,7 @@ type ManagedDaemon struct {
 	loadedDaemonImageRef string
 	command              []string
 
-	linuxParameters *ecsacs.LinuxParameters
+	linuxParameters *acs.LinuxParameters
 	privileged      bool
 
 	containerId string
@@ -82,7 +82,7 @@ func NewManagedDaemon(
 
 var ImportAll = defaultImportAll
 
-func (md *ManagedDaemon) GetLinuxParameters() *ecsacs.LinuxParameters {
+func (md *ManagedDaemon) GetLinuxParameters() *acs.LinuxParameters {
 	return md.linuxParameters
 }
 

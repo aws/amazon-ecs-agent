@@ -21,7 +21,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
@@ -55,7 +55,7 @@ func NewSequenceNumberAccessor(latestSeqNumberTaskManifest *int64, dataClient da
 // tasks running on the instance. It returns all the tasks that are running on the instance but not present in task
 // manifest message task list.
 func (tc *taskComparer) CompareRunningTasksOnInstanceWithManifest(
-	message *ecsacs.TaskManifestInput) ([]types.TaskIdentifier, error) {
+	message *acs.TaskManifestInput) ([]types.TaskIdentifier, error) {
 	tasksOnInstance, err := tc.taskEngine.ListTasks()
 	if err != nil {
 		return nil, err

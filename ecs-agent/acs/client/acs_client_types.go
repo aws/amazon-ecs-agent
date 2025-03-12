@@ -14,9 +14,10 @@
 package acsclient
 
 import (
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
@@ -31,29 +32,29 @@ func init() {
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
 	acsRecognizedTypes = []interface{}{
-		ecsacs.HeartbeatInput{},
-		ecsacs.HeartbeatOutput{},
-		ecsacs.PayloadInput{},
-		ecsacs.PollOutput{},
+		acs.HeartbeatInput{},
+		acs.HeartbeatOutput{},
+		acs.PayloadInput{},
+		acs.PollOutput{},
 		ecsacs.AckRequest{},
-		ecsacs.UpdateFailureInput{},
-		ecsacs.PerformUpdateInput{},
-		ecsacs.StageUpdateInput{},
-		ecsacs.RefreshTaskIAMRoleCredentialsInput{},
-		ecsacs.RefreshTaskIAMRoleCredentialsOutput{},
+		acs.UpdateFailureInput{},
+		acs.PerformUpdateInput{},
+		acs.StageUpdateInput{},
+		acs.RefreshTaskIAMRoleCredentialsInput{},
+		acs.RefreshTaskIAMRoleCredentialsOutput{},
 		types.ServerException{},
 		types.BadRequestException{},
 		types.InvalidClusterException{},
 		types.InvalidInstanceException{},
 		types.AccessDeniedException{},
 		types.InactiveInstanceException{},
-		ecsacs.ErrorInput{},
-		ecsacs.AttachTaskNetworkInterfacesInput{},
-		ecsacs.AttachInstanceNetworkInterfacesInput{},
-		ecsacs.ConfirmAttachmentInput{},
-		ecsacs.TaskManifestInput{},
-		ecsacs.TaskStopVerificationOutput{},
-		ecsacs.TaskStopVerificationInput{},
+		acs.ErrorInput{},
+		acs.AttachTaskNetworkInterfacesInput{},
+		acs.AttachInstanceNetworkInterfacesInput{},
+		acs.ConfirmAttachmentInput{},
+		acs.TaskManifestInput{},
+		acs.TaskStopVerificationOutput{},
+		acs.TaskStopVerificationInput{},
 	}
 }
 

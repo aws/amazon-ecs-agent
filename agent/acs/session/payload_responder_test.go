@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
@@ -40,7 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -53,7 +54,7 @@ const (
 	ec2ID         = "ec2id"
 )
 
-var testPayloadMessage = &ecsacs.PayloadInput{
+var testPayloadMessage = &acs.PayloadInput{
 	Tasks:                []types.Task{{}},
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
@@ -133,7 +134,7 @@ func TestHandlePayloadMessageSaveData(t *testing.T) {
 			tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
 
 			handlePayloadMessage :=
-				tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+				tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 			testPayloadMessage.Tasks = []types.Task{
 				{
 					Arn:           aws.String(testconst.TaskARN),
@@ -179,7 +180,7 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 
 	// Check if handleSingleMessage returns an error when we get error saving task data.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String("t1"), // Use an invalid task arn to trigger error on saving task.
@@ -221,7 +222,7 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String("t1"),
@@ -247,11 +248,11 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 // with an IAM Role. It also tests if the credentials ACK is generated.
 func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+	credentialsAckSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
+		var credentialsResp *acs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+		credentialsResp, ok := response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -259,7 +260,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
+				t.Fatal("response does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -284,7 +285,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(taskArn),
@@ -306,7 +307,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 
 	// Verify the correctness of the task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAck := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
+	expectedCredentialsAck := &acs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(credentialsExpiration),
 		CredentialsId: aws.String(credentialsId),
@@ -348,7 +349,7 @@ func TestHandlePayloadMessageAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) 
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String(runningTaskArn),
@@ -398,12 +399,12 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 	secondTaskCredentialsId := "credsid2"
 
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	firstCredentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
-	secondCredentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+	firstCredentialsAckSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
+	secondCredentialsAckSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
+		var credentialsResp *acs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+		credentialsResp, ok := response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			switch aws.ToString(credentialsResp.CredentialsId) {
 			case firstTaskCredentialsId:
@@ -419,7 +420,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
+				t.Fatal("response does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -469,7 +470,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	handlePayloadMessage(testPayloadMessage)
 
 	// Verify that payload message ACK is sent and is as expected.
@@ -478,7 +479,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Verify the correctness of the first task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAckForFirstTask := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
+	expectedCredentialsAckForFirstTask := &acs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(firstTaskCredentialsExpiration),
 		CredentialsId: aws.String(firstTaskCredentialsId),
@@ -498,7 +499,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Verify the correctness of the second task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAckForSecondTask := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
+	expectedCredentialsAckForSecondTask := &acs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(secondTaskCredentialsExpiration),
 		CredentialsId: aws.String(secondTaskCredentialsId),
@@ -522,11 +523,11 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 // task and container are appropriately set.
 func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+	credentialsAckSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
+		var credentialsResp *acs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+		credentialsResp, ok := response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -534,7 +535,7 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
+				t.Fatal("response does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -558,7 +559,7 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(taskArn),
@@ -616,7 +617,7 @@ func TestHandlePayloadMessageAddedENIToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -676,7 +677,7 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 			addedTask = task
 		})
 
-	handlePayloadMessage := tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+	handlePayloadMessage := tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn:           aws.String(testconst.TaskARN),
@@ -793,7 +794,7 @@ func TestHandlePayloadMessageAddedAppMeshToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -860,7 +861,7 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -922,7 +923,7 @@ func TestHandlePayloadMessageAddedECRAuthData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -974,7 +975,7 @@ func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -1026,7 +1027,7 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		tester.payloadResponder.HandlerFunc().(func(message *ecsacs.PayloadInput))
+		tester.payloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
 	testPayloadMessage.Tasks = []types.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
@@ -1097,7 +1098,7 @@ func newTestDataClient(t *testing.T) data.Client {
 // validateTaskAndCredentials compares a task and a credentials ACK object
 // against expected values. It returns an error if either of the
 // comparisons fail.
-func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *ecsacs.RefreshTaskIAMRoleCredentialsOutput,
+func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *acs.RefreshTaskIAMRoleCredentialsOutput,
 	addedTask *apitask.Task,
 	expectedTaskArn string,
 	expectedTaskCredentials credentials.IAMRoleCredentials) error {
