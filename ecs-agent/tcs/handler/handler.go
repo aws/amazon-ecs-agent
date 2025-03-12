@@ -30,7 +30,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/tcs"
 	"github.com/cihub/seelog"
 )
 
@@ -61,7 +63,7 @@ type telemetrySession struct {
 	agentHash                     string
 	containerRuntimeVersion       string
 	disableMetrics                bool
-	credentialsProvider           *credentials.Credentials
+	credentialsCache              *aws.CredentialsCache
 	cfg                           *wsclient.WSClientMinAgentConfig
 	deregisterInstanceEventStream *eventstream.EventStream
 	heartbeatTimeout              time.Duration
@@ -82,7 +84,7 @@ func NewTelemetrySession(
 	agentHash string,
 	containerRuntimeVersion string,
 	disableMetrics bool,
-	credentialsProvider *credentials.Credentials,
+	credentialsCache *aws.CredentialsCache,
 	cfg *wsclient.WSClientMinAgentConfig,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	heartbeatTimeout time.Duration,
@@ -102,7 +104,7 @@ func NewTelemetrySession(
 		agentHash:                     agentHash,
 		containerRuntimeVersion:       containerRuntimeVersion,
 		disableMetrics:                disableMetrics,
-		credentialsProvider:           credentialsProvider,
+		credentialsCache:              credentialsCache,
 		cfg:                           cfg,
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 		metricsChannel:                metricsChannel,
@@ -158,7 +160,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
 	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
-		session.credentialsProvider, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
+		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
 	defer client.Close()
 
 	if session.deregisterInstanceEventStream != nil {
@@ -208,8 +210,8 @@ func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.
-func heartbeatHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*ecstcs.HeartbeatMessage) {
-	return func(*ecstcs.HeartbeatMessage) {
+func heartbeatHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*tcs.HeartbeatInput) {
+	return func(*tcs.HeartbeatInput) {
 		logger.Debug("Received HeartbeatMessage from tcs")
 		timer.Reset(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
@@ -217,8 +219,8 @@ func heartbeatHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.
 
 // ackPublishMetricHandler consumes the ack message from the backend. THe backend sends
 // the ack each time it processes a metric message.
-func ackPublishMetricHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*ecstcs.AckPublishMetric) {
-	return func(*ecstcs.AckPublishMetric) {
+func ackPublishMetricHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*tcs.PublishMetricsOutput) {
+	return func(*tcs.PublishMetricsOutput) {
 		logger.Debug("Received AckPublishMetric from tcs")
 		timer.Reset(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
@@ -226,8 +228,8 @@ func ackPublishMetricHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitte
 
 // ackPublishHealthMetricHandler consumes the ack message from backend. The backend sends
 // the ack each time it processes a health message
-func ackPublishHealthMetricHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*ecstcs.AckPublishHealth) {
-	return func(*ecstcs.AckPublishHealth) {
+func ackPublishHealthMetricHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*tcs.PublishHealthOutput) {
+	return func(*tcs.PublishHealthOutput) {
 		logger.Debug("Received ACKPublishHealth from tcs")
 		timer.Reset(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
@@ -235,8 +237,8 @@ func ackPublishHealthMetricHandler(timer *time.Timer, heartbeatTimeout, heartbea
 
 // ackPublishInstanceStatusHandler consumes the ack message from backend. The backend sends
 // the ack each time it processes a health message
-func ackPublishInstanceStatusHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*ecstcs.AckPublishInstanceStatus) {
-	return func(*ecstcs.AckPublishInstanceStatus) {
+func ackPublishInstanceStatusHandler(timer *time.Timer, heartbeatTimeout, heartbeatJitter time.Duration) func(*tcs.PublishInstanceStatusOutput) {
+	return func(*tcs.PublishInstanceStatusOutput) {
 		logger.Debug("Received AckPublishInstanceStatus from tcs")
 		timer.Reset(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
