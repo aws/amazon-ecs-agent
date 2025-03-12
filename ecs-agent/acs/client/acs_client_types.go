@@ -50,7 +50,7 @@ func init() {
 		ecsacs.ErrorInput{},
 		ecsacs.AttachTaskNetworkInterfacesInput{},
 		ecsacs.AttachInstanceNetworkInterfacesInput{},
-		ecsacs.ConfirmAttachmentMessage{},
+		ecsacs.ConfirmAttachmentInput{},
 		ecsacs.TaskManifestMessage{},
 		ecsacs.TaskStopVerificationOutput{},
 		ecsacs.TaskStopVerificationInput{},
