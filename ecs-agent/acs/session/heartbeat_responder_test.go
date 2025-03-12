@@ -32,12 +32,12 @@ const (
 )
 
 func TestAckHeartbeatMessage(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &ecsacs.HeartbeatInput{
 		MessageId: aws.String(heartbeatMessageId),
 		Healthy:   aws.Bool(true),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &ecsacs.HeartbeatOutput{
 		MessageId: aws.String(heartbeatMessageId),
 	}
 
@@ -45,13 +45,13 @@ func TestAckHeartbeatMessage(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageNotHealthy(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &ecsacs.HeartbeatInput{
 		MessageId: aws.String(heartbeatMessageId),
 		// ECS Agent currently ignores this field so we expect no behavior change
 		Healthy: aws.Bool(false),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &ecsacs.HeartbeatOutput{
 		MessageId: aws.String(heartbeatMessageId),
 	}
 
@@ -59,11 +59,11 @@ func TestAckHeartbeatMessageNotHealthy(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageWithoutMessageId(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &ecsacs.HeartbeatInput{
 		Healthy: aws.Bool(true),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &ecsacs.HeartbeatOutput{
 		MessageId: nil,
 	}
 
@@ -71,26 +71,26 @@ func TestAckHeartbeatMessageWithoutMessageId(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageEmpty(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{}
+	heartbeatReceived := &ecsacs.HeartbeatInput{}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &ecsacs.HeartbeatOutput{
 		MessageId: nil,
 	}
 
 	validateHeartbeatAck(t, heartbeatReceived, heartbeatAckExpected)
 }
 
-func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessage, heartbeatAckExpected *ecsacs.HeartbeatAckRequest) {
+func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatInput, heartbeatAckExpected *ecsacs.HeartbeatOutput) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ackSent := make(chan *ecsacs.HeartbeatAckRequest)
+	ackSent := make(chan *ecsacs.HeartbeatOutput)
 
 	emptyHealthchecksList := []doctor.Healthcheck{}
 	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "testCluster", "this:is:an:instance:arn")
 
 	testResponseSender := func(response interface{}) error {
-		resp := response.(*ecsacs.HeartbeatAckRequest)
+		resp := response.(*ecsacs.HeartbeatOutput)
 		ackSent <- resp
 		return nil
 	}

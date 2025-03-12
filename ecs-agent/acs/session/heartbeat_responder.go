@@ -24,7 +24,7 @@ import (
 )
 
 // heartbeatResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.HeartbeatMessage type.
+// to ecsacs.HeartbeatInput type.
 type heartbeatResponder struct {
 	doctor  *doctor.Doctor
 	respond wsclient.RespondFunc
@@ -50,13 +50,13 @@ func (r *heartbeatResponder) HandlerFunc() wsclient.RequestHandler {
 // processHeartbeatMessage processes an ACS heartbeat message.
 // This function is meant to be called from the ACS dispatcher and as such
 // should not block in any way to prevent starvation of the message handler.
-func (r *heartbeatResponder) processHeartbeatMessage(message *ecsacs.HeartbeatMessage) {
+func (r *heartbeatResponder) processHeartbeatMessage(message *ecsacs.HeartbeatInput) {
 	// Agent will run container instance healthchecks. They are triggered by ACS heartbeat.
 	// Results of healthchecks will be sent on to TACS.
 	go r.doctor.RunHealthchecks()
 
 	// Agent will send simple ack
-	ack := &ecsacs.HeartbeatAckRequest{
+	ack := &ecsacs.HeartbeatOutput{
 		MessageId: message.MessageId,
 	}
 	go func() {
