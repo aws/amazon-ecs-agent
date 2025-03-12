@@ -25,6 +25,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -95,7 +96,7 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskN
 
 // handleTaskENIFromMessage handles the attachment of a given task ENI from an
 // AttachTaskNetworkInterfacesMessage.
-func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni ecsacs.ElasticNetworkInterface,
+func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni types.ElasticNetworkInterface,
 	messageID, taskARN, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{

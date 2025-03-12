@@ -466,16 +466,16 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+		ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),
-				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				Ipv4Addresses: []types.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String("ipv4"),
 					},
 				},
-				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				Ipv6Addresses: []types.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},

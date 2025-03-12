@@ -42,6 +42,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -220,7 +221,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	}
 
 	// Create a map for easier lookup of ENIs by their names.
-	ifNameMap := make(map[string]*ecsacs.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
+	ifNameMap := make(map[string]*types.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
 	for _, iface := range taskPayload.ElasticNetworkInterfaces {
 		ifNameMap[networkinterface.GetInterfaceName(iface)] = iface
 	}
@@ -241,7 +242,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	sort.Slice(taskPayload.Containers, func(i, j int) bool {
 		iName := aws.ToString(taskPayload.Containers[i].NetworkInterfaceNames[0])
 		jName := aws.ToString(taskPayload.Containers[j].NetworkInterfaceNames[0])
-		return aws.ToInt64(ifNameMap[iName].Index) < aws.ToInt64(ifNameMap[jName].Index)
+		return aws.ToInt32(ifNameMap[iName].Index) < aws.ToInt32(ifNameMap[jName].Index)
 	})
 
 	var netNSs []*tasknetworkconfig.NetworkNamespace
@@ -249,7 +250,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	// Loop through each container definition and their network interfaces.
 	for _, container := range taskPayload.Containers {
 		// ifaces holds all interfaces associated with a particular container.
-		var ifaces []*ecsacs.ElasticNetworkInterface
+		var ifaces []*types.ElasticNetworkInterface
 		for _, ifNameP := range container.NetworkInterfaceNames {
 			ifName := aws.ToString(ifNameP)
 			if iface := ifNameMap[ifName]; iface != nil {
@@ -284,23 +285,23 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 func (c *common) buildNetNS(
 	taskID string,
 	index int,
-	networkInterfaces []*ecsacs.ElasticNetworkInterface,
+	networkInterfaces []*types.ElasticNetworkInterface,
 	proxyConfig *ecsacs.ProxyConfiguration,
 	macToName map[string]string,
 	ifaceToGuestNetNS map[string]string,
 ) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
-	lowestIdx := int64(indexHighValue)
+	lowestIdx := int32(indexHighValue)
 	for _, ni := range networkInterfaces {
 		guestNetNS := ifaceToGuestNetNS[aws.ToString(ni.Name)]
 		iface, err := networkinterface.New(ni, guestNetNS, networkInterfaces, macToName)
 		if err != nil {
 			return nil, err
 		}
-		if aws.ToInt64(ni.Index) < lowestIdx {
+		if aws.ToInt32(ni.Index) < lowestIdx {
 			primaryIF = iface
-			lowestIdx = aws.ToInt64(ni.Index)
+			lowestIdx = aws.ToInt32(ni.Index)
 		}
 		ifaces = append(ifaces, iface)
 	}

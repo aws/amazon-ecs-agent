@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,16 +43,16 @@ var (
 	testIPv4CIDR                    = "127.255.0.0/16"
 	testIPv6                        = "abcd:dcba:1234:4321::"
 	testIPv6CIDR                    = "2002::1234:abcd:ffff:c0a8:101/64"
-	testIpv4ElasticNetworkInterface = &ecsacs.ElasticNetworkInterface{
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+	testIpv4ElasticNetworkInterface = &types.ElasticNetworkInterface{
+		Ipv4Addresses: []types.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String(testIPv4),
 			},
 		},
 	}
-	testIpv6ElasticNetworkInterface = &ecsacs.ElasticNetworkInterface{
-		Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+	testIpv6ElasticNetworkInterface = &types.ElasticNetworkInterface{
+		Ipv6Addresses: []types.IPv6AddressAssignment{
 			{
 				Address: aws.String(testIPv6),
 			},
@@ -159,7 +160,7 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
 			testAcsTask := &ecsacs.Task{
-				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
+				ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
@@ -239,7 +240,7 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
 			testAcsTask := &ecsacs.Task{
-				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
+				ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
@@ -298,7 +299,7 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 
 func TestHandleTaskAttachmentsWithoutAttachment(t *testing.T) {
 	testAcsTask := &ecsacs.Task{
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv4ElasticNetworkInterface},
+		ElasticNetworkInterfaces: []*types.ElasticNetworkInterface{testIpv4ElasticNetworkInterface},
 		Containers: []*ecsacs.Container{
 			getTestcontainerFromACS("C1", BridgeNetworkMode),
 		},
