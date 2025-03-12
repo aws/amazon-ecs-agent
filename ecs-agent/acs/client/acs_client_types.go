@@ -17,6 +17,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 var acsRecognizedTypes []interface{}
@@ -40,13 +41,13 @@ func init() {
 		ecsacs.StageUpdateMessage{},
 		ecsacs.IAMRoleCredentialsMessage{},
 		ecsacs.IAMRoleCredentialsAckRequest{},
-		ecsacs.ServerException{},
-		ecsacs.BadRequestException{},
-		ecsacs.InvalidClusterException{},
-		ecsacs.InvalidInstanceException{},
-		ecsacs.AccessDeniedException{},
-		ecsacs.InactiveInstanceException{},
-		ecsacs.ErrorMessage{},
+		types.ServerException{},
+		types.BadRequestException{},
+		types.InvalidClusterException{},
+		types.InvalidInstanceException{},
+		types.AccessDeniedException{},
+		types.InactiveInstanceException{},
+		ecsacs.ErrorInput{},
 		ecsacs.AttachTaskNetworkInterfacesMessage{},
 		ecsacs.AttachInstanceNetworkInterfacesMessage{},
 		ecsacs.ConfirmAttachmentMessage{},
