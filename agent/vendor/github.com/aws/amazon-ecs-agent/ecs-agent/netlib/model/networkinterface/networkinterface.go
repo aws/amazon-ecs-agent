@@ -407,7 +407,7 @@ func InterfaceFromACS(acsENI *types.ElasticNetworkInterface) (*NetworkInterface,
 		IPV6Addresses:                ipv6Addrs,
 		SubnetGatewayIPV4Address:     aws.ToString(acsENI.SubnetGatewayIpv4Address),
 		PrivateDNSName:               aws.ToString(acsENI.PrivateDnsName),
-		InterfaceAssociationProtocol: acsENI.InterfaceAssociationProtocol,
+		InterfaceAssociationProtocol: string(acsENI.InterfaceAssociationProtocol),
 	}
 
 	// Read NetworkInterface association properties.
@@ -519,7 +519,7 @@ func New(
 		}
 	}
 
-	networkInterface.Index = aws.ToInt64(acsENI.Index)
+	networkInterface.Index = int64(aws.ToInt32(acsENI.Index))
 	networkInterface.Name = GetInterfaceName(acsENI)
 	networkInterface.KnownStatus = status.NetworkNone
 	networkInterface.DesiredStatus = status.NetworkReadyPull
