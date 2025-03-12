@@ -32,9 +32,9 @@ import (
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/acs/types"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -110,7 +110,7 @@ const (
 	rwTimeout       = time.Second
 )
 
-var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
