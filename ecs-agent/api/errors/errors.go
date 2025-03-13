@@ -14,33 +14,62 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 )
 
-// InstanceTypeChangedErrorMessage is the error message to print for the
-// instance type changed error when registering a container instance
-const InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
+const (
+	// InstanceTypeChangedErrorMessage is the error message to print for the
+	// instance type changed error when registering a container instance
+	InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
 
-const ClusterNotFoundErrorMessage = "Cluster not found."
+	ClusterNotFoundErrorMessage = "Cluster not found."
+
+	ErrCodeInvalidParameterException = "InvalidParameterException"
+
+	ErrCodeAccessDeniedException = "AccessDeniedException"
+
+	ErrCodeServerException = "ServerException"
+
+	ErrCodeResourceNotFoundException = "ResourceNotFoundException"
+
+	ErrCodeRequestCanceled = "RequestCanceled"
+
+	ErrCodeClientException = "ClientException"
+
+	ErrCodeLimitExceededException = "LimitExceededException"
+)
 
 // IsInstanceTypeChangedError returns true if the error when
 // registering the container instance is because of instance type being
 // changed
 func IsInstanceTypeChangedError(err error) bool {
+	// v1 error handling will be removed after all clients have been migrated to aws-sdk-go-v2
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
 	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return strings.Contains(apiErr.ErrorMessage(), InstanceTypeChangedErrorMessage)
+	}
+
 	return false
 }
 
 func IsClusterNotFoundError(err error) bool {
+	// v1 error handling will be removed after all clients have been migrated to aws-sdk-go-v2
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), ClusterNotFoundErrorMessage)
 	}
-	return false
+
+	var notFoundErr *types.ClusterNotFoundException
+	return errors.As(err, &notFoundErr)
 }
 
 // BadVolumeError represents an error caused by bad volume

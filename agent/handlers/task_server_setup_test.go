@@ -39,7 +39,7 @@ import (
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
@@ -58,9 +58,13 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	smithy "github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -761,21 +765,21 @@ func standardTaskTags() map[string]string {
 }
 
 // Returns standard container instance tags in ECS format
-func standardECSContainerInstanceTags() []*ecs.Tag {
-	ecsTags := []*ecs.Tag{}
+func standardECSContainerInstanceTags() []ecstypes.Tag {
+	ecsTags := []ecstypes.Tag{}
 	tags := standardContainerInstanceTags()
 	for k, v := range tags {
-		ecsTags = append(ecsTags, &ecs.Tag{Key: aws.String(k), Value: aws.String(v)})
+		ecsTags = append(ecsTags, ecstypes.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 	return ecsTags
 }
 
 // Returns standard task instance tags in ECS format
-func standardECSTaskTags() []*ecs.Tag {
-	ecsTags := []*ecs.Tag{}
+func standardECSTaskTags() []ecstypes.Tag {
+	ecsTags := []ecstypes.Tag{}
 	tags := standardTaskTags()
 	for k, v := range tags {
-		ecsTags = append(ecsTags, &ecs.Tag{Key: aws.String(k), Value: aws.String(v)})
+		ecsTags = append(ecsTags, ecstypes.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 	return ecsTags
 }
@@ -3182,14 +3186,14 @@ func TestGetTaskProtection(t *testing.T) {
 	task := standardTask()
 	ecsInput := ecs.GetTaskProtectionInput{
 		Cluster: aws.String(clusterName),
-		Tasks:   aws.StringSlice([]string{taskARN}),
+		Tasks:   []string{taskARN},
 	}
-	protectedTask := ecs.ProtectedTask{
-		ProtectionEnabled: aws.Bool(true),
+	protectedTask := ecstypes.ProtectedTask{
+		ProtectionEnabled: true,
 		TaskArn:           aws.String(taskARN),
 	}
 	ecsOutput := ecs.GetTaskProtectionOutput{
-		ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
+		ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 	}
 	ecsRequestID := "reqid"
 	ecsErrMessage := "ecs error message"
@@ -3218,8 +3222,8 @@ func TestGetTaskProtection(t *testing.T) {
 			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
 			client := mock_ecs.NewMockECSTaskProtectionSDK(ctrl)
-			client.EXPECT().GetTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
-			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
+			client.EXPECT().GetTaskProtection(gomock.Any(), &ecsInput).Return(output, err)
+			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client, nil)
 		}
 	}
 
@@ -3235,7 +3239,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedStatusCode: http.StatusNotFound,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
-					Code:    ecs.ErrCodeResourceNotFoundException,
+					Code:    apierrors.ErrCodeResourceNotFoundException,
 					Message: "Failed to find a task for the request",
 				},
 			},
@@ -3253,7 +3257,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
-					Code:    ecs.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "Failed to find a task for the request",
 				},
 			},
@@ -3272,7 +3276,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
+					Code:    apierrors.ErrCodeAccessDeniedException,
 					Message: "Invalid Request: no task IAM role credentials available for task",
 				},
 			},
@@ -3285,18 +3289,24 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeServerException, ecsErrMessage, nil),
-					http.StatusInternalServerError,
-					ecsRequestID,
-				),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusInternalServerError,
+							},
+						},
+						Err: &ecstypes.ServerException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
 			),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3309,18 +3319,24 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.NewRequestFailure(
-					awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-					http.StatusBadRequest,
-					ecsRequestID,
-				),
+				&awshttp.ResponseError{
+					ResponseError: &smithyhttp.ResponseError{
+						Response: &smithyhttp.Response{
+							Response: &http.Response{
+								StatusCode: http.StatusBadRequest,
+							},
+						},
+						Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+					},
+					RequestID: ecsRequestID,
+				},
 			),
 			expectedStatusCode: http.StatusBadRequest,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				RequestID: &ecsRequestID,
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeAccessDeniedException,
+					Code:    apierrors.ErrCodeAccessDeniedException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3333,12 +3349,12 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				nil,
-				awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+				&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeInvalidParameterException,
+					Code:    apierrors.ErrCodeInvalidParameterException,
 					Message: ecsErrMessage,
 				},
 			},
@@ -3350,7 +3366,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setStateExpectations:              happyStateExpectations,
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-				nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+				nil, &smithy.CanceledError{}),
 			expectedStatusCode: http.StatusGatewayTimeout,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
@@ -3372,7 +3388,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "some error",
 				},
 			},
@@ -3385,14 +3401,14 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				&ecs.GetTaskProtectionOutput{
-					Failures: []*ecs.Failure{{
+					Failures: []ecstypes.Failure{{
 						Arn:    aws.String(taskARN),
 						Reason: aws.String("ecs failure"),
 					}},
 				}, nil),
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
-				Failure: &ecs.Failure{
+				Failure: ecstypes.Failure{
 					Arn:    aws.String(taskARN),
 					Reason: aws.String("ecs failure"),
 				},
@@ -3406,7 +3422,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 				&ecs.GetTaskProtectionOutput{
-					Failures: []*ecs.Failure{
+					Failures: []ecstypes.Failure{
 						{
 							Arn:    aws.String(taskARN),
 							Reason: aws.String("ecs failure 1"),
@@ -3421,7 +3437,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    ecs.ErrCodeServerException,
+					Code:    apierrors.ErrCodeServerException,
 					Message: "Unexpected error occurred",
 				},
 			},
@@ -3435,7 +3451,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
 			expectedStatusCode:                         http.StatusOK,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
-				Protection: &protectedTask,
+				Protection: protectedTask,
 			},
 		})
 	})
@@ -3444,26 +3460,26 @@ func TestGetTaskProtection(t *testing.T) {
 func TestUpdateTaskProtection(t *testing.T) {
 	// Set up some fake data
 	task := standardTask()
-	protectionEnabled := aws.Bool(true)
-	expirationMinutes := aws.Int64(5)
+	protectionEnabled := true
+	expirationMinutes := int32(5)
 	ecsInput := ecs.UpdateTaskProtectionInput{
 		Cluster:           aws.String(clusterName),
 		ProtectionEnabled: protectionEnabled,
-		ExpiresInMinutes:  expirationMinutes,
-		Tasks:             aws.StringSlice([]string{taskARN}),
+		ExpiresInMinutes:  aws.Int32(expirationMinutes),
+		Tasks:             []string{taskARN},
 	}
-	protectedTask := ecs.ProtectedTask{
-		ProtectionEnabled: aws.Bool(true),
+	protectedTask := ecstypes.ProtectedTask{
+		ProtectionEnabled: protectionEnabled,
 		TaskArn:           aws.String(taskARN),
 	}
 	ecsOutput := ecs.UpdateTaskProtectionOutput{
-		ProtectedTasks: []*ecs.ProtectedTask{&protectedTask},
+		ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 	}
 	ecsRequestID := "reqid"
 	ecsErrMessage := "ecs error message"
 	happyReqBody := &tp.TaskProtectionRequest{
-		ProtectionEnabled: protectionEnabled,
-		ExpiresInMinutes:  expirationMinutes,
+		ProtectionEnabled: aws.Bool(protectionEnabled),
+		ExpiresInMinutes:  aws.Int64(int64(expirationMinutes)),
 	}
 
 	// Helper functions to set expectation on mocks
@@ -3490,8 +3506,8 @@ func TestUpdateTaskProtection(t *testing.T) {
 			factory *tp.MockTaskProtectionClientFactoryInterface,
 		) {
 			client := mock_ecs.NewMockECSTaskProtectionSDK(ctrl)
-			client.EXPECT().UpdateTaskProtectionWithContext(gomock.Any(), &ecsInput).Return(output, err)
-			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client)
+			client.EXPECT().UpdateTaskProtection(gomock.Any(), &ecsInput).Return(output, err)
+			factory.EXPECT().NewTaskProtectionClient(taskRoleCredentials()).Return(client, nil)
 		}
 	}
 
@@ -3515,7 +3531,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusNotFound,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecs.ErrCodeResourceNotFoundException,
+				Code:    apierrors.ErrCodeResourceNotFoundException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -3531,7 +3547,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecs.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "Failed to find a task for the request",
 			},
 		},
@@ -3548,7 +3564,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeAccessDeniedException,
+				Code:    apierrors.ErrCodeAccessDeniedException,
 				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
 		},
@@ -3559,18 +3575,24 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.NewRequestFailure(
-				awserr.New(ecs.ErrCodeServerException, ecsErrMessage, nil),
-				http.StatusInternalServerError,
-				ecsRequestID,
-			),
+			&awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusInternalServerError,
+						},
+					},
+					Err: &ecstypes.ServerException{Message: &ecsErrMessage},
+				},
+				RequestID: ecsRequestID,
+			},
 		),
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			RequestID: &ecsRequestID,
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3581,18 +3603,24 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.NewRequestFailure(
-				awserr.New(ecs.ErrCodeAccessDeniedException, ecsErrMessage, nil),
-				http.StatusBadRequest,
-				ecsRequestID,
-			),
+			&awshttp.ResponseError{
+				ResponseError: &smithyhttp.ResponseError{
+					Response: &smithyhttp.Response{
+						Response: &http.Response{
+							StatusCode: http.StatusBadRequest,
+						},
+					},
+					Err: &ecstypes.AccessDeniedException{Message: &ecsErrMessage},
+				},
+				RequestID: ecsRequestID,
+			},
 		),
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			RequestID: &ecsRequestID,
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeAccessDeniedException,
+				Code:    apierrors.ErrCodeAccessDeniedException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3603,12 +3631,12 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			nil,
-			awserr.New(ecs.ErrCodeInvalidParameterException, ecsErrMessage, nil)),
+			&ecstypes.InvalidParameterException{Message: &ecsErrMessage}),
 		expectedStatusCode: http.StatusInternalServerError,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: ecsErrMessage,
 			},
 		},
@@ -3618,7 +3646,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setStateExpectations:              happyStateExpectations,
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
-			nil, awserr.New(request.CanceledErrorCode, "request cancelled", nil)),
+			nil, &smithy.CanceledError{}),
 		expectedStatusCode: http.StatusGatewayTimeout,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
@@ -3638,7 +3666,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "some error",
 			},
 		},
@@ -3649,14 +3677,14 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			&ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{{
+				Failures: []ecstypes.Failure{{
 					Arn:    aws.String(taskARN),
 					Reason: aws.String("ecs failure"),
 				}},
 			}, nil),
 		expectedStatusCode: http.StatusOK,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
-			Failure: &ecs.Failure{
+			Failure: ecstypes.Failure{
 				Arn:    aws.String(taskARN),
 				Reason: aws.String("ecs failure"),
 			},
@@ -3668,7 +3696,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setCredentialsManagerExpectations: happyCredentialsManagerExpectations,
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(
 			&ecs.UpdateTaskProtectionOutput{
-				Failures: []*ecs.Failure{
+				Failures: []ecstypes.Failure{
 					{
 						Arn:    aws.String(taskARN),
 						Reason: aws.String("ecs failure 1"),
@@ -3683,7 +3711,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeServerException,
+				Code:    apierrors.ErrCodeServerException,
 				Message: "Unexpected error occurred",
 			},
 		},
@@ -3695,7 +3723,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    ecs.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "Invalid request: does not contain 'ProtectionEnabled' field",
 			},
 		},
@@ -3708,7 +3736,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecs.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},
@@ -3722,7 +3750,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecs.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},
@@ -3732,7 +3760,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedStatusCode: http.StatusBadRequest,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
-				Code:    ecs.ErrCodeInvalidParameterException,
+				Code:    apierrors.ErrCodeInvalidParameterException,
 				Message: "UpdateTaskProtection: failed to decode request",
 			},
 		},
@@ -3744,7 +3772,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
 		expectedStatusCode:                         http.StatusOK,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
-			Protection: &protectedTask,
+			Protection: protectedTask,
 		},
 	}))
 }

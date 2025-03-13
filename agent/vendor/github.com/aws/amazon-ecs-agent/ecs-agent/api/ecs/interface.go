@@ -14,10 +14,10 @@
 package ecs
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"context"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // ECSClient is an interface over the ECSSDK interface which abstracts away some
@@ -32,7 +32,7 @@ type ECSClient interface {
 	// instance ARN allows a container instance to update its registered
 	// resources.
 	RegisterContainerInstance(existingContainerInstanceArn string,
-		attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice,
+		attributes []types.Attribute, tags []types.Tag, registrationToken string, platformDevices []types.PlatformDevice,
 		outpostARN string) (string, string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
@@ -56,41 +56,36 @@ type ECSClient interface {
 	// and returns the endpoint at which this Agent should send system logs.
 	DiscoverSystemLogsEndpoint(containerInstanceArn string, availabilityZone string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
-	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
+	GetResourceTags(resourceArn string) ([]types.Tag, error)
 	// UpdateContainerInstancesState updates the given container Instance ID with
 	// the given status. Only valid statuses are ACTIVE and DRAINING.
-	UpdateContainerInstancesState(instanceARN, status string) error
+	UpdateContainerInstancesState(instanceARN string, status types.ContainerInstanceStatus) error
 	// GetHostResources retrieves a map that map the resource name to the corresponding resource
-	GetHostResources() (map[string]*ecs.Resource, error)
+	GetHostResources() (map[string]types.Resource, error)
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
 // client that the Agent uses.  This interface is meant to allow injecting a
 // mock for testing.
 type ECSStandardSDK interface {
-	CreateCluster(*ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error)
-	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
-	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
-	DiscoverPollEndpointWithContext(ctx aws.Context, input *ecs.DiscoverPollEndpointInput, opts ...request.Option) (*ecs.DiscoverPollEndpointOutput, error)
-	ListTagsForResource(*ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error)
-	UpdateContainerInstancesState(input *ecs.UpdateContainerInstancesStateInput) (*ecs.UpdateContainerInstancesStateOutput, error)
+	CreateCluster(context.Context, *ecs.CreateClusterInput, ...func(*ecs.Options)) (*ecs.CreateClusterOutput, error)
+	RegisterContainerInstance(context.Context, *ecs.RegisterContainerInstanceInput, ...func(*ecs.Options)) (*ecs.RegisterContainerInstanceOutput, error)
+	DiscoverPollEndpoint(context.Context, *ecs.DiscoverPollEndpointInput, ...func(*ecs.Options)) (*ecs.DiscoverPollEndpointOutput, error)
+	ListTagsForResource(context.Context, *ecs.ListTagsForResourceInput, ...func(*ecs.Options)) (*ecs.ListTagsForResourceOutput, error)
+	UpdateContainerInstancesState(context.Context, *ecs.UpdateContainerInstancesStateInput, ...func(*ecs.Options)) (*ecs.UpdateContainerInstancesStateOutput, error)
 }
 
 // ECSSubmitStateSDK is an interface with customized ecs client that
 // implements the SubmitTaskStateChange and SubmitContainerStateChange
 type ECSSubmitStateSDK interface {
-	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
-	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
-	SubmitAttachmentStateChanges(*ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error)
+	SubmitContainerStateChange(context.Context, *ecs.SubmitContainerStateChangeInput, ...func(*ecs.Options)) (*ecs.SubmitContainerStateChangeOutput, error)
+	SubmitTaskStateChange(context.Context, *ecs.SubmitTaskStateChangeInput, ...func(*ecs.Options)) (*ecs.SubmitTaskStateChangeOutput, error)
+	SubmitAttachmentStateChanges(context.Context, *ecs.SubmitAttachmentStateChangesInput, ...func(*ecs.Options)) (*ecs.SubmitAttachmentStateChangesOutput, error)
 }
 
 // ECSTaskProtectionSDK is an interface with customized ecs client that
 // implements the UpdateTaskProtection and GetTaskProtection
 type ECSTaskProtectionSDK interface {
-	UpdateTaskProtection(input *ecs.UpdateTaskProtectionInput) (*ecs.UpdateTaskProtectionOutput, error)
-	UpdateTaskProtectionWithContext(ctx aws.Context, input *ecs.UpdateTaskProtectionInput,
-		opts ...request.Option) (*ecs.UpdateTaskProtectionOutput, error)
-	GetTaskProtection(input *ecs.GetTaskProtectionInput) (*ecs.GetTaskProtectionOutput, error)
-	GetTaskProtectionWithContext(ctx aws.Context, input *ecs.GetTaskProtectionInput,
-		opts ...request.Option) (*ecs.GetTaskProtectionOutput, error)
+	UpdateTaskProtection(context.Context, *ecs.UpdateTaskProtectionInput, ...func(*ecs.Options)) (*ecs.UpdateTaskProtectionOutput, error)
+	GetTaskProtection(context.Context, *ecs.GetTaskProtectionInput, ...func(*ecs.Options)) (*ecs.GetTaskProtectionOutput, error)
 }

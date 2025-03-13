@@ -304,7 +304,7 @@ func (s Dimension) GoString() string {
 type EphemeralStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
-	BytesUtilized *ULongStatsSet `locationName:"bytesUtilized" type:"structure"`
+	BytesUtilized *ULongStatsSet `type:"structure"`
 }
 
 // String returns the string representation.

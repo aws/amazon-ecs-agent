@@ -14,8 +14,6 @@
 package v2
 
 import (
-	"github.com/aws/aws-sdk-go/aws/awserr"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
@@ -25,7 +23,11 @@ import (
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
-	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -270,7 +272,7 @@ func newErrorResponse(err error, field, resourceARN string) *tmdsv2.ErrorRespons
 		ErrorMessage: err.Error(),
 		ResourceARN:  resourceARN,
 	}
-
+	// v1 error handling will be removed once v2 migraiton is complete.
 	if awsErr, ok := err.(awserr.Error); ok {
 		errResp.ErrorCode = awsErr.Code()
 		errResp.ErrorMessage = awsErr.Message()
@@ -278,6 +280,18 @@ func newErrorResponse(err error, field, resourceARN string) *tmdsv2.ErrorRespons
 			errResp.StatusCode = reqErr.StatusCode()
 			errResp.RequestId = reqErr.RequestID()
 		}
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		errResp.ErrorCode = apiErr.ErrorCode()
+		errResp.ErrorMessage = apiErr.ErrorMessage()
+	}
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		errResp.StatusCode = re.HTTPStatusCode()
+		errResp.RequestId = re.RequestID
 	}
 
 	return errResp
