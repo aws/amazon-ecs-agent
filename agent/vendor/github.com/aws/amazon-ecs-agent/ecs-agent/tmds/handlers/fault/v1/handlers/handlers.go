@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
@@ -38,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 )
@@ -151,7 +151,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 
 		var responseBody types.NetworkFaultInjectionResponse
 		var statusCode int
-		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to start fault"
 		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
@@ -197,7 +197,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 // 4. Inserts the newly created chain into the built-in INPUT/OUTPUT table
 func (h *FaultHandler) startNetworkBlackholePort(
 	ctx context.Context, protocol, port string, sourcesToFilter []string,
-	chain, networkMode, netNs, insertTable, taskArn string,
+	chain string, networkMode ecstypes.NetworkMode, netNs, insertTable, taskArn string,
 ) (string, error) {
 	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
 	if err != nil {
@@ -212,7 +212,7 @@ func (h *FaultHandler) startNetworkBlackholePort(
 
 		// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
 		nsenterPrefix := ""
-		if networkMode == ecs.NetworkModeAwsvpc {
+		if networkMode == ecstypes.NetworkModeAwsvpc {
 			nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
 		}
 
@@ -336,7 +336,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 
 		var responseBody types.NetworkFaultInjectionResponse
 		var statusCode int
-		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to stop fault"
 		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
@@ -380,7 +380,9 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 // 2. Clears all rules within the specific chain via `iptables -F <chain>`
 // 3. Removes the specific chain from the built-in INPUT/OUTPUT table via `iptables -D <INPUT/OUTPUT> -j <chain>`
 // 4. Deletes the specific chain via `iptables -X <chain>`
-func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs, insertTable, taskArn string) (string, error) {
+func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, port, chain string,
+	networkMode ecstypes.NetworkMode, netNs, insertTable, taskArn string,
+) (string, error) {
 	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
 	if err != nil {
 		return cmdOutput, err
@@ -394,7 +396,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 
 		// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
 		nsenterPrefix := ""
-		if networkMode == ecs.NetworkModeAwsvpc {
+		if networkMode == ecstypes.NetworkModeAwsvpc {
 			nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
 		}
 
@@ -500,7 +502,7 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 
 		var responseBody types.NetworkFaultInjectionResponse
 		var statusCode int
-		networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to check fault"
 		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
@@ -540,10 +542,13 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 
 // checkNetworkBlackHolePort will check if there's a running black hole port within the task network namespace based on the chain name and the passed in required request fields.
 // It does so by calling `iptables -C <chain> -p <protocol> --dport <port> -j DROP`.
-func (h *FaultHandler) checkNetworkBlackHolePort(ctx context.Context, protocol, port, chain, networkMode, netNs, taskArn string) (bool, string, error) {
+func (h *FaultHandler) checkNetworkBlackHolePort(
+	ctx context.Context, protocol, port, chain string,
+	networkMode ecstypes.NetworkMode, netNs, taskArn string,
+) (bool, string, error) {
 	// For host mode, the task network namespace is the host network namespace (i.e. we don't need to run nsenter)
 	nsenterPrefix := ""
-	if networkMode == ecs.NetworkModeAwsvpc {
+	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, netNs)
 	}
 
@@ -1120,8 +1125,8 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 	}
 
 	// Check if task is using a valid network mode
-	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
-	if networkMode != ecs.NetworkModeHost && networkMode != ecs.NetworkModeAwsvpc {
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
+	if networkMode != ecstypes.NetworkModeHost && networkMode != ecstypes.NetworkModeAwsvpc {
 		errResponse := fmt.Sprintf(invalidNetworkModeError, networkMode)
 		responseBody := types.NewNetworkFaultInjectionErrorResponse(errResponse)
 		logger.Error("Error: Invalid network mode for fault injection", logger.Fields{
@@ -1232,10 +1237,10 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 // startNetworkLatencyFault invokes the linux TC utility tool to start the network-latency fault.
 func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkLatencyRequest) error {
 	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
-	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
-	if networkMode == ecs.NetworkModeAwsvpc {
+	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
 	delayInMs := aws.Uint64Value(request.DelayMilliseconds)
@@ -1293,10 +1298,10 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 // startNetworkPacketLossFault invokes the linux TC utility tool to start the network-packet-loss fault.
 func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkPacketLossRequest) error {
 	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
-	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
-	if networkMode == ecs.NetworkModeAwsvpc {
+	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
 	lossPercent := aws.Uint64Value(request.LossPercent)
@@ -1353,10 +1358,10 @@ func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMeta
 // including both network-latency fault and network-packet-loss fault.
 func (h *FaultHandler) stopTCFault(ctx context.Context, taskMetadata *state.TaskResponse) error {
 	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
-	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
-	if networkMode == ecs.NetworkModeAwsvpc {
+	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
 
@@ -1403,10 +1408,10 @@ func (h *FaultHandler) stopTCFault(ctx context.Context, taskMetadata *state.Task
 // checkTCFault check if there's existing network-latency fault or network-packet-loss fault.
 func (h *FaultHandler) checkTCFault(ctx context.Context, taskMetadata *state.TaskResponse) (bool, bool, error) {
 	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
-	networkMode := taskMetadata.TaskNetworkConfig.NetworkMode
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
-	if networkMode == ecs.NetworkModeAwsvpc {
+	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
 

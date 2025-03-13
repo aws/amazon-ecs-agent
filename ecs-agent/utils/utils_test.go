@@ -80,31 +80,48 @@ func TestUint16SliceToStringSlice(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := Uint16SliceToStringSlice(tc.param)
-			assert.Equal(t, tc.expected, len(output), tc.name)
+			stringSlice := Uint16SliceToStringSlice(tc.param)
+			assert.Equal(t, tc.expected, len(stringSlice), tc.name)
+
 			for idx, num := range tc.param {
-				reconverted, err := strconv.Atoi(*output[idx])
+				reconverted, err := strconv.Atoi(stringSlice[idx])
 				assert.NoError(t, err)
 				assert.Equal(t, num, uint16(reconverted))
 			}
-
 		})
 	}
 }
 
-func TestInt64PtrToIntPtr(t *testing.T) {
+func TestInt32PtrToIntPtr(t *testing.T) {
 	testCases := []struct {
-		input          *int64
+		input          *int32
 		expectedOutput *int
 		name           string
 	}{
 		{nil, nil, "nil"},
-		{aws.Int64(2147483647), aws.Int(2147483647), "smallest max value type int can hold"},
+		{aws.Int32(2147483647), aws.Int(2147483647), "smallest max value type int can hold"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expectedOutput, Int64PtrToIntPtr(tc.input))
+			assert.Equal(t, tc.expectedOutput, Int32PtrToIntPtr(tc.input))
+		})
+	}
+}
+
+func TestInt64PtrToInt32Ptr(t *testing.T) {
+	testCases := []struct {
+		input          *int64
+		expectedOutput *int32
+		name           string
+	}{
+		{nil, nil, "nil"},
+		{aws.Int64(2147483647), aws.Int32(2147483647), "smallest max value type int can hold"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, Int64PtrToInt32Ptr(tc.input))
 		})
 	}
 }

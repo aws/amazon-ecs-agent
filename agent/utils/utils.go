@@ -28,8 +28,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -141,8 +142,18 @@ func Remove(slice []string, s int) []string {
 // interface of awserr and it has the same error code as
 // the passed in error code.
 func IsAWSErrorCodeEqual(err error, code string) bool {
+	// v1 error handling will be removed once v2 migraiton is complete.
 	awsErr, ok := err.(awserr.Error)
-	return ok && awsErr.Code() == code
+	if ok {
+		return awsErr.Code() == code
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == code
+	}
+
+	return false
 }
 
 // GetResponseErrorStatusCode returns the status code from a
@@ -162,14 +173,14 @@ func GetResponseErrorStatusCode(err error) int {
 }
 
 // MapToTags converts a map to a slice of tags.
-func MapToTags(tagsMap map[string]string) []*ecs.Tag {
-	tags := make([]*ecs.Tag, 0)
+func MapToTags(tagsMap map[string]string) []types.Tag {
+	tags := make([]types.Tag, 0)
 	if tagsMap == nil {
 		return tags
 	}
 
 	for key, value := range tagsMap {
-		tags = append(tags, &ecs.Tag{
+		tags = append(tags, types.Tag{
 			Key:   aws.String(key),
 			Value: aws.String(value),
 		})
