@@ -34,6 +34,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks/credentialsprovider"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	mock_async "github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks"
@@ -318,12 +319,17 @@ func TestSetInstanceIdentity(t *testing.T) {
 		name                   string
 		noInstanceIdentity     bool
 		mockEC2MetadataSetup   func(*mock_ec2.MockEC2MetadataClient)
+		mockCredentialsSetup   func(*mock_credentials.MockCredentialsProvider)
 		validateExpectedFields func(*testing.T, *ecsservice.RegisterContainerInstanceInput)
 	}{
 		{
 			name:               "NoInstanceIdentity_True",
 			noInstanceIdentity: true,
 			mockEC2MetadataSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
+				// No calls expected when noInstanceIdentity is true
+			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// No credential operations expected
 			},
 			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
 				assert.NotNil(t, req.InstanceIdentityDocument)
@@ -342,6 +348,9 @@ func TestSetInstanceIdentity(t *testing.T) {
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 						Return(expectedIIDSig, nil),
 				)
+			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// No credential operations expected for successful attempt
 			},
 			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
 				assert.NotNil(t, req.InstanceIdentityDocument)
@@ -362,6 +371,11 @@ func TestSetInstanceIdentity(t *testing.T) {
 					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
 						Return(expectedIIDSig, nil),
 				)
+			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// Expect credential retrieval after first failure
+				mockCredProvider.EXPECT().Retrieve(gomock.Any()).Return(
+					aws.Credentials{}, nil).Times(1)
 			},
 			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
 				assert.NotNil(t, req.InstanceIdentityDocument)
@@ -384,6 +398,11 @@ func TestSetInstanceIdentity(t *testing.T) {
 					Return("", fmt.Errorf("persistent error")).
 					AnyTimes()
 			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// Expect multiple credential retrievals due to repeated failures
+				mockCredProvider.EXPECT().Retrieve(gomock.Any()).Return(
+					aws.Credentials{}, nil).MinTimes(1)
+			},
 			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
 				assert.NotNil(t, req.InstanceIdentityDocument)
 				assert.Equal(t, "", *req.InstanceIdentityDocument)
@@ -395,21 +414,20 @@ func TestSetInstanceIdentity(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup mocks
 			mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
 			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-			mockCredentialsCache := aws.NewCredentialsCache(aws.AnonymousCredentials{})
+			mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
 
-			// Configure mock behavior
 			mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
 			tc.mockEC2MetadataSetup(mockEC2Metadata)
+			tc.mockCredentialsSetup(mockCredentialsProvider)
 
 			registerRequest := ecsservice.RegisterContainerInstanceInput{
 				Cluster: aws.String("test-cluster"),
 			}
 
 			client := &ecsClient{
-				credentialsCache: mockCredentialsCache,
+				credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 				configAccessor:   mockConfigAccessor,
 				ec2metadata:      mockEC2Metadata,
 			}
@@ -419,7 +437,6 @@ func TestSetInstanceIdentity(t *testing.T) {
 		})
 	}
 }
-
 func buildAttributeList(capabilities []string, attributes map[string]string) []types.Attribute {
 	var rv []types.Attribute
 	for _, capability := range capabilities {
