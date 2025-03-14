@@ -40,7 +40,7 @@ func TestVolumesFromUnmarshal(t *testing.T) {
 
 func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 	var task Task
-	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","type": "host","host":{}}]}`), &task)
+	err := json.Unmarshal([]byte(`{"volumes":[{"Name":"test","Type": "host","Host":{}}]}`), &task)
 	if err != nil {
 		t.Fatal("Could not unmarshal: ", err)
 	}
@@ -57,7 +57,7 @@ func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 
 func TestHostHostVolumeUnmarshal(t *testing.T) {
 	var task Task
-	err := json.Unmarshal([]byte(`{"volumes":[{"name":"test","type": "host","host":{"sourcePath":"/path"}}]}`), &task)
+	err := json.Unmarshal([]byte(`{"volumes":[{"Name":"test","Type": "host","Host":{"sourcePath":"/path"}}]}`), &task)
 	if err != nil {
 		t.Fatal("Could not unmarshal: ", err)
 	}

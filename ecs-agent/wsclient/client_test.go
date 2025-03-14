@@ -28,18 +28,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-
 	"github.com/gorilla/websocket"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -112,7 +111,7 @@ func TestConcurrentWritesDontPanic(t *testing.T) {
 }
 
 func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Duration) *ClientServerImpl {
-	testCreds := credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+	testCreds := credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 
 	return &ClientServerImpl{
 		URL: url,
@@ -122,11 +121,11 @@ func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Durat
 			DockerEndpoint:     "unix://" + dockerEndpoint,
 			IsDocker:           true,
 		},
-		CredentialProvider: testCreds,
-		TypeDecoder:        BuildTypeDecoder(msgType),
-		RWTimeout:          rwTimeout * time.Second,
-		RequestHandlers:    make(map[string]RequestHandler),
-		MetricsFactory:     metrics.NewNopEntryFactory(),
+		CredentialsCache: aws.NewCredentialsCache(testCreds),
+		TypeDecoder:      BuildTypeDecoder(msgType),
+		RWTimeout:        rwTimeout * time.Second,
+		RequestHandlers:  make(map[string]RequestHandler),
+		MetricsFactory:   metrics.NewNopEntryFactory(),
 	}
 }
 
@@ -327,7 +326,7 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
-		[]byte(`{"type":"PayloadMessage","message":{"tasks":[{"arn":"arn"}]}}`),
+		[]byte(`{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn"}]}}`),
 		nil).MinTimes(1)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
@@ -339,15 +338,15 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadMessage{}}
+	types := []interface{}{acs.PayloadInput{}}
 	messageError := make(chan error)
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.conn = conn
 
 	defer cs.Close()
 
-	messageChannel := make(chan *ecsacs.PayloadMessage)
-	reqHandler := func(payload *ecsacs.PayloadMessage) {
+	messageChannel := make(chan *acs.PayloadInput)
+	reqHandler := func(payload *acs.PayloadInput) {
 		messageChannel <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -357,8 +356,8 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 		cs.Close()
 	}()
 
-	expectedMessage := &ecsacs.PayloadMessage{
-		Tasks: []*ecsacs.Task{{
+	expectedMessage := &acs.PayloadInput{
+		Tasks: []acstypes.Task{{
 			Arn: aws.String("arn"),
 		}},
 	}
@@ -383,7 +382,7 @@ func TestMakeUnrecognizedRequest(t *testing.T) {
 	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadMessage{}}
+	types := []interface{}{acs.PayloadInput{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.conn = conn
 
@@ -407,7 +406,7 @@ func TestWriteCloseMessage(t *testing.T) {
 	mockServer, _, _, errChan, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadMessage{}}
+	types := []interface{}{acs.PayloadInput{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 

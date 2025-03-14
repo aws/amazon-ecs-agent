@@ -18,11 +18,12 @@ import (
 
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // containerd implements platform API methods for non-firecrakcer infrastructure.
@@ -32,7 +33,7 @@ type containerd struct {
 
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *acstypes.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 
 	return c.common.buildTaskNetworkConfiguration(taskID, taskPayload, false, nil)
 }

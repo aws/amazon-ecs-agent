@@ -21,10 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -33,19 +29,25 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
+var testAttachTaskENIMessage = &acs.AttachTaskNetworkInterfacesInput{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -57,7 +59,7 @@ var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
 	WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 }
 
-// TestTaskENIAckHappyPath tests the happy path for a typical AttachTaskNetworkInterfacesMessage and confirms expected
+// TestTaskENIAckHappyPath tests the happy path for a typical AttachTaskNetworkInterfacesInput and confirms expected
 // ACK request is made
 func TestTaskENIAckHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -77,15 +79,15 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 		NewENIHandler(taskEngineState, dataClient),
 		testResponseSender)
 
-	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*acs.AttachTaskNetworkInterfacesInput))
 	go handleAttachMessage(testAttachTaskENIMessage)
 
 	attachTaskEniAckSent := <-ackSent
-	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
 }
 
 // TestTaskENIAckSingleMessageWithDuplicateENIAttachment tests the path for an
-// AttachTaskNetworkInterfacesMessage with a duplicate expired ENI and confirms:
+// AttachTaskNetworkInterfacesInput with a duplicate expired ENI and confirms:
 //  1. attempt is made to start the ack timer that records the expiration of ENI attachment (i.e., ENI is not added to
 //     task engine state)
 //  2. expected ACK request is made
@@ -131,10 +133,10 @@ func TestTaskENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		NewENIHandler(mockState, dataClient),
 		testResponseSender)
 
-	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	handleAttachMessage := testAttachTaskENIResponder.HandlerFunc().(func(*acs.AttachTaskNetworkInterfacesInput))
 	go handleAttachMessage(testAttachTaskENIMessage)
 
 	attachTaskEniAckSent := <-ackSent
 	wg.Wait()
-	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
 }
