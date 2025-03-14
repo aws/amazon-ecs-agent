@@ -695,7 +695,7 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					},
 				},
 			},
-			Attachments: []*acstypes.Attachment{
+			Attachments: []acstypes.Attachment{
 				{
 					AttachmentArn: aws.String("attachmentArn"),
 					AttachmentProperties: []acstypes.AttachmentProperty{

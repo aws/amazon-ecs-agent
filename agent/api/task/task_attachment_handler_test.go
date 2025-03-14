@@ -164,7 +164,7 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []*acstypes.Attachment{
+				Attachments: []acstypes.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
 						AttachmentProperties: []acstypes.AttachmentProperty{
@@ -244,7 +244,7 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []*acstypes.Attachment{
+				Attachments: []acstypes.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
 						AttachmentProperties: []acstypes.AttachmentProperty{

@@ -4676,7 +4676,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
 					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
 				},
-				Attachments: []*acstypes.Attachment{
+				Attachments: []acstypes.Attachment{
 					{
 						AttachmentArn: strptr("attachmentArn"),
 						AttachmentProperties: []acstypes.AttachmentProperty{
@@ -4749,7 +4749,7 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				},
 			},
 		},
-		Attachments: []*acstypes.Attachment{
+		Attachments: []acstypes.Attachment{
 			{
 				AttachmentArn: strptr("attachmentArn"),
 				AttachmentProperties: []acstypes.AttachmentProperty{
