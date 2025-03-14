@@ -90,4 +90,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
+replace (
+	github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
+	github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs
+)

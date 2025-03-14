@@ -18,9 +18,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 )
 
 const (

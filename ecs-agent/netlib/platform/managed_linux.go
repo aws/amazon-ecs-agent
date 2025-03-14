@@ -5,7 +5,6 @@ import (
 	goErr "errors"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -15,9 +14,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/pkg/errors"
 )
 

@@ -17,7 +17,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -29,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )

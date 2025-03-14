@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 )
 
 const (

@@ -17,15 +17,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/pkg/errors"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/pkg/errors"
 )
 
 const (

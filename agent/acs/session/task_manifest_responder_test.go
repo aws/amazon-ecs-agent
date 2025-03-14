@@ -22,13 +22,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

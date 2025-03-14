@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsARN "github.com/aws/aws-sdk-go-v2/aws/arn"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 

@@ -14,8 +14,9 @@
 package acsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 )
 
 var acsRecognizedTypes []interface{}

@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -41,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"

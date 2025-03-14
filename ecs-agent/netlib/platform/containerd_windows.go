@@ -19,7 +19,6 @@ package platform
 import (
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -34,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"

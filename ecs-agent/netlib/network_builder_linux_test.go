@@ -23,7 +23,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
@@ -36,6 +35,7 @@ import (
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"

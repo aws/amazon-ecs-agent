@@ -47,7 +47,6 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -58,6 +57,7 @@ import (
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	dockercontainer "github.com/docker/docker/api/types/container"
