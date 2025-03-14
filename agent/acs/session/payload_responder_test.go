@@ -41,6 +41,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -246,11 +247,11 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 // with an IAM Role. It also tests if the credentials ACK is generated.
 func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
+	credentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.IAMRoleCredentialsAckRequest
+		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
+		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -258,7 +259,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest")
+				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -287,7 +288,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 	testPayloadMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(taskArn),
-			RoleCredentials: &ecsacs.IAMRoleCredentials{
+			RoleCredentials: &acstypes.IAMRoleCredentials{
 				AccessKeyId:     aws.String(credentialsAccessKey),
 				Expiration:      aws.String(credentialsExpiration),
 				RoleArn:         aws.String(credentialsRoleArn),
@@ -305,7 +306,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 
 	// Verify the correctness of the task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAck := &ecsacs.IAMRoleCredentialsAckRequest{
+	expectedCredentialsAck := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(credentialsExpiration),
 		CredentialsId: aws.String(credentialsId),
@@ -397,12 +398,12 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 	secondTaskCredentialsId := "credsid2"
 
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	firstCredentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
-	secondCredentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
+	firstCredentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+	secondCredentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.IAMRoleCredentialsAckRequest
+		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
+		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			switch aws.ToString(credentialsResp.CredentialsId) {
 			case firstTaskCredentialsId:
@@ -418,7 +419,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest")
+				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -444,7 +445,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 	testPayloadMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(firstTaskArn),
-			RoleCredentials: &ecsacs.IAMRoleCredentials{
+			RoleCredentials: &acstypes.IAMRoleCredentials{
 				AccessKeyId:     aws.String(firstTaskCredentialsAccessKey),
 				Expiration:      aws.String(firstTaskCredentialsExpiration),
 				RoleArn:         aws.String(firstTaskCredentialsRoleArn),
@@ -455,7 +456,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 		},
 		{
 			Arn: aws.String(secondTaskArn),
-			RoleCredentials: &ecsacs.IAMRoleCredentials{
+			RoleCredentials: &acstypes.IAMRoleCredentials{
 				AccessKeyId:     aws.String(secondTaskCredentialsAccessKey),
 				Expiration:      aws.String(secondTaskCredentialsExpiration),
 				RoleArn:         aws.String(secondTaskCredentialsRoleArn),
@@ -477,7 +478,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Verify the correctness of the first task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAckForFirstTask := &ecsacs.IAMRoleCredentialsAckRequest{
+	expectedCredentialsAckForFirstTask := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(firstTaskCredentialsExpiration),
 		CredentialsId: aws.String(firstTaskCredentialsId),
@@ -497,7 +498,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 
 	// Verify the correctness of the second task added to the engine and the
 	// credentials ACK generated for it.
-	expectedCredentialsAckForSecondTask := &ecsacs.IAMRoleCredentialsAckRequest{
+	expectedCredentialsAckForSecondTask := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(secondTaskCredentialsExpiration),
 		CredentialsId: aws.String(secondTaskCredentialsId),
@@ -521,11 +522,11 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 // task and container are appropriately set.
 func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
+	credentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.IAMRoleCredentialsAckRequest
+		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
+		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -533,7 +534,7 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest")
+				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -561,7 +562,7 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 	testPayloadMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(taskArn),
-			ExecutionRoleCredentials: &ecsacs.IAMRoleCredentials{
+			ExecutionRoleCredentials: &acstypes.IAMRoleCredentials{
 				AccessKeyId:     aws.String(credentialsAccessKey),
 				Expiration:      aws.String(credentialsExpiration),
 				RoleArn:         aws.String(credentialsRoleArn),
@@ -1096,7 +1097,7 @@ func newTestDataClient(t *testing.T) data.Client {
 // validateTaskAndCredentials compares a task and a credentials ACK object
 // against expected values. It returns an error if either of the
 // comparisons fail.
-func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *ecsacs.IAMRoleCredentialsAckRequest,
+func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *ecsacs.RefreshTaskIAMRoleCredentialsOutput,
 	addedTask *apitask.Task,
 	expectedTaskArn string,
 	expectedTaskCredentials credentials.IAMRoleCredentials) error {

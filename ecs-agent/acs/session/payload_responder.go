@@ -31,7 +31,7 @@ const (
 
 type PayloadMessageHandler interface {
 	ProcessMessage(message *ecsacs.PayloadMessage,
-		ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) error
+		ackFunc func(*ecsacs.AckRequest, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput)) error
 }
 
 // payloadResponder implements the wsclient.RequestResponder interface for responding
@@ -80,7 +80,7 @@ func (r *payloadResponder) handlePayloadMessage(message *ecsacs.PayloadMessage) 
 
 // ackFunc sends ACKs of the payload message and of the credentials associated with the tasks contained in the payload
 // message.
-func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*ecsacs.IAMRoleCredentialsAckRequest) {
+func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*ecsacs.RefreshTaskIAMRoleCredentialsOutput) {
 	go r.sendAck(payloadAck)
 
 	for _, credsAck := range credsAcks {
@@ -89,18 +89,18 @@ func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*e
 }
 
 // sendAck handles the sending of an individual specific ACK, assuming it is of type
-// ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest.
+// ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest.
 //
 // NOTE: These above two ACK types are different from each other. payloadResponder needs to be able to send both types
 // of ACKs because while processing payload message we may wish to ACK:
 //  1. any credentials associated with task(s) contained in a payload message that were handled
-//     (via ecsacs.IAMRoleCredentialsAckRequest)
+//     (via ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 //  2. the payload message itself
 //     (via ecsacs.AckRequest)
 func (r *payloadResponder) sendAck(ackRequest interface{}) {
-	var credentialsAck *ecsacs.IAMRoleCredentialsAckRequest
+	var credentialsAck *ecsacs.RefreshTaskIAMRoleCredentialsOutput
 	var payloadMessageAck *ecsacs.AckRequest
-	credentialsAck, ok := ackRequest.(*ecsacs.IAMRoleCredentialsAckRequest)
+	credentialsAck, ok := ackRequest.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 	if ok {
 		logger.Debug(fmt.Sprintf("ACKing credentials associated with %s", PayloadMessageName), logger.Fields{
 			field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
@@ -114,7 +114,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 			})
 		} else {
 			logger.Error(fmt.Sprintf("Error sending acknowledgement: %s",
-				"ackRequest does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest"))
+				"ackRequest does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest"))
 			return
 		}
 	}
@@ -137,7 +137,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 		} else {
 			// We don't expect this condition to ever be reached, but log an error just in case it is.
 			logger.Error(fmt.Sprintf("Error sending acknowledgement for %s",
-				"ackRequest that does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest"),
+				"ackRequest that does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest"),
 				logger.Fields{
 					field.Error: err,
 				})

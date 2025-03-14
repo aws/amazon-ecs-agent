@@ -114,7 +114,7 @@ const (
 `
 	sampleRefreshCredentialsMessage = `
 {
-  "type": "IAMRoleCredentialsMessage",
+  "type": "RefreshTaskIAMRoleCredentialsInput",
   "message": {
     "messageId": "123",
     "clusterArn": "default",

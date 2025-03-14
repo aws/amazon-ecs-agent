@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -118,11 +119,11 @@ func TestValidatePayloadMessageSuccess(t *testing.T) {
 // with an IAM Role. It also tests if the expected credentials ACK is generated.
 func TestPayloadAckHappyPath(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
+	credentialsAckSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *ecsacs.IAMRoleCredentialsAckRequest
+		var credentialsResp *ecsacs.RefreshTaskIAMRoleCredentialsOutput
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
+		credentialsResp, ok := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -130,7 +131,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest")
+				t.Fatal("response does not hold type ecsacs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -151,7 +152,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	testMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(taskArn),
-			RoleCredentials: &ecsacs.IAMRoleCredentials{
+			RoleCredentials: &acstypes.IAMRoleCredentials{
 				AccessKeyId:     aws.String(credentialsAccessKey),
 				Expiration:      aws.String(credentialsExpiration),
 				RoleArn:         aws.String(credentialsRoleArn),
@@ -167,14 +168,14 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	mockPayloadMsgHandler.EXPECT().
 		ProcessMessage(gomock.Any(), gomock.Any()).
 		Do(func(message *ecsacs.PayloadMessage,
-			ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) {
+			ackFunc func(*ecsacs.AckRequest, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput)) {
 			assert.NotNil(t, message.Tasks)
 			assert.Equal(t, 1, len(message.Tasks))
 			ackFunc(&ecsacs.AckRequest{
 				MessageId:         message.MessageId,
 				Cluster:           message.ClusterArn,
 				ContainerInstance: message.ContainerInstanceArn,
-			}, []*ecsacs.IAMRoleCredentialsAckRequest{
+			}, []*ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 				{
 					MessageId:     message.MessageId,
 					Expiration:    message.Tasks[0].RoleCredentials.Expiration,
@@ -199,7 +200,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	assert.Equal(t, expectedPayloadAck, actualPayloadAck)
 
 	// Verify the credentials ACK for the payload message is sent and is as expected.
-	expectedCredentialsAck := &ecsacs.IAMRoleCredentialsAckRequest{
+	expectedCredentialsAck := &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(credentialsExpiration),
 		CredentialsId: aws.String(credentialsId),
