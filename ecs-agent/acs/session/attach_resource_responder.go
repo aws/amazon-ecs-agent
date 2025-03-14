@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	AttachResourceMessageName = "ConfirmAttachmentMessage"
+	AttachResourceMessageName = "ConfirmAttachmentInput"
 	// DefaultAttachmentWaitTimeoutInMs is the default timeout, 5 minutes, for handling the attachments from ACS.
 	DefaultAttachmentWaitTimeoutInMs = 300000
 )
@@ -41,7 +41,7 @@ type ResourceHandler interface {
 }
 
 // attachResourceResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.ConfirmAttachmentMessage messages sent by ACS.
+// to ecsacs.ConfirmAttachmentInput messages sent by ACS.
 type attachResourceResponder struct {
 	resourceHandler ResourceHandler
 	metricsFactory  metrics.EntryFactory
@@ -64,7 +64,7 @@ func (r *attachResourceResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentMessage) {
+func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachResourceMessageName))
 	receivedAt := time.Now()
 
@@ -120,9 +120,9 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 	}()
 }
 
-// validateAttachResourceMessage performs validation checks on the ConfirmAttachmentMessage
+// validateAttachResourceMessage performs validation checks on the ConfirmAttachmentInput
 // and returns the attachment properties received from validateAttachmentAndReturnProperties()
-func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentMessage) (
+func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	if message == nil {
 		return nil, errors.New("Message is empty")
@@ -160,9 +160,9 @@ func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentMessage) (
 	return attachmentProperties, nil
 }
 
-// validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentMessage
+// validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentInput
 // and returns the attachment's properties
-func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMessage) (
+func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	attachment := message.Attachment
 

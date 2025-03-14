@@ -28,6 +28,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ const (
 )
 
 var (
-	testAttachmentPropertiesForEBSAttach = []*ecsacs.AttachmentProperty{
+	testAttachmentPropertiesForEBSAttach = []acstypes.AttachmentProperty{
 		{
 			Name:  aws.String(resource.SourceVolumeHostPathKey),
 			Value: aws.String("taskarn-vol-id"),
@@ -65,7 +66,7 @@ var (
 		},
 	}
 
-	testAttachmentProperties = []*ecsacs.AttachmentProperty{
+	testAttachmentProperties = []acstypes.AttachmentProperty{
 		{
 			Name:  aws.String(resource.FargateResourceIdName),
 			Value: aws.String("name1"),
@@ -91,11 +92,11 @@ var (
 			Value: aws.String("device1"),
 		},
 	}
-	testAttachment = &ecsacs.Attachment{
+	testAttachment = &acstypes.Attachment{
 		AttachmentArn:        aws.String(testAttachmentArn),
 		AttachmentProperties: testAttachmentProperties,
 	}
-	testConfirmAttachmentMessage = &ecsacs.ConfirmAttachmentMessage{
+	testConfirmAttachmentMessage = &ecsacs.ConfirmAttachmentInput{
 		Attachment:           testAttachment,
 		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testClusterArn),
@@ -288,7 +289,7 @@ func TestResourceAckHappyPath(t *testing.T) {
 		mockMetricsFactory,
 		testResponseSender)
 
-	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*ecsacs.ConfirmAttachmentMessage))
+	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*ecsacs.ConfirmAttachmentInput))
 	go handleAttachMessage(&confirmAttachmentMessageCopy)
 
 	attachResourceAckSent := <-ackSent
