@@ -25,7 +25,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -36,12 +38,12 @@ const (
 )
 
 // setupTestManifestMessage initializes a dummy TaskManifestMessage for testing
-func setupTestManifestMessage() *ecsacs.TaskManifestMessage {
-	return &ecsacs.TaskManifestMessage{
+func setupTestManifestMessage() *acs.TaskManifestInput {
+	return &acs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String(testconst.MessageID),
-		Tasks:                []*ecsacs.TaskIdentifier{},
+		Tasks:                []acstypes.TaskIdentifier{},
 		Timeline:             aws.Int64(StartingTaskManifestSequenceNumber),
 	}
 }
@@ -58,13 +60,13 @@ func TestManifestAckHappyPath(t *testing.T) {
 		ackRequest, isAckRequest := response.(*ecsacs.AckRequest)
 		if isAckRequest {
 			// Validate ack request fields when happy path is reached.
-			require.Equal(t, aws.StringValue(ackRequest.MessageId), testconst.MessageID)
+			require.Equal(t, aws.ToString(ackRequest.MessageId), testconst.MessageID)
 		} else {
-			stopVerification, isStopVerification := response.(*ecsacs.TaskStopVerificationMessage)
+			stopVerification, isStopVerification := response.(*acs.TaskStopVerificationInput)
 			if isStopVerification {
 				// We expect only one task marked for termination.
 				require.Equal(t, len(stopVerification.StopCandidates), 1)
-				require.Equal(t, aws.StringValue(stopVerification.StopCandidates[0].TaskArn), testconst.TaskARN)
+				require.Equal(t, aws.ToString(stopVerification.StopCandidates[0].TaskArn), testconst.TaskARN)
 			}
 		}
 		return nil
@@ -91,14 +93,14 @@ func TestManifestAckHappyPath(t *testing.T) {
 
 	// When the client queries tasks to be stopped, inject this task to be stopped.
 	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return(
-		[]*ecsacs.TaskIdentifier{
+		[]acstypes.TaskIdentifier{
 			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String(testconst.TaskARN)},
 		},
 		nil,
 	)
 
 	// Handle the task manifest message update.
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestMessage))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*acs.TaskManifestInput))
 	handleManifestMessage(testManifest)
 }
 
@@ -122,11 +124,11 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	testManifest := setupTestManifestMessage()
 
 	// Set up a new manifest with a stale number and distinct message ID.
-	newManifest := &ecsacs.TaskManifestMessage{
+	newManifest := &acs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String("456"),
-		Tasks:                []*ecsacs.TaskIdentifier{},
+		Tasks:                []acstypes.TaskIdentifier{},
 		Timeline:             aws.Int64(StaleTaskManifestSequenceNumber),
 	}
 
@@ -139,9 +141,9 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	// The test manifest should be valid, updating sequence number and message ID only once.
 	mockSNA.EXPECT().SetLatestSequenceNumber(*testManifest.Timeline)
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID)
-	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]*ecsacs.TaskIdentifier{}, nil)
+	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]acstypes.TaskIdentifier{}, nil)
 
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestMessage))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*acs.TaskManifestInput))
 
 	// Handle the task manifest message update, this should correctly set the message ID and sequence number.
 	handleManifestMessage(testManifest)

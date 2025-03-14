@@ -19,7 +19,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -40,31 +43,33 @@ type EBSTaskVolumeConfig struct {
 
 // ParseEBSTaskVolumeAttachment parses the ebs task volume config value
 // from the given attachment.
-func ParseEBSTaskVolumeAttachment(ebsAttachment *ecsacs.Attachment) (*EBSTaskVolumeConfig, error) {
+func ParseEBSTaskVolumeAttachment(ebsAttachment *acstypes.Attachment) (*EBSTaskVolumeConfig, error) {
 	ebsTaskVolumeConfig := &EBSTaskVolumeConfig{}
+
+	if len(ebsAttachment.AttachmentProperties) == 0 {
+		return nil, fmt.Errorf("failed to parse task ebs attachment: no attachment properties found")
+	}
+
 	for _, property := range ebsAttachment.AttachmentProperties {
-		if property == nil {
-			return nil, fmt.Errorf("failed to parse task ebs attachment, encountered nil property")
+		if aws.ToString(property.Value) == "" {
+			return nil, fmt.Errorf("failed to parse task ebs attachment, encountered empty value for property: %s", aws.ToString(property.Name))
 		}
-		if aws.StringValue(property.Value) == "" {
-			return nil, fmt.Errorf("failed to parse task ebs attachment, encountered empty value for property: %s", aws.StringValue(property.Name))
-		}
-		switch aws.StringValue(property.Name) {
+		switch aws.ToString(property.Name) {
 		case apiresource.VolumeIdKey:
-			ebsTaskVolumeConfig.VolumeId = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.VolumeId = aws.ToString(property.Value)
 		case apiresource.VolumeSizeGibKey:
-			ebsTaskVolumeConfig.VolumeSizeGib = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.VolumeSizeGib = aws.ToString(property.Value)
 		case apiresource.DeviceNameKey:
-			ebsTaskVolumeConfig.DeviceName = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.DeviceName = aws.ToString(property.Value)
 		case apiresource.SourceVolumeHostPathKey:
-			ebsTaskVolumeConfig.SourceVolumeHostPath = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.SourceVolumeHostPath = aws.ToString(property.Value)
 		case apiresource.VolumeNameKey:
-			ebsTaskVolumeConfig.VolumeName = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.VolumeName = aws.ToString(property.Value)
 		case apiresource.FileSystemKey:
-			ebsTaskVolumeConfig.FileSystem = aws.StringValue(property.Value)
+			ebsTaskVolumeConfig.FileSystem = aws.ToString(property.Value)
 		default:
 			logger.Warn("Received an unrecognized attachment property", logger.Fields{
-				"attachmentProperty": property.String(),
+				"attachmentProperty": utils.Prettify(property, ecsacs.SensitiveFields...),
 			})
 		}
 	}
