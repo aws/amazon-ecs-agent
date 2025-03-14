@@ -39,6 +39,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/cihub/seelog"
 )
 
@@ -181,7 +182,7 @@ var createFile = func(name string) (io.ReadWriteCloser, error) {
 	return os.Create(name)
 }
 
-func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
+func (u *updater) download(info *acstypes.UpdateInfo) (err error) {
 	if info == nil || info.Location == nil {
 		return errors.New("No location given")
 	}

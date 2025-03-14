@@ -16,10 +16,10 @@ package updater
 import (
 	"errors"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
-func validateUpdateInfo(updateInfo *ecsacs.UpdateInfo) error {
+func validateUpdateInfo(updateInfo *acstypes.UpdateInfo) error {
 	if updateInfo == nil {
 		return errors.New("no update info given")
 	}

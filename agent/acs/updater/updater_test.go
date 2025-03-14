@@ -37,6 +37,7 @@ import (
 	mock_client "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,7 +108,7 @@ func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -132,7 +133,7 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
@@ -173,7 +174,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				ClusterArn:           ptr("cluster").(*string),
 				ContainerInstanceArn: ptr("containerInstance").(*string),
 				MessageId:            ptr("mid").(*string),
-				UpdateInfo: &ecsacs.UpdateInfo{
+				UpdateInfo: &acstypes.UpdateInfo{
 					Location:  ptr("https://" + host + "/amazon-ecs-agent/update.tar").(*string),
 					Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 				},
@@ -185,7 +186,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				ClusterArn:           ptr("cluster").(*string),
 				ContainerInstanceArn: ptr("containerInstance").(*string),
 				MessageId:            ptr("mid2").(*string),
-				UpdateInfo: &ecsacs.UpdateInfo{
+				UpdateInfo: &acstypes.UpdateInfo{
 					Location:  ptr("https://" + host + "/amazon-ecs-agent/update.tar").(*string),
 					Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 				},
@@ -285,7 +286,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -297,7 +298,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -309,7 +310,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid3").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
@@ -351,7 +352,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -365,7 +366,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -377,7 +378,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid3").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
@@ -421,7 +422,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
 		},
@@ -435,7 +436,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMIDNew").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/new.tar").(*string),
 			Signature: ptr("9c6ea7bd7d49f95b6d516517e453b965897109bf8a1d6ff3a6e57287049eb2de").(*string),
 		},
@@ -447,7 +448,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("c54518806ff4d14b680c35784113e1e7478491fe").(*string),
 		},
@@ -474,7 +475,7 @@ func TestValidationError(t *testing.T) {
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),
-		UpdateInfo: &ecsacs.UpdateInfo{
+		UpdateInfo: &acstypes.UpdateInfo{
 			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
 			Signature: ptr("Invalid signature").(*string),
 		},
