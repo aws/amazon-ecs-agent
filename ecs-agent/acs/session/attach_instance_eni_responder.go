@@ -30,11 +30,11 @@ import (
 )
 
 const (
-	AttachInstanceENIMessageName = "AttachInstanceNetworkInterfacesMessage"
+	AttachInstanceENIMessageName = "AttachInstanceNetworkInterfacesInput"
 )
 
 // attachInstanceENIResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.AttachInstanceNetworkInterfacesMessage messages sent by ACS.
+// to ecsacs.AttachInstanceNetworkInterfacesInput messages sent by ACS.
 type attachInstanceENIResponder struct {
 	eniHandler ENIHandler
 	respond    wsclient.RespondFunc
@@ -56,7 +56,7 @@ func (r *attachInstanceENIResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachInstanceENIResponder) handleAttachMessage(message *ecsacs.AttachInstanceNetworkInterfacesMessage) {
+func (r *attachInstanceENIResponder) handleAttachMessage(message *ecsacs.AttachInstanceNetworkInterfacesInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachInstanceENIMessageName))
 	receivedAt := time.Now()
 
@@ -94,8 +94,8 @@ func (r *attachInstanceENIResponder) handleAttachMessage(message *ecsacs.AttachI
 }
 
 // handleInstanceENIFromMessage handles the attachment of a given instance ENI from an
-// AttachInstanceNetworkInterfacesMessage.
-func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *acstypes.ElasticNetworkInterface,
+// AttachInstanceNetworkInterfacesInput.
+func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni acstypes.ElasticNetworkInterface,
 	messageID, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
@@ -119,8 +119,8 @@ func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *acstypes.
 }
 
 // validateAttachInstanceNetworkInterfacesMessage performs validation checks on the
-// AttachInstanceNetworkInterfacesMessage.
-func validateAttachInstanceNetworkInterfacesMessage(message *ecsacs.AttachInstanceNetworkInterfacesMessage) error {
+// AttachInstanceNetworkInterfacesInput.
+func validateAttachInstanceNetworkInterfacesMessage(message *ecsacs.AttachInstanceNetworkInterfacesInput) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}
@@ -151,7 +151,7 @@ func validateAttachInstanceNetworkInterfacesMessage(message *ecsacs.AttachInstan
 	}
 
 	for _, eni := range enis {
-		err := ni.ValidateENI(eni)
+		err := ni.ValidateENI(&eni)
 		if err != nil {
 			return err
 		}
