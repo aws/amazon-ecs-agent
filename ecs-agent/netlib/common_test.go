@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
@@ -61,7 +62,7 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 	enis, netIfs := getTestInterfacesData_Containerd()
 	taskPayload := &ecsacs.Task{
 		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{enis[0]},
+		ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{enis[0]},
 		Containers:               []*ecsacs.Container{{}},
 	}
 
@@ -181,51 +182,51 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	return taskPayload, taskNetConfig
 }
 
-func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []networkinterface.NetworkInterface) {
+func getTestInterfacesData_Containerd() ([]*acstypes.ElasticNetworkInterface, []networkinterface.NetworkInterface) {
 	// interfacePayloads have multiple interfaces as they are sent by ACS
 	// that can be used as input data for tests.
-	interfacePayloads := []*ecsacs.ElasticNetworkInterface{
+	interfacePayloads := []*acstypes.ElasticNetworkInterface{
 		{
 			Ec2Id:             aws.String(eniID),
 			MacAddress:        aws.String(eniMAC),
 			PrivateDnsName:    aws.String(dnsName),
-			DomainNameServers: []*string{aws.String(nameServer)},
+			DomainNameServers: []string{nameServer},
 			Index:             aws.Int64(0),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(ipv4Addr),
 				},
 			},
-			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+			Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 				{
 					Address: aws.String(ipv6Addr),
 				},
 			},
 			SubnetGatewayIpv4Address:     aws.String(subnetGatewayCIDR),
-			InterfaceAssociationProtocol: aws.String(networkinterface.DefaultInterfaceAssociationProtocol),
-			DomainName:                   []*string{aws.String(searchDomainName)},
+			InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
+			DomainName:                   []string{searchDomainName},
 		},
 		{
 			Ec2Id:             aws.String(eniID2),
 			MacAddress:        aws.String(eniMAC2),
 			PrivateDnsName:    aws.String(dnsName),
-			DomainNameServers: []*string{aws.String(nameServer2)},
+			DomainNameServers: []string{nameServer2},
 			Index:             aws.Int64(1),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(ipv4Addr2),
 				},
 			},
-			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+			Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 				{
 					Address: aws.String(ipv6Addr2),
 				},
 			},
 			SubnetGatewayIpv4Address:     aws.String(subnetGatewayCIDR2),
-			InterfaceAssociationProtocol: aws.String(networkinterface.DefaultInterfaceAssociationProtocol),
-			DomainName:                   []*string{aws.String(searchDomainName)},
+			InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
+			DomainName:                   []string{searchDomainName},
 		},
 	}
 
@@ -329,32 +330,32 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 	return taskPayload, taskNetConfig
 }
 
-func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*networkinterface.NetworkInterface) {
+func getTestInterfacesData_Firecracker() ([]*acstypes.ElasticNetworkInterface, []*networkinterface.NetworkInterface) {
 	// interfacePayloads have multiple interfaces as they are sent by ACS
 	// that can be used as input data for tests.
-	interfacePayloads := []*ecsacs.ElasticNetworkInterface{
+	interfacePayloads := []*acstypes.ElasticNetworkInterface{
 		{
 			Name:              aws.String(primaryIfaceName),
 			Ec2Id:             aws.String(eniID),
 			MacAddress:        aws.String(eniMAC),
 			PrivateDnsName:    aws.String(dnsName),
-			DomainNameServers: []*string{aws.String(nameServer)},
+			DomainNameServers: []string{nameServer},
 			Index:             aws.Int64(0),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(ipv4Addr),
 				},
 			},
-			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+			Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 				{
 					Address: aws.String(ipv6Addr),
 				},
 			},
 			SubnetGatewayIpv4Address:     aws.String(subnetGatewayCIDR),
-			InterfaceAssociationProtocol: aws.String(networkinterface.VLANInterfaceAssociationProtocol),
-			DomainName:                   []*string{aws.String(searchDomainName)},
-			InterfaceVlanProperties: &ecsacs.NetworkInterfaceVlanProperties{
+			InterfaceAssociationProtocol: networkinterface.VLANInterfaceAssociationProtocol,
+			DomainName:                   []string{searchDomainName},
+			InterfaceVlanProperties: &acstypes.NetworkInterfaceVlanProperties{
 				TrunkInterfaceMacAddress: aws.String(trunkMAC),
 				VlanId:                   aws.String(vlanID),
 			},
@@ -362,20 +363,20 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 		{
 			Name:                         aws.String(secondaryIfaceName),
 			PrivateDnsName:               aws.String(dnsName),
-			DomainNameServers:            []*string{aws.String(nameServer2)},
+			DomainNameServers:            []string{nameServer2},
 			Index:                        aws.Int64(1),
 			SubnetGatewayIpv4Address:     aws.String(subnetGatewayCIDR2),
-			InterfaceAssociationProtocol: aws.String(networkinterface.V2NInterfaceAssociationProtocol),
-			DomainName:                   []*string{aws.String(searchDomainName)},
-			InterfaceTunnelProperties: &ecsacs.NetworkInterfaceTunnelProperties{
+			InterfaceAssociationProtocol: networkinterface.V2NInterfaceAssociationProtocol,
+			DomainName:                   []string{searchDomainName},
+			InterfaceTunnelProperties: &acstypes.NetworkInterfaceTunnelProperties{
 				TunnelId:           aws.String(tunnelID),
 				InterfaceIpAddress: aws.String(destinationIP),
 			},
 		},
 		{
 			Name:                         aws.String(vethIfaceName),
-			InterfaceAssociationProtocol: aws.String(networkinterface.VETHInterfaceAssociationProtocol),
-			InterfaceVethProperties: &ecsacs.NetworkInterfaceVethProperties{
+			InterfaceAssociationProtocol: networkinterface.VETHInterfaceAssociationProtocol,
+			InterfaceVethProperties: &acstypes.NetworkInterfaceVethProperties{
 				PeerInterface: aws.String("primary"),
 			},
 			Index: aws.Int64(2),

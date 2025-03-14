@@ -620,17 +620,17 @@ func TestHandlePayloadMessageAddedENIToTask(t *testing.T) {
 	testPayloadMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{
 				{
 					AttachmentArn: aws.String(attachmentARN),
 					Ec2Id:         aws.String(ec2ID),
-					Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 						{
 							Primary:        aws.Bool(true),
 							PrivateAddress: aws.String(testconst.IPv4Address),
 						},
 					},
-					Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 						{
 							Address: aws.String("ipv6"),
 						},
@@ -864,25 +864,25 @@ func TestHandlePayloadMessageAddedENITrunkToTask(t *testing.T) {
 	testPayloadMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(testconst.TaskARN),
-			ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{
 				{
-					InterfaceAssociationProtocol: aws.String(ni.VLANInterfaceAssociationProtocol),
+					InterfaceAssociationProtocol: ni.VLANInterfaceAssociationProtocol,
 					AttachmentArn:                aws.String(attachmentARN),
 					Ec2Id:                        aws.String(ec2ID),
-					Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 						{
 							Primary:        aws.Bool(true),
 							PrivateAddress: aws.String(testconst.IPv4Address),
 						},
 					},
-					Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 						{
 							Address: aws.String("ipv6"),
 						},
 					},
 					SubnetGatewayIpv4Address: aws.String(testconst.GatewayIPv4),
 					MacAddress:               aws.String(testconst.RandomMAC),
-					InterfaceVlanProperties: &ecsacs.NetworkInterfaceVlanProperties{
+					InterfaceVlanProperties: &acstypes.NetworkInterfaceVlanProperties{
 						VlanId:                   aws.String(vlanID),
 						TrunkInterfaceMacAddress: aws.String(testconst.RandomMAC),
 					},

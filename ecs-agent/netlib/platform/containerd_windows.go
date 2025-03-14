@@ -34,6 +34,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
@@ -105,7 +106,7 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 	}
 
 	// Find primary network interface in order to build the task netns name.
-	var primaryIF *ecsacs.ElasticNetworkInterface
+	var primaryIF *acstypes.ElasticNetworkInterface
 	for _, eni := range taskPayload.ElasticNetworkInterfaces {
 		if aws.ToInt64(eni.Index) == 0 {
 			primaryIF = eni

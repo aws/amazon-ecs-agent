@@ -31,6 +31,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,13 +40,13 @@ var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessag
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),

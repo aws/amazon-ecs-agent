@@ -58,6 +58,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -4589,15 +4590,15 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 	seqNum := int64(42)
 	tt := []struct {
 		testName                    string
-		testElasticNetworkInterface *ecsacs.ElasticNetworkInterface
+		testElasticNetworkInterface *acstypes.ElasticNetworkInterface
 		testNetworkMode             string
 		testSCConfigValue           string
 		testExpectedSCConfig        *serviceconnect.Config
 	}{
 		{
 			testName: "Bridge default case",
-			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
-				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			testElasticNetworkInterface: &acstypes.ElasticNetworkInterface{
+				Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String(ipv4),
@@ -4630,8 +4631,8 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName: "AWSVPC override case with IPv6 enabled",
-			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
-				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+			testElasticNetworkInterface: &acstypes.ElasticNetworkInterface{
+				Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},
@@ -4670,7 +4671,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 				DesiredStatus:            strptr("RUNNING"),
 				Family:                   strptr("myFamily"),
 				Version:                  strptr("1"),
-				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{tc.testElasticNetworkInterface},
+				ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{tc.testElasticNetworkInterface},
 				Containers: []*ecsacs.Container{
 					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
 					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
@@ -4703,8 +4704,8 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 
 func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
 	seqNum := int64(42)
-	testElasticNetworkInterface := &ecsacs.ElasticNetworkInterface{
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+	testElasticNetworkInterface := &acstypes.ElasticNetworkInterface{
+		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String(ipv4),
@@ -4716,7 +4717,7 @@ func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
 		DesiredStatus:            strptr("RUNNING"),
 		Family:                   strptr("myFamily"),
 		Version:                  strptr("1"),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testElasticNetworkInterface},
+		ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{testElasticNetworkInterface},
 		Containers: []*ecsacs.Container{
 			containerFromACS("C1", 33333, 0, BridgeNetworkMode),
 		},
