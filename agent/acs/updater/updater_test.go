@@ -96,7 +96,7 @@ func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 	})
 	defer ctrl.Finish()
 
-	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+	mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 		Cluster:           ptr("cluster").(*string),
 		ContainerInstance: ptr("containerInstance").(*string),
 		MessageId:         ptr("mid").(*string),
@@ -121,7 +121,7 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 	})
 	defer ctrl.Finish()
 
-	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+	mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 		Cluster:           ptr("cluster").(*string),
 		ContainerInstance: ptr("containerInstance").(*string),
 		MessageId:         ptr("mid").(*string),
@@ -196,12 +196,12 @@ func TestFullUpdateFlow(t *testing.T) {
 	}
 }
 
-type nackRequestMatcher struct {
-	*ecsacs.NackRequest
+type updateFailureMatcher struct {
+	*ecsacs.UpdateFailureInput
 }
 
-func (m *nackRequestMatcher) Matches(nack interface{}) bool {
-	other := nack.(*ecsacs.NackRequest)
+func (m *updateFailureMatcher) Matches(updateFailure interface{}) bool {
+	other := updateFailure.(*ecsacs.UpdateFailureInput)
 	if m.Cluster != nil && *m.Cluster != *other.Cluster {
 		return false
 	}
@@ -221,7 +221,7 @@ func TestMissingUpdateInfo(t *testing.T) {
 	u, ctrl, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
-	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+	mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 		Cluster:           ptr("cluster").(*string),
 		ContainerInstance: ptr("containerInstance").(*string),
 		MessageId:         ptr("mid").(*string),
@@ -234,15 +234,15 @@ func TestMissingUpdateInfo(t *testing.T) {
 	})
 }
 
-func (m *nackRequestMatcher) String() string {
-	return fmt.Sprintf("Nack request matcher %v", m.NackRequest)
+func (m *updateFailureMatcher) String() string {
+	return fmt.Sprintf("Update Failure matcher %v", m.UpdateFailureInput)
 }
 
 func TestUndownloadedUpdate(t *testing.T) {
 	u, ctrl, mockacs, _ := mocks(t, nil)
 	defer ctrl.Finish()
 
-	mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+	mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 		Cluster:           ptr("cluster").(*string),
 		ContainerInstance: ptr("containerInstance").(*string),
 		MessageId:         ptr("mid").(*string),
@@ -324,7 +324,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
-		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.NackRequest{
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.UpdateFailureInput{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("mid").(*string),
@@ -398,7 +398,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("StageMID").(*string),
 		})),
-		mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("StageMID").(*string),
@@ -463,7 +463,7 @@ func TestValidationError(t *testing.T) {
 	defer mockOS()()
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
-		mockacs.EXPECT().MakeRequest(&nackRequestMatcher{&ecsacs.NackRequest{
+		mockacs.EXPECT().MakeRequest(&updateFailureMatcher{&ecsacs.UpdateFailureInput{
 			Cluster:           ptr("cluster").(*string),
 			ContainerInstance: ptr("containerInstance").(*string),
 			MessageId:         ptr("StageMID").(*string),
