@@ -990,12 +990,12 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 		ended <- true
 	}()
 	// Warm it up.
-	serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
+	serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
 	serverIn <- samplePayloadMessage
 
 	beforeGoroutines := runtime.NumGoroutine()
 	for i := 0; i < 40; i++ {
-		serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
+		serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
 		serverIn <- samplePayloadMessage
 		closeWS <- true
 	}
