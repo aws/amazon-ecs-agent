@@ -326,7 +326,7 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
-		[]byte(`{"type":"PayloadInput","message":{"tasks":[{"arn":"arn"}]}}`),
+		[]byte(`{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn"}]}}`),
 		nil).MinTimes(1)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
