@@ -26,12 +26,13 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	prometheus "github.com/prometheus/client_model/go"
 )
 
 type ServiceConnectStats struct {
-	stats        []*ecstcs.GeneralMetricsWrapper
+	stats        []tcstypes.GeneralMetricsWrapper
 	appnetClient appnet.AppNetClient
 	sent         bool
 	lock         sync.RWMutex
@@ -79,31 +80,31 @@ func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 	sc.setStats(statsCollectedList)
 }
 
-func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) ([]*ecstcs.GeneralMetricsWrapper, error) {
-	statsMap := make(map[string]*ecstcs.GeneralMetricsWrapper)
+func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) ([]tcstypes.GeneralMetricsWrapper, error) {
+	statsMap := make(map[string]tcstypes.GeneralMetricsWrapper)
 
 	for _, v := range mf {
 		for _, metric := range v.Metric {
-			var metricValues []*float64
-			var metricCounts []*int64
+			var metricValues []float64
+			var metricCounts []int64
 			metricCountForCountersAndGauges := int64(1)
 			// Get Metric values and counts
 			switch v.GetType() {
 			case prometheus.MetricType_COUNTER:
-				metricValues = append(metricValues, metric.Counter.Value)
+				metricValues = append(metricValues, *metric.Counter.Value)
 				// MetricCount for Counter will always be [1]
-				metricCounts = append(metricCounts, &metricCountForCountersAndGauges)
+				metricCounts = append(metricCounts, metricCountForCountersAndGauges)
 			case prometheus.MetricType_GAUGE:
-				metricValues = append(metricValues, metric.Gauge.Value)
+				metricValues = append(metricValues, *metric.Gauge.Value)
 				// MetricCount for Gauge will always be [1]
-				metricCounts = append(metricCounts, &metricCountForCountersAndGauges)
+				metricCounts = append(metricCounts, metricCountForCountersAndGauges)
 			case prometheus.MetricType_HISTOGRAM:
 				for _, bucket := range metric.Histogram.Bucket {
 					// We do not want to add the metricValue if it is +Inf
 					if math.IsInf(bucket.GetUpperBound(), 0) {
 						continue
 					}
-					metricValues = append(metricValues, bucket.UpperBound)
+					metricValues = append(metricValues, *bucket.UpperBound)
 
 					// Prometheus histogram CumulativeCount is type *uint64, TACS wants *int64.
 					var metricCount int64
@@ -117,7 +118,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 							"bucketCumulativeCount": bucket.GetCumulativeCount(),
 						})
 					}
-					metricCounts = append(metricCounts, &metricCount)
+					metricCounts = append(metricCounts, metricCount)
 				}
 
 				metricValues, metricCounts = convertHistogramMetricCounts(metricValues, metricCounts)
@@ -138,13 +139,13 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 				continue
 			}
 
-			generalMetric := &ecstcs.GeneralMetric{}
+			generalMetric := tcstypes.GeneralMetric{}
 			generalMetric.MetricName = v.Name
 			generalMetric.MetricValues = metricValues
 			generalMetric.MetricCounts = metricCounts
 
 			// Get metric dimensions
-			var dimensions []*ecstcs.Dimension
+			var dimensions []tcstypes.Dimension
 			var metricType string
 			if metric.Label != nil {
 				for _, d := range metric.Label {
@@ -153,7 +154,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 						continue
 					}
 
-					dimension := &ecstcs.Dimension{
+					dimension := tcstypes.Dimension{
 						Key:   d.Name,
 						Value: d.Value,
 					}
@@ -165,11 +166,11 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 
 			if generalMetricsWrapper, ok := statsMap[dimensionAsString]; !ok {
 				// Dimension does not exist in statsMap, add it to the statsMap
-				generalMetricsList := []*ecstcs.GeneralMetric{generalMetric}
-				generalMetricsWrapper = &ecstcs.GeneralMetricsWrapper{
+				generalMetricsList := []tcstypes.GeneralMetric{generalMetric}
+				generalMetricsWrapper = tcstypes.GeneralMetricsWrapper{
 					Dimensions:     dimensions,
 					GeneralMetrics: generalMetricsList,
-					MetricType:     &metricType,
+					MetricType:     tcstypes.MetricType(metricType),
 				}
 				statsMap[dimensionAsString] = generalMetricsWrapper
 			} else {
@@ -179,7 +180,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 		}
 	}
 
-	statsCollectedList := []*ecstcs.GeneralMetricsWrapper{}
+	statsCollectedList := []tcstypes.GeneralMetricsWrapper{}
 	for _, gm := range statsMap {
 		statsCollectedList = append(statsCollectedList, gm)
 	}
@@ -187,14 +188,14 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 	return statsCollectedList, nil
 }
 
-func (sc *ServiceConnectStats) setStats(stats []*ecstcs.GeneralMetricsWrapper) {
+func (sc *ServiceConnectStats) setStats(stats []tcstypes.GeneralMetricsWrapper) {
 	sc.lock.Lock()
 	defer sc.lock.Unlock()
 
 	sc.stats = stats
 }
 
-func (sc *ServiceConnectStats) GetStats() []*ecstcs.GeneralMetricsWrapper {
+func (sc *ServiceConnectStats) GetStats() []tcstypes.GeneralMetricsWrapper {
 	sc.lock.RLock()
 	defer sc.lock.RUnlock()
 
@@ -225,13 +226,13 @@ func (sc *ServiceConnectStats) resetStats() {
 
 // CloudWatch accepts the histogram buckets in a disjoint manner while the prometheus emits these values in a cumulative way.
 // This method performs that conversion. We discard any metricCount that is 0 and also its corresponding metricValue.
-func convertHistogramMetricCounts(metricValues []*float64, metricCounts []*int64) ([]*float64, []*int64) {
-	var mV []*float64
-	var mC []*int64
+func convertHistogramMetricCounts(metricValues []float64, metricCounts []int64) ([]float64, []int64) {
+	var mV []float64
+	var mC []int64
 	prevCount := int64(0)
 	for i := 0; i < len(metricCounts); i++ {
-		prevCount, *metricCounts[i] = *metricCounts[i], *metricCounts[i]-prevCount
-		if metricCounts[i] != nil && *metricCounts[i] != 0 {
+		prevCount, metricCounts[i] = metricCounts[i], metricCounts[i]-prevCount
+		if metricCounts[i] != 0 {
 			mV = append(mV, metricValues[i])
 			mC = append(mC, metricCounts[i])
 		}
@@ -245,7 +246,7 @@ func convertHistogramMetricCounts(metricValues []*float64, metricCounts []*int64
 // Sorting helps us to take order of the dimension list into consideration.
 // It then converts dimensions into strings. This is because we cannot
 // have a slice as keys in maps
-func sortAndConvertDimensionsintoStrings(dimension []*ecstcs.Dimension) string {
+func sortAndConvertDimensionsintoStrings(dimension []tcstypes.Dimension) string {
 	sort.Slice(dimension, func(i, j int) bool {
 		return *dimension[i].Key < *dimension[j].Key
 	})
@@ -253,7 +254,7 @@ func sortAndConvertDimensionsintoStrings(dimension []*ecstcs.Dimension) string {
 	return convertDimensionsintoStrings(dimension)
 }
 
-func convertDimensionsintoStrings(dimension []*ecstcs.Dimension) string {
+func convertDimensionsintoStrings(dimension []tcstypes.Dimension) string {
 	var sb strings.Builder
 	for _, d := range dimension {
 		sb.WriteString(*d.Key)

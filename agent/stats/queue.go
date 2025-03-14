@@ -185,8 +185,8 @@ func (queue *Queue) GetMemoryStatsSet() (*tcstypes.CWStatsSet, error) {
 }
 
 // GetStorageStatsSet gets the stats set for aggregate storage
-func (queue *Queue) GetStorageStatsSet() (tcstypes.StorageStatsSet, error) {
-	storageStatsSet := tcstypes.StorageStatsSet{}
+func (queue *Queue) GetStorageStatsSet() (*tcstypes.StorageStatsSet, error) {
+	storageStatsSet := &tcstypes.StorageStatsSet{}
 	var err error
 	var errStr string
 	storageStatsSet.ReadSizeBytes, err = queue.getULongStatsSet(getStorageReadBytes)

@@ -572,10 +572,11 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		taskDef, exists := engine.tasksToDefinitions[taskArn]
 		if !exists {
 			seelog.Debugf("Could not map task to definition, task: %s", taskArn)
-			continue		}
+			continue
+		}
 		volMetrics := engine.getEBSVolumeMetrics(taskArn)
 		metricTaskArn := taskArn
-		taskMetric := &tcstypes.TaskMetric{
+		taskMetric := tcstypes.TaskMetric{
 			TaskArn:               &metricTaskArn,
 			TaskDefinitionFamily:  &taskDef.family,
 			TaskDefinitionVersion: &taskDef.version,
@@ -626,7 +627,7 @@ func (engine *DockerStatsEngine) GetTaskHealthMetrics() (*tcstypes.HealthMetadat
 		if taskHealth == nil {
 			continue
 		}
-		taskHealths = append(taskHealths, taskHealth)
+		taskHealths = append(taskHealths, *taskHealth)
 	}
 
 	if len(taskHealths) == 0 {
@@ -680,7 +681,7 @@ func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsCon
 	return false
 }
 
-func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) tcstypes.TaskHealth {
+func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *tcstypes.TaskHealth {
 	// Acquire the task definition information
 	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
 	if !ok {
@@ -720,7 +721,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) tcstypes.Ta
 		}
 		containerHealth := tcstypes.ContainerHealth{
 			ContainerName: aws.String(dockerContainer.Container.Name),
-			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
+			HealthStatus:  tcstypes.HealthStatus(healthInfo.Status.BackendStatus()),
 			StatusSince:   aws.Time(healthInfo.Since.UTC()),
 		}
 		containerHealths = append(containerHealths, containerHealth)
@@ -985,7 +986,7 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*tcstypes.StatsJSON, *stats.NetworkStatsPerSec, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
@@ -1112,7 +1113,7 @@ func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []tcstypes.
 }
 
 func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskArn string) []tcstypes.VolumeMetric {
-	var metrics []*tcstypes.VolumeMetric
+	var metrics []tcstypes.VolumeMetric
 	for _, tv := range task.Volumes {
 		if tv.Volume.GetType() == taskresourcevolume.EBSVolumeType {
 			volumeId := tv.Volume.GetVolumeId()
@@ -1129,20 +1130,20 @@ func (engine *DockerStatsEngine) fetchEBSVolumeMetrics(task *apitask.Task, taskA
 			}
 			usedBytes := aws.Float64((float64)(metric.Used))
 			totalBytes := aws.Float64((float64)(metric.Capacity))
-			metrics = append(metrics, &tcstypes.VolumeMetric{
+			metrics = append(metrics, tcstypes.VolumeMetric{
 				VolumeId:   aws.String(volumeId),
 				VolumeName: aws.String(volumeName),
 				Utilized: &tcstypes.UDoubleCWStatsSet{
-					Max:         usedBytes,
-					Min:         usedBytes,
-					SampleCount: aws.Int64(1),
-					Sum:         usedBytes,
+					Max:         *usedBytes,
+					Min:         *usedBytes,
+					SampleCount: *aws.Int32(1),
+					Sum:         *usedBytes,
 				},
 				Size: &tcstypes.UDoubleCWStatsSet{
-					Max:         totalBytes,
-					Min:         totalBytes,
-					SampleCount: aws.Int64(1),
-					Sum:         totalBytes,
+					Max:         *totalBytes,
+					Min:         *totalBytes,
+					SampleCount: *aws.Int32(1),
+					Sum:         *totalBytes,
 				},
 			})
 		}
