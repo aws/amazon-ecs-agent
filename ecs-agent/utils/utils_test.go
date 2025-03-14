@@ -156,7 +156,6 @@ type testPrettifyStruct struct {
 	Value  []string
 }
 
-
 func TestPrettify(t *testing.T) {
 	cases := map[string]struct {
 		Value         interface{}

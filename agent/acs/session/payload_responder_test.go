@@ -1105,7 +1105,7 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	expectedTaskCredentials credentials.IAMRoleCredentials) error {
 	if !reflect.DeepEqual(taskCredentialsAck, expectedCredentialsAckForTask) {
 		return errors.Errorf("mismatch between expected and received credentials ACK requests, expected: %s, got: %s",
-			utils.Prettify(expectedCredentialsAckForTask, ecsacs.SensitiveFields...), utils.Prettify(taskCredentialsAck, ecsacs.SensitiveFields...)) 
+			utils.Prettify(expectedCredentialsAckForTask, ecsacs.SensitiveFields...), utils.Prettify(taskCredentialsAck, ecsacs.SensitiveFields...))
 	}
 
 	expectedTask := &apitask.Task{
