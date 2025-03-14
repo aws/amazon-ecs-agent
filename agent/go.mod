@@ -1,6 +1,7 @@
 module github.com/aws/amazon-ecs-agent/agent
 
-go 1.22.0
+go 1.23.0
+
 toolchain go1.23.7
 
 require (
